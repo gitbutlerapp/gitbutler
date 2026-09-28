@@ -26,11 +26,11 @@ pub fn create_branch(
         .to_full_name(normalized_name.as_str())
         .map_err(anyhow::Error::from)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     ctx.snapshot_create_dependent_branch(&normalized_name, guard.write_permission())
         .ok();
 
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (repo, mut ws, mut db) =
+        ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     let stack = ws.try_find_stack_by_id(stack_id)?;
     if request.preceding_head.is_some() {
         return Err(anyhow!(
@@ -67,7 +67,7 @@ pub fn create_branch(
         },
         &repo,
         &ws,
-        &mut meta,
+        &mut db.connection_mut(),
         |_| StackId::generate(),
         None, // order - not used for dependent branches
     )?;
@@ -88,13 +88,12 @@ pub fn remove_branch_only(
     let ref_name = Category::LocalBranch
         .to_full_name(branch_name)
         .map_err(anyhow::Error::from)?;
-    let mut meta = ctx.meta()?;
-    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (mut repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let new_ws = but_workspace::branch::remove_reference(
         ref_name.as_ref(),
         &mut repo,
         &ws,
-        &mut meta,
+        &mut db.connection_mut(),
         but_workspace::branch::remove_reference::Options {
             avoid_anonymous_stacks: true,
             keep_metadata: false,

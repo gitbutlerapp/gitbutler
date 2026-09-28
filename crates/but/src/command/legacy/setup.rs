@@ -284,8 +284,8 @@ pub(crate) fn repo(
         )),
     }?;
 
-    // A ported project can keep its target in Git config while the legacy `virtual_branches.toml`
-    // / database store is empty — for example after that store was reset. The check below would
+    // A ported project can keep its target in Git config while the database metadata
+    // is empty — for example after it was reset. The check below would
     // then see a target and report "already set up", but the workspace needs the legacy default
     // target to work. Repair it from the workspace first so setup isn't a dead end.
     if gitbutler_branch_actions::base::bootstrap_default_target_if_missing(&*ctx)?
@@ -555,7 +555,7 @@ pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<b
 
     // When on gitbutler/edit, the project was already set up when entering edit mode.
     // The workspace graph built from gitbutler/edit doesn't expose the target ref or
-    // remote configuration, but both are still configured in virtual_branches.toml
+    // remote configuration, but both are still configured in the database
     // and will be accessible when returning to gitbutler/workspace.
     if head_name == b"gitbutler/edit" {
         return Ok(true);

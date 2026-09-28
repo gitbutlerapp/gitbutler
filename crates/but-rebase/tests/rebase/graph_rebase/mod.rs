@@ -1,8 +1,4 @@
 use but_core::ref_metadata::StackId;
-use but_meta::{
-    VirtualBranchesTomlMetadata,
-    virtual_branches_legacy_types::{Stack, StackBranch},
-};
 use but_testsupport::StackState;
 
 mod change_id;
@@ -26,35 +22,11 @@ mod workspace_commit_behaviour;
 
 // Add parameters as needed.
 pub fn add_stack_with_segments(
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut but_db::DbHandle,
     stack_id: usize,
     stack_name: &str,
     state: StackState,
     segments: &[&str],
 ) -> StackId {
-    let mut stack = Stack::new_with_just_heads(
-        segments
-            .iter()
-            .rev()
-            .map(|stack_name| {
-                StackBranch::new_with_zero_head((*stack_name).into(), None, None, false)
-            })
-            .chain(std::iter::once(StackBranch::new_with_zero_head(
-                stack_name.into(),
-                None,
-                None,
-                false,
-            )))
-            .collect(),
-        meta.data().branches.len(),
-        match state {
-            StackState::InWorkspace => true,
-            StackState::Inactive => false,
-        },
-    );
-    stack.order = stack_id;
-    let stack_id = StackId::from_number_for_testing(stack_id as u128);
-    stack.id = stack_id;
-    meta.data_mut().branches.insert(stack_id, stack);
-    stack_id
+    but_testsupport::add_stack_with_segments(meta, stack_id as u128, stack_name, state, segments)
 }

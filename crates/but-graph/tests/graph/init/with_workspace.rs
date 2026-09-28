@@ -1,16 +1,11 @@
-use but_core::{
-    RefMetadata,
-    ref_metadata::{
-        ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
-    },
+use but_core::ref_metadata::{
+    ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
 };
 use but_graph::{
     Graph, SegmentMetadata,
     init::{Overlay, Tip, TipRole},
 };
-use but_testsupport::{
-    InMemoryRefMetadata, graph_tree, graph_workspace, visualize_commit_graph_all,
-};
+use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
 use crate::init::{
@@ -24,8 +19,106 @@ use crate::init::{
 use crate::support::graph_dag;
 
 #[test]
+fn named_workspaces_keep_independent_metadata() -> anyhow::Result<()> {
+    use but_core::ref_metadata::{Branch, RefInfo, Review, Workspace};
+    use gix::prelude::ObjectIdExt as _;
+
+    let (_tmp, repo) = super::empty_repo()?;
+    let base = super::commit(&repo, "base")?;
+    let mut meta = but_testsupport::in_memory_db();
+    let mut expected = Vec::new();
+    for (number, branch_name, workspace_name) in [
+        (1, "refs/heads/one", "refs/heads/gitbutler/workspaces/one"),
+        (2, "refs/heads/two", "refs/heads/gitbutler/workspaces/two"),
+    ] {
+        super::create_branches(&repo, base, [branch_name])?;
+        let branch_tip = repo
+            .commit(
+                branch_name,
+                branch_name,
+                repo.object_hash().empty_tree(),
+                [base],
+            )?
+            .detach();
+        super::create_branches(&repo, branch_tip, [workspace_name])?;
+        let workspace_tip = repo
+            .commit(
+                workspace_name,
+                "GitButler Workspace Commit",
+                repo.object_hash().empty_tree(),
+                [branch_tip],
+            )?
+            .detach();
+        let branch_name = super::ref_name(branch_name);
+        let workspace_name = super::ref_name(workspace_name);
+        let workspace_metadata = Workspace {
+            ref_info: RefInfo {
+                created_at: Some(gix::date::Time {
+                    seconds: 1675176957 + number,
+                    offset: 0,
+                }),
+                ..Default::default()
+            },
+            stacks: vec![WorkspaceStack {
+                id: StackId::from_number_for_testing(number as u128),
+                branches: vec![WorkspaceStackBranch {
+                    ref_name: branch_name.clone(),
+                    archived: false,
+                }],
+                workspacecommit_relation: WorkspaceCommitRelation::Merged,
+            }],
+        };
+        let branch_metadata = Branch {
+            review: Review {
+                pull_request: Some(number as usize),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        meta.meta_mut()?
+            .set_workspace(workspace_name.as_ref(), &workspace_metadata)?;
+        meta.meta_mut()?
+            .set_branch(branch_name.as_ref(), &branch_metadata)?;
+        expected.push((
+            workspace_name,
+            workspace_tip,
+            workspace_metadata,
+            branch_name,
+            branch_tip,
+            branch_metadata,
+        ));
+    }
+
+    for (name, tip, workspace_metadata, branch_name, branch_tip, branch_metadata) in expected {
+        let workspace = Graph::from_commit_traversal(
+            tip.attach(&repo),
+            Some(name.clone()),
+            ProjectMeta {
+                target_commit_id: Some(base),
+                ..Default::default()
+            },
+            &mut meta.connection_mut(),
+            standard_options(),
+        )?
+        .validated()?
+        .into_workspace()?;
+        assert_eq!(workspace.ref_name(), Some(name.as_ref()));
+        assert!(workspace.kind.has_managed_commit());
+        assert_eq!(workspace.metadata.as_ref(), Some(&workspace_metadata));
+        assert_eq!(workspace.stacks.len(), 1);
+        let stack = &workspace.stacks[0];
+        assert_eq!(stack.id, Some(workspace_metadata.stacks[0].id));
+        assert_eq!(stack.ref_name(), Some(branch_name.as_ref()));
+        assert_eq!(stack.tip(), Some(branch_tip));
+        assert_eq!(stack.segments.len(), 1);
+        assert_eq!(stack.segments[0].metadata.as_ref(), Some(&branch_metadata));
+    }
+    Ok(())
+}
+
+#[test]
 fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -48,9 +141,8 @@ fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -112,8 +204,7 @@ Commit(59a427f, ⌂|🏘)
 
 #[test]
 fn workspace_with_only_local_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/local-contained-and-target-ahead")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-contained-and-target-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -130,9 +221,8 @@ fn workspace_with_only_local_target() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -167,7 +257,7 @@ fn workspace_with_only_local_target() -> anyhow::Result<()> {
 
 #[test]
 fn reproduce_11483() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/reproduce-11483")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -187,9 +277,8 @@ fn reproduce_11483() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -209,15 +298,15 @@ fn reproduce_11483() -> anyhow::Result<()> {
 "#]]
     );
 
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["below"]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -241,8 +330,7 @@ fn reproduce_11483() -> anyhow::Result<()> {
 
 #[test]
 fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/advanced-stack-tip-outside-workspace")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/advanced-stack-tip-outside-workspace")?;
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
 
     snapbox::assert_data_eq!(
@@ -260,9 +348,8 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -304,7 +391,7 @@ fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
 fn workspace_projection_with_stack_tip_advanced_by_two() -> anyhow::Result<()> {
     // With the tip two commits ahead of the stale workspace commit, the workspace
     // walk reaches the fork commit before the stack-branch walk does.
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/advanced-stack-tip-twice-outside-workspace")?;
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
 
@@ -326,9 +413,8 @@ fn workspace_projection_with_stack_tip_advanced_by_two() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -375,7 +461,7 @@ fn workspace_projection_with_stack_tip_advanced_by_two_in_single_branch_mode() -
 {
     // Like above, but `HEAD` stays on the advanced stack branch, as single-branch
     // mode leaves it after committing there (GB-1948).
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+    let (repo, mut meta) = read_only_in_memory_scenario(
         "ws/advanced-stack-tip-twice-outside-workspace-single-branch",
     )?;
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
@@ -397,9 +483,8 @@ fn workspace_projection_with_stack_tip_advanced_by_two_in_single_branch_mode() -
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -446,8 +531,7 @@ fn workspace_projection_with_stack_tip_advanced_by_two_in_single_branch_mode() -
 fn workspace_projection_with_branch_on_top_of_workspace_commit() -> anyhow::Result<()> {
     // `HEAD` is on a branch that was created on top of the workspace commit, so the
     // entrypoint walk runs into the workspace segment at its tip commit.
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/branch-on-top-of-workspace-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/branch-on-top-of-workspace-commit")?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
 
     // `C` sits two commits above the workspace commit, which itself sits on top of the stack.
@@ -465,9 +549,8 @@ fn workspace_projection_with_branch_on_top_of_workspace_commit() -> anyhow::Resu
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -512,7 +595,7 @@ fn workspace_projection_with_branch_on_top_of_workspace_commit() -> anyhow::Resu
 #[test]
 fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
     // NOTE: Was supposed to reproduce #11459, but it found another issue instead.
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/reproduce-11459")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11459")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -539,9 +622,8 @@ fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -568,7 +650,7 @@ fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
 
 #[test]
 fn single_stack_ambiguous() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -587,9 +669,8 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -650,9 +731,8 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         without_ref_id,
         ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -711,9 +791,8 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         without_ref_id,
         None,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -773,9 +852,8 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         b_id_1,
         None,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -833,9 +911,8 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         b_id_1,
         tag_ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -891,7 +968,7 @@ fn single_stack_ambiguous() -> anyhow::Result<()> {
 
 #[test]
 fn single_stack_ws_insertions() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -924,9 +1001,8 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -985,7 +1061,8 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     // Now something similar but with two stacks.
     // As the actual topology is different, we can't really comply with that's desired.
     // Instead, we reuse as many of the named segments as possible, even if they are from multiple branches.
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 0, "B-empty", StackState::InWorkspace, &["B"]);
     add_stack_with_segments(
         &mut meta,
@@ -997,9 +1074,8 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -1051,7 +1127,8 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
 
     // Define only some of the branches, it should figure that out.
     // It respects the order of the mention in the stack, `A` before `A-empty-01`.
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &["A-empty-01"]);
     add_stack_with_segments(&mut meta, 1, "B-empty", StackState::InWorkspace, &["B"]);
 
@@ -1059,17 +1136,14 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  A
-│ ◎  A-empty-02
-├─╯
+◎  A-empty-02
 │ ◎  A-empty-03
 ├─╯
 │ ◎  ambiguous-01
@@ -1089,7 +1163,8 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
 │ ├─╯ │ │ │
 │ ●   │ │ │  ·2a31450 (⌂|🏘)
 │ ├─────╯ │
-│ ◎   │   │  👉A-empty-01
+│ ◎   │   │  📙A
+│ ◎   │   │  👉📙A-empty-01
 ├─╯   │   │
 ●     │   │  ·70bde6b (⌂|🏘)
 ├─────────╯
@@ -1102,9 +1177,9 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:A-empty-01 <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:A-empty-01 on fafd9d0 {1}
-    └── :A-empty-01
-        └── ·70bde6b (🏘️) ►A, ►A-empty-02, ►A-empty-03
+└── ≡📙:A-empty-01 on fafd9d0 {1}
+    └── 📙:A-empty-01
+        └── ·70bde6b (🏘️) ►A-empty-02, ►A-empty-03
 
 "#]]
     );
@@ -1116,9 +1191,8 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
 
@@ -1138,7 +1212,7 @@ fn single_stack_ws_insertions() -> anyhow::Result<()> {
 
 #[test]
 fn single_stack() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/single-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1156,9 +1230,8 @@ fn single_stack() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1196,7 +1269,8 @@ fn single_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     // Just repeat the existing segment verbatim, but also add a new unborn stack
     add_stack_with_segments(&mut meta, 0, "B", StackState::InWorkspace, &["B-sub", "A"]);
     add_stack_with_segments(
@@ -1209,9 +1283,8 @@ fn single_stack() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1256,7 +1329,7 @@ fn single_stack() -> anyhow::Result<()> {
 
 #[test]
 fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/single-merge-into-main")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-merge-into-main")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1276,9 +1349,8 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     let stack_id = add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["merge"]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1298,19 +1370,25 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     );
 
     // But even if everything is marked as archived, only the ones that matter are hidden.
-    for head in &mut meta
-        .data_mut()
-        .branches
-        .get_mut(&stack_id)
-        .expect("just added")
-        .heads
-    {
-        head.archived = true;
+    let mut workspace = meta
+        .meta()?
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)
+        .cloned()
+        .unwrap_or_default();
+    let stack = workspace
+        .stacks
+        .iter_mut()
+        .find(|stack| stack.id == stack_id)
+        .expect("just added");
+    for branch in &mut stack.branches {
+        branch.archived = true;
     }
+    meta.meta_mut()?
+        .set_workspace(but_core::WORKSPACE_REF_NAME.try_into()?, &workspace)?;
 
     let graph = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Default::default())?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -1327,9 +1405,8 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "merge", StackState::InWorkspace, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1352,9 +1429,8 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "merge", StackState::InWorkspace, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1376,7 +1452,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
 
 #[test]
 fn minimal_merge_no_refs() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("ws/dual-merge-no-refs")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/dual-merge-no-refs")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1400,9 +1476,8 @@ fn minimal_merge_no_refs() -> anyhow::Result<()> {
     // Without hints.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1449,7 +1524,7 @@ fn minimal_merge_no_refs() -> anyhow::Result<()> {
 fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
     // Validate that the graph is truly having segments whenever there is an incoming connection.
     // This is required to not need special edge-weights.
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/graph-splitting")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/graph-splitting")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1471,9 +1546,8 @@ fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1518,7 +1592,7 @@ fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
 
 #[test]
 fn minimal_merge() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/dual-merge")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/dual-merge")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1542,9 +1616,8 @@ fn minimal_merge() -> anyhow::Result<()> {
     // Without hints, and no workspace data, the branch is normal!
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1613,9 +1686,8 @@ fn minimal_merge() -> anyhow::Result<()> {
     );
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1671,7 +1743,7 @@ fn minimal_merge() -> anyhow::Result<()> {
 
 #[test]
 fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/dual-merge")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/dual-merge")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1696,9 +1768,8 @@ fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow:
     let graph = Graph::from_commit_traversal(
         id,
         name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1761,7 +1832,7 @@ fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow:
 
 #[test]
 fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1776,9 +1847,8 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     let main_id = Some(id_by_rev(&repo, "main").detach());
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1831,9 +1901,8 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     let graph = Graph::from_commit_traversal(
         id,
         ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1864,9 +1933,8 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     let graph = Graph::from_commit_traversal(
         id,
         ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1898,7 +1966,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
 
 #[test]
 fn just_init_with_branches() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
     // Note the dedicated workspace branch without a workspace commit.
     // All is fair game, and we use it to validate 'empty parent branch handling after new children took the commit'.
     snapbox::assert_data_eq!(
@@ -1913,9 +1981,8 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -1959,9 +2026,8 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ws_ref_name.clone(),
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2007,9 +2073,8 @@ fn just_init_with_branches() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -2050,9 +2115,8 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ws_ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2113,9 +2177,8 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ws_ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options {
             dangerously_skip_postprocessing_for_debugging: true,
             ..standard_options()
@@ -2160,7 +2223,7 @@ fn just_init_with_branches() -> anyhow::Result<()> {
 
 #[test]
 fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2175,16 +2238,20 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
 
     let (id, ws_ref_name) = id_at(&repo, "gitbutler/workspace");
     let commit_id = id.detach();
-    let workspace_metadata = (*meta.workspace(ws_ref_name.as_ref())?).clone();
+    let workspace_metadata = meta
+        .meta()
+        .unwrap()
+        .workspace(ws_ref_name.as_ref())
+        .expect("workspace metadata is present")
+        .clone();
     let main_ref = super::ref_name("refs/heads/main");
     let origin_main_ref = super::ref_name("refs/remotes/origin/main");
     let stack_ref = |name: &str| super::ref_name(&format!("refs/heads/{name}"));
 
     let head_baseline = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2225,9 +2292,8 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
     let workspace_baseline = Graph::from_commit_traversal(
         id,
         ws_ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2284,9 +2350,8 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
     let graph = Graph::from_commit_traversal_tips(
         &repo,
         head_tips,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2304,9 +2369,8 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
     let graph = Graph::from_commit_traversal_tips(
         &repo,
         explicit_tips.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2342,16 +2406,15 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
 
 #[test]
 fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
     add_workspace(&mut meta);
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
 
     let baseline = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2361,9 +2424,8 @@ fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::
     add_stack_with_segments(&mut meta, 3, "B", StackState::InWorkspace, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2384,16 +2446,15 @@ fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::
 
 #[test]
 fn projected_metadata_excludes_missing_branch_from_existing_stack() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
     add_workspace(&mut meta);
     let stack_id =
         add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["missing"]);
 
     let metadata = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
@@ -2420,7 +2481,7 @@ fn projected_metadata_excludes_missing_branch_from_existing_stack() -> anyhow::R
 
 #[test]
 fn just_init_with_archived_branches() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
     // Note the dedicated workspace branch without a workspace commit.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -2436,9 +2497,8 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ws_ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2457,17 +2517,24 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 "#]]
     );
 
-    meta.data_mut()
-        .branches
-        .get_mut(&stack_id)
-        .expect("just added")
-        .heads[1]
-        .archived = true;
+    let mut workspace = meta
+        .meta()?
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)
+        .cloned()
+        .unwrap_or_default();
+    let stack = workspace
+        .stacks
+        .iter_mut()
+        .find(|stack| stack.id == stack_id)
+        .expect("just added");
+    stack.branches[1].archived = true;
+    meta.meta_mut()?
+        .set_workspace(but_core::WORKSPACE_REF_NAME.try_into()?, &workspace)?;
 
     // The first archived segment causes everything else to be hidden.
     let graph = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Default::default())?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -2480,14 +2547,20 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 "#]]
     );
 
-    let heads = &mut meta.data_mut().branches.get_mut(&stack_id).unwrap().heads;
-    heads[0].archived = true;
-    heads[1].archived = false;
+    let stack = workspace
+        .stacks
+        .iter_mut()
+        .find(|stack| stack.id == stack_id)
+        .expect("just added");
+    stack.branches[2].archived = true;
+    stack.branches[1].archived = false;
+    meta.meta_mut()?
+        .set_workspace(but_core::WORKSPACE_REF_NAME.try_into()?, &workspace)?;
 
     // Now only the first one is archived.
     let graph = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Default::default())?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -2500,15 +2573,21 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 "#]]
     );
 
-    let heads = &mut meta.data_mut().branches.get_mut(&stack_id).unwrap().heads;
-    heads[0].archived = true;
-    heads[1].archived = true;
-    heads[2].archived = true;
+    let stack = workspace
+        .stacks
+        .iter_mut()
+        .find(|stack| stack.id == stack_id)
+        .expect("just added");
+    for branch in &mut stack.branches {
+        branch.archived = true;
+    }
+    meta.meta_mut()?
+        .set_workspace(but_core::WORKSPACE_REF_NAME.try_into()?, &workspace)?;
 
     // Archiving everything removes the stack entirely.
     let graph = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Default::default())?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -2521,7 +2600,7 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 
 #[test]
 fn two_stacks_many_refs() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/one-stacks-many-refs")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/one-stacks-many-refs")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2536,9 +2615,8 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2590,9 +2668,8 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2646,9 +2723,8 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     // We see that all segments are used: S1 C B A E D G F
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2699,13 +2775,12 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
-    // This should look the same as before, despite the starting position.
+    // A plain branch retains its stored order without pulling in other workspace stacks.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -2717,13 +2792,11 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
 │ ◎  D
 │ │ ◎  E
 │ ├─╯
-│ │ ◎  F
-│ │ │ ◎  G
-│ │ ├─╯
-│ │ │ ◎  📕gitbutler/workspace[🌳]
-│ │ │ ●  ·298d938 (⌂|🏘)
-│ │ │ ◎  👉S1
-│ │ ├─╯
+│ │ ◎  📕gitbutler/workspace[🌳]
+│ │ ●  ·298d938 (⌂|🏘)
+│ │ ◎  👉📙S1
+│ │ ◎  📙G
+│ │ ◎  📙F
 │ │ ●  ·16f132b (⌂|🏘)
 │ ├─╯
 │ ●  ·917b9da (⌂|🏘)
@@ -2738,9 +2811,11 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:S1 <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:S1 on fafd9d0 {1}
-    └── :S1
-        ├── ·16f132b (🏘️) ►F, ►G
+└── ≡📙:S1 on fafd9d0 {1}
+    ├── 📙:S1
+    ├── 📙:G
+    └── 📙:F
+        ├── ·16f132b (🏘️)
         └── ·917b9da (🏘️) ►D, ►E
 
 "#]]
@@ -2750,7 +2825,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
 
 #[test]
 fn just_init_with_branches_complex() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
 
     // A combination of dependent and independent stacks.
     add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["B"]);
@@ -2762,9 +2837,8 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2811,20 +2885,16 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
-    // The entrypoint shouldn't affect the outcome (even though it changes the initial segmentation).
-    // However, as the segment it's on is integrated, it's not considered to be part of the workspace.
+    // Starting at C gives an ad-hoc view, preserving its order above B at the target commit.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  A
-│ ◎  B
-├─╯
 │ ◎  D
 ├─╯
 │ ◎  E
@@ -2832,22 +2902,24 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
 │ ◎  F
 ├─╯
 │ ◎  📕gitbutler/workspace
-│ │ ◎  origin/main
-│ │ ◎  main[🌳] <> origin/main
-│ ├─╯
-│ ◎  👉C
+│ ◎  👉📙C
+│ ◎  📙B
+├─╯
+│ ◎  origin/main
+│ ◎  main[🌳] <> origin/main
 ├─╯
 ●  🏁·fafd9d0 (⌂|🏘|✓)
 "#]]
     );
 
-    // We should see the same stacks as we did before, just with a different entrypoint.
+    // Only C's ordered branch chain belongs to this view.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:C <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:C on fafd9d0 {1}
-    └── :C
+└── ≡📙:C on fafd9d0 {1}
+    ├── 📙:C
+    └── 📙:B
 
 "#]]
     );
@@ -2856,7 +2928,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
 
 #[test]
 fn proper_remote_ahead() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/proper-remote-ahead")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/proper-remote-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2874,9 +2946,8 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2909,9 +2980,8 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         Some(ref_name),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -2949,7 +3019,7 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
 
 #[test]
 fn deduced_remote_ahead() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/deduced-remote-ahead")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/deduced-remote-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2972,9 +3042,8 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -3022,9 +3091,8 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         None,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -3063,7 +3131,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     // When the push-remote is configured, it overrides the remote we use for listing, even if a fetch remote is available.
     let mut pm = default_project_meta(&repo);
     pm.push_remote = Some("push-remote".into());
-    let graph = Graph::from_head(&repo, &*meta, pm, &mut db, standard_options())?;
+    let graph = Graph::from_head(&repo, pm, &mut meta.connection_mut(), standard_options())?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -3108,8 +3176,7 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
 
 #[test]
 fn stacked_rebased_remotes() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/remote-includes-another-remote")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-includes-another-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -3129,9 +3196,8 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3173,9 +3239,8 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3289,8 +3354,7 @@ Statistics {
 
 #[test]
 fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/local-target-ahead-and-on-stack-tip")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-ahead-and-on-stack-tip")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -3304,9 +3368,8 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3340,9 +3403,8 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["main"]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3362,9 +3424,8 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "main", StackState::InWorkspace, &["A"]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3384,7 +3445,7 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
 
 #[test]
 fn disambiguate_by_remote() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/disambiguate-by-remote")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/disambiguate-by-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -3411,9 +3472,8 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
     // it steals the commit from `main`. This should be fine.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3477,9 +3537,8 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3536,7 +3595,7 @@ fn disambiguate_by_remote() -> anyhow::Result<()> {
 
 #[test]
 fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/two-segments-one-integrated-without-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -3575,9 +3634,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     // Without remote, the traversal can't setup `main` as target for the workspace entrypoint to find.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3640,9 +3698,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     // We see more though as we add workspace segments immediately.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3688,9 +3745,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     // prolong the traversal once the all tips are known to be integrated.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -3730,7 +3786,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 "#]]
     );
 
-    meta.data_mut().branches.clear();
+    // Clear branch metadata too: it now survives removal of its workspace.
+    meta.meta_mut()?.replace_snapshot(&Default::default())?;
     add_workspace(&mut meta);
     // When looking from an integrated branch within the workspace, but without limit,
     // the (lack of) limit is respected.
@@ -3740,9 +3797,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     let graph = Graph::from_commit_traversal(
         id,
         ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3794,9 +3850,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     let graph = Graph::from_commit_traversal(
         id,
         ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -3843,9 +3898,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     let graph = Graph::from_commit_traversal(
         id,
         None,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3898,7 +3952,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 
 #[test]
 fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-segments-one-integrated")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-segments-one-integrated")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -3933,9 +3987,8 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     // Thanks to the remote `main` is searched for by the entrypoint.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -3988,9 +4041,8 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     // However, we can specify an additional/old target segment to show integrated portions as well.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4012,9 +4064,8 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4069,9 +4120,8 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4089,9 +4139,8 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4114,9 +4163,8 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         None,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4136,8 +4184,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
 
 #[test]
 fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
-    let (mut repo, _, mut db) =
-        read_only_in_memory_scenario("ws/main-with-remote-and-workspace-ref")?;
+    let (mut repo, _) = read_only_in_memory_scenario("ws/main-with-remote-and-workspace-ref")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -4147,10 +4194,12 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
 "#]]
     );
 
-    // Use an in-memory version directly as vb.toml can't bring in remote branches.
-    let mut meta = InMemoryRefMetadata::default();
-    let ws_ref = "refs/heads/gitbutler/workspace".try_into()?;
-    let mut ws = meta.workspace(ws_ref)?;
+    // Remote workspace members are a traversal preview; persisted stacks contain local refs.
+    let mut meta = but_testsupport::in_memory_db();
+    add_workspace(&mut meta);
+    let ws_ref = gix::refs::FullName::try_from("refs/heads/gitbutler/workspace")?;
+    let mut ws = but_core::ref_metadata::Workspace::default();
+    let mut branches = Vec::new();
     for (idx, ref_name) in ["refs/heads/main", "refs/remotes/origin/main"]
         .into_iter()
         .enumerate()
@@ -4163,20 +4212,22 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
             }],
             workspacecommit_relation: WorkspaceCommitRelation::Merged,
         });
-        meta.branches.push((
+        branches.push((
             ref_name.try_into()?,
             but_core::ref_metadata::Branch::default(),
         ))
     }
-    meta.set_workspace(&ws)?;
+    let overlay = Overlay::default()
+        .with_workspace_metadata_override(Some((ws_ref, ws)))
+        .with_branch_metadata_override(branches);
 
     let graph = Graph::from_head(
         &repo,
-        &meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
+    .redo_traversal_with_overlay(&repo, &meta.meta()?, overlay.clone())?
     .validated()?;
     // Main is a normal branch, and its remote is known.
     snapbox::assert_data_eq!(
@@ -4210,7 +4261,7 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
         .remove_section("branch", Some("main".into()));
     let graph = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, overlay)?;
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
@@ -4238,7 +4289,7 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
 
 #[test]
 fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/two-segments-one-integrated-without-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -4272,9 +4323,8 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options().with_limit_hint(0),
     )?
     .validated()?;
@@ -4295,16 +4345,16 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
 "#]]
     );
 
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_workspace(&mut meta);
     // It's notable that there is no way to bypass the early abort when everything is integrated.
     // and there is no deductible remote relationship between origin/main and main (no remote not configured).
     // Then the traversal ends on integrated branches as `main` isn't a target.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options().with_limit_hint(0),
     )?
     .validated()?;
@@ -4350,7 +4400,7 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
 #[test]
 fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
 -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+    let (repo, mut meta) = read_only_in_memory_scenario(
         "ws/three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
     )?;
     snapbox::assert_data_eq!(
@@ -4366,9 +4416,8 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4417,9 +4466,8 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
     // Lanes are properly ordered
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4461,8 +4509,7 @@ fn three_branches_one_advanced_ws_commit_advanced_fully_pushed_empty_dependent()
 
 #[test]
 fn on_top_of_target_with_history() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/on-top-of-target-with-history")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/on-top-of-target-with-history")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -4480,9 +4527,8 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
     // It sees the entire history as it had to find `main`.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4525,9 +4571,8 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "D", StackState::InWorkspace, &["E", "F"]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4576,9 +4621,8 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
     // (these segments are never conjured up out of thin air).
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4602,7 +4646,7 @@ fn on_top_of_target_with_history() -> anyhow::Result<()> {
 
 #[test]
 fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/gitlab-case")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/gitlab-case")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -4654,9 +4698,8 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     let graph = Graph::from_commit_traversal(
         main_id,
         main_ref_name.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4737,9 +4780,8 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     let graph = Graph::from_commit_traversal(
         main_id,
         main_ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -4812,9 +4854,8 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     // However, we wait for the target to be fully reconciled to get the proper workspace configuration.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -4877,7 +4918,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
 
 #[test]
 fn remote_far_in_ancestry() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/remote-far-in-ancestry")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-far-in-ancestry")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -4907,9 +4948,8 @@ fn remote_far_in_ancestry() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
@@ -4966,7 +5006,7 @@ fn remote_far_in_ancestry() -> anyhow::Result<()> {
 
 #[test]
 fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/gitlab-case2")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/gitlab-case2")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -5013,9 +5053,8 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     let graph = Graph::from_commit_traversal(
         id,
         ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5101,9 +5140,8 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     // We wait for targets to fully reconcile as well.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5173,7 +5211,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
 
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Overlay::default())?
         .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -5193,7 +5231,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     add_stack(&mut meta, 4, "B", StackState::InWorkspace);
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Overlay::default())?
         .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -5213,12 +5251,13 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     );
 
     // We can also add stacked virtual branches to that new base.
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_workspace(&mut meta);
     add_stack_with_segments(&mut meta, 3, "A", StackState::InWorkspace, &["B"]);
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Overlay::default())?
         .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -5240,7 +5279,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
 
 #[test]
 fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/multi-lane-with-shared-segment-one-integrated")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -5275,9 +5314,8 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5337,9 +5375,8 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
     // If we do not, integrated portions are removed.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5366,8 +5403,7 @@ fn multi_lane_with_shared_segment_one_integrated() -> anyhow::Result<()> {
 
 #[test]
 fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -5397,9 +5433,8 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5473,9 +5508,8 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         Some(ref_name),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5499,8 +5533,7 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
 
 #[test]
 fn local_branch_tracking_the_target_does_not_duplicate_the_target_segment() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
     add_workspace(&mut meta);
 
     // `main` tracks the target `origin/main`. Remote-tracking discovery at `main` must
@@ -5508,9 +5541,8 @@ fn local_branch_tracking_the_target_does_not_duplicate_the_target_segment() -> a
     // a second `origin/main` segment, which can leave disconnected segments behind.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5531,7 +5563,7 @@ fn local_branch_tracking_the_target_does_not_duplicate_the_target_segment() -> a
 
 #[test]
 fn dependent_branch_insertion() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+    let (repo, mut meta) = read_only_in_memory_scenario(
         "ws/two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent",
     )?;
     snapbox::assert_data_eq!(
@@ -5557,9 +5589,8 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5608,9 +5639,8 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5655,9 +5685,8 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5665,9 +5694,10 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:advanced-lane <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:advanced-lane <> origin/advanced-lane on fafd9d0 {1}
-    └── :advanced-lane <> origin/advanced-lane
-        └── ❄️cbc6713 (🏘️) ►dependent
+└── ≡📙:advanced-lane <> origin/advanced-lane on fafd9d0 {1}
+    ├── 📙:advanced-lane <> origin/advanced-lane
+    └── 📙:dependent
+        └── ❄cbc6713 (🏘️)
 
 "#]]
     );
@@ -5676,9 +5706,8 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5686,9 +5715,9 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:dependent <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:dependent on fafd9d0 {1}
-    └── :dependent
-        └── ·cbc6713 (🏘️) ►advanced-lane
+└── ≡📙:dependent on fafd9d0 {1}
+    └── 📙:dependent
+        └── ·cbc6713 (🏘️)
 
 "#]]
     );
@@ -5697,7 +5726,7 @@ fn dependent_branch_insertion() -> anyhow::Result<()> {
 
 #[test]
 fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/multiple-stacks-with-shared-segment-and-remote")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -5720,9 +5749,8 @@ fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5773,7 +5801,7 @@ fn multiple_stacks_with_shared_parent_and_remote() -> anyhow::Result<()> {
 
 #[test]
 fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+    let (repo, mut meta) = read_only_in_memory_scenario(
         "ws/two-branches-one-advanced-two-parent-ws-commit-diverged-ttb",
     )?;
     snapbox::assert_data_eq!(
@@ -5797,9 +5825,8 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5846,9 +5873,8 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
     }
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -5890,8 +5916,7 @@ fn a_stack_segment_can_be_a_segment_elsewhere_and_stack_order() -> anyhow::Resul
 
 #[test]
 fn incomplete_metadata_uses_present_branch_to_order_stack() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/incomplete-metadata-stack-order")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/incomplete-metadata-stack-order")?;
 
     add_stack(&mut meta, 0, "A", StackState::InWorkspace);
     let stack_b_id = add_stack(&mut meta, 1, "B", StackState::InWorkspace);
@@ -5899,9 +5924,8 @@ fn incomplete_metadata_uses_present_branch_to_order_stack() -> anyhow::Result<()
 
     let workspace = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?
@@ -5941,7 +5965,7 @@ fn incomplete_metadata_uses_present_branch_to_order_stack() -> anyhow::Result<()
 
 #[test]
 fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/two-dependent-branches-with-interesting-remote-setup")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -5964,9 +5988,8 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
     // Note how the target remote tracking branch is integrated into the stack
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6008,9 +6031,8 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
     // but it's skipped because it's actually part of an integrated otherwise ignored segment.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6030,7 +6052,7 @@ fn two_dependent_branches_with_embedded_remote() -> anyhow::Result<()> {
 
 #[test]
 fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+    let (repo, mut meta) = read_only_in_memory_scenario(
         "ws/two-dependent-branches-rebased-with-remotes-merge-one-local",
     )?;
     // Each of the stacked branches has a remote, and the local branch was merged into main.
@@ -6055,9 +6077,8 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6100,9 +6121,8 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6123,7 +6143,7 @@ fn two_dependent_branches_rebased_with_remotes_merge_local() -> anyhow::Result<(
 
 #[test]
 fn stacked_bottom_remote_still_points_at_now_split_top() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/stacked-bottom-remote-still-points-at-now-split-top")?;
     // origin/bottom still points at T (the previously combined push), but the
     // local stack is now split so that bottom holds only B and top holds T on
@@ -6144,9 +6164,8 @@ fn stacked_bottom_remote_still_points_at_now_split_top() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6169,7 +6188,7 @@ fn stacked_bottom_remote_still_points_at_now_split_top() -> anyhow::Result<()> {
 #[test]
 fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -> anyhow::Result<()>
 {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+    let (repo, mut meta) = read_only_in_memory_scenario(
         "ws/two-dependent-branches-rebased-with-remotes-squash-merge-one-remote-ambiguous",
     )?;
     // Each of the stacked branches has a remote, the remote branch was merged into main,
@@ -6194,9 +6213,8 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6258,7 +6276,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -
 
 #[test]
 fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+    let (repo, mut meta) = read_only_in_memory_scenario(
         "ws/two-dependent-branches-rebased-with-remotes-squash-merge-one-remote",
     )?;
     // Each of the stacked branches has a remote, the remote branch was merged into main,
@@ -6287,9 +6305,8 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6339,7 +6356,7 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote() -> anyhow::
 
 #[test]
 fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -6354,9 +6371,8 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6393,9 +6409,8 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6434,7 +6449,7 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
 
 #[test]
 fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/no-target-without-ws-commit-ambiguous")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -6451,9 +6466,8 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     // Without disambiguation, there is no segment name.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6496,9 +6510,8 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         a_ref.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6538,9 +6551,8 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     // Finally, show the normal version with just disambiguated 'B".
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6580,9 +6592,8 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         a_ref.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6591,10 +6602,10 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:A <> ✓refs/remotes/origin/A⇣1
-└── ≡:A <> origin/A⇣1 {1}
-    ├── :A <> origin/A⇣1
+└── ≡📙:A <> origin/A⇣1 {1}
+    ├── 📙:A <> origin/A⇣1
     │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️) ►B
+    │   ├── ❄️a62b0de (🏘️)
     │   └── ❄️120a217 (🏘️)
     └── :main
         └── ❄fafd9d0 (🏘️)
@@ -6607,9 +6618,8 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         a_ref,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6617,11 +6627,12 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:A <> ✓refs/remotes/origin/A⇣1
-└── ≡:A <> origin/A⇣1 {1}
-    ├── :A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️) ►B
-    │   └── ❄️120a217 (🏘️)
+└── ≡📙:A <> origin/A⇣1 {1}
+    ├── 📙:A <> origin/A⇣1
+    │   └── 🟣4fe5a6f
+    ├── 📙:B
+    │   ├── ❄a62b0de (🏘️)
+    │   └── ❄120a217 (🏘️)
     └── :main
         └── ❄fafd9d0 (🏘️)
 
@@ -6633,7 +6644,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
 
 #[test]
 fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/no-target-without-ws-commit-ambiguous-with-remotes")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -6649,9 +6660,8 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     // Without disambiguation, there is no segment name.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6692,9 +6702,8 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     let graph = Graph::from_commit_traversal(
         id,
         a_ref.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6734,9 +6743,8 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     let graph = Graph::from_commit_traversal(
         id,
         b_ref,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6759,9 +6767,8 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     let graph = Graph::from_commit_traversal(
         id,
         a_ref.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6808,7 +6815,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
 
 #[test]
 fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-with-ws-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-with-ws-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -6826,9 +6833,8 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
     // The commit is ambiguous, so there is just the entrypoint to split the segment.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6867,9 +6873,8 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6909,7 +6914,7 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
 
 #[test]
 fn workspace_commit_pushed_to_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/ws-commit-pushed-to-target")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/ws-commit-pushed-to-target")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -6923,9 +6928,8 @@ fn workspace_commit_pushed_to_target() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -6954,7 +6958,7 @@ fn workspace_commit_pushed_to_target() -> anyhow::Result<()> {
 
 #[test]
 fn no_workspace_no_target_commit_under_managed_ref() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/no-ws-no-target-commit-with-managed-ref")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -6969,9 +6973,8 @@ fn no_workspace_no_target_commit_under_managed_ref() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7008,7 +7011,7 @@ fn no_workspace_no_target_commit_under_managed_ref() -> anyhow::Result<()> {
 
 #[test]
 fn no_workspace_commit() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/multiple-dependent-branches-per-stack-without-ws-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -7037,9 +7040,8 @@ fn no_workspace_commit() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7081,7 +7083,8 @@ fn no_workspace_commit() -> anyhow::Result<()> {
     );
 
     // Natural order here is `lane` first, but we say we want `lane-2` first
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(
         &mut meta,
         0,
@@ -7099,9 +7102,8 @@ fn no_workspace_commit() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7146,7 +7148,7 @@ fn no_workspace_commit() -> anyhow::Result<()> {
 
 #[test]
 fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/two-dependent-branches-first-rebased-and-merged")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -7164,9 +7166,8 @@ fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7206,7 +7207,7 @@ fn two_dependent_branches_first_merged_by_rebase() -> anyhow::Result<()> {
 
 #[test]
 fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/special-branches")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/special-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -7221,9 +7222,8 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7260,7 +7260,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
 
 #[test]
 fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/special-branches-edgecase")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/special-branches-edgecase")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -7278,8 +7278,13 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
     let mut project_meta = default_project_meta(&repo);
     project_meta.target_ref = Some("refs/remotes/origin/gitbutler/target".try_into()?);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        standard_options(),
+    )?
+    .validated()?;
     // Standard handling after traversal and post-processing.
     // Segment length capping is the property under test, so this keeps
     // the segment-structure rendering.
@@ -7324,7 +7329,7 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
 
 #[test]
 fn branch_ahead_of_workspace() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/branches-ahead-of-workspace")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/branches-ahead-of-workspace")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -7376,9 +7381,8 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7441,9 +7445,8 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7524,7 +7527,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+    let (repo, mut meta) = read_only_in_memory_scenario(
         "ws/two-branches-one-advanced-two-parent-ws-commit-diverged-ttb",
     )?;
     snapbox::assert_data_eq!(
@@ -7549,9 +7552,8 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
     let graph = Graph::from_commit_traversal(
         id,
         ref_name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7585,9 +7587,8 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7629,7 +7630,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
 
 #[test]
 fn advanced_workspace_ref() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/advanced-workspace-ref")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/advanced-workspace-ref")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -7657,9 +7658,8 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7717,7 +7717,7 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
 
 #[test]
 fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/advanced-workspace-ref-and-single-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -7742,9 +7742,8 @@ fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7796,7 +7795,7 @@ fn advanced_workspace_ref_single_stack() -> anyhow::Result<()> {
 
 #[test]
 fn shallow_boundary_below_workspace_lower_bound() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = named_read_only_in_memory_scenario(
+    let (repo, mut meta) = named_read_only_in_memory_scenario(
         "special-conditions",
         "shallow-workspace-boundary-below-lower-bound",
     )?;
@@ -7816,9 +7815,8 @@ fn shallow_boundary_below_workspace_lower_bound() -> anyhow::Result<()> {
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7855,7 +7853,7 @@ fn shallow_boundary_below_workspace_lower_bound() -> anyhow::Result<()> {
 
 #[test]
 fn shallow_boundary_in_workspace_prevents_lower_bound() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = named_read_only_in_memory_scenario(
+    let (repo, mut meta) = named_read_only_in_memory_scenario(
         "special-conditions",
         "shallow-workspace-boundary-in-workspace",
     )?;
@@ -7863,9 +7861,8 @@ fn shallow_boundary_in_workspace_prevents_lower_bound() -> anyhow::Result<()> {
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7894,7 +7891,7 @@ fn shallow_boundary_in_workspace_prevents_lower_bound() -> anyhow::Result<()> {
 
 #[test]
 fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -7917,9 +7914,8 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -7965,9 +7961,8 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8011,7 +8006,7 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
 
 #[test]
 fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/two-branches-one-above-base")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-above-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8031,9 +8026,8 @@ fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8083,7 +8077,7 @@ fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
 
 #[test]
 fn dependent_branch_on_base() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/dependent-branch-on-base")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/dependent-branch-on-base")?;
     snapbox::assert_data_eq!(visualize_commit_graph_all(&repo)?, snapbox::str![[r#"
 *-.   a0385a8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\ \  
@@ -8130,9 +8124,8 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8210,7 +8203,7 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
     );
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Overlay::default())?
         .into_workspace()?;
     // The stack-id could still be found, even though `A` is wrongly marked as outside the workspace.
     // Below A doesn't apply as it's marked inactive.
@@ -8245,8 +8238,7 @@ fn dependent_branch_on_base() -> anyhow::Result<()> {
 
 #[test]
 fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/remote-and-integrated-tracking")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-and-integrated-tracking")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8270,9 +8262,8 @@ fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8292,7 +8283,7 @@ fn remote_and_integrated_tracking_branch_on_merge() -> anyhow::Result<()> {
 
 #[test]
 fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/remote-and-integrated-tracking-linear")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -8311,9 +8302,8 @@ fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<(
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8333,7 +8323,7 @@ fn remote_and_integrated_tracking_branch_on_linear_segment() -> anyhow::Result<(
 
 #[test]
 fn remote_and_integrated_tracking_branch_on_merge_extra_commit() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/remote-and-integrated-tracking-extra-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -8358,9 +8348,8 @@ fn remote_and_integrated_tracking_branch_on_merge_extra_commit() -> anyhow::Resu
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8381,7 +8370,7 @@ fn remote_and_integrated_tracking_branch_on_merge_extra_commit() -> anyhow::Resu
 
 #[test]
 fn unapplied_branch_on_base() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8394,9 +8383,8 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8427,9 +8415,8 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "unapplied", StackState::InWorkspace, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8448,9 +8435,8 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "unapplied", StackState::Inactive, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8470,7 +8456,7 @@ fn unapplied_branch_on_base() -> anyhow::Result<()> {
 #[test]
 fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch()
 -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/target-shared-with-unapplied-and-origin-head")?;
     add_workspace(&mut meta);
     add_stack_with_segments(&mut meta, 1, "survivor", StackState::InWorkspace, &[]);
@@ -8490,9 +8476,8 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8567,7 +8552,7 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
     add_stack_with_segments(&mut meta, 2, "unapplied", StackState::InWorkspace, &[]);
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Overlay::default())?
         .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -8588,7 +8573,7 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
 
 #[test]
 fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ahead-checkout")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ahead-checkout")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8604,9 +8589,8 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
     // Without the worktree tip, the branch ahead of the base is invisible.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8625,12 +8609,11 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
     // Discovering it adds the branch outside the workspace, leaving workspace,
     // target, and remote computations undisturbed.
     // Adoption already ran, so the fixture worktree counts as active.
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options {
             worktrees: true,
             ..standard_options()
@@ -8666,14 +8649,13 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
 
 #[test]
 fn worktree_fork_below_the_target_stays_connected_with_a_limit() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-behind-target")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-behind-target")?;
     add_workspace(&mut meta);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options {
             worktrees: true,
             ..but_graph::init::Options::limited().with_limit_hint(1)
@@ -8703,7 +8685,7 @@ fn worktree_fork_below_the_target_stays_connected_with_a_limit() -> anyhow::Resu
 
 #[test]
 fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ahead")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8720,9 +8702,8 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
     let baseline = Graph::from_commit_traversal(
         head_id,
         ws_ref.clone(),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8737,9 +8718,8 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
             wt_feature_id,
             Some("refs/heads/wt-feature".try_into()?),
         )),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8768,9 +8748,8 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         head_id,
         ws_ref.clone(),
         Some(Tip::reachable(head_id.detach(), Some(ws_ref.clone()))),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8785,9 +8764,8 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         head_id,
         ws_ref.clone(),
         Some(Tip::reachable(main_id.detach(), Some(main_ref))),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8801,9 +8779,8 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
         head_id,
         ws_ref,
         Some(Tip::detached_entrypoint(wt_feature_id)),
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )
     .unwrap_err();
@@ -8816,7 +8793,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
 
 #[test]
 fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8829,9 +8806,8 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8867,9 +8843,8 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8903,9 +8878,8 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "unapplied", StackState::Inactive, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8926,8 +8900,7 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
 
 #[test]
 fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -8941,9 +8914,8 @@ fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -8985,7 +8957,7 @@ fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
 
 #[test]
 fn ambiguous_worktrees() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/ambiguous-worktrees")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/ambiguous-worktrees")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9007,9 +8979,8 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9063,9 +9034,8 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     .with_object_memory();
     let graph = Graph::from_head(
         &linked_repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9113,7 +9083,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 #[test]
 fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_target()
 -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/duplicate-workspace-connection-no-target")?;
     // Note that HEAD isn't actually pointing at origin/main, but twice at main
     snapbox::assert_data_eq!(
@@ -9131,9 +9101,8 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
     // Our graph is incapable of showing these two connections due to traversal
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9169,7 +9138,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Overlay::default())?
         .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -9184,11 +9153,12 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
     );
 
     // Now pretend it's stacked.
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Overlay::default())?
         .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -9206,8 +9176,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch_no_advanced_ta
 
 #[test]
 fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/duplicate-workspace-connection")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/duplicate-workspace-connection")?;
     // Note that HEAD isn't actually pointing at origin/main, but twice at main
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -9226,9 +9195,8 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9265,7 +9233,7 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Overlay::default())?
         .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -9280,11 +9248,12 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
     );
 
     // Now pretend it's stacked.
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
     let ws = ws
         .graph
-        .redo_traversal_with_overlay(&repo, &*meta, Overlay::default())?
+        .redo_traversal_with_overlay(&repo, &meta.meta()?, Overlay::default())?
         .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -9297,14 +9266,14 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
 "#]]
     );
 
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -9319,13 +9288,13 @@ fn duplicate_parent_connection_from_ws_commit_to_ambiguous_branch() -> anyhow::R
 "#]]
     );
 
-    meta.data_mut().branches.clear();
+    meta.meta_mut()?
+        .remove(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -9352,7 +9321,7 @@ mod edit_commit {
 
     #[test]
     fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
-        let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/edit-commit/simple")?;
+        let (repo, mut meta) = read_only_in_memory_scenario("ws/edit-commit/simple")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -9367,9 +9336,8 @@ mod edit_commit {
         add_workspace(&mut meta);
         let graph = Graph::from_head(
             &repo,
-            &*meta,
             default_project_meta(&repo),
-            &mut db,
+            &mut meta.connection_mut(),
             standard_options(),
         )?
         .validated()?;
@@ -9407,9 +9375,8 @@ mod edit_commit {
         let graph = Graph::from_commit_traversal(
             id,
             ref_name,
-            &*meta,
             default_project_meta(&repo),
-            &mut db,
+            &mut meta.connection_mut(),
             standard_options(),
         )?
         .validated()?;
@@ -9450,7 +9417,7 @@ mod edit_commit {
 /// - The local stack branches off from an earlier point in history (nightly/0.5.1754)
 #[test]
 fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/complex-merge-origin-main")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/complex-merge-origin-main")?;
     snapbox::assert_data_eq!(visualize_commit_graph_all(&repo)?, snapbox::str![[r#"
 * 4d53bb1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 4eaff93 (reimplement-insert-blank-commit, reconstructed-insert-blank-commit-branch, local-stack) composability improvements
@@ -9488,9 +9455,8 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9518,9 +9484,8 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9543,7 +9508,7 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
 
 #[test]
 fn reproduce_12146() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/reproduce-12146")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-12146")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9563,9 +9528,8 @@ fn reproduce_12146() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9615,7 +9579,7 @@ fn reproduce_12146() -> anyhow::Result<()> {
 /// pruned at or below the target.
 #[test]
 fn integrated_merge_at_bottom_is_kept() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/integrated-merge-at-bottom")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/integrated-merge-at-bottom")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9638,9 +9602,8 @@ fn integrated_merge_at_bottom_is_kept() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "local-stack", StackState::InWorkspace, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9666,7 +9629,7 @@ fn integrated_merge_at_bottom_is_kept() -> anyhow::Result<()> {
 /// commits (including those below the merge-from-main) remain visible.
 #[test]
 fn merge_from_main_keeps_all_branch_commits() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/merge-from-main-in-branch")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/merge-from-main-in-branch")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9686,9 +9649,8 @@ fn merge_from_main_keeps_all_branch_commits() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9737,7 +9699,7 @@ fn merge_from_main_keeps_all_branch_commits() -> anyhow::Result<()> {
 /// can detect them. Once the target advances past them, they are pruned.
 #[test]
 fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/integrated-above-target")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/integrated-above-target")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9759,8 +9721,13 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
     let project_meta = add_workspace_with_target(&mut meta, init_id);
     add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        standard_options(),
+    )?
+    .validated()?;
     // With the target at "init", A and B are above the target and should be
     // kept even though they are marked integrated.
     snapbox::assert_data_eq!(
@@ -9783,9 +9750,8 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         project_meta.clone(),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9801,9 +9767,8 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         project_meta,
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options().with_hard_limit(usize::MAX),
     )?
     .validated()?;
@@ -9821,7 +9786,7 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
 /// disabled integrated-commit pruning entirely.
 #[test]
 fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/integrated-below-target-upstream-ahead")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -9851,8 +9816,13 @@ fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Resul
     // 'W' and 'O' are above/beside the target and kept; 'target' and 'base' are
     // integrated and at or below the target, so they are pruned from both stacks
     // even though origin/main has advanced past the target.
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -9875,7 +9845,7 @@ fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Resul
 /// the trunk below the fork (`c1`, `init`) is pruned, leaving X's own commits.
 #[test]
 fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/catchup-merge-leak")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/catchup-merge-leak")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9901,8 +9871,13 @@ fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
     let project_meta = add_workspace_with_target(&mut meta, target_id);
     add_stack_with_segments(&mut meta, 0, "X", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        project_meta,
+        &mut meta.connection_mut(),
+        standard_options(),
+    )?
+    .validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -9924,8 +9899,7 @@ fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
 /// coincides with the workspace commit.
 #[test]
 fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/entrypoint-on-workspace-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/entrypoint-on-workspace-commit")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -9940,9 +9914,8 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -9980,9 +9953,8 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
     let graph = Graph::from_commit_traversal(
         id,
         name,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -10023,7 +9995,7 @@ fn entrypoint_on_workspace_commit() -> anyhow::Result<()> {
 /// correctly (previously protected by front-pruning workaround).
 #[test]
 fn remote_only_stack_top() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/remote-only-stack-top")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-only-stack-top")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -10038,9 +10010,8 @@ fn remote_only_stack_top() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -10077,7 +10048,7 @@ fn remote_only_stack_top() -> anyhow::Result<()> {
 /// in a stack is handled correctly (previously protected by tail-pruning workaround).
 #[test]
 fn remote_trailing_local_stack() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/remote-trailing-local-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-trailing-local-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -10094,9 +10065,8 @@ fn remote_trailing_local_stack() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -10134,7 +10104,7 @@ fn remote_trailing_local_stack() -> anyhow::Result<()> {
 /// handles a stack that starts with a remote-only segment.
 #[test]
 fn remote_ref_as_stack_top() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/remote-ref-as-stack-top")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-ref-as-stack-top")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -10152,9 +10122,8 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -10189,8 +10158,7 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
 
 #[test]
 fn worktree_ref_at_applied_branch() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -10207,9 +10175,8 @@ fn worktree_ref_at_applied_branch() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -10242,14 +10209,12 @@ fn worktree_ref_at_applied_branch() -> anyhow::Result<()> {
     // With `wsref` recorded as a dependent branch below `foo`, it becomes an
     // in-lane commit-owning segment, so it shows up as a stack branch even though
     // the worktree listing represents it as well.
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &["wsref"]);
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         standard_options(),
     )?
     .validated()?;
@@ -10290,16 +10255,14 @@ fn worktree_ref_at_applied_branch_with_discovery() -> anyhow::Result<()> {
     // With the worktree tip discovered, `wsref` leaves the lane: the commit is
     // owned by an anonymous segment, `foo` keeps its place in the lane as an
     // empty segment, and `wsref` forks directly into the commit.
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
     // Adoption already ran, so the fixture worktree counts as active.
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         options(),
     )?
     .validated()?;
@@ -10336,15 +10299,13 @@ fn worktree_ref_at_applied_branch_with_discovery() -> anyhow::Result<()> {
 
     // Even when workspace metadata records `wsref` as a dependent branch below
     // `foo`, the worktree classification wins and the shape is the same.
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &["wsref"]);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         options(),
     )?
     .validated()?;
@@ -10380,7 +10341,7 @@ fn worktree_ref_at_applied_branch_with_discovery() -> anyhow::Result<()> {
 
 #[test]
 fn worktree_ref_mid_stack() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ref-mid-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-mid-stack")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -10392,15 +10353,14 @@ fn worktree_ref_mid_stack() -> anyhow::Result<()> {
 "#]]
     );
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     // The worktree branch points below `foo`'s tip: its commit is split into an
     // anonymous segment that stays in the lane, and the branch forks into it.
     // Rewrites relative to `wsref` thus never touch `foo` or the workspace.
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options {
             worktrees: true,
             ..standard_options()
@@ -10490,15 +10450,13 @@ fn worktree_ref_as_stack_top_is_spliced_into_fork() -> anyhow::Result<()> {
     // workspace upgrades represent as an empty segment chained into the lane.
     // The worktree classification wins: the chained segment is spliced out and
     // re-attached as a fork onto the commit, while `foo` keeps the lane.
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     add_stack_with_segments(&mut meta, 0, "wsref", StackState::InWorkspace, &["foo"]);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options {
             worktrees: true,
             ..standard_options()
@@ -10541,17 +10499,15 @@ fn worktree_ref_as_entrypoint_keeps_its_lane() -> anyhow::Result<()> {
     // Viewing the graph from the worktree branch itself - like branch details
     // for it would - keeps the ref addressable as a lane instead of forking it
     // out from under the entrypoint.
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let (wsref_id, wsref_ref) = id_at(&repo, "wsref");
     let graph = Graph::from_commit_traversal(
         wsref_id,
         wsref_ref,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options {
             worktrees: true,
             ..standard_options()
@@ -10582,7 +10538,7 @@ fn worktree_ref_at_remote_tracked_branch() -> anyhow::Result<()> {
     // run after the remote improvements - otherwise those would re-name the
     // anonymous owner from the refs left on the commit, or wire the worktree
     // branch's remote through the fork, re-coupling it to the lane.
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/worktree-ref-at-remote-tracked-branch")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -10594,16 +10550,15 @@ fn worktree_ref_at_remote_tracked_branch() -> anyhow::Result<()> {
 "#]]
     );
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let options = || but_graph::init::Options {
         worktrees: true,
         ..standard_options()
     };
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         options(),
     )?
     .validated()?;
@@ -10645,15 +10600,14 @@ fn worktree_ref_at_remote_tracked_branch() -> anyhow::Result<()> {
     // the remote linkage onto the fork. The owner stays anonymous even though
     // `foo`, with its own remote, is left on the commit - which is exactly what
     // running after the remote improvements guarantees.
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta) =
         read_only_in_memory_scenario("ws/worktree-ref-at-remote-tracked-branch")?;
     add_stack_with_segments(&mut meta, 0, "wsref", StackState::InWorkspace, &[]);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         options(),
     )?
     .validated()?;
@@ -10698,17 +10652,15 @@ fn worktree_ref_beside_entrypoint_branch() -> anyhow::Result<()> {
     // Viewing the graph from `foo` while the worktree branch shares its commit:
     // extracting `foo`'s name into an empty in-lane segment must carry the
     // entrypoint along, and the worktree branch still forks out.
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let (foo_id, foo_ref) = id_at(&repo, "foo");
     let graph = Graph::from_commit_traversal(
         foo_id,
         foo_ref,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options {
             worktrees: true,
             ..standard_options()
@@ -10743,15 +10695,13 @@ fn worktree_ref_survives_metadata_normalization() -> anyhow::Result<()> {
     // As a dependent branch below `foo`: the projection hides `wsref`, but
     // deriving metadata from the projection must not drop it from its stack -
     // being checked out in a worktree is transient, not a workspace change.
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &["wsref"]);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         options(),
     )?
     .validated()?
@@ -10783,15 +10733,13 @@ fn worktree_ref_survives_metadata_normalization() -> anyhow::Result<()> {
 
     // As the only branch of its stack: no projected stack matches it at all,
     // yet it must not be flipped to outside-the-workspace.
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ref-at-applied-branch")?;
     add_stack_with_segments(&mut meta, 0, "wsref", StackState::InWorkspace, &[]);
-    db.worktree_meta_mut().mark_adopted()?;
+    meta.worktree_meta_mut().mark_adopted()?;
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         default_project_meta(&repo),
-        &mut db,
+        &mut meta.connection_mut(),
         options(),
     )?
     .validated()?

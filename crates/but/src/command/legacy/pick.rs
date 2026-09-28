@@ -3,7 +3,7 @@ use but_api::{
     json::{ChangeIdString, HexHash},
 };
 use but_core::{
-    DryRun, RefMetadata,
+    DryRun,
     commit::CommitIdentifiers,
     sync::{RepoExclusive, RepoShared},
 };
@@ -136,7 +136,6 @@ pub fn pick(
     args: Platform,
 ) -> CliResult<(PickOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
 
@@ -149,7 +148,7 @@ pub fn pick(
         args,
     )?;
 
-    Ok(run(ctx, &mut meta, guard.write_permission(), pick_op)?)
+    Ok(run(ctx, guard.write_permission(), pick_op)?)
 }
 
 fn resolve(
@@ -255,7 +254,6 @@ pub struct PickOperation {
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     pick_op: PickOperation,
 ) -> anyhow::Result<(PickOutcome, WorkspaceState)> {
@@ -273,7 +271,6 @@ pub fn run(
     let ((new_commits, branch_name_target), ws) = if let Some(sbm) = sbm {
         sbm.transaction_with_workspace_setup(
             ctx,
-            meta,
             snapshot_details,
             perm,
             commit_op.will_create_unstacked_reference(),
@@ -288,14 +285,9 @@ pub fn run(
             },
         )
     } else {
-        but_transaction::with_transaction_with_perm(
-            ctx,
-            meta,
-            perm,
-            snapshot_details,
-            DryRun::No,
-            |tx| pick_with_transaction(tx, commit_op, &sources, order_commits_by_parentage, None),
-        )
+        but_transaction::with_transaction_with_perm(ctx, perm, snapshot_details, DryRun::No, |tx| {
+            pick_with_transaction(tx, commit_op, &sources, order_commits_by_parentage, None)
+        })
     }?;
 
     let new_commits = new_commits.into_iter().map(Into::into).collect();
@@ -311,7 +303,7 @@ pub fn run(
 }
 
 fn pick_with_transaction(
-    mut tx: Transaction<'_, '_, impl RefMetadata>,
+    mut tx: Transaction<'_, '_, '_>,
     commit_op: CommitOperation,
     sources: &[ObjectId],
     order_commits_by_parentage: bool,

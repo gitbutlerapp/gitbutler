@@ -1,7 +1,6 @@
 //! Move a commit within or across branches and stacks.
 
 use anyhow::bail;
-use but_core::RefMetadata;
 use but_rebase::graph_rebase::{
     Editor, Step, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
@@ -17,12 +16,12 @@ use but_rebase::graph_rebase::{
 /// topology is never rewritten, so every reference anchored in it keeps its position and
 /// resolves through the placeholder to the commit below, which is exactly what a branch
 /// a commit was moved out of should do.
-pub fn move_commits<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
+pub fn move_commits<'ws, 'db, 'conn>(
+    editor: Editor<'ws, 'db, 'conn>,
     subject_commit_ids: impl IntoIterator<Item = gix::ObjectId>,
     relative_to: RelativeTo,
     side: InsertSide,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> anyhow::Result<SuccessfulRebase<'ws, 'db, 'conn>> {
     let subject_commit_ids = subject_commit_ids.into_iter().collect::<Vec<_>>();
     if subject_commit_ids.is_empty() {
         bail!("No commits were provided to move")

@@ -1,5 +1,3 @@
-use but_core::RefMetadata;
-
 use crate::{command::undo::run_mutate_undo_roundtrip_test, utils::Sandbox};
 
 #[test]
@@ -463,7 +461,13 @@ fn can_undo_single_branch_commit_reentering_existing_workspace() {
     env.file("new-file.txt", "content\n");
     let tips_before = env.invoke_git("rev-parse one two gitbutler/workspace");
     let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
-    let workspace_before = (*env.meta().workspace(workspace_ref).unwrap()).clone();
+    let workspace_before = env
+        .db()
+        .meta()
+        .unwrap()
+        .workspace(workspace_ref)
+        .cloned()
+        .unwrap();
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("commit -b three -m 'on three'").assert().success();
@@ -485,7 +489,7 @@ fn can_undo_single_branch_commit_reentering_existing_workspace() {
         "undo restores the pre-existing workspace and branch tips"
     );
     assert_eq!(
-        *env.meta().workspace(workspace_ref).unwrap(),
+        *env.db().meta().unwrap().workspace(workspace_ref).unwrap(),
         workspace_before,
         "undo restores the pre-existing workspace metadata"
     );

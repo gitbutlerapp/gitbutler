@@ -1,11 +1,6 @@
-//! Implementations for `but-core` metadata traits, associating data with Git entities.
+//! Database reference metadata maintenance.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
-#[cfg(feature = "legacy")]
-mod legacy;
-#[cfg(feature = "legacy")]
-pub use legacy::{BranchOrderMetadata, VirtualBranchesTomlMetadata, storage as legacy_storage};
-
-#[cfg(feature = "legacy")]
-pub mod virtual_branches_legacy_types;
+mod garbage_collect;
+pub use garbage_collect::garbage_collect;

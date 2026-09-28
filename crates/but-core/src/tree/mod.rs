@@ -249,6 +249,24 @@ pub fn apply_worktree_changes<'repo>(
                 Some((id, kind, _fs_metadata)) => {
                     base_tree_editor.upsert(rela_path, entry_kind(rela_path, kind), id)?;
                 }
+                None if md.is_dir()
+                    && base_tree
+                        .lookup_entry(rela_path.split(|byte| *byte == b'/'))?
+                        .is_some_and(|entry| {
+                            matches!(
+                                entry.mode().kind(),
+                                EntryKind::Blob | EntryKind::BlobExecutable | EntryKind::Link
+                            )
+                        }) =>
+                {
+                    // A file replaced by a directory is deleted; retain any child already added.
+                    if !base_tree_editor
+                        .get(rela_path)
+                        .is_some_and(|entry| entry.mode().is_tree())
+                    {
+                        base_tree_editor.remove_leaf(rela_path)?;
+                    }
+                }
                 None => into_err_spec(
                     possible_change,
                     RejectionReason::WorktreeFileMissingForObjectConversion,

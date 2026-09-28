@@ -44,11 +44,7 @@
 //!     - A list of patches in unified diff format, with easily accessible line number information. It isn't baked into the patch string itself.
 //!
 
-use std::{
-    any::Any,
-    ops::{Deref, DerefMut},
-    path::PathBuf,
-};
+use std::path::PathBuf;
 
 use boolean_enums::gen_boolean_enum;
 use bstr::{BString, ByteSlice};
@@ -113,7 +109,6 @@ pub mod tree;
 
 /// Various types
 pub mod ref_metadata;
-use crate::ref_metadata::ValueInfo;
 
 /// Utilities to sync project access.
 pub mod sync;
@@ -175,141 +170,6 @@ pub fn extract_remote_name_and_short_name(
             Some((remote_name, short_name))
         })?;
     Some((longest_remote.to_string(), short_name.to_owned()))
-}
-
-/// A trait to associate arbitrary metadata with any *Git reference name*.
-/// Note that a single reference name can have multiple distinct pieces of metadata associated with it.
-pub trait RefMetadata {
-    /// An implementation-defined wrapper for all data to keep additional information that it might need
-    /// to more easily store the data.
-    type Handle<T>: Deref<Target = T> + DerefMut + ref_metadata::ValueInfo + AsRef<FullNameRef>;
-
-    /// Traverse all available metadata entries and see if their names still exist in the Git ref database.
-    ///
-    /// If not, they are dangling, and can then be downcast to their actual type to deal with them in some way,
-    /// either by [removing](Self::remove) them, or by re-associating them with an existing reference.
-    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>>;
-
-    /// Retrieve workspace metadata for `ref_name` or create it if it wasn't present yet.
-    fn workspace(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Self::Handle<ref_metadata::Workspace>>;
-
-    /// Retrieve branch metadata for `ref_name` or create it if it wasn't present yet.
-    fn branch(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Self::Handle<ref_metadata::Branch>>;
-
-    /// Like [`branch()`](Self::branch()), but instead of possibly returning default values, return an
-    /// optional branch instead.
-    ///
-    /// This means the returned branch data is never the default value.
-    fn branch_opt(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Option<Self::Handle<ref_metadata::Branch>>> {
-        let branch = self.branch(ref_name)?;
-        Ok(if branch.is_default() {
-            None
-        } else {
-            Some(branch)
-        })
-    }
-
-    /// Like [`workspace()`](Self::workspace()), but instead of possibly returning default values, return an
-    /// optional workspace instead.
-    ///
-    /// This means the returned workspace data is never the default value.
-    fn workspace_opt(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Option<Self::Handle<ref_metadata::Workspace>>> {
-        let ws = self.workspace(ref_name)?;
-        Ok(if ws.is_default() { None } else { Some(ws) })
-    }
-
-    /// Set workspace metadata to match `value`.
-    fn set_workspace(
-        &mut self,
-        value: &Self::Handle<ref_metadata::Workspace>,
-    ) -> anyhow::Result<()>;
-
-    /// Set branch metadata to match `value`.
-    fn set_branch(&mut self, value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()>;
-
-    /// Return the ordered local branch refs in the same stack as `ref_name`, from tip to base.
-    ///
-    /// Implementations that don't persist branch stack order can return `Ok(None)`.
-    ///
-    /// This is best-effort: the returned refs may include entries for branches that no longer
-    /// exist if pruning hasn't run since they were deleted (see
-    /// [`Self::remove_missing_branch_stack_order_references`]). Callers must treat the result as a
-    /// hint and validate each ref against the repository, ignoring any that don't resolve, rather
-    /// than assuming every entry is live.
-    fn branch_stack_order(
-        &self,
-        _ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
-        Ok(None)
-    }
-
-    /// Persist the ordered local branch refs for an ad-hoc/single-branch stack, from tip to base.
-    ///
-    /// Implementations that don't persist branch stack order should return an error.
-    fn set_branch_stack_order(&mut self, _branches: &[gix::refs::FullName]) -> anyhow::Result<()> {
-        anyhow::bail!("This metadata backend doesn't support branch stack order")
-    }
-
-    /// Return `true` if this backend can persist ad-hoc/single-branch stack order.
-    fn can_persist_branch_stack_order(&self) -> bool {
-        false
-    }
-
-    /// Rename a local branch ref in persisted ad-hoc/single-branch stack order metadata.
-    ///
-    /// Implementations that don't persist branch stack order can ignore this.
-    fn rename_branch_stack_order_reference(
-        &mut self,
-        _old_ref_name: &gix::refs::FullNameRef,
-        _new_ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    /// Remove persisted ad-hoc/single-branch stack order entries for refs that no longer exist.
-    ///
-    /// `existing_ref_names` must contain the complete set of existing local branch refs.
-    /// Implementations that don't persist branch stack order can ignore this.
-    fn remove_missing_branch_stack_order_references(
-        &mut self,
-        _existing_ref_names: &[gix::refs::FullName],
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    /// Delete the metadata associated with the given `ref_name` and return `true` if it existed, or `false` otherwise.
-    ///
-    /// It is OK to delete something that doesn't exist.
-    fn remove(&mut self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<bool>;
-
-    /// Move all metadata associated with `old_ref_name` over to `new_ref_name`.
-    ///
-    /// This carries over any per-branch metadata blob and renames the persisted branch-stack-order
-    /// entry (see [`rename_branch_stack_order_reference`](Self::rename_branch_stack_order_reference)).
-    ///
-    /// It is OK to rename a `ref_name` that has no metadata, and renaming onto itself is a no-op.
-    ///
-    /// There is deliberately no default implementation: a generic one built from `branch` +
-    /// `set_branch` + `remove` would copy per-branch metadata into a *new* standalone stack and tear
-    /// the branch out of its existing one, fragmenting managed stacks. Each backend must move its
-    /// metadata in place instead.
-    fn rename(
-        &mut self,
-        old_ref_name: &gix::refs::FullNameRef,
-        new_ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<()>;
 }
 
 /// A decoded commit object with easy access to additional GitButler information.
