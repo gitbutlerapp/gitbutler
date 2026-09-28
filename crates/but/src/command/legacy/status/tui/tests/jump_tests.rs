@@ -96,12 +96,15 @@ fn jump_to_merge_base_by_commit_id() {
         tui.input((KeyModifiers::CONTROL, 'n'));
     }
     tui.input((KeyModifiers::CONTROL, 'n'))
-        .assert_current_line_eq(str!["[..] (common base) [..]"]);
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ]);
     tui.input(KeyCode::Esc);
 
     tui.input('/');
-    tui.input(&merge_base_id[..12])
-        .assert_current_line_eq(str!["[..] (common base) [..]"]);
+    tui.input(&merge_base_id[..12]).assert_current_line_eq(str![
+        "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+    ]);
 }
 
 #[test]

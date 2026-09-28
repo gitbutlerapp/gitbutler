@@ -168,8 +168,9 @@ fn escape_moves_cursor_back_to_valid_position() {
     tui.input('j');
 
     // cancelling should put the cursor at a valid position
-    tui.input(KeyCode::Esc)
-        .assert_current_line_eq(str![["┴ 0dc3733 (common base) 2000-01-02 add M"]]);
+    tui.input(KeyCode::Esc).assert_current_line_eq(str![
+        "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+    ]);
 }
 
 #[test]

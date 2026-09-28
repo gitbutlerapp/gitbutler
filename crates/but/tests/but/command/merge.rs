@@ -22,7 +22,7 @@ fn merge_rejects_single_branch_mode() {
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ e31e6ca (common base, origin/main) 2000-01-02 add init
 
 Hint: run `but help` for all commands
 
@@ -49,7 +49,7 @@ Failed to merge branch. `but merge` requires an active GitButler workspace (`git
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ e31e6ca (common base, origin/main) 2000-01-02 add init
 
 Hint: run `but help` for all commands
 

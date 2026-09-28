@@ -131,7 +131,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 6f66116 (common base) 2000-01-02 Initial empty commit
+┴ 6f66116 (common base, main, gb-local/main) 2000-01-02 Initial empty commit
 
 Hint: run `but branch new` to create a new branch to work on
 

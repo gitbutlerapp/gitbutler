@@ -39,7 +39,7 @@ Branch 'wt-feature' is already in the workspace; nothing changed
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -83,7 +83,7 @@ fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
 ┊├┄ i0 [A] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -112,7 +112,7 @@ Hint: run `but help` for all commands
 ┊├┄ j0 [A] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 

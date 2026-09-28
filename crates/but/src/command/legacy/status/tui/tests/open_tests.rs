@@ -253,7 +253,9 @@ fn cannot_open_common_base() {
 
     let mut tui = test_status_tui(env);
     tui.input((KeyModifiers::SHIFT, 'G'))
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ]);
 
     let app_data_dir = tui.env().projects_root().display().to_string();
     with_var("E2E_TEST_APP_DATA_DIR", Some(app_data_dir), || {

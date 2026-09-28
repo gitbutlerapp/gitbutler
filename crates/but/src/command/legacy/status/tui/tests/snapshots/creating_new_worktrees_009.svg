@@ -60,8 +60,8 @@
     <text x="10" y="204" style="fill:#CCCCCC;">┴</text>
     <text x="26 34 42 50 58 66 74" y="204" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
     <text x="90 98 106 114 122 130 138" y="204" style="fill:#CCCCCC;">(common</text>
-    <text x="154 162 170 178 186" y="204" style="fill:#CCCCCC;">base)</text>
-    <text x="202" y="204" style="fill:#CCCCCC;opacity:0.75;">2</text>
+    <text x="154 162 170 178 186" y="204" style="fill:#CCCCCC;">base,</text>
+    <text x="202" y="204" style="fill:#CCCCCC;">m</text>
     <text x="210" y="204" style="fill:#555555;">│</text>
     <text x="610" y="204" style="fill:#555555;">│</text>
     <text x="210" y="222" style="fill:#555555;">│</text>

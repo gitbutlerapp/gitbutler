@@ -122,7 +122,7 @@ fn diff_different_changes_with_agent_output() {
 ┊│     txl:ztt A to-rename.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: commits are listed newest first. The first token on each line is the ID to use in commands.
 Hint: run `but help` for all commands

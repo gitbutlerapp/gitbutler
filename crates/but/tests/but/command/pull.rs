@@ -229,7 +229,7 @@ Run `but pull` to update your branches
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ 5aa8cbc (common base) 2000-01-02 add upstream
+┴ 5aa8cbc (common base, main, origin/main) 2000-01-02 add upstream
 
 Hint: run `but help` for all commands
 
@@ -321,7 +321,7 @@ Run `but pull` to update your branches
 ┊●   uxq add A
 ├╯
 ┊
-┴ dba3edc (common base) 2000-01-02 add upstream
+┴ dba3edc (common base, main, origin/main) 2000-01-02 add upstream
 
 Hint: run `but help` for all commands
 
@@ -412,7 +412,7 @@ Run `but pull` to update your branches
 ┊╭┄ to [top] (no commits)
 ├╯
 ┊
-┴ 3ea7b57 (common base) 2000-01-02 merge bottom
+┴ 3ea7b57 (common base, main, origin/main) 2000-01-02 merge bottom
 
 Hint: run `but help` for all commands
 
@@ -468,7 +468,7 @@ fn pull_prunes_integrated_stack_and_keeps_remaining_stack_parent() {
 ├╯
 ┊
 ┊● 26ecc90 (upstream: origin/main) 2 new commits
-├╯ 26ecc90 (common base) 2000-01-02 add upstream
+├╯ 26ecc90 (common base, main, origin/main) 2000-01-02 add upstream
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -483,7 +483,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 ┊◐   lrm add B
 ├╯
 ┊
-┴ 26ecc90 (common base) 2000-01-02 add upstream
+┴ 26ecc90 (common base, main, origin/main) 2000-01-02 add upstream
 
 Hint: run `but help` for all commands
 
@@ -555,7 +555,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 ┊◐   ozt add A
 ├╯
 ┊
-┴ d4cb681 (common base) 2000-01-02 add upstream
+┴ d4cb681 (common base, main, origin/main) 2000-01-02 add upstream
 
 Hint: run `but help` for all commands
 
@@ -727,7 +727,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 ┊◐   nyo A-change (no changes) {conflicted}
 ├╯
 ┊
-┴ bdfcf28 (common base) 2000-01-02 main-change
+┴ bdfcf28 (common base, main, origin/main) 2000-01-02 main-change
 
 Hint: run `but help` for all commands
 
@@ -749,7 +749,7 @@ fn pull_checks_out_canned_branch_after_all_stacks_integrate() {
 ├╯
 ┊
 ┊● 7e5d4e1 (upstream: origin/main) 3 new commits
-├╯ 7e5d4e1 (common base) 2000-01-02 add upstream
+├╯ 7e5d4e1 (common base, main, origin/main) 2000-01-02 add upstream
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -763,7 +763,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ 7e5d4e1 (common base) 2000-01-02 add upstream
+┴ 7e5d4e1 (common base, main, origin/main) 2000-01-02 add upstream
 
 Hint: run `but help` for all commands
 
@@ -798,7 +798,7 @@ fn pull_keeps_empty_workspace_after_all_stacks_integrate_outside_single_branch_m
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 7e5d4e1 (common base) 2000-01-02 add upstream
+┴ 7e5d4e1 (common base, main, origin/main) 2000-01-02 add upstream
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -832,7 +832,7 @@ fn pull_reparents_empty_workspace_when_target_advances() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -843,7 +843,7 @@ Hint: run `but branch new` to create a new branch to work on
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 526bb83 (common base) 2000-01-02 upstream-change
+┴ 526bb83 (common base, main, origin/main) 2000-01-02 upstream-change
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -874,7 +874,7 @@ fn pull_does_not_report_branch_rebase_conflicts_as_worktree_conflicts() {
 ├╯
 ┊
 ┊● 247c151 (upstream: origin/main) 1 new commit
-├╯ 247c151 (common base) 2000-01-02 upstream change
+├╯ 247c151 (common base, main, origin/main) 2000-01-02 upstream change
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
@@ -910,7 +910,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊◐   vxp local change (no changes) {conflicted}
 ├╯
 ┊
-┴ 247c151 (common base) 2000-01-02 upstream change
+┴ 247c151 (common base, main, origin/main) 2000-01-02 upstream change
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -932,7 +932,7 @@ fn pull_json_reports_branch_rebase_conflicts_as_successful_integration() {
 ├╯
 ┊
 ┊● 247c151 (upstream: origin/main) 1 new commit
-├╯ 247c151 (common base) 2000-01-02 upstream change
+├╯ 247c151 (common base, main, origin/main) 2000-01-02 upstream change
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -972,7 +972,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 ┊◐   vxp local change (no changes) {conflicted}
 ├╯
 ┊
-┴ 247c151 (common base) 2000-01-02 upstream change
+┴ 247c151 (common base, main, origin/main) 2000-01-02 upstream change
 
 Hint: run `but help` for all commands
 
@@ -997,7 +997,7 @@ fn pull_reports_conflict_in_lower_branch_of_stack() {
 ├╯
 ┊
 ┊● 7f73771 (upstream: origin/main) 1 new commit
-├╯ 7f73771 (common base) 2000-01-02 upstream change
+├╯ 7f73771 (common base, main, origin/main) 2000-01-02 upstream change
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -1038,7 +1038,7 @@ To undo this operation:
 ┊◐   rou bottom change (no changes) {conflicted}
 ├╯
 ┊
-┴ 7f73771 (common base) 2000-01-02 upstream change
+┴ 7f73771 (common base, main, origin/main) 2000-01-02 upstream change
 
 Hint: run `but help` for all commands
 
@@ -1063,7 +1063,7 @@ fn pull_reports_conflicts_in_multiple_branches_of_stack() {
 ├╯
 ┊
 ┊● e4933d8 (upstream: origin/main) 1 new commit
-├╯ [..] (common base) 2000-01-02 upstream change
+├╯ e4933d8 (common base, main, origin/main) 2000-01-02 upstream change
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -1106,7 +1106,7 @@ To undo this operation:
 ┊◐   trk bottom change (no changes) {conflicted}
 ├╯
 ┊
-┴ e4933d8 (common base) 2000-01-02 upstream change
+┴ e4933d8 (common base, main, origin/main) 2000-01-02 upstream change
 
 Hint: run `but help` for all commands
 
@@ -1177,7 +1177,7 @@ To undo this operation:
 ┊◐   zyx add A
 ├╯
 ┊
-┴ 7f73771 (common base) 2000-01-02 upstream change
+┴ 7f73771 (common base, main, origin/main) 2000-01-02 upstream change
 ⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
 
 Hint: run `but help` for all commands

@@ -70,7 +70,7 @@ fn commits_a_dirty_file_on_a_new_branch_in_single_branch_mode() {
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ e31e6ca (common base, origin/main) 2000-01-02 add init
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -118,7 +118,7 @@ Created commit wpv on new branch 'feature'
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ e31e6ca (common base, origin/main) 2000-01-02 add init
 
 Hint: run `but help` for all commands
 
@@ -169,7 +169,7 @@ fn commits_on_the_checked_out_branch_in_single_branch_mode() {
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ e31e6ca (common base, origin/main) 2000-01-02 add init
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -196,7 +196,7 @@ Created commit woz on branch 'main'
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ e31e6ca (common base, origin/main) 2000-01-02 add init
 
 Hint: run `but help` for all commands
 
@@ -257,7 +257,7 @@ fn commits_at_each_branch_in_an_existing_single_branch_stack() {
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ e31e6ca (common base, origin/main) 2000-01-02 add init
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -295,7 +295,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ e31e6ca (common base, origin/main) 2000-01-02 add init
 
 Hint: run `but help` for all commands
 
@@ -353,7 +353,7 @@ Created commit orn on branch 'A'
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -386,7 +386,7 @@ Created commit ssv on branch 'A'
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -551,7 +551,7 @@ fn no_args_single_head_message_from_editor() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -583,7 +583,7 @@ fn agent_without_message_commits_with_empty_message_instead_of_editor() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -631,7 +631,7 @@ fn single_head_with_message() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -662,7 +662,7 @@ fn can_repeat_message() {
 ┊│     add A 
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -717,7 +717,7 @@ fn editor_user_writes_no_message() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -765,7 +765,7 @@ fn create_commit_on_new_branch() {
 ┊●   ssn (no commit message)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -782,7 +782,8 @@ fn selective_commits_keep_the_on_disk_index_in_sync_with_head() {
     snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), snapbox::str![]);
 
     env.file("file", format!("first hunk\n{original_data}\nlast hunk"));
-    env.file("second", "modified second\n");
+    // Change the size too, so second-resolution index stats cannot hide this edit.
+    env.file("second", "modified second file\n");
     // Split an existing dirty file across commits on a new parallel branch,
     // combining its remaining hunk with another file in the second commit.
     env.but("commit -b feature -m 'first hunk' qs:5")
@@ -846,7 +847,7 @@ fn create_commit_on_user_provided_branch() {
 ┊●   xsz add first
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -867,7 +868,7 @@ Hint: run `but help` for all commands
 ┊●   xsz add first
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -892,7 +893,7 @@ Hint: run `but help` for all commands
 ┊●   xsz add first
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -920,7 +921,7 @@ Hint: run `but help` for all commands
 ┊●   xsz add first
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -950,7 +951,7 @@ fn create_commit_on_new_branch_with_canned_name() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1054,7 +1055,7 @@ Caused by:
 ┊│     ppu:l A first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1127,7 +1128,7 @@ Caused by:
 ┊│     ppu:l A first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1205,7 +1206,7 @@ Caused by:
 ┊│     ppu:l A first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1292,7 +1293,7 @@ Caused by:
 ┊●   lsm bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1342,7 +1343,7 @@ Hint: to apply these changes, create bar stacked on top of foo and try again:
 ┊│     ppu:l A first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1393,7 +1394,7 @@ Hint: to apply these changes, create bar stacked on top of foo and try again:
 ┊│     ppu:l A first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1482,7 +1483,7 @@ fn empty_flag_to_force_empty_commit_when_changes_exist() {
 ┊●   tqv empty commit despite changes in worktree (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1523,7 +1524,7 @@ fn commit_empty_above_commit() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1545,7 +1546,7 @@ Hint: run `but help` for all commands
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1568,7 +1569,7 @@ fn commit_empty_below_commit() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1590,7 +1591,7 @@ Hint: run `but help` for all commands
 ┊●   vlt (no commit message) (no changes)
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1616,7 +1617,7 @@ fn commit_above_commit() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1638,7 +1639,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1663,7 +1664,7 @@ fn commit_above_branch() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1686,7 +1687,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1712,7 +1713,7 @@ fn commit_below_commit() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1734,7 +1735,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   xkx add file.txt
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1759,7 +1760,7 @@ fn commit_below_branch() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1782,7 +1783,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   xvw add file.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1808,7 +1809,7 @@ fn commit_below_branch_with_multiple_commits_treats_branch_as_bucket() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1832,7 +1833,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   xkx add file.txt
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1855,7 +1856,7 @@ fn commit_above_refuses_on_conflicts() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1890,7 +1891,7 @@ fn commit_below_refuses_on_conflicts() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1969,7 +1970,7 @@ fn above_commit_not_in_workspace_returns_bad_input() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2025,7 +2026,7 @@ fn committing_specific_cli_ids() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2047,7 +2048,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2112,7 +2113,7 @@ fn hunks_within_file_are_not_order_dependent() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2137,7 +2138,7 @@ Hint: run `but help` for all commands
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2204,7 +2205,7 @@ fn overlapping_changes_to_modified_file_are_deduplicated() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2229,7 +2230,7 @@ Hint: run `but help` for all commands
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2286,7 +2287,7 @@ fn can_commit_with_path_prefix() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2309,7 +2310,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2352,7 +2353,7 @@ fn path_prefix_with_mix_of_modifications() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2379,7 +2380,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2457,7 +2458,7 @@ fn committing_above_an_empty_branch() {
 ┊├┄ to [top] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2491,7 +2492,7 @@ fn committing_below_empty_branch_with_empty_branch_below() {
 ┊├┄ mi [middle] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2534,7 +2535,7 @@ fn committing_below_non_top_empty_branch() {
 ┊●   onv add one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2562,7 +2563,7 @@ fn committing_below_an_empty_branch() {
 ┊╭┄ to [top] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2585,7 +2586,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   onv add one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2612,7 +2613,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊●   onv add one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2651,7 +2652,7 @@ fn commit_to_existing_branch_via_short_code() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2677,7 +2678,7 @@ fn commit_to_new_branch_with_same_name_as_file() {
 ┊●   lys add file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2719,7 +2720,7 @@ fn can_overspecify_hunk_id() {
 ┊│     lkv:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2862,7 +2863,7 @@ fn new_branches_are_created_on_top() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2891,7 +2892,7 @@ fn committing_modified_and_renamed_file() {
 ┊│     ouv:k A file-2
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2914,7 +2915,7 @@ Hint: run `but help` for all commands
 ┊│     ouv:k A file-2
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2937,7 +2938,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊│     ouv:k A file-2
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3151,7 +3152,7 @@ See `but commit --help` for details.
 ┊●   mrr add one and two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -3217,7 +3218,7 @@ Examples:
 ╭┄ @ [uncommitted]
 ┊   kl A one
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -3285,7 +3286,7 @@ fn commit_a_file_from_a_linked_worktree() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3324,7 +3325,7 @@ Created commit lpo on branch 'A'
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3373,7 +3374,7 @@ Created commit ulz on branch 'B'
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3437,7 +3438,7 @@ Created commit vvy on branch 'A'
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3636,7 +3637,7 @@ Created commit vzp on branch 'wt-feature'
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3801,7 +3802,7 @@ fn committing_twice_to_checked_out_workspace_branch_in_single_branch_mode_keeps_
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3823,7 +3824,7 @@ Hint: run `but help` for all commands
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3856,7 +3857,7 @@ Created commit orn on new branch 'top'
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3886,7 +3887,7 @@ Created commit tqv on new branch 'bottom'
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3936,7 +3937,7 @@ fn cannot_split_stack_by_committing_above_on_new_branch() {
 ┊●   tqv one (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3977,7 +3978,7 @@ fn cannot_split_worktree_by_committing_above_on_new_branch() {
 ┊├┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -4091,7 +4092,7 @@ fn single_branch_mode_committing_to_new_branches() {
 ┊●   lsm on middle (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4123,7 +4124,7 @@ Hint: run `but help` for all commands
 ┊●   lsm on middle (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4159,7 +4160,7 @@ Hint: run `but help` for all commands
 ┊●   lsm on middle (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4199,7 +4200,7 @@ Hint: run `but help` for all commands
 ┊●   l#1 on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4244,7 +4245,7 @@ Hint: run `but help` for all commands
 ┊●   l#2 on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4285,7 +4286,7 @@ fn single_branch_mode_committing_and_switching_to_new_branches() {
 ┊●   lsm on one (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4316,7 +4317,7 @@ Hint: run `but help` for all commands
 ┊●   lsm on two (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4351,7 +4352,7 @@ Hint: run `but help` for all commands
 ┊●   l#1 on two (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4386,7 +4387,7 @@ Hint: run `but help` for all commands
 ┊●   lsm on three (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4429,7 +4430,7 @@ Hint: run `but help` for all commands
 ┊●   l#2 on three (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4467,7 +4468,7 @@ Hint: run `but help` for all commands
 ┊●   lsm on one (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -4538,7 +4539,7 @@ fn single_branch_mode_committing_above_a_lower_branch() {
 ┊●   lsm on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 

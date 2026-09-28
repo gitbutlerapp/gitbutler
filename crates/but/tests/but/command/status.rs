@@ -5,6 +5,106 @@ use crate::utils::{CommandExt as _, Sandbox};
 use snapbox::IntoData;
 
 #[test]
+fn common_base_shows_only_configured_default_refs() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("branch unrelated origin/main");
+    env.invoke_git("symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_local_default_when_it_has_moved() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("branch -f main A");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 0dc3733 (common base, origin/main) 2000-01-02 add M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_remote_default_when_it_has_moved() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("update-ref refs/remotes/origin/main A");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+├╯ 0dc3733 (common base, main) 2000-01-02 add M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_uses_configured_nonstandard_default() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("branch trunk origin/main");
+    env.invoke_git("update-ref refs/remotes/origin/trunk origin/main");
+    env.invoke_git("config gitbutler.project.targetRef refs/remotes/origin/trunk");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 0dc3733 (common base, trunk, origin/trunk) 2000-01-02 add M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_missing_local_default() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("branch -D main");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 0dc3733 (common base, origin/main) 2000-01-02 add M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_both_defaults_when_they_have_moved() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.invoke_git("branch -f main A");
+    env.invoke_git("update-ref refs/remotes/origin/main A");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+├╯ 0dc3733 (common base) 2000-01-02 add M
+...
+"#]]);
+}
+
+#[test]
 fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
     let env = Sandbox::open_with_default_settings("one-fork");
     env.but("config feature single-branch enable")
@@ -87,7 +187,7 @@ fn single_branch_status_hides_branches_above_head() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -162,7 +262,7 @@ fn anonymous_segment() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -783,7 +883,7 @@ Applied remote branch 'origin/document-but-pr-skill' to workspace
 ├╯
 ┊
 ┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+├╯ 55165db (common base, main, origin/main) 2000-01-02 merge document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
@@ -867,7 +967,7 @@ fn unmerged_empty_branch_above_merged_one_is_not_treated_as_merged() {
 ├╯
 ┊
 ┊● 334227d (upstream: origin/main) 1 new commit
-├╯ 334227d (common base) 2000-01-02 merge bottom
+├╯ 334227d (common base, main, origin/main) 2000-01-02 merge bottom
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
@@ -1267,7 +1367,7 @@ fn agent_status_explains_rewritten_commit_marker() {
 ┊◐   [..] add one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1292,7 +1392,7 @@ This notice repeats until the skill is installed. If it still appears after inst
 ┊◐   [..] add one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: ◐ means rewritten locally vs upstream.
 Hint: commits are listed newest first. The first token on each line is the ID to use in commands.
@@ -1330,7 +1430,7 @@ printf '100644 %s 1\tconflicted.txt\n100644 %s 2\tconflicted.txt\n100644 %s 3\tc
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 ⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
 
 Hint: run `but help` for all commands
@@ -1425,7 +1525,7 @@ fn status_file_prefixed_with_persisted_or_synthetic_change_id() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1457,7 +1557,7 @@ fn file_ids_are_nicely_aligned() {
 ┊   mv A file-8.txt
 ┊   zx A file-9.txt
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -1485,7 +1585,7 @@ Hint: run `but branch new` to create a new branch to work on
 ┊│     rlo:z  A file-9.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1513,7 +1613,7 @@ Hint: run `but help` for all commands
 ┊│     rlo:z  A file-9.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1578,7 +1678,7 @@ fn worktree_lanes() {
 ┊●   zum off the target (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1815,7 +1915,7 @@ fn stacked_worktree_lanes() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1881,7 +1981,7 @@ fn status_from_inside_a_linked_worktree_shows_the_main_workspace() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1916,7 +2016,7 @@ fn status_renders_correctly_when_filename_reverse_hex_starts_with_old_uncommitte
 ╭┄ @ [uncommitted]
 ┊   zzs A file-1594
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -1939,7 +2039,7 @@ fn status_renders_correctly_when_branch_name_is_precisely_old_uncommitted() {
 ┊╭┄ g0 [zz] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 

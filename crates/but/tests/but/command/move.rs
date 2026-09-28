@@ -36,7 +36,7 @@ fn failed_implicit_move_checkout_restores_source_history() {
 ┊│     vml:q A file
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -91,7 +91,7 @@ Caused by:
 ┊│     vml:q A file
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -134,7 +134,7 @@ fn failed_implicit_branch_move_checkout_restores_source_history() {
 ┊│     vml:q A file
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -195,7 +195,7 @@ Caused by:
 ┊│     vml:q A file
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -225,7 +225,7 @@ fn single_branch_move_commit_to_independent_branch() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -264,7 +264,7 @@ fn single_branch_move_commit_above_checkout() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -301,7 +301,7 @@ fn single_branch_move_commit_and_switch() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -330,7 +330,7 @@ Hint: run `but help` for all commands
 ┊●   myy add B
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -366,7 +366,7 @@ fn single_branch_move_changes_and_switch() {
 ┊│     qkw:p A B
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -414,7 +414,7 @@ fn single_branch_move_changes_above_checkout() {
 ┊│     nmq:t A A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -462,7 +462,7 @@ fn single_branch_move_changes_to_independent_branch() {
 ┊│     nmq:t A A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -504,7 +504,7 @@ fn single_branch_move_above_lower_branch_preserves_checkout() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -542,7 +542,7 @@ fn single_branch_move_below_branch_preserves_checkout() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -581,7 +581,7 @@ fn single_branch_unstack_branch_enters_workspace() {
 ┊●   myy add B
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -616,7 +616,7 @@ fn single_branch_unstack_branch_and_switch() {
 ┊●   myy add B
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -654,7 +654,7 @@ fn single_branch_move_all_commits_retains_empty_source() {
 ┊●   zpr first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -685,7 +685,7 @@ Hint: run `but help` for all commands
 ┊├┄ so [source] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -718,7 +718,7 @@ fn single_branch_move_from_target_checks_out_new_branch() {
 ┊●   nyl first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -743,7 +743,7 @@ Hint: run `but help` for all commands
 ┊●   nyl first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -774,7 +774,7 @@ fn single_branch_move_to_existing_branch_and_switch() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -807,7 +807,7 @@ fn workspace_move_to_new_branch_and_switch() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -844,7 +844,7 @@ fn single_branch_stack_branch_and_switch() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -876,7 +876,7 @@ fn single_branch_unstack_checked_out_branch_and_switch() {
 ┊●   vuw add C
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -922,7 +922,7 @@ fn single_branch_unstack_empty_branch_and_switch() {
 ┊●   zpr first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -947,7 +947,7 @@ Hint: run `but help` for all commands
 ┊╭┄ em [empty] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -976,7 +976,7 @@ Hint: run `but help` for all commands
 ┊●   zpr first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1011,7 +1011,7 @@ fn single_branch_move_hunk_above_checkout() {
 ┊│     yvn:q A file
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1205,7 +1205,7 @@ fn move_commit_above_other_commit() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1230,7 +1230,7 @@ Moved zll above commit ywx
 ┊●   ywx add second
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1253,7 +1253,7 @@ fn move_commit_below_other_commit() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1278,7 +1278,7 @@ Moved ywx below commit zll
 ┊●   ywx add second
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1312,7 +1312,7 @@ fn move_multiple_consecutive_commits_relative_to_other_commit() {
 ┊●   zpl add A1
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1351,7 +1351,7 @@ Moved vvl, mzz [..] commit [..]
 ┊●   zpl add A1
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1388,7 +1388,7 @@ fn move_multiple_non_consecutive_commits_in_arbitrary_order_relative_to_other_co
 ┊●   zpl add A1
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1432,7 +1432,7 @@ Moved tpw, zpl, pyq [..] commit [..]
 ┊●   sxq add A2
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1458,7 +1458,7 @@ fn moving_commits_above_branch_creates_branch_above() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1485,7 +1485,7 @@ Moved zll to new branch 'a-branch-1' above branch 'A'
 ┊●   ywx add second
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1508,7 +1508,7 @@ fn moving_commits_above_branch_without_changing_relative_order_only_creates_bran
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1535,7 +1535,7 @@ Moved ywx to new branch 'a-branch-1' above branch 'A'
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1558,7 +1558,7 @@ fn moving_commits_below_branch_creates_branch_below() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1585,7 +1585,7 @@ Moved ywx to new branch 'a-branch-1' below branch 'A'
 ┊●   ywx add second
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1608,7 +1608,7 @@ fn moving_commits_below_branch_without_changing_relative_order_only_creates_bran
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1635,7 +1635,7 @@ Moved zll to new branch 'a-branch-1' below branch 'A'
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1658,7 +1658,7 @@ fn moving_all_commits_above_branch_retains_branch() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1685,7 +1685,7 @@ Moved ywx, zll to new branch 'a-branch-1' above branch 'A'
 ┊├┄ g0 [A] (no commits)
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1708,7 +1708,7 @@ fn moving_all_commits_below_branch_retains_branch() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1735,7 +1735,7 @@ Moved ywx, zll to new branch 'a-branch-1' below branch 'A'
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -1760,7 +1760,7 @@ fn move_commit_above_empty_branch() {
 ┊╭┄ h0 [B] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1789,7 +1789,7 @@ Moved tpm to new branch 'a-branch-1' above branch 'B'
 ┊├┄ h0 [B] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1814,7 +1814,7 @@ fn move_commit_below_empty_branch() {
 ┊╭┄ h0 [B] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1843,7 +1843,7 @@ Moved tpm to new branch 'a-branch-1' below branch 'B'
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1868,7 +1868,7 @@ fn above_or_below_unapplied_or_non_existing_branch_errors() {
 ┊╭┄ h0 [B] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1935,7 +1935,7 @@ fn move_to_tip_of_branch() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1963,7 +1963,7 @@ Moved tpm to the tip of branch 'B'
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1988,7 +1988,7 @@ fn move_to_tip_of_empty_branch() {
 ┊╭┄ h0 [B] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2015,7 +2015,7 @@ Moved tpm to the tip of branch 'B'
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2038,7 +2038,7 @@ fn move_to_tip_of_new_unstacked_branch() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2066,7 +2066,7 @@ Moved ywx to new branch 'new-branch'
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2089,7 +2089,7 @@ fn move_to_tip_of_new_unstacked_branch_with_canned_name() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2117,7 +2117,7 @@ Moved ywx to new branch 'a-branch-1'
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2142,7 +2142,7 @@ fn move_file_below_commit_creates_commit() {
 ┊│     zll:l A first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2170,7 +2170,7 @@ Moved 1 change from ywx to new commit qkw below commit zll
 ┊│     qkw:w A second
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2195,7 +2195,7 @@ fn move_file_above_commit_creates_commit() {
 ┊│     zll:l A first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2223,7 +2223,7 @@ Moved 1 change from zll to new commit qkw above commit ywx
 ┊●   zll add first (no changes)
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2248,7 +2248,7 @@ fn move_file_below_branch_creates_branch_and_commit() {
 ┊│     zll:l A first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2278,7 +2278,7 @@ Moved 1 change from ywx to new commit qkw on new branch 'a-branch-1' below branc
 ┊│     qkw:w A second
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2303,7 +2303,7 @@ fn move_file_above_branch_creates_branch_and_commit() {
 ┊│     zll:l A first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2333,7 +2333,7 @@ Moved 1 change from zll to new commit qkw on new branch 'a-branch-1' above branc
 ┊●   zll add first (no changes)
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2361,7 +2361,7 @@ fn move_file_to_branch_tip_creates_commit() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2392,7 +2392,7 @@ Moved 1 change from lrm to new commit qkw to the tip of branch 'A'
 ┊●   lrm add B (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2417,7 +2417,7 @@ fn move_file_to_non_existing_branch_tip_creates_unstacked_branch_and_commit() {
 ┊│     zll:l A first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2448,7 +2448,7 @@ Moved 1 change from ywx to new commit qkw on new branch 'new-branch'
 ┊│     zll:l A first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2473,7 +2473,7 @@ fn move_file_branch_without_argument_creates_unstacked_branch_with_canned_name_a
 ┊│     zll:l A first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2504,7 +2504,7 @@ Moved 1 change from ywx to new commit qkw on new branch 'a-branch-1'
 ┊│     zll:l A first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -2581,7 +2581,7 @@ Moved 1 change from szk to new commit qkw above commit knw
 ┊│     knw:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2742,7 +2742,7 @@ fn move_file_should_be_order_independent() {
 ┊│     zqr:n A new
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2772,7 +2772,7 @@ Moved 2 changes from nlk to new commit qkw above commit nlk
 ┊│     zqr:n A new
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2804,7 +2804,7 @@ Moved 2 changes from nlk to new commit qkw above commit nlk
 ┊│     zqr:n A new
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2832,7 +2832,7 @@ fn move_file_from_multiple_source_commits_is_not_allowed() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2872,7 +2872,7 @@ fn move_branch_above_within_same_stack() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2902,7 +2902,7 @@ Stacked branch 'B' on top of branch 'C'
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2989,7 +2989,7 @@ fn move_branch_above_to_other_stack() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3016,7 +3016,7 @@ Stacked branch 'B' on top of branch 'A'
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3041,7 +3041,7 @@ fn move_empty_branch_above_other_branch() {
 ┊╭┄ h0 [B] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3067,7 +3067,7 @@ Stacked branch 'B' on top of branch 'A'
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3101,7 +3101,7 @@ fn move_empty_branch_above_checked_out_branch_checks_it_out() {
 ┊├┄ mo [moved] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -3120,7 +3120,7 @@ Hint: run `but help` for all commands
 ┊├┄ to [top] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -3151,7 +3151,7 @@ fn move_empty_branch_below_the_tip_preserves_checkout() {
 ┊├┄ pt [empty-low] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -3174,7 +3174,7 @@ Hint: run `but help` for all commands
 ┊├┄ pt [empty-mid] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -3199,7 +3199,7 @@ fn move_empty_branch_above_tip_then_switching_to_workspace() {
 ┊├┄ to [top] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -3237,7 +3237,7 @@ fn move_empty_branch_below_tip_then_switching_to_workspace() {
 ┊├┄ pt [empty-mid] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -3277,7 +3277,7 @@ fn move_commit_branch_above_empty_dependents_keeps_them_empty() {
 ┊●   nwz commit branch
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -3301,7 +3301,7 @@ Hint: run `but help` for all commands
 ┊├┄ mp [empty-low] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -3339,7 +3339,7 @@ fn move_middle_non_empty_branch_above_checked_out_branch() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3363,7 +3363,7 @@ Hint: run `but help` for all commands
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3395,7 +3395,7 @@ fn move_bottom_non_empty_branch_above_checked_out_branch() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3419,7 +3419,7 @@ Hint: run `but help` for all commands
 ┊●   myy add B
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3451,7 +3451,7 @@ fn move_checked_out_branch_down_checks_out_new_tip() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3475,7 +3475,7 @@ Hint: run `but help` for all commands
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3511,7 +3511,7 @@ fn move_empty_checked_out_branch_down_keeps_it_empty() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3534,7 +3534,7 @@ Hint: run `but help` for all commands
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3570,7 +3570,7 @@ fn move_bottom_branch_above_checked_out_middle_leaves_hidden_tip_unchanged() {
 ┊●   nmq add A
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3591,7 +3591,7 @@ Hint: run `but help` for all commands
 ┊●   myy add B
 ├╯
 ┊
-┴ 3712f84 (common base) 2000-01-02 add M
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3687,7 +3687,7 @@ fn unstack_tip_branch() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3718,7 +3718,7 @@ Unstacked branch 'C'
 ┊●   wlx add C
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3748,7 +3748,7 @@ fn unstack_middle_branch() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3779,7 +3779,7 @@ Unstacked branch 'B'
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3809,7 +3809,7 @@ fn unstack_bottom_branch() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3840,7 +3840,7 @@ Unstacked branch 'A'
 ┊●   wwm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3866,7 +3866,7 @@ fn unstack_empty_branch() {
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3892,7 +3892,7 @@ Unstacked branch 'top'
 ┊╭┄ to [top] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3922,7 +3922,7 @@ fn unstack_branch_using_branch_arg() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3954,7 +3954,7 @@ Unstacked branch 'A'
 ┊●   wwm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3979,7 +3979,7 @@ fn unstack_file() {
 ┊│     zll:l A first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -4012,7 +4012,7 @@ fn unstack_commit() {
 ┊│     zll:l A first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -4070,7 +4070,7 @@ fn cannot_move_multiple_branches_at_once() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -4110,7 +4110,7 @@ fn cannot_move_branch_below() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -4150,7 +4150,7 @@ fn cannot_mix_sources() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -4211,7 +4211,7 @@ fn targeting_unapplied_branch_errors() {
 ┊╭┄ h0 [B] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -4243,7 +4243,7 @@ fn cannot_combine_targets() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -4386,7 +4386,7 @@ fn cannot_move_from_uncommitted() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -4431,7 +4431,7 @@ fn cannot_move_to_uncommitted() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -4633,7 +4633,7 @@ fn move_onto_branch_with_dash_dash_branch() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -4662,7 +4662,7 @@ Stacked branch 'B' on top of branch 'A'
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -4685,7 +4685,7 @@ fn cannot_move_onto_new_branch_with_dash_dash_branch() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -4914,7 +4914,7 @@ fn moving_changes_to_new_branch_with_message() {
 ┊●   tpm add A (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -4942,7 +4942,7 @@ fn moving_changes_to_new_commit_with_message() {
 ┊●   tpm add A (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -4970,7 +4970,7 @@ fn when_message_isnt_allowed() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -5009,7 +5009,7 @@ fn moving_commit_to_named_branch_above_or_below() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -5036,7 +5036,7 @@ Moved ywx to new branch 'top' above branch 'A'
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -5065,7 +5065,7 @@ Moved ywx to new branch 'bottom' below branch 'A'
 ┊●   ywx add second
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -5113,7 +5113,7 @@ Moved 1 change from ywx to new commit qkw on new branch 'top' above branch 'A'
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -5139,7 +5139,7 @@ fn cannot_rename_branches_when_stacking() {
 ┊●   lrm add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -5175,7 +5175,7 @@ fn naming_branches_when_unstacking_commits() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -5198,7 +5198,7 @@ Hint: run `but help` for all commands
 ┊╭┄ g0 [A] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -5242,7 +5242,7 @@ fn naming_branches_when_unstacking_committed_changes() {
 ┊●   tpm add A (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -5268,7 +5268,7 @@ fn cannot_name_branches_when_unstacking_branches() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -5299,7 +5299,7 @@ fn cannot_name_branches_when_moving_commits_relative_to_commits() {
 ┊●   zll add first
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -5337,7 +5337,7 @@ fn cannot_name_branches_when_moving_commits_relative_to_worktree() {
 ┊├┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ 1bbc04b (common base) 2000-01-02 add Base
+┴ 1bbc04b (common base, main, origin/main) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
@@ -5461,7 +5461,7 @@ fn moving_commit_to_branch_below_then_switching_to_workspace() {
 ┊●   lsm on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -5483,7 +5483,7 @@ Hint: run `but help` for all commands
 ┊●   lsm on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -5503,7 +5503,7 @@ Hint: run `but help` for all commands
 ┊●   lsm on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 

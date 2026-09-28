@@ -211,7 +211,7 @@ fn in_single_branch_mode_creating_stacked_branches() {
 ┊╭┄ ma [main] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -238,7 +238,7 @@ Created branch 'middle'
 ┊╭┄ mi [middle] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -265,7 +265,7 @@ Created branch 'bottom' below branch 'middle'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -294,7 +294,7 @@ Created branch 'top' above branch 'middle'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -325,7 +325,7 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -355,7 +355,7 @@ fn in_single_branch_mode_create_new_branches_with_commits() {
 ┊╭┄ ma [main] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -384,7 +384,7 @@ Created branch 'middle'
 ┊●   lsm on middle (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -416,7 +416,7 @@ Created branch 'top' above branch 'middle'
 ┊●   lsm on middle (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -457,7 +457,7 @@ Created branch 'bottom' below branch 'middle'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -484,7 +484,7 @@ Hint: run `but help` for all commands
 ┊●   l#1 on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -522,7 +522,7 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ┊●   l#1 on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -573,7 +573,7 @@ Created branch 'a-branch-1'
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -596,7 +596,7 @@ Created branch 'one'
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -616,7 +616,7 @@ fn create_branch_above_empty_branch() {
 ┊╭┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -638,7 +638,7 @@ Created branch 'top' above branch 'bottom'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -662,7 +662,7 @@ Created branch 'middle' above branch 'bottom'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -683,7 +683,7 @@ fn create_branch_above_non_empty_branch() {
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -706,7 +706,7 @@ Created branch 'top' above branch 'bottom'
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -726,7 +726,7 @@ fn create_branch_below_empty_branch() {
 ┊╭┄ to [top] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -748,7 +748,7 @@ Created branch 'bottom' below branch 'top'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -772,7 +772,7 @@ Created branch 'middle' below branch 'top'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -793,7 +793,7 @@ fn create_branch_below_non_empty_branch() {
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -816,7 +816,7 @@ Created branch 'bottom' below branch 'top'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -841,7 +841,7 @@ fn create_branch_above_commit() {
 ┊●   tqv bottom (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -866,7 +866,7 @@ Created branch 'a-branch-1' above commit uxw
 ┊●   tqv bottom (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -893,7 +893,7 @@ Created branch 'a-branch-2' above commit zou
 ┊●   tqv bottom (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -918,7 +918,7 @@ fn create_branch_below_commit() {
 ┊●   tqv bottom (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -943,7 +943,7 @@ Created branch 'a-branch-1' below commit uxw
 ┊●   tqv bottom (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -970,7 +970,7 @@ Created branch 'a-branch-2' below commit tqv
 ┊├┄ ra [a-branch-2] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -998,7 +998,7 @@ fn can_create_new_branches_above_merged_branches_but_not_below() {
 ├╯
 ┊
 ┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+├╯ 55165db (common base, main, origin/main) 2000-01-02 merge document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
@@ -1027,7 +1027,7 @@ Created branch 'a-branch-1' above branch 'document-but-pr-skill'
 ├╯
 ┊
 ┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+├╯ 55165db (common base, main, origin/main) 2000-01-02 merge document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
@@ -1091,7 +1091,7 @@ fn create_branch_using_old_anchor_flag() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -1113,7 +1113,7 @@ Hint: run `but branch new` to create a new branch to work on
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1140,7 +1140,7 @@ fn in_single_branch_mode_creating_new_independent_branch_takes_you_to_workspace_
 ┊╭┄ ma [main] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1170,7 +1170,7 @@ Created branch 'one'
 ┊╭┄ on [one] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1206,7 +1206,7 @@ Created branch 'two'
 ┊╭┄ on [one] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1232,7 +1232,7 @@ Hint: run `but help` for all commands
 ┊╭┄ on [one] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1268,7 +1268,7 @@ Created branch 'three'
 ┊╭┄ on [one] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1293,7 +1293,7 @@ fn in_single_branch_mode_switching_to_stacked_branches_works() {
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1316,7 +1316,7 @@ Hint: run `but help` for all commands
 ┊╭┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1342,7 +1342,7 @@ Hint: run `but help` for all commands
 ┊╭┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1388,7 +1388,7 @@ fn in_single_branch_mode_switching_to_stacked_branches_with_commits_works() {
 ┊●   lsm on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1414,7 +1414,7 @@ Hint: run `but help` for all commands
 ┊●   lsm on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1448,7 +1448,7 @@ Hint: run `but help` for all commands
 ┊●   l#1 on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1483,7 +1483,7 @@ fn in_single_branch_mode_creating_and_switching_to_new_branches() {
 ┊╭┄ on [one] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1506,7 +1506,7 @@ Hint: run `but help` for all commands
 ┊╭┄ tw [two] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1536,7 +1536,7 @@ fn in_single_branch_mode_creating_and_switching_to_new_branches_with_commits() {
 ┊●   lsm on one (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1560,7 +1560,7 @@ Hint: run `but help` for all commands
 ┊╭┄ tw [two] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1589,7 +1589,7 @@ fn in_workspace_mode_creating_and_switching_to_new_branches() {
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1616,7 +1616,7 @@ Hint: run `but help` for all commands
 ┊╭┄ br [a-branch-2] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1657,7 +1657,7 @@ fn switching_back_after_creating_an_independent_branch_restores_workspace() {
 ┊╭┄ ex [example] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1692,7 +1692,7 @@ fn places_a_branch_in_a_worktree_lane() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 

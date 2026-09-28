@@ -206,7 +206,7 @@ fn agent_skill_notices_can_be_disabled_in_persisted_settings() {
             .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: commits are listed newest first. The first token on each line is the ID to use in commands.
 Hint: run `but branch new` to create a new branch to work on

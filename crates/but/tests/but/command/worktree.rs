@@ -500,7 +500,7 @@ at feature-one (refs/heads/Feature/One) - [..]/.git/gb-wts/feature-one
 ┊├┄ at [Feature/One] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
