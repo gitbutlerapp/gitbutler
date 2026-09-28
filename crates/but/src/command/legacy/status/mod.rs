@@ -491,6 +491,9 @@ fn build_status_context<'a>(
                     .insert(local_commit.id, local_commit.change_id().into_owned());
                 local_commits_by_id.insert(local_commit.id, local_commit.clone());
             }
+            for segment in &worktree.segments {
+                push_statuses_by_segment_id.insert(segment.id, segment.push_status);
+            }
         }
         for stack in head_info.stacks {
             for segment in stack.segments {
@@ -602,7 +605,7 @@ fn build_status_context<'a>(
     let ci_map = ci_map(
         ctx,
         &cache_config,
-        &stack_details,
+        id_map.stacks().iter().chain(id_map.worktree_lanes()),
         &push_statuses_by_segment_id,
         &review_map,
     )?;
@@ -1264,38 +1267,36 @@ fn print_worktree_status(
     Ok(has_merged_upstream_branch)
 }
 
-fn ci_map(
+fn ci_map<'a>(
     ctx: &Context,
     cache_config: &but_forge::CacheConfig,
-    stack_details: &[StackEntry],
+    lanes: impl Iterator<Item = &'a LaneWithId>,
     push_statuses_by_segment_id: &HashMap<SegmentIndex, PushStatus>,
     review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
 ) -> Result<BTreeMap<String, Vec<but_forge::CiCheck>>, anyhow::Error> {
     let mut ci_map = BTreeMap::new();
-    for (_, (stack_with_id, _)) in stack_details {
-        if let Some(stack_with_id) = stack_with_id {
-            for segment in &stack_with_id.segments {
-                let push_status = push_statuses_by_segment_id.get(&segment.inner.id);
-                if push_status.is_none() {
-                    eprintln!("warning: head_info does not contain segment that graph has");
-                }
-                // Fetch CI only for branches that actually have a review on the
-                // forge, derived from the cached review list keyed by branch name
-                // rather than a stored PR number on branch metadata.
-                if !matches!(push_status, Some(PushStatus::Integrated))
-                    && let Some(branch_name) = segment.branch_name()
-                    && let Ok(branch_name) = branch_name.to_str()
-                    && review_map
-                        .get(branch_name)
-                        .is_some_and(|reviews| !reviews.is_empty())
-                    && let Ok(checks) = but_api::legacy::forge::list_ci_checks_for_ref(
-                        ctx,
-                        branch_name,
-                        Some(cache_config.clone()),
-                    )
-                {
-                    ci_map.insert(branch_name.to_owned(), checks);
-                }
+    for lane in lanes {
+        for segment in &lane.segments {
+            let push_status = push_statuses_by_segment_id.get(&segment.inner.id);
+            if push_status.is_none() {
+                eprintln!("warning: head_info does not contain segment that graph has");
+            }
+            // Fetch CI only for branches that actually have a review on the
+            // forge, derived from the cached review list keyed by branch name
+            // rather than a stored PR number on branch metadata.
+            if !matches!(push_status, Some(PushStatus::Integrated))
+                && let Some(branch_name) = segment.branch_name()
+                && let Ok(branch_name) = branch_name.to_str()
+                && review_map
+                    .get(branch_name)
+                    .is_some_and(|reviews| !reviews.is_empty())
+                && let Ok(checks) = but_api::legacy::forge::list_ci_checks_for_ref(
+                    ctx,
+                    branch_name,
+                    Some(cache_config.clone()),
+                )
+            {
+                ci_map.insert(branch_name.to_owned(), checks);
             }
         }
     }
