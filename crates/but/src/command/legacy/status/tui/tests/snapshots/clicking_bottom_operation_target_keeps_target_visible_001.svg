@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="182" viewBox="0 0 820 182">
+  <rect x="0" y="0" width="820" height="182" fill="#000000" />
+  <rect x="50" y="46" width="96" height="18" fill="#555555" />
+  <rect x="10" y="118" width="40" height="18" fill="#45475A" />
+  <rect x="50" y="118" width="184" height="18" fill="#00AAAA" />
+  <rect x="234" y="118" width="576" height="18" fill="#45475A" />
+  <rect x="10" y="136" width="800" height="18" fill="#45475A" />
+  <rect x="10" y="154" width="64" height="18" fill="#00AAAA" />
+  <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
+    <text x="10" y="24" style="fill:#CCCCCC;">┊</text>
+    <text x="10 18 26" y="42" style="fill:#CCCCCC;">┊╭┄</text>
+    <text x="42 50" y="42" style="fill:#0000AA;font-weight:bold;">g0</text>
+    <text x="66" y="42" style="fill:#CCCCCC;">[</text>
+    <text x="74" y="42" style="fill:#00AA00;">A</text>
+    <text x="82" y="42" style="fill:#CCCCCC;">]</text>
+    <text x="10 18" y="60" style="fill:#CCCCCC;">┊●</text>
+    <text x="50 58" y="60" style="fill:#FFFFFF;">&lt;&lt;</text>
+    <text x="74 82 90 98 106 114" y="60" style="fill:#FFFFFF;">source</text>
+    <text x="130 138" y="60" style="fill:#FFFFFF;">&gt;&gt;</text>
+    <text x="154" y="60" style="fill:#AA00AA;">t</text>
+    <text x="162 170" y="60" style="fill:#CCCCCC;opacity:0.75;">pm</text>
+    <text x="186 194 202" y="60" style="fill:#CCCCCC;">add</text>
+    <text x="218" y="60" style="fill:#CCCCCC;">A</text>
+    <text x="10 18" y="78" style="fill:#CCCCCC;">├╯</text>
+    <text x="10" y="96" style="fill:#CCCCCC;">┊</text>
+    <text x="10 18 26" y="114" style="fill:#CCCCCC;">┊╭┄</text>
+    <text x="42 50" y="114" style="fill:#0000AA;font-weight:bold;">h0</text>
+    <text x="66" y="114" style="fill:#CCCCCC;">[</text>
+    <text x="74" y="114" style="fill:#00AA00;">B</text>
+    <text x="82" y="114" style="fill:#CCCCCC;">]</text>
+    <text x="10 18" y="132" style="fill:#FFFFFF;font-weight:bold;">┊│</text>
+    <text x="50 58" y="132" style="fill:#000000;font-weight:bold;">&lt;&lt;</text>
+    <text x="74 82 90 98" y="132" style="fill:#000000;font-weight:bold;">move</text>
+    <text x="114 122 130 138 146 154" y="132" style="fill:#000000;font-weight:bold;">commit</text>
+    <text x="170 178 186 194 202" y="132" style="fill:#000000;font-weight:bold;">above</text>
+    <text x="218 226" y="132" style="fill:#000000;font-weight:bold;">&gt;&gt;</text>
+    <text x="10 18" y="150" style="fill:#FFFFFF;font-weight:bold;">┊●</text>
+    <text x="50" y="150" style="fill:#AA00AA;font-weight:bold;">l</text>
+    <text x="58 66" y="150" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">rm</text>
+    <text x="82 90 98" y="150" style="fill:#FFFFFF;font-weight:bold;">add</text>
+    <text x="114" y="150" style="fill:#FFFFFF;font-weight:bold;">B</text>
+    <text x="26 34 42 50" y="168" style="fill:#000000;">move</text>
+    <text x="82 90 98 106 114" y="168" style="fill:#0000AA;">enter</text>
+    <text x="130 138 146 154 162 170 178" y="168" style="fill:#CCCCCC;opacity:0.75;">confirm</text>
+    <text x="194" y="168" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="210" y="168" style="fill:#0000AA;">a</text>
+    <text x="226 234 242 250 258 266 274 282 290 298 306" y="168" style="fill:#CCCCCC;opacity:0.75;">above/below</text>
+    <text x="322" y="168" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="338" y="168" style="fill:#0000AA;">b</text>
+    <text x="354 362 370 378" y="168" style="fill:#CCCCCC;opacity:0.75;">move</text>
+    <text x="394 402" y="168" style="fill:#CCCCCC;opacity:0.75;">to</text>
+    <text x="418 426 434" y="168" style="fill:#CCCCCC;opacity:0.75;">new</text>
+    <text x="450 458 466 474 482 490" y="168" style="fill:#CCCCCC;opacity:0.75;">branch</text>
+    <text x="506" y="168" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="522 530 538" y="168" style="fill:#0000AA;">↑/k</text>
+    <text x="554 562" y="168" style="fill:#CCCCCC;opacity:0.75;">up</text>
+    <text x="578" y="168" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="594 602 610" y="168" style="fill:#0000AA;">↓/j</text>
+    <text x="626 634 642 650" y="168" style="fill:#CCCCCC;opacity:0.75;">down</text>
+    <text x="666" y="168" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="682" y="168" style="fill:#0000AA;">?</text>
+    <text x="698 706 714 722" y="168" style="fill:#CCCCCC;opacity:0.75;">help</text>
+    <text x="738" y="168" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="754" y="168" style="fill:#0000AA;">q</text>
+    <text x="770 778 786 794" y="168" style="fill:#CCCCCC;opacity:0.75;">quit</text>
+  </g>
+</svg>

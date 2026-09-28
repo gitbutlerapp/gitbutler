@@ -515,6 +515,28 @@ impl KeyBindsBuilder<'_> {
         .show_only_in_normal_mode_help_section()
     }
 
+    fn scroll_status_down(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "scroll down",
+            press().control().code(KeyCode::Char('e')),
+            || Message::StatusScroll(1),
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+        .long_description("Scroll status viewport down one line")
+    }
+
+    fn scroll_status_up(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "scroll up",
+            press().control().code(KeyCode::Char('y')),
+            || Message::StatusScroll(-1),
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+        .long_description("Scroll status viewport up one line")
+    }
+
     const JUMP_DISTANCE: usize = 10;
 
     fn jump_up(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -1207,6 +1229,8 @@ fn register_normal_mode_key_binds(
     builder.prev_section().register();
     builder.jump_up().register();
     builder.jump_down().register();
+    builder.scroll_status_down().register();
+    builder.scroll_status_up().register();
 
     builder.commit().register();
 
@@ -1289,6 +1313,8 @@ fn register_non_mode_specific_key_binds(
     builder.prev_section().register();
     builder.jump_up().register();
     builder.jump_down().register();
+    builder.scroll_status_down().register();
+    builder.scroll_status_up().register();
     builder.toggle_details().register();
     builder.toggle_full_screen_details().register();
 

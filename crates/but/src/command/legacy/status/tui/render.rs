@@ -42,7 +42,8 @@ use super::{
 };
 
 pub fn render_app(app: &App, frame: &mut Frame) {
-    let layout = if app.in_single_branch_mode {
+    app.status_line_areas.borrow_mut().clear();
+    if app.in_single_branch_mode {
         let area = frame.area();
         let layout = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(area);
         frame.render_widget(
@@ -52,10 +53,8 @@ pub fn render_app(app: &App, frame: &mut Frame) {
                 .bg(app.mode.bg(app.theme)),
             layout[1],
         );
-        app_layout(app, layout[0])
-    } else {
-        app_layout(app, frame.area())
-    };
+    }
+    let layout = app_layout(app, frame.area());
 
     match layout.details {
         Some(DetailsPaneLayout::FullScreen {
@@ -227,6 +226,13 @@ enum DetailsPaneLayout {
 }
 
 fn app_layout(app: &App, terminal_area: Rect) -> AppLayout {
+    // All consumers, including scroll bounds and mouse hit testing, must reserve
+    // the same footer row as rendering.
+    let terminal_area = if app.in_single_branch_mode {
+        Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(terminal_area)[0]
+    } else {
+        terminal_area
+    };
     let content_layout =
         Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(terminal_area);
     let main_content_area = content_layout[0];
@@ -283,6 +289,13 @@ fn app_layout(app: &App, terminal_area: Rect) -> AppLayout {
         debug_area,
         details,
     }
+}
+
+pub(crate) fn status_area_for_app(app: &App, terminal_area: Rect) -> Option<Rect> {
+    if matches!(&*app.mode, Mode::Details(mode) if mode.full_screen) {
+        return None;
+    }
+    Some(app_layout(app, terminal_area).status_area)
 }
 
 pub(crate) fn details_content_area_for_app(app: &App, terminal_area: Rect) -> Option<Rect> {
@@ -387,6 +400,24 @@ fn update_status_scroll(app: &App, area: Rect) {
         );
     }
 
+    // A click doesn't restore cursor context, but both the selected item and its
+    // preview must fit. Reserve the extra row with only the minimum scroll needed
+    // to show both (when both rows can fit).
+    if viewport_height > 1
+        && app
+            .cursor
+            .selected_line(&app.status_lines)
+            .and_then(|line| app.mode.as_mode_render().operation_extension(&line.data))
+            .is_some()
+    {
+        scroll_top = scroll_top.max(
+            app.cursor
+                .index()
+                .saturating_add(2)
+                .saturating_sub(viewport_height),
+        );
+    }
+
     app.status_scroll.set_top(scroll_top);
 }
 
@@ -444,6 +475,9 @@ fn render_status_list_item(
     if let Some((area, extension)) = operation_extension_area {
         render_operation_extension_line(app, data, connector.as_deref(), area, extension, frame);
     }
+    app.status_line_areas
+        .borrow_mut()
+        .push((area, status_line_idx));
 
     if (is_selected || mode_highlight) && highlight_current_line {
         frame
