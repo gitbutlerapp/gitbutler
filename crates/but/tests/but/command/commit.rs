@@ -4425,7 +4425,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   6c30ea2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   f2a31b0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 2388a3a (top) on top
 | * 1c81de8 (middle) also on middle
@@ -4752,5 +4752,52 @@ error: the argument '--switch' cannot be used with '--above <BRANCH_OR_COMMIT>'
 error: the argument '--switch' cannot be used with '--above <BRANCH_OR_COMMIT>'
 
 ...
+"#]]);
+}
+
+#[test]
+fn dont_commit_todos() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file(
+        "file",
+        "commit this line\nTODO: dont commit this\nalso commit this",
+    );
+
+    env.but("commit -b new-branch --no-message")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![""]);
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────────╮
+ qs:b M file │
+─────────────╯
+
+@@ -1,2 +1,3 @@
+───────────────
+1 ┊ 1 │  commit this line
+  ┊ 2 │ +TODO: dont commit this
+2 ┊ 3 │  also commit this
+
+"#]]);
+
+    env.but("diff new-branch")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────╮
+ A file │
+────────╯
+
+@@ -1,0 +1,2 @@
+───────────────
+  ┊ 1 │ +commit this line
+  ┊ 2 │ +also commit this
+
 "#]]);
 }

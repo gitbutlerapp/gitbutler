@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice as _};
 use but_core::{DiffSpec, HunkHeader};
 
 use crate::{
@@ -162,7 +162,66 @@ impl<'a> DiffSpecBuilder<'a> {
     pub fn push_changes_from_uncommitted_area(&mut self) -> anyhow::Result<()> {
         let changes = self.worktree_changes()?.to_vec();
         let hunks = but_core::hunks_from_changes(self.repo, changes.clone(), self.context_lines);
-        self.push_hunks_with_changes(hunks, &changes);
+
+        fn dont_commit(line: &[u8]) -> bool {
+            line.contains_str(b"TODO")
+        }
+
+        for hunk in hunks {
+            let mut spec = but_core::diff_spec_with_changes(hunk.clone(), &changes);
+            if let (Some(diff), Some(header)) = (&hunk.diff, hunk.hunk_header) {
+                // One-sided headers select individual changed lines, not patch text.
+                let mut selected_headers = Vec::new();
+                // Keep the original whole-hunk headers unless the predicate excludes a line.
+                let mut excluded_lines = false;
+                let mut old_line = header.old_start;
+                let mut new_line = header.new_start;
+                for line in diff.lines() {
+                    match line.first() {
+                        Some(b'+') => {
+                            if dont_commit(line) {
+                                excluded_lines = true;
+                            } else {
+                                selected_headers.push(HunkHeader {
+                                    old_start: 0,
+                                    old_lines: 0,
+                                    new_start: new_line,
+                                    new_lines: 1,
+                                });
+                            }
+                            new_line += 1;
+                        }
+                        Some(b'-') => {
+                            if dont_commit(line) {
+                                excluded_lines = true;
+                            } else {
+                                selected_headers.push(HunkHeader {
+                                    old_start: old_line,
+                                    old_lines: 1,
+                                    new_start: 0,
+                                    new_lines: 0,
+                                });
+                            }
+                            old_line += 1;
+                        }
+                        Some(b' ') => {
+                            old_line += 1;
+                            new_line += 1;
+                        }
+                        _ => {} // Skip hunk headers and missing-newline markers.
+                    }
+                }
+                if excluded_lines {
+                    // Empty headers select the whole file, so omit an empty selection.
+                    if selected_headers.is_empty() {
+                        continue;
+                    }
+                    spec.hunk_headers = selected_headers;
+                }
+            }
+            self.diff_specs.push(spec);
+        }
+
         Ok(())
     }
 
