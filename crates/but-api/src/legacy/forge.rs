@@ -2323,7 +2323,13 @@ fn review_update_groups_for_lane(
     }
 }
 
-fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Result<String> {
+/// The branch a new review for `branch` targets, once `branch` and everything beneath it is
+/// pushed: the nearest branch beneath it along its lane chain that has an open review, or the
+/// target branch when none has.
+///
+/// Errors if a branch is not pushed, or its remote history does not continue from the
+/// reviewed branch beneath it, as the review would then show commits that are not its own.
+pub fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) -> Result<String> {
     let info = crate::legacy::workspace::head_info(ctx)?;
     let chain = lane_chain_for_branch(&info, branch)?;
     let repo = ctx.repo.get()?;
