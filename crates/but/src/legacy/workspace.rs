@@ -324,3 +324,91 @@ fn head_info_branch(segment: &Segment, null_id: gix::ObjectId) -> anyhow::Result
         upstream_commits: commits_on_remote.iter().map(Into::into).collect(),
     })
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use but_core::ref_metadata::ProjectMeta;
+    use but_ctx::Context;
+    use but_testsupport::{CommandExt, git_at_dir, open_repo};
+
+    /// `C` checked out over `B` over `A`, with a linked worktree on branch `W` resting on `B`, all
+    /// but `C` pushed, and open reviews #1 on `A`, #2 on `B` and #3 on `W` in the forge cache.
+    pub(crate) fn context_with_worktree_on_reviewed_stack()
+    -> anyhow::Result<(Context, tempfile::TempDir)> {
+        let tmp = tempfile::tempdir()?;
+        let git = |args: &[&str]| git_at_dir(tmp.path()).args(args).run();
+        git(&["init", "-b", "main"]);
+        git(&["config", "user.name", "GitButler"]);
+        git(&["config", "user.email", "gitbutler@example.com"]);
+        git(&["commit", "--allow-empty", "-m", "base"]);
+        git(&["config", "remote.origin.url", "../origin"]);
+        git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        for branch in ["A", "B", "C"] {
+            git(&["checkout", "-b", branch]);
+            git(&["commit", "--allow-empty", "-m", branch]);
+        }
+        let worktree = tmp.path().join("worktrees").join("W");
+        git_at_dir(tmp.path())
+            .args(["worktree", "add", "-b", "W"])
+            .arg(&worktree)
+            .arg("B")
+            .run();
+        git_at_dir(&worktree)
+            .args(["commit", "--allow-empty", "-m", "W"])
+            .run();
+        for branch in ["A", "B", "W"] {
+            git(&[
+                "update-ref",
+                &format!("refs/remotes/origin/{branch}"),
+                branch,
+            ]);
+        }
+
+        let repo = open_repo(tmp.path())?;
+        ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: Some("origin".into()),
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.feature_flags.worktree_manipulation = true;
+        {
+            let mut db = ctx.db.get_cache_mut()?;
+            // Adoption already ran, so the worktree on disk counts as active.
+            db.worktree_meta_mut().mark_adopted()?;
+            for (number, branch) in [(1, "A"), (2, "B"), (3, "W")] {
+                but_forge::cache_review(&mut db, &open_review(number, branch))?;
+            }
+        }
+        Ok((ctx, tmp))
+    }
+
+    fn open_review(number: i64, source_branch: &str) -> but_forge::ForgeReview {
+        but_forge::ForgeReview {
+            html_url: String::new(),
+            number,
+            title: String::new(),
+            body: None,
+            author: None,
+            labels: Vec::new(),
+            draft: false,
+            source_branch: source_branch.into(),
+            target_branch: "main".into(),
+            sha: String::new(),
+            integration_commit_shas: Vec::new(),
+            created_at: None,
+            modified_at: None,
+            merged_at: None,
+            closed_at: None,
+            repository_ssh_url: None,
+            repository_https_url: None,
+            repo_owner: None,
+            head_repo_is_fork: false,
+            auto_merge_enabled: false,
+            reviewers: Vec::new(),
+            unit_symbol: "#".into(),
+            last_sync_at: Default::default(),
+        }
+    }
+}

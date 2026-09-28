@@ -1198,35 +1198,32 @@ fn resolve_review_selection(
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<usize>> {
     let id_map = IdMap::legacy_new_from_context(ctx)?;
-    let applied_stacks = crate::legacy::workspace::applied_stacks(ctx)?;
+    let lanes = crate::legacy::workspace::applied_lanes(ctx)?;
     let target_review_ids = if let Some(selector) = selector {
         // Extract any review IDs that match any of the associated reviews in the workspace.
-        let review_ids = applied_stacks
+        let review_ids = lanes
             .iter()
             .flat_map(review_ids_for_stack)
             .collect::<Vec<_>>();
         let mut unique_review_ids = parse_review_ids(&selector, &review_ids);
         // Concatenate any review IDs associated with the selected CliIDs.
         unique_review_ids.extend(resolve_cli_ids_to_review_ids(
-            ctx,
-            &selector,
-            &applied_stacks,
-            &id_map,
+            ctx, &selector, &lanes, &id_map,
         ));
         unique_review_ids.sort();
         unique_review_ids.dedup();
         unique_review_ids
     } else {
-        interactive_review_id_selection(&applied_stacks, out)?
+        interactive_review_id_selection(&lanes, out)?
     };
     Ok(target_review_ids)
 }
 
 fn interactive_review_id_selection(
-    applied_stacks: &[HeadInfoStack],
+    lanes: &[HeadInfoStack],
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<usize>> {
-    let branch_reviews = applied_stacks
+    let branch_reviews = lanes
         .iter()
         .flat_map(|stack| {
             stack.branches.iter().filter_map(|branch| {
@@ -1257,7 +1254,7 @@ fn interactive_review_id_selection(
 fn resolve_cli_ids_to_review_ids(
     ctx: &mut Context,
     selector: &str,
-    applied_stacks: &[HeadInfoStack],
+    lanes: &[HeadInfoStack],
     id_map: &IdMap,
 ) -> Vec<usize> {
     parse_sources(ctx, id_map, selector)
@@ -1265,19 +1262,11 @@ fn resolve_cli_ids_to_review_ids(
         .unwrap_or_default()
         .into_iter()
         .filter_map(|cli_id| match cli_id {
-            CliId::Branch(branch) => applied_stacks
+            CliId::Branch(branch) => lanes
                 .iter()
-                .find_map(|stack| {
-                    if stack.id == branch.lane.stack_id() {
-                        stack
-                            .branch(&branch.name)
-                            .and_then(|branch| branch.review_id)
-                    } else {
-                        None
-                    }
-                })
+                .find_map(|lane| lane.branch(&branch.name)?.review_id)
                 .map(|r| vec![r]),
-            CliId::Stack { stack_id, .. } => applied_stacks.iter().find_map(|stack| {
+            CliId::Stack { stack_id, .. } => lanes.iter().find_map(|stack| {
                 if stack.id == Some(stack_id) {
                     Some(review_ids_for_stack(stack).collect())
                 } else {
@@ -1316,6 +1305,24 @@ fn extract_valid_ids(selector: &str) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn worktree_reviews_are_selectable_by_branch_and_number() -> anyhow::Result<()> {
+        let (mut ctx, _tmp) =
+            crate::legacy::workspace::tests::context_with_worktree_on_reviewed_stack()?;
+        let mut out = OutputChannel::new(crate::args::OutputFormat::Human { agent: true });
+        let mut select =
+            |selector: &str| resolve_review_selection(&mut ctx, Some(selector.into()), &mut out);
+
+        assert_eq!(select("W")?, [3], "a worktree branch names its review");
+        assert_eq!(
+            select("3")?,
+            [3],
+            "a worktree review is selectable by number"
+        );
+        assert_eq!(select("B,W")?, [2, 3], "stack and worktree branches mix");
+        Ok(())
+    }
 
     #[test]
     fn skipped_review_recovery_retries_the_fresh_action_without_fetch_alias() {
