@@ -28,7 +28,6 @@ import type {
 	PushStatus,
 	RelativeTo,
 	RemoteTrackingReference,
-	Stack,
 } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -69,7 +68,6 @@ import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import type { PushActivity } from "./push-activity.ts";
 import { BranchRowHeadline } from "../BranchRowHeadline.tsx";
-import { useStackMenuItems } from "./useStackMenuItems.ts";
 import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
 import {
 	type DownstackPushStatus,
@@ -77,16 +75,18 @@ import {
 	downstackPushStatusDisabled,
 } from "#ui/segment.ts";
 
-export type BranchLane = {
-	type: "stack";
-	stack: Stack;
-	canTearOff: boolean;
-	canRemove: boolean;
-	canUpdateFromRemote: boolean;
-	bottomRelativeTo: RelativeTo | null;
-};
+export type BranchLane =
+	| {
+			type: "stack";
+			stackMenuItems: Array<NativeMenuItem>;
+			canTearOff: boolean;
+			canRemove: boolean;
+			canUpdateFromRemote: boolean;
+			bottomRelativeTo: RelativeTo | null;
+	  }
+	| { type: "worktree" };
 
-export const CIBubble: FC<{ checks: AggregateCIChecks }> = (p) => {
+const CIBubble: FC<{ checks: AggregateCIChecks }> = (p) => {
 	switch (p.checks.status) {
 		case "success":
 			return (
@@ -272,7 +272,9 @@ export const BranchRow: FC<
 
 	const relativeTo: RelativeTo = { type: "referenceBytes", subject: refName.fullNameBytes };
 	const bucketRelativeTo = (side: InsertSide): RelativeTo =>
-		side === "below" && lane.bottomRelativeTo !== null ? lane.bottomRelativeTo : relativeTo;
+		side === "below" && lane.type === "stack" && lane.bottomRelativeTo !== null
+			? lane.bottomRelativeTo
+			: relativeTo;
 
 	const cutBranch = () => {
 		startKeyboardTransfer({ sources: [address], kind: "move" });
@@ -389,8 +391,6 @@ export const BranchRow: FC<
 		});
 	};
 
-	const stackMenuItems = useStackMenuItems(projectId, lane.stack);
-
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: isFolded ? "Unfold Commits" : "Fold Commits",
@@ -405,11 +405,15 @@ export const BranchRow: FC<
 			accelerator: toElectronAccelerator(sidebarHotkeys.workspaceBranchAndAncestorsPush.hotkey),
 			onSelect: pushBranch,
 		}),
-		nativeMenuItem({
-			label: "Update From Remote",
-			enabled: lane.canUpdateFromRemote,
-			onSelect: () => openUpdateFromRemote(dispatch, refName.fullNameBytes),
-		}),
+		...(lane.type === "stack"
+			? [
+					nativeMenuItem({
+						label: "Update From Remote",
+						enabled: lane.canUpdateFromRemote,
+						onSelect: () => openUpdateFromRemote(dispatch, refName.fullNameBytes),
+					}),
+				]
+			: []),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Rename Branch",
@@ -417,11 +421,15 @@ export const BranchRow: FC<
 			accelerator: toElectronAccelerator(sidebarHotkeys.renameBranch.hotkey),
 			onSelect: startEditing,
 		}),
-		nativeMenuItem({
-			label: "Cut Branch",
-			onSelect: cutBranch,
-			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
-		}),
+		...(lane.type === "stack"
+			? [
+					nativeMenuItem({
+						label: "Cut Branch",
+						onSelect: cutBranch,
+						accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
+					}),
+				]
+			: []),
 		nativeMenuItem({
 			label: "Copy Branch Name",
 			onSelect: () => window.lite.clipboardWriteText(optimisticBranchDisplayName),
@@ -433,40 +441,46 @@ export const BranchRow: FC<
 			accelerator: toElectronAccelerator(sidebarHotkeys.openPRInBrowser.hotkey),
 			onSelect: openPRInBrowser,
 		}),
-		insertBlankCommitMenuItem(insertBlankCommit, "below"),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Create Branch",
-			submenu: [
-				nativeMenuItem({
-					label: "Above",
-					accelerator: toElectronAccelerator(sidebarHotkeys.createDependentBranchAbove.hotkey),
-					onSelect: () => createDependentBranch("above"),
-				}),
-				nativeMenuItem({
-					label: "Below",
-					onSelect: () => createDependentBranch("below"),
-				}),
-			],
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Tear Off Branch",
-			enabled: lane.canTearOff && !isTearOffBranchPending,
-			onSelect: tearOff,
-		}),
-		nativeMenuItem({
-			label: "Delete Branch Reference",
-			enabled: lane.canRemove && !isBranchRemovePending,
-			accelerator: toElectronAccelerator(sidebarHotkeys.deleteBranchRef.hotkey),
-			onSelect: () =>
-				branchRemove({
-					projectId,
-					refName: refName.fullNameBytes,
-				}),
-		}),
-		nativeMenuSeparator,
-		...stackMenuItems,
+		...(lane.type === "stack"
+			? [
+					insertBlankCommitMenuItem(insertBlankCommit, "below"),
+					nativeMenuSeparator,
+					nativeMenuItem({
+						label: "Create Branch",
+						submenu: [
+							nativeMenuItem({
+								label: "Above",
+								accelerator: toElectronAccelerator(
+									sidebarHotkeys.createDependentBranchAbove.hotkey,
+								),
+								onSelect: () => createDependentBranch("above"),
+							}),
+							nativeMenuItem({
+								label: "Below",
+								onSelect: () => createDependentBranch("below"),
+							}),
+						],
+					}),
+					nativeMenuSeparator,
+					nativeMenuItem({
+						label: "Tear Off Branch",
+						enabled: lane.canTearOff && !isTearOffBranchPending,
+						onSelect: tearOff,
+					}),
+					nativeMenuItem({
+						label: "Delete Branch Reference",
+						enabled: lane.canRemove && !isBranchRemovePending,
+						accelerator: toElectronAccelerator(sidebarHotkeys.deleteBranchRef.hotkey),
+						onSelect: () =>
+							branchRemove({
+								projectId,
+								refName: refName.fullNameBytes,
+							}),
+					}),
+					nativeMenuSeparator,
+					...lane.stackMenuItems,
+				]
+			: []),
 	];
 
 	return (
@@ -671,7 +685,7 @@ export const BranchRow: FC<
 
 						{/* Beside Push rather than in its place: a plain push cannot land
 						    while the remote is ahead, and forcing would drop theirs. */}
-						{remoteLabel !== null && incoming > 0 && (
+						{lane.type === "stack" && remoteLabel !== null && incoming > 0 && (
 							<Button
 								aria-label={`Integrate ${remoteLabel} into ${refName.displayName}`}
 								title={`Bring ${remoteLabel}'s commits into ${refName.displayName}`}
