@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context as _, bail};
-use bstr::{BString, ByteSlice as _};
+use bstr::{BStr, BString, ByteSlice as _};
 use but_api::{
     WorkspaceState,
     json::{ChangeIdString, HexHash},
@@ -25,10 +25,12 @@ use crate::{
     },
     bad_input,
     command::worktree::remove::{RemoveOperation, RemoveOutcome},
+    error::BadInput,
     id::{CommitId, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, CommitIdJson, IntermediateChannel, WriteWithUtils,
+        change_source::{ChangeSourceId, InvokedFrom},
         diff_specs::DiffSpecBuilder,
     },
 };
@@ -282,6 +284,7 @@ pub fn discard(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<(DiscardOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -292,7 +295,7 @@ pub fn discard(
             let removed = remove_clean_worktree(ctx, guard.write_permission(), &repo, name)?;
             return Ok((DiscardOutcome::Worktree(removed), None));
         }
-        resolve(&repo, &id_map, args)?
+        resolve(&repo, &id_map, args, invoked_from)?
     };
 
     let (outcome, ws) = run(
@@ -355,8 +358,25 @@ fn remove_clean_worktree(
     )
 }
 
-fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<DiscardOperation> {
+fn worktree_changes_cannot_be_discarded(name: &BStr) -> BadInput {
+    bad_input(format!(
+        "Cannot discard uncommitted changes in worktree {name} yet"
+    ))
+}
+
+fn resolve(
+    repo: &gix::Repository,
+    id_map: &IdMap,
+    args: Platform,
+    invoked_from: &InvokedFrom,
+) -> CliResult<DiscardOperation> {
     let Platform { changes } = args;
+
+    if changes.is_empty()
+        && let ChangeSourceId::Worktree(name) = invoked_from.managed_source(id_map)?
+    {
+        return Err(worktree_changes_cannot_be_discarded(name.as_ref()).into());
+    }
 
     let mut branch_sources = Vec::new();
     let mut commit_sources = Vec::new();
@@ -381,18 +401,15 @@ fn resolve(repo: &gix::Repository, id_map: &IdMap, args: Platform) -> CliResult<
             ResolvedCliIdArg::UncommittedHunkOrFile(change) => {
                 uncommitted_change_sources.push(UncommittedDiscardSource::HunkOrFile(*change))
             }
-            ResolvedCliIdArg::Uncommitted => uncommitted_sources.push(()),
+            ResolvedCliIdArg::Uncommitted(ChangeSourceId::Head) => uncommitted_sources.push(()),
             ResolvedCliIdArg::PathPrefix { id: _, hunks } => {
                 uncommitted_change_sources.push(UncommittedDiscardSource::PathPrefix(hunks))
             }
-            ResolvedCliIdArg::WorktreeUncommitted(name) => {
-                return Err(bad_input(format!(
-                    "Changes in worktree {name} cannot be discarded as a whole"
-                ))
-                .arg_name("<CHANGES>")
-                .arg_value(value)
-                .hint("Discard its files or hunks by their CLI IDs instead")
-                .into());
+            ResolvedCliIdArg::Uncommitted(ChangeSourceId::Worktree(name)) => {
+                return Err(worktree_changes_cannot_be_discarded(name.as_ref())
+                    .arg_name("<CHANGES>")
+                    .arg_value(value)
+                    .into());
             }
             ResolvedCliIdArg::Stack { .. } => {
                 return Err(bad_input("Stacks cannot be discarded")

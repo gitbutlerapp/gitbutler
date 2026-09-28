@@ -74,7 +74,8 @@ pub struct Platform {
     /// squashed into a single commit. Uncommitted files or hunks, or `@` for all of them: squashed
     /// into the target. Committed files and hunks from one commit: moved into the target.
     ///
-    /// A target of `@` uncommits the sources instead. With `--target` and no sources, `@` is used.
+    /// A target of `@` uncommits the sources instead. With `--target` and no sources, the
+    /// uncommitted area of the checkout `but` runs in is used: `@`, or a linked worktree's.
     #[clap(required_unless_present = "target")]
     pub sources: Vec<CliIdArg>,
 

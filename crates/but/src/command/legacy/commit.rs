@@ -33,7 +33,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        change_source::{ChangeSourceId, ChangeSourceRepo, UncommittedSelection},
+        change_source::{ChangeSourceId, ChangeSourceRepo, InvokedFrom, UncommittedSelection},
         diff_specs::DiffSpecBuilder,
         merged_upstream::MergedUpstream,
         rejection,
@@ -129,6 +129,7 @@ pub fn commit(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<(CommitOutcome, WorkspaceState)> {
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -136,7 +137,15 @@ pub fn commit(
 
     let (mut guard, commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
-        resolve(guard, ctx, args, &mut out, &head_info, &id_map)?
+        resolve(
+            guard,
+            ctx,
+            args,
+            &mut out,
+            &head_info,
+            &id_map,
+            invoked_from,
+        )?
     };
     Ok(run(
         ctx,
@@ -155,6 +164,7 @@ fn resolve(
     out: &mut IntermediateChannel<'_>,
     head_info: &RefInfo,
     id_map: &IdMap,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<(
     RepoExclusiveGuard,
     CommitOperation,
@@ -244,14 +254,30 @@ fn resolve(
     } else if empty {
         (guard, CommitSelection::Nothing)
     } else {
-        (guard, CommitSelection::AllChanges(ChangeSourceId::Head))
+        (
+            guard,
+            CommitSelection::AllChanges(invoked_from.managed_source(id_map)?),
+        )
     };
 
     let commit_op = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-        let source = commit_selection.source();
+        let default_lane = || match &commit_selection {
+            CommitSelection::AllChanges(_) | CommitSelection::Changes(_) => {
+                Ok(commit_selection.source())
+            }
+            CommitSelection::Nothing => invoked_from.managed_source(id_map),
+        };
         route_commit_operation(
-            &repo, &ws, head_info, out, id_map, target_ish, &source, &merged, switch,
+            &repo,
+            &ws,
+            head_info,
+            out,
+            id_map,
+            target_ish,
+            default_lane,
+            &merged,
+            switch,
         )
         .map_err(|err| match err {
             RouteCommitOperationError::NoStackToCommitTo => {
@@ -467,9 +493,8 @@ impl CommitOperationTargetIsh {
     }
 }
 
-/// `source` is the checkout the changes to commit are read from: a worktree source with no
-/// explicit target defaults to that worktree's own branch tip, the way the TUI's heading
-/// gesture does, instead of a workspace stack.
+/// `default_lane` names the checkout whose lane a commit without a target goes to. It is only
+/// asked for then, so a checkout that can't be named fails just the commits relying on it.
 #[expect(clippy::too_many_arguments)]
 pub fn route_commit_operation(
     repo: &gix::Repository,
@@ -478,7 +503,7 @@ pub fn route_commit_operation(
     out: &mut IntermediateChannel<'_>,
     id_map: &IdMap,
     target: CommitOperationTargetIsh,
-    source: &ChangeSourceId,
+    default_lane: impl FnOnce() -> CliResult<ChangeSourceId>,
     merged: &MergedUpstream,
     switch: bool,
 ) -> Result<CommitOperation, RouteCommitOperationError> {
@@ -549,11 +574,11 @@ pub fn route_commit_operation(
             },
         )),
         CommitOperationTargetIsh::Default => {
-            // Changes read from a worktree default to where the TUI's heading gesture
-            // puts them: the tip of the branch checked out there, not a workspace stack.
-            if let ChangeSourceId::Worktree(name) = source {
-                // The user picked the changes, not this target, but a detached or
-                // otherwise branchless worktree is still their input to fix.
+            // A worktree's lane defaults to where the TUI's heading gesture puts changes:
+            // the tip of the branch checked out there, not a workspace stack.
+            if let ChangeSourceId::Worktree(name) = default_lane()? {
+                // The user didn't pick this target, but a detached or otherwise
+                // branchless worktree is still their input to fix.
                 let name = worktree_branch(repo, name.as_ref())
                     .map_err(|err| CliError::from(bad_input(err.to_string())))?;
                 merged.ensure_branch_not_merged(name.as_ref())?;

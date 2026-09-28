@@ -1711,3 +1711,67 @@ Caused by:
 "#]])
         .stdout_eq(str![]);
 }
+
+#[test]
+fn an_unstacked_branch_is_refused_from_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt = util::add_worktree_with_commit(&env, "wt-feature", "A");
+    but_testsupport::invoke_bash_at_dir("echo more >>wt-file.txt && git commit -qam 'add W2'", &wt);
+    let w1 = env.invoke_git("rev-parse wt-feature~1");
+
+    env.but("branch new unstacked")
+        .current_dir(&wt)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot create an unstacked branch from worktree wt-feature
+
+Hint: Use `--above` or `--below` to place it, or `but worktree new` for a new worktree
+
+"#]]);
+
+    env.but("branch new unstacked --switch")
+        .current_dir(&wt)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot create an unstacked branch from worktree wt-feature
+
+Hint: Use `--above` or `--below` to place it, or `but worktree new` for a new worktree
+
+"#]]);
+
+    env.but(format!("branch new wt-lower --above {w1}"))
+        .current_dir(&wt)
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Created branch 'wt-lower' above commit nsn
+
+"#]]);
+}
+
+#[test]
+fn an_unstacked_branch_is_refused_from_an_unmanaged_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    let wt = util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("branch new unstacked")
+        .current_dir(&wt)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot create an unstacked branch from worktree wt-feature
+
+Hint: Use `--above` or `--below` to place it, or `but worktree new` for a new worktree
+
+"#]]);
+}

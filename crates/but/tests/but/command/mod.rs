@@ -261,13 +261,13 @@ mod util {
     }
 
     /// Add a dirty linked worktree named `name` on a new branch of the same name at
-    /// `start_point`, with `note.txt` uncommitted in it.
+    /// `start_point`, with `note.txt` uncommitted in it, then return the worktree's directory.
     ///
     /// The caller must have run a flag-on command first: the first read with the
     /// flag on archives every worktree already on disk, so the ones under test
     /// have to be created after it. Checked out into the per-test temp dir, as
     /// scenario directories are reused across runs.
-    pub fn add_dirty_worktree(env: &Sandbox, name: &str, start_point: &str) {
+    pub fn add_dirty_worktree(env: &Sandbox, name: &str, start_point: &str) -> std::path::PathBuf {
         let wt = env.app_data_dir().join("worktrees");
         but_testsupport::invoke_bash_at_dir(
             &format!(
@@ -279,6 +279,7 @@ mod util {
             ),
             env.projects_root(),
         );
+        wt.join(name)
     }
 
     /// Add a linked worktree named `name` on a new branch of the same name at

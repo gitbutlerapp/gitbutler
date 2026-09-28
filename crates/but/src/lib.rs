@@ -47,7 +47,7 @@ use crate::command::legacy::ShowDiffInEditor;
 use crate::utils::envs::BUT_CREDENTIALS_DIRECTORY;
 use crate::{
     setup::{BackgroundSync, InitCtxOptions, TargetRequirement},
-    utils::{OutputChannel, ResultErrorExt, ResultMetricsExt, envs},
+    utils::{OutputChannel, ResultErrorExt, ResultMetricsExt, change_source::InvokedFrom, envs},
 };
 
 mod error;
@@ -1066,6 +1066,7 @@ async fn dispatch_subcommand(
                     &mut ctx,
                     IntermediateChannel::new(out),
                     new_args,
+                    &InvokedFrom::discover(&args.current_dir)?,
                 )?;
                 out.print_cli_output(outcome)?;
                 None
@@ -1238,8 +1239,12 @@ async fn dispatch_subcommand(
         Subcommands::Diff(diff_args) => {
             use crate::utils::IntermediateChannel;
 
-            let outcome =
-                command::legacy::diff::diff(&mut ctx, IntermediateChannel::new(out), diff_args)?;
+            let outcome = command::legacy::diff::diff(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                diff_args,
+                &InvokedFrom::discover(&args.current_dir)?,
+            )?;
             out.print_cli_output(outcome)?;
             None
         }
@@ -1262,6 +1267,7 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 commit_args,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
             let metrics_outcome = command::CommandOutcome::Commit(outcome.clone());
             out.print_cli_output(outcome)?;
@@ -1281,6 +1287,7 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 squash_args,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
             out.print_cli_output(outcome)?;
             ws
@@ -1437,6 +1444,7 @@ async fn dispatch_subcommand(
                 source.as_deref(),
                 dry_run,
                 allow_merged,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
             None
         }
@@ -1453,6 +1461,7 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 discard_args,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
             out.print_cli_output(outcome)?;
             ws
@@ -1641,8 +1650,12 @@ async fn dispatch_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let (outcome, ws) =
-                command::legacy::amend::amend(&mut ctx, IntermediateChannel::new(out), amend_args)?;
+            let (outcome, ws) = command::legacy::amend::amend(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                amend_args,
+                &InvokedFrom::discover(&args.current_dir)?,
+            )?;
             out.print_cli_output(outcome)?;
             ws
         }
@@ -1675,8 +1688,12 @@ async fn dispatch_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let (outcome, ws) =
-                command::legacy::pick::pick(&mut ctx, IntermediateChannel::new(out), pick_args)?;
+            let (outcome, ws) = command::legacy::pick::pick(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                pick_args,
+                &InvokedFrom::discover(&args.current_dir)?,
+            )?;
             out.print_cli_output(outcome)?;
             Some(ws)
         }

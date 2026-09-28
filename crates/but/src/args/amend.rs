@@ -22,7 +22,8 @@ pub struct Platform {
 
     /// One or more uncommitted files or hunks to amend.
     ///
-    /// If omitted, all changes in the uncommitted area (`@`) are amended.
+    /// If omitted, all uncommitted changes of the checkout `but` runs in are amended: `@`, or a
+    /// linked worktree's.
     pub sources: Vec<CliIdArg>,
 
     #[clap(flatten)]

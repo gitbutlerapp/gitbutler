@@ -87,7 +87,7 @@ squash like stack branches. A worktree's branches count as applied: `but apply` 
 nothing, and `but unapply` refuses it — remove the worktree instead. `<worktree>:<path>`
 scopes a filename to it — `@:<path>` keeps meaning the main worktree. A filename dirty in several
 worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file ID or
-`<worktree>:@` works as a `but commit` change and a `but amend`
+`<worktree>:@` works as a `but commit` change and a `but amend` or `but squash`
 source: the change lands on the target and leaves that worktree's uncommitted area. Without a
 target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one worktree
@@ -100,6 +100,14 @@ below a worktree's branch yet, as worktrees can't order branches. A worktree's o
 `but reword <branch> -m <name>` renames a worktree's branch, and a checkout on it follows the new name.
 Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names it by the
 worktree's area ID (`<id>:@`), not `@`; `but uncommit` infers it.
+IDs are the same whichever checkout `but` runs in, and `@` always means the main worktree's
+area. Only what a command falls back to when no location is named depends on it: run from
+inside a linked worktree, a bare `but commit` and `but diff`, and `but amend`/`but squash`
+with `-t` but no sources, take that worktree's changes, while `but commit --empty` and `but pick`
+without a target go on its branch. `but discard`, `but absorb`, and `but branch new` without
+`--above`/`--below` refuse there instead of acting on the main worktree, and every such default
+is refused in a worktree GitButler doesn't manage (the flag is off, it is archived, or its `HEAD`
+is unusable).
 
 ## Parallel vs Stacked Branches
 

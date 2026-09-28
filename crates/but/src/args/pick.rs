@@ -8,9 +8,11 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 ///
 /// Each source commit is copied to the target location as a new commit.
 ///
-/// If there are no branches applied, a new branch is created for the picked commits. If there is
-/// only one stack of branches applied, the commits are placed at the tip of that stack. Otherwise,
-/// the targeting flags `--above`, `--below`, and `--branch` control where the commits are placed.
+/// Run from a linked worktree, the commits are placed at the tip of that worktree's branch.
+/// Otherwise, if there are no branches applied, a new branch is created for the picked commits. If
+/// there is only one stack of branches applied, the commits are placed at the tip of that stack.
+/// Otherwise, the targeting flags `--above`, `--below`, and `--branch` control where the commits
+/// are placed.
 /// `--above` and `--below` are mutually exclusive; combine either with `--branch` to name a new
 /// branch when targeting a branch.
 ///

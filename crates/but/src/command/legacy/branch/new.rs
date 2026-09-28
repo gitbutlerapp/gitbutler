@@ -22,6 +22,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        change_source::InvokedFrom,
         merged_upstream::MergedUpstream,
         single_branch_mode::{
             HowToCreateStackedReference, HowToCreateUnstackedReference, SingleBranchMode,
@@ -34,13 +35,21 @@ pub fn new(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: NewPlatform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<NewOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let operation = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
-        resolve(ctx, guard.read_permission(), args, &head_info, &id_map)?
+        resolve(
+            ctx,
+            guard.read_permission(),
+            args,
+            &head_info,
+            &id_map,
+            invoked_from,
+        )?
     };
 
     let mut meta = ctx.meta()?;
@@ -53,6 +62,7 @@ fn resolve(
     args: NewPlatform,
     head_info: &RefInfo,
     id_map: &IdMap,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<NewOperation> {
     let NewPlatform {
         above,
@@ -94,9 +104,18 @@ fn resolve(
     };
 
     match (above, below) {
-        (None, None) => Ok(NewOperation::NewUnstackedBranch(
-            NewUnstackedBranchOperation { name, switch },
-        )),
+        (None, None) => {
+            if let InvokedFrom::LinkedWorktree(worktree) = invoked_from {
+                return Err(bad_input(format!(
+                    "Cannot create an unstacked branch from worktree {worktree}"
+                ))
+                .hint("Use `--above` or `--below` to place it, or `but worktree new` for a new worktree")
+                .into());
+            }
+            Ok(NewOperation::NewUnstackedBranch(
+                NewUnstackedBranchOperation { name, switch },
+            ))
+        }
         (None, Some(target_below)) => {
             let target = resolve_above_below_target(&repo, id_map, target_below)?;
 

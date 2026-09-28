@@ -2,7 +2,7 @@ use crate::{
     id::{CommitId, CommitIdRef},
     theme::{self, Paint},
 };
-use bstr::ByteSlice as _;
+use bstr::{BStr, ByteSlice as _};
 use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_hunk_assignment::{
@@ -16,9 +16,20 @@ use itertools::Itertools;
 
 use crate::{
     CliId, CliResult, IdMap, bad_input,
+    error::BadInput,
     id::{UncommittedHunkOrFile, parser::parse_sources},
-    utils::{OutputChannel, merged_upstream::MergedUpstream},
+    utils::{
+        OutputChannel,
+        change_source::{ChangeSourceId, InvokedFrom},
+        merged_upstream::MergedUpstream,
+    },
 };
+
+fn worktree_changes_cannot_be_absorbed(name: &BStr) -> BadInput {
+    bad_input(format!(
+        "Cannot absorb uncommitted changes in worktree {name} yet"
+    ))
+}
 
 /// Amends changes into the appropriate commits where they belong.
 ///
@@ -39,6 +50,7 @@ pub(crate) fn handle(
     source: Option<&str>,
     dry_run: bool,
     allow_merged: crate::args::atoms::AllowMergedArg,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<()> {
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -74,7 +86,10 @@ pub(crate) fn handle(
 
     let target = if let Some(source) = source {
         match source {
-            CliId::UncommittedHunkOrFile(UncommittedHunkOrFile { hunks, .. }) => {
+            CliId::UncommittedHunkOrFile(UncommittedHunkOrFile { hunks, source, .. }) => {
+                if let ChangeSourceId::Worktree(name) = source {
+                    return Err(worktree_changes_cannot_be_absorbed(name.as_ref()).into());
+                }
                 // Absorb this particular file
                 AbsorptionTarget::Hunks {
                     hunks: hunks.map(|id_and_hunk| id_and_hunk.hunk).into(),
@@ -94,6 +109,9 @@ pub(crate) fn handle(
             }
         }
     } else {
+        if let ChangeSourceId::Worktree(name) = invoked_from.managed_source(&id_map)? {
+            return Err(worktree_changes_cannot_be_absorbed(name.as_ref()).into());
+        }
         // Try to absorb everything uncommitted
         Default::default()
     };

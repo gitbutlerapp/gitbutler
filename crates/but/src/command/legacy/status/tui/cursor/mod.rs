@@ -100,8 +100,7 @@ impl Cursor {
             ResolvedCliIdArg::AnonymousSegment(..)
             | ResolvedCliIdArg::Commit(..)
             | ResolvedCliIdArg::Branch(..)
-            | ResolvedCliIdArg::WorktreeUncommitted(..)
-            | ResolvedCliIdArg::Uncommitted
+            | ResolvedCliIdArg::Uncommitted(..)
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
             | ResolvedCliIdArg::CommittedFile(..) => {}
             ResolvedCliIdArg::CommittedHunk(..) => {
@@ -141,9 +140,8 @@ impl Cursor {
                 | ResolvedCliIdArg::Branch(..)
                 | ResolvedCliIdArg::UncommittedHunkOrFile(..)
                 | ResolvedCliIdArg::CommittedFile(..)
-                | ResolvedCliIdArg::Uncommitted
+                | ResolvedCliIdArg::Uncommitted(..)
                 | ResolvedCliIdArg::PathPrefix { .. }
-                | ResolvedCliIdArg::WorktreeUncommitted(..)
                 | ResolvedCliIdArg::Stack { .. }
                 | ResolvedCliIdArg::CommittedHunk(..) => target == **cli_id,
             })

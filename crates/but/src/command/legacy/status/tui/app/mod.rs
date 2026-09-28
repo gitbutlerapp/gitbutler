@@ -346,9 +346,8 @@ impl App {
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
             | ResolvedCliIdArg::CommittedFile(..)
             | ResolvedCliIdArg::CommittedHunk(..)
-            | ResolvedCliIdArg::Uncommitted
+            | ResolvedCliIdArg::Uncommitted(..)
             | ResolvedCliIdArg::PathPrefix { .. }
-            | ResolvedCliIdArg::WorktreeUncommitted(..)
             | ResolvedCliIdArg::Stack { .. } => None,
         });
         let initial_committed_file = matches!(

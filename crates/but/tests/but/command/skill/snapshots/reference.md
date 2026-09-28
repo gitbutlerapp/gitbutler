@@ -18,7 +18,7 @@ Show an overview of the workspace state
 
 ### but diff [TARGET]
 Show the diff of changes in the repo
-- `[TARGET]` What to diff, by CLI ID: a commit, branch, committed file or hunk, uncommitted file or hunk, path prefix, or a worktree's uncommitted area. A commit lists its files and hunks with their IDs. If omitted shows the diff of all uncommitted changes, with file and hunk IDs. For more details about CLI IDs, see but help cli-ids.
+- `[TARGET]` What to diff, by CLI ID: a commit, branch, committed file or hunk, uncommitted file or hunk, path prefix, or a worktree's uncommitted area. A commit lists its files and hunks with their IDs. If omitted shows the diff of all uncommitted changes of the checkout but runs in, with file and hunk IDs. For more details about CLI IDs, see but help cli-ids.
 
 ### but show <COMMIT_OR_BRANCH>
 Show details of a commit or branch
@@ -29,7 +29,7 @@ Show details of a commit or branch
 
 ### but commit [CHANGES]...
 Create a commit
-- `[CHANGES]...` The files or hunks to commit, by CLI ID from but diff. If omitted, everything uncommitted is committed.
+- `[CHANGES]...` The files or hunks to commit, by CLI ID from but diff. If omitted, everything uncommitted in the checkout but runs in is committed.
 - `-m, --message <MESSAGE>` The message to use for the commit. Can be supplied any amount of times, each value being appended to the preceding ones with a blank line in between. Without -m or --no-message, a terminal opens the editor and a non-interactive run commits with an empty message.
 - `--no-message` Create the commit without a message
 - `-b, --branch [<BRANCH>]` Place the commit on the branch BRANCH. With --above or --below, name the new branch created relative to the target branch. The name must not already exist; omit it for a generated name. Cannot be combined with commit or worktree targets. Otherwise, if BRANCH does not exist, it is created as an unstacked branch. If BRANCH is omitted, an unstacked branch with a generated name is created. If BRANCH is a worktree or a branch checked out in one, the commit is placed on the tip of that worktree's branch. Attempting to place a commit on a branch that exists but is not applied is an error.
@@ -70,7 +70,7 @@ Integrate a branch's remote counterpart into the local branch
 
 ### but discard [CHANGES]...
 Discard branches, commits, or changes
-- `[CHANGES]...` One or more branches, commits, or changes to discard. If omitted all uncommitted changes will be discarded.
+- `[CHANGES]...` One or more branches, commits, or changes to discard. If omitted, all uncommitted changes of the checkout but runs in are discarded.
 
 ### but resolve [TARGETS]...
 Resolve conflicts in a commit or in uncommitted files
@@ -126,7 +126,7 @@ Cherry-pick commits into an applied branch
 
 ### but squash [SOURCES]...
 Squash commits, branches, or changes
-- `[SOURCES]...` The sources to squash, all of one kind. Commits: squashed into the target. Branches: every commit on them is squashed into the target and the branches are removed; with no target and exactly one branch, that branch is squashed into a single commit. Uncommitted files or hunks, or @ for all of them: squashed into the target. Committed files and hunks from one commit: moved into the target. A target of @ uncommits the sources instead. With --target and no sources, @ is used.
+- `[SOURCES]...` The sources to squash, all of one kind. Commits: squashed into the target. Branches: every commit on them is squashed into the target and the branches are removed; with no target and exactly one branch, that branch is squashed into a single commit. Uncommitted files or hunks, or @ for all of them: squashed into the target. Committed files and hunks from one commit: moved into the target. A target of @ uncommits the sources instead. With --target and no sources, the uncommitted area of the checkout but runs in is used: @, or a linked worktree's.
 - `-m, --message <MESSAGE>` The message to use for the new commit. Can be supplied any number of times, each value being appended to the preceding ones with a blank line in between. Without a message flag, squashing commits or branches opens the editor in a terminal; a non-interactive run skips the editor. This cannot be used when TARGET is the uncommitted area (@).
 - `--no-message` Create the commit without a message. This cannot be used when TARGET is the uncommitted area (@).
 - `-u, --use-target-message` Use the message of the target. The message of the source(s) will be discarded. This cannot be used when TARGET is the uncommitted area (@).
@@ -150,7 +150,7 @@ Split a commit in two
 
 ### but absorb [SOURCE]
 Amend uncommitted changes into the commits they belong to
-- `[SOURCE]` An uncommitted file or hunk to absorb; if omitted, everything uncommitted is absorbed
+- `[SOURCE]` An uncommitted file or hunk to absorb; if omitted, everything uncommitted in the checkout but runs in is absorbed. A linked worktree's changes cannot be absorbed yet
 - `--dry-run` Show the absorption plan without making any changes
 
 ### but reword <TARGET>
@@ -165,7 +165,7 @@ Move commits, branches, or committed changes back into the uncommitted area
 
 ### but amend [SOURCES]...
 Amend uncommitted changes into a commit or branch
-- `[SOURCES]...` One or more uncommitted files or hunks to amend. If omitted, all changes in the uncommitted area (@) are amended.
+- `[SOURCES]...` One or more uncommitted files or hunks to amend. If omitted, all uncommitted changes of the checkout but runs in are amended: @, or a linked worktree's.
 - `-t, --target <COMMIT_OR_BRANCH>` The commit to amend into; a branch means its newest commit
 
 ## Operation History
