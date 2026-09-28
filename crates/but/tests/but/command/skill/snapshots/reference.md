@@ -18,7 +18,7 @@ Show an overview of the workspace state
 
 ### but diff [TARGET]
 Show the diff of changes in the repo
-- `[TARGET]` What to diff, by CLI ID: a commit, branch, committed file or hunk, uncommitted file or hunk, path prefix, or a worktree's uncommitted area. A commit lists its files and hunks with their IDs. If omitted shows the diff of all uncommitted changes, with file and hunk IDs. For more details about CLI IDs, see but help cli-ids.
+- `[TARGET]` What to diff, by CLI ID: a commit, branch, committed file or hunk, uncommitted file or hunk, path prefix, or a worktree's uncommitted area. A commit lists its files and hunks with their IDs. If omitted shows the diff of all uncommitted changes of the checkout but runs in, with file and hunk IDs. For more details about CLI IDs, see but help cli-ids.
 
 ### but show <COMMIT_OR_BRANCH>
 Show details of a commit or branch

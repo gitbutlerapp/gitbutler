@@ -278,6 +278,53 @@ fn worktree() {
 }
 
 #[test]
+fn bare_diff_in_a_linked_worktree_shows_its_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    // Only the worktree's note.txt shows; main.txt is dirty in the main worktree.
+    env.but("diff")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+─────────────────╮
+ nl:a A note.txt │
+─────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +dirty
+
+"#]]);
+}
+
+#[test]
+fn bare_diff_in_an_unmanaged_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    env.but("diff")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-feature is not managed by GitButler
+
+Hint: Run `but worktree list` to see the worktrees GitButler manages
+
+"#]]);
+}
+
+#[test]
 fn json_uncommitted_targets() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);

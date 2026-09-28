@@ -1238,8 +1238,12 @@ async fn dispatch_subcommand(
         Subcommands::Diff(diff_args) => {
             use crate::utils::IntermediateChannel;
 
-            let outcome =
-                command::legacy::diff::diff(&mut ctx, IntermediateChannel::new(out), diff_args)?;
+            let outcome = command::legacy::diff::diff(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                diff_args,
+                &InvokedFrom::discover(&args.current_dir)?,
+            )?;
             out.print_cli_output(outcome)?;
             None
         }

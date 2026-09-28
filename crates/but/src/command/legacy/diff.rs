@@ -15,7 +15,7 @@ use crate::{
     theme::{Paint as _, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        change_source::ChangeSourceId,
+        change_source::{ChangeSourceId, InvokedFrom},
         diff_rendering::{
             self, DetailsLine, DiffLineWriter, IdGen, WithSyntaxHighlighting, load_syntax_set,
         },
@@ -410,22 +410,28 @@ pub fn diff<'a>(
     ctx: &'a mut Context,
     _out: IntermediateChannel<'_>,
     args: Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<DiffOutcome<'a>> {
     let guard = ctx.shared_worktree_access();
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
-    let op = resolve(ctx, &id_map, args)?;
+    let op = resolve(ctx, &id_map, args, invoked_from)?;
     Ok(run(ctx, op)?)
 }
 
-fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOperation> {
+fn resolve(
+    ctx: &Context,
+    id_map: &IdMap,
+    args: Platform,
+    invoked_from: &InvokedFrom,
+) -> CliResult<DiffOperation> {
     let Platform { target } = args;
 
     let resolved_target = if let Some(target) = target {
         let repo = ctx.repo.get()?;
         target.resolve_in_workspace(&repo, id_map, Purpose::Target, None)?
     } else {
-        ResolvedCliIdArg::Uncommitted(ChangeSourceId::Head)
+        ResolvedCliIdArg::Uncommitted(invoked_from.managed_source(id_map)?)
     };
 
     match resolved_target {
