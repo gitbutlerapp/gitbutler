@@ -51,14 +51,14 @@ import type { ForgeReview, RefInfo } from "@gitbutler/but-sdk";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useRef } from "react";
 
-/** Applied branches by display name, each with the ref bytes a cursor needs. */
-export type AppliedRefs = Map<string, Array<number>>;
+/** Branches of the workspace stacks and linked worktrees by display name, each with the ref bytes a cursor needs. */
+export type LaneRefs = Map<string, Array<number>>;
 
 /** @public shared with the bell, whose entry clicks jump the same way. */
-export const appliedRefsByName = (headInfo: RefInfo): AppliedRefs =>
+export const laneRefsByName = (headInfo: RefInfo): LaneRefs =>
 	new Map(
-		headInfo.stacks.flatMap((stack) =>
-			stack.segments.flatMap((segment) =>
+		[...headInfo.stacks, ...headInfo.worktrees].flatMap((lane) =>
+			lane.segments.flatMap((segment) =>
 				segment.refName
 					? [[segment.refName.displayName, segment.refName.fullNameBytes] as const]
 					: [],
@@ -68,16 +68,12 @@ export const appliedRefsByName = (headInfo: RefInfo): AppliedRefs =>
 
 /**
  * Where an entry lands, from the bell or a desktop notification: its branch
- * in the workspace, or the forge when the branch is not applied — a review
- * outside the workspace has no local branch to select.
+ * in a workspace stack or linked worktree, or the forge when neither holds it —
+ * such a review has no local branch to select.
  */
-export const openInboxEntry = (
-	projectId: string,
-	entry: InboxEntry,
-	appliedRefs: AppliedRefs,
-): void => {
+export const openInboxEntry = (projectId: string, entry: InboxEntry, laneRefs: LaneRefs): void => {
 	markInboxSeen(projectId, [entry.id]);
-	const branchRef = appliedRefs.get(entry.sourceBranch);
+	const branchRef = laneRefs.get(entry.sourceBranch);
 	if (branchRef === undefined) {
 		void window.lite.openInWebBrowser(entry.htmlUrl);
 		return;
@@ -201,9 +197,9 @@ export const useReviewActivityInbox = (projectId: string): void => {
 		// desktop notification is the only way to be heard.
 		refetchIntervalInBackground: desktop,
 	});
-	const { data: appliedRefs } = useQuery({
+	const { data: laneRefs } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: appliedRefsByName,
+		select: laneRefsByName,
 		enabled,
 	});
 	const { data: selfLogin, isPending: loginPending } = useQuery({
@@ -213,10 +209,10 @@ export const useReviewActivityInbox = (projectId: string): void => {
 
 	const ledger = useRef<ActivityLedger | null>(null);
 
-	const entriesOf = useEffectEvent(async (change: ReviewChange, applied: boolean) => {
+	const entriesOf = useEffectEvent(async (change: ReviewChange, inLane: boolean) => {
 		const login = selfLogin ?? null;
 		if (change.settledNow !== null) {
-			if (!applied || selfMergedNumbers(client, projectId).has(change.review.number)) return [];
+			if (!inLane || selfMergedNumbers(client, projectId).has(change.review.number)) return [];
 			return [entryOf(change.review, change.settledNow, [])];
 		}
 		// Without conversation listings there is nothing to classify — the
@@ -240,21 +236,21 @@ export const useReviewActivityInbox = (projectId: string): void => {
 			}),
 			// Mentions live in comment and verdict text, so a review outside
 			// the workspace does not need the timeline.
-			applied
+			inLane
 				? client.fetchQuery({
 						...listReviewTimelineEventsQueryOptions({ projectId, reviewId }),
 						staleTime: 0,
 					})
 				: Promise.resolve([]),
 		]);
-		// Outside the workspace only a mention is the user's business; on an
-		// applied branch anything short of silent lands in the inbox — the
+		// Outside the workspace only a mention is the user's business; on a
+		// branch in a lane anything short of silent lands in the inbox — the
 		// bell holds quiet facts like pushes alongside the loud ones.
 		const items = activityItems(comments, submissions, threads, events, change.sinceMs).filter(
 			(item) => {
 				const attention = attentionOf(item, login);
 				if (attention === "silent") return false;
-				if (!applied && !itemMentions(item, login)) return false;
+				if (!inLane && !itemMentions(item, login)) return false;
 				// A request naming someone else, or a dismissed verdict, is
 				// bookkeeping rather than a message.
 				if (item.kind === "reviewRequested" && attention !== "loud") return false;
@@ -266,7 +262,7 @@ export const useReviewActivityInbox = (projectId: string): void => {
 	});
 
 	const observe = useEffectEvent(async (listing: Array<ForgeReview>) => {
-		if (!appliedRefs) return;
+		if (!laneRefs) return;
 		if (ledger.current === null) {
 			// Seeded from what has actually been seen, so activity that landed
 			// while the app was closed still speaks up.
@@ -281,7 +277,7 @@ export const useReviewActivityInbox = (projectId: string): void => {
 			await Promise.all(
 				changed.map(async (change) => {
 					try {
-						return await entriesOf(change, appliedRefs.has(change.review.sourceBranch));
+						return await entriesOf(change, laneRefs.has(change.review.sourceBranch));
 					} catch {
 						// A flaky forge read costs one entry; the unread dot still shows.
 						return [];
@@ -303,21 +299,21 @@ export const useReviewActivityInbox = (projectId: string): void => {
 	// The main process has focused the window by now; a summary, or an entry
 	// since dropped from the inbox, leaves the reader at the lit bell.
 	const onNotificationClick = useEffectEvent((id: string) => {
-		if (appliedRefs === undefined) return;
+		if (laneRefs === undefined) return;
 		const entry = findInboxEntry(projectId, id);
-		if (entry !== undefined) openInboxEntry(projectId, entry, appliedRefs);
+		if (entry !== undefined) openInboxEntry(projectId, entry, laneRefs);
 	});
 	useEffect(() => {
 		if (!enabled) return;
 		return window.lite.onNotificationClick(onNotificationClick);
 	}, [enabled]);
 
-	// `appliedRefs` in the deps takes the baseline as soon as both the
-	// listing and the applied set exist, whichever resolves last. The login
+	// `laneRefs` in the deps takes the baseline as soon as both the
+	// listing and the lane refs exist, whichever resolves last. The login
 	// holds it too: classifying before it loads would consume a bump with
 	// mention detection blind, and the ledger never re-examines a change.
 	// A login query *error* proceeds with no login rather than going deaf.
 	useEffect(() => {
 		if (enabled && reviews && !loginPending) void observe(reviews.reviews);
-	}, [enabled, reviews, appliedRefs, loginPending]);
+	}, [enabled, reviews, laneRefs, loginPending]);
 };

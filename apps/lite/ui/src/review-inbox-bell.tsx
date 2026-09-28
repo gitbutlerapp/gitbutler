@@ -15,7 +15,7 @@ import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
-import { appliedRefsByName, openInboxEntry, type AppliedRefs } from "#ui/review-notifications.ts";
+import { laneRefsByName, openInboxEntry, type LaneRefs } from "#ui/review-notifications.ts";
 import {
 	entryHeadline,
 	inboxKindAttention,
@@ -55,16 +55,16 @@ const Entry: FC<{
 	projectId: string;
 	entry: InboxEntry;
 	/** Shared by the bell: one head-info subscription serves every row. */
-	appliedRefs: AppliedRefs | undefined;
+	laneRefs: LaneRefs | undefined;
 	/** The panel closes itself once a click has somewhere to go. */
 	onNavigate: () => void;
-}> = ({ projectId, entry, appliedRefs, onNavigate }) => {
+}> = ({ projectId, entry, laneRefs, onNavigate }) => {
 	const open = () => {
 		// Still loading is not "not in the workspace": acting now could open
 		// the forge for a local branch, and eat the unread mark doing it.
-		if (appliedRefs === undefined) return;
+		if (laneRefs === undefined) return;
 		onNavigate();
-		openInboxEntry(projectId, entry, appliedRefs);
+		openInboxEntry(projectId, entry, laneRefs);
 	};
 
 	return (
@@ -122,9 +122,9 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 	const unseen = humanUnseen + agentUnseen;
 	const entries = tab === "agents" ? agentEntries : humanEntries;
 	const tabUnseen = tab === "agents" ? agentUnseen : humanUnseen;
-	const { data: appliedRefs } = useQuery({
+	const { data: laneRefs } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: appliedRefsByName,
+		select: laneRefsByName,
 		enabled: shown,
 	});
 
@@ -199,7 +199,7 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 							key={entry.id}
 							projectId={projectId}
 							entry={entry}
-							appliedRefs={appliedRefs}
+							laneRefs={laneRefs}
 							onNavigate={() => setOpen(false)}
 						/>
 					))
