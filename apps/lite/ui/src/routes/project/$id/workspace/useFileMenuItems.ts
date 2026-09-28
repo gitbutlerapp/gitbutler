@@ -28,8 +28,7 @@ export const useFileMenuItems = ({
 }): Array<NativeMenuItem> => {
 	// A linked worktree's file is opened and revealed where it lives, not in the
 	// project's own checkout; what it can act on is `useFileSetActions`' to say.
-	const worktree =
-		address.parent._tag === "UncommittedChanges" ? address.parent.worktree : undefined;
+	const worktree = address.parent.worktree;
 	const pathMenuItems = usePathMenuItems({ projectId, path, worktree });
 	const actions = useFileSetActions({ projectId, fileParent: address.parent });
 

@@ -452,7 +452,11 @@ const WorktreeRows: FC<{
 							/>
 						)}
 						{segment.commits.map((commit) => {
-							const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
+							const address = commitAddress({
+								commitId: commit.id,
+								changeId: commit.changeId,
+								worktree: worktree.name,
+							});
 							return (
 								<Fragment key={commit.id}>
 									{worktrees.on.get(commit.id)?.map((nested) => (

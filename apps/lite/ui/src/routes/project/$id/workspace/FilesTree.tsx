@@ -35,7 +35,7 @@ import {
 	type AddressSpace,
 } from "#ui/workspace/address-space.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
-import { useRevealInFolder } from "./useRevealInFolder.ts";
+import { useOpenPathInProgram, useRevealInFolder } from "./usePathActions.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { FileRow, FileRowPresentational } from "./FileRow.tsx";
@@ -48,7 +48,6 @@ import type { FileRowItem } from "./file-row.ts";
 import { parentDirectoryRow, type FileTreeRow } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/checking.ts";
-import { useOpenInProgram } from "#ui/api/mutations.ts";
 import { useFileSetActions, useFileSetSubject } from "./useFileSetActions.ts";
 import type { CSSProperties } from "react";
 import { FileRowTooltipRoot, type FileRowTooltipPayload } from "./FileRowTooltip.tsx";
@@ -95,7 +94,7 @@ const useFilesTreeHotkeys = ({
 		...guiSettingsQueryOptions,
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
-	const { mutate: openInProgram } = useOpenInProgram();
+	const { openPathInProgram } = useOpenPathInProgram(projectId);
 	const revealInFolder = useRevealInFolder(projectId);
 	const actions = useFileSetActions({ projectId, fileParent });
 
@@ -232,11 +231,11 @@ const useFilesTreeHotkeys = ({
 			callback: () => {
 				if (!preferredEditor || selection === null) return;
 
-				openInProgram({
-					projectId,
+				void openPathInProgram({
 					programId: preferredEditor.id,
 					path: selection,
 					lineNr: null,
+					worktree: fileParent.worktree,
 				});
 			},
 			options: {
@@ -252,7 +251,7 @@ const useFilesTreeHotkeys = ({
 			// whichever kind of row it is, which is all revealing it needs.
 			callback: () => {
 				if (selection === null) return;
-				void revealInFolder(selection);
+				void revealInFolder(selection, fileParent.worktree);
 			},
 			options: {
 				conflictBehavior: "allow",
