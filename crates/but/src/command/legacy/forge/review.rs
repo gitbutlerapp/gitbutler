@@ -7,6 +7,7 @@ use gitbutler_project::Project;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+use super::attachment::{Attachment, UploadedAttachment};
 use crate::{
     CliId, IdMap,
     id::parser::parse_sources,
@@ -314,6 +315,7 @@ pub async fn create_review(
     default: bool,
     draft: bool,
     message: Option<ForgeReviewMessage>,
+    attachments: &[Attachment],
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
@@ -368,6 +370,7 @@ pub async fn create_review(
         default,
         draft,
         message.as_ref(),
+        attachments,
         out,
         maybe_branch_names,
     )
@@ -483,6 +486,7 @@ pub async fn handle_multiple_branches_in_workspace(
     default_message: bool,
     draft: bool,
     message: Option<&ForgeReviewMessage>,
+    attachments: &[Attachment],
     out: &mut OutputChannel,
     selected_branches: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
@@ -508,6 +512,25 @@ pub async fn handle_multiple_branches_in_workspace(
         return Ok(());
     }
 
+    // Uploaded once the branches are chosen, so declining the prompt publishes nothing,
+    // and before pushing, so a failed upload leaves no review behind.
+    let uploaded_attachments = if attachments.is_empty() {
+        Vec::new()
+    } else {
+        if let Some(out) = out.for_human() {
+            writeln!(out, "Uploading {} attachment(s)...", attachments.len())?;
+        }
+        let uploaded = super::attachment::upload(attachments)?;
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "  {} Uploaded to gitbutler.com",
+                theme::get().sym().success
+            )?;
+        }
+        uploaded
+    };
+
     for stack_entry in applied_stacks {
         let Some(top_most_selected_head) = stack_entry
             .branches
@@ -528,6 +551,7 @@ pub async fn handle_multiple_branches_in_workspace(
             default_message,
             draft,
             message,
+            &uploaded_attachments,
             out,
         )
         .await?;
@@ -627,6 +651,7 @@ async fn publish_reviews_for_branch_and_dependents(
     default_message: bool,
     draft: bool,
     message: Option<&ForgeReviewMessage>,
+    attachments: &[UploadedAttachment],
     out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
     let t = theme::get();
@@ -699,8 +724,13 @@ async fn publish_reviews_for_branch_and_dependents(
             )?;
         }
 
-        let message_plan =
-            review_message_plan_for_branch(&branch.name, branch_name, default_message, message);
+        let message_plan = review_message_plan_for_branch(
+            &branch.name,
+            branch_name,
+            default_message,
+            message,
+            attachments,
+        );
         let published_review = publish_review_for_branch(
             ctx,
             stack_entry.id,
@@ -711,6 +741,7 @@ async fn publish_reviews_for_branch_and_dependents(
             message_plan.default_message,
             draft,
             message_plan.message,
+            message_plan.attachments,
         )
         .await?;
         match published_review {
@@ -857,6 +888,8 @@ enum PublishReviewResult {
 struct ReviewMessagePlan<'a> {
     default_message: bool,
     message: Option<&'a ForgeReviewMessage>,
+    /// Only the selected branch's review carries the attachments, like its message.
+    attachments: &'a [UploadedAttachment],
 }
 
 fn review_message_plan_for_branch<'a>(
@@ -864,6 +897,7 @@ fn review_message_plan_for_branch<'a>(
     selected_branch_name: &str,
     default_message: bool,
     selected_branch_message: Option<&'a ForgeReviewMessage>,
+    selected_branch_attachments: &'a [UploadedAttachment],
 ) -> ReviewMessagePlan<'a> {
     let is_selected_branch = branch_name == selected_branch_name;
     ReviewMessagePlan {
@@ -872,6 +906,11 @@ fn review_message_plan_for_branch<'a>(
         message: is_selected_branch
             .then_some(selected_branch_message)
             .flatten(),
+        attachments: if is_selected_branch {
+            selected_branch_attachments
+        } else {
+            &[]
+        },
     }
 }
 
@@ -911,6 +950,7 @@ async fn publish_review_for_branch(
     default_message: bool,
     draft: bool,
     message: Option<&ForgeReviewMessage>,
+    attachments: &[UploadedAttachment],
 ) -> anyhow::Result<PublishReviewResult> {
     // Check if a review already exists for the branch.
     // If it does, skip publishing a new review.
@@ -942,6 +982,7 @@ async fn publish_review_for_branch(
     } else {
         get_pr_title_and_body_from_editor(ctx, stack_id, commit.as_ref(), branch_name)?
     };
+    let body = super::attachment::link_in_body(&body, attachments);
 
     // Publish a new review for the branch
     but_api::legacy::forge::publish_review_only(
@@ -1449,7 +1490,7 @@ mod tests {
     fn review_message_plan_uses_explicit_message_for_selected_branch() {
         let message = review_message();
 
-        let plan = review_message_plan_for_branch("top", "top", false, Some(&message));
+        let plan = review_message_plan_for_branch("top", "top", false, Some(&message), &[]);
 
         assert!(!plan.default_message);
         assert_eq!(plan.message.unwrap().title, "Top branch title");
@@ -1459,7 +1500,7 @@ mod tests {
     fn review_message_plan_defaults_dependencies_when_selected_branch_has_message() {
         let message = review_message();
 
-        let plan = review_message_plan_for_branch("dependency", "top", false, Some(&message));
+        let plan = review_message_plan_for_branch("dependency", "top", false, Some(&message), &[]);
 
         assert!(plan.default_message);
         assert!(plan.message.is_none());
@@ -1467,7 +1508,7 @@ mod tests {
 
     #[test]
     fn review_message_plan_keeps_interactive_dependency_behavior_without_message_or_default() {
-        let plan = review_message_plan_for_branch("dependency", "top", false, None);
+        let plan = review_message_plan_for_branch("dependency", "top", false, None, &[]);
 
         assert!(!plan.default_message);
         assert!(plan.message.is_none());
@@ -1475,10 +1516,34 @@ mod tests {
 
     #[test]
     fn review_message_plan_applies_default_flag_to_selected_branch() {
-        let plan = review_message_plan_for_branch("top", "top", true, None);
+        let plan = review_message_plan_for_branch("top", "top", true, None, &[]);
 
         assert!(plan.default_message);
         assert!(plan.message.is_none());
+    }
+
+    #[test]
+    fn review_message_plan_attaches_files_to_the_selected_branch_only() {
+        let attachments = [UploadedAttachment {
+            path: "shot.png".into(),
+            label: "shot.png".into(),
+            url: "https://uploads.example/shot.png".into(),
+            is_image: true,
+        }];
+
+        let selected = review_message_plan_for_branch("top", "top", true, None, &attachments);
+        let dependency =
+            review_message_plan_for_branch("dependency", "top", true, None, &attachments);
+
+        assert_eq!(
+            selected.attachments.len(),
+            1,
+            "the named branch gets the files"
+        );
+        assert!(
+            dependency.attachments.is_empty(),
+            "reviews created for dependencies along the way are not the one being illustrated"
+        );
     }
 
     #[test]

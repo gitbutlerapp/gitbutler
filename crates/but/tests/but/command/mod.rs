@@ -41,6 +41,8 @@ mod open;
 #[cfg(feature = "legacy")]
 mod pick;
 #[cfg(feature = "legacy")]
+mod pr;
+#[cfg(feature = "legacy")]
 mod pull;
 #[cfg(feature = "legacy")]
 mod push;

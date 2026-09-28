@@ -39,6 +39,9 @@ legacy = [
     "dep:gitbutler-repo",
     "dep:gitbutler-git",
     "dep:gitbutler-watcher",
+    "dep:gitbutler-user",
+    "dep:base64",
+    "dep:mime_guess",
 ]
 ## Switch mutation responses to the graph-based workspace projection.
 ## Forwarded to `but-api`; never enable by default. See `but-api`'s feature docs.
@@ -93,6 +96,9 @@ gitbutler-operating-modes = { workspace = true, optional = true }
 gitbutler-repo = { workspace = true, optional = true }
 gitbutler-git = { workspace = true, optional = true }
 gitbutler-watcher = { workspace = true, optional = true }
+gitbutler-user = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+mime_guess = { workspace = true, optional = true }
 
 schemars.workspace = true
 posthog-rs = { version = "0.23.3", default-features = false, features = ["async-client"] }
