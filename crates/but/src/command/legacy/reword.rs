@@ -165,15 +165,9 @@ fn edit_branch_name(
     message: Option<&str>,
     perm: &mut RepoExclusive,
 ) -> CliResult<()> {
-    // Find which stack this branch belongs to
-    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
-    for stack_entry in &stacks {
-        if !stack_entry.contains_branch(branch_name) {
-            // Not found in this stack,
-            continue;
-        }
-
-        if let Some(branch) = stack_entry.branch(branch_name) {
+    let lanes = crate::legacy::workspace::applied_lanes(ctx)?;
+    for lane in &lanes {
+        if let Some(branch) = lane.branch(branch_name) {
             let non_validated_new_name = prepare_provided_message(message, "branch name")
                 .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
 
