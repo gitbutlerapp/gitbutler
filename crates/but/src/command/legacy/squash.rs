@@ -32,10 +32,7 @@ use crate::{
     },
     bad_input,
     command::legacy::reword2::CommitMessageSource,
-    id::{
-        CommitId, CommitIdRef, CommittedFileId, CommittedHunk, IdAndHunk, UNCOMMITTED,
-        UncommittedHunkOrFile,
-    },
+    id::{CommitId, CommitIdRef, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -445,7 +442,7 @@ pub fn resolve<'a>(
                         target, sources, reword,
                     )?)
                 }
-                ClassifiedSquashables::Uncommitted => {
+                ClassifiedSquashables::Uncommitted(source) => {
                     let (target, reword) = match target {
                         SquashTarget::Commit { commit, reword } => {
                             (commit, reword.try_into_uncommitting()?)
@@ -454,7 +451,11 @@ pub fn resolve<'a>(
                             return Err(cannot_uncommit_uncommitted_changes_error());
                         }
                     };
-                    ResolvedSquash::Uncommitted { target, reword }
+                    ResolvedSquash::Uncommitted {
+                        target,
+                        reword,
+                        source,
+                    }
                 }
                 ClassifiedSquashables::CommittedChanges(committed_changes) => {
                     let first = committed_changes.first().clone();
@@ -543,9 +544,15 @@ pub fn resolve<'a>(
         ResolvedSquash::UncommittedHunk(amend_hunks) => {
             SquashOperation::UncommittedHunks(amend_hunks)
         }
-        ResolvedSquash::Uncommitted { target, reword } => {
-            SquashOperation::Uncommitted { target, reword }
-        }
+        ResolvedSquash::Uncommitted {
+            target,
+            reword,
+            source,
+        } => SquashOperation::Uncommitted {
+            target,
+            reword,
+            source,
+        },
         ResolvedSquash::CommittedChanges {
             target,
             source,
@@ -757,6 +764,7 @@ pub enum ResolvedSquash<'a> {
     Uncommitted {
         target: CommitId,
         reword: HowToRewordTargetNoSource,
+        source: ChangeSourceId,
     },
     CommittedChanges {
         target: MoveCommittedChangesTarget,
@@ -1152,7 +1160,7 @@ enum Squashable<'a> {
     Commit(CommitId),
     Branch(BranchArg),
     UncommittedChange(UncommittedSquashSource<'a>),
-    Uncommitted(&'static str),
+    Uncommitted(ChangeSourceId),
     CommittedFile(CommittedFileId),
     CommittedHunk(CommittedHunk),
 }
@@ -1172,8 +1180,8 @@ impl<'a> Squashable<'a> {
                     UncommittedSquashSource::HunkOrFile(Cow::Borrowed(hunk)),
                 ));
             }
-            ResolvedCliIdArgRef::Uncommitted(ChangeSourceId::Head) => {
-                return Ok(Self::Uncommitted(UNCOMMITTED));
+            ResolvedCliIdArgRef::Uncommitted(source) => {
+                return Ok(Self::Uncommitted(source.clone()));
             }
             ResolvedCliIdArgRef::CommittedFile(file) => {
                 return Ok(Self::CommittedFile(file.clone()));
@@ -1185,9 +1193,6 @@ impl<'a> Squashable<'a> {
                 return Ok(Self::UncommittedChange(
                     UncommittedSquashSource::PathPrefix(Cow::Borrowed(hunks)),
                 ));
-            }
-            ResolvedCliIdArgRef::Uncommitted(ChangeSourceId::Worktree(..)) => {
-                "a worktree's uncommitted changes"
             }
             ResolvedCliIdArgRef::Stack { .. } => "a stack",
         };
@@ -1202,7 +1207,7 @@ enum ClassifiedSquashables<'a> {
     Commits(NonEmpty<CommitId>),
     Branches(NonEmpty<BranchArg>),
     UncommittedChanges(NonEmpty<UncommittedSquashSource<'a>>),
-    Uncommitted,
+    Uncommitted(ChangeSourceId),
     CommittedChanges(NonEmpty<CommittedChange>),
 }
 
@@ -1211,7 +1216,7 @@ impl<'a> ClassifiedSquashables<'a> {
         commit_sources: Vec<CommitId>,
         branch_sources: Vec<BranchArg>,
         uncommitted_change_sources: Vec<UncommittedSquashSource<'a>>,
-        uncommitted_sources: Vec<&'static str>,
+        uncommitted_sources: Vec<ChangeSourceId>,
         committed_change_sources: Vec<CommittedChange>,
     ) -> CliResult<Self> {
         let has_commits = !commit_sources.is_empty();
@@ -1242,7 +1247,9 @@ impl<'a> ClassifiedSquashables<'a> {
         } else if let Some(sources) = NonEmpty::from_vec(uncommitted_change_sources) {
             Ok(Self::UncommittedChanges(sources))
         } else if has_uncommitted {
-            Ok(Self::Uncommitted)
+            Ok(Self::Uncommitted(change_source::single_source(
+                uncommitted_sources,
+            )?))
         } else if let Some(committed_change_sources) = NonEmpty::from_vec(committed_change_sources)
         {
             Ok(Self::CommittedChanges(committed_change_sources))
@@ -1334,10 +1341,15 @@ pub fn run(
                 ),
             )
         }
-        SquashOperation::Uncommitted { target, reword } => {
+        SquashOperation::Uncommitted {
+            target,
+            reword,
+            source: _,
+        } => {
             let context_lines = ctx.settings.context_lines;
             let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+            let mut builder =
+                DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
             builder.push_changes_from_uncommitted_area()?;
             let changes = builder.into_diff_specs();
 
@@ -1636,6 +1648,7 @@ pub enum SquashOperation<'a> {
     Uncommitted {
         target: CommitId,
         reword: HowToRewordTargetNoSource,
+        source: ChangeSourceId,
     },
     MoveCommittedChanges {
         target: CommitId,
@@ -1653,6 +1666,7 @@ impl SquashOperation<'_> {
     fn change_source(&self) -> ChangeSourceId {
         match self {
             SquashOperation::UncommittedHunks(op) => op.source.clone(),
+            SquashOperation::Uncommitted { source, .. } => source.clone(),
             _ => ChangeSourceId::Head,
         }
     }
@@ -1675,9 +1689,15 @@ impl SquashOperation<'_> {
             SquashOperation::UncommittedHunks(inner) => {
                 SquashOperation::UncommittedHunks(inner.into_fully_owned())
             }
-            SquashOperation::Uncommitted { target, reword } => {
-                SquashOperation::Uncommitted { target, reword }
-            }
+            SquashOperation::Uncommitted {
+                target,
+                reword,
+                source,
+            } => SquashOperation::Uncommitted {
+                target,
+                reword,
+                source,
+            },
             SquashOperation::MoveCommittedChanges {
                 target,
                 source,
