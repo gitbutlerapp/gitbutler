@@ -753,7 +753,7 @@ fn build_status_output(
     print_update_notice(ctx, status_ctx, output)?;
     let has_merged_upstream_branch = print_worktree_status(ctx, status_ctx, output)?;
     print_upstream_state(ctx, status_ctx, output)?;
-    print_common_merge_base_summary(status_ctx, output)?;
+    print_common_merge_base_summary(ctx, status_ctx, output)?;
     print_conflicted_files_warning(status_ctx, output)?;
     let warn_about_outside_workspace = matches!(
         status_ctx.mode,
@@ -1147,9 +1147,24 @@ fn print_upstream_state(
 
 /// Print the common merge-base summary line at the bottom of the status tree.
 fn print_common_merge_base_summary(
+    ctx: &Context,
     status_ctx: &StatusContext<'_>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
+    let mut label = String::from("common base");
+    if let Some(base_branch) = &status_ctx.base_branch {
+        let repo = ctx.repo.get()?;
+        let local_ref = format!("refs/heads/{}", base_branch.short_name);
+        let remote_ref = target_remote_tracking_ref_name(base_branch);
+        for ref_name in std::iter::once(local_ref).chain(remote_ref) {
+            if let Some(mut reference) = repo.try_find_reference(ref_name.as_str())?
+                && reference.peel_to_id()?.detach() == status_ctx.common_merge_base_data.commit_id
+            {
+                label.push_str(", ");
+                label.push_str(&reference.name().shorten().to_string());
+            }
+        }
+    }
     let first_line = status_ctx
         .common_merge_base_data
         .message
@@ -1170,7 +1185,7 @@ fn print_common_merge_base_summary(
             t.hint,
         )]),
         Vec::from([
-            Span::raw(" (common base) "),
+            Span::raw(format!(" ({label}) ")),
             Span::styled(
                 status_ctx.common_merge_base_data.commit_date.clone(),
                 t.hint,
