@@ -78,6 +78,15 @@ import {
 
 export type PushActivity = "idle" | "blocked" | "pushing";
 
+export type BranchLane = {
+	type: "stack";
+	stack: Stack;
+	canTearOff: boolean;
+	canRemove: boolean;
+	canUpdateFromRemote: boolean;
+	bottomRelativeTo: RelativeTo | null;
+};
+
 export const CIBubble: FC<{ checks: AggregateCIChecks }> = (p) => {
 	switch (p.checks.status) {
 		case "success":
@@ -131,19 +140,16 @@ export const BranchRow: FC<
 		projectId: string;
 		descriptionId: string;
 		refName: BranchReference;
-		canTearOffBranch: boolean;
-		canRemoveBranch: boolean;
+		lane: BranchLane;
 		downstackPushStatus: DownstackPushStatus;
 		pushActivity: PushActivity;
 		pushStatus: PushStatus;
-		canUpdateFromRemote: boolean;
 		remote: RemoteTrackingReference | null;
 		/** How many commits the remote has that the branch does not. */
 		incoming: number;
 		/** The segment's projection-recorded review number, if any. */
 		recordedPullRequest: number | null;
 		graphStatus: GraphSegmentStatus;
-		bottomRelativeTo: RelativeTo | null;
 		/** The tick starts the rail, with nothing above it: a lower branch's, or the trunk's, runs on up. */
 		startsRail: boolean;
 		commitCount: number;
@@ -151,29 +157,23 @@ export const BranchRow: FC<
 		railBelow: GraphSegmentStatus;
 		/** Columns of the main line running behind the row, left of its rail. */
 		behind: number;
-		/** The stack this branch sits in, for the stack-wide menu items. */
-		stack: Stack;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
 	descriptionId,
 	refName,
-	canTearOffBranch,
-	canRemoveBranch,
+	lane,
 	downstackPushStatus,
 	pushActivity,
 	pushStatus,
-	canUpdateFromRemote,
 	remote,
 	incoming,
 	recordedPullRequest,
 	graphStatus,
-	bottomRelativeTo,
 	startsRail,
 	commitCount,
 	railBelow,
 	behind,
-	stack,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -273,7 +273,7 @@ export const BranchRow: FC<
 
 	const relativeTo: RelativeTo = { type: "referenceBytes", subject: refName.fullNameBytes };
 	const bucketRelativeTo = (side: InsertSide): RelativeTo =>
-		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
+		side === "below" && lane.bottomRelativeTo !== null ? lane.bottomRelativeTo : relativeTo;
 
 	const cutBranch = () => {
 		startKeyboardTransfer({ sources: [address], kind: "move" });
@@ -390,7 +390,7 @@ export const BranchRow: FC<
 		});
 	};
 
-	const stackMenuItems = useStackMenuItems(projectId, stack);
+	const stackMenuItems = useStackMenuItems(projectId, lane.stack);
 
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
@@ -408,7 +408,7 @@ export const BranchRow: FC<
 		}),
 		nativeMenuItem({
 			label: "Update From Remote",
-			enabled: canUpdateFromRemote,
+			enabled: lane.canUpdateFromRemote,
 			onSelect: () => openUpdateFromRemote(dispatch, refName.fullNameBytes),
 		}),
 		nativeMenuSeparator,
@@ -453,12 +453,12 @@ export const BranchRow: FC<
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Tear Off Branch",
-			enabled: canTearOffBranch && !isTearOffBranchPending,
+			enabled: lane.canTearOff && !isTearOffBranchPending,
 			onSelect: tearOff,
 		}),
 		nativeMenuItem({
 			label: "Delete Branch Reference",
-			enabled: canRemoveBranch && !isBranchRemovePending,
+			enabled: lane.canRemove && !isBranchRemovePending,
 			accelerator: toElectronAccelerator(sidebarHotkeys.deleteBranchRef.hotkey),
 			onSelect: () =>
 				branchRemove({

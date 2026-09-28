@@ -461,22 +461,25 @@ const BranchSegment: FC<{
 				descriptionId={descriptionId}
 				projectId={projectId}
 				refName={refName}
-				canTearOffBranch={canTearOffBranch}
-				canRemoveBranch={canRemoveBranch}
+				lane={{
+					type: "stack",
+					stack,
+					canTearOff: canTearOffBranch,
+					canRemove: canRemoveBranch,
+					canUpdateFromRemote: canIntegrateUpstream(segment),
+					bottomRelativeTo: segmentBottomRelativeTo(segment),
+				}}
 				downstackPushStatus={downstackPushStatus}
 				pushActivity={pushActivity}
 				pushStatus={segment.pushStatus}
-				canUpdateFromRemote={canIntegrateUpstream(segment)}
 				remote={segment.remoteTrackingRefName}
 				incoming={segment.commitsOnRemote.length}
 				recordedPullRequest={recordedPullRequest(segment)}
 				graphStatus={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
-				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				startsRail={startsRail}
 				commitCount={segment.commits.length}
 				railBelow={railBelow}
 				behind={behind}
-				stack={stack}
 			/>
 
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
