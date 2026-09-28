@@ -1,0 +1,225 @@
+.list {
+	display: flex;
+	row-gap: 1px;
+	flex-direction: column;
+	padding-inline: var(--padding-list);
+}
+
+.item {
+	display: flex;
+	column-gap: var(--gap-icon-text);
+	align-items: center;
+	min-height: var(--size-button);
+	/* Less on the end: the last cell centres its mark in 22px, which already sets it in from the
+	   edge, so 4px leaves it about as far from the edge as the icon is at the start. */
+	padding-inline: var(--space-lg) var(--space-sm);
+	border-radius: var(--radius-control);
+	color: var(--text-1);
+	cursor: var(--control-cursor);
+
+	/* No transition: hover and selection share this ground, and selection moves with the arrow
+	   keys (design/foundations/states.md, "List rows snap"). */
+	&:where(:hover) {
+		background-color: var(--bg-hover);
+	}
+
+	/* After hover, so a selected row reads the same under the pointer. */
+	&[data-selected] {
+		background-color: var(--bg-selected-inactive);
+	}
+
+	&[inert] {
+		opacity: 0.5;
+	}
+}
+
+/* The solid fill and inverted contents are for the list holding the selection focus only, so
+   where the cursor sits in every other list stays legible without competing. */
+:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
+	.item[data-selected] {
+	--checkbox-bg: var(--fill-gray-bg);
+
+	background-color: var(--bg-selected);
+	color: var(--text-1-invert);
+
+	.directory,
+	.marks {
+		color: var(--text-2-invert);
+	}
+
+	/* The ghost button's inverted variant. On the buttons themselves, since a variant declares
+	   these on its own element and an inherited value would lose to it. */
+	button {
+		--button-border: none;
+		--button-bg: transparent;
+		--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
+		--button-hover-fg: var(--text-1-invert);
+		--button-hover-bg: var(--bg-hover-invert);
+	}
+}
+
+/* The indent: one step per directory the row sits in, and a directory's chevron in its own. */
+.steps {
+	display: flex;
+	column-gap: 4px;
+	flex-shrink: 0;
+	align-self: stretch;
+}
+
+.step {
+	display: flex;
+	position: relative;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+}
+
+/* Runs the row's full height and on through the pixel between rows, so the guides of the rows
+   above and below join into one line under the directory they sit in. It ends of its own accord:
+   the first row shallower than the step doesn't draw one. */
+.guide::before {
+	position: absolute;
+	width: 1px;
+	inset-block: 0 -1px;
+	background-color: color-mix(in srgb, var(--text-2) 20%, transparent);
+	content: "";
+}
+
+.toggle {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-3);
+
+	&:hover,
+	&:focus-visible {
+		color: var(--text-2);
+	}
+}
+
+/* The icon and the checkbox share one cell. */
+.lead {
+	display: grid;
+	flex-shrink: 0;
+
+	& > * {
+		display: flex;
+		grid-area: 1 / 1;
+		align-items: center;
+		justify-content: center;
+	}
+}
+
+/* File and folder glyphs share one box, so the two kinds of row line up. */
+.icon {
+	width: 14px;
+	height: 14px;
+	color: var(--text-3);
+}
+
+/* Opaque, so a checked box covers the icon under it. */
+.checkbox {
+	opacity: 0;
+
+	&:has([data-checked], [data-indeterminate]),
+	.lead:hover &,
+	&:focus-within {
+		opacity: 1;
+	}
+
+	&:has([data-disabled]) {
+		display: none;
+	}
+}
+
+.label {
+	display: flex;
+	flex-grow: 1;
+	align-items: center;
+	min-width: 0;
+}
+
+.text {
+	overflow: hidden;
+	line-height: 16px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.directory {
+	color: var(--text-2);
+}
+
+.directoryTrail {
+	margin-inline-start: 6px;
+}
+
+/* A reviewed file is done with, so what the row says about it recedes; its controls stay as
+   available as any other row's, since dimming a control reads as disabling it. */
+.faded {
+	opacity: 0.5;
+}
+
+.marks {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	color: var(--text-2);
+}
+
+/* The status and the actions share the row's last cell, both centred in it, so neither moves
+   when one gives way to the other and the letters line up down the list. As wide as a small
+   icon-only Button (Button.module.css), the widest thing that goes in it. The actions show while
+   the row is hovered, holds focus or is selected, so a keyboard user sees them where the pointer
+   would. */
+.end {
+	display: grid;
+	flex-shrink: 0;
+	place-items: center;
+	width: 22px;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
+}
+
+.status {
+	display: flex;
+	align-items: center;
+
+	.item:is(:hover, :focus-within, [data-selected]) .end:has(> .actions) > & {
+		visibility: hidden;
+	}
+}
+
+.actions {
+	display: flex;
+	visibility: hidden;
+	align-items: center;
+
+	.item:is(:hover, :focus-within, [data-selected]) & {
+		visibility: visible;
+	}
+}
+
+.count {
+	color: var(--text-2);
+	font-variant-numeric: tabular-nums;
+
+	:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
+		.item[data-selected]
+		& {
+		color: var(--text-2-invert);
+	}
+}
+
+/* The box the change-type letter occupies, so a row that swaps one for the other keeps everything
+   before it in place. Kept in step with the width FileStatusBadge.module.css sizes off its text. */
+.reviewed {
+	display: flex;
+	justify-content: center;
+	width: 1.1em;
+	color: var(--fill-pop-bg);
+	font-size: 11px;
+}
