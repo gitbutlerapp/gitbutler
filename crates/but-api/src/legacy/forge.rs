@@ -777,6 +777,23 @@ mod tests {
     }
 
     #[test]
+    fn a_new_review_target_needs_nothing_pushed() -> Result<()> {
+        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack()?;
+        let target = |branch: &str| new_review_target(&ctx, format!("refs/heads/{branch}"));
+
+        assert_eq!(
+            [target("A")?, target("B")?, target("C")?, target("W")?],
+            ["main", "A", "B", "B"],
+            "the unpushed `C` shows the target its review will get once pushed"
+        );
+        assert!(
+            review_creation_target(&ctx, "refs/heads/C".try_into()?).is_err(),
+            "creation still requires `C` to be pushed"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn a_worktree_resting_inside_a_reviewed_branch_targets_that_branch() -> Result<()> {
         let (ctx, tmp) = context_with_worktree_on_reviewed_stack_at("B~1")?;
         let w: gix::refs::FullName = "refs/heads/W".try_into()?;
@@ -1481,6 +1498,33 @@ pub fn list_ci_checks_for_ref(
         db,
         cache_config,
     )
+}
+
+/// The branch a new review for `branch` targets: the nearest branch beneath it along its lane
+/// chain that has an open review, or the target branch when none has.
+///
+/// Unlike [`publish_review`], nothing needs to be pushed yet, so a caller can show the target
+/// before pushing. `branch` is a full reference name.
+#[but_api(napi, provides = [Workspace, Reviews])]
+#[instrument(err(Debug))]
+pub fn new_review_target(ctx: &Context, branch: String) -> Result<String> {
+    let branch: gix::refs::FullName = branch.try_into()?;
+    let info = crate::legacy::workspace::head_info(ctx)?;
+    let chain = lane_chain_for_branch(&info, branch.as_ref())?;
+    let (selected, beneath) = chain
+        .split_first()
+        .expect("a non-empty chain starts with the branch's own lane");
+    match reviewed_ancestors(*selected, beneath, &open_review_numbers(ctx)?).first() {
+        Some(nearest) => Ok(nearest
+            .segment
+            .ref_name()
+            .context("A reviewed segment is named by its branch")?
+            .shorten()
+            .to_str()
+            .context("Workspace branch name is not valid UTF-8")?
+            .to_owned()),
+        None => target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?),
+    }
 }
 
 #[but_api(napi, invalidates = [Reviews, Branches, Workspace])]
