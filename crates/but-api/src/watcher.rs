@@ -83,13 +83,18 @@ impl WatcherEventKind {
     pub fn invalidates(self) -> &'static [CacheTag] {
         use CacheTag as T;
         match self {
-            WatcherEventKind::GitFetch => {
-                &[T::Branches, T::TargetCommits, T::FetchStatus, T::Reviews]
-            }
-            WatcherEventKind::GitHead => &[T::OperatingMode],
+            WatcherEventKind::GitFetch => &[
+                T::Branches,
+                T::TargetCommits,
+                T::RepositoryRootCommit,
+                T::FetchStatus,
+                T::Reviews,
+            ],
+            WatcherEventKind::GitHead => &[T::OperatingMode, T::RepositoryRootCommit],
             WatcherEventKind::GitActivity | WatcherEventKind::WorkspaceActivity => &[
                 T::Branches,
                 T::TargetCommits,
+                T::RepositoryRootCommit,
                 T::Workspace,
                 T::Commits,
                 T::Diffs,

@@ -40,7 +40,7 @@ export const useReviewedPaths = ({
 	changes: Array<TreeChange>;
 }): ReadonlySet<string> => {
 	const { data: reviewedFiles } = useQuery(
-		reviewedFilesQueryOptions(projectId, weakFileParentIdentityKey(fileParent)),
+		reviewedFilesQueryOptions({ projectId, contextId: weakFileParentIdentityKey(fileParent) }),
 	);
 	const reviewedChanges = changes.filter((change) => reviewedFiles?.has(change.path));
 

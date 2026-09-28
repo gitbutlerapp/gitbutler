@@ -578,6 +578,72 @@ const FilesTreeVirtualList: FC<{
 }) => {
 	const selectedRowIndex =
 		selection !== null ? (addressSpace.indexByKey.get(selection) ?? null) : null;
+	return (
+		<VirtualFilesList
+			rows={rows}
+			selectedRowIndex={selectedRowIndex}
+			scrollElementRef={scrollElementRef}
+			scrollMargin={scrollMargin}
+			scrollPaddingStart={scrollPaddingStart}
+			scrollPaddingEnd={scrollPaddingEnd}
+		>
+			{({ row, index, height, measureElement, isScrolling }) => {
+				const isDirectory = row._tag === "Directory";
+				return (
+					<FilesTreeRow
+						key={row.path}
+						row={row}
+						index={index}
+						height={height}
+						measureElement={measureElement}
+						shared={shared}
+						isSelected={selection !== null && selection === row.path}
+						inert={!addressSpaceIncludes(addressSpace, row.path, (path) => path)}
+						checkedState={
+							isDirectory ? directoryCheckedState(row.items) : fileCheckedState(row.path)
+						}
+						isReviewed={
+							isDirectory
+								? directoryReviewed(row.items)
+								: row.item._tag === "Change" && reviewedPaths.has(row.item.change.path)
+						}
+						isCollapsed={isDirectory && collapsedDirectories[row.path] === true}
+						holdsSelection={
+							isDirectory &&
+							selection !== null &&
+							(selection === row.path || selection.startsWith(`${row.path}/`))
+						}
+						interactive={hasPendingOperationSources || !isScrolling}
+					/>
+				);
+			}}
+		</VirtualFilesList>
+	);
+};
+
+export const VirtualFilesList = <T extends { path: string }>({
+	rows,
+	selectedRowIndex,
+	scrollElementRef,
+	scrollMargin = 0,
+	scrollPaddingStart = 14,
+	scrollPaddingEnd = 14,
+	children,
+}: {
+	rows: Array<T>;
+	selectedRowIndex: number | null;
+	scrollElementRef?: RefObject<HTMLElement | null>;
+	scrollMargin?: number;
+	scrollPaddingStart?: number;
+	scrollPaddingEnd?: number;
+	children: (props: {
+		row: T;
+		index: number;
+		height: number;
+		measureElement: (element: Element | null) => void;
+		isScrolling: boolean;
+	}) => React.ReactNode;
+}) => {
 	const rangeExtractorWithSelected = useCallback(
 		(range: Range) =>
 			getRangeExtractorWithIndices(range, selectedRowIndex === null ? [] : [selectedRowIndex]),
@@ -607,11 +673,8 @@ const FilesTreeVirtualList: FC<{
 		scrollPaddingEnd,
 	});
 	const deferredIsScrolling = useDeferredValue(rowVirtualizer.isScrolling, true);
-	// Keep OperationSourceC mounted while an operation refers to its rows, especially while a
-	// pointer transfer auto-scrolls. Otherwise render the cheap rows immediately on scroll and
-	// wait for deferredIsScrolling to catch up before upgrading them in an interruptible render.
-	const renderInteractiveRows =
-		hasPendingOperationSources || (!rowVirtualizer.isScrolling && !deferredIsScrolling);
+	// Let callers defer expensive row details until scrolling settles.
+	const isScrolling = rowVirtualizer.isScrolling || deferredIsScrolling;
 
 	// Virtualisation-friendly equivalent to Row's own scrollIntoView. Again as
 	// the head and foot to clear are measured or grow; auto is a no-op once clear.
@@ -631,34 +694,13 @@ const FilesTreeVirtualList: FC<{
 				const row = rows[virtualRow.index];
 				if (row === undefined) return null;
 
-				const isDirectory = row._tag === "Directory";
-				return (
-					<FilesTreeRow
-						key={row.path}
-						row={row}
-						index={virtualRow.index}
-						height={virtualRow.size}
-						measureElement={rowVirtualizer.measureElement}
-						shared={shared}
-						isSelected={selection !== null && selection === row.path}
-						inert={!addressSpaceIncludes(addressSpace, row.path, (path) => path)}
-						checkedState={
-							isDirectory ? directoryCheckedState(row.items) : fileCheckedState(row.path)
-						}
-						isReviewed={
-							isDirectory
-								? directoryReviewed(row.items)
-								: row.item._tag === "Change" && reviewedPaths.has(row.item.change.path)
-						}
-						isCollapsed={isDirectory && collapsedDirectories[row.path] === true}
-						holdsSelection={
-							isDirectory &&
-							selection !== null &&
-							(selection === row.path || selection.startsWith(`${row.path}/`))
-						}
-						interactive={renderInteractiveRows}
-					/>
-				);
+				return children({
+					row,
+					index: virtualRow.index,
+					height: virtualRow.size,
+					measureElement: rowVirtualizer.measureElement,
+					isScrolling,
+				});
 			})}
 		</div>
 	);

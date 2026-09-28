@@ -53,10 +53,9 @@ import {
 } from "./graph.ts";
 
 /**
- * The workspace page's lists, in the order the details pane falls back
- * through them; the one named active drives the pane.
+ * The workspace page's lists; the one named active drives the pane.
  */
-export const activeLists = ["applied", "uncommitted"] as const;
+export const activeLists = ["applied", "uncommitted", "but-dev"] as const;
 export type ActiveList = (typeof activeLists)[number];
 
 export type CheckableAddress = Extract<Address, { _tag: "Commit" | "File" | "Hunk" }>;
@@ -146,7 +145,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	filesCollapsedDirectories: {},
 });
 
-export type PageId = "workspace" | "branches";
+export type PageId = "workspace" | "branches" | "but-dev";
 
 export type ProjectState = {
 	filesVisible: boolean;

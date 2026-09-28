@@ -246,6 +246,7 @@ fn main() -> anyhow::Result<()> {
                 but_api::branch::tauri_branch_rename::branch_rename,
                 but_api::branch::tauri_branch_canned_name::branch_canned_name,
                 but_api::target_commits::tauri_workspace_target_commits::workspace_target_commits,
+                but_api::repository::tauri_repository_root_commit::repository_root_commit,
                 legacy::git::tauri_git_remote_branches::git_remote_branches,
                 legacy::git::tauri_delete_all_data::delete_all_data,
                 legacy::git::tauri_git_set_global_config::git_set_global_config,

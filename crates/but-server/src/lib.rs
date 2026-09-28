@@ -480,6 +480,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(but_api::target_commits::workspace_target_commits_cmd),
         )
         .route(
+            "/repository_root_commit",
+            but_post(but_api::repository::repository_root_commit_cmd),
+        )
+        .route(
             "/get_initial_branch_integration",
             but_post(but_api::branch::get_initial_branch_integration_cmd),
         )

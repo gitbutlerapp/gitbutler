@@ -1337,6 +1337,17 @@ export declare function removeReviewReaction(projectId: string, reviewId: number
 export declare function removeSubmissionReaction(projectId: string, reviewId: number, submissionId: number, kind: string): Promise<void>
 
 /**
+ * Identify the repository by the oldest parentless commit reachable from HEAD.
+ *
+ * Uses committer time, breaking ties by object ID. Returns `None` for unborn
+ * HEAD or incomplete shallow ancestry, where the oldest root cannot be known.
+ * Object lookup and decoding errors are propagated.
+ *
+ * {@link ../../../../../crates/but-api/src/repository.rs:13}
+ */
+export declare function repositoryRootCommit(projectId: string): Promise<string | null>
+
+/**
  * Request reviews from the given users on a review.
  *
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1349}

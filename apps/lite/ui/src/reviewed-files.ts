@@ -6,14 +6,24 @@ export type ReviewedFileVersions = Map<string, Set<number>>;
 
 type ReviewedFile = { path: string; version: number };
 
-const reviewedFilesKey = (projectId: string, contextId: string): string =>
-	`reviewed_files:v1:${projectId}:${contextId}`;
+type ReviewScope =
+	| { projectId: string; contextId: string }
+	| { login: string; checkoutId: string; target: string };
 
-export const reviewedFilesQueryOptions = (projectId: string, contextId: string) =>
+const reviewedFilesKey = (scope: ReviewScope): string =>
+	"projectId" in scope
+		? `reviewed_files:v1:${scope.projectId}:${scope.contextId}`
+		: `butDev:reviewed_files:v1:${JSON.stringify([scope.login, scope.checkoutId, scope.target])}`;
+
+export const reviewedFilesQueryOptions = (scope: ReviewScope) =>
 	queryOptions({
-		queryKey: [projectId, "reviewedFiles", contextId],
+		// oxlint-disable-next-line @tanstack/query/exhaustive-deps -- Both scope variants are fully represented in their keys.
+		queryKey:
+			"projectId" in scope
+				? [scope.projectId, "reviewedFiles", scope.contextId]
+				: ["butDev", "reviewedFiles", scope.login, scope.checkoutId, scope.target],
 		queryFn: async (): Promise<ReviewedFileVersions> =>
-			(await idb.get<ReviewedFileVersions>(reviewedFilesKey(projectId, contextId))) ?? new Map(),
+			(await idb.get<ReviewedFileVersions>(reviewedFilesKey(scope))) ?? new Map(),
 	});
 
 const updateReviewedFileVersions = (
@@ -39,21 +49,19 @@ const updateReviewedFileVersions = (
 	return next;
 };
 
-export type SetFilesReviewedInput = {
-	projectId: string;
-	contextId: string;
+export type SetFilesReviewedInput = ReviewScope & {
 	files: Array<ReviewedFile>;
 	reviewed: boolean;
 };
 
 export const useSetFilesReviewed = () =>
 	useMutation({
-		mutationFn: async ({ projectId, contextId, files, reviewed }: SetFilesReviewedInput) =>
-			idb.update<ReviewedFileVersions>(reviewedFilesKey(projectId, contextId), (reviewedFiles) =>
-				updateReviewedFileVersions(reviewedFiles ?? new Map(), files, reviewed),
+		mutationFn: async (input: SetFilesReviewedInput) =>
+			idb.update<ReviewedFileVersions>(reviewedFilesKey(input), (reviewedFiles) =>
+				updateReviewedFileVersions(reviewedFiles ?? new Map(), input.files, input.reviewed),
 			),
 		onMutate: (input, ctx) => {
-			const queryKey = reviewedFilesQueryOptions(input.projectId, input.contextId).queryKey;
+			const queryKey = reviewedFilesQueryOptions(input).queryKey;
 			const previous = ctx.client.getQueryData<ReviewedFileVersions>(queryKey);
 
 			ctx.client.setQueryData(queryKey, (reviewedFiles: ReviewedFileVersions | undefined) =>
@@ -63,10 +71,7 @@ export const useSetFilesReviewed = () =>
 			return previous;
 		},
 		onError: (_error, input, previous, ctx) => {
-			ctx.client.setQueryData(
-				reviewedFilesQueryOptions(input.projectId, input.contextId).queryKey,
-				previous ?? new Map(),
-			);
+			ctx.client.setQueryData(reviewedFilesQueryOptions(input).queryKey, previous ?? new Map());
 		},
 	});
 
@@ -87,12 +92,12 @@ type PruneReviewedFilesInput = {
 
 export const usePruneReviewedFiles = () =>
 	useMutation({
-		mutationFn: async ({ projectId, contextId, paths }: PruneReviewedFilesInput) =>
-			idb.update<ReviewedFileVersions>(reviewedFilesKey(projectId, contextId), (reviewedFiles) =>
-				pruneReviewedFiles(reviewedFiles ?? new Map(), paths),
+		mutationFn: async (input: PruneReviewedFilesInput) =>
+			idb.update<ReviewedFileVersions>(reviewedFilesKey(input), (reviewedFiles) =>
+				pruneReviewedFiles(reviewedFiles ?? new Map(), input.paths),
 			),
 		onMutate: (input, ctx) => {
-			const queryKey = reviewedFilesQueryOptions(input.projectId, input.contextId).queryKey;
+			const queryKey = reviewedFilesQueryOptions(input).queryKey;
 			const previous = ctx.client.getQueryData<ReviewedFileVersions>(queryKey);
 
 			ctx.client.setQueryData(queryKey, (reviewedFiles: ReviewedFileVersions | undefined) =>
@@ -102,9 +107,6 @@ export const usePruneReviewedFiles = () =>
 			return previous;
 		},
 		onError: (_error, input, previous, ctx) => {
-			ctx.client.setQueryData(
-				reviewedFilesQueryOptions(input.projectId, input.contextId).queryKey,
-				previous ?? new Map(),
-			);
+			ctx.client.setQueryData(reviewedFilesQueryOptions(input).queryKey, previous ?? new Map());
 		},
 	});

@@ -86,6 +86,7 @@ export const getTransferTarget = (
 				Match.value(activeList).pipe(
 					Match.when("uncommitted", () => uncommittedChangesAddress),
 					Match.when("applied", () => appliedSelection),
+					Match.when("but-dev", () => null),
 					Match.exhaustive,
 				),
 		}),

@@ -121,6 +121,7 @@ export const apiParamNames = {
 	removeReviewLabel: ["projectId", "reviewId", "label"],
 	removeReviewReaction: ["projectId", "reviewId", "reactionId"],
 	removeSubmissionReaction: ["projectId", "reviewId", "submissionId", "kind"],
+	repositoryRootCommit: ["projectId"],
 	requestReview: ["projectId", "reviewId", "logins"],
 	resetAiConfiguration: [],
 	resolveCommitConflictHunks: ["projectId", "commitId", "specs"],

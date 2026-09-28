@@ -110,7 +110,7 @@ export const useStateReconciler = (projectId: string): void => {
 	);
 	const reviewedFilesContextId = weakFileParentIdentityKey(uncommittedChangesFileParent);
 	const { data: reviewedUncommittedFiles } = useQuery(
-		reviewedFilesQueryOptions(projectId, reviewedFilesContextId),
+		reviewedFilesQueryOptions({ projectId, contextId: reviewedFilesContextId }),
 	);
 	const { mutate: pruneReviewedFiles } = usePruneReviewedFiles();
 	const reconcileCheckedUncommittedFiles = useEffectEvent(

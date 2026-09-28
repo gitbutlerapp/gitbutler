@@ -50,6 +50,12 @@ export const branchListQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.branchList(projectId),
 	});
 
+export const repositoryRootCommitQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: [projectId, "repositoryRootCommit"],
+		queryFn: () => window.lite.repositoryRootCommit(projectId),
+	});
+
 export const operationsLogQueryOptions = (
 	projectId: string,
 	includeKind: PayloadFor<"listSnapshots">["includeKind"] = null,

@@ -9,14 +9,22 @@ const authPaths = new Set(["/api/cli/login", "/api/cli/login/poll", "/api/me/sig
 const allowedHeaders = new Set(["authorization", "content-type"]);
 
 export function createButDevCors(isTrustedOrigin: (url: URL) => boolean) {
-	const requests = new Map<number, { url: string; origin: string; method: string }>();
+	const requests = new Map<
+		number,
+		{ url: string; origin: string; method: string; allowedMethod: string }
+	>();
 
 	function beforeSendHeaders(details: OnBeforeSendHeadersListenerDetails): void {
 		requests.delete(details.id);
 		const url = new URL(details.url);
+		const allowedMethod = authPaths.has(url.pathname)
+			? "POST"
+			: url.pathname === "/api/mesh" || /^\/api\/checkouts\/[^/]+\/diff$/.test(url.pathname)
+				? "GET"
+				: undefined;
 		if (
 			url.origin !== "https://but.dev" ||
-			!authPaths.has(url.pathname) ||
+			allowedMethod === undefined ||
 			url.username !== "" ||
 			url.password !== ""
 		)
@@ -46,18 +54,18 @@ export function createButDevCors(isTrustedOrigin: (url: URL) => boolean) {
 			const method = headers.get("access-control-request-method");
 			const requestedHeaders = headers.get("access-control-request-headers");
 			if (
-				method !== "POST" ||
+				method !== allowedMethod ||
 				(requestedHeaders !== undefined &&
 					!requestedHeaders
 						.split(",")
 						.every((name) => allowedHeaders.has(name.trim().toLowerCase())))
 			)
 				return;
-		} else if (details.method !== "POST" || details.resourceType !== "xhr") {
+		} else if (details.method !== allowedMethod || details.resourceType !== "xhr") {
 			return;
 		}
 
-		requests.set(details.id, { url: details.url, origin, method: details.method });
+		requests.set(details.id, { url: details.url, origin, method: details.method, allowedMethod });
 	}
 
 	function headersReceived(details: OnHeadersReceivedListenerDetails): HeadersReceivedResponse {
@@ -73,7 +81,7 @@ export function createButDevCors(isTrustedOrigin: (url: URL) => boolean) {
 		responseHeaders["Access-Control-Allow-Origin"] = [request.origin];
 		if (request.method !== "OPTIONS") return { responseHeaders };
 
-		responseHeaders["Access-Control-Allow-Methods"] = ["POST"];
+		responseHeaders["Access-Control-Allow-Methods"] = [request.allowedMethod];
 		responseHeaders["Access-Control-Allow-Headers"] = ["authorization, content-type"];
 		responseHeaders["Access-Control-Max-Age"] = ["0"];
 		return {

@@ -32,6 +32,9 @@ pub mod branch;
 /// Functions that operate on the workspace.
 pub mod workspace;
 
+/// Read-only repository information.
+pub mod repository;
+
 /// Listing target-branch history relative to the workspace.
 pub mod target_commits;
 

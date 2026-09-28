@@ -39,7 +39,7 @@ type LocalQueryKey =
 	| "projectAiSettings"
 	| "reviewedFiles";
 
-type ButDevQueryKey = "session" | "login";
+type ButDevQueryKey = "session" | "login" | "mesh" | "reviewedFiles";
 
 export type QueryKeyPrefix =
 	| [projectId: string, ProjectQueryKey]

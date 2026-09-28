@@ -47,6 +47,8 @@ cache_tags! {
     Branches,
     /// Commits on the workspace's target branch.
     TargetCommits,
+    /// The oldest root reachable from HEAD, if its ancestry is complete.
+    RepositoryRootCommit,
     /// The workspace head: applied stacks and their segments.
     Workspace,
     /// A single commit's details.

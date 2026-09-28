@@ -19,7 +19,13 @@ export type UrlQueryParams = {
 	uncommitted?: string;
 	unapplied?: string;
 	files?: string;
+	butDevCheckout?: string;
+	butDevTarget?: string;
 };
+
+export const isButDevSelection = (params: UrlQueryParams): boolean =>
+	params.page === "but-dev" ||
+	((params.page ?? "workspace") === "workspace" && params.active === "but-dev");
 
 /** The lists whose cursor is a URL param — every list but `diff`. */
 export type UrlCursorName = Exclude<CursorName, "diff">;

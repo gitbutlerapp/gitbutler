@@ -121,6 +121,7 @@ export declare const apiParamNames: {
 	readonly removeReviewLabel: readonly ["projectId", "reviewId", "label"];
 	readonly removeReviewReaction: readonly ["projectId", "reviewId", "reactionId"];
 	readonly removeSubmissionReaction: readonly ["projectId", "reviewId", "submissionId", "kind"];
+	readonly repositoryRootCommit: readonly ["projectId"];
 	readonly requestReview: readonly ["projectId", "reviewId", "logins"];
 	readonly resetAiConfiguration: readonly [];
 	readonly resolveCommitConflictHunks: readonly ["projectId", "commitId", "specs"];

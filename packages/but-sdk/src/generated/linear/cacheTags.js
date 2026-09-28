@@ -37,6 +37,7 @@ export const apiProvides = {
 	listSnapshots: ["Workspace"],
 	newReviewTarget: ["Workspace", "Reviews"],
 	operatingMode: ["OperatingMode"],
+	repositoryRootCommit: ["RepositoryRootCommit"],
 	treeChangeDiffs: ["Diffs"],
 	treeChangeDiffsFromSource: ["Diffs"],
 	workspaceFetchFromRemotes: [],
@@ -92,9 +93,9 @@ export const apiInvalidates = {
 
 export const watcherInvalidates = {
 	externalInvalidation: [],
-	gitActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
-	gitFetch: ["Branches", "TargetCommits", "FetchStatus", "Reviews"],
-	gitHead: ["OperatingMode"],
-	workspaceActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
+	gitActivity: ["Branches", "TargetCommits", "RepositoryRootCommit", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
+	gitFetch: ["Branches", "TargetCommits", "RepositoryRootCommit", "FetchStatus", "Reviews"],
+	gitHead: ["OperatingMode", "RepositoryRootCommit"],
+	workspaceActivity: ["Branches", "TargetCommits", "RepositoryRootCommit", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
 	worktreeChanges: ["Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"],
 };

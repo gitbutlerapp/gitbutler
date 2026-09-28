@@ -6,6 +6,7 @@ import {
 } from "#ui/cursors.ts";
 import {
 	encodeCursorParam,
+	isButDevSelection,
 	isUrlCursor,
 	type UrlCursorName,
 	type UrlQueryParams,
@@ -105,11 +106,13 @@ export const useSelection = <L extends UrlCursorName>(
 ): CursorItem[L] | null => {
 	const param = useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams): string | undefined =>
-			addressSpace == null ? undefined : params[list],
+		select: (params: UrlQueryParams): string | null | undefined =>
+			addressSpace == null || isButDevSelection(params) ? null : params[list],
 	});
 
-	return addressSpace == null ? null : resolveCursorParam(list, param, addressSpace);
+	return addressSpace == null || param === null
+		? null
+		: resolveCursorParam(list, param, addressSpace);
 };
 
 /**
@@ -126,6 +129,7 @@ export const useIsCursorAt = <L extends UrlCursorName>(
 	return useSearch({
 		from: WORKSPACE_ROUTE,
 		select: (params: UrlQueryParams): boolean => {
+			if (isButDevSelection(params)) return false;
 			const resolved = resolveCursorParam(list, params[list], addressSpace);
 			return resolved !== null && cursorKey[list](resolved) === key;
 		},
@@ -140,7 +144,8 @@ export const useIsCursorAt = <L extends UrlCursorName>(
 export const useCursorMatches = <L extends UrlCursorName>(list: L, item: CursorItem[L]): boolean =>
 	useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams) => params[list] === encodeCursorParam(list, item),
+		select: (params: UrlQueryParams) =>
+			!isButDevSelection(params) && params[list] === encodeCursorParam(list, item),
 	});
 
 /** The page shown, `workspace` unless the URL says otherwise. */
@@ -151,6 +156,12 @@ export const usePage = (): PageId =>
 	});
 
 const pageOf = (): PageId => currentParams().page ?? "workspace";
+
+export const useIsButDevSelection = (): boolean =>
+	useSearch({
+		from: WORKSPACE_ROUTE,
+		select: isButDevSelection,
+	});
 
 /** The workspace page's active list, `applied` unless the URL says otherwise. */
 export const useActiveList = (): ActiveList =>
@@ -171,7 +182,7 @@ const drivenByUncommitted = (params: UrlQueryParams): boolean =>
 export const useCanShowFiles = (): boolean =>
 	useSearch({
 		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams) => !drivenByUncommitted(params),
+		select: (params: UrlQueryParams) => !isButDevSelection(params) && !drivenByUncommitted(params),
 	});
 
 export const sidebarFocusScopeOf = (): "sidebar" | "uncommitted-files" =>
@@ -245,13 +256,21 @@ export const setCursor = <L extends CursorName>(list: L, item: CursorItem[L] | n
 
 	const encoded =
 		item === null ? undefined : (encodeUnion(list, item as CursorItem[UrlCursorName]) ?? undefined);
+	const activatesLocalList =
+		item !== null &&
+		(list === "applied" || list === "uncommitted") &&
+		pageOf() === "workspace" &&
+		activeListOf() === "but-dev";
 	// Selecting the same item is a no-op, side effects included; selecting
 	// null always lands (it may still have sub-cursors to clear).
-	if (item !== null && currentParams()[list] === encoded) return;
+	if (item !== null && currentParams()[list] === encoded && !activatesLocalList) return;
 
 	navigateParams((prev) => ({
 		...prev,
 		[list]: encoded,
+		...(activatesLocalList
+			? { active: list === "uncommitted" ? ("uncommitted" as const) : undefined }
+			: {}),
 		// The file and diff cursors follow whatever the applied cursor rests on.
 		...(list === "applied" ? { files: undefined } : {}),
 	}));
@@ -268,6 +287,22 @@ export const setPage = (page: PageId): void => {
 
 	navigateParams((prev) => ({ ...prev, page: page === "workspace" ? undefined : page }));
 	store.dispatch(projectSlice.actions.clearPendingOperation({ projectId: projectIdOf() }));
+};
+
+export const setButDevCheckout = (
+	checkoutId: string,
+	target = "uncommitted",
+	inWorkspace = false,
+): void => {
+	navigateParams((prev) => ({
+		...prev,
+		page: inWorkspace ? undefined : "but-dev",
+		active: inWorkspace ? "but-dev" : prev.active === "but-dev" ? undefined : prev.active,
+		butDevCheckout: checkoutId,
+		butDevTarget: target === "uncommitted" ? undefined : target,
+	}));
+	setDiffCursor(null);
+	dissolveInvalidOperation(null);
 };
 
 /** Name the workspace list that drives the details pane. */

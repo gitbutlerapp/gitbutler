@@ -92,10 +92,12 @@ import {
 	usePage,
 	useSelection,
 	useActiveList,
+	useIsButDevSelection,
 } from "#ui/use-cursor.ts";
 import { activeLists, type ActiveList } from "#ui/projects/project.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { parseDragData } from "./DragData.ts";
+import { ButDevDetails } from "./ButDev.tsx";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -117,8 +119,11 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	);
 	const sidebarFocusScope = useSidebarFocusScope();
 	const page = usePage();
+	const isButDevSelection = useIsButDevSelection();
 	const getFilesVisible = () =>
-		canShowFiles && projectSlice.selectors.selectFilesVisible(store.getState(), projectId);
+		isButDevSelection
+			? document.querySelector('[data-focus-scope="files"]') !== null
+			: canShowFiles && projectSlice.selectors.selectFilesVisible(store.getState(), projectId);
 
 	const { isPending: isRestoreSnapshotPending, mutate: restoreSnapshot } = useRestoreSnapshot({
 		projectId,
@@ -150,7 +155,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: globalHotkeys.redo.hotkey,
 			callback: () => restoreSnapshot({ _tag: "redo" }),
 			options: {
-				enabled: noOperationPending && !isRestoreSnapshotPending,
+				enabled: !isButDevSelection && noOperationPending && !isRestoreSnapshotPending,
 				meta: globalHotkeys.redo.meta,
 				ignoreInputs: true,
 			},
@@ -159,7 +164,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: globalHotkeys.undo.hotkey,
 			callback: () => restoreSnapshot({ _tag: "undo" }),
 			options: {
-				enabled: noOperationPending && !isRestoreSnapshotPending,
+				enabled: !isButDevSelection && noOperationPending && !isRestoreSnapshotPending,
 				meta: globalHotkeys.undo.meta,
 				ignoreInputs: true,
 			},
@@ -182,7 +187,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 					dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "OperationsLogPicker" } }));
 			},
 			options: {
-				enabled: noOperationPending,
+				enabled: !isButDevSelection && noOperationPending,
 				meta: globalHotkeys.operationsLog.meta,
 			},
 		},
@@ -222,7 +227,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 					},
 				},
 			]),
-			Match.when("branches", () => [
+			Match.when(Match.is("branches", "but-dev"), () => [
 				{
 					hotkey: "1",
 					callback: () => focusScope("sidebar"),
@@ -447,6 +452,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	});
 
 	const page = usePage();
+	const isButDevSelection = useIsButDevSelection();
 	// Destructured here: the result object itself is a new identity every render.
 	const {
 		data: branches,
@@ -519,6 +525,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 				uncommittedFilesSelection === null ? null : (
 					<UncommittedFilesDetails path={uncommittedFilesSelection} {...viewProps} />
 				),
+			"but-dev": activeList === "but-dev" ? <ButDevDetails /> : null,
 		};
 		// The pane follows the active list, else the first sibling with something
 		// to show, rather than going blank beside content. Only the pane bends:
@@ -550,6 +557,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 					<Details selection={branchesSelection} review={null} {...viewProps} />
 				),
 			),
+			Match.when("but-dev", () => <ButDevDetails />),
 			Match.exhaustive,
 		);
 	}, [
@@ -594,7 +602,8 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		select: (cfg) => cfg.terminalId ?? "",
 	});
 
-	const canOpenTerminal = project !== undefined && terminalId !== undefined && terminalId !== "";
+	const canOpenTerminal =
+		!isButDevSelection && project !== undefined && terminalId !== undefined && terminalId !== "";
 	useHotkey(
 		workspaceHotkeys.openInTerminal.hotkey,
 		() => {
@@ -686,11 +695,13 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 				</Panel>
 			</Group>
 
-			<OperationControls
-				projectId={projectId}
-				appliedAddressSpace={appliedAddressSpace}
-				onFocusRestore={(scope) => setFocusRestoreRequest({ scope })}
-			/>
+			{!isButDevSelection && (
+				<OperationControls
+					projectId={projectId}
+					appliedAddressSpace={appliedAddressSpace}
+					onFocusRestore={(scope) => setFocusRestoreRequest({ scope })}
+				/>
+			)}
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({
@@ -744,6 +755,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 
 export const Page: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const isButDevSelection = useIsButDevSelection();
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: headAndMode } = useQuery(operatingModeQueryOptions(projectId));
@@ -753,7 +765,7 @@ export const Page: FC = () => {
 	// Edit mode is repository state, not navigation: the whole surface swaps
 	// while HEAD is parked on the edit ref, and swaps back when it returns —
 	// including when the transition happened in a terminal.
-	if (headAndMode?.operatingMode.type === "Edit")
+	if (!isButDevSelection && headAndMode?.operatingMode.type === "Edit")
 		return <EditModePage projectId={projectId} metadata={headAndMode.operatingMode.subject} />;
 
 	return (

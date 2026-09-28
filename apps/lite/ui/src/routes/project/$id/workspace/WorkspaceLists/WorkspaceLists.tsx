@@ -1033,6 +1033,7 @@ const Stacks: FC<{
 	head: ReactNode;
 	/** Stands in for the card at the scroller's head while the card is scrolled out above. */
 	dock: ReactNode;
+	otherWork?: ReactNode;
 	/** How far down the dock's mark sticks: the card's head height, so the stand-in takes over as the head is pushed. */
 	dockOffset: number;
 	scrollElementRef: RefObject<HTMLDivElement | null>;
@@ -1046,6 +1047,7 @@ const Stacks: FC<{
 	onEdgeSpill,
 	head,
 	dock,
+	otherWork,
 	dockOffset,
 	scrollElementRef,
 	scrollPaddingEnd,
@@ -1324,6 +1326,7 @@ const Stacks: FC<{
 				/>
 			</div>
 
+			{otherWork}
 			<div className={styles.foot} />
 		</ScrollArea>
 	);
@@ -1339,6 +1342,7 @@ export const WorkspaceLists: FC<
 		absorptionTargetCommitIds: ReadonlySet<string>;
 		onActiveFileSelection: (selection: string) => void;
 		stacksHeaderActions?: ReactNode;
+		otherWork?: ReactNode;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1348,6 +1352,7 @@ export const WorkspaceLists: FC<
 	absorptionTargetCommitIds,
 	onActiveFileSelection,
 	stacksHeaderActions,
+	otherWork,
 	...props
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -1540,6 +1545,7 @@ export const WorkspaceLists: FC<
 					canAmendCommit={canAmendCommit}
 					onEdgeSpill={spillIntoUncommittedChanges}
 					head={uncommitted}
+					otherWork={otherWork}
 					dockOffset={cardHeadHeight}
 					dock={
 						<UncommittedChangesRow

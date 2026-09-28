@@ -1,7 +1,7 @@
 import { queryOptions, skipToken, type QueryClient } from "@tanstack/react-query";
 import * as idb from "idb-keyval";
 
-type ButDevSession = { login: string; token: string };
+export type ButDevSession = { login: string; token: string };
 const sessionKey = "but-dev-session-v1";
 
 export const butDevSessionQueryOptions = queryOptions({
@@ -115,6 +115,7 @@ export async function disconnectButDev(client: QueryClient): Promise<string | nu
 	const session = client.getQueryData(butDevSessionQueryOptions.queryKey);
 	await idb.del(sessionKey);
 	client.setQueryData(butDevSessionQueryOptions.queryKey, null);
+	client.removeQueries({ queryKey: ["butDev", "mesh"] });
 	if (!session) return null;
 	try {
 		const response = await fetch("https://but.dev/api/me/signout", {
