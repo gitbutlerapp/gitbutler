@@ -346,8 +346,9 @@ fn basic_cursor_movement() {
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   tpm add A"]);
 
-    tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+    tui.input(KeyCode::Down).assert_current_line_eq(str![
+        "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+    ]);
 
     tui.input([
         KeyCode::Down,
@@ -357,7 +358,9 @@ fn basic_cursor_movement() {
         KeyCode::Down,
         KeyCode::Down,
     ])
-    .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+    .assert_current_line_eq(str![
+        "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+    ]);
 
     tui.input([
         KeyCode::Up,
@@ -405,7 +408,9 @@ fn section_jumps_shift_j_k() {
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ]);
 
     tui.input((KeyModifiers::SHIFT, 'K'))
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -565,7 +570,9 @@ fn moving_to_merge_base_scrolls_to_keep_selection_visible() {
         .assert_current_line_eq(str!["┊╭┄ h0 [B]"]);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ]);
 }
 
 #[test]
@@ -852,7 +859,9 @@ fn commit_file_toggle_on_commit_without_files_is_noop() {
         .assert_current_line_eq(str!["┊●   oun (no commit message) (no changes)"]);
 
     tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"])
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_file_toggle_on_commit_without_files_is_noop_final.svg"
         ]);

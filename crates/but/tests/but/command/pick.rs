@@ -74,7 +74,7 @@ Picked d3e2ba3 onto new branch 'picked' to create olw
 ┊●   olw add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -132,7 +132,7 @@ Caused by:
 ┊│     ppu:l A first
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -214,7 +214,7 @@ Caused by:
 ┊●   lsm bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -359,7 +359,7 @@ Picked d3e2ba3 onto branch 'A' to create olw
 ┊│     add A 
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -393,7 +393,7 @@ Picked 9477ae7 onto new branch 'new-branch' to create oxt
 ┊│     add A 
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -425,7 +425,7 @@ Picked d3e2ba3 to create olw
 ┊│     add A 
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -457,7 +457,7 @@ Picked d3e2ba3 to create olw
 ┊│     add B 
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -495,7 +495,7 @@ Picked d3e2ba3 onto new branch 'a-branch-1' to create olw
 ┊│     add A 
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -533,7 +533,7 @@ Picked d3e2ba3 onto new branch 'a-branch-1' to create olw
 ┊│     add B 
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -568,7 +568,7 @@ Picked d3e2ba3 onto new branch 'top' to create olw
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -603,7 +603,7 @@ Picked d3e2ba3 onto new branch 'bottom' to create olw
 ┊●   olw add B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 

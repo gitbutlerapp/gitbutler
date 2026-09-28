@@ -22,7 +22,7 @@ fn split_commit() {
 ┊│     lsw:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -49,7 +49,7 @@ Moved 1 change from lsw to new commit qkw above commit lsw
 ┊│     lsw:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -78,7 +78,7 @@ fn split_commit_with_message() {
 ┊│     lsw:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -105,7 +105,7 @@ Moved 1 change from lsw to new commit qkw above commit lsw
 ┊│     lsw:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -182,7 +182,7 @@ Moved 1 change from szk to new commit qkw above commit szk
 ┊│     knw:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -330,7 +330,7 @@ fn cannot_split_sources_from_multiple_commits() {
 ┊│     zts:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 

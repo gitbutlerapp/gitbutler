@@ -54,10 +54,12 @@
     <text x="10" y="168" style="fill:#FFFFFF;font-weight:bold;">┴</text>
     <text x="26 34 42 50 58 66 74" y="168" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">1bbc04b</text>
     <text x="90 98 106 114 122 130 138" y="168" style="fill:#FFFFFF;font-weight:bold;">(common</text>
-    <text x="154 162 170 178 186" y="168" style="fill:#FFFFFF;font-weight:bold;">base)</text>
-    <text x="202 210 218 226 234 242 250 258 266 274" y="168" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">2000-01-02</text>
-    <text x="290 298 306" y="168" style="fill:#FFFFFF;font-weight:bold;">add</text>
-    <text x="322 330 338 346" y="168" style="fill:#FFFFFF;font-weight:bold;">Base</text>
+    <text x="154 162 170 178 186" y="168" style="fill:#FFFFFF;font-weight:bold;">base,</text>
+    <text x="202 210 218 226 234" y="168" style="fill:#FFFFFF;font-weight:bold;">main,</text>
+    <text x="250 258 266 274 282 290 298 306 314 322 330 338" y="168" style="fill:#FFFFFF;font-weight:bold;">origin/main)</text>
+    <text x="354 362 370 378 386 394 402 410 418 426" y="168" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">2000-01-02</text>
+    <text x="442 450 458" y="168" style="fill:#FFFFFF;font-weight:bold;">add</text>
+    <text x="474 482 490 498" y="168" style="fill:#FFFFFF;font-weight:bold;">Base</text>
     <text x="26 34 42 50" y="366" style="fill:#000000;">pick</text>
     <text x="82 90 98 106 114" y="366" style="fill:#0000AA;">enter</text>
     <text x="130 138 146 154 162 170 178" y="366" style="fill:#CCCCCC;opacity:0.75;">confirm</text>

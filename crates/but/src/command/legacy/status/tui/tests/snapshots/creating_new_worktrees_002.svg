@@ -31,10 +31,12 @@
     <text x="122 130" y="132" style="fill:#000000;font-weight:bold;">&gt;&gt;</text>
     <text x="146 154 162 170 178 186 194" y="132" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">0dc3733</text>
     <text x="210 218 226 234 242 250 258" y="132" style="fill:#FFFFFF;font-weight:bold;">(common</text>
-    <text x="274 282 290 298 306" y="132" style="fill:#FFFFFF;font-weight:bold;">base)</text>
-    <text x="322 330 338 346 354 362 370 378 386 394" y="132" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">2000-01-02</text>
-    <text x="410 418 426" y="132" style="fill:#FFFFFF;font-weight:bold;">add</text>
-    <text x="442" y="132" style="fill:#FFFFFF;font-weight:bold;">M</text>
+    <text x="274 282 290 298 306" y="132" style="fill:#FFFFFF;font-weight:bold;">base,</text>
+    <text x="322 330 338 346 354" y="132" style="fill:#FFFFFF;font-weight:bold;">main,</text>
+    <text x="370 378 386 394 402 410 418 426 434 442 450 458" y="132" style="fill:#FFFFFF;font-weight:bold;">origin/main)</text>
+    <text x="474 482 490 498 506 514 522 530 538 546" y="132" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">2000-01-02</text>
+    <text x="562 570 578" y="132" style="fill:#FFFFFF;font-weight:bold;">add</text>
+    <text x="594" y="132" style="fill:#FFFFFF;font-weight:bold;">M</text>
     <text x="26 34 42 50 58 66 74 82" y="366" style="fill:#000000;">worktree</text>
     <text x="114" y="366" style="fill:#0000AA;">n</text>
     <text x="130 138 146" y="366" style="fill:#CCCCCC;opacity:0.75;">new</text>
