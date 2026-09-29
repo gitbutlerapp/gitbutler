@@ -290,6 +290,13 @@
 	opacity: 0.5;
 }
 
+/* Beside the name, never shrinking before the path does. */
+.lineStats {
+	flex-shrink: 0;
+	/* Centred beside the 13px name, the 12px figures ride 1px above its baseline. */
+	translate: 0 1px;
+}
+
 .marks {
 	display: flex;
 	flex-shrink: 0;

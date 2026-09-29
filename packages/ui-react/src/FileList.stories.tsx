@@ -25,6 +25,8 @@ const meta = preview.meta({
 		name: "userSlice.ts",
 		directory: "src/store",
 		status: "Modification",
+		added: 12,
+		removed: 3,
 		selected: false,
 		reviewed: false,
 		conflicted: false,
@@ -40,7 +42,8 @@ const meta = preview.meta({
 
 /**
  * One file in a panel: the header names the files with their count and line totals, and the row
- * gives the file's type glyph, its name with the path after it, and the letter for its change.
+ * gives the file's type glyph, its name with the path after it, its line counts, and the letter
+ * for its change.
  */
 export const Default = meta.story({
 	args: { name: "userSlice.ts" },
@@ -65,21 +68,32 @@ export const States = meta.story({
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 			<FileList title="Changes" count={5} added={120} removed={48} focused>
-				<FileListItem name="useAuthHook.ts" directory="src/hooks" status="Addition" />
+				<FileListItem name="useAuthHook.ts" directory="src/hooks" status="Addition" added={64} />
 				<FileListItem
 					selected
 					name="Button.tsx"
 					directory="src/components"
 					status="Modification"
+					added={18}
+					removed={9}
 					actions={kebab}
 				/>
 				<FileListItem
 					name="apiService.ts"
 					directory="src/services"
 					status="Modification"
+					added={4}
+					removed={2}
 					reviewed
 				/>
-				<FileListItem name="merge.rs" directory="crates/core" status="Modification" conflicted />
+				<FileListItem
+					name="merge.rs"
+					directory="crates/core"
+					status="Modification"
+					added={34}
+					removed={37}
+					conflicted
+				/>
 				<FileListItem name="index.ts" directory="src" status="Deletion" inert />
 			</FileList>
 			<FileList title="Changes" count={2} added={30}>
