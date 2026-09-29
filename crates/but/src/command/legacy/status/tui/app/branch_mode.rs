@@ -212,6 +212,17 @@ impl App {
     }
 
     fn handle_branch_pick_and_switch(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
+        let selected_branch = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|line| line.data.cli_id())
+            .and_then(|id| {
+                if let CliId::Branch(branch) = &**id {
+                    Some(branch.name.as_str())
+                } else {
+                    None
+                }
+            });
         let current_branch = {
             let repo = ctx.repo.get()?;
             repo.head_ref()?
@@ -255,8 +266,9 @@ impl App {
                     updated_at: b_updated_at,
                     ..
                 },
-            ) => b_updated_at
-                .cmp(a_updated_at)
+            ) => (selected_branch == Some(b_name.as_str()))
+                .cmp(&(selected_branch == Some(a_name.as_str())))
+                .then_with(|| b_updated_at.cmp(a_updated_at))
                 .then_with(|| a_name.cmp(b_name)),
         });
 
