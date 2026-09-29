@@ -32,8 +32,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	/* Keep row height stable whether or not a (small, tag-sized) picker button renders. */
-	min-height: var(--size-tag);
+	/* Keep row height stable whether or not a small picker button renders. */
+	min-height: var(--size-control-sm);
 	gap: 8px;
 }
 
@@ -141,7 +141,7 @@
 	flex-shrink: 0;
 	place-items: center;
 	width: 22px;
-	height: var(--size-tag);
+	height: var(--size-control-sm);
 }
 
 .reviewerRemove {
