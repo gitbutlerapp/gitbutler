@@ -134,10 +134,6 @@
 	flex: 1;
 }
 
-.diffFilesViewport {
-	padding-block-end: var(--panel-padding-block);
-}
-
 .diffContentsContainer {
 	display: grid;
 	/* Anchors the minimap overlay. */

@@ -29,6 +29,7 @@ import { classes } from "@gitbutler/ui-react/classes.ts";
 import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
+import fileRowStyles from "../FileRow.module.css";
 import type {
 	BranchReference,
 	Commit,
@@ -309,6 +310,7 @@ const UncommittedChanges: FC<
 				<Activity mode={isClean || worktreeChanges === undefined ? "hidden" : "visible"}>
 					<RailedList rail={trunk}>
 						<FilesTree
+							className={fileRowStyles.rows}
 							aria-labelledby={uncommittedChangesHeadingId}
 							data-preview-source={activeList === "uncommitted"}
 							focusScope="uncommitted-files"

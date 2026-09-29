@@ -38,11 +38,14 @@ const meta = preview.meta({
 	],
 });
 
-/** One file: its type glyph, its name with the path after it, and the letter for its change. */
+/**
+ * One file in a panel: the header names the files with their count and line totals, and the row
+ * gives the file's type glyph, its name with the path after it, and the letter for its change.
+ */
 export const Default = meta.story({
 	args: { name: "userSlice.ts" },
 	render: (args) => (
-		<FileList focused>
+		<FileList title="Changes" count={1} added={12} removed={3} focused>
 			<FileListItem {...args} />
 		</FileList>
 	),
@@ -61,7 +64,7 @@ const kebab = (
 export const States = meta.story({
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-			<FileList focused>
+			<FileList title="Changes" count={5} added={120} removed={48} focused>
 				<FileListItem name="useAuthHook.ts" directory="src/hooks" status="Addition" />
 				<FileListItem
 					selected
@@ -79,7 +82,7 @@ export const States = meta.story({
 				<FileListItem name="merge.rs" directory="crates/core" status="Modification" conflicted />
 				<FileListItem name="index.ts" directory="src" status="Deletion" inert />
 			</FileList>
-			<FileList>
+			<FileList title="Changes" count={2} added={30}>
 				<FileListItem name="styles.css" directory="src/styles" status="Addition" />
 				<FileListItem selected name="theme.css" directory="src/styles" status="Modification" />
 			</FileList>
@@ -175,8 +178,10 @@ export const Tree = meta.story({
 				];
 			});
 		return (
-			<FileList focused role="tree" aria-label="Changes">
-				{rows(tree, 0, "")}
+			<FileList title="Changes" count={6} added={214} removed={37} focused>
+				<div role="tree" aria-label="Changes" style={{ display: "contents" }}>
+					{rows(tree, 0, "")}
+				</div>
 			</FileList>
 		);
 	},
@@ -203,8 +208,16 @@ export const Virtualised = meta.story({
 			gap: 1,
 		});
 		return (
-			<div ref={scrollRef} style={{ height: 320, overflow: "auto" }}>
-				<FileList focused>
+			<div style={{ display: "flex", flexDirection: "column", height: 360 }}>
+				<FileList
+					title="Changes"
+					count={many.length}
+					added={48210}
+					removed={9021}
+					focused
+					viewportRef={scrollRef}
+					style={{ flexGrow: 1 }}
+				>
 					<div style={{ position: "relative", height: virtualizer.getTotalSize() }}>
 						{virtualizer.getVirtualItems().map((row) => {
 							const file = many[row.index];
@@ -228,6 +241,57 @@ export const Virtualised = meta.story({
 					</div>
 				</FileList>
 			</div>
+		);
+	},
+});
+
+const filterable = [
+	{ name: "useAuthHook.ts", directory: "src/hooks", status: "Addition" },
+	{ name: "Button.tsx", directory: "src/components", status: "Modification" },
+	{ name: "Tooltip.tsx", directory: "src/components", status: "Modification" },
+	{ name: "theme.css", directory: "src/styles", status: "Modification" },
+	{ name: "index.ts", directory: "src", status: "Deletion" },
+] satisfies Array<{ name: string; directory: string; status: FileStatusType }>;
+
+/**
+ * The search button turns the header into the filter field in place, so narrowing the list costs
+ * no height; the cross or Escape brings the header back.
+ */
+export const Filter = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2350-2896",
+		},
+	},
+	render: function Render() {
+		const [query, setQuery] = useState<string | null>("comp");
+		const shown = filterable.filter(
+			(file) => query === null || `${file.directory}/${file.name}`.includes(query),
+		);
+		return (
+			<FileList
+				title="Changes"
+				count={filterable.length}
+				added={120}
+				removed={48}
+				focused
+				onOpenFilter={() => setQuery("")}
+				filter={
+					query === null
+						? null
+						: { value: query, onChange: setQuery, onClose: () => setQuery(null) }
+				}
+				actions={
+					<Button variant="ghost" iconOnly aria-label="Changes menu">
+						<Icon name="kebab" />
+					</Button>
+				}
+			>
+				{shown.map((file) => (
+					<FileListItem key={file.name} {...file} />
+				))}
+			</FileList>
 		);
 	},
 });

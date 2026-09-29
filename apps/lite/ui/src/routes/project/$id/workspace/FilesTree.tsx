@@ -38,7 +38,6 @@ import { useOpenPathInProgram, useRevealInFolder } from "./usePathActions.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { FileRow, FileRowPresentational } from "./FileRow.tsx";
-import { FileList } from "@gitbutler/ui-react/FileList.tsx";
 import {
 	DirectoryRow,
 	DirectoryRowPresentational,
@@ -969,7 +968,7 @@ export const FilesTree: FC<
 	};
 
 	return (
-		<FileList
+		<div
 			{...props}
 			data-focus-scope={focusScope}
 			tabIndex={0}
@@ -1006,7 +1005,7 @@ export const FilesTree: FC<
 					scrollPaddingEnd={scrollPaddingEnd}
 				/>
 			)}
-		</FileList>
+		</div>
 	);
 };
 

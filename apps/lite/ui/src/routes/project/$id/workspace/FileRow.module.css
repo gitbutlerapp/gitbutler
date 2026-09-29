@@ -1,17 +1,8 @@
-/* Only one row in the window is the source of what the details pane shows. A
-   rail on its leading edge says so even when focus has moved away, as Row's
-   does for the rows it draws. */
-.row[data-selected]:is([data-preview-source="true"] *) {
-	position: relative;
-
-	&::before {
-		position: absolute;
-		width: 4px;
-		inset-block: 0;
-		inset-inline-start: 0;
-		border-start-start-radius: inherit;
-		border-end-start-radius: inherit;
-		background-color: var(--fill-gray-bg);
-		content: "";
-	}
+/* File rows outside a FileList panel, as on the graph: inset and a pixel apart, the way the panel
+   sets its own. */
+.rows {
+	display: flex;
+	row-gap: 1px;
+	flex-direction: column;
+	padding-inline: var(--padding-list);
 }

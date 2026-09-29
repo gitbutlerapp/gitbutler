@@ -1,41 +1,172 @@
-import { mergeProps, useRender } from "@base-ui/react";
-import type { FC, ReactElement, ReactNode } from "react";
+import { Field, mergeProps, useRender } from "@base-ui/react";
+import {
+	useState,
+	type ComponentProps,
+	type FC,
+	type MouseEvent,
+	type ReactElement,
+	type ReactNode,
+	type Ref,
+} from "react";
+import { Badge } from "./Badge.tsx";
+import { Button } from "./Button.tsx";
 import { classes } from "./classes.ts";
+import { DiffStats } from "./DiffStats.tsx";
+import { FieldControlWithIcon, FieldRootStyles } from "./Field.tsx";
 import { ConflictIcon } from "./ConflictIcon.tsx";
 import { FileIcon } from "./FileIcon.tsx";
 import { FileStatusBadge, type FileStatusType } from "./FileStatusBadge.tsx";
 import { FolderIcon } from "./FolderIcon.tsx";
 import { Icon } from "./Icon.tsx";
+import { ScrollArea } from "./ScrollArea.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 import styles from "./FileList.module.css";
 
+const pluralRules = new Intl.PluralRules("en");
+const plural = (count: number, word: string) =>
+	`${count} ${word}${pluralRules.select(count) === "one" ? "" : "s"}`;
+
 /**
- * A list of changed files: {@link FileListItem}s inset from the list's edges, a pixel apart. The
- * host gives it its role, as `tree` or `listbox`.
+ * A panel of changed files: a header naming them, with their count and line totals, over the
+ * {@link FileListItem}s, which scroll under it inset from the panel's edges and a pixel apart.
  *
- * A selected item shows the solid fill while the list holds the selection focus, and the quieter
- * one otherwise. Pass `focused`, or set `data-selection-focused="true"` on the list or an element
- * around it without re-rendering; `data-selection-focus-styles="false"` further out turns the
- * solid fill off for everything inside, as during a drag.
- *
- * A virtualised list positions its items itself, so it gives its virtualizer the pixel between
- * them (`gap: 1`) rather than relying on this list's gap.
+ * - `actions` sit at the header's end, after the search button that `onOpenFilter` adds. With
+ *   `filter` given, the header is the filter field instead: typing narrows the list, Escape closes
+ *   it and the down arrow hands over to the list through `onEnterList`. Opening it, the title
+ *   steps aside, the field widens in, and the search button slides into the actions' place to
+ *   become the close button; closing plays it back.
+ * - The rows scroll in a {@link ScrollArea}, a hairline under the header once they move. Give a
+ *   virtualizer `viewportRef`; a virtualised list positions its rows itself, so it takes the pixel
+ *   between them from the virtualizer (`gap: 1`) rather than from the list.
+ * - A selected item shows the solid fill while the list holds the selection focus, and the
+ *   quieter one otherwise. Pass `focused`, or set `data-selection-focused="true"` on the element
+ *   holding the rows without re-rendering; `data-selection-focus-styles="false"` further out turns
+ *   the solid fill off for everything inside, as during a drag.
  *
  * @public
  * @import import { FileList, FileListItem } from "@gitbutler/ui-react/FileList.tsx";
  */
-export const FileList: FC<{ focused?: boolean } & useRender.ComponentProps<"div">> = ({
-	focused,
-	render,
+export const FileList: FC<
+	{
+		title: string;
+		count: number;
+		added?: number;
+		removed?: number;
+		actions?: ReactNode;
+		onOpenFilter?: () => void;
+		filter?: {
+			value: string;
+			onChange: (value: string) => void;
+			onClose: () => void;
+			onEnterList?: () => void;
+			inputId?: string;
+		} | null;
+		onHeaderContextMenu?: (event: MouseEvent<HTMLDivElement>) => void;
+		focused?: boolean;
+		viewportRef?: Ref<HTMLDivElement>;
+	} & ComponentProps<"div">
+> = ({
+	title,
+	count,
+	added = 0,
+	removed = 0,
+	actions,
+	onOpenFilter,
+	filter,
+	onHeaderContextMenu,
+	focused = false,
+	viewportRef,
+	className,
+	children,
 	...props
-}) =>
-	useRender({
-		render: render ?? <div />,
-		state: { focused: focused === true },
-		stateAttributesMapping: {
-			focused: (value) => (value ? { "data-selection-focused": "true" } : null),
-		},
-		props: mergeProps<"div">(props, { className: styles.list }),
-	});
+}) => {
+	const described = [
+		`${plural(count, "file")} changed`,
+		...(added > 0 ? [`${plural(added, "line")} added`] : []),
+		...(removed > 0 ? [`${plural(removed, "line")} removed`] : []),
+	];
+	const filtering = filter != null;
+	// Both faces stay mounted so they can trade places, and the field keeps showing what was typed
+	// while it fades out.
+	const [shownValue, setShownValue] = useState(filter?.value ?? "");
+	if (filter && filter.value !== shownValue) setShownValue(filter.value);
+	return (
+		<div {...props} className={classes(className, styles.panel)}>
+			<div
+				className={classes(styles.header, filtering && styles.filtering)}
+				onContextMenu={filtering ? undefined : onHeaderContextMenu}
+			>
+				<span className={styles.label} inert={filtering}>
+					<span className={classes("text-14", "text-bold", styles.title)}>{title}</span>
+					<Tooltip content={described[0]}>
+						<span className={styles.stats} aria-label={described.join(", ")}>
+							<Badge variant="lightGray">{count}</Badge>
+							<DiffStats added={added} removed={removed} className="text-12" />
+						</span>
+					</Tooltip>
+				</span>
+				<Field.Root render={<FieldRootStyles />} className={styles.filterField} inert={!filtering}>
+					<FieldControlWithIcon
+						// A fresh input on opening, so it takes focus.
+						key={String(filtering)}
+						// oxlint-disable-next-line jsx_a11y/no-autofocus
+						autoFocus={filtering}
+						id={filter?.inputId}
+						className="text-13"
+						icon={<Icon name="search" />}
+						aria-label="Filter files"
+						placeholder="Filter files"
+						value={shownValue}
+						onChange={(event) => filter?.onChange(event.currentTarget.value)}
+						onKeyDown={(event) => {
+							if (!filter) return;
+							if (event.key === "Escape") {
+								event.preventDefault();
+								event.stopPropagation();
+								filter.onClose();
+							} else if (event.key === "ArrowDown" && filter.onEnterList) {
+								event.preventDefault();
+								event.stopPropagation();
+								filter.onEnterList();
+							}
+						}}
+					/>
+				</Field.Root>
+				<span className={styles.headerEnd}>
+					{(filter || (onOpenFilter && count > 0)) && (
+						<Button
+							variant="ghost"
+							iconOnly
+							aria-label={filter ? "Close files filter" : "Filter files"}
+							onClick={filter ? filter.onClose : onOpenFilter}
+						>
+							{/* The magnifier becomes the cross: the icon crossfade from motion.md. */}
+							<span className={styles.toggleIcons}>
+								{/* Wrapped, so the fade isn't overruled by the button's own icon opacity. */}
+								<span className={classes(styles.toggleIcon, filtering && styles.toggleIconGone)}>
+									<Icon name="search" />
+								</span>
+								<span className={classes(styles.toggleIcon, !filtering && styles.toggleIconGone)}>
+									<Icon name="cross" />
+								</span>
+							</span>
+						</Button>
+					)}
+					{actions !== undefined && (
+						<span className={styles.headerActions} inert={filtering}>
+							<span className={styles.headerActionsInner}>{actions}</span>
+						</span>
+					)}
+				</span>
+			</div>
+			<ScrollArea separator className={styles.body} viewportRef={viewportRef}>
+				<div className={styles.list} data-selection-focused={focused ? "true" : undefined}>
+					{children}
+				</div>
+			</ScrollArea>
+		</div>
+	);
+};
 
 /**
  * One changed file, or a directory of them, in a {@link FileList}: its icon, its name, and what

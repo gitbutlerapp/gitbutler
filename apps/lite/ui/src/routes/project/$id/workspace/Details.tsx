@@ -4,7 +4,7 @@ import { ForgeAuthPrompt } from "./ForgeAuthPrompt.tsx";
 import { ResizeHandle } from "@gitbutler/ui-react/ResizeHandle.tsx";
 import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import { startAbsorb, setCursor, useCanShowFiles, useSelection } from "#ui/use-cursor.ts";
-import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
+import { FileList } from "@gitbutler/ui-react/FileList.tsx";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	type PushBeforePublish,
@@ -145,7 +145,7 @@ import { buildIndexByKey, getAdjacent } from "#ui/workspace/address-space.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
 import { ChangeScale } from "@gitbutler/ui-react/ChangeScale.tsx";
 import { DiffStats } from "@gitbutler/ui-react/DiffStats.tsx";
-import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
+import { useChangesMenuItems } from "#ui/routes/project/$id/workspace/useChangesMenuItems.ts";
 import {
 	describeLineStats,
 	getLineStats,
@@ -169,7 +169,6 @@ import {
 	type FileTreeRow,
 } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
-import { ListFilterRow } from "./ListFilterRow.tsx";
 import { useListFilter } from "./useListFilter.ts";
 import {
 	contiguousSelectionByLine,
@@ -2475,6 +2474,7 @@ const Diff: FC<{
 		listRef: filesTreeRef,
 		enabled: filesVisible && changes.length > 0,
 	});
+	const changesMenuItems = useChangesMenuItems({ projectId, fileParent, changes });
 
 	const tabSize = diffSettings?.diffTabSize ?? defaultSettings.diffTabSize;
 
@@ -2591,21 +2591,37 @@ const Diff: FC<{
 			groupResizeBehavior="preserve-pixel-size"
 		>
 			<div className={styles.filesPanelContent} ref={filesPanelRef}>
-				{fileFilter.rowProps === null ? (
-					<ChangesHeaderRow
-						projectId={projectId}
-						fileParent={fileParent}
-						changes={changes}
-						lineStats={lineStats}
-						onOpenFilter={fileFilter.open}
-					/>
-				) : (
-					<ListFilterRow {...fileFilter.rowProps} />
-				)}
-				<ScrollArea
-					separator
+				<FileList
 					className={styles.diffFiles}
-					viewportClassName={styles.diffFilesViewport}
+					title="Changes"
+					count={changes.length}
+					added={lineStats.linesAdded}
+					removed={lineStats.linesRemoved}
+					onOpenFilter={fileFilter.open}
+					filter={
+						fileFilter.rowProps && {
+							value: fileFilter.rowProps.filter,
+							onChange: fileFilter.rowProps.onFilterChange,
+							onClose: fileFilter.rowProps.onClose,
+							onEnterList: fileFilter.rowProps.onEnterList,
+							inputId: fileFilter.rowProps.inputId,
+						}
+					}
+					onHeaderContextMenu={(event) => {
+						void showNativeContextMenu(event, changesMenuItems);
+					}}
+					actions={
+						<Button
+							variant="ghost"
+							iconOnly
+							aria-label="Changes menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, changesMenuItems);
+							}}
+						>
+							<Icon name="kebab" />
+						</Button>
+					}
 				>
 					<FilesTree
 						focusScope="files"
@@ -2622,7 +2638,7 @@ const Diff: FC<{
 						reviewedPaths={reviewedFilePaths}
 						ref={filesTreeRef}
 					/>
-				</ScrollArea>
+				</FileList>
 			</div>
 		</Panel>
 	) : null;

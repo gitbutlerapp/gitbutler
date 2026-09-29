@@ -1,8 +1,137 @@
+/* Fills the height it is given: the header stays put and the rows scroll under it. */
+.panel {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.header {
+	display: flex;
+	position: relative;
+	column-gap: var(--gap-icon-text);
+	flex-shrink: 0;
+	align-items: center;
+	height: var(--size-header);
+	/* The last button sits as far from the end as from the top and bottom: a 28px button centred
+	   in the 44px header. */
+	padding-inline: var(--padding-panel) var(--space-lg);
+}
+
+/* The header's two faces trade places when the filter opens: the title steps aside, the field
+   widens in from where the search button was, and the search button slides into the actions'
+   place as the actions fold away. Closing plays it back. */
+.label {
+	display: flex;
+	column-gap: var(--gap-icon-text);
+	align-items: center;
+	min-width: 0;
+	transition:
+		opacity var(--transition-fast) ease-out,
+		translate var(--transition-fast) ease-out;
+
+	.filtering & {
+		translate: -10px 0;
+		opacity: 0;
+	}
+}
+
+.title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Short and fixed-width, so a narrow header truncates the title beside them instead. */
+.stats {
+	display: inline-flex;
+	column-gap: 6px;
+	flex-shrink: 0;
+	align-items: center;
+}
+
+/* Over the title, up to the close button: 8px in from the start and a 4px gap before it. */
+.filterField {
+	position: absolute;
+	inset-block-start: var(--space-lg);
+	inset-inline: 25% calc(var(--space-lg) + var(--size-button) + var(--space-sm));
+	opacity: 0;
+	transition:
+		opacity var(--transition-fast) ease-out,
+		inset-inline-start var(--transition-fast) ease-out;
+
+	.filtering & {
+		inset-inline-start: var(--space-lg);
+		opacity: 1;
+	}
+}
+
+.headerEnd {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	margin-inline-start: auto;
+}
+
+/* Folds to nothing while filtering, drawing the search button along to the end. */
+.headerActions {
+	display: grid;
+	grid-template-columns: 1fr;
+	transition:
+		grid-template-columns var(--transition-fast) ease-out,
+		opacity var(--transition-fast) ease-out;
+
+	.filtering & {
+		grid-template-columns: 0fr;
+		opacity: 0;
+	}
+}
+
+.headerActionsInner {
+	display: flex;
+	min-width: 0;
+	/* Clipped as it folds, with room left for a button's focus ring. */
+	overflow: clip;
+	overflow-clip-margin: 4px;
+}
+
+.toggleIcons {
+	display: grid;
+	place-items: center;
+}
+
+.toggleIcon {
+	display: flex;
+	grid-area: 1 / 1;
+	transition:
+		opacity var(--transition-fast) ease-out,
+		scale var(--transition-fast) ease-out,
+		filter var(--transition-fast) ease-out;
+}
+
+.toggleIconGone {
+	scale: 0.25;
+	filter: blur(4px);
+	opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.label,
+	.filterField,
+	.headerActions {
+		transition-property: opacity;
+	}
+}
+
+.body {
+	flex: 1;
+}
+
 .list {
 	display: flex;
 	row-gap: 1px;
 	flex-direction: column;
 	padding-inline: var(--padding-list);
+	padding-block-end: var(--padding-list);
 }
 
 .item {

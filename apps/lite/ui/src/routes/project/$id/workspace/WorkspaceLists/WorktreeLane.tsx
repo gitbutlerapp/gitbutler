@@ -4,7 +4,7 @@ import uncommittedStyles from "./UncommittedChangesRow.module.css";
 import { ChangeStats } from "../ChangeStats.tsx";
 import { changeFileRowItem } from "../file-row.ts";
 import { FileRow } from "../FileRow.tsx";
-import { FileList } from "@gitbutler/ui-react/FileList.tsx";
+import fileRowStyles from "../FileRow.module.css";
 import { FileRowTooltipRoot, type FileRowTooltipPayload } from "../FileRowTooltip.tsx";
 import { getLineStats } from "../lineStats.ts";
 import { CARD_GAP, LEG_GAP, TIP_GAP, type WorktreePlacement } from "../Graph/layout.ts";
@@ -159,7 +159,7 @@ const WorktreeUncommitted: FC<{
 			</Row>
 			{/* The lane runs beside its files rather than through their rows. */}
 			<RailedList rail={<GraphSegment glyph="parent" status="LocalOnly" behind={behind} />}>
-				<FileList>
+				<div className={fileRowStyles.rows}>
 					{changes
 						.toSorted((a, b) => compareFilePaths(a.path, b.path))
 						.map((change) => {
@@ -188,7 +188,7 @@ const WorktreeUncommitted: FC<{
 								/>
 							);
 						})}
-				</FileList>
+				</div>
 			</RailedList>
 			<FileRowTooltipRoot handle={tooltipHandle} />
 		</>
