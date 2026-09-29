@@ -53,7 +53,7 @@
     <text x="98" y="186" style="fill:#555555;">│</text>
     <text x="130 138 146 154 162 170" y="186" style="fill:#CCCCCC;">Delete</text>
     <text x="186 194 202 210 218 226 234 242" y="186" style="fill:#CCCCCC;">worktree</text>
-    <text x="258 266 274 282 290 298 306 314 322 330" y="186" style="fill:#CCCCCC;">c-branch-2</text>
+    <text x="258 266 274 282 290 298 306 314 322 330" y="186" style="fill:#00AA00;">c-branch-2</text>
     <text x="346 354 362" y="186" style="fill:#CCCCCC;">and</text>
     <text x="378 386 394" y="186" style="fill:#CCCCCC;">its</text>
     <text x="410 418 426 434 442 450 458 466 474 482" y="186" style="fill:#CCCCCC;">directory?</text>

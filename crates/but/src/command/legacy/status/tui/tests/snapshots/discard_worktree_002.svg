@@ -57,7 +57,7 @@
     <text x="130" y="186" style="fill:#555555;">│</text>
     <text x="162 170 178 186 194 202" y="186" style="fill:#CCCCCC;">Delete</text>
     <text x="218 226 234 242 250 258 266 274" y="186" style="fill:#CCCCCC;">worktree</text>
-    <text x="290 298" y="186" style="fill:#CCCCCC;">wt</text>
+    <text x="290 298" y="186" style="fill:#00AA00;">wt</text>
     <text x="314 322 330" y="186" style="fill:#CCCCCC;">and</text>
     <text x="346 354 362" y="186" style="fill:#CCCCCC;">its</text>
     <text x="378 386 394 402 410 418 426 434 442 450" y="186" style="fill:#CCCCCC;">directory?</text>
