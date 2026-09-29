@@ -4756,13 +4756,78 @@ error: the argument '--switch' cannot be used with '--above <BRANCH_OR_COMMIT>'
 }
 
 #[test]
+fn query_agent_prints_committed_diff() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "keep\nTODO: leave\n");
+    env.file("other", "unselected\n");
+    env.but(r#"commit file -b new-branch --no-message --query '(not (line :contains "TODO"))'"#)
+        .env("AI_AGENT", "test-agent")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit [..] on new branch 'new-branch'
+
+Committed changes:
+────────────────────╮
+ zos:qsy:f14 A file │
+────────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +keep
+
+"#]]);
+    snapbox::assert_data_eq!(env.invoke_git("show new-branch:file"), "keep");
+    snapbox::assert_data_eq!(env.invoke_git("status --porcelain"), "M file\n?? other");
+}
+
+#[test]
+fn query_human_does_not_print_committed_diff() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "keep\nTODO: leave\n");
+    env.but(r#"commit -b new-branch --no-message --query '(not (line :contains "TODO"))'"#)
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit [..] on new branch 'new-branch'
+
+"#]]);
+}
+
+#[test]
+fn query_agent_json_does_not_print_committed_diff() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "keep\nTODO: leave\n");
+    env.but(r#"--json commit -b new-branch --no-message --query '(not (line :contains "TODO"))'"#)
+        .env("AI_AGENT", "test-agent")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "commitId": "[..]",
+  "changeId": "[..]",
+  "branch": "new-branch"
+}
+
+"#]]);
+}
+
+#[test]
 fn query_is_opt_in() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
     env.file("file", "TODO: commit normally\n");
     env.but("commit -b new-branch --no-message")
+        .env("AI_AGENT", "test-agent")
         .assert()
-        .success();
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit [..] on new branch 'new-branch'
+
+"#]]);
     snapbox::assert_data_eq!(
         env.invoke_git("show new-branch:file"),
         "TODO: commit normally"

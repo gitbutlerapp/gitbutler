@@ -517,7 +517,7 @@ fn resolve(
     }
 }
 
-fn run(
+pub(crate) fn run(
     ctx: &mut Context,
     op: DiffOperation,
     query: Option<but_lisp::Query>,
@@ -530,7 +530,7 @@ fn run(
 }
 
 #[derive(Debug)]
-enum DiffOperation {
+pub(crate) enum DiffOperation {
     Uncommitted(ChangeSourceId),
     Commit {
         commit: CommitId,

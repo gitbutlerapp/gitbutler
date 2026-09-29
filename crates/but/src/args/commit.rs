@@ -95,6 +95,7 @@ pub struct Platform {
     pub empty: bool,
 
     /// Narrow the selected changes with a Lisp query.
+    /// Agent output also shows the resulting commit's diff after the success summary.
     ///
     /// Supports line, line-added, line-removed, hunk, hunk-added, and hunk-removed
     /// with :contains, :regex, or :range (inclusive, one-based), plus file with

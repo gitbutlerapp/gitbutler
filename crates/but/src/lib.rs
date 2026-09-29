@@ -1267,6 +1267,7 @@ async fn dispatch_subcommand(
             out.begin_status_after(status_after);
             status_after_data = Some(status_after);
 
+            let show_committed_diff = out.format().is_agent() && commit_args.query.is_some();
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
             let (outcome, ws) = command::legacy::commit::commit(
                 &mut ctx,
@@ -1275,7 +1276,17 @@ async fn dispatch_subcommand(
                 &InvokedFrom::discover(&args.current_dir)?,
             )?;
             let metrics_outcome = command::CommandOutcome::Commit(outcome.clone());
+            let new_commit = outcome.new_commit.clone();
             out.print_cli_output(outcome)?;
+            if show_committed_diff {
+                use command::legacy::diff::{DiffOperation, run};
+
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "\nCommitted changes:")?;
+                }
+                let diff = run(&mut ctx, DiffOperation::Commit { commit: new_commit }, None)?;
+                out.print_cli_output(diff)?;
+            }
             command_outcome = Some(metrics_outcome);
             Some(ws)
         }
