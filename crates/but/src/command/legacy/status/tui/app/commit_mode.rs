@@ -262,10 +262,8 @@ impl App {
                 | MarksRef::Branches { .. } => {}
             },
             Mode::Squash(squash_mode) => match &squash_mode.source {
-                SquashSource::Uncommitted => {
-                    self.handle_commit_start_source(CommitSource::UncommittedArea(
-                        ChangeSourceId::Head,
-                    ));
+                SquashSource::Uncommitted(source) => {
+                    self.handle_commit_start_source(CommitSource::UncommittedArea(source.clone()));
                 }
                 SquashSource::UncommittedHunk(hunk) => {
                     self.handle_commit_start_source(CommitSource::UncommittedHunk(hunk.clone()));

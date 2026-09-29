@@ -158,7 +158,7 @@ impl<'a> ModeRef<'a> {
             ModeRef::Normal(normal_mode) => normal_mode.marks.as_ref(),
             ModeRef::Squash(SquashMode { source, .. }) => match source {
                 SquashSource::Marks(marks) => marks.as_ref(),
-                SquashSource::Uncommitted
+                SquashSource::Uncommitted(..)
                 | SquashSource::Branch(..)
                 | SquashSource::Commit(..)
                 | SquashSource::CommittedFile(..)

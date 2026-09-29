@@ -272,7 +272,7 @@ impl App {
                     source: MoveSource::CommittedFile(committed_file.clone()),
                     insert_side: InsertSide::Above,
                 },
-                SquashSource::UncommittedHunk(..) | SquashSource::Uncommitted => return,
+                SquashSource::UncommittedHunk(..) | SquashSource::Uncommitted(..) => return,
             },
             _ => return,
         };

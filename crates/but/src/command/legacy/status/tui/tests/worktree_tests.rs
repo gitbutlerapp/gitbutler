@@ -926,3 +926,47 @@ fn cannot_create_worktrees_on_conflicted_commits() {
         "snapshots/cannot_create_worktrees_on_conflicted_commits_003.svg"
     ]);
 }
+
+#[test]
+fn squashing_changes_from_worktree_into_worktree() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_worktree_001.svg"
+    ]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_worktree_002.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_worktree_003.svg"
+    ]);
+}
+
+#[test]
+fn squashing_changes_from_worktree_into_commit_in_workspace() {
+    let (mut tui, _editor) = worktree_tui();
+
+    // create a new branch with a commit that we can squash into
+    tui.input('b');
+    tui.input('n');
+    tui.input('n');
+
+    // squash all uncommitted changes from the worktree into the commit
+    tui.input('j');
+    tui.input('j');
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_commit_in_workspace_001.svg"
+    ]);
+    tui.input('k');
+    tui.input('k').assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_commit_in_workspace_002.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_commit_in_workspace_003.svg"
+    ]);
+    tui.input('f').assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_commit_in_workspace_004.svg"
+    ]);
+}
