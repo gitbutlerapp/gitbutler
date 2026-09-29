@@ -89,6 +89,7 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.branch_toggle_insert_side().register();
                 builder.discard().register();
                 builder.mark().register();
+                builder.branch_land().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Worktree => {
@@ -1095,6 +1096,13 @@ impl KeyBindsBuilder<'_> {
             || Message::Branch(BranchMessage::New { switch: true }),
         )
         .long_description("Create a new branch and switch to it")
+    }
+
+    fn branch_land(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("land", press().shift().code(KeyCode::Char('L')), || {
+            Message::Branch(BranchMessage::Land)
+        })
+        .long_description("Land the marked branches, or the selected one, onto the target")
     }
 
     fn branch_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
