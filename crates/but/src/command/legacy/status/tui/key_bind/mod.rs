@@ -1584,7 +1584,17 @@ impl KeyMatcher {
             return false;
         }
 
-        if self.modifiers != ev.modifiers {
+        // Shifted symbols like `?` or `:` already encode shift in the character, but some
+        // platforms (e.g. Windows) still report the SHIFT modifier while others don't.
+        let mut ev_modifiers = ev.modifiers;
+        if let KeyCode::Char(c) = ev.code
+            && !c.is_lowercase()
+            && !c.is_uppercase()
+        {
+            ev_modifiers.remove(KeyModifiers::SHIFT);
+        }
+
+        if self.modifiers != ev_modifiers {
             return false;
         }
 
