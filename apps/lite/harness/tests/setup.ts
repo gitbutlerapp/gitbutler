@@ -44,9 +44,12 @@ const globals = globalThis as unknown as Record<string, unknown>;
 globals.ResizeObserver ??= ResizeObserverStub;
 globals.Worker ??= WorkerStub;
 // Node-environment tests (the watcher host) share this setup but have no DOM.
-if (typeof Element !== "undefined")
+if (typeof Element !== "undefined") {
 	// jsdom's Element lacks scrollIntoView at runtime despite the DOM type.
 	Element.prototype.scrollIntoView = () => {};
+	// Nor has it the Web Animations API; Base UI's scroll area asks a viewport for its animations.
+	Element.prototype.getAnimations = () => [];
+}
 
 // hotkeys.ts reads `window.lite.platform` at module scope — before any test
 // can run `createPanel`, which installs the real api over this placeholder.

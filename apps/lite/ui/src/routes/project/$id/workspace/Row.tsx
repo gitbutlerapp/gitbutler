@@ -3,31 +3,10 @@ import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import {
-	type ComponentProps,
-	type FC,
-	type MouseEvent,
-	type ReactNode,
-	useLayoutEffect,
-	useRef,
-} from "react";
+import { type ComponentProps, type FC, type ReactNode, useLayoutEffect, useRef } from "react";
 import styles from "./Row.module.css";
-import { getRowButtonClassName } from "./Row-utils.ts";
+import { getRowButtonClassName, rowPointerProps } from "./Row-utils.ts";
 import { mergeProps, useRender } from "@base-ui/react";
-
-const isFromInteractiveDescendant = (event: MouseEvent<HTMLDivElement>): boolean => {
-	if (!(event.target instanceof Element)) return false;
-	const interactiveElement = event.target.closest(["button", "input[type='checkbox']"].join(","));
-	return interactiveElement !== null && event.currentTarget.contains(interactiveElement);
-};
-
-const isFromNonRowBody = (event: MouseEvent<HTMLDivElement>): boolean => {
-	if (!(event.target instanceof Element)) return false;
-	const interactiveElement = event.target.closest(
-		"a, button, input, select, textarea, [contenteditable]",
-	);
-	return interactiveElement !== null && event.currentTarget.contains(interactiveElement);
-};
 
 export const Row: FC<
 	{
@@ -81,8 +60,6 @@ export const Row: FC<
 	}, [isSelected, scrollSelectedIntoView]);
 
 	return (
-		// This is safe because the tree is focusable.
-		// oxlint-disable-next-line jsx_a11y/click-events-have-key-events, jsx_a11y/no-static-element-interactions
 		<div
 			{...props}
 			ref={mergedRef}
@@ -94,27 +71,7 @@ export const Row: FC<
 				isHighlighted && styles.containerHighlighted,
 				interactive && styles.containerInteractive,
 			)}
-			onMouseDown={(event) => {
-				props.onMouseDown?.(event);
-
-				if (
-					!event.defaultPrevented &&
-					// Prevent clicks on interactive descendants from stealing focus from the tree.
-					isFromInteractiveDescendant(event)
-				)
-					event.preventDefault();
-			}}
-			onClick={(event) => {
-				props.onClick?.(event);
-
-				if (event.defaultPrevented || isFromInteractiveDescendant(event)) return;
-
-				if (event.shiftKey && onShiftSelect && !isFromNonRowBody(event)) onShiftSelect();
-				else onSelect?.();
-			}}
-			onDoubleClick={(event) => {
-				if (!isFromNonRowBody(event)) props.onDoubleClick?.(event);
-			}}
+			{...rowPointerProps({ ...props, onSelect, onShiftSelect })}
 		/>
 	);
 };
@@ -171,6 +128,21 @@ export const RowFoldToggle: FC<
 			</span>
 		)}
 	</button>
+);
+
+/**
+ * A graph rail drawn once down the side of a list, where the rows would
+ * otherwise each draw their own piece of it; the rows start after it.
+ */
+export const RailedList: FC<{ rail: ReactNode } & ComponentProps<"div">> = ({
+	rail,
+	children,
+	...props
+}) => (
+	<div {...props} className={classes(props.className, styles.railedList)}>
+		{rail}
+		{children}
+	</div>
 );
 
 export const RowLabelContainer: FC<ComponentProps<"div">> = (props) => (

@@ -1,60 +1,8 @@
-.pathInit {
-	margin-inline-start: 6px;
-}
-
-/* Leading the name, so the separator does the spacing rather than a margin. */
-.pathLead {
-	margin-inline-end: 0;
-}
-
-.conflictIcon {
-	flex-shrink: 0;
-	margin-right: 2px;
-}
-
-/* Contrast carries how long ago the change was; the row sets the opacity. */
-.ageBadge {
-	flex-shrink: 0;
-	align-self: center;
-	color: var(--text-2);
-	font-size: 11px;
-	font-variant-numeric: tabular-nums;
-	opacity: var(--age-badge-opacity, 1);
-}
-
-/* Inset shadow rather than background, so hover and selection fills show through. */
-.freshChange {
-	animation: fresh-change-pulse 2.4s ease-in-out infinite;
-}
-
-@keyframes fresh-change-pulse {
-	0%,
-	100% {
-		box-shadow: inset 0 0 0 999px transparent;
-	}
-
-	50% {
-		box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--fill-pop-bg) 12%, transparent);
-	}
-}
-
-/* A reviewed file is done with, so what the row says about it recedes: its mark
-   and its name. The tick carries the news, and the row's controls — the
-   checkbox included — stay as available as any other row's: dimming a control
-   reads as disabling it. */
-.reviewedFade {
-	opacity: 0.5;
-}
-
-.reviewedMark {
+/* File rows outside a FileList panel, as on the graph: inset and a pixel apart, the way the panel
+   sets its own. */
+.rows {
 	display: flex;
-	flex-shrink: 0;
-	align-self: center;
-	justify-content: center;
-	/* The box the change-type letter occupies, so a row that swaps one for the
-	   other keeps everything before it in place. Kept in step with the width
-	   FileStatusBadge.module.css sizes off its own text. */
-	width: 1.1em;
-	color: var(--fill-pop-bg);
-	font-size: 11px;
+	row-gap: 1px;
+	flex-direction: column;
+	padding-inline: var(--padding-list);
 }

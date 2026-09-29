@@ -1,5 +1,5 @@
 import rowStyles from "./Row.module.css";
-import uiStyles from "@gitbutler/ui-react/ui.module.css";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import {
 	applyPlanEdits,
 	buildPreviewRows,
@@ -465,8 +465,9 @@ const BranchUpdatePanel: FC<{
 			</div>
 
 			{/* Only the outcome: the sidebar already shows the current state. */}
-			<div
-				className={classes(uiStyles.scroller, styles.outline)}
+			<ScrollArea
+				className={styles.outline}
+				viewportClassName={styles.outlineViewport}
 				data-stale={isPreviewStale || isPlanStale ? true : undefined}
 			>
 				{isPreviewError ? (
@@ -483,7 +484,7 @@ const BranchUpdatePanel: FC<{
 						onRestore={restore}
 					/>
 				)}
-			</div>
+			</ScrollArea>
 
 			<div className={styles.footer}>
 				<div className={styles.footerNotes}>

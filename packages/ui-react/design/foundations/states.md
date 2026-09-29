@@ -30,3 +30,7 @@ dim `opacity var(--transition-fast)`. Name the property, never `all`, which
 picks up layout and lags. Nothing hover- or focus-related uses the medium tier
 except an icon giving way to another icon (see Motion), and nothing writes a
 duration by hand.
+
+**List rows snap.** A row's hover and its selection share one ground, and the
+selection moves with the arrow keys, so a transition would trail the cursor
+down the list. Rows change their ground at once, hover included.

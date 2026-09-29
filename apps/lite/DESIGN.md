@@ -20,8 +20,9 @@ and `a` under `:focus-visible`, so a plain control gets it for free.
 ## Selected rows
 
 **Inverted buttons come through CSS.** A selected row reaches
-`ghost-inverted` and `outline-inverted` through `Row.module.css` rather than
-by passing the variant, so selection restyles without a re-render.
+`ghost-inverted` and `outline-inverted` through its stylesheet rather than by
+passing the variant, so selection restyles without a re-render: Lite's own rows
+through `Row.module.css`, file rows through ui-react's `FileList.module.css`.
 
 ## Links
 

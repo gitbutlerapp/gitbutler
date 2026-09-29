@@ -1,5 +1,5 @@
 import rowStyles from "./Row.module.css";
-import uiStyles from "@gitbutler/ui-react/ui.module.css";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { useBranchRemove } from "#ui/api/mutations.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { assert } from "#ui/assert.ts";
@@ -808,10 +808,10 @@ export const BranchesList: FC<
 				<ListFilterRow {...branchFilter.rowProps} />
 			)}
 
-			<div
-				ref={retainScrollElement}
-				className={classes(uiStyles.scroller, styles.list)}
-				data-empty={isEmpty}
+			<ScrollArea
+				viewportRef={retainScrollElement}
+				className={styles.list}
+				viewportClassName={classes(styles.listViewport, isEmpty && styles.listViewportEmpty)}
 			>
 				{/* Loading and failing stay one line where the rows would be: neither
 				    is a surface at rest. An empty list gets the block, and says which
@@ -917,7 +917,7 @@ export const BranchesList: FC<
 						);
 					})}
 				</div>
-			</div>
+			</ScrollArea>
 		</div>
 	);
 };

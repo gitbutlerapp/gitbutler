@@ -20,6 +20,17 @@
 	}
 }
 
+/* Starts where a row's own rail would, so it lines up with the rows around it. */
+.railedList {
+	display: flex;
+	padding-inline-start: var(--row-padding-inline-start, 12px);
+
+	& > :last-child {
+		flex-grow: 1;
+		min-width: 0;
+	}
+}
+
 .sectionHeader {
 	display: flex;
 	flex-shrink: 0;

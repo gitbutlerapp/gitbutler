@@ -4,6 +4,7 @@ import uncommittedStyles from "./UncommittedChangesRow.module.css";
 import { ChangeStats } from "../ChangeStats.tsx";
 import { changeFileRowItem } from "../file-row.ts";
 import { FileRow } from "../FileRow.tsx";
+import fileRowStyles from "../FileRow.module.css";
 import { FileRowTooltipRoot, type FileRowTooltipPayload } from "../FileRowTooltip.tsx";
 import { getLineStats } from "../lineStats.ts";
 import { CARD_GAP, LEG_GAP, TIP_GAP, type WorktreePlacement } from "../Graph/layout.ts";
@@ -61,7 +62,7 @@ import { Fragment, useMemo, useState, type ComponentProps, type FC } from "react
 import { CommitRow } from "./CommitRow.tsx";
 import { useAddressSpace } from "./context.tsx";
 import { ItemRow } from "./ItemRow.tsx";
-import { Row, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
+import { RailedList, Row, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { AddressC, TreeItem } from "./TreeItem.tsx";
 
@@ -77,28 +78,17 @@ const WorktreeFileRow: FC<
 		projectId: string;
 		fileParent: FileParent;
 		change: TreeChange;
-		modifiedAtMs: number | null;
 		pathDisplay: "lead" | "trail";
 		tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
-		behind: number;
 	} & ComponentProps<typeof Row>
-> = ({
-	projectId,
-	fileParent,
-	change,
-	modifiedAtMs,
-	pathDisplay,
-	tooltipHandle,
-	behind,
-	...props
-}) => {
+> = ({ projectId, fileParent, change, pathDisplay, tooltipHandle, ...props }) => {
 	const address = fileAddress({ parent: fileParent, path: change.path });
 	const addressSpace = useAddressSpace();
 	const isSelected = useIsCursorAt("applied", addressSpace, address);
 	return (
 		<FileRow
 			{...props}
-			item={changeFileRowItem({ change, dependencyCommitIds: [], path: change.path, modifiedAtMs })}
+			item={changeFileRowItem({ change, dependencyCommitIds: [], path: change.path })}
 			projectId={projectId}
 			fileParent={fileParent}
 			branchNameByCommitId={() => undefined}
@@ -110,10 +100,8 @@ const WorktreeFileRow: FC<
 			pathDisplay={pathDisplay}
 			focusScope="sidebar"
 			tooltipHandle={tooltipHandle}
-			rail={<GraphSegment glyph="parent" status="LocalOnly" behind={behind} />}
 			inert={!addressSpaceIncludes(addressSpace, address, addressIdentityKey)}
 			isSelected={isSelected}
-			scrollSelectedIntoView={false}
 			onSelect={() => setCursor("applied", address)}
 		/>
 	);
@@ -169,36 +157,39 @@ const WorktreeUncommitted: FC<{
 					)}
 				</RowLabelContainer>
 			</Row>
-			{changes
-				.toSorted((a, b) => compareFilePaths(a.path, b.path))
-				.map((change) => {
-					const address = fileAddress({ parent: fileParent, path: change.path });
-					return (
-						<TreeItem
-							key={change.path}
-							address={address}
-							aria-label={change.path}
-							render={
-								<AddressC
-									projectId={projectId}
+			{/* The lane runs beside its files rather than through their rows. */}
+			<RailedList rail={<GraphSegment glyph="parent" status="LocalOnly" behind={behind} />}>
+				<div className={fileRowStyles.rows}>
+					{changes
+						.toSorted((a, b) => compareFilePaths(a.path, b.path))
+						.map((change) => {
+							const address = fileAddress({ parent: fileParent, path: change.path });
+							return (
+								<TreeItem
+									key={change.path}
 									address={address}
-									outline="outside"
+									aria-label={change.path}
 									render={
-										<WorktreeFileRow
+										<AddressC
 											projectId={projectId}
-											fileParent={fileParent}
-											change={change}
-											modifiedAtMs={worktreeChanges?.modificationTimes[change.path] ?? null}
-											pathDisplay={pathFirst ? "lead" : "trail"}
-											tooltipHandle={tooltipHandle}
-											behind={behind}
+											address={address}
+											outline="outside"
+											render={
+												<WorktreeFileRow
+													projectId={projectId}
+													fileParent={fileParent}
+													change={change}
+													pathDisplay={pathFirst ? "lead" : "trail"}
+													tooltipHandle={tooltipHandle}
+												/>
+											}
 										/>
 									}
 								/>
-							}
-						/>
-					);
-				})}
+							);
+						})}
+				</div>
+			</RailedList>
 			<FileRowTooltipRoot handle={tooltipHandle} />
 		</>
 	);

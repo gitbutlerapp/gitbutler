@@ -28,7 +28,8 @@ import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import uiStyles from "@gitbutler/ui-react/ui.module.css";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
+import fileRowStyles from "../FileRow.module.css";
 import type {
 	BranchReference,
 	Commit,
@@ -58,7 +59,7 @@ import {
 	type RefObject,
 } from "react";
 import styles from "./WorkspaceLists.module.css";
-import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
+import { RailedList, Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { Section } from "../Graph/Section.tsx";
 import {
 	CARD_GAP,
@@ -84,7 +85,6 @@ import {
 	GraphSegment,
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
-import { useNow } from "@gitbutler/ui-react/useNow.ts";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
@@ -193,8 +193,6 @@ const UncommittedChanges: FC<
 	const recentFirst = useAppSelector((state) =>
 		projectSlice.selectors.selectUncommittedFilesRecentFirst(state, projectId),
 	);
-	// Ticks only while the recency view needs its labels and freshness to age.
-	const ageBadgeNow = useNow(recentFirst ? 30_000 : null);
 	const collapsedDirectories = useAppSelector((state) =>
 		projectSlice.selectors.selectUncommittedFilesCollapsedDirectories(state, projectId),
 	);
@@ -310,38 +308,36 @@ const UncommittedChanges: FC<
 				    is none, and the empty row would otherwise flash "No matching files"
 				    under a header still reading "Uncommitted". */}
 				<Activity mode={isClean || worktreeChanges === undefined ? "hidden" : "visible"}>
-					<FilesTree
-						className={styles.uncommittedFiles}
-						aria-labelledby={uncommittedChangesHeadingId}
-						data-preview-source={activeList === "uncommitted"}
-						focusScope="uncommitted-files"
-						fileParent={uncommittedChangesFileParent}
-						reviewedPaths={reviewedUncommittedPaths}
-						rows={fileRows}
-						ageBadgeNow={recentFirst ? ageBadgeNow : null}
-						collapsedDirectories={collapsedDirectories}
-						onToggleDirectoryCollapsed={(path) =>
-							dispatch(
-								projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({
-									projectId,
-									path,
-								}),
-							)
-						}
-						addressSpace={addressSpace}
-						onRowSelection={selectActiveFile}
-						onEdgeSpill={spillEdge}
-						projectId={projectId}
-						ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
-						selection={fileSelection}
-						rail={trunk}
-						scrollElementRef={scrollElementRef}
-						scrollMargin={listOffset}
-						scrollPaddingStart={headHeight}
-						scrollPaddingEnd={footDock}
-						// Override the tree's inset to keep the rows on the uncommitted card's trunk.
-						style={{ "--row-padding-inline-start": "var(--graph-trunk-inset)" }}
-					/>
+					<RailedList rail={trunk}>
+						<FilesTree
+							className={fileRowStyles.rows}
+							aria-labelledby={uncommittedChangesHeadingId}
+							data-preview-source={activeList === "uncommitted"}
+							focusScope="uncommitted-files"
+							fileParent={uncommittedChangesFileParent}
+							reviewedPaths={reviewedUncommittedPaths}
+							rows={fileRows}
+							collapsedDirectories={collapsedDirectories}
+							onToggleDirectoryCollapsed={(path) =>
+								dispatch(
+									projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({
+										projectId,
+										path,
+									}),
+								)
+							}
+							addressSpace={addressSpace}
+							onRowSelection={selectActiveFile}
+							onEdgeSpill={spillEdge}
+							projectId={projectId}
+							ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
+							selection={fileSelection}
+							scrollElementRef={scrollElementRef}
+							scrollMargin={listOffset}
+							scrollPaddingStart={headHeight}
+							scrollPaddingEnd={footDock}
+						/>
+					</RailedList>
 				</Activity>
 
 				<Row interactive={false}>
@@ -1270,9 +1266,10 @@ const Stacks: FC<{
 	});
 
 	return (
-		<div
-			ref={retainScrollElement}
-			className={classes(uiStyles.scroller, styles.stacksScroller)}
+		<ScrollArea
+			viewportRef={retainScrollElement}
+			className={styles.stacksScroller}
+			viewportClassName={styles.stacksViewport}
 			style={{
 				"--row-padding-inline-start": `${ROW_INSET}px`,
 				"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
@@ -1362,7 +1359,7 @@ const Stacks: FC<{
 			</div>
 
 			<div className={styles.foot} />
-		</div>
+		</ScrollArea>
 	);
 };
 

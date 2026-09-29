@@ -18,7 +18,7 @@ export const FileRowTooltipRoot: FC<Props> = (p) => (
 	<Tooltip.Root handle={p.handle} disableHoverablePopup>
 		{({ payload }) => (
 			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
+				<Tooltip.Positioner side="bottom" sideOffset={4}>
 					<Tooltip.Popup
 						render={
 							<TooltipPopup
