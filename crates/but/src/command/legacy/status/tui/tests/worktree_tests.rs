@@ -10,7 +10,7 @@ use crate::command::legacy::status::{
     TuiLaunchOptions,
     tui::{App, BackstackEntry},
 };
-use crate::tui::test_utils::TestTui;
+use crate::tui::test_utils::{Shift, TestTui};
 
 const COPY_MORE: (KeyModifiers, char) = (KeyModifiers::SHIFT, 'Y');
 const TEST_EDITOR_MESSAGE: &str = "commit from worktree";
@@ -969,4 +969,20 @@ fn squashing_changes_from_worktree_into_commit_in_workspace() {
     tui.input('f').assert_rendered_term_svg_eq(file![
         "snapshots/squashing_changes_from_worktree_into_commit_in_workspace_004.svg"
     ]);
+}
+
+#[test]
+fn reverse_squash_from_worktree() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('j')
+        .assert_rendered_term_svg_eq(file!["snapshots/reverse_squash_from_worktree_001.svg"]);
+    tui.input(Shift('r'))
+        .assert_rendered_term_svg_eq(file!["snapshots/reverse_squash_from_worktree_002.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/reverse_squash_from_worktree_003.svg"]);
 }

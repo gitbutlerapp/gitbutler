@@ -511,14 +511,34 @@ impl App {
             return Ok(());
         };
 
-        if matches!(&**selection, CliId::UncommittedHunkOrFile(..)) {
-            return Ok(());
-        }
+        let change_source = match &**selection {
+            CliId::Commit { commit, id: _ } => {
+                let head_info = but_api::legacy::workspace::head_info(ctx)?;
+                crate::utils::worktrees::commit_owner(&head_info, commit.commit_id)
+            }
+            CliId::AnonymousSegment(segment) => {
+                let Some(name) = segment.lane.worktree_name() else {
+                    return Ok(());
+                };
+                ChangeSourceId::Worktree(name.to_owned())
+            }
+            CliId::Branch(branch) => branch
+                .lane
+                .worktree_name()
+                .map_or(ChangeSourceId::Head, |name| {
+                    ChangeSourceId::Worktree(name.to_owned())
+                }),
+            CliId::UncommittedArea { source, .. } => source.clone(),
 
-        // TODO(david):
-        let todo_ = ();
+            CliId::CommittedFile { .. }
+            | CliId::CommittedHunk(..)
+            | CliId::PathPrefix { .. }
+            | CliId::Stack { .. }
+            | CliId::UncommittedHunkOrFile(..) => return Ok(()),
+        };
 
-        self.squash_start_with_source(SquashSource::Uncommitted(ChangeSourceId::Head), ctx)?;
+        self.squash_start_with_source(SquashSource::Uncommitted(change_source), ctx)?;
+
         Ok(())
     }
 
