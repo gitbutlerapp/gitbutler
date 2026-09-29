@@ -72,12 +72,15 @@
 
 .outline {
 	flex-grow: 1;
-	padding-block: var(--padding-list);
 
 	/* The previous plan's rows, held while the next preview computes. */
 	&[data-stale] {
 		opacity: 0.5;
 	}
+}
+
+.outlineViewport {
+	padding-block: var(--padding-list);
 }
 
 .conflictIcon {

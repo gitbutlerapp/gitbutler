@@ -43,6 +43,9 @@ const KNOWN_RUNTIME = new Map([
 	["--anchor-width", "@base-ui-components/react positioner"],
 	["--available-height", "@base-ui-components/react positioner"],
 	["--transform-origin", "@base-ui-components/react positioner"],
+	// Base UI's scroll area writes the thumb's length on its scrollbar element.
+	["--scroll-area-thumb-height", "@base-ui/react scroll area scrollbar"],
+	["--scroll-area-thumb-width", "@base-ui/react scroll area scrollbar"],
 	// Shiki's dual-theme output carries both themes as inline style.
 	["--shiki-light", "shiki dual-theme inline style"],
 	["--shiki-dark", "shiki dual-theme inline style"],

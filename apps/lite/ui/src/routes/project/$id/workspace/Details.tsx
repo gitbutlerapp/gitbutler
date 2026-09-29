@@ -4,7 +4,7 @@ import { ForgeAuthPrompt } from "./ForgeAuthPrompt.tsx";
 import { ResizeHandle } from "@gitbutler/ui-react/ResizeHandle.tsx";
 import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import { startAbsorb, setCursor, useCanShowFiles, useSelection } from "#ui/use-cursor.ts";
-import uiStyles from "@gitbutler/ui-react/ui.module.css";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	type PushBeforePublish,
@@ -2602,8 +2602,10 @@ const Diff: FC<{
 				) : (
 					<ListFilterRow {...fileFilter.rowProps} />
 				)}
-				<div
-					className={classes(uiStyles.scroller, uiStyles.scrollerWithSeparator, styles.diffFiles)}
+				<ScrollArea
+					separator
+					className={styles.diffFiles}
+					viewportClassName={styles.diffFilesViewport}
 				>
 					<FilesTree
 						focusScope="files"
@@ -2620,7 +2622,7 @@ const Diff: FC<{
 						reviewedPaths={reviewedFilePaths}
 						ref={filesTreeRef}
 					/>
-				</div>
+				</ScrollArea>
 			</div>
 		</Panel>
 	) : null;

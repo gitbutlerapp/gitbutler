@@ -17,8 +17,11 @@
 }
 
 .stacksScroller {
-	display: flex;
 	flex-grow: 1;
+}
+
+.stacksViewport {
+	display: flex;
 	flex-direction: column;
 
 	& > * {

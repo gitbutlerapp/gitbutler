@@ -1,0 +1,95 @@
+/* Takes its place in the layout that holds it and scrolls within it rather than growing it. A
+   column, so the viewport can shrink to a height the area is capped at. */
+.root {
+	display: flex;
+	position: relative;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.viewport {
+	flex: 1 1 auto;
+	min-height: 0;
+	overscroll-behavior: contain;
+}
+
+/* Drawn over the content, so nothing is set aside for it and content that fits and content that
+   scrolls take the same width. 12px to grab, the thumb 2px in from the edge: 4px at rest, so a
+   gap shows before rows inset 8px, and 8px under the pointer or while dragged, over the rows'
+   edge. */
+.scrollbar {
+	--thumb-size: 4px;
+
+	display: flex;
+	position: absolute;
+	align-items: flex-start;
+	/* The thumb hugs the outer edge; the bar positions it along its length. */
+	justify-content: flex-end;
+	padding: 2px;
+	opacity: 0;
+	transition: opacity var(--transition-medium);
+
+	&:hover,
+	&:has(.thumb:active) {
+		--thumb-size: 8px;
+	}
+
+	&[data-orientation="vertical"] {
+		width: 12px;
+		inset-block: 0;
+		inset-inline-end: 0;
+	}
+
+	&[data-orientation="horizontal"] {
+		flex-direction: column;
+		height: 12px;
+		inset-block-end: 0;
+		inset-inline: 0;
+	}
+
+	/* Hovering is the pointer over the area, not just the bar. */
+	&[data-hovering],
+	&[data-scrolling] {
+		opacity: 1;
+	}
+}
+
+.thumb {
+	border-radius: var(--radius-full);
+	background-color: color-mix(in srgb, var(--text-1) 15%, transparent);
+
+	&[data-orientation="vertical"] {
+		width: var(--thumb-size);
+		height: var(--scroll-area-thumb-height);
+		transition: width var(--transition-fast) ease-out;
+	}
+
+	&[data-orientation="horizontal"] {
+		width: var(--scroll-area-thumb-width);
+		height: var(--thumb-size);
+		transition: height var(--transition-fast) ease-out;
+	}
+
+	&:hover,
+	&:active {
+		background-color: color-mix(in srgb, var(--text-1) 25%, transparent);
+	}
+}
+
+/* A hairline across the top while the content is scrolled down, so rows passing under a sticky
+   header read as passing under it. */
+.separator::before {
+	z-index: 1;
+	position: absolute;
+	inset-inline: 0;
+	top: 0;
+	border-top: 1px solid var(--border-section);
+	content: "";
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--transition-fast);
+}
+
+.separator[data-overflow-y-start]::before {
+	opacity: 1;
+}

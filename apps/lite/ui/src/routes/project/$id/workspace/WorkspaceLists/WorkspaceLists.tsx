@@ -28,7 +28,7 @@ import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import uiStyles from "@gitbutler/ui-react/ui.module.css";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import type {
 	BranchReference,
 	Commit,
@@ -1264,9 +1264,10 @@ const Stacks: FC<{
 	});
 
 	return (
-		<div
-			ref={retainScrollElement}
-			className={classes(uiStyles.scroller, styles.stacksScroller)}
+		<ScrollArea
+			viewportRef={retainScrollElement}
+			className={styles.stacksScroller}
+			viewportClassName={styles.stacksViewport}
 			style={{
 				"--row-padding-inline-start": `${ROW_INSET}px`,
 				"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
@@ -1356,7 +1357,7 @@ const Stacks: FC<{
 			</div>
 
 			<div className={styles.foot} />
-		</div>
+		</ScrollArea>
 	);
 };
 

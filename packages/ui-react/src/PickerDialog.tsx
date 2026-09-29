@@ -17,9 +17,8 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { classes } from "./classes.ts";
 import { formatForDisplaySorted } from "./formatHotkey.ts";
-import uiStyles from "./ui.module.css";
+import { ScrollArea } from "./ScrollArea.tsx";
 import styles from "./PickerDialog.module.css";
 
 export type PickerDialogGroup<T> = {
@@ -193,7 +192,11 @@ const VirtualizedListArea = <T,>({
 	}));
 
 	return (
-		<div ref={scrollElementRef} className={classes(uiStyles.scroller, styles.listArea)}>
+		<ScrollArea
+			viewportRef={scrollElementRef}
+			className={styles.listArea}
+			viewportClassName={styles.listViewport}
+		>
 			<div className={styles.listContent}>
 				<Autocomplete.Status>
 					{statusLabel !== undefined ? <div className={styles.status}>{statusLabel}</div> : null}
@@ -269,7 +272,7 @@ const VirtualizedListArea = <T,>({
 					)}
 				</Autocomplete.List>
 			</div>
-		</div>
+		</ScrollArea>
 	);
 };
 

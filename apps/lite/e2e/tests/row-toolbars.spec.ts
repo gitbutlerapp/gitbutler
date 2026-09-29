@@ -29,7 +29,7 @@ test.describe("docked upstream toolbar", () => {
 			.first()
 			.evaluate((row) => {
 				let scroller = row.parentElement;
-				while (scroller && getComputedStyle(scroller).overflowY !== "auto")
+				while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY))
 					scroller = scroller.parentElement;
 				if (!scroller) throw new Error("No workspace scroller");
 				scroller.scrollTop = scroller.scrollHeight;
