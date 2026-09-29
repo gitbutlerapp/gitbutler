@@ -15,7 +15,7 @@ pub(super) fn report_land_result(
     out: &mut OutputChannel,
     ctx: &Context,
     result: &BranchLandResult,
-    branch_name: &str,
+    branch_names: &[String],
     target_display: &str,
     push_remote_name: &str,
     target_branch_name: &str,
@@ -23,12 +23,26 @@ pub(super) fn report_land_result(
     let t = theme::get();
 
     if let Some(out) = out.for_human() {
+        let already_integrated = |name: &String| result.already_integrated.contains(name);
         let headline = match result.landed {
             BranchLandKind::AlreadyIntegrated => {
-                format!("{branch_name} was already on {target_display}.")
+                let verb = if branch_names.len() == 1 {
+                    "was"
+                } else {
+                    "were"
+                };
+                format!(
+                    "{} {verb} already on {target_display}.",
+                    branch_names.join(", ")
+                )
             }
             BranchLandKind::Updated { .. } => {
-                format!("Landed {branch_name} onto {target_display}.")
+                let landed: Vec<&str> = branch_names
+                    .iter()
+                    .filter(|name| !already_integrated(name))
+                    .map(String::as_str)
+                    .collect();
+                format!("Landed {} onto {target_display}.", landed.join(", "))
             }
         };
         let style = if result.reconcile_skipped {
@@ -37,6 +51,16 @@ pub(super) fn report_land_result(
             t.success
         };
         writeln!(out, "\n{}", style.paint(headline))?;
+        if matches!(result.landed, BranchLandKind::Updated { .. }) {
+            for name in branch_names.iter().filter(|name| already_integrated(name)) {
+                writeln!(
+                    out,
+                    "{}",
+                    t.hint
+                        .paint(format!("{name} was already on {target_display}."))
+                )?;
+            }
+        }
         for name in &result.deleted_remote_branches {
             writeln!(
                 out,
@@ -62,7 +86,7 @@ pub(super) fn report_land_result(
             )?;
         }
     } else {
-        warn_stale_sibling_prs(ctx, out, result, branch_name)?;
+        warn_stale_sibling_prs(ctx, out, result, branch_names)?;
     }
 
     if let BranchLandKind::Updated {
@@ -91,7 +115,7 @@ fn warn_stale_sibling_prs(
     ctx: &Context,
     out: &mut OutputChannel,
     result: &BranchLandResult,
-    landed_branch: &str,
+    landed_branches: &[String],
 ) -> anyhow::Result<()> {
     let rewritten: std::collections::HashSet<gix::ObjectId> = result
         .workspace
@@ -109,7 +133,7 @@ fn warn_stale_sibling_prs(
     let t = theme::get();
     for branch in &branches {
         let name = branch.name.to_string();
-        if name == landed_branch || !rewritten.contains(&branch.head) {
+        if landed_branches.contains(&name) || !rewritten.contains(&branch.head) {
             continue;
         }
         let pr = branch
@@ -170,18 +194,44 @@ fn print_undo_caveat(
     Ok(())
 }
 
-/// Confirm a direct target update. For a whole-stack land, `lower` describes everything else that
-/// will be published — named segments and commits on unnamed segments alike — so the user confirms
-/// the full set. The PR-attached warning is always printed; `--yes` only skips the interactive
-/// prompt, never the warning.
-pub(super) fn confirm_direct_target_update(
-    out: &mut OutputChannel,
-    branch_name: &str,
-    lower: &but_api::land::LowerStack,
-    attached_prs: &[(String, usize)],
-    target_display: &str,
-    yes: bool,
-) -> anyhow::Result<()> {
+/// A branch about to land, with everything its tip publishes beyond its own segment.
+pub(crate) struct Landing {
+    /// The short name of the branch being landed.
+    pub branch: String,
+    /// What a `--whole-stack` land publishes below it; empty otherwise.
+    pub lower: but_api::land::LowerStack,
+}
+
+/// The [`Landing`]s for `branch_names`, in landing order. The API re-derives and enforces what
+/// lands; this is for display.
+pub(crate) fn landings(
+    ctx: &mut Context,
+    branch_names: &[String],
+    whole_stack: bool,
+) -> anyhow::Result<Vec<Landing>> {
+    branch_names
+        .iter()
+        .map(|branch| {
+            // With --whole-stack the confirmation must disclose everything that will be published,
+            // not just the branch the user named — including commits on segments that no longer
+            // have a name.
+            let lower = if whole_stack {
+                but_api::land::lower_stack(ctx, branch)?
+            } else {
+                but_api::land::LowerStack::default()
+            };
+            Ok(Landing {
+                branch: branch.clone(),
+                lower,
+            })
+        })
+        .collect()
+}
+
+/// What `landing` publishes beyond its own segment, e.g. "the 1 segment(s) below it (bottom)", or
+/// `None` when it publishes only itself.
+fn published_below(landing: &Landing) -> Option<String> {
+    let lower = &landing.lower;
     let mut extras = Vec::new();
     if !lower.segments.is_empty() {
         extras.push(format!(
@@ -196,29 +246,65 @@ pub(super) fn confirm_direct_target_update(
             lower.unnamed_commits,
         ));
     }
-    let subject = if extras.is_empty() {
-        branch_name.to_string()
-    } else {
-        format!("{branch_name} — together with {} —", extras.join(" and "))
+    (!extras.is_empty()).then(|| extras.join(" and "))
+}
+
+/// The warning shown before a direct target update: everything that will be published, and the
+/// open pull requests that landing closes. Shared by the CLI prompt and the TUI confirmation.
+pub(crate) fn direct_target_update_warning(
+    ctx: &Context,
+    landings: &[Landing],
+    target_display: &str,
+) -> anyhow::Result<String> {
+    let subject = match landings {
+        [landing] => match published_below(landing) {
+            None => landing.branch.clone(),
+            Some(below) => format!("{} — together with {below} —", landing.branch),
+        },
+        _ => {
+            let branches = landings
+                .iter()
+                .map(|landing| match published_below(landing) {
+                    None => landing.branch.clone(),
+                    Some(below) => format!("{} (together with {below})", landing.branch),
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{} branches — {branches} —", landings.len())
+        }
     };
     let action = format!(
         "This lands {subject} directly onto {target_display} without a pull request — \
          skipping any code review, CI checks, or branch protections your team may rely on."
     );
-    let warning = if attached_prs.is_empty() {
-        action
-    } else {
-        let prs = attached_prs
-            .iter()
-            .map(|(name, pr)| format!("{name} (PR #{pr})"))
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!(
-            "{action} This closes open pull request(s) {prs}: their remote branches are deleted \
-             after landing."
-        )
-    };
 
+    let attached_prs = attached_pr_numbers(ctx, landings)?;
+    if attached_prs.is_empty() {
+        return Ok(action);
+    }
+    let prs = attached_prs
+        .iter()
+        .map(|(name, pr)| format!("{name} (PR #{pr})"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Ok(format!(
+        "{action} This closes open pull request(s) {prs}: their remote branches are deleted after \
+         landing."
+    ))
+}
+
+/// Confirm a direct target update. For a whole-stack land, each landing's lower stack describes
+/// everything else that will be published — named segments and commits on unnamed segments alike —
+/// so the user confirms the full set. The warning is always printed; `--yes` only skips the
+/// interactive prompt, never the warning.
+pub(super) fn confirm_direct_target_update(
+    out: &mut OutputChannel,
+    ctx: &Context,
+    landings: &[Landing],
+    target_display: &str,
+    yes: bool,
+) -> anyhow::Result<()> {
+    let warning = direct_target_update_warning(ctx, landings, target_display)?;
     if let Some(out) = out.for_human() {
         writeln!(out, "{}", theme::get().attention.paint(&warning))?;
     }
@@ -233,10 +319,18 @@ pub(super) fn confirm_direct_target_update(
         );
     };
 
-    let question = if extras.is_empty() {
-        format!("Land {branch_name} directly onto {target_display}?")
-    } else {
-        format!("Land {branch_name} and everything below it directly onto {target_display}?")
+    let question = match landings {
+        [landing] if published_below(landing).is_none() => {
+            format!("Land {} directly onto {target_display}?", landing.branch)
+        }
+        [landing] => format!(
+            "Land {} and everything below it directly onto {target_display}?",
+            landing.branch
+        ),
+        _ => format!(
+            "Land these {} branches directly onto {target_display}?",
+            landings.len()
+        ),
     };
     if inout.confirm(question, ConfirmDefault::Yes)? == Confirm::No {
         bail!("Land cancelled");
@@ -245,19 +339,23 @@ pub(super) fn confirm_direct_target_update(
     Ok(())
 }
 
-/// The open pull-request numbers attached to `branch_name` or any of `lower_segments`. Landing
-/// deletes each landed branch's remote copy, which closes the attached reviews on the forge, so
-/// all are surfaced.
+/// The open pull-request numbers attached to the landed branches or any of the segments landing
+/// with them. Landing deletes each landed branch's remote copy, which closes the attached reviews
+/// on the forge, so all are surfaced.
 ///
 /// Only applied workspace segments can land, so this reads the forge review associations that
 /// `head_info` projects onto the workspace segments instead of computing the repository-wide
 /// branch listing. Only open reviews are surfaced: a segment's number can also be settled
 /// display identity (a landed review), which landing cannot close.
-pub(super) fn attached_pr_numbers(
+fn attached_pr_numbers(
     ctx: &Context,
-    branch_name: &str,
-    lower_segments: &[String],
+    landings: &[Landing],
 ) -> anyhow::Result<Vec<(String, usize)>> {
+    let landed = |name: &str| {
+        landings.iter().any(|landing| {
+            landing.branch == name || landing.lower.segments.iter().any(|lower| lower == name)
+        })
+    };
     let info = but_api::legacy::workspace::head_info(ctx)?;
     let open_reviews = but_api::legacy::forge::open_review_numbers(ctx)?;
     // A segment shared between stacks is listed once per stack; dedup so the warning doesn't
@@ -274,7 +372,7 @@ pub(super) fn attached_pr_numbers(
             }
             let name = ref_name.shorten();
             let name = std::str::from_utf8(name.as_ref()).ok()?;
-            if name != branch_name && !lower_segments.iter().any(|lower| lower == name) {
+            if !landed(name) {
                 return None;
             }
             let pr = segment.metadata.as_ref()?.review.pull_request?;
