@@ -48,7 +48,8 @@
     <text x="298" y="186" style="fill:#555555;">│</text>
     <text x="330 338 346 354 362 370 378" y="186" style="fill:#CCCCCC;">Discard</text>
     <text x="394 402 410 418 426 434" y="186" style="fill:#CCCCCC;">branch</text>
-    <text x="450 458" y="186" style="fill:#CCCCCC;">A?</text>
+    <text x="450" y="186" style="fill:#00AA00;">A</text>
+    <text x="458" y="186" style="fill:#CCCCCC;">?</text>
     <text x="514" y="186" style="fill:#555555;">│</text>
     <text x="10" y="204" style="fill:#CCCCCC;">┴</text>
     <text x="26 34 42 50 58 66 74" y="204" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>

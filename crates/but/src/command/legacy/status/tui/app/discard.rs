@@ -178,9 +178,11 @@ impl App {
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
 
                     Confirm::new(
-                        NonEmpty::new(
-                            format!("Remove {worktree_name}? This cannot be undone").into(),
-                        ),
+                        NonEmpty::new(Line::from_iter([
+                            Span::raw("Delete worktree "),
+                            Span::styled(worktree_name.to_string(), self.theme.local_branch),
+                            Span::raw(" and its directory? This cannot be undone"),
+                        ])),
                         self.theme,
                         move |ctx, messages| {
                             let mut guard = ctx.exclusive_worktree_access();
@@ -217,7 +219,11 @@ impl App {
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
 
                     Confirm::new(
-                        NonEmpty::new(format!("Discard branch {name}?").into()),
+                        NonEmpty::new(Line::from_iter([
+                            Span::raw("Discard branch "),
+                            Span::styled(name.to_string(), self.theme.local_branch),
+                            Span::raw("?"),
+                        ])),
                         self.theme,
                         move |ctx, messages| {
                             let DiscardOutcome::Branches(_) = run_discard(

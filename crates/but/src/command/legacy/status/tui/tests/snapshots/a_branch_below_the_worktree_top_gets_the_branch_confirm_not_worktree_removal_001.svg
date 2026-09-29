@@ -60,7 +60,8 @@
     <text x="274" y="186" style="fill:#555555;">│</text>
     <text x="306 314 322 330 338 346 354" y="186" style="fill:#CCCCCC;">Discard</text>
     <text x="370 378 386 394 402 410" y="186" style="fill:#CCCCCC;">branch</text>
-    <text x="426 434 442 450 458 466 474 482 490" y="186" style="fill:#CCCCCC;">wt-below?</text>
+    <text x="426 434 442 450 458 466 474 482" y="186" style="fill:#00AA00;">wt-below</text>
+    <text x="490" y="186" style="fill:#CCCCCC;">?</text>
     <text x="546" y="186" style="fill:#555555;">│</text>
     <text x="10 18 26" y="204" style="fill:#CCCCCC;">┊┊●</text>
     <text x="58" y="204" style="fill:#AA00AA;">n</text>
