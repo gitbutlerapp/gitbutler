@@ -732,7 +732,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   tqv add A (no changes)
 ├╯
 ┊
@@ -787,7 +787,7 @@ fn can_undo_but_switch_workspace_with_workspace_not_already_existing() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ my [my-branch]
+┊╭┄ my [my-branch] [HEAD]
 ┊●   lsm make a commit (no changes)
 ├╯
 ┊

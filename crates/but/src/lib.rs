@@ -1211,7 +1211,9 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 out,
                 flags,
-                command::legacy::status::StatusRenderMode::Oneshot,
+                command::legacy::status::StatusRenderMode::Oneshot(Some(InvokedFrom::discover(
+                    &args.current_dir,
+                )?)),
             )?;
             None
         }
@@ -1226,7 +1228,8 @@ async fn dispatch_subcommand(
                 .into());
             }
 
-            let options = TuiLaunchOptions::resolve(tui_args);
+            let mut options = TuiLaunchOptions::resolve(tui_args);
+            options.invoked_from = Some(InvokedFrom::discover(&args.current_dir)?);
             command::legacy::status::worktree(
                 &mut ctx,
                 out,
@@ -1620,6 +1623,7 @@ async fn dispatch_subcommand(
                     app_settings.agent_skill_notices,
                     &mut ctx,
                     out,
+                    &args.current_dir,
                 );
             }
             return Ok(DispatchOutcome::ExitWithoutDestructors(result));
@@ -1754,6 +1758,7 @@ async fn dispatch_subcommand(
             app_settings.agent_skill_notices,
             &mut ctx,
             out,
+            &args.current_dir,
         );
     }
 
@@ -1822,6 +1827,7 @@ fn run_status_after_if_requested(
     agent_skill_notices: bool,
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
+    current_dir: &std::path::Path,
 ) {
     if !status_after {
         if agent_skill_notices
@@ -1833,7 +1839,13 @@ fn run_status_after_if_requested(
         return;
     }
     let mutation_json = out.take_json_buffer();
-    run_status_after(agent_skill_notices, ctx, out, mutation_json);
+    run_status_after(
+        agent_skill_notices,
+        ctx,
+        out,
+        mutation_json,
+        InvokedFrom::discover(current_dir).ok(),
+    );
 }
 
 /// Run workspace status output after a mutation command when explicitly requested.
@@ -1854,6 +1866,7 @@ fn run_status_after(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     mutation_json: Option<serde_json::Value>,
+    invoked_from: Option<InvokedFrom>,
 ) {
     use crate::command::legacy::status::StatusFlags;
 
@@ -1870,7 +1883,7 @@ fn run_status_after(
                 show_files: crate::command::legacy::status::FilesStatusFlag::All,
                 ..StatusFlags::all_false()
             },
-            command::legacy::status::StatusRenderMode::Oneshot,
+            command::legacy::status::StatusRenderMode::Oneshot(invoked_from),
         );
         let status_json = out.take_json_buffer().unwrap_or(serde_json::Value::Null);
 
@@ -1913,7 +1926,7 @@ fn run_status_after(
                 hint: true,
                 ..StatusFlags::all_false()
             },
-            command::legacy::status::StatusRenderMode::Oneshot,
+            command::legacy::status::StatusRenderMode::Oneshot(invoked_from),
         ) {
             eprintln!(
                 "warning: status after mutation failed: {err:#}. Run 'but status' separately to check workspace state."

@@ -118,12 +118,14 @@ impl FilesStatusFlag {
 
 #[derive(Debug, Clone)]
 pub enum StatusRenderMode {
-    Oneshot,
+    Oneshot(Option<crate::utils::change_source::InvokedFrom>),
     Tui(TuiLaunchOptions),
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct TuiLaunchOptions {
+    /// The checkout to mark as HEAD, retained across TUI refreshes.
+    pub invoked_from: Option<crate::utils::change_source::InvokedFrom>,
     pub remember_selection: bool,
     pub target: Option<CliIdArg>,
     pub debug: bool,
@@ -143,6 +145,7 @@ impl TuiLaunchOptions {
         } = args;
 
         let mut args = Self {
+            invoked_from: None,
             remember_selection,
             target,
             show_diff: diff,
@@ -245,6 +248,8 @@ struct StatusContext<'a> {
     /// The active linked worktrees with the commits they own, empty unless the
     /// `worktreeManipulation` flag is on.
     worktrees: Vec<but_workspace::worktrees::WorktreeInfo>,
+    /// Symbolic HEAD of the checkout where status was invoked.
+    head_ref: Option<gix::refs::FullName>,
     /// Uncommitted files with unresolved merge conflicts in the index; not committable until resolved.
     conflicted_paths: Vec<String>,
     common_merge_base_data: CommonMergeBase,
@@ -323,7 +328,7 @@ pub(crate) fn worktree(
     }
 
     match render_mode {
-        StatusRenderMode::Oneshot => {
+        StatusRenderMode::Oneshot(_) => {
             let Some(human_out) = out.for_human() else {
                 return Ok(());
             };
@@ -377,12 +382,16 @@ pub(crate) fn tui_with_options(
     mut guard: RepoExclusiveGuard,
     out: &mut InputOutputChannel<'_>,
     run_options: TuiRunOptions,
+    invoked_from: &crate::utils::change_source::InvokedFrom,
 ) -> CliResult<(RepoExclusiveGuard, TuiOutcome)> {
     let flags = StatusFlags::for_tui();
     let operating_mode =
         but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
             .operating_mode;
-    let launch_options = TuiLaunchOptions::default();
+    let launch_options = TuiLaunchOptions {
+        invoked_from: Some(invoked_from.clone()),
+        ..Default::default()
+    };
     let render_mode = StatusRenderMode::Tui(launch_options.clone());
 
     let status_ctx = build_status_context(
@@ -454,6 +463,21 @@ fn build_status_context<'a>(
     flags: StatusFlags,
     render_mode: StatusRenderMode,
 ) -> anyhow::Result<StatusContext<'a>> {
+    use crate::utils::change_source::InvokedFrom;
+
+    let head_ref = {
+        let repo = ctx.repo.get()?;
+        let invoked_from = match &render_mode {
+            StatusRenderMode::Oneshot(invoked_from) => invoked_from.as_ref(),
+            StatusRenderMode::Tui(options) => options.invoked_from.as_ref(),
+        };
+        match invoked_from {
+            Some(InvokedFrom::LinkedWorktree(name)) => {
+                but_workspace::worktrees::open_worktree_repo(&repo, name.as_ref())?.head_name()?
+            }
+            Some(InvokedFrom::MainWorktree) | None => repo.head_name()?,
+        }
+    };
     let (
         push_statuses_by_segment_id,
         local_commits_by_id,
@@ -713,6 +737,7 @@ fn build_status_context<'a>(
 
     Ok(StatusContext {
         stack_details,
+        head_ref,
         worktree_changes: worktree_changes.worktree_changes.changes,
         changes_by_source,
         worktrees,
@@ -741,7 +766,7 @@ fn build_status_context<'a>(
 
 /// Decide if status text should be pre-truncated for terminal output.
 fn truncation_policy(format: OutputFormat, render_mode: &StatusRenderMode, is_paged: bool) -> bool {
-    format.allows_truncation() && matches!(render_mode, StatusRenderMode::Oneshot) && !is_paged
+    format.allows_truncation() && matches!(render_mode, StatusRenderMode::Oneshot(_)) && !is_paged
 }
 
 fn build_status_output(
@@ -1648,6 +1673,15 @@ fn print_lane_segments(
         let branch = segment.branch_name().unwrap_or(BStr::new("")).to_string();
         let branch_cli_id = segment.cli_id();
         let mut branch_suffix = Vec::new();
+        if let Some(head_ref) = &status_ctx.head_ref
+            && segment.inner.ref_name() == Some(head_ref.as_ref())
+        {
+            branch_suffix.extend([
+                Span::raw(" ["),
+                Span::styled("HEAD", t.head),
+                Span::raw("]"),
+            ]);
+        }
         branch_suffix.extend(ci_spans);
         if let Some(branch_status) = branch_status {
             branch_suffix.push(branch_status);
@@ -1876,7 +1910,7 @@ fn print_commit(
     // One-shot output pads file ID prefixes to match the change ID shown on
     // the commit line; the TUI keeps the minimal IDs.
     let padded_file_id_prefix = match status_ctx.render_mode {
-        StatusRenderMode::Oneshot => change_id.map(ChangeIdWithShortId::padded_short_id),
+        StatusRenderMode::Oneshot(_) => change_id.map(ChangeIdWithShortId::padded_short_id),
         StatusRenderMode::Tui(_) => None,
     };
 
@@ -2494,7 +2528,7 @@ mod tests {
     fn truncation_policy_enables_truncation_for_oneshot_unpaged() {
         assert!(truncation_policy(
             OutputFormat::Human { agent: false },
-            &StatusRenderMode::Oneshot,
+            &StatusRenderMode::Oneshot(None),
             false
         ));
     }
@@ -2503,7 +2537,7 @@ mod tests {
     fn truncation_policy_disables_truncation_for_oneshot_paged() {
         assert!(!truncation_policy(
             OutputFormat::Human { agent: false },
-            &StatusRenderMode::Oneshot,
+            &StatusRenderMode::Oneshot(None),
             true
         ));
     }
@@ -2512,7 +2546,7 @@ mod tests {
     fn truncation_policy_disables_truncation_for_agent_output() {
         assert!(!truncation_policy(
             OutputFormat::Human { agent: true },
-            &StatusRenderMode::Oneshot,
+            &StatusRenderMode::Oneshot(None),
             false
         ));
     }

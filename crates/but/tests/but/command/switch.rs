@@ -152,7 +152,7 @@ Hint: run `but help` for all commands
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   tpm add A
 ├╯
 ┊
@@ -212,7 +212,7 @@ Switched to branch 'A'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A] (no commits)
+┊╭┄ g0 [A] [HEAD] (no commits)
 ┊│
 ┊├┄ h0 [D] (no commits)
 ├╯
@@ -390,7 +390,7 @@ fn switching_to_workspace_creates_workspace_if_necessary() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
+┊╭┄ ma [main] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -480,7 +480,7 @@ Hint: run `but help` for all commands
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   ppx two (no changes)
 ┊●   orn one (no changes)
 ┊●   tpm add A
@@ -814,7 +814,7 @@ fn switching_back_to_workspace_from_main_with_conflicts() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
+┊╭┄ ma [main] [HEAD] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
@@ -842,7 +842,7 @@ Error: Uncommitted files would be overwritten by checkout: "one"
 ╭┄ @ [uncommitted]
 ┊   kl A one
 ┊
-┊╭┄ ma [main] (no commits)
+┊╭┄ ma [main] [HEAD] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M

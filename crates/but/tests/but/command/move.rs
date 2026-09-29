@@ -25,7 +25,7 @@ fn failed_implicit_move_checkout_restores_source_history() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ so [source]
+┊╭┄ so [source] [HEAD]
 ┊●   nlu last
 ┊│     nlu:q M file
 ┊●   uwm revert
@@ -80,7 +80,7 @@ Caused by:
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ so [source]
+┊╭┄ so [source] [HEAD]
 ┊●   nlu last
 ┊│     nlu:q M file
 ┊●   uwm revert
@@ -119,7 +119,7 @@ fn failed_implicit_branch_move_checkout_restores_source_history() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   nlu last
 ┊│     nlu:q M file
 ┊●   uwm revert
@@ -180,7 +180,7 @@ Caused by:
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   nlu last
 ┊│     nlu:q M file
 ┊●   uwm revert
@@ -256,7 +256,7 @@ fn single_branch_move_commit_above_checkout() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mo [moved]
+┊╭┄ mo [moved] [HEAD]
 ┊●   myy add B
 ┊│
 ┊├┄ g0 [C]
@@ -291,7 +291,7 @@ fn single_branch_move_commit_and_switch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C]
+┊╭┄ g0 [C] [HEAD]
 ┊●   vuw add C
 ┊│
 ┊├┄ h0 [B]
@@ -326,7 +326,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ in [independent]
+┊╭┄ in [independent] [HEAD]
 ┊●   myy add B
 ├╯
 ┊
@@ -361,7 +361,7 @@ fn single_branch_move_changes_and_switch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ in [independent]
+┊╭┄ in [independent] [HEAD]
 ┊●   qkw extracted
 ┊│     qkw:p A B
 ├╯
@@ -398,7 +398,7 @@ fn single_branch_move_changes_above_checkout() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mo [moved]
+┊╭┄ mo [moved] [HEAD]
 ┊●   qkw extracted
 ┊│     qkw:p A B
 ┊│
@@ -494,7 +494,7 @@ fn single_branch_move_above_lower_branch_preserves_checkout() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C]
+┊╭┄ g0 [C] [HEAD]
 ┊●   myy add B
 ┊│
 ┊├┄ mo [moved]
@@ -532,7 +532,7 @@ fn single_branch_move_below_branch_preserves_checkout() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C]
+┊╭┄ g0 [C] [HEAD]
 ┊●   myy add B
 ┊│
 ┊├┄ mo [moved]
@@ -612,7 +612,7 @@ fn single_branch_unstack_branch_and_switch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   myy add B
 ├╯
 ┊
@@ -649,7 +649,7 @@ fn single_branch_move_all_commits_retains_empty_source() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ so [source]
+┊╭┄ so [source] [HEAD]
 ┊●   ukz second
 ┊●   zpr first
 ├╯
@@ -678,7 +678,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mo [moved]
+┊╭┄ mo [moved] [HEAD]
 ┊●   ukz second
 ┊●   zpr first
 ┊│
@@ -714,7 +714,7 @@ fn single_branch_move_from_target_checks_out_new_branch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main]
+┊╭┄ ma [main] [HEAD]
 ┊●   nyl first
 ├╯
 ┊
@@ -739,7 +739,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mo [moved]
+┊╭┄ mo [moved] [HEAD]
 ┊●   nyl first
 ├╯
 ┊
@@ -769,7 +769,7 @@ fn single_branch_move_to_existing_branch_and_switch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   myy add B
 ┊●   nmq add A
 ├╯
@@ -803,7 +803,7 @@ fn workspace_move_to_new_branch_and_switch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mo [moved]
+┊╭┄ mo [moved] [HEAD]
 ┊●   lrm add B
 ├╯
 ┊
@@ -837,7 +837,7 @@ fn single_branch_stack_branch_and_switch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C]
+┊╭┄ g0 [C] [HEAD]
 ┊●   vuw add C
 ┊│
 ┊├┄ h0 [A]
@@ -872,7 +872,7 @@ fn single_branch_unstack_checked_out_branch_and_switch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C]
+┊╭┄ g0 [C] [HEAD]
 ┊●   vuw add C
 ├╯
 ┊
@@ -913,7 +913,7 @@ fn single_branch_unstack_empty_branch_and_switch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   ukz second
 ┊│
 ┊├┄ em [empty] (no commits)
@@ -944,7 +944,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ em [empty] (no commits)
+┊╭┄ em [empty] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -969,7 +969,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   ukz second
 ┊│
 ┊├┄ bo [bottom]
@@ -1000,7 +1000,7 @@ fn single_branch_move_hunk_above_checkout() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mo [moved]
+┊╭┄ mo [moved] [HEAD]
 ┊●   qkw extracted
 ┊│     qkw:q M file
 ┊│
@@ -3096,7 +3096,7 @@ fn move_empty_branch_above_checked_out_branch_checks_it_out() {
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top] (no commits)
+┊╭┄ to [top] [HEAD] (no commits)
 ┊│
 ┊├┄ mo [moved] (no commits)
 ├╯
@@ -3115,7 +3115,7 @@ Hint: run `but help` for all commands
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mo [moved] (no commits)
+┊╭┄ mo [moved] [HEAD] (no commits)
 ┊│
 ┊├┄ to [top] (no commits)
 ├╯
@@ -3144,7 +3144,7 @@ fn move_empty_branch_below_the_tip_preserves_checkout() {
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ em [empty-top] (no commits)
+┊╭┄ em [empty-top] [HEAD] (no commits)
 ┊│
 ┊├┄ mp [empty-mid] (no commits)
 ┊│
@@ -3167,7 +3167,7 @@ Hint: run `but help` for all commands
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ em [empty-top] (no commits)
+┊╭┄ em [empty-top] [HEAD] (no commits)
 ┊│
 ┊├┄ mp [empty-low] (no commits)
 ┊│
@@ -3194,7 +3194,7 @@ fn move_empty_branch_above_tip_then_switching_to_workspace() {
     let expected = snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mo [moved] (no commits)
+┊╭┄ mo [moved] [HEAD] (no commits)
 ┊│
 ┊├┄ to [top] (no commits)
 ├╯
@@ -3208,8 +3208,23 @@ Hint: run `but help` for all commands
 
     env.but("switch --workspace").assert().success();
     assert_head(&env, "gitbutler/workspace");
-    // Switching modes must preserve an empty-only stack, including its moved tip.
-    assert_status(&env, expected);
+    // Switching modes preserves the stack but removes the checked-out branch marker.
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mo [moved] (no commits)
+┊│
+┊├┄ to [top] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
 }
 
 #[test]
@@ -3230,7 +3245,7 @@ fn move_empty_branch_below_tip_then_switching_to_workspace() {
     let expected = snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ em [empty-top] (no commits)
+┊╭┄ em [empty-top] [HEAD] (no commits)
 ┊│
 ┊├┄ mp [empty-low] (no commits)
 ┊│
@@ -3246,8 +3261,25 @@ Hint: run `but help` for all commands
 
     env.but("switch --workspace").assert().success();
     assert_head(&env, "gitbutler/workspace");
-    // Switching modes must preserve the reordered lower branches even without commits.
-    assert_status(&env, expected);
+    // Switching modes preserves the reordered branches but removes the HEAD marker.
+    assert_status(
+        &env,
+        snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ em [empty-top] (no commits)
+┊│
+┊├┄ mp [empty-low] (no commits)
+┊│
+┊├┄ pt [empty-mid] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]],
+    );
 }
 
 #[test]
@@ -3269,7 +3301,7 @@ fn move_commit_branch_above_empty_dependents_keeps_them_empty() {
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ em [empty-top] (no commits)
+┊╭┄ em [empty-top] [HEAD] (no commits)
 ┊│
 ┊├┄ mp [empty-low] (no commits)
 ┊│
@@ -3293,7 +3325,7 @@ Hint: run `but help` for all commands
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ co [commit-branch]
+┊╭┄ co [commit-branch] [HEAD]
 ┊●   nwz commit branch
 ┊│
 ┊├┄ em [empty-top] (no commits)
@@ -3329,7 +3361,7 @@ fn move_middle_non_empty_branch_above_checked_out_branch() {
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C]
+┊╭┄ g0 [C] [HEAD]
 ┊●   vuw add C
 ┊│
 ┊├┄ h0 [B]
@@ -3353,7 +3385,7 @@ Hint: run `but help` for all commands
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   myy add B
 ┊│
 ┊├┄ h0 [C]
@@ -3385,7 +3417,7 @@ fn move_bottom_non_empty_branch_above_checked_out_branch() {
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C]
+┊╭┄ g0 [C] [HEAD]
 ┊●   vuw add C
 ┊│
 ┊├┄ h0 [B]
@@ -3409,7 +3441,7 @@ Hint: run `but help` for all commands
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   nmq add A
 ┊│
 ┊├┄ h0 [C]
@@ -3441,7 +3473,7 @@ fn move_checked_out_branch_down_checks_out_new_tip() {
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C]
+┊╭┄ g0 [C] [HEAD]
 ┊●   vuw add C
 ┊│
 ┊├┄ h0 [B]
@@ -3465,7 +3497,7 @@ Hint: run `but help` for all commands
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   myy add B
 ┊│
 ┊├┄ h0 [C]
@@ -3502,7 +3534,7 @@ fn move_empty_checked_out_branch_down_keeps_it_empty() {
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C] (no commits)
+┊╭┄ g0 [C] [HEAD] (no commits)
 ┊│
 ┊├┄ h0 [B]
 ┊●   myy add B
@@ -3525,7 +3557,7 @@ Hint: run `but help` for all commands
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   myy add B
 ┊│
 ┊├┄ h0 [C] (no commits)
@@ -3563,7 +3595,7 @@ fn move_bottom_branch_above_checked_out_middle_leaves_hidden_tip_unchanged() {
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   myy add B
 ┊│
 ┊├┄ h0 [A]
@@ -3584,7 +3616,7 @@ Hint: run `but help` for all commands
         snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   nmq add A
 ┊│
 ┊├┄ h0 [B]
@@ -5454,7 +5486,7 @@ fn moving_commit_to_branch_below_then_switching_to_workspace() {
     env.but("status").assert().stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   ylm on top (no changes)
 ┊│
 ┊├┄ bo [bottom]
@@ -5474,7 +5506,7 @@ Hint: run `but help` for all commands
     env.but("status").assert().stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top] (no commits)
+┊╭┄ to [top] [HEAD] (no commits)
 ┊│
 ┊├┄ mi [middle]
 ┊●   ylm on top (no changes)

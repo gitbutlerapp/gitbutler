@@ -43,17 +43,6 @@ use super::{
 
 pub fn render_app(app: &App, frame: &mut Frame) {
     app.status_line_areas.borrow_mut().clear();
-    if app.in_single_branch_mode {
-        let area = frame.area();
-        let layout = Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(area);
-        frame.render_widget(
-            Line::from("single branch mode")
-                .centered()
-                .style(Style::default().fg(app.mode.fg(app.theme)))
-                .bg(app.mode.bg(app.theme)),
-            layout[1],
-        );
-    }
     let layout = app_layout(app, frame.area());
 
     match layout.details {
@@ -226,13 +215,6 @@ enum DetailsPaneLayout {
 }
 
 fn app_layout(app: &App, terminal_area: Rect) -> AppLayout {
-    // All consumers, including scroll bounds and mouse hit testing, must reserve
-    // the same footer row as rendering.
-    let terminal_area = if app.in_single_branch_mode {
-        Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(terminal_area)[0]
-    } else {
-        terminal_area
-    };
     let content_layout =
         Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(terminal_area);
     let main_content_area = content_layout[0];

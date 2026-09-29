@@ -269,6 +269,8 @@ pub struct Theme {
     pub commit_id: Style,
     /// Stable identifiers for commits
     pub change_id: Style,
+    /// The HEAD marker identifying the checked-out branch.
+    pub head: Style,
     /// Short CLI identifiers
     pub cli_id: Style,
     /// PR / review number decorations
@@ -416,6 +418,7 @@ impl Theme {
             remote_branch: style_fg(Color::Magenta),
             commit_id: style_fg(Color::Cyan),
             change_id: style_fg(Color::Magenta),
+            head: style_fg(Color::Magenta),
             cli_id: style_fg_bold(Color::Blue),
             pr_number: style_fg(Color::Blue),
             link: Style::new()

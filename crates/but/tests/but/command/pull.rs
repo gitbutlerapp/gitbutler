@@ -176,7 +176,7 @@ fn single_branch_pull_replaces_a_fully_integrated_checkout() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A] (merged upstream)
+┊╭┄ g0 [A] [HEAD] (merged upstream)
 ┊●   tyt add A
 ├╯
 ┊
@@ -226,7 +226,7 @@ Run `but pull` to update your branches
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1] (no commits)
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
 ├╯
 ┊
 ┴ 5aa8cbc (common base, main, origin/main) 2000-01-02 add upstream
@@ -270,7 +270,7 @@ fn single_branch_pull_prunes_an_integrated_lower_branch() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   uxq add A
 ┊│
 ┊├┄ h0 [C] (merged upstream)
@@ -317,7 +317,7 @@ Run `but pull` to update your branches
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   uxq add A
 ├╯
 ┊
@@ -360,7 +360,7 @@ fn single_branch_pull_keeps_an_empty_branch_above_an_integrated_branch() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top] (no commits)
+┊╭┄ to [top] [HEAD] (no commits)
 ┊│
 ┊├┄ bo [bottom] (merged upstream)
 ┊●   lwy add bottom
@@ -409,7 +409,7 @@ Run `but pull` to update your branches
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top] (no commits)
+┊╭┄ to [top] [HEAD] (no commits)
 ├╯
 ┊
 ┴ 3ea7b57 (common base, main, origin/main) 2000-01-02 merge bottom
@@ -760,7 +760,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1] (no commits)
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
 ├╯
 ┊
 ┴ 7e5d4e1 (common base, main, origin/main) 2000-01-02 add upstream

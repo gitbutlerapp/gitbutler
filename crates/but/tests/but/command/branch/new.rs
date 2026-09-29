@@ -208,7 +208,7 @@ fn in_single_branch_mode_creating_stacked_branches() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
+┊╭┄ ma [main] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -235,7 +235,7 @@ Created branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle] (no commits)
+┊╭┄ mi [middle] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -260,7 +260,7 @@ Created branch 'bottom' below branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle] (no commits)
+┊╭┄ mi [middle] [HEAD] (no commits)
 ┊│
 ┊├┄ bo [bottom] (no commits)
 ├╯
@@ -287,7 +287,7 @@ Created branch 'top' above branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top] (no commits)
+┊╭┄ to [top] [HEAD] (no commits)
 ┊│
 ┊├┄ mi [middle] (no commits)
 ┊│
@@ -316,7 +316,7 @@ Created branch 'between-middle-and-top' above branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top] (no commits)
+┊╭┄ to [top] [HEAD] (no commits)
 ┊│
 ┊├┄ et [between-middle-and-top] (no commits)
 ┊│
@@ -352,7 +352,7 @@ fn in_single_branch_mode_create_new_branches_with_commits() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
+┊╭┄ ma [main] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -380,7 +380,7 @@ Created branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle]
+┊╭┄ mi [middle] [HEAD]
 ┊●   lsm on middle (no changes)
 ├╯
 ┊
@@ -409,7 +409,7 @@ Created branch 'top' above branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   qzl on top (no changes)
 ┊│
 ┊├┄ mi [middle]
@@ -448,7 +448,7 @@ Created branch 'bottom' below branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   qzl on top (no changes)
 ┊│
 ┊├┄ mi [middle]
@@ -474,7 +474,7 @@ Hint: run `but help` for all commands
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   qzl on top (no changes)
 ┊│
 ┊├┄ mi [middle]
@@ -509,7 +509,7 @@ Created branch 'between-middle-and-top' above branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   qzl on top (no changes)
 ┊│
 ┊├┄ et [between-middle-and-top]
@@ -1137,7 +1137,7 @@ fn in_single_branch_mode_creating_new_independent_branch_takes_you_to_workspace_
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
+┊╭┄ ma [main] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -1167,7 +1167,7 @@ Created branch 'one'
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one] (no commits)
+┊╭┄ on [one] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -1229,7 +1229,7 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one] (no commits)
+┊╭┄ on [one] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -1288,7 +1288,7 @@ fn in_single_branch_mode_switching_to_stacked_branches_works() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle] (no commits)
+┊╭┄ mi [middle] [HEAD] (no commits)
 ┊│
 ┊├┄ bo [bottom] (no commits)
 ├╯
@@ -1313,7 +1313,7 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ bo [bottom] (no commits)
+┊╭┄ bo [bottom] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -1381,7 +1381,7 @@ fn in_single_branch_mode_switching_to_stacked_branches_with_commits_works() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle]
+┊╭┄ mi [middle] [HEAD]
 ┊●   ylm on middle (no changes)
 ┊│
 ┊├┄ bo [bottom]
@@ -1410,7 +1410,7 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ bo [bottom]
+┊╭┄ bo [bottom] [HEAD]
 ┊●   lsm on bottom (no changes)
 ├╯
 ┊
@@ -1480,7 +1480,7 @@ fn in_single_branch_mode_creating_and_switching_to_new_branches() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one] (no commits)
+┊╭┄ on [one] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -1503,7 +1503,7 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ tw [two] (no commits)
+┊╭┄ tw [two] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -1532,7 +1532,7 @@ fn in_single_branch_mode_creating_and_switching_to_new_branches_with_commits() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one]
+┊╭┄ on [one] [HEAD]
 ┊●   lsm on one (no changes)
 ├╯
 ┊
@@ -1557,7 +1557,7 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ tw [two] (no commits)
+┊╭┄ tw [two] [HEAD] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -1586,7 +1586,7 @@ fn in_workspace_mode_creating_and_switching_to_new_branches() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1] (no commits)
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
@@ -1613,7 +1613,7 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-2] (no commits)
+┊╭┄ br [a-branch-2] [HEAD] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M

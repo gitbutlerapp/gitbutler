@@ -172,6 +172,14 @@ fn single_branch_status_hides_branches_above_head() {
     env.setup_single_stack_metadata_at_target(&["C", "B", "A"], "origin/main");
     env.invoke_git("checkout B");
 
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/status/single-branch-head.stdout.term.svg"
+        ]);
+
     // Single-branch status includes checked-out B and A below it, but not C above it.
     env.but("status")
         .assert()
@@ -180,7 +188,7 @@ fn single_branch_status_hides_branches_above_head() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   wwm add B
 ┊│
 ┊├┄ h0 [A]
@@ -1972,7 +1980,7 @@ fn status_from_inside_a_linked_worktree_shows_the_main_workspace() {
 ┊╭┄ g0 [A]
 ┊┊
 ┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
-┊┊├┄ wt [wt-inside] (no commits)
+┊┊├┄ wt [wt-inside] [HEAD] (no commits)
 ┊├╯
 ┊●   tpm add A
 ├╯
@@ -1986,6 +1994,18 @@ fn status_from_inside_a_linked_worktree_shows_the_main_workspace() {
 Hint: run `but help` for all commands
 
 "#]]);
+
+    // -C must mark the linked checkout, even when the process runs in the main worktree.
+    env.but("")
+        .arg("-C")
+        .arg(wt.join("wt-inside"))
+        .arg("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::file![
+            "snapshots/status/linked-worktree-head.stdout.term.svg"
+        ]);
 
     // Setup registers the worktree it runs in, so it is refused here.
     env.but("setup")

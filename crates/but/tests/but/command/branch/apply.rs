@@ -76,7 +76,7 @@ fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C] (no commits)
+┊╭┄ g0 [C] [HEAD] (no commits)
 ┊│
 ┊├┄ h0 [B] (no commits)
 ┊│
