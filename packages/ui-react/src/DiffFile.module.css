@@ -1,0 +1,21 @@
+.file {
+	/* Rounds the diff's corners with the card's. `clip` rather than `hidden`:
+	   hidden would make the card a scroller, and the header would stick to it
+	   instead of to the page. */
+	overflow: clip;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+}
+
+.header {
+	z-index: 1;
+	position: sticky;
+	top: 0;
+
+	/* Divides the header from the diff under it, and stays with the header
+	   while it sticks, where a line on the diff would scroll away. */
+	&:not(:last-child) {
+		border-bottom: 1px solid var(--border-2);
+	}
+}
