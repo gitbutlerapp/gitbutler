@@ -23,47 +23,14 @@ import { getAdjacent, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { selectionAfterChecking } from "#ui/checking.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
-import type {
-	BranchReference,
-	BottomUpdate,
-	InsertSide,
-	RelativeTo,
-	Segment,
-} from "@gitbutler/but-sdk";
+import type { BottomUpdate, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { type UseHotkeyDefinition, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { useRef, type RefObject } from "react";
 import { toggleFoldedSegment } from "./fold.ts";
 import { selectAfterDiscardedCommits } from "./selectAfterDiscardedCommit.ts";
-import {
-	canRemoveBranchReference,
-	downstackPushStatusDisabled,
-	downstackPushStatusFromSegments,
-} from "#ui/segment.ts";
-
-type PushContext = {
-	refName: BranchReference;
-	downstackSegments: Array<Segment>;
-};
-
-const pushContextForSegment = ({
-	segments,
-	segmentIndex,
-}: {
-	segments: Array<Segment>;
-	segmentIndex: number;
-}): PushContext | null => {
-	const segment = segments[segmentIndex];
-	if (!segment?.refName) return null;
-
-	const downstackSegments = segments.slice(segmentIndex);
-
-	return {
-		refName: segment.refName,
-		downstackSegments,
-	};
-};
+import { canRemoveBranchReference, downstackPushStatusDisabled } from "#ui/segment.ts";
 
 export const useActiveListsHotkeys = ({
 	addressSpace,
@@ -104,14 +71,18 @@ export const useActiveListsHotkeys = ({
 		Match.orElse(() => undefined),
 	);
 	const selectionStack = selectionContext?.stack;
+	const selectedLaneBranch =
+		selection?._tag === "Branch"
+			? headInfoIndex?.laneBranchByRefBytes(selection.branchRef)
+			: selectionContext?.segment.refName
+				? headInfoIndex?.laneBranchByRefBytes(selectionContext.segment.refName.fullNameBytes)
+				: undefined;
 	const selectedBranchSegment =
-		selection?._tag === "Branch" ? selectionContext?.segment : undefined;
+		selection?._tag === "Branch" ? selectedLaneBranch?.segment : undefined;
 	// Only a segment with a branch reference and commits to hide can be folded.
 	const foldableSegmentRef =
-		selectionContext !== undefined &&
-		selectionContext.segment.refName !== null &&
-		selectionContext.segment.commits.length > 0
-			? selectionContext.segment.refName
+		selectedLaneBranch !== undefined && selectedLaneBranch.segment.commits.length > 0
+			? selectedLaneBranch.segment.refName
 			: null;
 
 	const selectedCommit =
@@ -407,29 +378,19 @@ export const useActiveListsHotkeys = ({
 
 	const selectedSegmentIndex = selectionContext?.segmentIndex;
 
-	const selectedPushContext =
-		selectionStack && selectedSegmentIndex !== undefined
-			? pushContextForSegment({
-					segments: selectionStack.segments,
-					segmentIndex: selectedSegmentIndex,
-				})
-			: null;
 	const selectedStackRelativeTo = selectionStack ? stackBottomRelativeTo(selectionStack) : null;
 	const selectedStackRebaseUpdate: BottomUpdate | null = selectedStackRelativeTo
 		? { kind: "rebase", selector: selectedStackRelativeTo }
 		: null;
 
 	const pushSelectedBranch = () => {
-		if (!selectedPushContext) return;
-
-		const downstackPushStatus = downstackPushStatusFromSegments(
-			selectedPushContext.downstackSegments,
-		);
+		const refName = selectedLaneBranch?.segment.refName;
+		if (!selectedLaneBranch || !refName) return;
 
 		workspaceBranchAndAncestorsPush({
 			projectId,
-			branch: decodeBytes(selectedPushContext.refName.fullNameBytes),
-			withForce: downstackPushStatus.anyPushRequiresForce,
+			branch: decodeBytes(refName.fullNameBytes),
+			withForce: selectedLaneBranch.downstack.anyPushRequiresForce,
 			skipForcePushProtection: false,
 			runHooks: true,
 			pushOpts: [],
@@ -463,17 +424,15 @@ export const useActiveListsHotkeys = ({
 	// selectable to look at, not to act on.
 	const isSelectedCommit = selectedCommit !== null;
 	const isSelectedBranch = selection?._tag === "Branch";
-	const isSelectedStackPushPending =
-		selectionStack?.segments.some(
+	const isSelectedLanePushPending =
+		selectedLaneBranch?.laneSegments.some(
 			(segment) =>
 				segment.refName && pendingPushBranches.has(decodeBytes(segment.refName.fullNameBytes)),
 		) ?? false;
 	const canPushSelectedBranch =
-		!!selectedPushContext &&
-		!isSelectedStackPushPending &&
-		!downstackPushStatusDisabled(
-			downstackPushStatusFromSegments(selectedPushContext.downstackSegments),
-		);
+		!!selectedLaneBranch &&
+		!isSelectedLanePushPending &&
+		!downstackPushStatusDisabled(selectedLaneBranch.downstack);
 	const canDeleteSelectedBranchReference =
 		isSelectedBranch &&
 		selectionStack !== undefined &&

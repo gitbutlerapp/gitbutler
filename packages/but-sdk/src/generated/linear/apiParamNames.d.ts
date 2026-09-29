@@ -110,6 +110,7 @@ export declare const apiParamNames: {
 	readonly loginAndPersist: readonly ["token"];
 	readonly mergeReview: readonly ["projectId", "reviewId", "mergeMethod"];
 	readonly moveBranch: readonly ["projectId", "subjectBranch", "targetBranch", "dryRun"];
+	readonly newReviewTarget: readonly ["projectId", "branch"];
 	readonly openInProgram: readonly ["projectId", "programId", "path", "lineNr"];
 	readonly openInTerminal: readonly ["terminalId", "path"];
 	readonly operatingMode: readonly ["projectId"];

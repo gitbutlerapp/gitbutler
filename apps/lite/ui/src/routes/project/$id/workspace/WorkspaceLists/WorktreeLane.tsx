@@ -9,6 +9,7 @@ import { FileRowTooltipRoot, type FileRowTooltipPayload } from "../FileRowToolti
 import { getLineStats } from "../lineStats.ts";
 import { CARD_GAP, LEG_GAP, TIP_GAP, type WorktreePlacement } from "../Graph/layout.ts";
 import {
+	addressEquals,
 	addressIdentityKey,
 	branchAddress,
 	commitAddress,
@@ -16,24 +17,18 @@ import {
 	worktreeChangesFileParent,
 	type FileParent,
 } from "#ui/addresses.ts";
-import {
-	useWorkspaceBranchAndAncestorsPush,
-	useWorktreeRemove,
-	useWorktreeSetArchived,
-} from "#ui/api/mutations.ts";
+import { useWorktreeRemove, useWorktreeSetArchived } from "#ui/api/mutations.ts";
 import { assert } from "#ui/assert.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import {
-	forgeInfoOptions,
 	guiSettingsQueryOptions,
-	listReviewsQueryOptions,
 	treeChangesDiffsQueryOptions,
 	worktreeChangesQueryOptions,
 	worktreesListQueryOptions,
 } from "#ui/api/queries.ts";
 import { commitTitle } from "#ui/commit.ts";
 import { classes } from "@gitbutler/ui-react/classes.ts";
-import { GraphGap, GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { GraphGap, GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { compareFilePaths } from "#ui/file-order.ts";
 import { revealInFolderLabel } from "#ui/hotkeys.ts";
@@ -44,24 +39,27 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import { prForgeUrl } from "#ui/pr.ts";
+import { projectSlice } from "#ui/projects/state.ts";
+import { recordedPullRequest } from "#ui/api/ref-info.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import {
-	downstackPushLabel,
-	downstackPushStatusDisabled,
 	downstackPushStatusesFromSegments,
 	emptyDownstackPushStatus,
 	type DownstackPushStatus,
 } from "#ui/segment.ts";
+import { useAppSelector } from "#ui/store.ts";
 import { setCursor, useIsCursorAt } from "#ui/use-cursor.ts";
 import { addressSpaceIncludes } from "#ui/workspace/address-space.ts";
-import type { BranchReference, TreeChange, Worktree } from "@gitbutler/but-sdk";
+import type { Segment, TreeChange, Worktree } from "@gitbutler/but-sdk";
 import { Toolbar, Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, useMemo, useState, type ComponentProps, type FC } from "react";
+import { Fragment, useId, useMemo, useState, type ComponentProps, type FC } from "react";
+import { BranchRow, type BranchLane } from "./BranchRow.tsx";
 import { CommitRow } from "./CommitRow.tsx";
 import { useAddressSpace } from "./context.tsx";
-import { ItemRow } from "./ItemRow.tsx";
+import { commitGraphStatus, segmentPushStatusToGraphSegmentStatus } from "./graph-status.ts";
+import { IncomingRows } from "./IncomingRows.tsx";
+import { pushActivities, usePendingPushBranches, type PushActivity } from "./push-activity.ts";
 import { RailedList, Row, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { AddressC, TreeItem } from "./TreeItem.tsx";
@@ -278,93 +276,131 @@ const WorktreeHeaderRow: FC<{ projectId: string; worktree: string; behind: numbe
 	);
 };
 
+const worktreeLane: BranchLane = { type: "worktree" };
+
 /**
- * A branch of a worktree's stack, the checked-out one or one stacked under
- * it, as a row of the applied tree: a value that selects and takes commits.
- * Its menu holds what applies to a branch outside the workspace; the
- * worktree's own actions are on the lane's header.
+ * One segment of a worktree's stack: its branch, drawn and acted on like a
+ * stack's, then its commits, each preceded by the lanes resting on it. A
+ * folded branch hides its commits but keeps those lanes.
  */
-const WorktreeBranchRow: FC<
-	{
-		projectId: string;
-		refName: BranchReference;
-		/** What a push from this branch covers: it, the branches below it, and what the lane rests on. */
-		downstackPushStatus: DownstackPushStatus;
-		behind: number;
-	} & ComponentProps<typeof Row>
-> = ({ projectId, refName, downstackPushStatus, behind, ...props }) => {
-	const address = branchAddress({ branchRef: refName.fullNameBytes });
-	const { mutate: workspaceBranchAndAncestorsPush, isPending: isPushing } =
-		useWorkspaceBranchAndAncestorsPush(projectId);
-	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
-	// Only this branch's number: the listing refetches on a timer, and a row
-	// should re-render only when its own pull request changes.
-	const { data: pullRequest = null } = useQuery({
-		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
-		enabled: !!forgeInfo?.capabilities.prService,
-		select: (reviews) =>
-			reviews.find((review) => review.sourceBranch === refName.displayName)?.number ?? null,
+const WorktreeSegment: FC<{
+	projectId: string;
+	worktree: string;
+	segment: Segment;
+	worktrees: WorktreePlacement;
+	downstackPushStatus: DownstackPushStatus;
+	pushActivity: PushActivity;
+	below: ReadonlyMap<string, GraphSegmentStatus>;
+	behind: number;
+}> = ({
+	projectId,
+	worktree,
+	segment,
+	worktrees,
+	downstackPushStatus,
+	pushActivity,
+	below,
+	behind,
+}) => {
+	const descriptionId = useId();
+	const { refName } = segment;
+	const branch = refName === null ? null : branchAddress({ branchRef: refName.fullNameBytes });
+	const isFolded = useAppSelector(
+		(state) =>
+			refName !== null &&
+			projectSlice.selectors.selectSegmentFolded(
+				state,
+				projectId,
+				decodeBytes(refName.fullNameBytes),
+			),
+	);
+	const isRenaming = useAppSelector((state) => {
+		const pending = projectSlice.selectors.selectPendingOperation(state, projectId);
+		return (
+			branch !== null && pending._tag === "InlineEdit" && addressEquals(branch, pending.address)
+		);
 	});
-	const forgeUrl = pullRequest !== null && forgeInfo ? prForgeUrl(pullRequest, forgeInfo) : null;
-
-	const pushBranch = () => {
-		workspaceBranchAndAncestorsPush({
-			projectId,
-			branch: decodeBytes(refName.fullNameBytes),
-			withForce: downstackPushStatus.anyPushRequiresForce,
-			skipForcePushProtection: false,
-			runHooks: true,
-			pushOpts: [],
-		});
-	};
-
-	const menuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({
-			label: downstackPushLabel(downstackPushStatus),
-			enabled: !isPushing && !downstackPushStatusDisabled(downstackPushStatus),
-			onSelect: pushBranch,
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Copy Branch Name",
-			onSelect: () => window.lite.clipboardWriteText(refName.displayName),
-		}),
-		nativeMenuItem({
-			label: "Open Pull Request In Browser",
-			enabled: forgeUrl != null,
-			onSelect: () => {
-				if (forgeUrl != null) void window.lite.openInWebBrowser(forgeUrl);
-			},
-		}),
-	];
-
+	const firstCommit = segment.commits[0];
 	return (
-		<ItemRow
-			{...props}
-			address={address}
-			scrollSelectedIntoView={false}
-			onContextMenu={(event) => {
-				void showNativeContextMenu(event, menuItems);
-			}}
-		>
-			<GraphSegment glyph="joinRight" status="LocalOnly" behind={behind} />
-			<RowLabelContainer>
-				<RowLabel heading singleLine>
-					{refName.displayName}
-				</RowLabel>
-			</RowLabelContainer>
-			<Toolbar.Root aria-label="Worktree branch actions" render={<RowToolbar />}>
-				<Toolbar.Button
-					aria-label="Worktree branch menu"
-					onClick={(event) => {
-						void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-					}}
-					className={getRowButtonClassName({ iconOnly: true })}
+		<>
+			{refName !== null && branch !== null && (
+				<TreeItem
+					address={branch}
+					aria-label={refName.displayName}
+					aria-describedby={isRenaming ? undefined : descriptionId}
+					render={<AddressC projectId={projectId} address={branch} outline="outside" />}
 				>
-					<Icon name="kebab" />
-				</Toolbar.Button>
-			</Toolbar.Root>
-		</ItemRow>
+					<BranchRow
+						descriptionId={descriptionId}
+						projectId={projectId}
+						refName={refName}
+						lane={worktreeLane}
+						downstackPushStatus={downstackPushStatus}
+						pushActivity={pushActivity}
+						pushStatus={segment.pushStatus}
+						remote={segment.remoteTrackingRefName}
+						incoming={segment.commitsOnRemote.length}
+						recordedPullRequest={recordedPullRequest(segment)}
+						graphStatus={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
+						startsRail={false}
+						commitCount={segment.commits.length}
+						railBelow={firstCommit === undefined ? "LocalOnly" : commitGraphStatus(firstCommit)}
+						behind={behind}
+					/>
+				</TreeItem>
+			)}
+			{refName !== null && !isFolded && segment.commitsOnRemote.length > 0 && (
+				<IncomingRows projectId={projectId} segment={segment} refName={refName} behind={behind} />
+			)}
+			{segment.commits.map((commit) => {
+				const address = commitAddress({
+					commitId: commit.id,
+					changeId: commit.changeId,
+					worktree,
+				});
+				return (
+					<Fragment key={commit.id}>
+						{worktrees.on.get(commit.id)?.map((nested) => (
+							<WorktreeLane
+								key={nested.name}
+								projectId={projectId}
+								worktree={nested}
+								worktrees={worktrees}
+								behind={behind + 1}
+								beneath={downstackPushStatus}
+							/>
+						))}
+						{!isFolded && (
+							<TreeItem
+								address={address}
+								aria-label={commitTitle(commit.message) ?? "(no message)"}
+								render={
+									<AddressC
+										projectId={projectId}
+										address={address}
+										outline="outside"
+										render={
+											<CommitRow
+												commit={commit}
+												projectId={projectId}
+												stackId={null}
+												checkCommit={noop}
+												amendCommit={noop}
+												canAmendCommit={false}
+												below={below.get(commit.id) ?? "LocalOnly"}
+												behind={behind}
+												worktree={worktree}
+												scrollSelectedIntoView={false}
+											/>
+										}
+									/>
+								}
+							/>
+						)}
+					</Fragment>
+				);
+			})}
+		</>
 	);
 };
 
@@ -392,10 +428,15 @@ const WorktreeRows: FC<{
 		() => downstackPushStatusesFromSegments(worktree.segments, beneath),
 		[worktree.segments, beneath],
 	);
+	const pendingPushBranches = usePendingPushBranches(projectId);
+	const segmentPushActivities = pushActivities(worktree.segments, pendingPushBranches);
 	// The rail under a commit takes the colour of the next commit, across segments.
 	const commits = worktree.segments.flatMap((segment) => segment.commits);
 	const below = new Map(
-		commits.map((commit, index) => [commit.id, commits[index + 1]?.state.type ?? "LocalOnly"]),
+		commits.map((commit, index) => {
+			const next = commits[index + 1];
+			return [commit.id, next === undefined ? "LocalOnly" : commitGraphStatus(next)] as const;
+		}),
 	);
 	return (
 		<>
@@ -406,91 +447,23 @@ const WorktreeRows: FC<{
 				behind={behind}
 				startsRail={startsRail}
 			/>
-			{worktree.segments.map((segment, index) => {
-				const downstackPushStatus = assert(downstackPushStatuses[index]);
-				// A detached HEAD's first segment has no branch to show a row for.
-				const branch =
-					segment.refName === null
-						? null
-						: branchAddress({ branchRef: segment.refName.fullNameBytes });
-				return (
-					<Fragment
-						key={
-							segment.refName
-								? decodeBytes(segment.refName.fullNameBytes)
-								: (segment.commits[0]?.id ?? "detached")
-						}
-					>
-						{segment.refName !== null && branch !== null && (
-							<TreeItem
-								address={branch}
-								aria-label={segment.refName.displayName}
-								render={
-									<AddressC
-										projectId={projectId}
-										address={branch}
-										outline="outside"
-										render={
-											<WorktreeBranchRow
-												projectId={projectId}
-												refName={segment.refName}
-												downstackPushStatus={downstackPushStatus}
-												behind={behind}
-											/>
-										}
-									/>
-								}
-							/>
-						)}
-						{segment.commits.map((commit) => {
-							const address = commitAddress({
-								commitId: commit.id,
-								changeId: commit.changeId,
-								worktree: worktree.name,
-							});
-							return (
-								<Fragment key={commit.id}>
-									{worktrees.on.get(commit.id)?.map((nested) => (
-										<WorktreeLane
-											key={nested.name}
-											projectId={projectId}
-											worktree={nested}
-											worktrees={worktrees}
-											behind={behind + 1}
-											beneath={downstackPushStatus}
-										/>
-									))}
-									<TreeItem
-										address={address}
-										aria-label={commitTitle(commit.message) ?? "(no message)"}
-										render={
-											<AddressC
-												projectId={projectId}
-												address={address}
-												outline="outside"
-												render={
-													<CommitRow
-														commit={commit}
-														projectId={projectId}
-														stackId={null}
-														checkCommit={noop}
-														amendCommit={noop}
-														canAmendCommit={false}
-														below={below.get(commit.id) ?? "LocalOnly"}
-														behind={behind}
-														worktree={worktree.name}
-														scrollSelectedIntoView={false}
-													/>
-												}
-											/>
-										}
-									/>
-								</Fragment>
-							);
-						})}
-					</Fragment>
-				);
-			})}
+			{worktree.segments.map((segment, index) => (
+				<WorktreeSegment
+					key={
+						segment.refName
+							? decodeBytes(segment.refName.fullNameBytes)
+							: (segment.commits[0]?.id ?? "detached")
+					}
+					projectId={projectId}
+					worktree={worktree.name}
+					segment={segment}
+					worktrees={worktrees}
+					downstackPushStatus={assert(downstackPushStatuses[index])}
+					pushActivity={assert(segmentPushActivities[index])}
+					below={below}
+					behind={behind}
+				/>
+			))}
 		</>
 	);
 };

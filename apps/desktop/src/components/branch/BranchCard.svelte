@@ -70,7 +70,6 @@
 		numberOfBranchesInStack: number;
 		segment: Segment;
 		branchIndex: number;
-		parent: Segment | undefined;
 		withForce: boolean;
 		baseCommit?: string;
 		onclick: () => void;
@@ -303,7 +302,6 @@
 							stackId={args.stackId}
 							segment={args.segment}
 							branchIndex={args.branchIndex}
-							parent={args.parent}
 							withForce={args.withForce}
 							prNumber={args.prNumber}
 							oncancel={() => {

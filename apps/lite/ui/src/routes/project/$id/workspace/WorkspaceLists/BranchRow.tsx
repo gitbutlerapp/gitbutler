@@ -28,7 +28,6 @@ import type {
 	PushStatus,
 	RelativeTo,
 	RemoteTrackingReference,
-	Stack,
 } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -67,8 +66,8 @@ import { toggleFoldedSegment } from "./fold.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
+import type { PushActivity } from "./push-activity.ts";
 import { BranchRowHeadline } from "../BranchRowHeadline.tsx";
-import { useStackMenuItems } from "./useStackMenuItems.ts";
 import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
 import {
 	type DownstackPushStatus,
@@ -76,7 +75,16 @@ import {
 	downstackPushStatusDisabled,
 } from "#ui/segment.ts";
 
-export type PushActivity = "idle" | "blocked" | "pushing";
+export type BranchLane =
+	| {
+			type: "stack";
+			stackMenuItems: Array<NativeMenuItem>;
+			canTearOff: boolean;
+			canRemove: boolean;
+			canUpdateFromRemote: boolean;
+			bottomRelativeTo: RelativeTo | null;
+	  }
+	| { type: "worktree" };
 
 const CIBubble: FC<{ checks: AggregateCIChecks }> = (p) => {
 	switch (p.checks.status) {
@@ -131,19 +139,16 @@ export const BranchRow: FC<
 		projectId: string;
 		descriptionId: string;
 		refName: BranchReference;
-		canTearOffBranch: boolean;
-		canRemoveBranch: boolean;
+		lane: BranchLane;
 		downstackPushStatus: DownstackPushStatus;
 		pushActivity: PushActivity;
 		pushStatus: PushStatus;
-		canUpdateFromRemote: boolean;
 		remote: RemoteTrackingReference | null;
 		/** How many commits the remote has that the branch does not. */
 		incoming: number;
 		/** The segment's projection-recorded review number, if any. */
 		recordedPullRequest: number | null;
 		graphStatus: GraphSegmentStatus;
-		bottomRelativeTo: RelativeTo | null;
 		/** The tick starts the rail, with nothing above it: a lower branch's, or the trunk's, runs on up. */
 		startsRail: boolean;
 		commitCount: number;
@@ -151,29 +156,23 @@ export const BranchRow: FC<
 		railBelow: GraphSegmentStatus;
 		/** Columns of the main line running behind the row, left of its rail. */
 		behind: number;
-		/** The stack this branch sits in, for the stack-wide menu items. */
-		stack: Stack;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
 	descriptionId,
 	refName,
-	canTearOffBranch,
-	canRemoveBranch,
+	lane,
 	downstackPushStatus,
 	pushActivity,
 	pushStatus,
-	canUpdateFromRemote,
 	remote,
 	incoming,
 	recordedPullRequest,
 	graphStatus,
-	bottomRelativeTo,
 	startsRail,
 	commitCount,
 	railBelow,
 	behind,
-	stack,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -181,11 +180,13 @@ export const BranchRow: FC<
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const { data: reviews } = useQuery({
+	// Only this branch's review: the listing refetches on a timer, and a row
+	// should re-render only when its own pull request changes.
+	const { data: openReview } = useQuery({
 		...listReviewsQueryOptions({ projectId, cacheConfig: "noCache" }),
 		enabled: !!forgeInfo?.capabilities.prService,
+		select: (reviews) => reviews.findLast((review) => review.sourceBranch === refName.displayName),
 	});
-	const openReview = reviews?.reviewsBySourceBranch.get(refName.displayName);
 	const openPullRequest = openReview?.number ?? null;
 	// The chip renders the recorded number as-is: the projection only records
 	// display-worthy reviews, the chip must survive being offline, and a
@@ -271,7 +272,9 @@ export const BranchRow: FC<
 
 	const relativeTo: RelativeTo = { type: "referenceBytes", subject: refName.fullNameBytes };
 	const bucketRelativeTo = (side: InsertSide): RelativeTo =>
-		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
+		side === "below" && lane.type === "stack" && lane.bottomRelativeTo !== null
+			? lane.bottomRelativeTo
+			: relativeTo;
 
 	const cutBranch = () => {
 		startKeyboardTransfer({ sources: [address], kind: "move" });
@@ -370,16 +373,16 @@ export const BranchRow: FC<
 		// commit sits in this segment. Unrelated selections (and the details pane
 		// they drive) stay put.
 		const commitRef = commitParamRef(currentParams().applied);
-		const storedSegmentRef =
-			commitRef === null
-				? undefined
-				: "changeId" in commitRef
-					? headInfoIndex?.commitContextsByChangeId(commitRef.changeId)?.[0].segment.refName
-					: headInfoIndex?.commitContextByCommitId(commitRef.commitId)?.segment.refName;
+		const commits = headInfoIndex?.laneBranchByRefBytes(refName.fullNameBytes)?.segment.commits;
 		const foldHidesSelection =
 			!isFolded &&
-			storedSegmentRef != null &&
-			decodeBytes(storedSegmentRef.fullNameBytes) === branchRef;
+			commitRef !== null &&
+			commits !== undefined &&
+			commits.some((commit) =>
+				"changeId" in commitRef
+					? commit.changeId === commitRef.changeId
+					: commit.id === commitRef.commitId,
+			);
 
 		toggleFoldedSegment(dispatch, {
 			projectId,
@@ -387,8 +390,6 @@ export const BranchRow: FC<
 			select: foldHidesSelection,
 		});
 	};
-
-	const stackMenuItems = useStackMenuItems(projectId, stack);
 
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
@@ -404,11 +405,15 @@ export const BranchRow: FC<
 			accelerator: toElectronAccelerator(sidebarHotkeys.workspaceBranchAndAncestorsPush.hotkey),
 			onSelect: pushBranch,
 		}),
-		nativeMenuItem({
-			label: "Update From Remote",
-			enabled: canUpdateFromRemote,
-			onSelect: () => openUpdateFromRemote(dispatch, refName.fullNameBytes),
-		}),
+		...(lane.type === "stack"
+			? [
+					nativeMenuItem({
+						label: "Update From Remote",
+						enabled: lane.canUpdateFromRemote,
+						onSelect: () => openUpdateFromRemote(dispatch, refName.fullNameBytes),
+					}),
+				]
+			: []),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Rename Branch",
@@ -416,11 +421,15 @@ export const BranchRow: FC<
 			accelerator: toElectronAccelerator(sidebarHotkeys.renameBranch.hotkey),
 			onSelect: startEditing,
 		}),
-		nativeMenuItem({
-			label: "Cut Branch",
-			onSelect: cutBranch,
-			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
-		}),
+		...(lane.type === "stack"
+			? [
+					nativeMenuItem({
+						label: "Cut Branch",
+						onSelect: cutBranch,
+						accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
+					}),
+				]
+			: []),
 		nativeMenuItem({
 			label: "Copy Branch Name",
 			onSelect: () => window.lite.clipboardWriteText(optimisticBranchDisplayName),
@@ -432,40 +441,46 @@ export const BranchRow: FC<
 			accelerator: toElectronAccelerator(sidebarHotkeys.openPRInBrowser.hotkey),
 			onSelect: openPRInBrowser,
 		}),
-		insertBlankCommitMenuItem(insertBlankCommit, "below"),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Create Branch",
-			submenu: [
-				nativeMenuItem({
-					label: "Above",
-					accelerator: toElectronAccelerator(sidebarHotkeys.createDependentBranchAbove.hotkey),
-					onSelect: () => createDependentBranch("above"),
-				}),
-				nativeMenuItem({
-					label: "Below",
-					onSelect: () => createDependentBranch("below"),
-				}),
-			],
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Tear Off Branch",
-			enabled: canTearOffBranch && !isTearOffBranchPending,
-			onSelect: tearOff,
-		}),
-		nativeMenuItem({
-			label: "Delete Branch Reference",
-			enabled: canRemoveBranch && !isBranchRemovePending,
-			accelerator: toElectronAccelerator(sidebarHotkeys.deleteBranchRef.hotkey),
-			onSelect: () =>
-				branchRemove({
-					projectId,
-					refName: refName.fullNameBytes,
-				}),
-		}),
-		nativeMenuSeparator,
-		...stackMenuItems,
+		...(lane.type === "stack"
+			? [
+					insertBlankCommitMenuItem(insertBlankCommit, "below"),
+					nativeMenuSeparator,
+					nativeMenuItem({
+						label: "Create Branch",
+						submenu: [
+							nativeMenuItem({
+								label: "Above",
+								accelerator: toElectronAccelerator(
+									sidebarHotkeys.createDependentBranchAbove.hotkey,
+								),
+								onSelect: () => createDependentBranch("above"),
+							}),
+							nativeMenuItem({
+								label: "Below",
+								onSelect: () => createDependentBranch("below"),
+							}),
+						],
+					}),
+					nativeMenuSeparator,
+					nativeMenuItem({
+						label: "Tear Off Branch",
+						enabled: lane.canTearOff && !isTearOffBranchPending,
+						onSelect: tearOff,
+					}),
+					nativeMenuItem({
+						label: "Delete Branch Reference",
+						enabled: lane.canRemove && !isBranchRemovePending,
+						accelerator: toElectronAccelerator(sidebarHotkeys.deleteBranchRef.hotkey),
+						onSelect: () =>
+							branchRemove({
+								projectId,
+								refName: refName.fullNameBytes,
+							}),
+					}),
+					nativeMenuSeparator,
+					...lane.stackMenuItems,
+				]
+			: []),
 	];
 
 	return (
@@ -670,7 +685,7 @@ export const BranchRow: FC<
 
 						{/* Beside Push rather than in its place: a plain push cannot land
 						    while the remote is ahead, and forcing would drop theirs. */}
-						{remoteLabel !== null && incoming > 0 && (
+						{lane.type === "stack" && remoteLabel !== null && incoming > 0 && (
 							<Button
 								aria-label={`Integrate ${remoteLabel} into ${refName.displayName}`}
 								title={`Bring ${remoteLabel}'s commits into ${refName.displayName}`}

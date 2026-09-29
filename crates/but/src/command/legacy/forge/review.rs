@@ -1,6 +1,5 @@
 use anyhow::Context as _;
 use bstr::{BStr, ByteSlice};
-use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_workspace::ui::Commit;
 use gitbutler_project::Project;
@@ -10,7 +9,7 @@ use tracing::instrument;
 use crate::{
     CliId, IdMap,
     id::parser::parse_sources,
-    legacy::workspace::HeadInfoStack,
+    legacy::workspace::{HeadInfoBranch, HeadInfoStack},
     theme::{self, Paint},
     tui::get_text::{self, HTML_COMMENT_END_MARKER, HTML_COMMENT_START_MARKER},
     utils::{Confirm, ConfirmDefault, OutputChannel},
@@ -322,14 +321,14 @@ pub async fn create_review(
     // Publishing reviews is a write path, so use fresh forge state. A stale cache can
     // make stacked publication try to recreate a dependency review that already exists.
     let review_map = get_review_map_strict(ctx, Some(but_forge::CacheConfig::NoCache))?;
-    let applied_stacks = crate::legacy::workspace::applied_stacks(ctx)?;
+    let lanes = crate::legacy::workspace::applied_lanes(ctx)?;
 
     // If branch is specified, resolve it
     let maybe_branch_names = if let Some(branch_id) = branch {
         Some(get_branch_names(&ctx.legacy_project, &branch_id)?)
     } else {
         // Find branches without PRs
-        let branches_without_prs = get_branches_without_prs(&review_map, &applied_stacks)?;
+        let branches_without_prs = get_branches_without_prs(&review_map, &lanes)?;
 
         if branches_without_prs.is_empty() {
             if let Some(out) = out.for_human() {
@@ -361,7 +360,7 @@ pub async fn create_review(
     handle_multiple_branches_in_workspace(
         ctx,
         &review_map,
-        &applied_stacks,
+        &lanes,
         skip_force_push_protection,
         with_force,
         run_hooks,
@@ -428,11 +427,11 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Er
 /// Get list of branch names that don't have PRs yet.
 fn get_branches_without_prs(
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    applied_stacks: &[HeadInfoStack],
+    lanes: &[HeadInfoStack],
 ) -> anyhow::Result<Vec<String>> {
     let mut branches_without_prs = Vec::new();
-    for stack_entry in applied_stacks {
-        for branch in &stack_entry.branches {
+    for lane in lanes {
+        for branch in &lane.branches {
             let branch_name = &branch.name;
             if !review_map.contains_key(branch_name)
                 || review_map
@@ -476,7 +475,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
 pub async fn handle_multiple_branches_in_workspace(
     ctx: &mut Context,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    applied_stacks: &[HeadInfoStack],
+    lanes: &[HeadInfoStack],
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,
@@ -495,7 +494,7 @@ pub async fn handle_multiple_branches_in_workspace(
     let selected_branches = if let Some(branches) = selected_branches {
         branches
     } else {
-        prompt_for_branch_selection(ctx, review_map, applied_stacks, out)?
+        prompt_for_branch_selection(ctx, review_map, lanes, out)?
     };
 
     if selected_branches.is_empty() {
@@ -507,9 +506,17 @@ pub async fn handle_multiple_branches_in_workspace(
         }
         return Ok(());
     }
+    if let Some(outside) = selected_branches
+        .iter()
+        .find(|name| !lanes.iter().any(|lane| lane.contains_branch(name)))
+    {
+        anyhow::bail!("Branch '{outside}' is neither in the workspace nor in a linked worktree");
+    }
 
-    for stack_entry in applied_stacks {
-        let Some(top_most_selected_head) = stack_entry
+    // Lanes resting on other lanes share the branches beneath them, which must be published once.
+    let mut handled = std::collections::HashSet::new();
+    for lane in lanes {
+        let Some(top_most_selected_head) = lane
             .branches
             .iter()
             .find(|branch| selected_branches.contains(&branch.name))
@@ -521,7 +528,7 @@ pub async fn handle_multiple_branches_in_workspace(
             ctx,
             &top_most_selected_head.name,
             review_map,
-            stack_entry,
+            &mut handled,
             skip_force_push_protection,
             with_force,
             run_hooks,
@@ -552,7 +559,7 @@ pub async fn handle_multiple_branches_in_workspace(
 fn prompt_for_branch_selection(
     ctx: &Context,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    applied_stacks: &[HeadInfoStack],
+    lanes: &[HeadInfoStack],
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<String>> {
     let project_meta = ctx.project_meta()?;
@@ -563,8 +570,8 @@ fn prompt_for_branch_selection(
         .detach();
 
     let mut branch_options = Vec::new();
-    for stack_entry in applied_stacks {
-        for branch in &stack_entry.branches {
+    for lane in lanes {
+        for branch in &lane.branches {
             let mut branch_ref = repo.find_reference(branch.reference.as_ref())?;
             let branch_id = branch_ref.peel_to_id()?;
             let commits = but_workspace::local_commits_for_branch(branch_id, base_branch_id)?;
@@ -620,7 +627,7 @@ async fn publish_reviews_for_branch_and_dependents(
     ctx: &mut Context,
     branch_name: &str,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    stack_entry: &HeadInfoStack,
+    handled: &mut std::collections::HashSet<String>,
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,
@@ -630,29 +637,24 @@ async fn publish_reviews_for_branch_and_dependents(
     out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
     let t = theme::get();
-    let base_branch_short_name =
-        but_api::legacy::forge::target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
-    let all_branches_up_to_subject = stack_entry
-        .branches
-        .iter()
-        .rev()
-        .take_while(|branch| branch.name != branch_name)
-        .collect::<Vec<_>>();
+    let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name)?;
+    let chain = crate::legacy::workspace::review_chain(ctx, branch.as_ref())?
+        .with_context(|| format!("Branch '{branch_name}' is in no lane"))?;
+    let dependencies = chain.len() - 1;
 
     if let Some(out) = out.for_human() {
-        if !all_branches_up_to_subject.is_empty() {
+        if dependencies > 0 {
             writeln!(
                 out,
                 "Pushing {} with {} dependent branch(es)...",
                 t.local_branch.paint(branch_name),
-                all_branches_up_to_subject.len()
+                dependencies
             )?;
         } else {
             writeln!(out, "Pushing {}...", t.local_branch.paint(branch_name))?;
         }
     }
 
-    let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name)?;
     let result = but_api::legacy::workspace::workspace_branch_and_ancestors_push_only(
         ctx,
         with_force,
@@ -685,32 +687,20 @@ async fn publish_reviews_for_branch_and_dependents(
 
     let mut newly_published = Vec::new();
     let mut already_existing = Vec::new();
-    let mut current_target_branch = base_branch_short_name.as_str();
-    for branch in stack_entry.branches.iter().rev() {
-        if let Some(out) = out.for_human() {
-            let draftiness = if draft { "draft " } else { "" };
-            writeln!(
-                out,
-                "Creating {}review for {} {} {}...",
-                draftiness,
-                t.local_branch.paint(&branch.name),
-                t.sym().arrow.info(),
-                t.remote_branch.paint(current_target_branch)
-            )?;
+    for branch in &chain {
+        if !handled.insert(branch.name.clone()) {
+            continue;
         }
-
         let message_plan =
             review_message_plan_for_branch(&branch.name, branch_name, default_message, message);
         let published_review = publish_review_for_branch(
             ctx,
-            stack_entry.id,
-            &branch.name,
-            branch.review_id,
-            current_target_branch,
+            branch,
             review_map,
             message_plan.default_message,
             draft,
             message_plan.message,
+            out,
         )
         .await?;
         match published_review {
@@ -720,12 +710,6 @@ async fn publish_reviews_for_branch_and_dependents(
             PublishReviewResult::AlreadyExists(reviews) => {
                 already_existing.extend(reviews);
             }
-        }
-
-        current_target_branch = &branch.name;
-
-        if branch.name == branch_name {
-            break;
         }
     }
 
@@ -900,18 +884,16 @@ pub fn parse_review_message(content: &str) -> anyhow::Result<ForgeReviewMessage>
     Ok(ForgeReviewMessage { title, body })
 }
 
-#[expect(clippy::too_many_arguments)]
 async fn publish_review_for_branch(
     ctx: &mut Context,
-    stack_id: Option<StackId>,
-    branch_name: &str,
-    associated_review_id: Option<usize>,
-    target_branch: &str,
+    branch: &HeadInfoBranch,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     default_message: bool,
     draft: bool,
     message: Option<&ForgeReviewMessage>,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<PublishReviewResult> {
+    let branch_name = branch.name.as_str();
     // Check if a review already exists for the branch.
     // If it does, skip publishing a new review.
     let existing_reviews = review_map.get(branch_name);
@@ -920,7 +902,7 @@ async fn publish_review_for_branch(
     {
         return Ok(PublishReviewResult::AlreadyExists(reviews.clone()));
     }
-    if let Some(review_id) = associated_review_id
+    if let Some(review_id) = branch.review_id
         && let Ok(review) = but_api::legacy::forge::get_review(ctx, review_id)
         && review.is_open()
         && review_source_branch_matches(&review, branch_name)
@@ -928,7 +910,22 @@ async fn publish_review_for_branch(
         return Ok(PublishReviewResult::AlreadyExists(vec![review]));
     }
 
-    let commit = default_commit(ctx, stack_id, branch_name)?;
+    let target_branch =
+        but_api::legacy::forge::review_creation_target(ctx, branch.reference.as_ref())?;
+    if let Some(out) = out.for_human() {
+        let t = theme::get();
+        let draftiness = if draft { "draft " } else { "" };
+        writeln!(
+            out,
+            "Creating {}review for {} {} {}...",
+            draftiness,
+            t.local_branch.paint(branch_name),
+            t.sym().arrow.info(),
+            t.remote_branch.paint(&target_branch)
+        )?;
+    }
+
+    let commit = default_commit(ctx, branch_name)?;
     let (title, body) = if let Some(message) = message {
         (message.title.clone(), message.body.clone())
     } else if default_message {
@@ -940,18 +937,18 @@ async fn publish_review_for_branch(
             .unwrap_or_default();
         (title, body)
     } else {
-        get_pr_title_and_body_from_editor(ctx, stack_id, commit.as_ref(), branch_name)?
+        get_pr_title_and_body_from_editor(ctx, commit.as_ref(), branch_name)?
     };
 
     // Publish a new review for the branch
     but_api::legacy::forge::publish_review_only(
         ctx.to_sync(),
-        gix::refs::Category::LocalBranch.to_full_name(branch_name)?,
+        branch.reference.clone(),
         but_forge::CreateForgeReviewParams {
             title,
             body,
             source_branch: branch_name.to_string(),
-            target_branch: target_branch.to_string(),
+            target_branch,
             draft,
         },
     )
@@ -960,12 +957,8 @@ async fn publish_review_for_branch(
 }
 
 /// Get the default commit for the branch, if it has exactly one commit.
-fn default_commit(
-    ctx: &Context,
-    stack_id: Option<StackId>,
-    branch_name: &str,
-) -> Result<Option<Commit>, anyhow::Error> {
-    let commits = branch_commits(ctx, stack_id, branch_name)?;
+fn default_commit(ctx: &Context, branch_name: &str) -> Result<Option<Commit>, anyhow::Error> {
+    let commits = branch_commits(ctx, branch_name)?;
     let commit = if commits.len() == 1 {
         commits.into_iter().next()
     } else {
@@ -975,21 +968,11 @@ fn default_commit(
     Ok(commit)
 }
 
-fn branch_commits(
-    ctx: &Context,
-    stack_id: Option<StackId>,
-    branch_name: &str,
-) -> anyhow::Result<Vec<Commit>> {
-    let stacks = stack_id.map_or_else(
-        || crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx),
-        |stack_id| {
-            crate::legacy::workspace::applied_stack_with_expensive_commit_info(ctx, Some(stack_id))
-                .map(|stack| vec![stack])
-        },
-    )?;
-    Ok(stacks
+fn branch_commits(ctx: &Context, branch_name: &str) -> anyhow::Result<Vec<Commit>> {
+    let lanes = crate::legacy::workspace::applied_lanes_with_expensive_commit_info(ctx)?;
+    Ok(lanes
         .iter()
-        .find_map(|stack| stack.branch(branch_name))
+        .find_map(|lane| lane.branch(branch_name))
         .map(|branch| branch.commits.clone())
         .unwrap_or_default())
 }
@@ -999,7 +982,6 @@ fn branch_commits(
 /// Pre-fills with commit message if available and includes commit list with files.
 fn get_pr_title_and_body_from_editor(
     ctx: &Context,
-    stack_id: Option<StackId>,
     commit: Option<&Commit>,
     branch_name: &str,
 ) -> anyhow::Result<(String, String)> {
@@ -1044,7 +1026,7 @@ HTML comments are stripped before submit.
     );
 
     // Add commit list with modified files as context
-    if let Ok(commits) = branch_commits(ctx, stack_id, branch_name)
+    if let Ok(commits) = branch_commits(ctx, branch_name)
         && !commits.is_empty()
     {
         instructions.push_str("\n# Commits in this PR:\n\n");
@@ -1198,35 +1180,32 @@ fn resolve_review_selection(
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<usize>> {
     let id_map = IdMap::legacy_new_from_context(ctx)?;
-    let applied_stacks = crate::legacy::workspace::applied_stacks(ctx)?;
+    let lanes = crate::legacy::workspace::applied_lanes(ctx)?;
     let target_review_ids = if let Some(selector) = selector {
         // Extract any review IDs that match any of the associated reviews in the workspace.
-        let review_ids = applied_stacks
+        let review_ids = lanes
             .iter()
             .flat_map(review_ids_for_stack)
             .collect::<Vec<_>>();
         let mut unique_review_ids = parse_review_ids(&selector, &review_ids);
         // Concatenate any review IDs associated with the selected CliIDs.
         unique_review_ids.extend(resolve_cli_ids_to_review_ids(
-            ctx,
-            &selector,
-            &applied_stacks,
-            &id_map,
+            ctx, &selector, &lanes, &id_map,
         ));
         unique_review_ids.sort();
         unique_review_ids.dedup();
         unique_review_ids
     } else {
-        interactive_review_id_selection(&applied_stacks, out)?
+        interactive_review_id_selection(&lanes, out)?
     };
     Ok(target_review_ids)
 }
 
 fn interactive_review_id_selection(
-    applied_stacks: &[HeadInfoStack],
+    lanes: &[HeadInfoStack],
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<usize>> {
-    let branch_reviews = applied_stacks
+    let branch_reviews = lanes
         .iter()
         .flat_map(|stack| {
             stack.branches.iter().filter_map(|branch| {
@@ -1257,7 +1236,7 @@ fn interactive_review_id_selection(
 fn resolve_cli_ids_to_review_ids(
     ctx: &mut Context,
     selector: &str,
-    applied_stacks: &[HeadInfoStack],
+    lanes: &[HeadInfoStack],
     id_map: &IdMap,
 ) -> Vec<usize> {
     parse_sources(ctx, id_map, selector)
@@ -1265,19 +1244,11 @@ fn resolve_cli_ids_to_review_ids(
         .unwrap_or_default()
         .into_iter()
         .filter_map(|cli_id| match cli_id {
-            CliId::Branch(branch) => applied_stacks
+            CliId::Branch(branch) => lanes
                 .iter()
-                .find_map(|stack| {
-                    if stack.id == branch.lane.stack_id() {
-                        stack
-                            .branch(&branch.name)
-                            .and_then(|branch| branch.review_id)
-                    } else {
-                        None
-                    }
-                })
+                .find_map(|lane| lane.branch(&branch.name)?.review_id)
                 .map(|r| vec![r]),
-            CliId::Stack { stack_id, .. } => applied_stacks.iter().find_map(|stack| {
+            CliId::Stack { stack_id, .. } => lanes.iter().find_map(|stack| {
                 if stack.id == Some(stack_id) {
                     Some(review_ids_for_stack(stack).collect())
                 } else {
@@ -1316,6 +1287,24 @@ fn extract_valid_ids(selector: &str) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn worktree_reviews_are_selectable_by_branch_and_number() -> anyhow::Result<()> {
+        let (mut ctx, _tmp) =
+            crate::legacy::workspace::tests::context_with_worktree_on_reviewed_stack()?;
+        let mut out = OutputChannel::new(crate::args::OutputFormat::Human { agent: true });
+        let mut select =
+            |selector: &str| resolve_review_selection(&mut ctx, Some(selector.into()), &mut out);
+
+        assert_eq!(select("W")?, [3], "a worktree branch names its review");
+        assert_eq!(
+            select("3")?,
+            [3],
+            "a worktree review is selectable by number"
+        );
+        assert_eq!(select("B,W")?, [2, 3], "stack and worktree branches mix");
+        Ok(())
+    }
 
     #[test]
     fn skipped_review_recovery_retries_the_fresh_action_without_fetch_alias() {
