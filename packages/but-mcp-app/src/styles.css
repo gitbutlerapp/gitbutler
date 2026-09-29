@@ -184,7 +184,7 @@ h1 {
 .stack-rows {
 	display: flex;
 	flex-direction: column;
-	padding: 6px;
+	padding: var(--padding-list);
 }
 
 .outline-row {

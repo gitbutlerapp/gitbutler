@@ -6,7 +6,7 @@
 .list {
 	display: flex;
 	flex-direction: column;
-	padding: 4px;
+	padding: var(--padding-menu);
 }
 
 .row {

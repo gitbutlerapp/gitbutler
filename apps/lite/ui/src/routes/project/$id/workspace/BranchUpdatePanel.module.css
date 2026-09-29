@@ -72,7 +72,7 @@
 
 .outline {
 	flex-grow: 1;
-	padding-block: 6px;
+	padding-block: var(--padding-list);
 
 	/* The previous plan's rows, held while the next preview computes. */
 	&[data-stale] {

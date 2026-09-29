@@ -176,6 +176,6 @@
 	overflow: auto;
 
 	&:not(:empty) {
-		padding: 4px;
+		padding: var(--padding-menu);
 	}
 }

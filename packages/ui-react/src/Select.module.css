@@ -43,7 +43,7 @@
 .list {
 	flex: 1;
 	min-height: 0;
-	padding: 4px;
+	padding: var(--padding-menu);
 	overflow: auto;
 
 	/* Reads as the placeholder does on the trigger: a row that stands for no choice. */
