@@ -63,7 +63,7 @@ test.describe("screenshots", () => {
 				.getByRole("treeitem", { name: "C", exact: true })
 				.getByTitle("C", { exact: true })
 				.click();
-			await appWindow.getByRole("button", { name: "Pull Request", exact: true }).click();
+			await appWindow.getByRole("tab", { name: "Pull Request", exact: true }).click();
 			await expect(appWindow.getByPlaceholder("PR title")).toBeVisible();
 			await shoot(appWindow, "pr-form", "#details-panel");
 		});

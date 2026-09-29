@@ -53,7 +53,7 @@
 .filterField {
 	position: absolute;
 	inset-block-start: var(--space-lg);
-	inset-inline: 25% calc(var(--space-lg) + var(--size-button) + var(--space-sm));
+	inset-inline: 25% calc(var(--space-lg) + var(--size-control) + var(--space-sm));
 	opacity: 0;
 	transition:
 		opacity var(--transition-fast) ease-out,
@@ -138,7 +138,7 @@
 	display: flex;
 	column-gap: var(--gap-icon-text);
 	align-items: center;
-	min-height: var(--size-button);
+	min-height: var(--size-control);
 	/* Less on the end: the last cell centres its mark in 22px, which already sets it in from the
 	   edge, so 4px leaves it about as far from the edge as the icon is at the start. */
 	padding-inline: var(--space-lg) var(--space-sm);
@@ -288,6 +288,13 @@
    available as any other row's, since dimming a control reads as disabling it. */
 .faded {
 	opacity: 0.5;
+}
+
+/* Beside the name, never shrinking before the path does. */
+.lineStats {
+	flex-shrink: 0;
+	/* Centred beside the 13px name, the 12px figures ride 1px above its baseline. */
+	translate: 0 1px;
 }
 
 .marks {

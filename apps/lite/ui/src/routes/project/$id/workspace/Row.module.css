@@ -300,8 +300,8 @@
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	/* Small buttons are tag-sized; matching them prevents layout shift when they appear/disappear. */
-	height: var(--size-tag);
+	/* A small button's height, so the row does not shift when one appears or disappears. */
+	height: var(--size-control-sm);
 	gap: 4px;
 }
 

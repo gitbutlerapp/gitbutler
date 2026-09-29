@@ -74,6 +74,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { Badge } from "@gitbutler/ui-react/Badge.tsx";
 import { Button, getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { Tab, Tabs } from "@gitbutler/ui-react/Tabs.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { useCopied } from "#ui/components/useCopied.ts";
@@ -3141,23 +3142,19 @@ const BranchTabToggle: FC<{
 	prDisabled?: boolean;
 	className?: string;
 }> = ({ branchTab, setBranchTab, prDisabled = false, className }) => (
-	<ToggleGroup
-		render={<ToggleGroupStyles className={className} />}
-		value={[branchTab]}
-		onValueChange={(value: Array<BranchTab>) => {
-			const head = value[0];
-			if (head === undefined) return;
-			setBranchTab(head);
-		}}
+	<Tabs
+		className={className}
+		value={branchTab}
+		onValueChange={(value: BranchTab) => setBranchTab(value)}
 		aria-label="Branch tab"
 	>
-		<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
+		<Tab value={"diff" satisfies BranchTab} icon={<Icon name="diff" />}>
 			Diff
-		</Toggle>
-		<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab} disabled={prDisabled}>
+		</Tab>
+		<Tab value={"pr" satisfies BranchTab} icon={<Icon name="pr" />} disabled={prDisabled}>
 			{prDisabled ? "No pull request" : "Pull Request"}
-		</Toggle>
-	</ToggleGroup>
+		</Tab>
+	</Tabs>
 );
 
 /** `[` and `]` step between a branch's tabs; with two of them, either key toggles. */

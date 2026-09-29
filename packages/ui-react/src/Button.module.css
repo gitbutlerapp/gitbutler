@@ -58,7 +58,7 @@
 
 :where(.small) {
 	--button-gap: 4px;
-	--button-height: var(--size-tag);
+	--button-height: var(--size-control-sm);
 	--button-padding-inline: 6px;
 	--icon-size: 14px;
 
@@ -70,12 +70,12 @@
 
 :where(.regular) {
 	--button-gap: 6px;
-	--button-height: 28px;
+	--button-height: var(--size-control);
 	--button-padding-inline: 10px;
 	--icon-size: 16px;
 
 	&:where(.iconOnly) {
-		--button-width: 28px;
+		--button-width: var(--size-control);
 		--button-padding-inline: 8px;
 	}
 }

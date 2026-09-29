@@ -188,6 +188,8 @@ export const FileList: FC<
  * - `actions` take the status's place while the row is hovered, holds focus or is selected, so a
  *   keyboard user finds them where the pointer would; both sit centred in one fixed cell, so
  *   nothing moves. `marks` always show, before it.
+ * - `added` and `removed` give the file's line counts, after its name; either side shows only
+ *   when it isn't zero.
  * - `labelRender` and `statusRender` wrap the name and the status, for tooltip triggers.
  *
  * @public
@@ -211,6 +213,8 @@ export const FileListItem: FC<
 		selected?: boolean;
 		actions?: ReactNode;
 		marks?: ReactNode;
+		added?: number;
+		removed?: number;
 		labelRender?: ReactElement;
 		statusRender?: ReactElement;
 	} & useRender.ComponentProps<"div">
@@ -231,6 +235,8 @@ export const FileListItem: FC<
 	selected = false,
 	actions,
 	marks,
+	added = 0,
+	removed = 0,
 	labelRender,
 	statusRender,
 	render,
@@ -310,6 +316,11 @@ export const FileListItem: FC<
 						{checkbox !== undefined && <span className={styles.checkbox}>{checkbox}</span>}
 					</span>
 					{label}
+					<DiffStats
+						added={added}
+						removed={removed}
+						className={classes("text-12", styles.lineStats, reviewed && styles.faded)}
+					/>
 					{marks !== undefined && <span className={styles.marks}>{marks}</span>}
 					{/* Reserved on every row, so what comes before it lines up down the list. */}
 					<span className={styles.end}>

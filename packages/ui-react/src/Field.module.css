@@ -9,7 +9,7 @@
 }
 
 .fieldControl {
-	height: 28px;
+	height: var(--size-control);
 	padding-inline: 8px;
 	border-radius: var(--radius-control);
 	outline: 1px solid var(--border-2);

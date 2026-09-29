@@ -1,11 +1,15 @@
 import { classes } from "./classes.ts";
-import type { TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import type { ComponentProps, FC } from "react";
 import styles from "./FileStatusBadge.module.css";
 
-/** @public */
-export type FileStatusType = TreeChange["status"]["type"];
+/**
+ * What happened to a file: the `type` of the SDK's `TreeStatus`, written out here so an app
+ * without the SDK, like but.dev, can name it too.
+ *
+ * @public
+ */
+export type FileStatusType = "Addition" | "Deletion" | "Modification" | "Rename";
 
 type Props = {
 	status: FileStatusType;

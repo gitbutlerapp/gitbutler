@@ -25,7 +25,7 @@
 	top: 50%;
 	right: 9px;
 	align-items: center;
-	height: var(--size-tag);
+	height: var(--size-control-sm);
 	gap: 8px;
 	translate: 0 -50%;
 }
