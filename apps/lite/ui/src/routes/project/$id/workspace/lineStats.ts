@@ -1,4 +1,5 @@
 import type { UnifiedPatch } from "@gitbutler/but-sdk";
+import { describeLineStats as describeCounts } from "@gitbutler/ui-react/lineStats.ts";
 
 export type LineStats = {
 	linesAdded: number;
@@ -29,18 +30,7 @@ export function getLineStats(diffs: Array<UnifiedPatch | null | undefined>): Lin
 	return stats;
 }
 
-const pluralRules = new Intl.PluralRules("en");
-
-/**
- * The counts in words, one phrase per side that changed, for tooltips and
- * screen readers: the green/red colouring says nothing to either. Empty when
- * nothing changed, so a caller can drop the wording along with the numbers.
- */
+/** The counts in words, one phrase per side that changed; see ui-react's `describeLineStats`. */
 export function describeLineStats(stats: LineStats): Array<string> {
-	const lines = (count: number) => `${count} line${pluralRules.select(count) === "one" ? "" : "s"}`;
-
-	const parts: Array<string> = [];
-	if (stats.linesAdded > 0) parts.push(`${lines(stats.linesAdded)} added`);
-	if (stats.linesRemoved > 0) parts.push(`${lines(stats.linesRemoved)} removed`);
-	return parts;
+	return describeCounts(stats.linesAdded, stats.linesRemoved);
 }
