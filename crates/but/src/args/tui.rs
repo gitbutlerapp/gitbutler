@@ -18,7 +18,7 @@ use crate::args::atoms::CliIdArg;
 pub struct Platform {
     /// When the TUI quits save the selection and restore it when re-opening.
     ///
-    /// If the saved selection cannot be restore the TUI launch normally as if
+    /// If the saved selection cannot be restored, the TUI launches normally as if
     /// `--remember-selection` wasn't passed.
     #[clap(long, default_value_t = false)]
     pub remember_selection: bool,
