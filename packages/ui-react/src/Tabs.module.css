@@ -1,0 +1,82 @@
+.list {
+	/* The tab's inset, which the underline keeps too, so it runs under the tab's content. */
+	--tab-padding-inline: 10px;
+
+	display: flex;
+	position: relative;
+	column-gap: 2px;
+	align-items: center;
+}
+
+.tab {
+	display: inline-flex;
+	column-gap: 6px;
+	align-items: center;
+	height: var(--size-control);
+	padding-inline: var(--tab-padding-inline);
+	border-radius: var(--radius-control);
+	color: var(--text-1);
+	white-space: nowrap;
+	cursor: var(--control-cursor);
+	transition: background-color var(--transition-fast);
+
+	&:hover:not([data-active], [data-disabled]) {
+		background-color: var(--bg-hover);
+	}
+
+	/* Unavailable for now: it stays faded under the pointer, and its label says why. */
+	&[data-disabled] {
+		cursor: default;
+	}
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+	}
+}
+
+.icon {
+	display: flex;
+	opacity: 0.5;
+
+	/* Only on a tab that isn't selected: the selected one doesn't answer the pointer. */
+	.tab:hover:not([data-active], [data-disabled]) & {
+		opacity: 0.8;
+	}
+
+	.tab[data-active] & {
+		opacity: 0.7;
+	}
+}
+
+/* The label and its shortcut fade together. */
+.label {
+	display: inline-flex;
+	column-gap: 3px;
+	align-items: center;
+	opacity: 0.5;
+
+	:is(.tab:hover:not([data-disabled]), .tab[data-active]) & {
+		opacity: 1;
+	}
+}
+
+/* Under the selected tab's content, 8px below it; moves and resizes to the next as the
+   selection moves. */
+.indicator {
+	position: absolute;
+	top: calc(var(--active-tab-top) + var(--active-tab-height) + 8px);
+	left: 0;
+	width: calc(var(--active-tab-width) - 2 * var(--tab-padding-inline));
+	height: 4px;
+	translate: calc(var(--active-tab-left) + var(--tab-padding-inline)) 0;
+	background-color: var(--fill-gray-bg);
+	transition:
+		translate var(--transition-medium) ease-out,
+		width var(--transition-medium) ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.indicator {
+		transition: none;
+	}
+}
