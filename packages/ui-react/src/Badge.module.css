@@ -45,49 +45,64 @@
 	color: var(--fill-gray-fg);
 }
 
-/* Tracks the shared opacity so a hover or inverted ground lifts it like the
-   colored variants, just from a lighter resting tint. */
-.lightGray {
-	background-color: color-mix(
-		in srgb,
-		var(--fill-gray-bg) calc(var(--badge-bg-opacity) * 0.8),
-		transparent
+/* On a light ground the tint is the text's own colour, lighter than the shared
+   opacity: one hue with the label, so the colour sits in the text.
+   On a dark ground the text colours are pastels that tint grey, so the tint
+   comes from the variant's fill instead. Both track the shared opacity, so a
+   hover or an inverted ground lifts them. */
+.lightGray,
+.safe,
+.warn,
+.danger,
+.purple,
+.blue,
+.pop {
+	--_light-share: 0.7;
+	--_dark-share: 1;
+	background-color: light-dark(
+		color-mix(
+			in srgb,
+			currentColor calc(var(--badge-bg-opacity) * var(--_light-share)),
+			transparent
+		),
+		color-mix(in srgb, var(--_bg) calc(var(--badge-bg-opacity) * var(--_dark-share)), transparent)
 	);
+}
+
+/* Gray rests lighter than the colours in both schemes. */
+.lightGray {
+	--_bg: var(--fill-gray-bg);
+	--_light-share: 0.5;
+	--_dark-share: 0.8;
 	color: var(--text-1);
 }
 
 .safe {
 	--_bg: var(--fill-safe-bg);
-	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
 	color: var(--text-safe);
 }
 
 .warn {
 	--_bg: var(--fill-warn-bg);
-	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
 	color: var(--text-warn);
 }
 
 .danger {
 	--_bg: var(--fill-danger-bg);
-	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
 	color: var(--text-danger);
 }
 
 .purple {
 	--_bg: var(--fill-purple-bg);
-	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
 	color: var(--text-purple);
 }
 
 .blue {
 	--_bg: var(--fill-blue-bg);
-	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
 	color: var(--text-blue);
 }
 
 .pop {
 	--_bg: var(--fill-pop-bg);
-	background-color: color-mix(in srgb, var(--_bg) var(--badge-bg-opacity), transparent);
 	color: var(--text-pop);
 }
