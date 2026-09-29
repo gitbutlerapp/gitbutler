@@ -503,6 +503,36 @@ fn pick_and_switch_to_branches() {
 }
 
 #[test]
+fn pick_and_switch_prioritizes_cursor_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+    tui.input('b');
+    tui.input([KeyCode::Down, KeyCode::Down]);
+    tui.input('s').assert_rendered_term_svg_eq(file![
+        "snapshots/pick_and_switch_prioritizes_cursor_branch_001.svg"
+    ]);
+    tui.input(KeyCode::Enter);
+
+    // Confirming the first entry switches to the cursor's branch, not branch A.
+    let ctx = tui.env().context();
+    let repo = ctx.repo.get().unwrap();
+    snapbox::assert_data_eq!(
+        repo.head_ref()
+            .unwrap()
+            .unwrap()
+            .name()
+            .as_bstr()
+            .to_string(),
+        str!["refs/heads/B"]
+    );
+    tui.input(None).assert_rendered_term_svg_eq(file![
+        "snapshots/pick_and_switch_prioritizes_cursor_branch_002.svg"
+    ]);
+}
+
+#[test]
 fn pick_and_switch_to_stacked_branches() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-branches");
