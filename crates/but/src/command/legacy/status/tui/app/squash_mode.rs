@@ -38,7 +38,7 @@ use super::{
 #[derive(Debug, Clone)]
 pub enum SquashSource {
     Marks(SquashMarks),
-    Uncommitted,
+    Uncommitted(ChangeSourceId),
     Commit(CommitId),
     UncommittedHunk(UncommittedHunkOrFile),
     Branch(BranchId),
@@ -67,13 +67,13 @@ impl SquashMarks {
 impl SquashSource {
     pub fn contains(&self, other: &CliId) -> bool {
         let marks = match self {
-            SquashSource::Uncommitted => {
+            SquashSource::Uncommitted(source) => {
                 return matches!(
                     other,
                     CliId::UncommittedArea {
-                        source: ChangeSourceId::Head,
+                        source: other_source,
                         ..
-                    }
+                    } if source == other_source
                 );
             }
             SquashSource::Marks(marks) => marks.as_ref(),
@@ -120,9 +120,12 @@ impl SquashSource {
     /// rewrites one worktree.
     pub fn uncommitted_area(&self, head_info: &but_workspace::RefInfo) -> Option<ChangeSourceId> {
         let commits: Vec<gix::ObjectId> = match self {
-            SquashSource::Uncommitted
-            | SquashSource::UncommittedHunk(..)
-            | SquashSource::Marks(SquashMarks::Hunks(..)) => return None,
+            SquashSource::Uncommitted(source) => {
+                return Some(source.clone());
+            }
+            SquashSource::UncommittedHunk(..) | SquashSource::Marks(SquashMarks::Hunks(..)) => {
+                return None;
+            }
             SquashSource::Branch(..) | SquashSource::Marks(SquashMarks::Branches(..)) => {
                 return Some(ChangeSourceId::Head);
             }
@@ -148,16 +151,18 @@ impl SquashSource {
         uncommitted_area: Option<&ChangeSourceId>,
     ) -> Option<SquashRoute<'a>> {
         match self {
-            SquashSource::Uncommitted => match target {
+            SquashSource::Uncommitted(source) => match target {
                 CliId::Commit {
                     commit: target,
                     id: _,
                 } => Some(SquashRoute::UncommittedToCommit {
                     target: target.clone(),
+                    source,
                 }),
                 CliId::Branch(branch) if branch.lane.worktree_name().is_none() => {
                     Some(SquashRoute::UncommittedToBranch {
                         target: &branch.name,
+                        source,
                     })
                 }
                 _ => None,
@@ -192,9 +197,11 @@ impl SquashSource {
 
 enum SquashRoute<'a> {
     UncommittedToCommit {
+        source: &'a ChangeSourceId,
         target: CommitId,
     },
     UncommittedToBranch {
+        source: &'a ChangeSourceId,
         target: &'a str,
     },
     UncommittedHunkToCommit {
@@ -405,8 +412,8 @@ impl App {
                 | MarksRef::CommittedFiles { .. } => {}
             },
             Mode::Commit(commit_mode) => match &*commit_mode.source {
-                CommitSource::UncommittedArea(ChangeSourceId::Head) => {
-                    self.squash_start_with_source(SquashSource::Uncommitted, ctx)?;
+                CommitSource::UncommittedArea(source) => {
+                    self.squash_start_with_source(SquashSource::Uncommitted(source.clone()), ctx)?;
                 }
                 CommitSource::UncommittedHunk(hunk) => {
                     self.squash_start_with_source(
@@ -420,9 +427,6 @@ impl App {
                         ctx,
                     )?;
                 }
-                // Squashing a whole linked worktree's changes into a commit has no source to
-                // model yet, so the mode switch is simply not offered.
-                CommitSource::UncommittedArea(ChangeSourceId::Worktree(..)) => {}
             },
             Mode::Move(move_mode) => match &move_mode.source {
                 MoveSource::Marks(marks) => match marks {
@@ -465,11 +469,8 @@ impl App {
         ctx: &Context,
     ) -> anyhow::Result<()> {
         match &*source {
-            CliId::UncommittedArea {
-                source: ChangeSourceId::Head,
-                ..
-            } => {
-                self.squash_start_with_source(SquashSource::Uncommitted, ctx)?;
+            CliId::UncommittedArea { source, .. } => {
+                self.squash_start_with_source(SquashSource::Uncommitted(source.clone()), ctx)?;
             }
             CliId::Branch(branch) => {
                 self.squash_start_with_source(SquashSource::Branch(branch.clone()), ctx)?;
@@ -492,11 +493,7 @@ impl App {
             CliId::AnonymousSegment(..)
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
-            | CliId::Stack { .. }
-            | CliId::UncommittedArea {
-                source: ChangeSourceId::Worktree(_),
-                ..
-            } => {}
+            | CliId::Stack { .. } => {}
         }
         Ok(())
     }
@@ -514,11 +511,34 @@ impl App {
             return Ok(());
         };
 
-        if matches!(&**selection, CliId::UncommittedHunkOrFile(..)) {
-            return Ok(());
-        }
+        let change_source = match &**selection {
+            CliId::Commit { commit, id: _ } => {
+                let head_info = but_api::legacy::workspace::head_info(ctx)?;
+                crate::utils::worktrees::commit_owner(&head_info, commit.commit_id)
+            }
+            CliId::AnonymousSegment(segment) => {
+                let Some(name) = segment.lane.worktree_name() else {
+                    return Ok(());
+                };
+                ChangeSourceId::Worktree(name.to_owned())
+            }
+            CliId::Branch(branch) => branch
+                .lane
+                .worktree_name()
+                .map_or(ChangeSourceId::Head, |name| {
+                    ChangeSourceId::Worktree(name.to_owned())
+                }),
+            CliId::UncommittedArea { source, .. } => source.clone(),
 
-        self.squash_start_with_source(SquashSource::Uncommitted, ctx)?;
+            CliId::CommittedFile { .. }
+            | CliId::CommittedHunk(..)
+            | CliId::PathPrefix { .. }
+            | CliId::Stack { .. }
+            | CliId::UncommittedHunkOrFile(..) => return Ok(()),
+        };
+
+        self.squash_start_with_source(SquashSource::Uncommitted(change_source), ctx)?;
+
         Ok(())
     }
 
@@ -673,15 +693,15 @@ fn resolve_squash_operation<'a>(
     };
 
     let mut resolved_args = match op {
-        SquashRoute::UncommittedToCommit { target } => ResolvedSquashArgsRef::Normal {
-            sources: Vec::from([ResolvedCliIdArgRef::Uncommitted(&ChangeSourceId::Head)]),
+        SquashRoute::UncommittedToCommit { target, source } => ResolvedSquashArgsRef::Normal {
+            sources: Vec::from([ResolvedCliIdArgRef::Uncommitted(source)]),
             target: SquashTarget::Commit {
                 commit: target,
                 reword: HowToRewordTarget::UseTargetMessage,
             },
         },
-        SquashRoute::UncommittedToBranch { target } => {
-            let source = Vec::from([ResolvedCliIdArgRef::Uncommitted(&ChangeSourceId::Head)]);
+        SquashRoute::UncommittedToBranch { target, source } => {
+            let source = Vec::from([ResolvedCliIdArgRef::Uncommitted(source)]);
             let target = ResolvedCliIdArgRef::Branch(target);
             resolve_squash_operation_with_branch(source, target, reword, head_info, repo)?
         }
