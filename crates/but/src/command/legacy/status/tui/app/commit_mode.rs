@@ -138,8 +138,8 @@ impl CommitSource {
         }
     }
 
-    fn try_from_cli_id(id: &CliId) -> Option<Self> {
-        match id {
+    fn try_from_cli_id(id: &CliId, ctx: &Context) -> anyhow::Result<Option<CommitSource>> {
+        Ok(match id {
             // A worktree lane's rows offer the area whose changes land on that lane by default,
             // the way a stack's branch row offers the main area: `c` then confirm on it commits
             // the worktree's own changes, never another worktree's.
@@ -150,8 +150,13 @@ impl CommitSource {
                     name.to_owned(),
                 )))
             }
+            CliId::Commit { commit, id: _ } => {
+                let head_info = but_api::legacy::workspace::head_info(ctx)?;
+                Some(CommitSource::UncommittedArea(
+                    crate::utils::worktrees::commit_owner(&head_info, commit.commit_id),
+                ))
+            }
             CliId::Branch(..)
-            | CliId::Commit { .. }
             | CliId::UncommittedArea {
                 source: ChangeSourceId::Head,
                 ..
@@ -168,7 +173,7 @@ impl CommitSource {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Stack { .. } => None,
-        }
+        })
     }
 }
 
@@ -197,9 +202,9 @@ impl App {
     {
         match message {
             CommitMessage::CreateEmpty => self.handle_commit_create_empty(ctx, messages)?,
-            CommitMessage::Start => self.handle_commit_start(messages),
+            CommitMessage::Start => self.handle_commit_start(messages, ctx)?,
             CommitMessage::StartWithSource(source) => {
-                if let Some(source) = CommitSource::try_from_cli_id(&source) {
+                if let Some(source) = CommitSource::try_from_cli_id(&source, ctx)? {
                     self.handle_commit_start_source(source);
                 }
             }
@@ -218,7 +223,11 @@ impl App {
         Ok(())
     }
 
-    fn handle_commit_start(&mut self, messages: &mut Vec<Message>) {
+    fn handle_commit_start(
+        &mut self,
+        messages: &mut Vec<Message>,
+        ctx: &Context,
+    ) -> anyhow::Result<()> {
         match &*self.mode {
             Mode::Normal(..) => {
                 if self.marks_ref().is_empty() {
@@ -226,9 +235,11 @@ impl App {
                         .cursor
                         .selected_line(&self.status_lines)
                         .and_then(|selection| selection.data.cli_id())
-                        .and_then(|id| CommitSource::try_from_cli_id(id))
+                        .map(|id| CommitSource::try_from_cli_id(id, ctx))
+                        .transpose()?
+                        .flatten()
                     else {
-                        return;
+                        return Ok(());
                     };
                     self.handle_commit_start_source(source);
                 } else {
@@ -238,7 +249,7 @@ impl App {
             Mode::Details(details_mode) => match details_mode.return_mode.marks() {
                 MarksRef::Empty => {
                     let Some(selection) = self.details.selected_section_cli_id() else {
-                        return;
+                        return Ok(());
                     };
                     if details_mode.full_screen {
                         messages.push(Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit));
@@ -282,6 +293,8 @@ impl App {
             },
             _ => {}
         }
+
+        Ok(())
     }
 
     fn handle_commit_start_source(&mut self, source: CommitSource) {

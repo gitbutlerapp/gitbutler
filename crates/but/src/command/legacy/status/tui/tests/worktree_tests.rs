@@ -986,3 +986,20 @@ fn reverse_squash_from_worktree() {
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/reverse_squash_from_worktree_003.svg"]);
 }
+
+#[test]
+fn commit_from_commit_in_worktree() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('c')
+        .assert_rendered_term_svg_eq(file!["snapshots/commit_from_commit_in_worktree_001.svg"]);
+    tui.input('a');
+    tui.input('e');
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/commit_from_commit_in_worktree_002.svg"]);
+}
