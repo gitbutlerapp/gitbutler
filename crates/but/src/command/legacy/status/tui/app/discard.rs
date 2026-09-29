@@ -179,7 +179,10 @@ impl App {
 
                     Confirm::new(
                         NonEmpty::new(
-                            format!("Remove {worktree_name}? This cannot be undone").into(),
+                            format!(
+                                "Delete worktree {worktree_name} and its directory? This cannot be undone"
+                            )
+                            .into(),
                         ),
                         self.theme,
                         move |ctx, messages| {
