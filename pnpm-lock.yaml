@@ -1192,9 +1192,6 @@ importers:
         specifier: ^4.11.2
         version: 4.11.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
-      '@gitbutler/but-sdk':
-        specifier: workspace:*
-        version: link:../but-sdk
       '@gitbutler/design-core':
         specifier: 9.0.1
         version: 9.0.1
