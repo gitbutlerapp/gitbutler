@@ -38,8 +38,9 @@
 
 /* Drawn over the content, so nothing is set aside for it and content that fits and content that
    scrolls take the same width. 14px to grab, the thumb 2px in from the edge: 5px at rest, so a
-   gap shows before rows inset 8px, and 8px under the pointer or while dragged, just reaching the
-   rows' edge. */
+   gap shows before rows inset 8px, and 10px under the pointer or while dragged, as wide as the
+   strip allows, so it is easy to see and hold. Hovered, it reaches 12px in and lies over the edge
+   of content inset less than that, as an overlay scrollbar does. */
 .scrollbar {
 	--thumb-size: 5px;
 
@@ -54,7 +55,7 @@
 
 	&:hover,
 	&:has(.thumb:active) {
-		--thumb-size: 8px;
+		--thumb-size: 10px;
 	}
 
 	&[data-orientation="vertical"] {
