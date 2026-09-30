@@ -1747,11 +1747,14 @@ impl App {
     }
 
     fn handle_copy_selection_picker(&mut self) -> anyhow::Result<()> {
-        let Some(selection) = self
-            .cursor
-            .selected_line(&self.status_lines)
-            .and_then(|selection| selection.data.cli_id())
-        else {
+        let selection = if matches!(&*self.mode, Mode::Details(..)) {
+            self.details.selected_section_cli_id()
+        } else {
+            self.cursor
+                .selected_line(&self.status_lines)
+                .and_then(|selection| selection.data.cli_id())
+        };
+        let Some(selection) = selection else {
             return Ok(());
         };
 
@@ -1771,7 +1774,19 @@ impl App {
                 copy_selection_picker::anonymous_segment_picker(id.to_owned(), lane, self.theme)
             }
             CliId::UncommittedHunkOrFile(hunk) => {
-                copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
+                if matches!(&*self.mode, Mode::Details(..)) {
+                    let Some(text) = self.details.selected_hunk_text() else {
+                        return Ok(());
+                    };
+                    copy_selection_picker::details_hunk_picker(
+                        hunk.id.clone(),
+                        hunk.hunks.head.hunk.path.as_ref(),
+                        text,
+                        self.theme,
+                    )
+                } else {
+                    copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
+                }
             }
             CliId::CommittedFile {
                 committed_file:
@@ -1790,8 +1805,18 @@ impl App {
                 source: ChangeSourceId::Worktree(name),
                 ..
             } => copy_selection_picker::worktree_picker(name.as_ref(), self.theme),
-            CliId::CommittedHunk(..)
-            | CliId::PathPrefix { .. }
+            CliId::CommittedHunk(hunk) => {
+                let Some(text) = self.details.selected_hunk_text() else {
+                    return Ok(());
+                };
+                copy_selection_picker::details_hunk_picker(
+                    hunk.id.clone(),
+                    hunk.hunk.path.as_ref(),
+                    text,
+                    self.theme,
+                )
+            }
+            CliId::PathPrefix { .. }
             | CliId::UncommittedArea {
                 source: ChangeSourceId::Head,
                 ..

@@ -182,6 +182,66 @@ fn copies_hunk_from_detail_view() {
 }
 
 #[test]
+fn copies_every_uncommitted_hunk_value_from_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("copy.txt", "copied content\n");
+
+    let mut tui = test_status_tui(env);
+    tui.input('d');
+    tui.input('l');
+    tui.input((KeyModifiers::SHIFT, 'G'));
+
+    tui.input(COPY_MORE)
+        .assert_rendered_term_svg_eq(snapbox::file![
+            "snapshots/copies_every_uncommitted_hunk_value_from_details_001.svg"
+        ]);
+    tui.input("Short ID");
+    tui.input(KeyCode::Enter).assert_copied_text_eq("ry:7");
+
+    tui.input(COPY_MORE);
+    tui.input("Diff");
+    tui.input(KeyCode::Enter)
+        .assert_copied_text_eq("copy.txt\n\n@@ -1,0 +1,1 @@\n+copied content\n");
+    tui.input('y')
+        .assert_copied_text_eq("copy.txt\n\n@@ -1,0 +1,1 @@\n+copied content\n");
+
+    tui.input(COPY_MORE);
+    tui.input("File path");
+    tui.input(KeyCode::Enter).assert_copied_text_eq("copy.txt");
+}
+
+#[test]
+fn copies_every_committed_hunk_value_from_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+    tui.input([KeyCode::Down, KeyCode::Down]);
+    tui.input('d');
+    tui.input('l');
+    tui.input((KeyModifiers::SHIFT, 'G'));
+
+    tui.input(COPY_MORE)
+        .assert_rendered_term_svg_eq(snapbox::file![
+            "snapshots/copies_every_committed_hunk_value_from_details_001.svg"
+        ]);
+    tui.input("Short ID");
+    tui.input(KeyCode::Enter).assert_copied_text_eq("t:t:6");
+
+    tui.input(COPY_MORE);
+    tui.input("Diff");
+    tui.input(KeyCode::Enter)
+        .assert_copied_text_eq("A\n\n@@ -1,0 +1,1 @@\n+A\n");
+    tui.input('y')
+        .assert_copied_text_eq("A\n\n@@ -1,0 +1,1 @@\n+A\n");
+
+    tui.input(COPY_MORE);
+    tui.input("File path");
+    tui.input(KeyCode::Enter).assert_copied_text_eq("A");
+}
+
+#[test]
 fn copies_every_uncommitted_file_value() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
