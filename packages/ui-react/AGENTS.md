@@ -17,6 +17,16 @@ React Compiler makes `useMemo`, `useCallback` and `React.memo` redundant
 outside hot paths; `useEffect` is usually an anti-pattern and needs consent;
 comments explain the non-obvious why, never the what.
 
+### Changing a component
+
+**A change to a component here needs the designer's okay.** Every app draws
+with these components, so a fix made for one surface changes all of them.
+When an app's bug seems to need a change here (a style, a prop, a default, a
+wrapper), try fixing it in the app first. If the library really is at fault,
+ask before changing it. When you can't ask, make the change its own
+`fix(ui-react): …` commit that says which surface showed the bug and what
+else it touches, and call it out in the PR description.
+
 ### What belongs here
 
 A component belongs here when it doesn't reach into an app: no API calls,
