@@ -2,7 +2,7 @@
 	// This module script is necessary to make Svelte recognize the generics in the component
 	export type Page = {
 		id: string;
-		label: string;
+		label: () => string;
 		icon: IconName;
 		adminOnly?: boolean;
 		[key: string]: any; // Allow additional properties for flexibility
@@ -61,7 +61,7 @@
 						<div class="settings-sidebar__links-item__icon">
 							<Icon name={page.icon} />
 						</div>
-						<span>{page.label}</span>
+						<span>{page.label()}</span>
 					</button>
 				{/each}
 			</div>

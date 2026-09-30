@@ -1,8 +1,9 @@
+import { t } from "$lib/i18n";
 import { type IconName } from "@gitbutler/ui-svelte";
 
 interface SettingsPage {
 	id: string;
-	label: string;
+	label: () => string;
 	icon: IconName;
 	adminOnly?: boolean;
 }
@@ -10,22 +11,22 @@ interface SettingsPage {
 export const projectSettingsPages = [
 	{
 		id: "project",
-		label: "Project",
+		label: () => t("project"),
 		icon: "user",
 	},
 	{
 		id: "git",
-		label: "Git stuff",
+		label: () => t("git-stuff"),
 		icon: "git",
 	},
 	{
 		id: "ai",
-		label: "AI options",
+		label: () => t("ai-options"),
 		icon: "ai",
 	},
 	{
 		id: "experimental",
-		label: "Experimental",
+		label: () => t("experimental"),
 		icon: "lab",
 	},
 ] as const satisfies readonly SettingsPage[];
