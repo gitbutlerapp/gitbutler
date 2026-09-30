@@ -694,8 +694,6 @@ Outcome {
             graph_workspace(&out.workspace).to_string(),
             snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:main[🌳] <> origin/main on e5d0542 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
         );
@@ -750,8 +748,6 @@ Outcome {
             graph_workspace(&out.workspace).to_string(),
             snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:main[🌳] <> origin/main on e5d0542 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
         );
@@ -1185,8 +1181,6 @@ Outcome {
         graph_workspace(&out.workspace).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:main[🌳] <> origin/main on 85efbe4 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -1832,8 +1826,6 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:main[🌳] <> origin/main on e5d0542 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -1964,8 +1956,6 @@ Outcome {
         graph_workspace(&out.workspace).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:main[🌳] <> origin/main on e5d0542 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -3349,8 +3339,6 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡:main[🌳] <> origin/main on 3183e43 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -4221,8 +4209,6 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:main[🌳] <> origin/main on 85efbe4 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -4361,8 +4347,6 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:main[🌳] <> origin/main on 85efbe4 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -4842,8 +4826,6 @@ Outcome {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:main[🌳] <> origin/main on 85efbe4 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
