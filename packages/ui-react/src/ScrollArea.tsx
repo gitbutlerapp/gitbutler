@@ -42,8 +42,12 @@ export const ScrollArea: FC<
 			className={classes(viewportClassName, styles.viewport)}
 		>
 			{/* Watched for size, so the thumb follows content that grows or swaps without a scroll or
-			    a resize of the viewport: another page's content, a list that loads. */}
-			<BaseScrollArea.Content className={styles.content}>{children}</BaseScrollArea.Content>
+			    a resize of the viewport: another page's content, a list that loads. Base UI sizes it
+			    to fit its content, inline, so a child that can't shrink would widen it past the
+			    viewport; `minWidth: 0` keeps the children at the viewport's width. */}
+			<BaseScrollArea.Content className={styles.content} style={{ minWidth: 0 }}>
+				{children}
+			</BaseScrollArea.Content>
 		</BaseScrollArea.Viewport>
 		<BaseScrollArea.Scrollbar orientation="vertical" className={styles.scrollbar}>
 			<BaseScrollArea.Thumb className={styles.thumb} onPointerMove={ignoreButtonlessDrag} />
