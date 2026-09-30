@@ -136,6 +136,7 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.details_jump_down().register();
 
                 builder.details_copy().register();
+                builder.copy_picker().register();
                 builder.details_top().register();
                 builder.details_bottom().register();
                 builder.toggle_full_screen_details().register();

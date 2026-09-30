@@ -88,6 +88,23 @@ pub fn uncommitted_hunk_picker(
     )
 }
 
+pub fn details_hunk_picker(
+    id: ShortId,
+    path: &BStr,
+    text: String,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    picker(
+        NonEmpty::from_slice(&[
+            CopySelectionItem::ShortId(id),
+            CopySelectionItem::DetailsHunkDiff(text),
+            CopySelectionItem::FilePath(path.to_str_lossy().into_owned()),
+        ])
+        .unwrap(),
+        theme,
+    )
+}
+
 pub fn committed_file_picker(
     path: BString,
     id: ShortId,
@@ -141,8 +158,9 @@ pub enum CopySelectionItem {
     BranchDiff(FullName),
     PullRequestUrl(FullName),
 
-    // uncommitted files/hunks
+    // files/hunks
     HunkDiff(Box<UncommittedHunkOrFile>),
+    DetailsHunkDiff(String),
 
     // worktrees
     WorktreeName(BString),
@@ -160,7 +178,8 @@ impl CopySelectionItem {
             CopySelectionItem::CommitAuthor(_) => "Author",
             CopySelectionItem::CommitDiff(_)
             | CopySelectionItem::BranchDiff(_)
-            | CopySelectionItem::HunkDiff(_) => "Diff",
+            | CopySelectionItem::HunkDiff(_)
+            | CopySelectionItem::DetailsHunkDiff(_) => "Diff",
             CopySelectionItem::BranchName(_) => "Branch name",
             CopySelectionItem::PullRequestUrl(_) => "Pull Request URL",
             CopySelectionItem::ShortId(_) => "Short ID",
@@ -258,6 +277,7 @@ impl CopySelectionItem {
             CopySelectionItem::HunkDiff(uncommitted_hunk_or_file) => {
                 uncommitted_hunk_or_file_to_diff(ctx, uncommitted_hunk_or_file)
             }
+            CopySelectionItem::DetailsHunkDiff(text) => Ok(text.clone()),
             CopySelectionItem::FilePath(path) => Ok(path.to_owned()),
             CopySelectionItem::WorktreePath(name) => {
                 let entry = ctx
