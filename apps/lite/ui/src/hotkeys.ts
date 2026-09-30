@@ -146,6 +146,10 @@ export const branchesHotkeys = {
 		hotkey: globalThis.window.lite.platform === "darwin" ? "Mod+Backspace" : "Delete",
 		meta: { group: "Branch", name: "Delete branch reference" },
 	},
+	openPRInBrowser: {
+		hotkey: "O",
+		meta: { group: "Branch", name: "Open pull request in browser" },
+	},
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const sidebarHotkeys = {
