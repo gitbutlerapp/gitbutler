@@ -150,6 +150,10 @@ export const branchesHotkeys = {
 		hotkey: "O",
 		meta: { group: "Branch", name: "Open pull request in browser" },
 	},
+	toggleFoldBranch: {
+		hotkey: "Z",
+		meta: { group: "Branch", name: "Fold/unfold commits" },
+	},
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const sidebarHotkeys = {
