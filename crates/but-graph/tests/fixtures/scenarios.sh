@@ -40,6 +40,24 @@ git init only-remote-advanced
   add_main_remote_setup
 )
 
+git init single-branch-in-sync
+(cd single-branch-in-sync
+  commit M
+  setup_remote_tracking main
+  add_main_remote_setup
+)
+
+cp -R single-branch-in-sync single-branch-empty-feature
+(cd single-branch-empty-feature
+  git checkout -b feature
+)
+
+cp -R single-branch-empty-feature single-branch-empty-feature-with-upstream
+(cd single-branch-empty-feature-with-upstream
+  setup_remote_tracking feature
+  git branch --set-upstream-to=origin/feature feature
+)
+
 git init ad-hoc-branch-integrated-upstream
 (cd ad-hoc-branch-integrated-upstream
   commit M1

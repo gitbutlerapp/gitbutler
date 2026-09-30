@@ -22,6 +22,7 @@ use crate::{
 };
 
 /// The segment a workspace is projected from, and the target it is framed against.
+#[derive(Debug)]
 struct Frame<'graph> {
     kind: WorkspaceKind,
     metadata: Option<&'graph ref_metadata::Workspace>,
@@ -168,7 +169,7 @@ impl Graph {
             .project_meta
             .target_commit_id
             .and_then(|id| TargetCommit::from_commit(id, self))
-            .or_else(|| self.target_commit_from_ref());
+            .or_else(|| self.target_commit_from_ref(target_ref.as_ref()?));
         Ok(Frame {
             kind,
             metadata,
@@ -179,10 +180,11 @@ impl Graph {
     }
 
     /// Without a usable stored target commit, the tip of the stored target ref stands in for it.
-    fn target_commit_from_ref(&self) -> Option<TargetCommit> {
-        let ref_name = self.project_meta.target_ref.as_ref()?;
-        let segment = self.segment_by_ref_name(ref_name.as_ref())?;
-        let commit_id = segment.commits.first()?.id;
+    fn target_commit_from_ref(&self, target_ref: &TargetRef) -> Option<TargetCommit> {
+        let ref_name = &target_ref.ref_name;
+        let (commit, segment_index) =
+            self.resolve_to_unambiguously_pointed_to_commit(target_ref.segment_index)?;
+        let commit_id = commit.id;
         tracing::info!(
             %ref_name,
             %commit_id,
@@ -190,7 +192,7 @@ impl Graph {
         );
         Some(TargetCommit {
             commit_id,
-            segment_index: segment.id,
+            segment_index,
         })
     }
 
@@ -482,7 +484,26 @@ impl Graph {
         frame: &Frame<'_>,
         remotes: &RemoteReach,
     ) -> Option<Stack> {
-        let keep_first = !frame.kind.has_managed_ref();
+        let checked_out_segment = &self[frame.ws];
+
+        let target_segment = self
+            .project_meta
+            .target_ref
+            .as_ref()
+            .and_then(|name| self.segment_by_ref_name(name.as_ref()));
+
+        let checked_out_branch_is_the_local_integration_branch = if let Some(integration_target) =
+            target_segment
+            && let Some(sibling_segment_id) = integration_target.sibling_segment_id
+        {
+            checked_out_segment.id == self[sibling_segment_id].id
+        } else {
+            false
+        };
+
+        let keep_first = frame.kind.has_adhoc_ref()
+            && !(lane.base.is_some() && checked_out_branch_is_the_local_integration_branch);
+
         let segments = self.lane_segments(lane, id, keep_first, frame, remotes);
         (!segments.is_empty()).then_some(Stack { id, segments })
     }
