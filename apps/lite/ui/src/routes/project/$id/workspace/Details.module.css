@@ -19,8 +19,6 @@
 	flex-direction: column;
 	/* Symmetric so the header actions share a right edge with the content
 	   columns below, which all inset by the same token. */
-	/* 12px below: the tabs' underline hangs 8px under them and is 4px thick,
-	   so it sits on the header's bottom edge. */
 	padding-inline: var(--panel-padding-inline);
 	padding-block: var(--panel-padding-block) 12px;
 	/* The header draws its own bottom edge, so the tab row reads as a strip
