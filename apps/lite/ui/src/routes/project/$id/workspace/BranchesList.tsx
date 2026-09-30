@@ -364,6 +364,7 @@ const BranchItem: FC<{
 		nativeMenuItem({
 			label: "Open Pull Request In Browser",
 			enabled: review !== null,
+			accelerator: toElectronAccelerator(branchesHotkeys.openPRInBrowser.hotkey),
 			onSelect: openReviewInBrowser,
 		}),
 		nativeMenuSeparator,
@@ -704,6 +705,31 @@ export const BranchesList: FC<
 			enabled: noOperationPending && selection?._tag === "Commit",
 			ignoreInputs: true,
 			meta: branchesHotkeys.copy.meta,
+			target: treeRef,
+		},
+	);
+
+	const selectedStackBranches =
+		selectedStackIndex === undefined ? [] : (stacks[selectedStackIndex]?.branches ?? []);
+	const selectedBranch =
+		selection?._tag === "Branch"
+			? selectedStackBranches.find(
+					({ branch }) => branch.refName.full === decodeBytes(selection.branchRef),
+				)?.branch
+			: undefined;
+	const selectedBranchReviewUrl = selectedBranch?.review?.htmlUrl ?? null;
+
+	useHotkey(
+		branchesHotkeys.openPRInBrowser.hotkey,
+		() => {
+			if (selectedBranchReviewUrl !== null)
+				void window.lite.openInWebBrowser(selectedBranchReviewUrl);
+		},
+		{
+			conflictBehavior: "allow",
+			enabled: noOperationPending && selectedBranchReviewUrl !== null,
+			ignoreInputs: true,
+			meta: branchesHotkeys.openPRInBrowser.meta,
 			target: treeRef,
 		},
 	);
