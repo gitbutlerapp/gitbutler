@@ -7,6 +7,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Dialog } from "@base-ui/react";
 import { Modal } from "@gitbutler/ui-react/Popup.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { useQuery } from "@tanstack/react-query";
 import type { FC } from "react";
 import styles from "./ConflictBar.module.css";
@@ -178,7 +179,7 @@ export const ConflictBar: FC<Props> = (p) => {
 						</Dialog.Close>
 					</header>
 
-					<div className={styles.body}>
+					<ScrollArea className={styles.body}>
 						<ConflictedFiles
 							projectId={p.projectId}
 							commitId={p.commitId}
@@ -186,7 +187,7 @@ export const ConflictBar: FC<Props> = (p) => {
 							busy={p.busy}
 							onResolve={p.onResolve}
 						/>
-					</div>
+					</ScrollArea>
 				</Modal>
 			)}
 		</div>

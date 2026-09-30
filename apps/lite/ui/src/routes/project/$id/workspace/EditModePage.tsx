@@ -15,6 +15,7 @@ import {
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
 import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { nativeMenuItem, showNativeContextMenu } from "#ui/native-menu.ts";
 import type { ConflictEntryPresence, EditModeMetadata } from "@gitbutler/but-sdk";
 import { type ConflictState, conflictHint, conflictStateOf } from "./edit-mode-conflicts.ts";
@@ -190,7 +191,7 @@ export const EditModePage: FC<{ projectId: string; metadata: EditModeMetadata }>
 	};
 
 	return (
-		<div className={styles.page}>
+		<ScrollArea className={styles.page} viewportClassName={styles.pageViewport}>
 			<div className={styles.panel}>
 				<h1 className={styles.title}>Editing commit</h1>
 				<span className={styles.commitRef}>{metadata.commitOid.slice(0, 10)}</span>
@@ -261,6 +262,6 @@ export const EditModePage: FC<{ projectId: string; metadata: EditModeMetadata }>
 					</Button>
 				</div>
 			</div>
-		</div>
+		</ScrollArea>
 	);
 };

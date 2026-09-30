@@ -112,15 +112,17 @@
    a size container so the block scales its counterweight to the room. */
 .diffTabEmpty {
 	container-type: size;
-	display: flex;
-	flex-direction: column;
-	justify-content: safe center;
-	overflow: auto;
 	/* The paper, not the panel tint: this sits under the details view's own
 	   header, as that view's content, so it takes the ground the diff and file
 	   list would have had. The standalone pane placeholder has no header above
 	   it and is the whole surface, so it keeps `--bg-2` instead. */
 	background-color: var(--bg-1);
+}
+
+.diffTabEmptyViewport {
+	display: flex;
+	flex-direction: column;
+	justify-content: safe center;
 }
 
 .filesPanelContent {
@@ -148,15 +150,16 @@
 	   otherwise drop this into that row's `auto` track and size it to the diff. */
 	grid-row: 2;
 
-	&:has([data-minimap-navigable="true"]) .diffContents {
-		/* Drop the native scrollbar while the minimap stands in for it; a diff
-		   too short to map keeps one. */
-		scrollbar-width: none;
-
-		&::-webkit-scrollbar {
-			display: none;
-		}
+	/* The minimap stands in for the scrollbar while it maps the diff; a diff too
+	   short to map keeps the bars. */
+	&:has([data-minimap-navigable="true"]) .diffScrollBars {
+		display: none;
 	}
+}
+
+.diffScrollBars {
+	/* Over the diff's sticky file headers, which Pierre stacks above the code. */
+	z-index: 1;
 }
 
 .diffContents {
@@ -166,6 +169,8 @@
 	overflow: auto;
 	background-color: var(--bg-2);
 	font-variant-ligatures: common-ligatures;
+	/* ScrollBars draws the bars over it instead. */
+	scrollbar-width: none;
 	user-select: text;
 
 	/* CodeView makes this scroller focusable, so arrow keys raise the platform
@@ -269,7 +274,6 @@
 .prTabScroll {
 	/* The tab's inset and column gap scale with this width (see .prTab). */
 	container-type: inline-size;
-	overflow-y: auto;
 }
 
 .prTab {

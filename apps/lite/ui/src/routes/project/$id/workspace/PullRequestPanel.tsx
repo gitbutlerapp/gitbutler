@@ -27,6 +27,7 @@ import { Tag } from "@gitbutler/ui-react/Tag.tsx";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import {
 	type NativeMenuItem,
 	nativeMenuItem,
@@ -539,16 +540,13 @@ const ChecksSection: FC<{ projectId: string; reference: string }> = ({ projectId
 			}
 		>
 			<div className={styles.checksDivider} />
-			<section
-				className={styles.checksList}
-				aria-label="Check jobs"
-				// oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Let keyboard users focus and scroll the job list.
-				tabIndex={0}
-			>
-				{data?.checks.map((check) => (
-					<CheckRow key={check.id} check={check} />
-				))}
-			</section>
+			<ScrollArea className={styles.checksList} viewportClassName={styles.checksViewport}>
+				<section aria-label="Check jobs">
+					{data?.checks.map((check) => (
+						<CheckRow key={check.id} check={check} />
+					))}
+				</section>
+			</ScrollArea>
 		</Section>
 	);
 };

@@ -8,16 +8,22 @@
 	max-height: min(var(--available-height), 480px);
 }
 
-/* The list is the scroller, so its inset sits inside the scrolled area and the scrollbar keeps the
+/* The list scrolls, so its inset sits inside the scrolled area and the scrollbar keeps the
    container's own edge. It takes whatever height the rows above and below it do not, and scrolls
    only once a list of projects outgrows even that. */
 .list {
 	flex: 1;
-	min-height: 0;
-	overflow: auto;
+}
+
+.listViewport {
 	/* A row scrolled into view brings the heading it sits under with it, rather than parking it
 	   under the search row. */
 	scroll-padding-block-start: 27px;
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: -1px;
+	}
 }
 
 .virtualContainer {

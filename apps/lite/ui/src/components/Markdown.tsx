@@ -5,6 +5,7 @@ import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { useCopied } from "#ui/components/useCopied.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { openLinkExternally } from "#ui/external-link.ts";
@@ -169,7 +170,9 @@ const Pre: FC<{ node?: HastNode; children?: ReactNode }> = ({ node, children }) 
 
 	return (
 		<div className={styles.codeBlock}>
-			<pre>{children}</pre>
+			<ScrollArea>
+				<pre>{children}</pre>
+			</ScrollArea>
 			<Tooltip content={copied ? "Copied" : "Copy"}>
 				<Button
 					variant="ghost"
