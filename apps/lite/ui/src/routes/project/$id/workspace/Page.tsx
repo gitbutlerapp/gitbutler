@@ -631,7 +631,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 				{...selectionFocus}
 				id={layoutId}
 				className={styles.page}
-				// The handle's own box is the grab area; see ResizeHandle's grab="after".
+				// The gap between the panels is the grab area, not the panels' edges.
 				resizeTargetMinimumSize={{ coarse: 1, fine: 1 }}
 				defaultLayout={workspaceLayout.defaultLayout}
 				onLayoutChanged={workspaceLayout.onLayoutChanged}
@@ -664,7 +664,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 							/>
 						</ErrorBoundary>
 					</Panel>
-					<ResizeHandle grab="after" />
+					<ResizeHandle gap />
 				</Activity>
 
 				<Panel
