@@ -33,6 +33,12 @@ const trimTextChildren = (children: ReactNode) =>
 	);
 
 /**
+ * A small pill carrying a count, a status or a short label.
+ *
+ * An icon leads the label or stands alone; it never trails, and a badge is
+ * never a control. Something that opens a menu or acts is a `Button` beside
+ * the badge.
+ *
  * @import import { Badge } from "@gitbutler/ui-react/Badge.tsx";
  */
 export const Badge: FC<{ variant: BadgeVariant; size?: BadgeSize } & ComponentProps<"span">> = ({
