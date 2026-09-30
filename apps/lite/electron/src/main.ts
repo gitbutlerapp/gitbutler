@@ -558,7 +558,7 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 		minHeight: 400,
 		icon,
 		titleBarStyle: process.platform === "darwin" ? "hidden" : "default",
-		trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 19 } : undefined,
+		trafficLightPosition: process.platform === "darwin" ? { x: 23, y: 26 } : undefined,
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,

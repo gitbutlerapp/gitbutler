@@ -1,6 +1,9 @@
+/* The panels sit apart as cards on the window's background. */
 .page {
 	flex-grow: 1;
 	min-height: 0;
+	padding: 6px;
+	background-color: var(--bg-2);
 }
 
 .notFound {
@@ -11,8 +14,12 @@
 }
 
 .panel {
+	box-sizing: border-box;
 	/* Stretch/shrink single child element to fit this element. */
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
+	border: 1px solid var(--border-section);
+	border-radius: var(--radius-xl);
+	background-color: var(--bg-1);
 }
