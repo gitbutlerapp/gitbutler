@@ -1786,9 +1786,16 @@ impl App {
                 id.to_owned(),
                 self.theme,
             ),
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            } => copy_selection_picker::worktree_picker(name.as_ref(), self.theme),
             CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
-            | CliId::UncommittedArea { .. }
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            }
             | CliId::Stack { .. } => return Ok(()),
         };
         self.modal = Some(Modal::CopySelectionPicker {

@@ -524,6 +524,28 @@ fn copies_worktree_path_and_name_from_its_reference() {
 }
 
 #[test]
+fn copies_worktree_path_and_name_from_its_empty_uncommitted_area() {
+    let (mut tui, _editor) = worktree_tui();
+    let path = tui
+        .env()
+        .projects_root()
+        .join(".git/gitbutler/test-worktrees/wt");
+    std::fs::remove_file(path.join("wt-file.txt")).unwrap();
+
+    tui.reload();
+    tui.input([KeyCode::Down; 2])
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt} (no changes)"]);
+
+    tui.input(COPY_MORE);
+    tui.input(KeyCode::Enter)
+        .assert_copied_text_eq(std::fs::canonicalize(&path).unwrap().display().to_string());
+
+    tui.input(COPY_MORE);
+    tui.input(KeyCode::Down);
+    tui.input(KeyCode::Enter).assert_copied_text_eq("wt");
+}
+
+#[test]
 fn copies_short_id_and_worktree_values_from_a_detached_worktree_segment() {
     let (mut tui, _editor) = worktree_tui();
     let path = tui

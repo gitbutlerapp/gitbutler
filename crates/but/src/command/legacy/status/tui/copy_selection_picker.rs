@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::BTreeSet};
 
 use anyhow::Context as _;
-use bstr::{BString, ByteSlice as _};
+use bstr::{BStr, BString, ByteSlice as _};
 use but_core::{CommitOwned, TreeChange, commit::Headers, diff::CommitDetails};
 use but_ctx::Context;
 use gix::{prelude::ObjectIdExt as _, refs::FullName};
@@ -47,7 +47,7 @@ pub fn branch_picker(
         CopySelectionItem::PullRequestUrl(branch.clone()),
         CopySelectionItem::BranchDiff(branch),
     ]);
-    items.extend(worktree_items(lane));
+    items.extend(lane.worktree_name().into_iter().flat_map(worktree_items));
     picker(items, theme)
 }
 
@@ -57,17 +57,19 @@ pub fn anonymous_segment_picker(
     theme: &'static Theme,
 ) -> FuzzyPicker<CopySelectionItem> {
     let mut items = NonEmpty::new(CopySelectionItem::ShortId(id));
-    items.extend(worktree_items(lane));
+    items.extend(lane.worktree_name().into_iter().flat_map(worktree_items));
     picker(items, theme)
 }
 
-fn worktree_items(lane: &LaneId) -> impl Iterator<Item = CopySelectionItem> {
-    lane.worktree_name().into_iter().flat_map(|name| {
-        [
-            CopySelectionItem::WorktreePath(name.to_owned()),
-            CopySelectionItem::WorktreeName(name.to_owned()),
-        ]
-    })
+pub fn worktree_picker(name: &BStr, theme: &'static Theme) -> FuzzyPicker<CopySelectionItem> {
+    picker(NonEmpty::from_slice(&worktree_items(name)).unwrap(), theme)
+}
+
+fn worktree_items(name: &BStr) -> [CopySelectionItem; 2] {
+    [
+        CopySelectionItem::WorktreePath(name.to_owned()),
+        CopySelectionItem::WorktreeName(name.to_owned()),
+    ]
 }
 
 pub fn uncommitted_hunk_picker(
