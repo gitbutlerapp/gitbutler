@@ -5,6 +5,7 @@ import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { assert } from "#ui/assert.ts";
 import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { commitCopyMenuItem } from "./commitMenuItems.ts";
 import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { BranchRowHeadline } from "./BranchRowHeadline.tsx";
@@ -134,6 +135,8 @@ const CommitItem: FC<{
 			accelerator: toElectronAccelerator(branchesHotkeys.copy.hotkey),
 			onSelect: copyCommit,
 		}),
+		nativeMenuSeparator,
+		commitCopyMenuItem(commit),
 	];
 
 	return (
