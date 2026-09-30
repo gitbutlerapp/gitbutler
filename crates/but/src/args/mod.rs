@@ -831,7 +831,7 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(hide = true)]
-    Switch(r#switch::Platform),
+    Switch(switch::Platform),
 
     /// Manage AI agent skills for GitButler.
     ///
@@ -1042,7 +1042,7 @@ pub mod split;
 #[cfg(feature = "legacy")]
 pub mod squash;
 #[cfg(feature = "legacy")]
-pub mod r#switch;
+pub mod switch;
 #[cfg(feature = "legacy")]
 pub mod tui;
 #[cfg(feature = "legacy")]

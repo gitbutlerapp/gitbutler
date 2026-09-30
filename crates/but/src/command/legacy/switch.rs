@@ -9,7 +9,7 @@ use serde::Serialize;
 
 use crate::{
     CliResult, IdMap,
-    args::{atoms::BranchArg, r#switch::Platform},
+    args::{atoms::BranchArg, switch::Platform},
     command::legacy::branch::{
         self,
         new::{NewOperation, NewUnstackedBranchOperation},

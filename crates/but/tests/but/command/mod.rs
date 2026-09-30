@@ -60,7 +60,7 @@ mod squash;
 #[cfg(feature = "legacy")]
 mod status;
 #[cfg(feature = "legacy")]
-mod r#switch;
+mod switch;
 #[cfg(feature = "legacy")]
 mod teardown;
 #[cfg(feature = "legacy")]
