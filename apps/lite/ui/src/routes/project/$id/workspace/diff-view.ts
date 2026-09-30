@@ -18,6 +18,7 @@ import {
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { DiffLineSelection } from "#ui/cursors.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import { diffFileHeaderHeight, diffFileSpacing } from "@gitbutler/ui-react/diffFileLayout.ts";
 import {
 	processFile,
 	type CodeViewDiffItem,
@@ -41,14 +42,14 @@ export type Annotation =
  * positions from the same numbers, and would drift silently if they diverged.
  */
 export const codeViewLayout: CodeViewLayout = {
+	// The toolbar above the scroller supplies the top (see .actions).
 	paddingTop: 0,
-	// Match --panel-padding-block.
-	paddingBottom: 12,
-	gap: 10,
+	paddingBottom: diffFileSpacing.bottom,
+	gap: diffFileSpacing.gap,
 };
 
 export const codeViewItemMetrics = {
-	diffHeaderHeight: 38,
+	diffHeaderHeight: diffFileHeaderHeight,
 	paddingTop: 6,
 	paddingBottom: 9,
 } satisfies Partial<VirtualFileMetrics>;

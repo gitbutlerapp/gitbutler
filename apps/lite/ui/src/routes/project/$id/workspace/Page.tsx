@@ -28,6 +28,7 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { useParams } from "@tanstack/react-router";
 import { interfaceSlice } from "#ui/interface/state.ts";
+import { diffFileSpacing } from "@gitbutler/ui-react/diffFileLayout.ts";
 import { ResizeHandle } from "@gitbutler/ui-react/ResizeHandle.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
@@ -670,6 +671,12 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 				<Panel
 					id={"details-panel" satisfies PanelId}
 					className={styles.panel}
+					// The diff's file spacing, shared with every app through ui-react, for
+					// the details view's toolbar and its diff to line up by.
+					style={{
+						"--diff-file-inset": `${diffFileSpacing.inset}px`,
+						"--diff-file-top": `${diffFileSpacing.top}px`,
+					}}
 					data-focus-scope={"details" satisfies FocusScope}
 				>
 					{/* Keyed on the deferred view itself, not on the URL: the deferred

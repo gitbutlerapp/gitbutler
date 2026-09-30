@@ -1817,10 +1817,65 @@ const DiffContents: FC<{
             background-color: var(--bg-1);
           }
 
+          /* ui-react's DiffFile card, drawn on Pierre's parts, since CodeView
+             creates each file's host itself and Lite can't render a DiffFile.
+             Keep in step with DiffFile.module.css.
+
+             The sides and bottom of the file's card; the header draws its top.
+             See .fileHeader in Details.module.css. */
           [data-diff] {
-            border-width: 0 1px 1px 1px;
-            border-style: solid;
-            border: none;
+            border: 1px solid var(--border-2);
+            border-top: none;
+            border-radius: 0 0 calc(var(--radius-card) * var(--diff-file-roundness)) calc(var(--radius-card) * var(--diff-file-roundness));
+          }
+
+          /* As a file scrolls away its card shrinks from the bottom, so the
+             frame stays whole and the stuck header is cut off by the card's
+             edge rather than pushed out of view. Over the card's last header
+             height sticky pushes the header up; the animation moves it down
+             by as much, and the host clips it to the card. Over the last two
+             radii the corners shrink with it, so the top and bottom curves
+             meet rather than cross. */
+          :host {
+            position: relative;
+            overflow: clip;
+            border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+            view-timeline: --diffs-file block;
+            animation: diffs-card-flatten linear both;
+            animation-timeline: --diffs-file;
+            animation-range: exit-crossing calc(100% - 2 * var(--radius-card)) exit-crossing 100%;
+          }
+
+          @keyframes diffs-card-flatten {
+            to {
+              --diff-file-roundness: 0;
+            }
+          }
+
+          [data-diffs-header] {
+            animation: diffs-header-hold linear both;
+            animation-timeline: --diffs-file;
+            animation-range: exit-crossing calc(100% - ${codeViewItemMetrics.diffHeaderHeight}px)
+              exit-crossing 100%;
+          }
+
+          @keyframes diffs-header-hold {
+            to {
+              translate: 0 ${codeViewItemMetrics.diffHeaderHeight}px;
+            }
+          }
+
+          /* The card's bottom edge, over a header the edge is cutting off. */
+          :host::after {
+            position: absolute;
+            z-index: 2;
+            height: calc(var(--radius-card) * var(--diff-file-roundness));
+            inset: auto 0 0;
+            border: 1px solid var(--border-2);
+            border-top: none;
+            border-radius: 0 0 calc(var(--radius-card) * var(--diff-file-roundness)) calc(var(--radius-card) * var(--diff-file-roundness));
+            content: "";
+            pointer-events: none;
           }
 
     		  /* Pierre doesn't support image diffs yet:
