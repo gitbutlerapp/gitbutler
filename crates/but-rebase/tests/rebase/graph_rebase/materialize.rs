@@ -851,3 +851,123 @@ fn insert_below_worktree_ref_moves_only_that_ref() -> Result<()> {
     snapbox::assert_data_eq!(git_status(&attached)?, snapbox::str![""]);
     Ok(())
 }
+
+fn child_commit(repo: &gix::Repository, parent: &str, message: &str) -> Result<gix::ObjectId> {
+    let parent = repo.rev_parse_single(parent)?;
+    let mut commit = but_core::Commit::from_id(parent)?;
+    commit.parents = [parent.detach()].into();
+    commit.message = message.into();
+    Ok(repo.write_object(commit.inner)?.detach())
+}
+
+#[test]
+fn materialize_detaches_head_when_checkout_reference_becomes_a_commit() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let commit = child_commit(&repo, "main", "in place of main")?;
+    let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
+    editor.replace(main_selector, Step::new_pick(commit))?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    assert_eq!(repo.head_name()?, None, "HEAD detaches at the commit");
+    assert_eq!(repo.head_id()?, commit, "which is left as it was");
+    assert!(
+        repo.try_find_reference("refs/heads/main")?.is_none(),
+        "the replaced branch is deleted"
+    );
+    Ok(())
+}
+
+#[test]
+fn an_attached_worktree_follows_its_branch_being_replaced_by_another() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let middle = repo.rev_parse_single("middle")?.detach();
+    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let selector = editor.select_reference("refs/heads/middle".try_into()?)?;
+    editor.replace(
+        selector,
+        Step::new_reference("refs/heads/renamed".try_into()?),
+    )?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    let attached = linked_repo(&repo, "wt")?;
+    assert_eq!(
+        std::fs::read_to_string(attached.git_dir().join("HEAD"))?,
+        "ref: refs/heads/renamed\n",
+        "the worktree is attached to the replacement branch"
+    );
+    assert_eq!(attached.head_id()?, middle, "which points where middle did");
+    Ok(())
+}
+
+#[test]
+fn an_attached_worktree_detaches_when_its_branch_becomes_a_commit() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let attached_dir = repo.workdir().unwrap().join("wt");
+    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let commit = child_commit(&repo, "middle", "in place of middle")?;
+    let selector = editor.select_reference("refs/heads/middle".try_into()?)?;
+    editor.replace(selector, Step::new_pick(commit))?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    let attached = gix::open(&attached_dir)?;
+    assert_eq!(
+        std::fs::read_to_string(attached.git_dir().join("HEAD"))?,
+        format!("{commit}\n"),
+        "the worktree is detached at the commit"
+    );
+    snapbox::assert_data_eq!(git_status(&attached)?, snapbox::str![""]);
+    Ok(())
+}
+
+#[test]
+fn a_detached_worktree_attaches_when_its_commit_becomes_a_branch() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let detached_dir = repo.workdir().unwrap().join("wt-detached");
+    let old_middle = repo.rev_parse_single("middle")?.detach();
+    let base = repo.rev_parse_single("middle~1")?.detach();
+    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let selector = editor.select_commit(old_middle)?;
+    editor.replace(
+        selector,
+        Step::new_reference("refs/heads/pinned".try_into()?),
+    )?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    let detached = gix::open(&detached_dir)?;
+    assert_eq!(
+        std::fs::read_to_string(detached.git_dir().join("HEAD"))?,
+        "ref: refs/heads/pinned\n",
+        "the worktree is attached to the branch"
+    );
+    assert_eq!(
+        detached.head_id()?,
+        base,
+        "which took the dropped commit's place"
+    );
+    assert!(
+        !detached_dir.join("a").exists(),
+        "the dropped commit's file is checked out away"
+    );
+    snapbox::assert_data_eq!(git_status(&detached)?, snapbox::str![""]);
+    Ok(())
+}
