@@ -49,6 +49,8 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
         Some(ForgeName::Bitbucket)
     } else if host.contains("azure.com") {
         Some(ForgeName::Azure)
+    } else if host.contains("gitee.com") || host.starts_with("gitee.") {
+        Some(ForgeName::Gitee)
     } else {
         None
     }

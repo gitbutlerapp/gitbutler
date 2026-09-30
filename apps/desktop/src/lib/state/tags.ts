@@ -17,6 +17,7 @@ export enum ReduxTag {
 	GitHubUserList = "GitHubUserList",
 	GitLabUserList = "GitLabUserList",
 	BitbucketUserList = "BitbucketUserList",
+	GiteeUserList = "GiteeUserList",
 	PullRequests = "PullRequests",
 	Checks = "Checks",
 	RepoInfo = "RepoInfo",

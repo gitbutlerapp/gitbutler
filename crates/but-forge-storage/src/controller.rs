@@ -140,6 +140,54 @@ impl Controller {
         self.save_settings(&settings)
     }
 
+    /// Get all known Gitee accounts.
+    pub fn gitee_accounts(&self) -> anyhow::Result<Vec<crate::settings::GiteeAccount>> {
+        let settings = self.read_settings()?;
+        Ok(settings.gitee.known_accounts)
+    }
+
+    /// Add a Gitee account if it does not already exist.
+    pub fn add_gitee_account(&self, account: &crate::settings::GiteeAccount) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+
+        if settings.gitee.known_accounts.iter().any(|a| a == account) {
+            return Ok(());
+        }
+
+        settings.gitee.known_accounts.push(account.to_owned());
+        self.save_settings(&settings)
+    }
+
+    /// Clear all Gitee accounts.
+    /// Returns the list of access token keys that should be deleted.
+    pub fn clear_all_gitee_accounts(&self) -> anyhow::Result<Vec<String>> {
+        let mut settings = self.read_settings()?;
+        let access_tokens_to_delete = settings
+            .gitee
+            .known_accounts
+            .iter()
+            .map(|account| account.access_token_key().to_string())
+            .collect::<Vec<String>>();
+        for key in &access_tokens_to_delete {
+            settings.cached_profiles.remove(key);
+        }
+        settings.gitee.known_accounts.clear();
+        self.save_settings(&settings)?;
+
+        Ok(access_tokens_to_delete)
+    }
+
+    /// Remove a Gitee account and its cached profile.
+    pub fn remove_gitee_account(
+        &self,
+        account: &crate::settings::GiteeAccount,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        settings.cached_profiles.remove(account.access_token_key());
+        settings.gitee.known_accounts.retain(|a| a != account);
+        self.save_settings(&settings)
+    }
+
     /// Get all known Bitbucket accounts.
     pub fn bitbucket_accounts(&self) -> anyhow::Result<Vec<crate::settings::BitbucketAccount>> {
         let settings = self.read_settings()?;

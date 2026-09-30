@@ -2,6 +2,7 @@
 	import BitbucketAccountBadge from "$components/forge/BitbucketAccountBadge.svelte";
 	import GitHubAccountBadge from "$components/forge/GitHubAccountBadge.svelte";
 	import GitLabAccountBadge from "$components/forge/GitLabAccountBadge.svelte";
+	import GiteeAccountBadge from "$components/forge/GiteeAccountBadge.svelte";
 	import ForgeAccountConfig from "$components/projectSettings/ForgeAccountConfig.svelte";
 	import GitHubOrgRestrictionNotice from "$components/projectSettings/GitHubOrgRestrictionNotice.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
@@ -12,6 +13,11 @@
 	} from "$lib/forge/bitbucket/bitbucketUserService.svelte";
 	import { usePreferredBitbucketUsername } from "$lib/forge/bitbucket/hooks.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import {
+		giteeAccountIdentifierToString,
+		stringToGiteeAccountIdentifier,
+	} from "$lib/forge/gitee/giteeUserService.svelte";
+	import { usePreferredGiteeUsername } from "$lib/forge/gitee/hooks.svelte";
 	import {
 		githubAccountIdentifierToString,
 		stringToGitHubAccountIdentifier,
@@ -34,6 +40,7 @@
 		BitbucketAccountIdentifier,
 		ForgeName,
 		ForgeUser,
+		GiteeAccountIdentifier,
 		GitHubStackingMode,
 		GithubAccountIdentifier,
 		GitlabAccountIdentifier,
@@ -48,6 +55,7 @@
 		{ label: "GitLab", value: "gitlab" },
 		{ label: "Azure", value: "azure" },
 		{ label: "BitBucket", value: "bitbucket" },
+		{ label: "Gitee", value: "gitee" },
 	];
 
 	const { projectId }: { projectId: string } = $props();
@@ -95,6 +103,11 @@
 		reactive(() => projectId),
 	);
 
+	// Gitee hooks
+	const { preferredGiteeAccount, giteeAccounts } = usePreferredGiteeUsername(
+		reactive(() => projectId),
+	);
+
 	function handleSelectionChange(selectedOption: ForgeSelection) {
 		if (!project) return;
 
@@ -130,6 +143,10 @@
 		account: BitbucketAccountIdentifier,
 	) {
 		await updatePreferredForgeUser(projectId, { provider: "bitbucket", details: account });
+	}
+
+	async function updatePreferredGiteeAccount(projectId: string, account: GiteeAccountIdentifier) {
+		await updatePreferredForgeUser(projectId, { provider: "gitee", details: account });
 	}
 
 	async function updateReviewStackingDescription(value: ReviewStackingDescription) {
@@ -293,6 +310,22 @@
 			updatePreferredAccount={updatePreferredBitbucketAccount}
 			AccountBadge={BitbucketAccountBadge}
 			docsUrl="https://docs.gitbutler.com/features/forge-integration/bitbucket-integration"
+			requestType="pull request"
+		/>
+	{/if}
+
+	{#if forgeInfo?.name === "gitee"}
+		<ForgeAccountConfig
+			{projectId}
+			displayName="Gitee"
+			accounts={giteeAccounts.current}
+			preferredAccount={preferredGiteeAccount.current}
+			accountToString={giteeAccountIdentifierToString}
+			stringToAccount={stringToGiteeAccountIdentifier}
+			getUsername={(account) => account.info.username}
+			updatePreferredAccount={updatePreferredGiteeAccount}
+			AccountBadge={GiteeAccountBadge}
+			docsUrl="https://gitee.com/profile/personal_access_tokens"
 			requestType="pull request"
 		/>
 	{/if}

@@ -34,11 +34,52 @@ pub async fn get_repo_info(
                 .await
                 .map(RepoInfo::from)
         }
+        ForgeName::Gitee => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitee());
+            fetch_gitee_repo_info(preferred_account, owner, repo, storage).await
+        }
         ForgeName::Azure => Err(anyhow::anyhow!(
             "Fetching repo info for forge {:?} is not implemented yet.",
             forge_repo_info.forge
         )),
     }
+}
+
+/// Fetch Gitee repo info and map it to the unified `RepoInfo`.
+async fn fetch_gitee_repo_info(
+    preferred_account: Option<&but_gitee::GiteeAccountIdentifier>,
+    owner: &str,
+    repo: &str,
+    storage: &but_forge_storage::Controller,
+) -> anyhow::Result<RepoInfo> {
+    let account = preferred_account
+        .cloned()
+        .or_else(|| {
+            but_gitee::list_known_gitee_accounts(storage)
+                .ok()
+                .and_then(|mut a| a.pop())
+        })
+        .ok_or_else(|| anyhow::anyhow!("No Gitee account is signed in."))?;
+    let Some(access_token) = but_gitee::token_access_token(&account, storage)? else {
+        return Err(anyhow::anyhow!(
+            "No Gitee access token found for account '{account}'."
+        ));
+    };
+    let client = but_gitee::GiteeClient::new(&access_token)?;
+    let info = client.get_repo(owner, repo).await?;
+    let permissions = info.permissions.as_ref().map(|p| RepoPermissions {
+        pull: p.pull,
+        triage: p.pull,
+        push: p.push,
+        maintain: p.push,
+        admin: p.admin,
+    });
+    Ok(RepoInfo {
+        permissions,
+        fork: info.fork,
+        private: Some(info.private),
+        delete_branch_on_merge: None,
+    })
 }
 
 #[derive(Debug, Clone, Serialize)]

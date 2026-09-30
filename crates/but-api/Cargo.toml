@@ -102,6 +102,7 @@ but-project-handle.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
 but-github.workspace = true
+but-gitee.workspace = true
 but-gitlab.workspace = true
 but-bitbucket.workspace = true
 # 'legacy' is needed while this is only a sketch of what the oplog could be.

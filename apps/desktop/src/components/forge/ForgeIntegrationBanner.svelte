@@ -1,5 +1,6 @@
 <script lang="ts">
 	import bitbucketLogoSvg from "$lib/assets/unsized-logos/bitbucket.svg?raw";
+	import giteeLogoSvg from "$lib/assets/unsized-logos/gitee.svg?raw";
 	import githubLogoSvg from "$lib/assets/unsized-logos/github.svg?raw";
 	import gitlabLogoSvg from "$lib/assets/unsized-logos/gitlab.svg?raw";
 	import { persistedDismissedForgeIntegrationPrompt } from "$lib/config/config";
@@ -25,7 +26,10 @@
 	const canSetupIntegration = $derived(
 		forgeInfo &&
 			!auth.authenticated.current &&
-			(forgeInfo.name === "github" || forgeInfo.name === "gitlab" || forgeInfo.name === "bitbucket")
+			(forgeInfo.name === "github" ||
+				forgeInfo.name === "gitlab" ||
+				forgeInfo.name === "bitbucket" ||
+				forgeInfo.name === "gitee")
 			? forgeInfo.name
 			: undefined,
 	);
@@ -64,7 +68,7 @@
 		dismissedTheIntegrationPrompt.set(true);
 	}
 
-	type SetupForgeName = "github" | "gitlab" | "bitbucket";
+	type SetupForgeName = "github" | "gitlab" | "bitbucket" | "gitee";
 
 	function forgeLabelFor(name: SetupForgeName): string {
 		switch (name) {
@@ -74,6 +78,8 @@
 				return "GitLab";
 			case "bitbucket":
 				return "Bitbucket";
+			case "gitee":
+				return "Gitee";
 		}
 	}
 
@@ -89,6 +95,8 @@
 				return "https://docs.gitbutler.com/features/forge-integration/gitlab-integration";
 			case "bitbucket":
 				return "https://docs.gitbutler.com/features/forge-integration/bitbucket-integration";
+			case "gitee":
+				return "https://gitee.com/profile/personal_access_tokens";
 		}
 	}
 
@@ -100,6 +108,8 @@
 				return gitlabLogoSvg;
 			case "bitbucket":
 				return bitbucketLogoSvg;
+			case "gitee":
+				return giteeLogoSvg;
 		}
 	}
 </script>

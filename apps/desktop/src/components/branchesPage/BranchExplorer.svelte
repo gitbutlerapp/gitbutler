@@ -155,6 +155,7 @@
 		gitlab: "GitLab",
 		bitbucket: "Bitbucket",
 		azure: "Azure DevOps",
+		gitee: "Gitee",
 	};
 
 	// Increased from 180 to accommodate longer contextual messages

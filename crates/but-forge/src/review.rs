@@ -108,7 +108,31 @@ pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFu
             is_valid_review_template_path: is_valid_review_template_path_azure,
             supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
         },
+        ForgeName::Gitee => ReviewTemplateFunctions {
+            // Gitee uses the same `PULL_REQUEST_TEMPLATE.md` convention as GitHub,
+            // at the repo root or under `.gitee/`. Not implemented yet — same
+            // placeholder as Bitbucket/Azure.
+            is_review_template: is_review_template_gitee,
+            get_root: get_gitee_directory_path,
+            is_valid_review_template_path: is_valid_review_template_path_gitee,
+            supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
+        },
     }
+}
+
+fn get_gitee_directory_path(root_path: &path::Path) -> path::PathBuf {
+    // TODO: implement
+    root_path.to_path_buf()
+}
+
+fn is_review_template_gitee(_path_str: &str) -> bool {
+    // TODO: implement
+    false
+}
+
+fn is_valid_review_template_path_gitee(_path: &path::Path) -> bool {
+    // TODO: implement
+    false
 }
 
 fn get_github_directory_path(root_path: &path::Path) -> path::PathBuf {
@@ -458,6 +482,91 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
     }
 }
 
+impl From<but_gitee::GiteePullRequest> for ForgeReview {
+    fn from(pr: but_gitee::GiteePullRequest) -> Self {
+        let merged_at = pr.merged_at.clone();
+        let closed_at = pr.closed_at.clone();
+        ForgeReview {
+            html_url: pr.html_url,
+            number: pr.number,
+            title: pr.title,
+            body: pr.body,
+            author: pr.user.map(ForgeReviewUser::from),
+            labels: pr
+                .labels
+                .unwrap_or_default()
+                .into_iter()
+                .map(ForgeReviewLabel::from)
+                .collect(),
+            draft: pr.draft.unwrap_or(false),
+            source_branch: pr
+                .head
+                .as_ref()
+                .map(|h| h.ref_name.clone())
+                .unwrap_or_default(),
+            target_branch: pr
+                .base
+                .as_ref()
+                .map(|b| b.ref_name.clone())
+                .unwrap_or_default(),
+            sha: pr.head.as_ref().map(|h| h.sha.clone()).unwrap_or_default(),
+            integration_commit_shas: Default::default(),
+            created_at: Some(pr.created_at),
+            modified_at: pr.updated_at,
+            merged_at,
+            closed_at,
+            repository_ssh_url: pr
+                .base
+                .as_ref()
+                .and_then(|b| b.repo.as_ref())
+                .map(|r| format!("git@gitee.com:{}.git", r.full_name)),
+            repository_https_url: pr
+                .base
+                .as_ref()
+                .and_then(|b| b.repo.as_ref())
+                .map(|r| format!("https://gitee.com/{}.git", r.full_name)),
+            repo_owner: pr
+                .base
+                .as_ref()
+                .and_then(|b| b.repo.as_ref())
+                .map(|r| r.full_name.clone()),
+            head_repo_is_fork: pr
+                .head
+                .as_ref()
+                .and_then(|h| h.repo.as_ref())
+                .map(|r| r.fork)
+                .unwrap_or(false),
+            reviewers: Default::default(),
+            auto_merge_enabled: false,
+            unit_symbol: "#".to_string(),
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
+impl From<but_gitee::GiteeUser> for ForgeReviewUser {
+    fn from(user: but_gitee::GiteeUser) -> Self {
+        ForgeReviewUser {
+            id: user.id,
+            login: user.login,
+            name: user.name,
+            email: user.email,
+            avatar_url: user.avatar_url,
+            is_bot: false,
+        }
+    }
+}
+
+impl From<but_gitee::GiteeLabel> for ForgeReviewLabel {
+    fn from(label: but_gitee::GiteeLabel) -> Self {
+        ForgeReviewLabel {
+            name: label.name.unwrap_or_default(),
+            description: None,
+            color: label.color,
+        }
+    }
+}
+
 impl From<but_bitbucket::BitbucketPullRequest> for ForgeReview {
     fn from(pr: but_bitbucket::BitbucketPullRequest) -> Self {
         let merged_at = pr.merged_at();
@@ -736,6 +845,36 @@ fn list_recently_settled_reviews(
 
             prs.into_iter().map(ForgeReview::from).collect()
         }
+        ForgeName::Gitee => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitee().cloned());
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let storage = storage.clone();
+
+            let prs = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .map_err(|e| {
+                        anyhow::anyhow!(
+                            "Failed to create a runtime for the settled-review sweep: {e}"
+                        )
+                    })?
+                    .block_on(but_gitee::list_all_prs(
+                        preferred_account.as_ref(),
+                        &owner,
+                        &repo,
+                        &storage,
+                    ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+
+            prs.into_iter()
+                .filter(|pr| pr.is_merged())
+                .map(ForgeReview::from)
+                .collect()
+        }
         _ => Vec::new(),
     };
     Ok(reviews)
@@ -777,6 +916,16 @@ impl From<but_gitlab::CredentialCheckResult> for ForgeAccountValidity {
             but_gitlab::CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
             but_gitlab::CredentialCheckResult::NoCredentials => ForgeAccountValidity::NoCredentials,
             but_gitlab::CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
+        }
+    }
+}
+
+impl From<but_gitee::CredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: but_gitee::CredentialCheckResult) -> Self {
+        match value {
+            but_gitee::CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
+            but_gitee::CredentialCheckResult::NoCredentials => ForgeAccountValidity::NoCredentials,
+            but_gitee::CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
         }
     }
 }
@@ -860,6 +1009,12 @@ pub async fn check_forge_account_is_valid(
             };
 
             but_bitbucket::check_credentials(&preferred_account, storage)
+                .await
+                .map(Into::into)
+        }
+        ForgeName::Gitee => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitee());
+            but_gitee::check_credentials(preferred_account, storage)
                 .await
                 .map(Into::into)
         }
@@ -1041,6 +1196,21 @@ pub async fn list_forge_reviews_for_branch(
             let prs = filter_bb_prs(prs, &filter);
             Ok(prs.into_iter().map(ForgeReview::from).collect())
         }
+        ForgeName::Gitee => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitee().cloned());
+            let prs = but_gitee::list_prs_for_branch(
+                preferred_account.as_ref(),
+                owner,
+                repo,
+                branch,
+                storage,
+            )
+            .await?;
+            let prs = filter_gitee_prs(prs, &filter);
+            Ok(prs.into_iter().map(ForgeReview::from).collect())
+        }
         _ => Err(Error::msg(format!(
             "Listing reviews for forge {forge:?} is not implemented yet.",
         ))),
@@ -1155,6 +1325,49 @@ fn filter_bb_prs(
                 }
                 ForgeReviewFilter::ThisMonth => {
                     merged_at.year() == now.year() && merged_at.month() == now.month()
+                }
+                ForgeReviewFilter::All => true,
+            }
+        })
+        .collect()
+}
+
+fn filter_gitee_prs(
+    prs: Vec<but_gitee::GiteePullRequest>,
+    filter: &ForgeReviewFilter,
+) -> Vec<but_gitee::GiteePullRequest> {
+    let now = chrono::Utc::now();
+    prs.into_iter()
+        .filter(|pr| {
+            if pr.merged_at.is_none() {
+                return false;
+            }
+            match filter {
+                ForgeReviewFilter::Today => {
+                    if let Some(merged_at_str) = &pr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        return merged_at.date_naive() == now.date_naive();
+                    }
+                    false
+                }
+                ForgeReviewFilter::ThisWeek => {
+                    if let Some(merged_at_str) = &pr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        let week_start = now
+                            - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
+                        return merged_at.date_naive() >= week_start.date_naive();
+                    }
+                    false
+                }
+                ForgeReviewFilter::ThisMonth => {
+                    if let Some(merged_at_str) = &pr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        return merged_at.year() == now.year() && merged_at.month() == now.month();
+                    }
+                    false
                 }
                 ForgeReviewFilter::All => true,
             }
@@ -2244,7 +2457,7 @@ pub async fn get_review_base_repo_url(
                 .context("Failed to fetch PR base repo URL")
         }
         // None tells the UI to fall back to a branch-name-only check.
-        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => Ok(None),
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::Gitee => Ok(None),
     }
 }
 
@@ -2809,6 +3022,25 @@ pub async fn create_forge_review(
                 draft: params.draft,
             };
             let pr = but_bitbucket::pr::create(preferred_account, pr_params, storage).await?;
+            Ok(ForgeReview::from(pr))
+        }
+        ForgeName::Gitee => {
+            let (head_owner, _head_repo) =
+                github_head_owner_and_repo(forge_repo_info, forge_push_repo_info);
+
+            let head = format!("{}:{}", head_owner, params.source_branch);
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitee());
+            let pr = but_gitee::create_pr(
+                preferred_account,
+                owner,
+                repo,
+                &head,
+                &params.target_branch,
+                &params.title,
+                &params.body,
+                storage,
+            )
+            .await?;
             Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(
