@@ -143,11 +143,9 @@ import {
 } from "#ui/focus-scopes.ts";
 import { buildIndexByKey, getAdjacent } from "#ui/workspace/address-space.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
-import { ChangeScale } from "@gitbutler/ui-react/ChangeScale.tsx";
-import { DiffStats } from "@gitbutler/ui-react/DiffStats.tsx";
+import { DiffFileHeader as UIDiffFileHeader } from "@gitbutler/ui-react/DiffFileHeader.tsx";
 import { useChangesMenuItems } from "#ui/routes/project/$id/workspace/useChangesMenuItems.ts";
 import {
-	describeLineStats,
 	getLineStats,
 	patchLineStats,
 	type LineStats,
@@ -216,7 +214,6 @@ import {
 	type LocalAnnotationsByPath,
 	useCommentCreate,
 } from "#ui/annotation.ts";
-import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
 import {
 	type Annotation,
 	codeViewItemMetrics,
@@ -1820,10 +1817,65 @@ const DiffContents: FC<{
             background-color: var(--bg-1);
           }
 
+          /* ui-react's DiffFile card, drawn on Pierre's parts, since CodeView
+             creates each file's host itself and Lite can't render a DiffFile.
+             Keep in step with DiffFile.module.css.
+
+             The sides and bottom of the file's card; the header draws its top.
+             See .fileHeader in Details.module.css. */
           [data-diff] {
-            border-width: 0 1px 1px 1px;
-            border-style: solid;
-            border: none;
+            border: 1px solid var(--border-2);
+            border-top: none;
+            border-radius: 0 0 calc(var(--radius-card) * var(--diff-file-roundness)) calc(var(--radius-card) * var(--diff-file-roundness));
+          }
+
+          /* As a file scrolls away its card shrinks from the bottom, so the
+             frame stays whole and the stuck header is cut off by the card's
+             edge rather than pushed out of view. Over the card's last header
+             height sticky pushes the header up; the animation moves it down
+             by as much, and the host clips it to the card. Over the last two
+             radii the corners shrink with it, so the top and bottom curves
+             meet rather than cross. */
+          :host {
+            position: relative;
+            overflow: clip;
+            border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+            view-timeline: --diffs-file block;
+            animation: diffs-card-flatten linear both;
+            animation-timeline: --diffs-file;
+            animation-range: exit-crossing calc(100% - 2 * var(--radius-card)) exit-crossing 100%;
+          }
+
+          @keyframes diffs-card-flatten {
+            to {
+              --diff-file-roundness: 0;
+            }
+          }
+
+          [data-diffs-header] {
+            animation: diffs-header-hold linear both;
+            animation-timeline: --diffs-file;
+            animation-range: exit-crossing calc(100% - ${codeViewItemMetrics.diffHeaderHeight}px)
+              exit-crossing 100%;
+          }
+
+          @keyframes diffs-header-hold {
+            to {
+              translate: 0 ${codeViewItemMetrics.diffHeaderHeight}px;
+            }
+          }
+
+          /* The card's bottom edge, over a header the edge is cutting off. */
+          :host::after {
+            position: absolute;
+            z-index: 2;
+            height: calc(var(--radius-card) * var(--diff-file-roundness));
+            inset: auto 0 0;
+            border: 1px solid var(--border-2);
+            border-top: none;
+            border-radius: 0 0 calc(var(--radius-card) * var(--diff-file-roundness)) calc(var(--radius-card) * var(--diff-file-roundness));
+            content: "";
+            pointer-events: none;
           }
 
     		  /* Pierre doesn't support image diffs yet:
@@ -1929,24 +1981,6 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 		change: p.change,
 	});
 
-	const lastSepIdx = p.change.path.lastIndexOf("/");
-	const directoryPath = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx) : null;
-	const fileName = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
-
-	// The counts read as added/removed lines on sight, but only to someone who
-	// knows the colouring: the wording carries the units, for the tooltip and for
-	// screen readers alike.
-	const lineStatsParts = p.lineStats === null ? [] : describeLineStats(p.lineStats);
-	const lineStatsLabel = lineStatsParts.length === 0 ? null : lineStatsParts.join(", ");
-
-	const collapseLabel = p.collapsed ? "Unfold" : "Fold";
-	const reviewLabel =
-		p.reviewState === "reviewed"
-			? "Reviewed"
-			: p.reviewState === "changed"
-				? "Needs review"
-				: "Not reviewed";
-
 	return (
 		<OperationSourceC
 			projectId={p.projectId}
@@ -1955,7 +1989,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 			outline="inside"
 			acceptOriginDrop
 		>
-			<header
+			<UIDiffFileHeader
 				// Not a tab stop, but mouse-focusable: clicking the header's own chrome
 				// focuses it as the nearest focusable ancestor, so Tab walks this file's
 				// actions instead of restarting at the first file in the diff, which is
@@ -1970,74 +2004,19 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					p.collapsed && styles.folded,
 					p.selected && styles.fileHeaderSelected,
 				)}
-			>
-				<Tooltip content={collapseLabel} kbd={diffHotkeys.toggleFoldFile.hotkey} kbdScope="diff">
-					<Button
-						size="small"
-						variant="ghost"
-						iconOnly
-						aria-label={collapseLabel}
-						aria-expanded={!p.collapsed}
-						onClick={() => p.setCollapsed(!p.collapsed)}
-					>
-						<Icon name={p.collapsed ? "chevron-right" : "chevron-down"} />
-					</Button>
-				</Tooltip>
-				<h4 className={classes("text-13", styles.filePath)}>
-					<FileIcon fileName={fileName} className={styles.icon} />
-					{fileName}
-					{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
-				</h4>
-				<div className={styles.fileHeaderEnd}>
-					{p.lineStats && lineStatsLabel !== null && (
-						<Tooltip content={lineStatsLabel}>
-							<div aria-label={lineStatsLabel} className={styles.fileMeta}>
-								<DiffStats
-									added={p.lineStats.linesAdded}
-									removed={p.lineStats.linesRemoved}
-									className="text-12"
-								/>
-								<ChangeScale added={p.lineStats.linesAdded} removed={p.lineStats.linesRemoved} />
-							</div>
-						</Tooltip>
-					)}
-
-					<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
-						<Toolbar.Separator className={styles.fileHeaderSeparator} />
-						{/* One button carrying checkbox semantics, with the box drawn inside it,
-						    rather than a real Checkbox nested in a button or a label. Both of
-						    those leave two controls where the design has one, and Base UI's
-						    checkbox renders unfocusable inside a label. "Changed since you
-						    reviewed it" is the mixed state; the tooltip spells that out. */}
-						<Tooltip content={reviewLabel}>
-							<Toolbar.Button
-								aria-pressed={p.reviewState === "changed" ? "mixed" : p.reviewState === "reviewed"}
-								className={classes(
-									getButtonClassName({ size: "small", variant: "ghost" }),
-									styles.fileReview,
-								)}
-								onClick={() => p.setReviewed(p.reviewState !== "reviewed")}
-							>
-								<span className={styles.fileReviewBox} aria-hidden="true">
-									{p.reviewState !== null && (
-										<Icon size={10} name={p.reviewState === "reviewed" ? "tick" : "minus"} />
-									)}
-								</span>
-								Reviewed
-							</Toolbar.Button>
-						</Tooltip>
-						<Toolbar.Button
-							aria-label="File menu"
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-							}}
-							className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
-						>
-							<Icon name="kebab" />
-						</Toolbar.Button>
-					</Toolbar.Root>
-				</div>
-			</header>
+				path={p.change.path}
+				added={p.lineStats?.linesAdded}
+				removed={p.lineStats?.linesRemoved}
+				collapsed={p.collapsed}
+				onCollapsedChange={p.setCollapsed}
+				collapseKbd={diffHotkeys.toggleFoldFile.hotkey}
+				collapseKbdScope="diff"
+				reviewState={p.reviewState ?? "unreviewed"}
+				onReviewedChange={p.setReviewed}
+				onMenu={(event) => {
+					void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+				}}
+			/>
 		</OperationSourceC>
 	);
 };
