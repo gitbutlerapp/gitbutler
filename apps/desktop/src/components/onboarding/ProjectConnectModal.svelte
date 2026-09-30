@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { t } from "$lib/i18n";
+
 	import { inject } from "@gitbutler/core/context";
 	import RegisterInterest from "@gitbutler/shared/interest/RegisterInterest.svelte";
 	import Loading from "@gitbutler/shared/network/Loading.svelte";
@@ -81,7 +83,7 @@
 		{/each}
 	</CardGroup>
 
-	<Button onclick={() => connectToOrganization()}>Create organization project</Button>
+	<Button onclick={() => connectToOrganization()}>{t("create-organization-project")}</Button>
 </Modal>
 
 <Button onclick={() => modal?.show()}>Connect</Button>

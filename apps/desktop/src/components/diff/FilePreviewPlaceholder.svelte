@@ -1,12 +1,13 @@
 <script lang="ts">
 	import SelectToPreviewSVG from "$lib/assets/illustrations/select-to-preview.svg?raw";
+	import { t } from "$lib/i18n";
 </script>
 
 <div class="select-some">
 	<div class="select-some__image">
 		{@html SelectToPreviewSVG}
 	</div>
-	<span class="text-13 select-some__caption">Select a file to preview</span>
+	<span class="text-13 select-some__caption">{t("select-a-file-to-preview")}</span>
 </div>
 
 <style lang="postcss">

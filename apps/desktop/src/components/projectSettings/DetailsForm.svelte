@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import { t } from "$lib/i18n";
+
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Spacer, Textarea, Textbox } from "@gitbutler/ui-svelte";
@@ -14,12 +16,12 @@
 	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<div class="fields-wrapper">
-				<Textbox label="Project path" readonly id="path" value={project?.path} />
+				<Textbox label={t("project-path")} readonly id="path" value={project?.path} />
 				<div class="description-wrapper">
 					<Textbox
-						label="Project name"
+						label={t("project-name")}
 						id="name"
-						placeholder="Project name can't be empty"
+						placeholder={t("project-name-can-t-be-empty")}
 						value={project.title}
 						required
 						onchange={(value: string) => {
@@ -30,7 +32,7 @@
 						id="description"
 						minRows={3}
 						maxRows={6}
-						placeholder="Project description"
+						placeholder={t("project-description")}
 						value={project.description}
 						oninput={(e: Event) => {
 							const target = e.currentTarget as HTMLTextAreaElement;

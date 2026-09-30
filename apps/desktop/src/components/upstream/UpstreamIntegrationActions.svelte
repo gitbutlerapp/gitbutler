@@ -1,5 +1,7 @@
 <script lang="ts">
 	import BranchIntegrationModal from "$components/branch/BranchIntegrationModal.svelte";
+	import { t } from "$lib/i18n";
+
 	import { Button, Modal, TestId } from "@gitbutler/ui-svelte";
 
 	type Props = {
@@ -21,16 +23,16 @@
 
 <div class="upstream-integration-actions">
 	<p class="text-12 text-body clr-text-2">
-		This branch and its remote have diverged.
+		{t("this-branch-and-its-remote-have-diverged")}
 		<br />
-		Update to integrate the remote changes.
+		{t("update-to-integrate-the-remote-changes")}
 	</p>
 	<Button
 		style="warning"
 		testId={TestId.UpstreamCommitsIntegrateButton}
 		onclick={kickOffIntegration}
 	>
-		Update local branch...
+		{t("update-local-branch")}
 	</Button>
 </div>
 

@@ -4,6 +4,7 @@
 	import AppLayout from "$components/views/AppLayout.svelte";
 	import directionDoubtSvg from "$lib/assets/illustrations/direction-doubt.svg?raw";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { t } from "$lib/i18n";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -78,14 +79,13 @@
 
 			<div class="switchrepo__content" data-testid={TestId.NotOnGitButlerBranchView}>
 				<p class="switchrepo__title text-18 text-body text-bold">
-					You've switched away from <span class="code-string"> gitbutler/workspace </span>
+					{t("you-ve-switched-away-from")} <span class="code-string"> gitbutler/workspace </span>
 				</p>
 
 				<p class="switchrepo__message text-13 text-body">
-					Due to GitButler managing multiple virtual branches, you cannot switch back and forth
-					between git branches and virtual branches easily.
+					{t("due-to-gitbutler-managing-multiple-virtual-branches-you-cann")}
 					<Link href="https://docs.gitbutler.com/features/branch-management/integration-branch">
-						Learn more
+						{t("learn-more")}
 					</Link>
 				</p>
 
@@ -93,7 +93,7 @@
 					<div class="switchrepo__uncommited-changes">
 						<div class="switchrepo__uncommited-changes__section">
 							<p class="switchrepo__label text-13 text-body text-bold">
-								You have uncommitted changes:
+								{t("you-have-uncommitted-changes")}
 							</p>
 							<div class="switchrepo__file-list">
 								{#each uncommittedChanges as change, i}
@@ -106,7 +106,7 @@
 							</div>
 							{#if conflicts}
 								<p class="switchrepo__label text-13 text-body clr-text-2">
-									Some files can’t be applied due to conflicts:
+									{t("some-files-can-t-be-applied-due-to-conflicts")}
 								</p>
 								<div class="switchrepo__file-list">
 									<ReduxResult result={mode.result} {projectId}>
@@ -131,7 +131,7 @@
 						<hr class="switchrepo__divider" />
 
 						<p class="switchrepo__label text-13 text-body text-bold">
-							What should we do with your uncommitted changes?
+							{t("what-should-we-do-with-your-uncommitted-changes")}
 						</p>
 
 						<div class="switchrepo__handling-options">
@@ -161,7 +161,7 @@
 						loading={targetBranchSwitch.current.isLoading}
 						action={initSwithToWorkspace}
 					>
-						Switch back
+						{t("switch-back")}
 					</AsyncButton>
 				</div>
 			</div>

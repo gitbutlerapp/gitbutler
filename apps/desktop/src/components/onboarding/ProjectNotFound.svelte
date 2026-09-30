@@ -5,6 +5,7 @@
 	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import notFoundSvg from "$lib/assets/illustrations/not-found.svg?raw";
+	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, InfoMessage, type MessageStyle, Spacer, TestId } from "@gitbutler/ui-svelte";
@@ -58,25 +59,25 @@
 				{#if deleteSucceeded === undefined}
 					<div class="text-content">
 						<h2 class="title-text text-18 text-body text-bold">
-							Can’t find "{project.title}"
+							{t("can-t-find")}{project.title}"
 						</h2>
 
 						<p class="description-text text-13 text-body">
-							Sorry, we can't find the project you're looking for.
+							{t("sorry-we-can-t-find-the-project-you-re-looking-for")}
 							<br />
-							It might have been removed or doesn't exist.
+							{t("it-might-have-been-removed-or-doesn-t-exist")}
 							<button type="button" class="check-again-btn" onclick={() => location.reload()}
-								>Click here</button
+								>{t("click-here")}</button
 							>
-							to check again.
+							{t("to-check-again")}
 							<br />
-							The current project path: <span class="code-string">{project.path}</span>
+							{t("the-current-project-path")} <span class="code-string">{project.path}</span>
 						</p>
 					</div>
 
 					<div class="button-container">
 						<Button type="button" style="pop" onclick={async () => await locate(projectId)}
-							>Locate project…</Button
+							>{t("locate-project")}</Button
 						>
 						<RemoveProjectButton
 							noModal

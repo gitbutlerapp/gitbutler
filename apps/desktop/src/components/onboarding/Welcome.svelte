@@ -5,6 +5,7 @@
 	import IconLink from "$components/shared/IconLink.svelte";
 	import cloneRepoSvg from "$lib/assets/welcome/clone-repo.svg?raw";
 	import newProjectSvg from "$lib/assets/welcome/new-local-project.svg?raw";
+	import { t } from "$lib/i18n";
 	import { handleAddProjectOutcome } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
@@ -42,7 +43,7 @@
 </script>
 
 <div class="welcome" data-testid={TestId.WelcomePage}>
-	<h1 class="welcome-title text-serif-42">Welcome to GitButler!</h1>
+	<h1 class="welcome-title text-serif-42">{t("welcome-to-gitbutler")}</h1>
 	<div class="welcome__actions">
 		<div class="welcome__actions--repo">
 			<input
@@ -63,7 +64,7 @@
 						{@html newProjectSvg}
 					{/snippet}
 					{#snippet message()}
-						Should be a valid git repository
+						{t("should-be-a-valid-git-repository")}
 					{/snippet}
 				</WelcomeAction>
 			{/if}
@@ -72,7 +73,7 @@
 					{@html cloneRepoSvg}
 				{/snippet}
 				{#snippet message()}
-					Clone a repo using a URL
+					{t("clone-a-repo-using-a-url")}
 				{/snippet}
 			</WelcomeAction>
 		</div>
@@ -82,21 +83,21 @@
 
 	<div class="links">
 		<div class="links__section">
-			<p class="links__title text-14 text-bold">Quick start</p>
+			<p class="links__title text-14 text-bold">{t("quick-start")}</p>
 			<div class="education-links">
 				<IconLink
 					icon="docs"
 					href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
 				>
-					GitButler docs
+					{t("gitbutler-docs")}
 				</IconLink>
 				<IconLink icon="youtube" href="https://www.youtube.com/@gitbutlerapp">
-					Watch tutorials
+					{t("watch-tutorials")}
 				</IconLink>
 			</div>
 		</div>
 		<div class="links__section">
-			<p class="links__title text-14 text-bold">Join our community</p>
+			<p class="links__title text-14 text-bold">{t("join-our-community")}</p>
 			<div class="community-links">
 				<IconLink icon="discord" href="https://discord.gg/MmFkmaJ42D">Discord</IconLink>
 				<IconLink icon="bluesky" href="https://bsky.app/profile/gitbutler.com">Bluesky</IconLink>

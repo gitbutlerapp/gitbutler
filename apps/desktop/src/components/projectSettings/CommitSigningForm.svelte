@@ -3,6 +3,7 @@
 	import SettingsSection from "$components/shared/SettingsSection.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { t } from "$lib/i18n";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		Button,
@@ -99,13 +100,14 @@
 	<CardGroup>
 		<CardGroup.Item labelFor="signCommits">
 			{#snippet title()}
-				Sign commits
+				{t("sign-commits")}
 			{/snippet}
 			{#snippet caption()}
-				Use GPG or SSH to sign your commits so they can be verified as authentic.
+				{t("use-gpg-or-ssh-to-sign-your-commits-so-they-can-be-verified-")}
 				<br />
-				GitButler will sign commits as per your git configuration, but evaluates
-				<code class="code-string">gitbutler.signCommits</code> with priority.
+				{t("gitbutler-will-sign-commits-as-per-your-git-configuration-bu")}
+				<code class="code-string">gitbutler.signCommits</code>
+				{t("with-priority")}
 			{/snippet}
 			{#snippet actions()}
 				<Toggle id="signCommits" checked={signCommits} onclick={handleSignCommitsClick} />
@@ -119,7 +121,7 @@
 					value={signingFormat}
 					options={signingFormatOptions}
 					wide
-					label="Signing format"
+					label={t("signing-format")}
 					onselect={(value: string) => {
 						signingFormat = value;
 						updateSigningInfo();
@@ -133,7 +135,7 @@
 				</Select>
 
 				<Textbox
-					label="Signing key"
+					label={t("signing-key")}
 					bind:value={signingKey}
 					required
 					onchange={updateSigningInfo}
@@ -141,7 +143,7 @@
 				/>
 
 				<Textbox
-					label="Signing program (optional)"
+					label={t("signing-program-optional")}
 					bind:value={signingProgram}
 					onchange={updateSigningInfo}
 					placeholder={programPlaceholder}
@@ -156,11 +158,11 @@
 					>
 						{#snippet title()}
 							{#if loading}
-								<p>Checking signing</p>
+								<p>{t("checking-signing")}</p>
 							{:else if signCheckResult}
-								<p>Signing is working correctly</p>
+								<p>{t("signing-is-working-correctly")}</p>
 							{:else}
-								<p>Signing is not working correctly</p>
+								<p>{t("signing-is-not-working-correctly")}</p>
 							{/if}
 						{/snippet}
 					</InfoMessage>
@@ -168,17 +170,17 @@
 
 				<Button style="pop" wide icon="tick" onclick={checkSigning}>
 					{#if !checked}
-						Test signing
+						{t("test-signing")}
 					{:else}
-						Re-test signing
+						{t("re-test-signing")}
 					{/if}
 				</Button>
 				<SectionCardDisclaimer>
-					Signing commits can allow other people to verify your commits if you publish the public
-					version of your signing key.
+					{t("signing-commits-can-allow-other-people-to-verify-your-commit")}
 					<Link href="https://docs.gitbutler.com/features/virtual-branches/signing-commits"
-						>Read more</Link
-					> about commit signing and verification.
+						>{t("read-more")}</Link
+					>
+					{t("about-commit-signing-and-verification")}
 				</SectionCardDisclaimer>
 			</CardGroup.Item>
 		</CardGroup>
