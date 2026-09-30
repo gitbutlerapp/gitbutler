@@ -910,6 +910,10 @@ fn an_attached_worktree_follows_its_branch_being_replaced_by_another() -> Result
         "the worktree is attached to the replacement branch"
     );
     assert_eq!(attached.head_id()?, middle, "which points where middle did");
+    assert!(
+        repo.try_find_reference("refs/heads/middle")?.is_none(),
+        "the replaced branch is deleted once no HEAD is left on it"
+    );
     Ok(())
 }
 
