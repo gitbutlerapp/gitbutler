@@ -43,6 +43,8 @@ To bypass this issue, where Redux store values are only needed at event-time (i.
 
 `useEffect` is typically an anti-pattern. Think long and hard before declaring it the best option. Should it appear to be the best option, always ask for consent to include it.
 
+Changing `packages/ui-react` from a Lite task needs consent too, since every app draws with it; its `AGENTS.md` says how.
+
 ### Comments
 
 Only include code comments where the higher-level purpose of the code may not be self-evident, for example unobvious technical edge cases. The "what" should be self-evident. If in doubt don't include a comment.
