@@ -229,17 +229,13 @@
 }
 
 .checksList {
-	display: flex;
-	flex-direction: column;
 	max-height: min(280px, 40vh);
 	/* Reach the section edges; the rows provide the content inset. */
 	margin: -8px -12px -12px -14px;
-	overflow-y: auto;
-	overscroll-behavior-y: contain;
-	scrollbar-gutter: stable;
 }
 
-.checksList:focus-visible {
+/* Focusable while the jobs overflow, so keyboard users can scroll them. */
+.checksViewport:focus-visible {
 	outline: var(--focus-ring);
 	outline-offset: -2px;
 }

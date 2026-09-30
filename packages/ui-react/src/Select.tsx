@@ -5,6 +5,7 @@ import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";
 import { Popup, PopupItem, PopupSearch } from "./Popup.tsx";
 import styles from "./Select.module.css";
+import { ScrollArea } from "./ScrollArea.tsx";
 import { Combobox, Field, Select as BaseSelect } from "@base-ui/react";
 import type { CSSProperties, ReactNode } from "react";
 
@@ -240,20 +241,22 @@ const SearchableSelect = <Value extends string>({
 							    illustration would fill it. */}
 							<div className={classes("text-13", styles.empty)}>{nothingFound}</div>
 						</Combobox.Empty>
-						<Combobox.List className={styles.list}>
-							{(item: SelectItem<Value>) => (
-								<PopupItem
-									key={item.value}
-									icon={item.icon}
-									leading={item.leading}
-									trailing="tick"
-									className={styles.item}
-									render={<Combobox.Item value={item} disabled={item.disabled} />}
-								>
-									{item.label}
-								</PopupItem>
-							)}
-						</Combobox.List>
+						<ScrollArea className={styles.listArea} viewportClassName={styles.listViewport}>
+							<Combobox.List className={classes(styles.list, styles.listInArea)}>
+								{(item: SelectItem<Value>) => (
+									<PopupItem
+										key={item.value}
+										icon={item.icon}
+										leading={item.leading}
+										trailing="tick"
+										className={styles.item}
+										render={<Combobox.Item value={item} disabled={item.disabled} />}
+									>
+										{item.label}
+									</PopupItem>
+								)}
+							</Combobox.List>
+						</ScrollArea>
 					</Popup>
 				</Combobox.Positioner>
 			</Combobox.Portal>

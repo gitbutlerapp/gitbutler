@@ -59,6 +59,22 @@
 	}
 }
 
+/* The searchable list scrolls in a ScrollArea instead, which takes the list's place in the
+   popup. The plain one stays the scroller: the select measures and scrolls its list to line the
+   chosen row up with the trigger. */
+.listArea {
+	flex: 1;
+}
+
+.listViewport:focus-visible {
+	outline: var(--focus-ring);
+	outline-offset: -1px;
+}
+
+.listInArea {
+	overflow: visible;
+}
+
 /* A searchable list opens below the trigger rather than over it, so there is no overlap to
    cover: it takes the trigger's width exactly. The search row is not part of the scroller, so
    the list's own cap leaves room for it under the height the window offers. */

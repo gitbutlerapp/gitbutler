@@ -15,6 +15,7 @@ import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import {
 	changesSelectedForCommit,
 	commitMessageGenerationButtonState,
@@ -86,24 +87,26 @@ const CommitTargetComboboxPopup: FC<{ current: CommitTargetPickerItem | null }> 
 			    would fill it. */}
 			<div className={classes("text-13", styles.targetEmpty)}>No targets found</div>
 		</Combobox.Empty>
-		<Combobox.List className={styles.targetList}>
-			{(item: CommitTargetPickerItem) => (
-				<PopupItem
-					key={pickerItemKey(item)}
-					icon={pickerItemIcon(item)}
-					// The bullseye marks where a commit would land, so it rides only the row that is
-					// the target now — the rest of the list is where it could go instead.
-					trailing={
-						current !== null && pickerItemKey(item) === pickerItemKey(current)
-							? "bullseye"
-							: undefined
-					}
-					render={<Combobox.Item value={item} />}
-				>
-					{item.label}
-				</PopupItem>
-			)}
-		</Combobox.List>
+		<ScrollArea className={styles.targetArea} viewportClassName={styles.targetViewport}>
+			<Combobox.List className={styles.targetList}>
+				{(item: CommitTargetPickerItem) => (
+					<PopupItem
+						key={pickerItemKey(item)}
+						icon={pickerItemIcon(item)}
+						// The bullseye marks where a commit would land, so it rides only the row that is
+						// the target now — the rest of the list is where it could go instead.
+						trailing={
+							current !== null && pickerItemKey(item) === pickerItemKey(current)
+								? "bullseye"
+								: undefined
+						}
+						render={<Combobox.Item value={item} />}
+					>
+						{item.label}
+					</PopupItem>
+				)}
+			</Combobox.List>
+		</ScrollArea>
 	</Popup>
 );
 

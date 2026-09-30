@@ -25,6 +25,7 @@ import {
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Combobox } from "@base-ui/react";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -170,55 +171,65 @@ const VirtualizedProjectList: FC<{
 	useImperativeHandle(virtualizerRef, () => virtualizer);
 
 	return (
-		<Combobox.List ref={scrollElementRef} className={styles.list}>
-			{virtualProjects.length > 0 && (
-				<div ref={virtualizer.containerRef} role="presentation" className={styles.virtualContainer}>
-					{virtualizer.getVirtualItems().map((virtualItem) => {
-						const row = virtualProjects[virtualItem.index];
-						if (row === undefined) return null;
-						const group = filteredGroups[row.groupIndex];
-						if (group === undefined) return null;
+		<ScrollArea
+			viewportRef={scrollElementRef}
+			className={styles.list}
+			viewportClassName={styles.listViewport}
+		>
+			<Combobox.List>
+				{virtualProjects.length > 0 && (
+					<div
+						ref={virtualizer.containerRef}
+						role="presentation"
+						className={styles.virtualContainer}
+					>
+						{virtualizer.getVirtualItems().map((virtualItem) => {
+							const row = virtualProjects[virtualItem.index];
+							if (row === undefined) return null;
+							const group = filteredGroups[row.groupIndex];
+							if (group === undefined) return null;
 
-						return (
-							<div
-								key={virtualItem.key}
-								ref={virtualizer.measureElement}
-								data-index={virtualItem.index}
-								role="presentation"
-								className={styles.virtualProject}
-							>
-								{row.isFirstInGroup && (
-									<PopupSectionLabel
-										id={`${groupDescriptionId}-${row.groupIndex}`}
-										aria-hidden="true"
-										divided={row.groupIndex > 0}
-									>
-										{group.value}
-									</PopupSectionLabel>
-								)}
-
-								<PopupItem
-									icon={projectIcon(marksById[row.project.id])}
-									trailing={row.project.id === currentProjectId ? "tick" : undefined}
-									className={styles.projectItem}
-									render={
-										<Combobox.Item
-											index={virtualItem.index}
-											value={row.project}
-											aria-describedby={`${groupDescriptionId}-${row.groupIndex}`}
-											aria-setsize={virtualProjects.length}
-											aria-posinset={virtualItem.index + 1}
-										/>
-									}
+							return (
+								<div
+									key={virtualItem.key}
+									ref={virtualizer.measureElement}
+									data-index={virtualItem.index}
+									role="presentation"
+									className={styles.virtualProject}
 								>
-									{row.project.title}
-								</PopupItem>
-							</div>
-						);
-					})}
-				</div>
-			)}
-		</Combobox.List>
+									{row.isFirstInGroup && (
+										<PopupSectionLabel
+											id={`${groupDescriptionId}-${row.groupIndex}`}
+											aria-hidden="true"
+											divided={row.groupIndex > 0}
+										>
+											{group.value}
+										</PopupSectionLabel>
+									)}
+
+									<PopupItem
+										icon={projectIcon(marksById[row.project.id])}
+										trailing={row.project.id === currentProjectId ? "tick" : undefined}
+										className={styles.projectItem}
+										render={
+											<Combobox.Item
+												index={virtualItem.index}
+												value={row.project}
+												aria-describedby={`${groupDescriptionId}-${row.groupIndex}`}
+												aria-setsize={virtualProjects.length}
+												aria-posinset={virtualItem.index + 1}
+											/>
+										}
+									>
+										{row.project.title}
+									</PopupItem>
+								</div>
+							);
+						})}
+					</div>
+				)}
+			</Combobox.List>
+		</ScrollArea>
 	);
 };
 

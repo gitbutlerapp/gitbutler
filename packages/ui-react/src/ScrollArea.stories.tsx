@@ -1,5 +1,6 @@
 import preview from "#storybook/preview";
-import { ScrollArea } from "./ScrollArea.tsx";
+import { useState } from "react";
+import { ScrollArea, ScrollBars } from "./ScrollArea.tsx";
 
 const meta = preview.meta({
 	component: ScrollArea,
@@ -56,4 +57,35 @@ export const WithSeparator = meta.story({
 			</ScrollArea>
 		</div>
 	),
+});
+
+/**
+ * `ScrollBars` over a scroller the app doesn't render itself, as the diff view's: the scroller
+ * hides its native scrollbar and hands its element over, and the bars sit beside it in a box it
+ * fills.
+ */
+export const OnAnotherScroller = meta.story({
+	render: function OnAnotherScroller() {
+		const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+		return (
+			<div
+				style={{
+					display: "grid",
+					position: "relative",
+					height: 240,
+					width: 280,
+					border: "1px solid var(--border-2)",
+				}}
+			>
+				<div ref={setScroller} style={{ overflow: "auto", scrollbarWidth: "none" }}>
+					{rows.map((row) => (
+						<div key={row} className="text-13" style={{ padding: "6px 12px" }}>
+							{row}
+						</div>
+					))}
+				</div>
+				<ScrollBars scrollElement={scroller} />
+			</div>
+		);
+	},
 });

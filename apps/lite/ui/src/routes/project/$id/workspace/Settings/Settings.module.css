@@ -7,12 +7,14 @@
 }
 
 .sidebar {
-	display: flex;
 	flex: none;
-	flex-direction: column;
 	width: 211px;
+}
+
+.nav {
+	display: flex;
+	flex-direction: column;
 	padding-block-end: 12px;
-	overflow-y: auto;
 }
 
 .heading {
@@ -91,7 +93,6 @@
 .content {
 	flex: 1;
 	min-width: 0;
-	overflow-y: auto;
 	border-left: 1px solid var(--border-section);
 	background-color: var(--bg-1);
 }

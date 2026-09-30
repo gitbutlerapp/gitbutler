@@ -11,5 +11,4 @@
 /* A long paste scrolls here rather than pushing the buttons off the modal. */
 .files {
 	max-height: 140px;
-	overflow-y: auto;
 }

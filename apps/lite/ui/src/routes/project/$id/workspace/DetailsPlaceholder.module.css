@@ -7,10 +7,12 @@
    to the room it actually has. */
 .host {
 	container-type: size;
+	background-color: var(--bg-2);
+}
+
+.hostViewport {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: safe center;
-	overflow: auto;
-	background-color: var(--bg-2);
 }

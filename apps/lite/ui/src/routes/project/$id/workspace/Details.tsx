@@ -187,6 +187,7 @@ import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
+import { ScrollArea, ScrollBars } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { combineHashes, hash } from "#ui/hash.ts";
 import { compareFilePaths } from "#ui/file-order.ts";
 import { assert } from "#ui/assert.ts";
@@ -484,6 +485,8 @@ const DiffContents: FC<{
 }) => {
 	const dispatch = useAppDispatch();
 	const newFocusableAnnotationIdRef = useRef<string | null>(null);
+	// CodeView renders its own scroller, so the bars are drawn beside it rather than around it.
+	const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
 	const { mutate: createComment } = useCommentCreate();
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: settings } = useQuery({
@@ -1692,6 +1695,7 @@ const DiffContents: FC<{
 		<>
 			<CodeView
 				ref={viewerRef}
+				containerRef={setScroller}
 				renderCodeViewFooter={() => <DiffFooter key={diffContextKey} />}
 				renderCustomHeader={(item) => {
 					const file = fileByItemId.get(item.id);
@@ -1874,6 +1878,8 @@ const DiffContents: FC<{
 					"--gitbutler-diff-gutter-can-drag": String(fileParent._tag !== "Branch"),
 				}}
 			/>
+
+			<ScrollBars scrollElement={scroller} className={styles.diffScrollBars} />
 
 			{diffGutterPortals}
 
@@ -2567,7 +2573,7 @@ const Diff: FC<{
 	// collapsing on the count alone takes that route away with them.
 	if (changes.length === 0 && conflicts.length === 0 && manualConflicts.length === 0) {
 		return (
-			<div className={classes(styles.diffTab, styles.diffTabEmpty)}>
+			<ScrollArea className={styles.diffTabEmpty} viewportClassName={styles.diffTabEmptyViewport}>
 				<EmptyState
 					illustration="waving"
 					title="No file changes"
@@ -2577,7 +2583,7 @@ const Diff: FC<{
 							: "Nothing on this branch changes any files"
 					}
 				/>
-			</div>
+			</ScrollArea>
 		);
 	}
 
@@ -2987,11 +2993,11 @@ const CommitDetails: FC<{
 			</div>
 
 			{review && tab === "pr" ? (
-				<div className={styles.prTabScroll}>
+				<ScrollArea className={styles.prTabScroll}>
 					<div className={styles.prTab}>
 						<LandedReviewView projectId={projectId} reviewId={review.number} />
 					</div>
-				</div>
+				</ScrollArea>
 			) : (
 				<Diff
 					changes={changes}
@@ -3464,9 +3470,9 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{reviewTab !== null && branchTab === "pr" ? (
-					<div className={styles.prTabScroll}>
+					<ScrollArea className={styles.prTabScroll}>
 						<div className={styles.prTab}>{reviewTab}</div>
-					</div>
+					</ScrollArea>
 				) : (
 					<BranchDiff
 						projectId={projectId}
@@ -3611,7 +3617,7 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{branchTab === "pr" ? (
-					<div className={styles.prTabScroll}>
+					<ScrollArea className={styles.prTabScroll}>
 						<div className={styles.prTab}>
 							{destination && accountsError ? (
 								<div className={classes(styles.loadingTab, "text-13")}>
@@ -3667,7 +3673,7 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 								</SuspenseQuery>
 							)}
 						</div>
-					</div>
+					</ScrollArea>
 				) : (
 					<BranchDiff
 						projectId={projectId}

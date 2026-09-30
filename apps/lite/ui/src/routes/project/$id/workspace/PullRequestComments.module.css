@@ -426,9 +426,9 @@
    above already carries the file and its lines. */
 .hunk {
 	/* Pierre lays the code out at its natural width, and inside a card that
-	   overruns — so the frame is what scrolls, or the overrun is unreachable. */
-	overflow-x: auto;
-	overflow-y: hidden;
+	   overruns — so the frame is what scrolls, or the overrun is unreachable.
+	   Clipped so the code keeps to the frame's rounded corners. */
+	overflow: hidden;
 	border: 1px solid var(--border-3);
 	border-radius: var(--radius-card);
 	/* The body turns selection off app-wide; quoted code is there to be read

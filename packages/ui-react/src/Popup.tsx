@@ -5,6 +5,7 @@ import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";
 import { Kbd } from "./Kbd.tsx";
 import styles from "./Popup.module.css";
+import { ScrollArea } from "./ScrollArea.tsx";
 import { AlertDialog, Dialog, mergeProps, Popover, useRender } from "@base-ui/react";
 import type { HotkeySequence } from "@tanstack/react-hotkeys";
 import {
@@ -238,7 +239,11 @@ export const ModalHeader: FC<
  * @import import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
  */
 export const ModalBody: FC<ComponentProps<"div">> = ({ className, ...props }) => (
-	<div {...props} className={classes(className, styles.modalPart, styles.modalBody)} />
+	<ScrollArea
+		className={styles.modalBodyArea}
+		viewportClassName={classes(className, styles.modalBody)}
+		{...props}
+	/>
 );
 
 /**
