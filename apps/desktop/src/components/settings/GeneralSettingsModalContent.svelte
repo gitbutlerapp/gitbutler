@@ -34,7 +34,7 @@
 </script>
 
 <SettingsModalLayout
-	title="Global settings"
+	title={t("global-settings")}
 	pages={generalSettingsPages}
 	selectedId={currentSelectedId}
 	isAdmin={userService.user?.role === "admin"}

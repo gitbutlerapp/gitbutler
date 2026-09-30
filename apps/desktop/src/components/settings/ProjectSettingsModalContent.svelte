@@ -24,7 +24,7 @@
 </script>
 
 <SettingsModalLayout
-	title="Project settings"
+	title={t("project-settings")}
 	{pages}
 	selectedId={currentSelectedId}
 	onSelectPage={selectPage}
