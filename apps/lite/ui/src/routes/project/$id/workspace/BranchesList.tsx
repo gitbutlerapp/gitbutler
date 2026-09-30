@@ -354,11 +354,22 @@ const BranchItem: FC<{
 
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
+			label: unfolded ? "Fold Commits" : "Unfold Commits",
+			enabled: canUnfold,
+			accelerator: toElectronAccelerator(branchesHotkeys.toggleFoldBranch.hotkey),
+			onSelect: toggleUnfolded,
+		}),
+		nativeMenuSeparator,
+		nativeMenuItem({
 			// Branches run from the tip down, so applying the top branch of a stack
 			// brings the whole stack with it — the label says so.
 			label: isTopBranch && isStacked ? "Apply Stack to Workspace" : "Apply to Workspace",
 			enabled: !isApplyPending,
 			onSelect: () => apply(branchRef),
+		}),
+		nativeMenuItem({
+			label: "Copy Branch Name",
+			onSelect: () => window.lite.clipboardWriteText(branch.displayName),
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -718,6 +729,7 @@ export const BranchesList: FC<
 				)?.branch
 			: undefined;
 	const selectedBranchReviewUrl = selectedBranch?.review?.htmlUrl ?? null;
+	const selectedBranchCanUnfold = selectedBranch !== undefined && !branchIsEmpty(selectedBranch);
 
 	useHotkey(
 		branchesHotkeys.openPRInBrowser.hotkey,
@@ -730,6 +742,27 @@ export const BranchesList: FC<
 			enabled: noOperationPending && selectedBranchReviewUrl !== null,
 			ignoreInputs: true,
 			meta: branchesHotkeys.openPRInBrowser.meta,
+			target: treeRef,
+		},
+	);
+
+	useHotkey(
+		branchesHotkeys.toggleFoldBranch.hotkey,
+		() => {
+			if (!selectedBranch) return;
+
+			dispatch(
+				projectSlice.actions.toggleBranchUnfolded({
+					projectId,
+					branchRef: selectedBranch.refName.full,
+				}),
+			);
+		},
+		{
+			conflictBehavior: "allow",
+			enabled: selectedBranchCanUnfold,
+			ignoreInputs: true,
+			meta: branchesHotkeys.toggleFoldBranch.meta,
 			target: treeRef,
 		},
 	);
