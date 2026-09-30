@@ -8,7 +8,7 @@ use gix::{
     bstr::{BString, ByteSlice as _},
     refs::{
         Target,
-        transaction::{PreviousValue, RefEdit},
+        transaction::{Change, PreviousValue, RefEdit},
     },
 };
 
@@ -75,6 +75,34 @@ fn worktree_head_edits(specs: &[LinkedCheckoutSpec]) -> Result<Vec<RefEdit>> {
             ))
         })
         .collect()
+}
+
+fn names_nest(a: &gix::refs::FullNameRef, b: &gix::refs::FullNameRef) -> bool {
+    fn is_directory_of(directory: &[u8], name: &[u8]) -> bool {
+        name.len() > directory.len() && name.starts_with(directory) && name[directory.len()] == b'/'
+    }
+    let (a, b) = (a.as_bstr(), b.as_bstr());
+    is_directory_of(a, b) || is_directory_of(b, a)
+}
+
+fn edit_references_deleting_directory_conflicts_first(
+    repo: &gix::Repository,
+    edits: Vec<RefEdit>,
+) -> Result<()> {
+    let updated: Vec<_> = edits
+        .iter()
+        .filter(|edit| matches!(edit.change, Change::Update { .. }))
+        .map(|edit| edit.name.clone())
+        .collect();
+    let (directory_conflicts, edits): (Vec<_>, Vec<_>) = edits.into_iter().partition(|edit| {
+        matches!(edit.change, Change::Delete { .. })
+            && updated
+                .iter()
+                .any(|name| names_nest(name.as_ref(), edit.name.as_ref()))
+    });
+    repo.edit_references(directory_conflicts)?;
+    repo.edit_references(edits)?;
+    Ok(())
 }
 
 fn open_linked_checkout_repos(
@@ -267,7 +295,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             }
         }
 
-        repo.edit_references(ref_edits)?;
+        edit_references_deleting_directory_conflicts_first(&repo, ref_edits)?;
 
         let project_meta = self.workspace.graph.project_meta.clone();
         self.workspace

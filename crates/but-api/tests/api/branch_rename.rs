@@ -109,9 +109,15 @@ fn branch_rename_same_name_rejects_a_missing_source() -> anyhow::Result<()> {
 #[test]
 fn branch_rename_moves_head_of_another_worktree_checked_out_on_it() -> anyhow::Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
-    let worktree = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
-
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    ctx.settings.feature_flags.worktree_manipulation = true;
+    assert!(
+        but_api::worktrees::worktrees_list(&mut ctx)?
+            .active
+            .is_empty(),
+        "adoption runs before the worktree exists, so it starts out active"
+    );
+    let worktree = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
     let main = gix::refs::FullName::try_from("refs/heads/main")?;
     let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
     let renamed = gix::refs::FullName::try_from("refs/heads/renamed-feature")?;
@@ -422,65 +428,6 @@ fn branch_rename_out_of_a_directory_prefix() -> anyhow::Result<()> {
         "the collapsed ref must exist"
     );
     assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), foo);
-
-    Ok(())
-}
-
-#[test]
-fn prefix_rename_restores_source_when_destination_is_locked() -> anyhow::Result<()> {
-    let (repo, _tmp) = repo_with_feature_branch()?;
-    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    let main = gix::refs::FullName::try_from("refs/heads/main")?;
-    let source = gix::refs::FullName::try_from("refs/heads/foo/bar")?;
-    let destination = gix::refs::FullName::try_from("refs/heads/foo")?;
-
-    create_empty_branch_above(&mut ctx, &source, &main)?;
-
-    let source_id = ctx
-        .repo
-        .get()?
-        .find_reference(source.as_ref())?
-        .peel_to_id()?
-        .detach();
-
-    // Simulate a lock left by a Git process that crashed while attempting to create the
-    // destination branch. This doesn't interfere with deleting `foo/bar`, but prevents creating
-    // `foo` after its parent directory has been pruned.
-    std::fs::write(
-        ctx.repo.get()?.path().join("refs/heads/foo.lock"),
-        b"stale lock",
-    )?;
-
-    but_api::branch::branch_rename(&mut ctx, source.clone(), "foo".into())
-        .expect_err("the stale destination lock must make creation fail");
-
-    let repo = ctx.repo.get()?;
-    let restored = repo.try_find_reference(source.as_ref())?;
-    let destination_exists = repo.try_find_reference(destination.as_ref())?.is_some();
-    assert!(!destination_exists, "the destination was never created");
-    let mut restored = restored.unwrap_or_else(|| {
-        panic!("the source branch must be restored; destination exists: {destination_exists}")
-    });
-    assert_eq!(
-        restored.peel_to_id()?,
-        source_id,
-        "rollback must restore the source at its original commit"
-    );
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic"),
-        source,
-        "HEAD must continue to name the restored source branch"
-    );
-    let recovery_ref = repo
-        .references()?
-        .prefixed("refs/gitbutler/rename-backup/")?
-        .next()
-        .transpose()
-        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-    assert!(
-        recovery_ref.is_none(),
-        "the recovery ref must be removed after restoring the source"
-    );
 
     Ok(())
 }

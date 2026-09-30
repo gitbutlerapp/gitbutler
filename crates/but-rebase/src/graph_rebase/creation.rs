@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
-use but_graph::{Commit, SegmentIndex};
+use but_graph::{Commit, RefInfo, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
@@ -115,6 +115,14 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         }
 
         let mut segments = HashMap::<SegmentIndex, NodeSegment>::new();
+        let is_checked_out_only_where_the_editor_moves_heads = |ref_info: &RefInfo| {
+            ref_info.worktree.as_ref().is_none_or(|worktree| {
+                worktree.owned_by_repo
+                    || worktree_tips
+                        .iter()
+                        .any(|tip| tip.ref_name.as_ref() == Some(&ref_info.ref_name))
+            })
+        };
 
         for sid in segments_to_add {
             let segment = &workspace.graph[sid];
@@ -126,12 +134,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 let reference_mutable =
                     segment_mutable && refname.category() == Some(gix::refs::Category::LocalBranch);
                 // Only mutable references are tracked for potential deletion.
-                if reference_mutable
-                    && ref_info
-                        .worktree
-                        .as_ref()
-                        .is_none_or(|worktree| worktree.owned_by_repo)
-                {
+                if reference_mutable && is_checked_out_only_where_the_editor_moves_heads(ref_info) {
                     references.push(refname.clone());
                 }
                 let ix = graph.add_node(Step::Reference {
@@ -157,10 +160,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     let reference_mutable = segment_mutable
                         && refname.category() == Some(gix::refs::Category::LocalBranch);
                     if reference_mutable
-                        && ref_info
-                            .worktree
-                            .as_ref()
-                            .is_none_or(|worktree| worktree.owned_by_repo)
+                        && is_checked_out_only_where_the_editor_moves_heads(ref_info)
                     {
                         references.push(refname.clone());
                     }

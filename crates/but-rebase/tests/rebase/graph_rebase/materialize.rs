@@ -910,6 +910,10 @@ fn an_attached_worktree_follows_its_branch_being_replaced_by_another() -> Result
         "the worktree is attached to the replacement branch"
     );
     assert_eq!(attached.head_id()?, middle, "which points where middle did");
+    assert!(
+        repo.try_find_reference("refs/heads/middle")?.is_none(),
+        "the replaced branch is deleted once no HEAD is left on it"
+    );
     Ok(())
 }
 
@@ -969,5 +973,61 @@ fn a_detached_worktree_attaches_when_its_commit_becomes_a_branch() -> Result<()>
         "the dropped commit's file is checked out away"
     );
     snapbox::assert_data_eq!(git_status(&detached)?, snapbox::str![""]);
+    Ok(())
+}
+
+fn replace_reference_in_worktree_fixture(
+    repo: &gix::Repository,
+    meta: &mut but_meta::VirtualBranchesTomlMetadata,
+    db: &mut but_db::DbHandle,
+    from: &str,
+    to: &str,
+) -> Result<()> {
+    let graph = graph_with_worktrees(repo, &*meta, db)?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, meta, repo, db)?;
+    let selector = editor.select_reference(from.try_into()?)?;
+    editor.replace(selector, Step::new_reference(to.try_into()?))?;
+    editor.rebase()?.materialize(Default::default())?;
+    Ok(())
+}
+
+#[test]
+fn an_attached_worktree_follows_its_branch_into_and_out_of_a_nested_name() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let middle = repo.rev_parse_single("middle")?.detach();
+
+    replace_reference_in_worktree_fixture(
+        &repo,
+        &mut meta,
+        &mut db,
+        "refs/heads/middle",
+        "refs/heads/middle/nested",
+    )?;
+    let attached = linked_repo(&repo, "wt")?;
+    assert_eq!(
+        std::fs::read_to_string(attached.git_dir().join("HEAD"))?,
+        "ref: refs/heads/middle/nested\n",
+        "the worktree follows its branch under the old name"
+    );
+    assert_eq!(attached.head_id()?, middle);
+
+    replace_reference_in_worktree_fixture(
+        &repo,
+        &mut meta,
+        &mut db,
+        "refs/heads/middle/nested",
+        "refs/heads/middle",
+    )?;
+    assert_eq!(
+        std::fs::read_to_string(attached.git_dir().join("HEAD"))?,
+        "ref: refs/heads/middle\n",
+        "and back out to the name that was its directory"
+    );
+    assert_eq!(attached.head_id()?, middle);
+    assert!(
+        repo.try_find_reference("refs/heads/middle/nested")?
+            .is_none()
+    );
     Ok(())
 }
