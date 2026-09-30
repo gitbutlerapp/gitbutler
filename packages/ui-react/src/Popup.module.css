@@ -137,15 +137,28 @@
 	overflow-wrap: anywhere;
 }
 
-/* The one part that scrolls, so a tall list or form keeps its title and buttons in view. */
+/* The one part that scrolls, so a tall list or form keeps its title and buttons in view. The
+   viewport carries the part's padding, so what scrolls reaches the modal's edges. */
+.modalBodyArea {
+	flex: 1 1 auto;
+}
+
+/* .modalPart's padding, restated for the viewport: its own place among the modal's parts is the
+   area's. */
 .modalBody {
 	display: flex;
-	flex: 1 1 auto;
 	flex-direction: column;
-	min-height: 0;
-	overflow-y: auto;
+	padding: var(--gap-stack) var(--padding-modal) 0;
 	gap: var(--gap-stack);
 	color: var(--text-1);
+}
+
+.modalBodyArea:first-child > .modalBody {
+	padding-top: var(--padding-modal);
+}
+
+.modalBodyArea:last-child > .modalBody {
+	padding-bottom: var(--padding-modal);
 }
 
 .modalFooter {

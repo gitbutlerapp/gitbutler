@@ -7,18 +7,41 @@
 	min-height: 0;
 }
 
+/* Keeps a scroll that reaches the end from carrying on into the page, on each axis only while
+   that axis overflows: a code block that scrolls sideways still hands a vertical wheel on. */
 .viewport {
 	flex: 1 1 auto;
 	min-height: 0;
-	overscroll-behavior: contain;
+
+	&[data-has-overflow-x] {
+		overscroll-behavior-x: contain;
+	}
+
+	&[data-has-overflow-y] {
+		overscroll-behavior-y: contain;
+	}
+}
+
+/* Lays the children out as the viewport's class says, as though they sat in the viewport itself,
+   so `viewportClassName` keeps meaning what it did before this wrapper. It fills a flex viewport,
+   so centring has the viewport's whole height to work in. */
+.content {
+	display: inherit;
+	flex: 1 0 auto;
+	flex-direction: inherit;
+	flex-wrap: inherit;
+	align-items: inherit;
+	align-self: stretch;
+	justify-content: inherit;
+	gap: inherit;
 }
 
 /* Drawn over the content, so nothing is set aside for it and content that fits and content that
-   scrolls take the same width. 12px to grab, the thumb 2px in from the edge: 4px at rest, so a
-   gap shows before rows inset 8px, and 8px under the pointer or while dragged, over the rows'
-   edge. */
+   scrolls take the same width. 14px to grab, the thumb 2px in from the edge: 5px at rest, so a
+   gap shows before rows inset 8px, and 8px under the pointer or while dragged, just reaching the
+   rows' edge. */
 .scrollbar {
-	--thumb-size: 4px;
+	--thumb-size: 5px;
 
 	display: flex;
 	position: absolute;
@@ -35,21 +58,24 @@
 	}
 
 	&[data-orientation="vertical"] {
-		width: 12px;
+		width: 14px;
 		inset-block: 0;
 		inset-inline-end: 0;
 	}
 
 	&[data-orientation="horizontal"] {
 		flex-direction: column;
-		height: 12px;
+		height: 14px;
 		inset-block-end: 0;
 		inset-inline: 0;
 	}
 
-	/* Hovering is the pointer over the area, not just the bar. */
+	/* Hovering is the pointer over the area, not just the bar. The bar itself counts too, for
+	   ScrollBars, whose bars sit beside the scroller rather than in it. */
 	&[data-hovering],
-	&[data-scrolling] {
+	&[data-scrolling],
+	&:hover,
+	&:has(.thumb:active) {
 		opacity: 1;
 	}
 }
@@ -92,4 +118,16 @@
 
 .separator[data-overflow-y-start]::before {
 	opacity: 1;
+}
+
+/* ScrollBars' layer over a scroller it doesn't own: the scroller's own box, letting everything
+   through but the bars. */
+.bars {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+
+	& > .scrollbar {
+		pointer-events: auto;
+	}
 }
