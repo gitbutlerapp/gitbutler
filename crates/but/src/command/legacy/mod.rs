@@ -32,7 +32,7 @@ pub mod show;
 pub mod split;
 pub mod squash;
 pub mod status;
-pub mod r#switch;
+pub mod switch;
 pub mod teardown;
 pub mod unapply;
 pub mod uncommit;

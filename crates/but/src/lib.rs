@@ -1120,7 +1120,7 @@ async fn dispatch_subcommand(
         Subcommands::Switch(switch_args) => {
             use crate::utils::IntermediateChannel;
 
-            let outcome = command::legacy::r#switch::switch(
+            let outcome = command::legacy::switch::switch(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 switch_args,

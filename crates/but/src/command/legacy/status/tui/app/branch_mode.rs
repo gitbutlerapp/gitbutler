@@ -184,7 +184,7 @@ impl App {
         let branch = Category::LocalBranch.to_full_name(&*branch_id.name)?;
 
         let mut guard = ctx.exclusive_worktree_access();
-        let _outcome = r#switch::run(
+        let _outcome = switch::run(
             ctx,
             guard.write_permission(),
             SwitchOperation::Branch { branch },
