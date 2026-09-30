@@ -4,6 +4,7 @@
 	import GitForm from "$components/projectSettings/GitForm.svelte";
 	import PreferencesForm from "$components/projectSettings/PreferencesForm.svelte";
 	import SettingsModalLayout from "$components/settings/SettingsModalLayout.svelte";
+	import { t } from "$lib/i18n";
 	import { projectSettingsPages } from "$lib/settings/projectSettingsPages";
 	import type { ProjectSettingsModalState, ProjectSettingsPageId } from "$lib/state/uiState.svelte";
 
@@ -39,10 +40,10 @@
 			{:else if currentPage.id === "experimental"}
 				<PreferencesForm projectId={data.projectId} />
 			{:else}
-				Settings page {currentPage.id} not Found.
+				{t("settings-page")} {currentPage.id} {t("not-found")}
 			{/if}
 		{:else}
-			Settings page {currentSelectedId} not Found.
+			{t("settings-page")} {currentSelectedId} {t("not-found")}
 		{/if}
 	{/snippet}
 </SettingsModalLayout>

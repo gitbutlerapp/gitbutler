@@ -4,6 +4,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
+	import { t } from "$lib/i18n";
 	import { inject } from "@gitbutler/core/context";
 	import { Avatar, Link, Markdown, TestId } from "@gitbutler/ui-svelte";
 
@@ -58,10 +59,10 @@
 						<div class="pr-request-data__details text-12">
 							<PrStatusBadge {pr} />
 							<span class="pr-request-data__divider">•</span>
-							<span>No remote</span>
+							<span>{t("no-remote")}</span>
 
 							<span class="pr-request-data__divider">•</span>
-							<Link href={pr.htmlUrl}>Open in browser</Link>
+							<Link href={pr.htmlUrl}>{t("open-in-browser")}</Link>
 						</div>
 					</div>
 				</div>

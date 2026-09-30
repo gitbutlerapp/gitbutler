@@ -6,6 +6,7 @@
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { projectRunCommitHooks } from "$lib/config/config";
 	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { branchHasConflicts, branchHasUnpushedCommits } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -202,8 +203,9 @@
 	}}
 >
 	<p>
-		You're about to push <span class="text-bold">{branchName}</span>. To maintain the correct
-		history, GitButler will also push all branches below this branch in the stack.
+		{t("you-re-about-to-push")} <span class="text-bold">{branchName}</span>{t(
+			"to-maintain-the-correct-history-gitbutler-will-also-push-all",
+		)}
 	</p>
 
 	{#snippet controls(close)}
@@ -211,7 +213,7 @@
 			<div class="flex flex-1">
 				<label for="dont-show-again" class="modal-footer__checkbox">
 					<Checkbox name="dont-show-again" small bind:checked={$doNotShowPushBelowWarning} />
-					<span class="text-12"> Don’t show again</span>
+					<span class="text-12"> {t("don-t-show-again")}</span>
 				</label>
 			</div>
 			<Button
@@ -246,12 +248,13 @@
 	}}
 >
 	<p class="description">
-		Your force push was blocked because the remote branch contains <span
-			class="text-bold text-nowrap"
+		{t("your-force-push-was-blocked-because-the-remote-branch-contai")}
+		<span class="text-bold text-nowrap"
 			>{upstreamCommits?.length === 1 ? "1 commit" : `${upstreamCommits?.length} commits`}</span
 		>
-		your local branch doesn’t include. To prevent overwriting history,
-		<span class="text-bold">cancel and pull & integrate</span> the changes.
+		{t("your-local-branch-doesn-t-include-to-prevent-overwriting-his")}
+		<span class="text-bold">{t("cancel-and-pull-integrate")}</span>
+		{t("the-changes")}
 	</p>
 	{#if upstreamCommits}
 		<div class="scroll-wrap">
@@ -274,7 +277,7 @@
 
 	{#snippet controls(close)}
 		<div class="controls">
-			<Button kind="outline" type="submit">Force push anyway</Button>
+			<Button kind="outline" type="submit">{t("force-push-anyway")}</Button>
 			<Button wide style="pop" onclick={close}>Cancel</Button>
 		</div>
 	{/snippet}

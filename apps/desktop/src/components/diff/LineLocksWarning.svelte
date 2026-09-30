@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import { t } from "$lib/i18n";
+
 	import { getStackName } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -31,13 +33,13 @@
 		{@const stackNames = lockedToStacks.map(getStackName)}
 		<div data-testid={TestId.UnifiedDiffViewLockWarning}>
 			{#if stackNames.length > 1}
-				<p>This line depends on changes inside the following stacks</p>
+				<p>{t("this-line-depends-on-changes-inside-the-following-stacks")}</p>
 				<br />
 				<p>{stackNames.join(", ")}</p>
 			{:else if stackNames.length === 1}
-				<p>This line depends on changes inside <b>'{stackNames[0]}'</b></p>
+				<p>{t("this-line-depends-on-changes-inside")} <b>'{stackNames[0]}'</b></p>
 			{:else}
-				<p>This line depends on changes inside an unidentifiable stack</p>
+				<p>{t("this-line-depends-on-changes-inside-an-unidentifiable-stack")}</p>
 			{/if}
 		</div>
 	{/snippet}

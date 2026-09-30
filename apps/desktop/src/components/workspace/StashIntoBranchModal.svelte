@@ -3,6 +3,7 @@
 	import { changesToDiffSpec } from "$lib/commits/utils";
 	import { autoSelectBranchCreationFeature } from "$lib/config/uiFeatureFlags";
 	import { isTreeChange } from "$lib/hunks/change";
+	import { t } from "$lib/i18n";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { AsyncButton, Button, Modal } from "@gitbutler/ui-svelte";
@@ -71,7 +72,7 @@
 			<BranchNameTextbox
 				bind:this={stashBranchNameInput}
 				id="stashBranchName"
-				placeholder="Enter your branch name..."
+				placeholder={t("enter-your-branch-name")}
 				bind:value={stashBranchName}
 				autofocus
 				onnormalizedvalue={(value) => (normalizedRefName = value)}
@@ -80,19 +81,17 @@
 			<div class="explanation">
 				<p class="primary-text">
 					{#if isChangedFilesItem(item) && isChangedFolderItem(item)}
-						All changes in this folder
+						{t("all-changes-in-this-folder")}
 					{:else}
-						Your selected changes
+						{t("your-selected-changes")}
 					{/if}
-					will be moved to a new branch and removed from your current workspace. To get these changes
-					back later, switch to the new branch and uncommit the stash.
+					{t("will-be-moved-to-a-new-branch-and-removed-from-your-current-")}
 				</p>
 			</div>
 
 			<div class="technical-note">
 				<p class="text-12 text-body clr-text-2">
-					💡 This creates a new branch, commits your changes, then unapplies the branch. Future
-					versions will have simpler stash management.
+					{t("this-creates-a-new-branch-commits-your-changes-then-unapplie")}
 				</p>
 			</div>
 		</div>
@@ -107,7 +106,7 @@
 				if (isChangedFilesItem(item)) await confirmStashIntoBranch(item, normalizedRefName);
 			}}
 		>
-			Stash into branch
+			{t("stash-into-branch-2")}
 		</AsyncButton>
 	{/snippet}
 </Modal>

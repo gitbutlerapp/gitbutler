@@ -2,6 +2,7 @@
 	import { goto } from "$app/navigation";
 	import ProfileButton from "$components/shared/ProfileButton.svelte";
 	import ShareIssueModal from "$components/shared/ShareIssueModal.svelte";
+	import { t } from "$lib/i18n";
 	import {
 		branchesPath,
 		isBranchesPath,
@@ -150,7 +151,7 @@
 				width={34}
 				class={["btn-square", isHistoryPath() && "btn-active"]}
 				hotkey="⌘3"
-				tooltip="Operations history"
+				tooltip={t("operations-history")}
 				{disabled}
 			>
 				{#snippet custom()}
@@ -196,7 +197,7 @@
 					class="btn-square"
 					tooltipPosition="top"
 					tooltipAlign="start"
-					tooltip="Project settings"
+					tooltip={t("project-settings")}
 				>
 					{#snippet custom()}
 						<svg
@@ -226,7 +227,7 @@
 			<Button
 				icon="mail"
 				kind="ghost"
-				tooltip="Share feedback"
+				tooltip={t("share-feedback")}
 				tooltipPosition="top"
 				tooltipAlign="start"
 				width={34}
@@ -251,7 +252,7 @@
 	>
 		<ContextMenuSection>
 			<ContextMenuItem
-				label="Global settings"
+				label={t("global-settings")}
 				onclick={() => {
 					openGeneralSettings();
 					contextMenuOpen = false;

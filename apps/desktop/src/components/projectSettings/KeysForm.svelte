@@ -2,6 +2,7 @@
 	import CredentialCheck from "$components/projectSettings/CredentialCheck.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup } from "@gitbutler/ui-svelte";
@@ -29,11 +30,10 @@
 		<CardGroup>
 			<CardGroup.Item>
 				{#snippet title()}
-					Git authentication
+					{t("git-authentication")}
 				{/snippet}
 				{#snippet caption()}
-					GitButler authenticates with your Git remote provider through the Git executable available
-					on your PATH.
+					{t("gitbutler-authenticates-with-your-git-remote-provider-throug")}
 				{/snippet}
 				<CredentialCheck
 					{disabled}
