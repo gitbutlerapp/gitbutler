@@ -1,4 +1,5 @@
 import { classes } from "./classes.ts";
+import { diffFileHeaderHeight } from "./diffFileLayout.ts";
 import type { ComponentProps, FC, ReactNode } from "react";
 import styles from "./DiffFile.module.css";
 
@@ -7,7 +8,7 @@ type Props = {
 	header: ReactNode;
 	/** Drops the diff and leaves the header. */
 	collapsed?: boolean;
-	/** How far below the scroller's top edge the header sticks, for a scroller with a bar pinned over it. */
+	/** How far below the scroller's top edge the header sticks, for a scroller with a bar pinned over it. Inside a `DiffFileList` it defaults to the list's top spacing, elsewhere to 0. */
 	stickyTop?: number;
 	/** The diff itself: whatever the host renders it with, its own file header turned off. */
 	children?: ReactNode;
@@ -16,11 +17,14 @@ type Props = {
 /**
  * One file of a diff as a card: its header, and the diff under it. While the
  * reader scrolls through the file the header stays at the top of the
- * scroller; the next file's header pushes it off as that file arrives.
+ * scroller. As the file scrolls away the card shrinks from the bottom around
+ * the still header, its corners easing flat, so the frame stays whole until
+ * the next file takes the top.
  *
  * The card doesn't draw the diff. The host renders it as the children with
  * its renderer's own header off (Pierre's `disableFileHeader`), so the card
- * works with any renderer and the library stays free of one.
+ * works with any renderer and the library stays free of one. Lay cards out
+ * with `DiffFileList`.
  *
  * The header sticks to the nearest scrolling ancestor, so nothing between the
  * card and that scroller may clip its overflow.
@@ -33,10 +37,16 @@ export const DiffFile: FC<Props> = ({
 	children,
 	...props
 }) => (
-	<section {...props} className={classes(props.className, styles.file)}>
-		<div className={styles.header} style={{ top: stickyTop }}>
-			{header}
-		</div>
-		{!collapsed && children}
+	<section
+		{...props}
+		className={classes(props.className, styles.file)}
+		style={{
+			"--diff-file-header-height": `${diffFileHeaderHeight}px`,
+			...(stickyTop !== undefined && { "--diff-file-sticky-top": `${stickyTop}px` }),
+			...props.style,
+		}}
+	>
+		<div className={styles.header}>{header}</div>
+		{!collapsed && <div className={styles.body}>{children}</div>}
 	</section>
 );

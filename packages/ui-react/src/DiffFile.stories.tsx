@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { useState } from "react";
 import { DiffFile } from "./DiffFile.tsx";
 import { DiffFileHeader, type DiffFileReviewState } from "./DiffFileHeader.tsx";
+import { DiffFileList } from "./DiffFileList.tsx";
+import { ScrollArea } from "./ScrollArea.tsx";
 
 type Line = { kind: " " | "+" | "-"; text: string };
 
@@ -101,7 +103,8 @@ const files = [
 
 /**
  * A branch's diff, one card per file in a scroller. Scroll it: each header
- * holds the top while its file passes, and the next one pushes it off.
+ * holds the top while its file passes; as the file leaves, its card shrinks
+ * around the header until the next file takes the top.
  */
 export const Files = meta.story({
 	render: function Render() {
@@ -117,43 +120,35 @@ export const Files = meta.story({
 		};
 
 		return (
-			<div
-				style={{
-					display: "flex",
-					flexDirection: "column",
-					gap: 10,
-					height: 420,
-					padding: 12,
-					overflow: "auto",
-					background: "var(--bg-2)",
-				}}
-			>
-				{files.map((path) => {
-					const isCollapsed = collapsed.has(path);
-					const reviewState: DiffFileReviewState = reviewed.has(path) ? "reviewed" : "unreviewed";
+			<ScrollArea style={{ height: 420 }}>
+				<DiffFileList>
+					{files.map((path) => {
+						const isCollapsed = collapsed.has(path);
+						const reviewState: DiffFileReviewState = reviewed.has(path) ? "reviewed" : "unreviewed";
 
-					return (
-						<DiffFile
-							key={path}
-							collapsed={isCollapsed}
-							header={
-								<DiffFileHeader
-									path={path}
-									added={4}
-									removed={3}
-									collapsed={isCollapsed}
-									onCollapsedChange={(on) => setCollapsed((set) => toggle(set, path, on))}
-									reviewState={reviewState}
-									onReviewedChange={(on) => setReviewed((set) => toggle(set, path, on))}
-									onMenu={() => {}}
-								/>
-							}
-						>
-							<SampleDiff lines={[...sampleLines, ...sampleLines]} />
-						</DiffFile>
-					);
-				})}
-			</div>
+						return (
+							<DiffFile
+								key={path}
+								collapsed={isCollapsed}
+								header={
+									<DiffFileHeader
+										path={path}
+										added={4}
+										removed={3}
+										collapsed={isCollapsed}
+										onCollapsedChange={(on) => setCollapsed((set) => toggle(set, path, on))}
+										reviewState={reviewState}
+										onReviewedChange={(on) => setReviewed((set) => toggle(set, path, on))}
+										onMenu={() => {}}
+									/>
+								}
+							>
+								<SampleDiff lines={[...sampleLines, ...sampleLines]} />
+							</DiffFile>
+						);
+					})}
+				</DiffFileList>
+			</ScrollArea>
 		);
 	},
 });
