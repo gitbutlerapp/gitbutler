@@ -70,34 +70,12 @@
 	}
 }
 
-/* The Status section is its header alone: the badge and the PR link sit
-   opposite the heading. */
+/* The Status section is its header alone: the badge, the PR link and the
+   menu that changes the status sit opposite the heading. */
 .statusActions {
 	display: flex;
 	align-items: center;
 	gap: 12px;
-}
-
-/* The badge is the menu trigger, so the button is invisible around it; the
-   hover deepens the badge's own tint rather than adding a ground of its own. */
-.statusTrigger {
-	display: flex;
-	padding: 0;
-	border: none;
-	border-radius: var(--radius-full);
-	background: none;
-
-	& > span {
-		transition: var(--transition-button);
-	}
-
-	&:hover:not(:disabled) > span {
-		--badge-bg-opacity: 28%;
-	}
-
-	&:disabled {
-		opacity: 0.6;
-	}
 }
 
 .user {
