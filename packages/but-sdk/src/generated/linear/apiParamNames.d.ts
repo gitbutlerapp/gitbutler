@@ -116,7 +116,6 @@ export declare const apiParamNames: {
 	readonly operatingMode: readonly ["projectId"];
 	readonly peelRestoreSnapshot: readonly ["projectId", "sha"];
 	readonly publishReview: readonly ["projectId", "params"];
-	readonly removeBranch: readonly ["projectId", "stackId", "branchName"];
 	readonly removeCommentReaction: readonly ["projectId", "commentId", "reactionId"];
 	readonly removeReviewLabel: readonly ["projectId", "reviewId", "label"];
 	readonly removeReviewReaction: readonly ["projectId", "reviewId", "reactionId"];
