@@ -128,3 +128,20 @@ fn push_reports_a_new_branch() {
 
 "#]]);
 }
+
+#[test]
+fn setup_works_without_commits() {
+    let env = Sandbox::empty();
+    env.invoke_git("init --object-format=sha256");
+
+    env.but("setup").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 81264f9 (common base, main, gb-local/main) 2000-01-02 Initial empty commit
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
