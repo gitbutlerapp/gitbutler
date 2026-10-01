@@ -181,7 +181,7 @@ pub fn cherry_pick(
             MergeOutcome::Success(_) | MergeOutcome::NoCommit,
             MergeOutcome::Success(_) | MergeOutcome::NoCommit,
         ) => {
-            let empty_tree = gix::ObjectId::empty_tree(gix::hash::Kind::Sha1);
+            let empty_tree = gix::ObjectId::empty_tree(repo.object_hash());
             let base_t = base_t.object_id().unwrap_or(empty_tree);
             let onto_t = onto_t.object_id().unwrap_or(empty_tree);
 
@@ -426,7 +426,7 @@ fn peel_to_tree_or_empty(
             &but_core::Commit::from_id(id.attach(repo))?,
             TreeKind::AutoResolution,
         )?,
-        None => gix::ObjectId::empty_tree(gix::hash::Kind::Sha1).attach(repo),
+        None => gix::ObjectId::empty_tree(repo.object_hash()).attach(repo),
     })
 }
 

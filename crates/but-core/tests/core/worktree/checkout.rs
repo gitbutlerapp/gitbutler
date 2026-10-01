@@ -42,6 +42,28 @@ Outcome {
 }
 
 #[test]
+fn update_unborn_head_in_sha256_repository() -> anyhow::Result<()> {
+    let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
+    git_at_dir(tmp.path())
+        .args(["init", "--object-format=sha256"])
+        .run();
+    let repo = open_repo(tmp.path())?;
+
+    let empty_tree = repo.empty_tree().id;
+    let head_commit = repo.new_commit("init", empty_tree, None::<gix::ObjectId>)?;
+    safe_checkout_from_head(head_commit.id, &repo, Default::default())?;
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 2c00519 (HEAD -> main) init
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn no_op_trees_never_touch_worktree() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
     snapbox::assert_data_eq!(

@@ -1081,7 +1081,7 @@ fn open_repo(gitdir: &Path, repo_open_mode: RepoOpenMode) -> anyhow::Result<gix:
 fn new_ondemand_git2_repo(gitdir: PathBuf) -> OnDemand<git2::Repository> {
     OnDemand::new({
         let gitdir = gitdir.clone();
-        move || git2::Repository::open(&gitdir).map_err(Into::into)
+        move || but_oxidize::open_git2_repo(&gitdir)
     })
 }
 

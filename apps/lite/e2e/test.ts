@@ -12,9 +12,11 @@ import {
 	processEnvironment,
 	removeLiteTestEnvironment,
 	seedScenario,
+	type ObjectFormat,
 } from "./setup.ts";
 
 type TestOptions = {
+	objectFormat: ObjectFormat;
 	scenario: string | null;
 };
 
@@ -30,16 +32,17 @@ const require = createRequire(import.meta.url);
 const electronPath = require("electron") as string;
 
 export const test = base.extend<TestOptions & TestFixtures>({
+	objectFormat: ["sha1", { option: true }],
 	scenario: [null, { option: true }],
 	// Playwright requires an object binding pattern even for fixtures without dependencies.
 	// oxlint-disable-next-line no-empty-pattern
 	mainProcessLogs: async ({}, provide) => {
 		await provide([]);
 	},
-	testEnvironment: async ({ scenario }, provide) => {
+	testEnvironment: async ({ objectFormat, scenario }, provide) => {
 		const environment = createLiteTestEnvironment();
 		try {
-			if (scenario !== null) await seedScenario(scenario, environment);
+			if (scenario !== null) await seedScenario(scenario, environment, objectFormat);
 			await provide(environment);
 		} finally {
 			removeLiteTestEnvironment(environment);
