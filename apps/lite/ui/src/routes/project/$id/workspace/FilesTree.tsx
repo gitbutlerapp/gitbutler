@@ -165,7 +165,7 @@ const useFilesTreeHotkeys = ({
 	const canDiscardSelectedRow = hasSelectedChanges && actions.canDiscard;
 
 	const canCheckTheseFiles = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
+		projectSlice.selectors.selectCanCheckFilesOrHunks(state, projectId, fileParent),
 	);
 
 	useHotkeys([
@@ -497,6 +497,7 @@ const FilesTreeRow: FC<{
 								inert={inert}
 								isSelected={isSelected}
 								isChecked={isChecked}
+								isIndeterminate={checkedState === "indeterminate"}
 								isReviewed={isReviewed}
 								onSelect={() => onRowSelection(row.path)}
 								canCheck={canCheck && item._tag === "Change"}
@@ -517,6 +518,7 @@ const FilesTreeRow: FC<{
 						inert={inert}
 						isSelected={isSelected}
 						isChecked={isChecked}
+						isIndeterminate={checkedState === "indeterminate"}
 						isReviewed={isReviewed}
 						onSelect={() => onRowSelection(row.path)}
 						canCheck={canCheck && item._tag === "Change"}
@@ -550,7 +552,7 @@ const FilesTreeVirtualList: FC<{
 	hasPendingOperationSources: boolean;
 	collapsedDirectories: Record<string, true>;
 	reviewedPaths: ReadonlySet<string>;
-	isFileChecked: (path: string) => boolean;
+	fileCheckedState: (path: string) => DirectoryCheckedState;
 	directoryCheckedState: (items: Array<FileRowItem>) => DirectoryCheckedState;
 	directoryReviewed: (items: Array<FileRowItem>) => boolean;
 	shared: RowShared;
@@ -565,7 +567,7 @@ const FilesTreeVirtualList: FC<{
 	hasPendingOperationSources,
 	collapsedDirectories,
 	reviewedPaths,
-	isFileChecked,
+	fileCheckedState,
 	directoryCheckedState,
 	directoryReviewed,
 	shared,
@@ -641,11 +643,7 @@ const FilesTreeVirtualList: FC<{
 						isSelected={selection !== null && selection === row.path}
 						inert={!addressSpaceIncludes(addressSpace, row.path, (path) => path)}
 						checkedState={
-							isDirectory
-								? directoryCheckedState(row.items)
-								: isFileChecked(row.path)
-									? "checked"
-									: "unchecked"
+							isDirectory ? directoryCheckedState(row.items) : fileCheckedState(row.path)
 						}
 						isReviewed={
 							isDirectory
@@ -725,7 +723,7 @@ export const FilesTree: FC<
 	});
 	const mode = useFileDisplayMode();
 	const canCheck = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
+		projectSlice.selectors.selectCanCheckFilesOrHunks(state, projectId, fileParent),
 	);
 	const pendingOperationTag = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag,
@@ -735,6 +733,9 @@ export const FilesTree: FC<
 		pendingOperationTag === "Absorb" || pendingOperationTag === "Transfer";
 	const checkedAddressKeys = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddressKeys(state, projectId),
+	);
+	const checkedHunkFileKeys = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedHunkFileKeys(state, projectId),
 	);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
@@ -765,14 +766,20 @@ export const FilesTree: FC<
 	const pathDisplay =
 		mode === "tree" ? "hidden" : (pathFirst ?? defaultSettings.pathFirst) ? "lead" : "trail";
 
-	const isFileChecked = (path: string): boolean =>
-		checkedAddressKeys.has(addressIdentityKey(fileAddress({ parent: fileParent, path })));
+	const fileCheckedState = (path: string): DirectoryCheckedState => {
+		const key = addressIdentityKey(fileAddress({ parent: fileParent, path }));
+		if (checkedAddressKeys.has(key)) return "checked";
+		return checkedHunkFileKeys.has(key) ? "indeterminate" : "unchecked";
+	};
 
 	const directoryCheckedState = (items: Array<FileRowItem>): DirectoryCheckedState => {
-		const checkableItems = items.filter((item) => checkable(item.path));
-		const checkedCount = checkableItems.filter((item) => isFileChecked(item.path)).length;
+		const states = items
+			.filter((item) => checkable(item.path))
+			.map((item) => fileCheckedState(item.path));
+		if (states.includes("indeterminate")) return "indeterminate";
+		const checkedCount = states.filter((state) => state === "checked").length;
 		if (checkedCount === 0) return "unchecked";
-		return checkedCount === checkableItems.length ? "checked" : "indeterminate";
+		return checkedCount === states.length ? "checked" : "indeterminate";
 	};
 
 	// A directory is reviewed once every change below it is — the same "all of
@@ -995,7 +1002,7 @@ export const FilesTree: FC<
 					hasPendingOperationSources={hasPendingOperationSources}
 					collapsedDirectories={collapsedDirectories}
 					reviewedPaths={reviewedPaths}
-					isFileChecked={isFileChecked}
+					fileCheckedState={fileCheckedState}
 					directoryCheckedState={directoryCheckedState}
 					directoryReviewed={directoryReviewed}
 					shared={shared}
