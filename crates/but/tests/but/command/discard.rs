@@ -1418,3 +1418,54 @@ Hint: Run `but worktree list` to see the worktrees GitButler manages
 
 "#]]);
 }
+
+#[test]
+fn discarding_top_branch_in_single_branch_mode_stack() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard top")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Discarding the current branch is not currently supported.
+
+Hint: Switch to the GitButler workspace with `but switch --workspace` and then discard the branch.
+
+"#]]);
+
+    env.but("branch delete top")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Discarding the current branch is not currently supported.
+
+Hint: Switch to the GitButler workspace with `but switch --workspace` and then discard the branch.
+
+"#]]);
+}
