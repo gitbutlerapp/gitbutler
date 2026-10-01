@@ -8799,10 +8799,10 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
 ●  ·a26ae77 (⌂|🏘)
 │ ◎  wt-feature[📁worktree-ahead-checkout-feature]
 │ ●  ·26837d3 (⌂)
+│ │ ◎  origin/main
+├───╯
+◎ │  main <> origin/main
 ├─╯
-│ ◎  origin/main
-├─╯
-◎  main <> origin/main
 ●  🏁·fafd9d0 (⌂|🏘|✓)
 "#]]
     );

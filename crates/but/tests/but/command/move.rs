@@ -4802,6 +4802,65 @@ Moved nsn to the tip of branch 'B'
     );
 }
 
+/// Worktrees fork from the commit they were created at, not from the branch that names it.
+/// A commit moved onto that branch therefore goes under neither of them: the worktree it came
+/// from gives it up, and the other worktree stays where it was.
+#[test]
+fn move_a_worktree_commit_onto_the_branch_worktrees_fork_from() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git checkout -q -b feature
+        git worktree add -q -b wt-one "{wt}/wt-one" feature
+        (cd "{wt}/wt-one" && echo one >one.txt && git add one.txt && git commit -q -m "add W1")
+        git worktree add -q -b wt-two "{wt}/wt-two" feature
+        (cd "{wt}/wt-two" && echo two >two.txt && git add two.txt && git commit -q -m "add W2")
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 41a4583 (wt-one) add W1
+| * 9880b01 (wt-two) add W2
+|/  
+* b1540e5 (HEAD -> feature, origin/main, origin/HEAD, main) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+
+    env.but("move 41a4583 -b feature")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved zqt to the tip of branch 'feature'
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 41a4583 (HEAD -> feature) add W1
+| * 9880b01 (wt-two) add W2
+|/  
+* b1540e5 (origin/main, origin/HEAD, wt-one, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+}
+
 /// `--below` a worktree heading moves the commit to the tip of the branch that worktree has
 /// checked out, taking it out of the workspace.
 #[test]
