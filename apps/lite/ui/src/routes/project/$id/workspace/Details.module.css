@@ -356,15 +356,17 @@
 }
 
 /* Marks the file holding the diff selection — including a folded one, whose
-   header stands in for its hidden hunks. A plain accent bar for now;
-   positioned absolutely so the layout is untouched. */
+   header stands in for its hidden hunks: a tab on the card's left edge, inset
+   from the header's top and bottom and rounded on its open side. Positioned
+   absolutely so the layout is untouched. */
 .fileHeaderSelected {
 	position: relative;
 
 	&::before {
 		position: absolute;
-		width: 3px;
-		inset: 0 auto 0 0;
+		width: 4px;
+		inset: 5px auto 5px 0;
+		border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
 		/* The row-selection fill, dimmed like row selections in a blurred
 		   panel; full strength while the diff pane owns focus. */
 		background-color: var(--bg-selected-inactive);
