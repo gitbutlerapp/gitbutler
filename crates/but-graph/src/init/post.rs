@@ -133,29 +133,27 @@ impl Graph {
     /// `parent_order`. Petgraph traverses edges in reverse creation order, so
     /// edges are re-added from last parent to first parent.
     fn rebuild_edges_in_parent_order(&mut self) {
-        let mut outgoing_edges = Vec::with_capacity(2);
         for sidx in self.segments().collect::<Vec<_>>() {
-            let mut edges = self.inner.edges_directed(sidx, Direction::Outgoing);
-            let Some(first_edge) = edges.next() else {
-                continue;
-            };
-            let Some(second_edge) = edges.next() else {
-                continue;
-            };
+            self.rebuild_outgoing_edges_in_parent_order(sidx);
+        }
+    }
 
-            outgoing_edges.clear();
-            outgoing_edges.push(EdgeOwned::from(first_edge));
-            outgoing_edges.push(EdgeOwned::from(second_edge));
-            outgoing_edges.extend(edges.map(EdgeOwned::from));
-
-            outgoing_edges.sort_by_key(|e| std::cmp::Reverse(e.weight.parent_order));
-
-            for edge in &outgoing_edges {
-                self.inner.remove_edge(edge.id);
-            }
-            for edge in &outgoing_edges {
-                self.inner.add_edge(edge.source, edge.target, edge.weight);
-            }
+    /// Like [`Self::rebuild_edges_in_parent_order()`], for `sidx` alone.
+    fn rebuild_outgoing_edges_in_parent_order(&mut self, sidx: SegmentIndex) {
+        let mut outgoing_edges: Vec<EdgeOwned> = self
+            .inner
+            .edges_directed(sidx, Direction::Outgoing)
+            .map(EdgeOwned::from)
+            .collect();
+        if outgoing_edges.len() < 2 {
+            return;
+        }
+        outgoing_edges.sort_by_key(|e| std::cmp::Reverse(e.weight.parent_order));
+        for edge in &outgoing_edges {
+            self.inner.remove_edge(edge.id);
+        }
+        for edge in &outgoing_edges {
+            self.inner.add_edge(edge.source, edge.target, edge.weight);
         }
     }
 
