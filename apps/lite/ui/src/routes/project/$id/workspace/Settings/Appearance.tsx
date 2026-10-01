@@ -164,7 +164,9 @@ export const Appearance: FC = () => {
 						onCheckedChange={(handCursor) => saveGUISettings({ handCursor })}
 					/>
 				</Row>
+			</Section>
 
+			<Section heading="Workspace">
 				<Row
 					label="Lines between stacks"
 					labelId="graph-trunk"
