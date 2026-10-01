@@ -1831,10 +1831,11 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ●  ·3c2f313 (⌂)
+│ ◎  👉main[🌳@repo]
+├─╯
 │ ◎  wt-feature[📁worktree-ahead-feature]
 │ ●  ·9175ab3 (⌂)
 ├─╯
-◎  👉main[🌳@repo]
 ●  🏁·85efbe4 (⌂)
 "#]]
     );
@@ -1865,9 +1866,10 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     )?
     .validated()?;
     let feature_only = snapbox::str![[r#"
-◎  wt-feature[📁worktree-ahead-feature]
-●  ·9175ab3 (⌂)
 ◎  👉main[🌳@repo]
+│ ◎  wt-feature[📁worktree-ahead-feature]
+│ ●  ·9175ab3 (⌂)
+├─╯
 ●  🏁·85efbe4 (⌂)
 "#]];
     snapbox::assert_data_eq!(graph_dag(&graph), feature_only.clone());
@@ -1988,9 +1990,10 @@ fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  wt-feature[📁]
-●  ·88cbbc5 (⌂)
 ◎  👉main[🌳@repo]
+│ ◎  wt-feature[📁]
+│ ●  ·88cbbc5 (⌂)
+├─╯
 ●  🏁·7dfaa8f (⌂)
 "#]]
     );

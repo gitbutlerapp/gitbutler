@@ -932,11 +932,13 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
         workspace_graph(&ctx)?,
         snapbox::str![[r#"
 
+├── 👉►:0[0]:main[🌳@repo]
+│   └── ►:3[2]:anon:
+│       └── 🏁·85efbe4 (⌂)
 └── ►:2[0]:feat-b[📁wt-b]
     └── ►:1[1]:anon:
         └── ·7d7d38f (⌂)
-            └── 👉►:0[2]:main[🌳@repo]
-                └── 🏁·85efbe4 (⌂)
+            └── →:3:
 
 "#]]
     );

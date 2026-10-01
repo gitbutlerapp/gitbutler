@@ -281,7 +281,7 @@ impl Graph {
     }
 
     /// The segment named by the checked-out branch, or the one owning a detached `HEAD`.
-    fn worktree_tip_segment(&self, tip: &WorktreeTip) -> Option<SegmentIndex> {
+    pub(crate) fn worktree_tip_segment(&self, tip: &WorktreeTip) -> Option<SegmentIndex> {
         match &tip.ref_name {
             Some(name) => self.segment_by_ref_name(name.as_ref()).map(|s| s.id),
             None => self.segment_id_by_commit_id(tip.id).ok(),

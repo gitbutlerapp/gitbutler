@@ -640,8 +640,8 @@ fn move_commit_below_a_worktree_reference() {
         .assert_current_line_eq(str!["┊●   oun (no commit message) (no changes)"]);
 
     tui.input('m');
-    // Past the worktree's own commit, onto its reference row.
-    tui.input([KeyCode::Up, KeyCode::Up])
+    // The worktree forks from the commit below, so its reference row is further down.
+    tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_commit_below_a_worktree_reference_001.svg"
@@ -656,8 +656,8 @@ fn move_commit_below_a_worktree_reference() {
         tui.env().git_log(),
         str![[r#"
 * 6919fdf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 401b057 (wt-branch) 
-| * 20da4fb add W
+| * 76d9e4b (wt-branch) 
+| * 998a235 add W
 |/  
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
