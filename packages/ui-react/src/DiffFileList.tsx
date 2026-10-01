@@ -1,6 +1,6 @@
 import { classes } from "./classes.ts";
 import { diffFileSpacing } from "./diffFileLayout.ts";
-import type { ComponentProps, FC } from "react";
+import type { ComponentProps, CSSProperties, FC } from "react";
 import styles from "./DiffFileList.module.css";
 
 /**
@@ -22,14 +22,18 @@ export const DiffFileList: FC<ComponentProps<"div">> = (props) => (
 	<div
 		{...props}
 		className={classes(props.className, styles.list)}
-		style={{
-			"--diff-file-inset": `${diffFileSpacing.inset}px`,
-			"--diff-file-top": `${diffFileSpacing.top}px`,
-			"--diff-file-gap": `${diffFileSpacing.gap}px`,
-			"--diff-file-sticky-top": `${diffFileSpacing.top}px`,
-			gap: diffFileSpacing.gap,
-			padding: `0 ${diffFileSpacing.inset}px ${diffFileSpacing.bottom}px`,
-			...props.style,
-		}}
+		// Cast, as in DiffFile: a host compiling this source doesn't see the package's own
+		// CSSProperties augmentation.
+		style={
+			{
+				"--diff-file-inset": `${diffFileSpacing.inset}px`,
+				"--diff-file-top": `${diffFileSpacing.top}px`,
+				"--diff-file-gap": `${diffFileSpacing.gap}px`,
+				"--diff-file-sticky-top": `${diffFileSpacing.top}px`,
+				gap: diffFileSpacing.gap,
+				padding: `0 ${diffFileSpacing.inset}px ${diffFileSpacing.bottom}px`,
+				...props.style,
+			} as CSSProperties
+		}
 	/>
 );

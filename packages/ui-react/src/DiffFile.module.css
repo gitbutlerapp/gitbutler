@@ -37,7 +37,7 @@
 		position: absolute;
 		height: calc(var(--radius-card) * var(--diff-file-roundness));
 		inset: auto 0 0;
-		border: 1px solid var(--border-2);
+		border: 1px solid var(--border-section);
 		border-top: none;
 		border-bottom-right-radius: calc(var(--radius-card) * var(--diff-file-roundness));
 		border-bottom-left-radius: calc(var(--radius-card) * var(--diff-file-roundness));
@@ -64,7 +64,7 @@
 		/* Keeps a host's marks inside the header, such as a selection bar, to the
 		   rounded corners. */
 		overflow: clip;
-		border: 1px solid var(--border-2);
+		border: 1px solid var(--border-section);
 		border-radius: calc(var(--radius-card) * var(--diff-file-roundness))
 			calc(var(--radius-card) * var(--diff-file-roundness)) 0 0;
 		/* Divides the header from the diff under it, and stays with the header
@@ -75,12 +75,12 @@
 	/* Folded: the header is the whole card. */
 	&:last-child > * {
 		border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
-		border-bottom-color: var(--border-2);
+		border-bottom-color: var(--border-section);
 	}
 }
 
 .body {
-	border: 1px solid var(--border-2);
+	border: 1px solid var(--border-section);
 	border-top: none;
 	border-bottom-right-radius: calc(var(--radius-card) * var(--diff-file-roundness));
 	border-bottom-left-radius: calc(var(--radius-card) * var(--diff-file-roundness));

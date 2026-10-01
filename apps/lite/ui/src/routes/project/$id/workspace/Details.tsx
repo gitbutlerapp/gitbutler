@@ -1872,7 +1872,7 @@ const DiffContents: FC<{
              The sides and bottom of the file's card; the header draws its top.
              See .fileHeader in Details.module.css. */
           [data-diff] {
-            border: 1px solid var(--border-2);
+            border: 1px solid var(--border-section);
             border-top: none;
             border-radius: 0 0 calc(var(--radius-card) * var(--diff-file-roundness)) calc(var(--radius-card) * var(--diff-file-roundness));
           }
@@ -1919,7 +1919,7 @@ const DiffContents: FC<{
             z-index: 2;
             height: calc(var(--radius-card) * var(--diff-file-roundness));
             inset: auto 0 0;
-            border: 1px solid var(--border-2);
+            border: 1px solid var(--border-section);
             border-top: none;
             border-radius: 0 0 calc(var(--radius-card) * var(--diff-file-roundness)) calc(var(--radius-card) * var(--diff-file-roundness));
             content: "";
