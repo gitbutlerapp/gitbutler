@@ -1159,10 +1159,9 @@ fn format_branch_suggestions(branches: &[String]) -> String {
 }
 
 fn previous_remote_tip_for_display(repo: &gix::Repository, before_sha: &str) -> String {
-    if before_sha == "0000000000000000000000000000000000000000" {
-        "(new branch)".to_string()
-    } else {
-        shorten_hex_object_id(repo, before_sha)
+    match gix::ObjectId::from_hex(before_sha.as_bytes()) {
+        Ok(id) if id.is_null() => "(new branch)".to_string(),
+        _ => shorten_hex_object_id(repo, before_sha),
     }
 }
 

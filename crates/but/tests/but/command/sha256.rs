@@ -110,3 +110,21 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 
 "#]]);
 }
+
+#[test]
+fn push_reports_a_new_branch() {
+    let env = sha256_one_stack();
+    let remote_git = env.app_data_dir().join("origin.git");
+    let remote_git = remote_git.display();
+    env.invoke_bash(format!(
+        "git clone --bare . {remote_git} && git remote set-url origin {remote_git}",
+    ));
+
+    env.but("push A").assert().success().stdout_eq(str![[r#"
+
+✓ Push completed successfully
+
+  A -> origin/A ((new branch) -> 9e8b7ee)
+
+"#]]);
+}
