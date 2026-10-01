@@ -31,7 +31,7 @@
 	let { projectId, stackId }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const [createNewStack, stackCreation] = stackService.newStack;
-	const [createNewBranch, branchCreation] = stackService.newBranch;
+	const [createNewBranch, branchCreation] = stackService.branchCreate;
 	const { openGeneralSettings } = useSettingsModal();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
@@ -104,10 +104,23 @@
 			if (!selectedStackId || !normalizedRefName) {
 				return;
 			}
+			const segment = allStacks.find((stack) => stack.id === selectedStackId)?.segments.at(0);
+			if (!segment) return;
+			const tip = segment.commits.at(0)?.id ?? segment.base;
+			if (!segment.refName && !tip) return;
+
 			await createNewBranch({
 				projectId,
-				stackId: selectedStackId,
-				request: { targetPatch: undefined, name: normalizedRefName },
+				newRef: `refs/heads/${normalizedRefName}`,
+				placement: {
+					type: "dependent",
+					subject: {
+						relativeTo: segment.refName
+							? { type: "referenceBytes", subject: segment.refName.fullNameBytes }
+							: { type: "commit", subject: tip! },
+						side: "above",
+					},
+				},
 			});
 			createRefModal?.close();
 		}
