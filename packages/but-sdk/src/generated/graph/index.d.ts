@@ -3897,7 +3897,7 @@ export type NewWorktree = {
   path: string;
   /** The branch created for and checked out in the worktree. */
   refName: string;
-  /** The commit the branch starts at, the workspace's highest base. */
+  /** The commit the branch starts at. */
   base: string;
 };
 

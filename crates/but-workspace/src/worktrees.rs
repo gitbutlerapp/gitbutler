@@ -14,6 +14,9 @@ pub use but_graph::workspace::WorktreeBase;
 
 use crate::ref_info::{LocalCommit, Segment};
 
+mod cow;
+pub use cow::add_cow;
+
 /// A non-archived linked worktree along with the first-parent history it owns exclusively,
 /// i.e. the segments between its `HEAD` and the workspace, an earlier worktree, or the target.
 #[derive(Debug, Clone)]
@@ -109,22 +112,33 @@ pub fn add(
     branch: &gix::refs::FullNameRef,
     base: gix::ObjectId,
 ) -> anyhow::Result<BString> {
-    if path.exists() {
+    add_inner(repo, path, branch, base, false)
+}
+
+fn add_inner(
+    repo: &gix::Repository,
+    path: &Path,
+    branch: &gix::refs::FullNameRef,
+    base: gix::ObjectId,
+    no_checkout: bool,
+) -> anyhow::Result<BString> {
+    if path.symlink_metadata().is_ok() {
         bail!("'{}' already exists", path.display());
     }
     let short_name = gix::path::from_bstr(branch.shorten());
     let base = base.to_string();
-    git_worktree(
-        repo,
-        "add",
-        &[
-            OsStr::new("-b"),
-            short_name.as_os_str(),
-            OsStr::new("--"),
-            path.as_os_str(),
-            OsStr::new(&base),
-        ],
-    )?;
+    let mut args = Vec::new();
+    if no_checkout {
+        args.push(OsStr::new("--no-checkout"));
+    }
+    args.extend([
+        OsStr::new("-b"),
+        short_name.as_os_str(),
+        OsStr::new("--"),
+        path.as_os_str(),
+        OsStr::new(&base),
+    ]);
+    git_worktree(repo, "add", &args)?;
     gix::open(path)?
         .worktree()
         .and_then(|worktree| worktree.id().map(ToOwned::to_owned))

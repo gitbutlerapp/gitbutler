@@ -28,12 +28,21 @@ pub enum Subcommands {
     },
     /// Create a worktree on a new branch at the workspace base.
     ///
-    /// The branch starts at the child-most commit any applied stack rests on, and is
-    /// checked out under `.git/gb-wts/` in a directory named by a slug of the branch name.
+    /// By default the branch starts at the child-most commit any applied stack rests on,
+    /// and is checked out under `.git/gb-wts/` in a directory named by a slug of the branch
+    /// name. With `--cow`, it instead starts at the primary worktree's HEAD and clones its
+    /// current files and index, even when invoked from a linked worktree.
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     New {
         /// The name of the branch to create, or a generated one.
         name: Option<BranchArg>,
+        /// Clone the primary worktree at its HEAD using copy-on-write (macOS only).
+        ///
+        /// Includes ignored and untracked files and preserves staged/unstaged changes.
+        /// Requires a filesystem supporting clonefile(2); no full-copy fallback.
+        /// Avoid concurrent edits while cloning: this is not an atomic snapshot.
+        #[clap(long)]
+        cow: bool,
     },
     /// Hide a worktree from the workspace.
     Archive {

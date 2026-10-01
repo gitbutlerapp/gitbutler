@@ -283,7 +283,7 @@ pub struct NewWorktree {
         schemars(schema_with = "but_schemars::fullname_lossy")
     )]
     pub ref_name: gix::refs::FullName,
-    /// The commit the branch starts at, the workspace's highest base.
+    /// The commit the branch starts at.
     #[serde(with = "but_serde::object_id")]
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub base: gix::ObjectId,
@@ -325,11 +325,41 @@ pub fn worktree_new_with_perm(
     worktree_new_at_base_with_perm(ctx, new_ref, base, perm)
 }
 
+/// Clone the primary worktree's files and index onto a new branch at its HEAD (macOS only).
+///
+/// Includes ignored and untracked files, excluding the root `.git` entry. This is not an
+/// atomic snapshot: callers must avoid concurrent filesystem or index writes. Like other
+/// worktree creation, this does not participate in the oplog. No SDK transport is exposed.
+pub fn worktree_new_cow_with_perm(
+    ctx: &but_ctx::Context,
+    new_ref: Option<gix::refs::FullName>,
+    perm: &mut RepoExclusive,
+) -> Result<NewWorktree> {
+    anyhow::ensure!(
+        cfg!(target_os = "macos"),
+        "--cow is only supported on macOS"
+    );
+    ensure_worktree_manipulation_enabled(ctx)?;
+    // Context is rooted at the primary worktree, even when the CLI is invoked in a linked one.
+    let base = ctx.repo.get()?.head_id()?.detach();
+    worktree_new_at_base(ctx, new_ref, base, true, perm)
+}
+
 /// Create a worktree at a given base.
 pub fn worktree_new_at_base_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
     base: gix::ObjectId,
+    perm: &mut RepoExclusive,
+) -> Result<NewWorktree> {
+    worktree_new_at_base(ctx, new_ref, base, false, perm)
+}
+
+fn worktree_new_at_base(
+    ctx: &but_ctx::Context,
+    new_ref: Option<gix::refs::FullName>,
+    base: gix::ObjectId,
+    cow: bool,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
@@ -346,7 +376,11 @@ pub fn worktree_new_at_base_with_perm(
         );
     }
     let path = repo.common_dir().join("gb-wts").join(&slug);
-    let name = but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?;
+    let name = if cow {
+        but_workspace::worktrees::add_cow(&repo, &path, ref_name.as_ref(), base)?
+    } else {
+        but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?
+    };
     let path = gix::path::realpath(&path)?;
     drop((repo, ws, db));
     ctx.invalidate_workspace_cache()?;

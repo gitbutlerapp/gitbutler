@@ -64,6 +64,9 @@ but-schemars = { workspace = true, optional = true }
 
 sapling-renderdag.workspace = true
 
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2.186"
+
 [dev-dependencies]
 # We just want to test everything, with the goal that 'legacy' can one day go away.
 but-workspace = { workspace = true, features = ["legacy"] }

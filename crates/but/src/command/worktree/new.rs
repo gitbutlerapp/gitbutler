@@ -12,9 +12,13 @@ use crate::{
     utils::{CliOutput, CliOutputHuman, WriteWithUtils},
 };
 
-pub fn new(ctx: &mut Context, name: Option<&BranchArg>) -> CliResult<NewOutcome> {
+pub fn new(ctx: &mut Context, name: Option<&BranchArg>, cow: bool) -> CliResult<NewOutcome> {
+    if cow && !cfg!(target_os = "macos") {
+        return Err(crate::bad_input("--cow is only supported on macOS").into());
+    }
     let mut guard = ctx.exclusive_worktree_access();
-    let op = NewOperation::resolve(ctx, guard.read_permission(), name)?;
+    let mut op = NewOperation::resolve(ctx, guard.read_permission(), name)?;
+    op.cow = cow;
     Ok(run(ctx, guard.write_permission(), op)?)
 }
 
@@ -22,6 +26,7 @@ pub(crate) struct NewOperation {
     /// The branch to create, or `None` for a canned name.
     pub ref_name: Option<FullName>,
     pub base: Option<ObjectId>,
+    pub cow: bool,
 }
 
 impl NewOperation {
@@ -41,12 +46,15 @@ impl NewOperation {
         Ok(Self {
             ref_name,
             base: None,
+            cow: false,
         })
     }
 }
 
 pub fn run(ctx: &Context, perm: &mut RepoExclusive, op: NewOperation) -> Result<NewOutcome> {
-    let created = if let Some(base) = op.base {
+    let created = if op.cow {
+        but_api::worktrees::worktree_new_cow_with_perm(ctx, op.ref_name, perm)?
+    } else if let Some(base) = op.base {
         but_api::worktrees::worktree_new_at_base_with_perm(ctx, op.ref_name, base, perm)?
     } else {
         but_api::worktrees::worktree_new_with_perm(ctx, op.ref_name, perm)?

@@ -539,6 +539,165 @@ Error: '[..]/.git/gb-wts/feature-one' already exists
 "#]]);
 }
 
+#[cfg(not(target_os = "macos"))]
+#[test]
+fn cow_is_refused_without_creating_a_worktree_on_other_platforms() {
+    let env = flag_on_sandbox();
+    env.but("worktree new --cow cloned")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: --cow is only supported on macOS
+
+"#]]);
+    assert!(
+        !env.projects_root().join(".git/gb-wts/cloned").exists(),
+        "unsupported platforms must not create a checkout"
+    );
+    assert!(
+        env.context()
+            .repo
+            .get()
+            .unwrap()
+            .try_find_reference("cloned")
+            .unwrap()
+            .is_none(),
+        "unsupported platforms must not create a branch"
+    );
+}
+
+/// Requires the sandbox to reside on a filesystem supporting clonefile(2), typically APFS.
+#[cfg(unix)]
+#[cfg_attr(not(target_os = "macos"), ignore = "requires macOS clonefile(2)")]
+#[test]
+fn cow_clones_primary_files_and_index_even_when_invoked_from_a_linked_worktree() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let env = flag_on_sandbox();
+    env.but("worktree new caller").assert().success();
+    env.invoke_bash(
+        r#"
+        printf 'cache/\n' > .gitignore
+        mkdir -p cache/empty nested/.git
+        printf 'ignored\n' > cache/build
+        printf 'nested metadata\n' > nested/.git/sentinel
+        printf 'staged\n' > A
+        git add A
+        printf 'unstaged\n' >> A
+        git rm -q B
+        rm M
+        printf 'untracked\n' > untracked
+        printf 'intent\n' > intent
+        git add -N intent
+        printf '#!/bin/sh\n' > executable
+        chmod +x executable
+        ln -s cache/build link
+        ln -s missing dangling
+        ln -s cache directory-link
+        printf 'caller only\n' > .git/gb-wts/caller/caller-only
+        git update-index --split-index
+    "#,
+    );
+    let source = env.projects_root();
+    let caller = source.join(".git/gb-wts/caller");
+    let destination = source.join(".git/gb-wts/cloned");
+    env.but("worktree new --cow cloned")
+        .current_dir(&caller)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created worktree cloned on 'cloned' from [..] at [..]/.git/gb-wts/cloned
+
+"#]]);
+    for file in [
+        "A",
+        ".gitignore",
+        "cache/build",
+        "nested/.git/sentinel",
+        "untracked",
+        "intent",
+        "executable",
+    ] {
+        assert_eq!(
+            std::fs::read(source.join(file)).unwrap(),
+            std::fs::read(destination.join(file)).unwrap(),
+            "{file} was cloned regardless of Git tracking or ignore rules"
+        );
+    }
+    assert!(
+        destination.join("cache/empty").is_dir(),
+        "empty directories survive"
+    );
+    for absent in ["B", "M", "caller-only"] {
+        assert!(
+            !destination.join(absent).exists(),
+            "{absent} is absent in the primary worktree"
+        );
+    }
+    assert!(
+        destination.join(".git").is_file(),
+        "Git's linked-worktree file wasn't overwritten"
+    );
+    for link in ["link", "dangling", "directory-link"] {
+        assert_eq!(
+            std::fs::read_link(source.join(link)).unwrap(),
+            std::fs::read_link(destination.join(link)).unwrap(),
+            "symlinks are cloned without following them"
+        );
+    }
+    assert_ne!(
+        std::fs::metadata(destination.join("executable"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o111,
+        0,
+        "executable bits survive"
+    );
+    env.invoke_bash(r#"
+        test "$(git rev-parse HEAD)" = "$(git -C .git/gb-wts/cloned rev-parse HEAD)"
+        diff <(git ls-files --stage -v) <(git -C .git/gb-wts/cloned ls-files --stage -v)
+        diff <(git status --porcelain=v1 --untracked-files=all) <(git -C .git/gb-wts/cloned status --porcelain=v1 --untracked-files=all)
+        printf 'changed clone\n' > .git/gb-wts/cloned/cache/build
+        test "$(cat cache/build)" = ignored
+    "#);
+}
+
+#[cfg(unix)]
+#[cfg_attr(not(target_os = "macos"), ignore = "requires macOS clonefile(2)")]
+#[test]
+fn cow_cleans_up_after_encountering_a_special_file() {
+    let env = flag_on_sandbox();
+    env.invoke_bash("mkfifo unsupported-pipe");
+    env.but("worktree new --cow cloned")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot clone special file '[..]/unsupported-pipe'
+
+"#]]);
+    let repo = env.context().repo.get().unwrap().clone();
+    assert!(
+        repo.try_find_reference("cloned").unwrap().is_none(),
+        "failed clone's branch is removed"
+    );
+    assert!(
+        !env.projects_root().join(".git/gb-wts/cloned").exists(),
+        "partial checkout is removed"
+    );
+    assert!(
+        repo.worktree_proxy_by_id(gix::bstr::BStr::new("cloned"))
+            .is_none(),
+        "worktree registration is removed"
+    );
+    // Cleanup makes the same name usable again.
+    env.invoke_bash("rm unsupported-pipe");
+    env.but("worktree new --cow cloned").assert().success();
+}
+
 /// A worktree is named by its checkout, never by a branch below it, which it merely holds.
 #[test]
 fn a_lower_branch_does_not_name_its_worktree() {
