@@ -1,6 +1,6 @@
 import { classes } from "./classes.ts";
 import { diffFileHeaderHeight } from "./diffFileLayout.ts";
-import type { ComponentProps, FC, ReactNode } from "react";
+import type { ComponentProps, CSSProperties, FC, ReactNode } from "react";
 import styles from "./DiffFile.module.css";
 
 type Props = {
@@ -40,11 +40,15 @@ export const DiffFile: FC<Props> = ({
 	<section
 		{...props}
 		className={classes(props.className, styles.file)}
-		style={{
-			"--diff-file-header-height": `${diffFileHeaderHeight}px`,
-			...(stickyTop !== undefined && { "--diff-file-sticky-top": `${stickyTop}px` }),
-			...props.style,
-		}}
+		// Cast, as the library's other components do: a host compiling this source doesn't
+		// see the package's own CSSProperties augmentation.
+		style={
+			{
+				"--diff-file-header-height": `${diffFileHeaderHeight}px`,
+				...(stickyTop !== undefined && { "--diff-file-sticky-top": `${stickyTop}px` }),
+				...props.style,
+			} as CSSProperties
+		}
 	>
 		<div className={styles.header}>{header}</div>
 		{!collapsed && <div className={styles.body}>{children}</div>}
