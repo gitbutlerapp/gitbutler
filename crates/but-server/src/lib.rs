@@ -669,7 +669,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(legacy::repo::post_commit_hook_cmd),
         )
         .route("/message_hook", but_post(legacy::repo::message_hook_cmd))
-        .route("/create_branch", but_post(legacy::stack::create_branch_cmd))
         // Undo/Snapshot commands
         .route(
             "/list_snapshots",

@@ -452,21 +452,6 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				...(stackId ? [invalidatesItem(ReduxTag.StackDetails, stackId)] : []),
 			],
 		}),
-		newBranch: build.mutation<
-			void,
-			{ projectId: string; stackId: string; request: { targetPatch?: string; name: string } }
-		>({
-			extraOptions: {
-				command: "create_branch",
-				actionName: "Create Branch",
-			},
-			query: (args) => args,
-			invalidatesTags: (_result, _error, args) => [
-				invalidatesList(ReduxTag.HeadSha),
-				invalidatesItem(ReduxTag.StackDetails, args.stackId),
-				invalidatesList(ReduxTag.BranchListing),
-			],
-		}),
 		branchCreate: build.mutation<
 			BranchCreateResult,
 			{ projectId: string; newRef: string | null; placement: BranchCreatePlacement }
