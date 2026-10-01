@@ -10,7 +10,7 @@ use petgraph::{algo::toposort, visit::EdgeRef};
 use crate::graph_rebase::{
     Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
     cherry_pick::{CherryPickOutcome, cherry_pick},
-    util::collect_ordered_parents,
+    util::{OrderedParentKind, collect_ordered_parents},
 };
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
@@ -38,7 +38,11 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     output_graph.add_node(Step::Pick(pick))
                 }
                 Step::Pick(pick) => {
-                    let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+                    let graph_parents = collect_ordered_parents(
+                        &self.graph,
+                        step_idx,
+                        OrderedParentKind::CommitOnly,
+                    );
                     let ontos = match pick.preserved_parents.clone() {
                         Some(ontos) => ontos,
                         None => graph_parents
@@ -109,7 +113,11 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     // Immutable references are kept in the graph for traversal
                     // but never moved, created, or deleted.
                     if mutable {
-                        let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+                        let graph_parents = collect_ordered_parents(
+                            &self.graph,
+                            step_idx,
+                            OrderedParentKind::CommitOnly,
+                        );
                         let first_parent_idx = graph_parents
                             .first()
                             .context("References should have at least one parent")?;
