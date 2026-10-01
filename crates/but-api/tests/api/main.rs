@@ -6,14 +6,16 @@ mod branch_move;
 mod branch_remove;
 mod branch_rename;
 mod changes_in_worktree;
+#[cfg(feature = "legacy")]
+mod cmd_registry;
 mod commit_cherry_pick;
 mod commit_uncommit;
 #[cfg(feature = "legacy")]
 mod forge_info;
-#[cfg(feature = "legacy")]
-mod hosted_mirror;
 #[cfg(all(feature = "legacy", not(feature = "graph-workspace")))]
 mod forge_pr_association;
+#[cfg(feature = "legacy")]
+mod hosted_mirror;
 #[cfg(feature = "legacy")]
 mod legacy_git;
 #[cfg(feature = "legacy")]

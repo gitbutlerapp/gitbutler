@@ -429,8 +429,29 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    // Lets a server mount every SDK endpoint under its JavaScript name.
+    let cmd_registry_entry = if opts.napi {
+        let call = if asyncness.is_some() {
+            quote! { crate::CmdFn::Async(|params| Box::pin(#fn_cmd_name(params))) }
+        } else {
+            quote! { crate::CmdFn::Sync(#fn_cmd_name) }
+        };
+        quote! {
+            #[cfg(feature = "legacy")]
+            ::but_schemars::internal_submit! {
+                crate::CmdEntry {
+                    js_name: #js_name_str,
+                    call: #call,
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let expanded = quote! {
         #napi_registry_entry
+        #cmd_registry_entry
 
         // Generated struct
         #[cfg(feature = "legacy")]
