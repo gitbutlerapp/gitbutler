@@ -239,15 +239,15 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  * `branch` is the short name of the branch to land (its `refs/heads/<branch>` ref). The branch
  * must be the bottom segment of its stack — or, with `whole_stack`, the top segment, which
  * publishes every segment below it as well — and the landed segments must be free of conflicted
- * commits. The workspace must be a managed GitButler workspace with a configured, non-triangular
- * target remote.
+ * commits. HEAD must be the managed workspace or, in single-branch mode, the checked-out branch
+ * (see [`ensure_landable_checkout`]), and the target remote must be configured and non-triangular.
  *
  * This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
  * the target moves underneath us), then reconciles the remaining applied branches onto the moved
  * target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
  * workspace state for what to report.
  *
- * {@link ../../../../../crates/but-api/src/land/mod.rs:172}
+ * {@link ../../../../../crates/but-api/src/land/mod.rs:174}
  */
 export declare function branchLand(projectId: string, branch: string, noFf: boolean, wholeStack: boolean): Promise<BranchLandResult>
 

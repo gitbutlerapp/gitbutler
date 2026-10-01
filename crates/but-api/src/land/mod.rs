@@ -1,9 +1,11 @@
 //! `but_api::land::branch_land`: land a branch directly onto the target ref (the "avoid pull
 //! requests" workflow), exposed for every client (CLI, desktop, SDK).
 //!
-//! Inside a managed GitButler workspace this fast-forwards (or merges) the branch onto the
-//! configured target — pushing to the real remote, or moving the local refs for a self-remote
-//! (`gb-local`) — and then reconciles the remaining applied branches onto the moved target.
+//! This fast-forwards (or merges) the branch onto the configured target — pushing to the real
+//! remote, or moving the local refs for a self-remote (`gb-local`) — and then reconciles the
+//! remaining applied branches onto the moved target. The reconcile is the one `but pull` runs, so
+//! in single-branch mode landing the checked-out branch checks out the target branch afterwards, or
+//! a generated branch when the target can't be reused.
 //!
 //! ## Boundary
 //!
@@ -162,8 +164,8 @@ pub mod json {
 /// `branch` is the short name of the branch to land (its `refs/heads/<branch>` ref). The branch
 /// must be the bottom segment of its stack — or, with `whole_stack`, the top segment, which
 /// publishes every segment below it as well — and the landed segments must be free of conflicted
-/// commits. The workspace must be a managed GitButler workspace with a configured, non-triangular
-/// target remote.
+/// commits. HEAD must be the managed workspace or, in single-branch mode, the checked-out branch
+/// (see [`ensure_landable_checkout`]), and the target remote must be configured and non-triangular.
 ///
 /// This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
 /// the target moves underneath us), then reconciles the remaining applied branches onto the moved
@@ -180,13 +182,11 @@ pub fn branch_land(
     let base_branch = {
         let mut guard = ctx.exclusive_worktree_access();
         {
+            // A caller may have checked the checkout already, as the CLI does before its
+            // confirmation prompt. Reload so this check sees HEAD as it is now.
+            ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
             let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-            if !ws.kind.has_managed_ref() {
-                bail!(
-                    "`but merge` requires an active GitButler workspace (`gitbutler/workspace`). \
-                     Switch into the workspace and try again."
-                );
-            }
+            ensure_landable_checkout(&ws, ctx.settings.feature_flags.single_branch)?;
         }
         crate::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())?
             .ok_or_else(|| anyhow::anyhow!("No base branch configured"))?
@@ -387,13 +387,36 @@ pub fn branch_land(
     })
 }
 
+/// Refuse landing unless HEAD is the managed workspace or, with `single_branch_mode`, an ordinary
+/// checked-out branch. The reconcile after the land rewrites whatever HEAD points at, so a detached
+/// HEAD or edit mode must be refused before anything is published. Callers that confirm with the
+/// user run this first, so they never ask about a land that can't happen.
+pub fn ensure_landable_checkout(
+    ws: &but_graph::Workspace,
+    single_branch_mode: bool,
+) -> anyhow::Result<()> {
+    let single_branch_checkout = single_branch_mode
+        && ws.ref_name().is_some_and(|name| {
+            name.category() == Some(gix::refs::Category::LocalBranch)
+                && name.as_bstr() != gitbutler_operating_modes::EDIT_BRANCH_REF
+        });
+    if !ws.kind.has_managed_ref() && !single_branch_checkout {
+        bail!(
+            "`but merge` requires the GitButler workspace or, in single-branch mode, a checked-out \
+             branch."
+        );
+    }
+    Ok(())
+}
+
 /// Refuse landing a non-bottom stack segment unless `whole_stack` opts into publishing the lower
 /// segments — and even then only for the top segment, so `--whole-stack` always means "the entire
 /// stack lands", never a partial land that strands the segments above. Also refuse conflicted
 /// commits in any segment that would be published (the same guard `but push` applies before
 /// sending commits to a remote). All computed from the graph workspace, not stack projections.
 /// Returns the named lower segments that land together with `branch` — non-empty only for a
-/// validated `--whole-stack` land.
+/// validated `--whole-stack` land. A branch outside every lane is refused, as none of these checks
+/// could run on it.
 fn validate_branch_landing(
     ctx: &mut Context,
     branch: &str,
@@ -401,7 +424,9 @@ fn validate_branch_landing(
     whole_stack: bool,
 ) -> anyhow::Result<Vec<String>> {
     let Some(scan) = scan_stack(ctx, branch)? else {
-        return Ok(Vec::new());
+        bail!(
+            "Refusing to land `{branch}`: it is not in the workspace. Apply or check out the branch first."
+        );
     };
 
     if whole_stack && scan.has_upper {
@@ -518,8 +543,8 @@ struct StackScan {
     conflicted: Vec<String>,
 }
 
-/// Locate `branch` in the graph workspace, or `None` when no applied stack has a segment by that
-/// name.
+/// Locate `branch` in the graph workspace, or `None` when no lane (an applied stack or a linked
+/// worktree) has a segment by that name.
 fn scan_stack(ctx: &mut Context, branch: &str) -> anyhow::Result<Option<StackScan>> {
     let guard = ctx.exclusive_worktree_access();
     let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
@@ -536,34 +561,30 @@ fn scan_stack(ctx: &mut Context, branch: &str) -> anyhow::Result<Option<StackSca
 
     // Segments are ordered top of the stack first, so everything after `pos` is published along
     // with the branch's tip and everything before it sits on top of the branch.
-    for stack in &head_info.stacks {
-        let Some(pos) = stack
-            .segments
+    for segments in head_info.lanes().map(|lane| lane.segments) {
+        let Some(pos) = segments
             .iter()
             .position(|s| segment_short_name(s).as_deref() == Some(branch))
         else {
             continue;
         };
         return Ok(Some(StackScan {
-            upper_segments: stack.segments[..pos]
+            upper_segments: segments[..pos]
                 .iter()
                 .filter_map(segment_short_name)
                 .collect(),
             has_upper: pos > 0,
-            lower_segments: stack.segments[pos + 1..]
+            lower_segments: segments[pos + 1..]
                 .iter()
                 .filter_map(segment_short_name)
                 .collect(),
-            commits_below: stack.segments[pos + 1..]
-                .iter()
-                .map(|s| s.commits.len())
-                .sum(),
-            unnamed_below_commits: stack.segments[pos + 1..]
+            commits_below: segments[pos + 1..].iter().map(|s| s.commits.len()).sum(),
+            unnamed_below_commits: segments[pos + 1..]
                 .iter()
                 .filter(|s| segment_short_name(s).is_none())
                 .map(|s| s.commits.len())
                 .sum(),
-            conflicted: stack.segments[pos..]
+            conflicted: segments[pos..]
                 .iter()
                 .flat_map(|s| &s.commits)
                 .filter(|c| c.has_conflicts)
