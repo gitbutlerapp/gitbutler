@@ -13,7 +13,6 @@ use crate::support::{persist_default_target, writable_scenario, write_file};
 
 const NAMESPACE: &str = "machine-a/checkout-1";
 const WIP_REF: &str = but_core::diff::PUBLISHED_WORKTREE_REF;
-const META_REF: &str = "refs/gitbutler/meta";
 
 fn git(dir: &Path, args: &[&str]) -> Result<String> {
     let out = git_at_dir(dir).args(args).output()?;
@@ -61,12 +60,6 @@ fn publish(source: &Path, mirror: &Path) -> Result<()> {
     std::fs::remove_file(&scratch_index)?;
     let wip = git(source, &["commit-tree", &tree, "-p", "HEAD", "-m", "wip"])?;
     git(source, &["update-ref", WIP_REF, &wip])?;
-    // Branch and stack metadata travel as a blob on a ref.
-    let meta = git(
-        source,
-        &["hash-object", "-w", ".git/gitbutler/virtual_branches.toml"],
-    )?;
-    git(source, &["update-ref", META_REF, &meta])?;
 
     let receive_pack = format!("GIT_NAMESPACE={NAMESPACE} git-receive-pack");
     git(
@@ -80,7 +73,6 @@ fn publish(source: &Path, mirror: &Path) -> Result<()> {
             "refs/heads/*:refs/heads/*",
             "refs/remotes/*:refs/remotes/*",
             &format!("{WIP_REF}:{WIP_REF}"),
-            &format!("{META_REF}:{META_REF}"),
         ],
     )?;
     Ok(())
@@ -104,16 +96,9 @@ fn mirror_context(source: &gix::Repository, mirror: &Path) -> Result<but_ctx::Co
     )?;
     let mut repo = but_testsupport::open_repo(mirror)?;
     {
-        // Each checkout gets its own GitButler storage inside the shared git dir, filled from
-        // the published metadata blob.
+        // Each checkout gets its own GitButler storage for the host's caches; nothing in it
+        // was published.
         let storage = format!("gitbutler/namespaces/{NAMESPACE}");
-        let meta = repo
-            .find_reference(&format!("{}{META_REF}", ns.as_bstr()))?
-            .peel_to_id()?
-            .detach();
-        let toml = repo.find_blob(meta)?.data.clone();
-        std::fs::create_dir_all(mirror.join(&storage))?;
-        std::fs::write(mirror.join(&storage).join("virtual_branches.toml"), toml)?;
         repo.config_snapshot_mut().set_raw_value(
             but_project_handle::storage_path_config_key(),
             storage.as_str(),
@@ -206,10 +191,18 @@ fn workspace_reads_on_a_namespaced_bare_mirror() -> Result<()> {
     let mirror_ctx = mirror_context(&source_repo, &mirror)?;
     let mut findings = Findings::default();
 
+    // Stack ids and branch metadata are the source's local bookkeeping, which isn't published.
     read_both(&mut findings, "headInfo", &source_ctx, &mirror_ctx, |ctx| {
-        json(&but_workspace::ui::RefInfo::try_from(
+        let mut info = json(&but_workspace::ui::RefInfo::try_from(
             but_api::legacy::workspace::head_info(ctx)?,
-        )?)
+        )?)?;
+        for stack in info["stacks"].as_array_mut().into_iter().flatten() {
+            stack["id"] = serde_json::Value::Null;
+            for segment in stack["segments"].as_array_mut().into_iter().flatten() {
+                segment["metadata"] = serde_json::Value::Null;
+            }
+        }
+        Ok(info)
     })?;
     read_both(
         &mut findings,
