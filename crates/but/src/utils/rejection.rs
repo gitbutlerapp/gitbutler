@@ -107,8 +107,16 @@ pub fn explain_after_rollback(
         Target::Branch(name) => Some(name.clone()),
         Target::NewBranch(_) => None,
     };
-
-    let changes = match explain_rejections(repo, ws, &rejected.0, target_branch.as_deref()) {
+    let exclude_target_branch = (verb == "amend")
+        .then_some(target_branch.as_deref())
+        .flatten();
+    let changes = match explain_rejections(
+        repo,
+        ws,
+        &rejected.0,
+        target_branch.as_deref(),
+        exclude_target_branch,
+    ) {
         Ok(changes) => changes,
         Err(other) => return other,
     };
@@ -167,6 +175,7 @@ fn explain_rejections(
     ws: &Workspace,
     rejected_specs: &[(RejectionReason, DiffSpec)],
     target_branch: Option<&str>,
+    exclude_target_branch: Option<&str>,
 ) -> anyhow::Result<Vec<RejectedChange>> {
     let needs_dependencies = rejected_specs
         .iter()
@@ -200,7 +209,7 @@ fn explain_rejections(
         .map(|(reason, spec)| {
             let dependencies = match &dependencies {
                 Some(deps) if is_dependency_reason(*reason) => {
-                    dependencies_for_spec(ws, repo, deps, spec)?
+                    dependencies_for_spec(ws, repo, deps, spec, exclude_target_branch)?
                 }
                 _ => Vec::new(),
             };
@@ -387,6 +396,7 @@ fn dependencies_for_spec(
     repo: &gix::Repository,
     dependencies: &HunkDependencies,
     spec: &DiffSpec,
+    exclude_target_branch: Option<&str>,
 ) -> anyhow::Result<Vec<HunkDependency>> {
     let spec_path = spec.path.as_bstr();
     let mut result = Vec::new();
@@ -408,15 +418,22 @@ fn dependencies_for_spec(
         if !overlaps {
             continue;
         }
-        let commits = locks
-            .iter()
-            .map(|lock| {
-                Ok(DependencyCommit {
-                    commit: CommitId::try_from_commit_id(lock.commit_id, repo)?,
-                    branch: branch_of_commit(ws, lock.commit_id, stack_of(lock.target)),
-                })
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+        let mut commits = Vec::new();
+        for lock in locks {
+            let branch = branch_of_commit(ws, lock.commit_id, stack_of(lock.target));
+            if exclude_target_branch
+                .is_some_and(|target_branch| branch.as_deref() == Some(target_branch))
+            {
+                continue;
+            }
+            commits.push(DependencyCommit {
+                commit: CommitId::try_from_commit_id(lock.commit_id, repo)?,
+                branch,
+            });
+        }
+        if commits.is_empty() {
+            continue;
+        }
         result.push(HunkDependency { hunk, commits });
     }
     Ok(result)

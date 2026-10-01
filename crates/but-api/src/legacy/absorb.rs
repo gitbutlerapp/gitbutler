@@ -317,12 +317,16 @@ fn locks_for_candidate(index: &LockIndex, candidate: &AbsorbCandidate) -> Vec<Hu
                 // Match on the new-file side: candidate hunks describe worktree
                 // state (new), and dependency hunks record which committed ranges
                 // they depend on.
-                if ranges_overlap(
+                let overlaps = ranges_overlap(
                     dep_hunk.new_start,
                     dep_hunk.new_lines,
                     hunk_header.new_start,
                     hunk_header.new_lines,
-                ) {
+                ) || (dep_hunk.new_lines == 0
+                    && hunk_header.new_lines < hunk_header.old_lines
+                    && dep_hunk.new_start
+                        == hunk_header.new_start.saturating_add(hunk_header.new_lines));
+                if overlaps {
                     locks.extend(dep_locks.iter().cloned());
                 }
             }
@@ -337,31 +341,29 @@ fn locks_for_candidate(index: &LockIndex, candidate: &AbsorbCandidate) -> Vec<Hu
 
 // Find the lock that is highest in the application order (child-most commit)
 fn find_top_most_lock<'a>(locks: &'a [HunkLock], workspace: &RefInfo) -> Option<&'a HunkLock> {
-    // These are all the stack IDs that the hunk is dependent on.
-    // If there are multiple, then the absorb will fail.
-    let all_stack_ids = locks
-        .iter()
-        .map(|lock| lock.target)
-        .unique()
-        .collect::<Vec<_>>();
-    for stack_id in &all_stack_ids {
-        if let HunkLockTarget::Stack(stack_id) = stack_id {
-            let stack = stack_by_id(workspace, *stack_id)?;
-            for segment in stack.segments.iter() {
-                for commit in segment.commits.iter() {
-                    if let Some(lock) = locks.iter().find(|l| {
-                        l.commit_id == commit.id && l.target == HunkLockTarget::Stack(*stack_id)
-                    }) {
-                        return Some(lock);
-                    }
+    // Dependency entries are grouped by changed ranges, not ordered by the
+    // workspace's application order. Walk the workspace first so overlapping
+    // dependencies resolve to the child-most commit, independent of lock order.
+    for stack in &workspace.stacks {
+        let Some(stack_id) = stack.id else {
+            continue;
+        };
+        for segment in &stack.segments {
+            for commit in &segment.commits {
+                if let Some(lock) = locks.iter().find(|lock| {
+                    lock.commit_id == commit.id && lock.target == HunkLockTarget::Stack(stack_id)
+                }) {
+                    return Some(lock);
                 }
             }
-        } else {
-            // We've got locks to unknown stacks, just return the first one.
-            return locks.first();
         }
     }
-    None
+
+    // If the stack is not represented in the workspace projection, retain the
+    // existing fallback to its first reported lock.
+    locks
+        .iter()
+        .find(|lock| lock.target == HunkLockTarget::Unidentified)
 }
 
 /// Find the stack identified by `stack_id` in the workspace projection.
@@ -536,4 +538,45 @@ fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyho
     // The title still carries the trailing newline of single-paragraph messages.
     let message = commit.message()?.title.trim_end().as_bstr().to_string();
     Ok(message)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn candidate_ending_at_a_deletion_point_includes_its_lock() {
+        let lock = HunkLock {
+            target: HunkLockTarget::Stack(StackId::generate()),
+            commit_id: gix::ObjectId::from_hex(b"0000000000000000000000000000000000000000")
+                .expect("valid object ID"),
+        };
+        let dependency = but_core::unified_diff::DiffHunk {
+            old_start: 27,
+            old_lines: 1,
+            new_start: 12,
+            new_lines: 0,
+            diff: "@@ -27,1 +12,0 @@\n-removed line\n".into(),
+        };
+        let index = HashMap::from([("file.txt".to_string(), vec![(dependency, vec![lock])])]);
+        let candidate = AbsorbCandidate::from(but_core::SingleHunk {
+            hunk_header: Some(but_core::HunkHeader {
+                old_start: 3,
+                old_lines: 24,
+                new_start: 3,
+                new_lines: 9,
+            }),
+            path: "file.txt".into(),
+            diff: None,
+        });
+
+        assert_eq!(
+            locks_for_candidate(&index, &candidate)
+                .iter()
+                .map(|lock| lock.commit_id)
+                .collect::<Vec<_>>(),
+            [lock.commit_id],
+            "a shrinking candidate ending at a zero-line dependency includes the adjacent lock"
+        );
+    }
 }
