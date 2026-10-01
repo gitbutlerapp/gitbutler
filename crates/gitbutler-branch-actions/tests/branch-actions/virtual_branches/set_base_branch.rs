@@ -737,3 +737,129 @@ mod behind_count {
         );
     }
 }
+
+mod symbolic_target {
+    use gitbutler_branch_actions::BaseBranch;
+
+    use super::*;
+
+    fn set_target_ref(ctx: &Context, target_ref: &str) {
+        let mut project_meta = ctx.project_meta().unwrap();
+        project_meta.target_ref = Some(target_ref.try_into().unwrap());
+        ctx.set_project_meta(project_meta).unwrap();
+    }
+
+    fn set_symbolic_ref(repo: &gix::Repository, name: &str, target: &str) {
+        repo.edit_reference(gix::refs::transaction::RefEdit::update(
+            name.try_into().unwrap(),
+            gix::refs::FullName::try_from(target).unwrap(),
+            PreviousValue::Any,
+            b"test: set symbolic ref".as_slice(),
+        ))
+        .unwrap();
+    }
+
+    fn base_branch_data(ctx: &Context) -> anyhow::Result<BaseBranch> {
+        let guard = ctx.shared_worktree_access();
+        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())
+    }
+
+    fn test_with_base_branch() -> Test {
+        let mut test = Test::default();
+        let mut guard = test.ctx.exclusive_worktree_access();
+        gitbutler_branch_actions::set_base_branch(
+            &test.ctx,
+            &"refs/remotes/origin/master".parse().unwrap(),
+            guard.write_permission(),
+        )
+        .unwrap();
+        drop(guard);
+        test
+    }
+
+    #[test]
+    fn resolves_like_its_referent() {
+        let Test { repo, ctx, .. } = &mut test_with_base_branch();
+
+        // Simulate a fetch that moves the remote-tracking branch ahead of the stored base.
+        let gix_repo = repo.open();
+        let base_commit = gix_repo
+            .find_reference("refs/remotes/origin/master")
+            .unwrap()
+            .peel_to_commit()
+            .unwrap();
+        gix_repo
+            .commit(
+                "refs/remotes/origin/master",
+                "upstream",
+                base_commit.tree_id().unwrap(),
+                [base_commit.id],
+            )
+            .unwrap();
+        let direct = base_branch_data(ctx).unwrap();
+        assert_eq!(
+            direct.behind, 1,
+            "the fetched commit is upstream of the base"
+        );
+
+        set_symbolic_ref(
+            &gix_repo,
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/master",
+        );
+        set_target_ref(ctx, "refs/remotes/origin/HEAD");
+        let symbolic = base_branch_data(ctx).unwrap();
+
+        assert_eq!(
+            symbolic,
+            BaseBranch {
+                branch_name: "origin/HEAD".into(),
+                short_name: "HEAD".into(),
+                ..direct
+            },
+            "only the configured target name differs from its referent"
+        );
+        assert_eq!(
+            gix_repo
+                .find_reference("refs/remotes/origin/HEAD")
+                .unwrap()
+                .target()
+                .try_name()
+                .map(|name| name.as_bstr().to_string()),
+            Some("refs/remotes/origin/master".into()),
+            "reading base data leaves the symbolic target untouched"
+        );
+    }
+
+    #[test]
+    fn broken_or_non_commit_target_is_an_error() {
+        let Test { repo, ctx, .. } = &mut test_with_base_branch();
+
+        let gix_repo = repo.open();
+        set_symbolic_ref(
+            &gix_repo,
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/missing",
+        );
+        set_target_ref(ctx, "refs/remotes/origin/HEAD");
+        assert!(
+            base_branch_data(ctx).is_err(),
+            "a dangling symbolic target cannot be resolved"
+        );
+
+        let tree_id = gix_repo.head_commit().unwrap().tree_id().unwrap();
+        gix_repo
+            .reference(
+                "refs/remotes/origin/tree",
+                tree_id,
+                PreviousValue::Any,
+                "test",
+            )
+            .unwrap();
+        set_target_ref(ctx, "refs/remotes/origin/tree");
+        assert!(
+            base_branch_data(ctx).is_err(),
+            "a target that does not point to a commit cannot be resolved"
+        );
+    }
+}
