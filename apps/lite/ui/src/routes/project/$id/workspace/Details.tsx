@@ -2971,30 +2971,32 @@ const CommitDetails: FC<{
 				</div>
 			</div>
 
-			{review && tab === "pr" ? (
-				<ScrollArea className={styles.prTabScroll}>
-					<div className={styles.prTab}>
-						<LandedReviewView projectId={projectId} reviewId={review.number} />
-					</div>
-				</ScrollArea>
-			) : (
-				<Diff
-					changes={changes}
-					filesVisible={filesVisible}
-					canShowFiles={canShowFiles}
-					filesItems={filesItems}
-					conflicts={conflicts?.files}
-					manualConflicts={conflicts?.manual}
-					conflictsStale={conflictsStale}
-					onPassiveFileSelection={selectFile}
-					selection={selection}
-					projectId={projectId}
-					onActiveFileSelection={onActiveFileSelection}
-					viewerRef={viewerRef}
-					didScrollToViaFileRef={didScrollToViaFileRef}
-					pendingFileRef={pendingFileRef}
-				/>
-			)}
+			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
+				{review && tab === "pr" ? (
+					<ScrollArea className={styles.prTabScroll}>
+						<div className={styles.prTab}>
+							<LandedReviewView projectId={projectId} reviewId={review.number} />
+						</div>
+					</ScrollArea>
+				) : (
+					<Diff
+						changes={changes}
+						filesVisible={filesVisible}
+						canShowFiles={canShowFiles}
+						filesItems={filesItems}
+						conflicts={conflicts?.files}
+						manualConflicts={conflicts?.manual}
+						conflictsStale={conflictsStale}
+						onPassiveFileSelection={selectFile}
+						selection={selection}
+						projectId={projectId}
+						onActiveFileSelection={onActiveFileSelection}
+						viewerRef={viewerRef}
+						didScrollToViaFileRef={didScrollToViaFileRef}
+						pendingFileRef={pendingFileRef}
+					/>
+				)}
+			</Suspense>
 		</div>
 	);
 };
