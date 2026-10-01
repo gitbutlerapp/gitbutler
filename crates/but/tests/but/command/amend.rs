@@ -113,6 +113,62 @@ Hint: to apply these changes, stack bar on top of foo and try again — commits 
 }
 
 #[test]
+fn amend_rejection_omits_target_when_hunk_is_locked_to_target_and_other_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.file(
+        "shared.txt",
+        "target version\nmiddle one\nmiddle two\nbase fourth line\nlast line\n",
+    );
+    env.but("commit -m 'change shared file on A' -b A")
+        .assert()
+        .success();
+    env.but("move B --above A").assert().success();
+    env.file(
+        "shared.txt",
+        "target version\nmiddle one\nmiddle two\nlater branch version\nlast line\n",
+    );
+    env.but("commit -m 'change shared file on B' -b B")
+        .assert()
+        .success();
+    env.file(
+        "shared.txt",
+        "worktree target version\nmiddle one\nmiddle two\nworktree later version\nlast line\n",
+    );
+
+    let status = status_json(&env);
+    let target_commit_cli_id = branch_commit_cli_ids(&status, "A")[0].clone();
+    env.but("commit -m 'try an independent commit' -b C shared.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Cannot commit: 1 change could not be applied:
+  shared.txt
+    line 1 depends on A ([..])
+    line 1 depends on A ([..])
+    line 4 depends on A ([..])
+    line 4 depends on B ([..])
+    line 4 depends on A ([..])
+
+"#]]);
+
+    env.but(format!("amend shared.txt --target {target_commit_cli_id}"))
+        .assert()
+        .failure()
+        .stdout_eq(str![""])
+        .stderr_eq(str![[r#"
+Error: Cannot amend: 1 change could not be applied:
+  shared.txt
+    line 4 depends on B ([..])
+
+Hint: to apply these changes, stack A on top of B and try again — commits already on the branch move with it:
+  but move A --above B
+
+"#]]);
+}
+
+#[test]
 fn amend_accepts_multiple_uncommitted_changes() {
     assert_multiple_amend(|target_cli_id| {
         format!("amend one.txt two.txt --target {target_cli_id}")
