@@ -31,13 +31,17 @@ futures-util = { version = "0.3", default-features = false, features = [
     "sink",
     "std",
 ] }
-tower-http = { version = "0.6.8", features = ["cors"] }
+tower-http = { version = "0.6.8", features = ["cors", "fs"] }
 tower = { version = "0.5.3" }
 tokio = { workspace = true, features = ["full"] }
 clap.workspace = true
 colored = "3.0.0"
 anyhow.workspace = true
 inventory.workspace = true
+base64.workspace = true
+but-core.workspace = true
+but-schemars.workspace = true
+gix.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
 

@@ -5,7 +5,9 @@
 import { createLiteApi } from "#electron/lite-api.ts";
 import { createHttpTransport } from "./http-transport.ts";
 
-const serverUrl = import.meta.env.VITE_BUT_SERVER_URL ?? "http://localhost:6978";
+// Served by a but-server in production, so the same origin by default.
+const serverUrl =
+	import.meta.env.VITE_BUT_SERVER_URL ?? (import.meta.env.DEV ? "http://localhost:6978" : "");
 
 window.lite = createLiteApi(createHttpTransport(serverUrl));
 

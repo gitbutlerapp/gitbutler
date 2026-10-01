@@ -30,6 +30,8 @@ use tower_http::cors::{self, CorsLayer};
 mod projects;
 use crate::projects::ActiveProjects;
 
+pub mod hosted;
+
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 enum Response {
@@ -231,6 +233,13 @@ return POSIX path of theFolder"#,
 async fn post_sdk_endpoint(
     Path(endpoint): Path<String>,
     Json(params): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    call_sdk_endpoint(&endpoint, params).await
+}
+
+pub(crate) async fn call_sdk_endpoint(
+    endpoint: &str,
+    params: serde_json::Value,
 ) -> Json<serde_json::Value> {
     let Some(entry) = inventory::iter::<but_api::CmdEntry>().find(|e| e.js_name == endpoint) else {
         return cmd_result_to_json(Err(anyhow::anyhow!("Unknown endpoint: {endpoint}")));

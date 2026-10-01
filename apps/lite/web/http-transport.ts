@@ -10,6 +10,25 @@ import type { GUISettings } from "#electron/settings.ts";
 type ServerResponse = { type: "success"; subject: unknown } | { type: "error"; subject: unknown };
 
 const GUI_SETTINGS_KEY = "lite.guiSettings";
+const TOKEN_KEY = "lite.serverToken";
+
+/** A hosted server's token arrives once as `?token=` and is kept for later visits. */
+const serverToken = (): string | null => {
+	const url = new URL(window.location.href);
+	const fromUrl = url.searchParams.get("token");
+	try {
+		if (fromUrl !== null) {
+			localStorage.setItem(TOKEN_KEY, fromUrl);
+			url.searchParams.delete("token");
+			window.history.replaceState(null, "", url);
+		}
+		return localStorage.getItem(TOKEN_KEY);
+	} catch {
+		return fromUrl;
+	}
+};
+
+const token = serverToken();
 
 const errorFrom = (subject: unknown): Error => {
 	const message =
@@ -22,9 +41,13 @@ const errorFrom = (subject: unknown): Error => {
 const post = async (url: string, body: unknown): Promise<unknown> => {
 	const response = await fetch(url, {
 		method: "POST",
-		headers: { "content-type": "application/json" },
+		headers: {
+			"content-type": "application/json",
+			...(token === null ? {} : { authorization: `Bearer ${token}` }),
+		},
 		body: JSON.stringify(body),
 	});
+	if (!response.ok) throw new Error(`${url}: ${response.status} ${response.statusText}`);
 	const result = (await response.json()) as ServerResponse;
 	if (result.type === "error") throw errorFrom(result.subject);
 	return result.subject;
