@@ -584,6 +584,23 @@ fn unapply_stack_v3_with_perm(
         // Don't resurrect the last unapplied branch when switching back to that workspace.
         let mut remembered = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
         if remembered.unapply_branch(branch_to_unapply.as_ref()) {
+            if remembered.stacks(StackKind::Applied).next().is_none()
+                && repo
+                    .try_find_reference(but_core::WORKSPACE_REF_NAME)?
+                    .is_some()
+            {
+                // With no saved heads to reapply, workspace recreation checks out the saved
+                // commit directly. Replace it with an empty workspace at the base so it cannot
+                // restore the removed branch's work. HEAD stays on the local target branch.
+                let workspace_commit_id =
+                    crate::workspace::create_empty_workspace_commit(&repo, &ws)?;
+                repo.reference(
+                    but_core::WORKSPACE_REF_NAME,
+                    workspace_commit_id,
+                    gix::refs::transaction::PreviousValue::MustExist,
+                    "Empty saved workspace after unapplying last branch",
+                )?;
+            }
             meta.set_workspace(&remembered)?;
         }
     }

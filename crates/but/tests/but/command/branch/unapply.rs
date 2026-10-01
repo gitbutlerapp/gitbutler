@@ -652,6 +652,237 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 }
 
 #[test]
+fn unapply_last_branch_with_existing_workspace_can_be_undone() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("one.txt", "work on one\n");
+    env.but("commit -b one -m one").assert().success();
+    env.but("switch --workspace").assert().success();
+    env.but("switch one").assert().success();
+    let before = env.git_log();
+
+    env.but("unapply one").assert().success();
+    env.but("undo").assert().success();
+    // Undo restores both the checkout and the saved workspace commit.
+    snapbox::assert_data_eq!(env.git_log(), before.into_data().raw());
+    env.but("switch --workspace").assert().success();
+    // Undo also restores one's applied state, so it is included on workspace recreation.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 53ed094 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9939bf0 (one) one
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+    assert!(
+        env.projects_root().join("one.txt").exists(),
+        "undo must restore the unapplied branch's work"
+    );
+}
+
+#[test]
+fn unapply_last_branch_checkout_failure_preserves_existing_workspace() {
+    use but_core::RefMetadata as _;
+
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("one.txt", "work on one\n");
+    env.but("commit -b one -m one").assert().success();
+    env.but("switch --workspace").assert().success();
+    env.but("switch one").assert().success();
+    env.invoke_bash("git switch main && echo target > collision && git add collision && git commit -m target && git switch one");
+    env.file("collision", "local\n");
+    let before = env.git_log();
+    let metadata_before = format!(
+        "{:?}",
+        env.meta()
+            .workspace(but_core::WORKSPACE_REF_NAME.try_into().unwrap())
+            .unwrap()
+            .stacks
+    );
+
+    env.but("unapply one")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Uncommitted files would be overwritten by checkout: "collision"
+
+"#]]);
+
+    // Neither the checkout nor the saved workspace may change on checkout failure.
+    snapbox::assert_data_eq!(env.git_log(), before.into_data().raw());
+    snapbox::assert_data_eq!(
+        format!(
+            "{:?}",
+            env.meta()
+                .workspace(but_core::WORKSPACE_REF_NAME.try_into().unwrap())
+                .unwrap()
+                .stacks
+        ),
+        metadata_before
+    );
+    assert_eq!(
+        std::fs::read_to_string(env.projects_root().join("collision")).unwrap(),
+        "local\n",
+        "failed checkout must preserve the conflicting untracked file"
+    );
+    assert!(
+        env.projects_root().join("one.txt").exists(),
+        "failed unapply must preserve the checked-out branch's files"
+    );
+}
+
+#[test]
+fn unapply_checked_out_branch_preserves_other_remembered_applied_branches() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("one.txt", "work on one\n");
+    env.but("commit -b one -m one").assert().success();
+    env.file("two.txt", "work on two\n");
+    env.but("commit -b two -m two").assert().success();
+    env.but("switch one").assert().success();
+    // Both branches are remembered in the retained workspace before unapply.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   593bd9e (gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 9939bf0 (HEAD -> one) one
+* | 2c9e5ce (two) two
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+
+    env.but("unapply one").assert().success();
+    env.but("switch --workspace").assert().success();
+    assert!(
+        !env.projects_root().join("one.txt").exists(),
+        "the explicitly unapplied branch must not return"
+    );
+    assert!(
+        env.projects_root().join("two.txt").exists(),
+        "the other remembered applied branch must still be restored"
+    );
+    // The rebuilt workspace contains only two, while one remains available to reapply.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 75ac05b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 2c9e5ce (two) two
+| * 9939bf0 (one) one
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+}
+
+#[test]
+fn unapply_last_branch_does_not_restore_its_work_when_switching_to_existing_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("one.txt", "work on one\n");
+    let file = env.projects_root().join("one.txt");
+    env.but("commit -b one -m one").assert().success();
+
+    env.but("switch --workspace").assert().success();
+    env.but("switch one").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ on [one] [HEAD]
+┊●   qmv one
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    // The managed workspace ref still exists while HEAD is on one.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 78a1aad (gitbutler/workspace) GitButler Workspace Commit
+* 9939bf0 (HEAD -> one) one
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+
+    // The saved workspace is emptied immediately, without checking it out or deleting one.
+    env.but("unapply one").assert().success();
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 86b310d (gitbutler/workspace) GitButler Workspace Commit
+| * 9939bf0 (one) one
+|/  
+* b1540e5 (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+    assert!(
+        !file.exists(),
+        "unapply must remove the branch's committed file from the worktree"
+    );
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    // Returning to the workspace must not bring one's commit back into its ancestry.
+    env.but("switch --workspace").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 86b310d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 9939bf0 (one) one
+|/  
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
+    assert!(
+        !file.exists(),
+        "switching back to an existing workspace must not restore the unapplied branch's file"
+    );
+}
+
+#[test]
 fn unapplying_takes_you_from_workspace_to_sbm() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
 
