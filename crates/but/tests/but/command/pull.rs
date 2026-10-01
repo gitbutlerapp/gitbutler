@@ -215,7 +215,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 1eef6fe (common base, main, origin/main) 2000-01-02 on main
+┴ 1eef6fe (common base, main, origin/main, HEAD) 2000-01-02 on main
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -410,7 +410,7 @@ fn single_branch_pull_checks_out_main_after_fast_forwarding_it() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 5aa8cbc (common base, main, origin/main) 2000-01-02 add upstream
+┴ 5aa8cbc (common base, main, origin/main, HEAD) 2000-01-02 add upstream
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -504,7 +504,7 @@ fn single_branch_pull_checks_out_main_when_feature_is_fully_integrated() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 5aa8cbc (common base, main, origin/main) 2000-01-02 add upstream
+┴ 5aa8cbc (common base, main, origin/main, HEAD) 2000-01-02 add upstream
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -634,7 +634,7 @@ fn single_branch_pull_allows_restoring_workspace_after_integrated_branch_is_remo
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 7608f76 (common base, main, origin/main) 2000-01-02 merge A
+┴ 7608f76 (common base, main, origin/main, HEAD) 2000-01-02 merge A
 
 Hint: run `but branch new` to create a new branch to work on
 

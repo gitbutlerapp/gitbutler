@@ -7,6 +7,49 @@ use snapbox::IntoData;
 mod status_in_single_branch_mode;
 
 #[test]
+fn common_base_shows_head_on_local_target() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+    env.invoke_git("checkout main");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 85efbe4 (common base, main, origin/main, HEAD) 2000-01-02 M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_head_on_unrelated_ref_at_same_commit() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+    env.invoke_git("checkout -b unrelated main");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_head_on_local_target_ahead_of_base() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+    env.invoke_git("checkout main");
+    env.invoke_git("commit --allow-empty -m ahead");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 85efbe4 (common base, origin/main) 2000-01-02 M
+...
+"#]]);
+}
+
+#[test]
 fn common_base_shows_only_configured_default_refs() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "one-stack-three-dependent-branches",

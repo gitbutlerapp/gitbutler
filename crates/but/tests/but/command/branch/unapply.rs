@@ -845,7 +845,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -941,7 +941,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 

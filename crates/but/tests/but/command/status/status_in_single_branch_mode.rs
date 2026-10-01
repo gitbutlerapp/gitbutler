@@ -24,7 +24,7 @@ fn status_with_main_and_origin_main_in_sync() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+┴ 85efbe4 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -225,7 +225,7 @@ fn status_with_main_behind_origin_main() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊● 31dec87 (upstream: origin/main) 1 new commit
-├╯ 85efbe4 (common base, main) 2000-01-02 M
+├╯ 85efbe4 (common base, main, HEAD) 2000-01-02 M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: run `but branch new` to create a new branch to work on
@@ -309,7 +309,7 @@ fn creating_new_independent_empty_branch_at_main() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+┴ 85efbe4 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -350,7 +350,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+┴ 85efbe4 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 

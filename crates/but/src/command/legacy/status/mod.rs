@@ -1179,6 +1179,7 @@ fn print_common_merge_base_summary(
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let mut label = String::from("common base");
+    let mut is_head = false;
     if let Some(base_branch) = &status_ctx.base_branch {
         let repo = ctx.repo.get()?;
         let local_ref = format!("refs/heads/{}", base_branch.short_name);
@@ -1189,6 +1190,10 @@ fn print_common_merge_base_summary(
             {
                 label.push_str(", ");
                 label.push_str(&reference.name().shorten().to_string());
+                is_head |= status_ctx
+                    .head_ref
+                    .as_ref()
+                    .is_some_and(|head_ref| head_ref.as_ref() == reference.name());
             }
         }
     }
@@ -1205,21 +1210,25 @@ fn print_common_merge_base_summary(
     };
     let t = crate::theme::get();
     let first_line = truncate_when_needed(first_line, 40, status_ctx.should_truncate_for_terminal);
+    if is_head {
+        label.push_str(", HEAD");
+    }
+    let summary = Vec::from([
+        Span::raw(format!(" ({label}) ")),
+        Span::styled(
+            status_ctx.common_merge_base_data.commit_date.clone(),
+            t.hint,
+        ),
+        Span::raw(" "),
+        Span::raw(first_line.to_string()),
+    ]);
     output.merge_base(
         Vec::from([Span::raw(connector), Span::raw(" ")]),
         Vec::from([Span::styled(
             status_ctx.common_merge_base_data.common_merge_base.clone(),
             t.hint,
         )]),
-        Vec::from([
-            Span::raw(format!(" ({label}) ")),
-            Span::styled(
-                status_ctx.common_merge_base_data.commit_date.clone(),
-                t.hint,
-            ),
-            Span::raw(" "),
-            Span::raw(first_line.to_string()),
-        ]),
+        summary,
         status_ctx.common_merge_base_data.commit_id,
     )?;
     Ok(())

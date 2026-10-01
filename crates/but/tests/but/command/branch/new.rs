@@ -208,7 +208,7 @@ fn in_single_branch_mode_creating_stacked_branches() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -349,7 +349,7 @@ fn in_single_branch_mode_create_new_branches_with_commits() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -1131,7 +1131,7 @@ fn in_single_branch_mode_creating_new_independent_branch_takes_you_to_workspace_
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -1820,7 +1820,7 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
