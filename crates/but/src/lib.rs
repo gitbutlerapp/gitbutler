@@ -874,6 +874,8 @@ async fn dispatch_subcommand(
         Subcommands::_Comment(..) | Subcommands::Worktree(..) => {
             setup::init_ctx(&args, InitCtxOptions::default(), out)
         }
+        #[cfg(all(feature = "nightly", feature = "legacy"))]
+        Subcommands::_Publish(..) => setup::init_ctx(&args, InitCtxOptions::default(), out),
         #[cfg(feature = "legacy")]
         Subcommands::Actions { .. }
         | Subcommands::Pull { .. }
@@ -1474,6 +1476,18 @@ async fn dispatch_subcommand(
 
             let outcome =
                 command::comment::comment(&mut ctx, IntermediateChannel::new(out), comment_args)?;
+            out.print_cli_output(outcome)?;
+            None
+        }
+        #[cfg(all(feature = "nightly", feature = "legacy"))]
+        Subcommands::_Publish(publish_args) => {
+            use crate::utils::IntermediateChannel;
+
+            let outcome = command::legacy::publish::publish(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                publish_args,
+            )?;
             out.print_cli_output(outcome)?;
             None
         }
