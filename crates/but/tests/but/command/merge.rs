@@ -320,6 +320,42 @@ fn merge_fast_forwards_self_remote() {
     );
 }
 
+/// On a self-remote the target is the local `main` itself, so landing has to move it. When `main`
+/// is checked out in a worktree, moving the ref would leave that worktree's index and files behind,
+/// so the land is refused before anything moves.
+#[test]
+fn merge_refuses_self_remote_target_checked_out_in_worktree() {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("setup").assert().success();
+    env.but("branch new first-branch").assert().success();
+    env.file("file1.txt", "content1");
+    env.but("commit -b first-branch -m 'first'")
+        .assert()
+        .success();
+    let worktree = env.app_data_dir().join("main-worktree");
+    env.invoke_git(&format!("worktree add -q {} main", worktree.display()));
+    let main_before = env.invoke_git("rev-parse main");
+
+    env.but("merge first-branch --yes")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to merge branch. Cannot land onto `main`: it is checked out in [..]main-worktree. Check out another branch there first.
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse main"),
+        main_before,
+        "the checked-out target must not move"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse gb-local/main"),
+        main_before,
+        "the target and its tracking ref move together or not at all"
+    );
+}
+
 /// `--no-ff` forces a merge commit even when a fast-forward is possible, and with signing enabled
 /// the merge commit is signed and carries a GitButler change-id header. This is the regression
 /// guard for the silent-unsigned-commit and missing-change-id bugs.
