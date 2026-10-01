@@ -57,7 +57,8 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
+    // Conflicts may be created by rebasing, but must not be checked out.
+    let outcome = outcome.materialize_without_checkout()?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // We expect to see conflicted headers
