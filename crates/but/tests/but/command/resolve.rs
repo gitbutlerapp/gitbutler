@@ -120,6 +120,58 @@ Resolve the next commit with but resolve [..].
 }
 
 #[test]
+fn resolve_finish_succeeds_next_to_sibling_stack_with_rename() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-conflicted-with-sibling-rename",
+    );
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").assert().success();
+
+    let status = super::util::status_json(&env);
+    let branch = super::util::find_branch(&status, "A");
+    let conflicted_commit = branch["commits"]
+        .as_array()
+        .context("branch commits should be an array")
+        .unwrap()
+        .iter()
+        .find(|commit| commit["conflicted"].as_bool() == Some(true))
+        .and_then(|commit| commit["cliId"].as_str())
+        .context("should find the conflicted commit on A")
+        .unwrap();
+
+    env.but(format!("resolve {conflicted_commit}"))
+        .assert()
+        .success();
+
+    // Resolve the conflict, and also touch the file that stack B renamed.
+    // Merging the rewritten A tip with B's tip then only works with rename
+    // detection, which the workspace-commit rebase must fall back to.
+    env.file("file.txt", "resolved content\n");
+    env.file(
+        "shared.txt",
+        "line 1\nline 2 - fixed during resolution\nline 3\nline 4\nline 5\n",
+    );
+    env.invoke_git("add file.txt shared.txt");
+
+    env.but("resolve finish").assert().success();
+
+    assert_eq!(
+        env.read_file("renamed.txt").unwrap(),
+        "line 1\nline 2 - fixed during resolution\nline 3\nline 4\nline 5\n",
+        "the resolved edit should follow the sibling stack's rename"
+    );
+    assert!(
+        !env.projects_root().join("shared.txt").exists(),
+        "the renamed source path should stay absent"
+    );
+
+    let status = super::util::status_json(&env);
+    super::util::find_branch(&status, "A");
+    super::util::find_branch(&status, "B");
+}
+
+#[test]
 fn resolve_finish_json_deduplicates_shared_conflicts() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-conflicts-in-both-branches-of-stack",
