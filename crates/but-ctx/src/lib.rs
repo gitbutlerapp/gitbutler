@@ -1112,6 +1112,13 @@ fn app_settings(config_dir: impl AsRef<Path>) -> anyhow::Result<AppSettings> {
 
 #[cfg(feature = "legacy")]
 fn default_legacy_project_at_repo(repo: &gix::Repository) -> LegacyProject {
+    if repo.workdir().is_none() {
+        // A bare repository has no worktree for a legacy project to point at.
+        let handle = ProjectHandle::from_path(repo.git_dir()).expect("git dir is a valid handle");
+        return LegacyProject::default_with_id(ProjectHandleOrLegacyProjectId::ProjectHandle(
+            handle,
+        ));
+    }
     LegacyProject::from_path(repo.workdir().unwrap_or_else(|| repo.git_dir()))
         .expect("test repositories are valid projects")
 }
