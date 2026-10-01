@@ -37,7 +37,6 @@
 
 	&:not(:disabled, [data-disabled]):hover {
 		background-color: var(--button-hover-bg);
-		color: var(--button-hover-fg, var(--button-fg));
 
 		& [data-icon] {
 			opacity: var(--button-hover-icon-opacity, 0.8);
@@ -91,47 +90,44 @@
 :where(.gray) {
 	--button-border: none;
 	--button-bg: var(--fill-gray-bg);
-	--button-fg: color-mix(in srgb, var(--fill-gray-fg) 90%, transparent);
-	--button-hover-fg: var(--fill-gray-fg);
+	--button-fg: var(--fill-gray-fg);
 	--button-hover-bg: color-mix(in srgb, var(--fill-gray-bg) 45%, var(--scale-gray-0));
 }
 
 :where(.ghost-inverted) {
 	--button-border: none;
 	--button-bg: transparent;
-	--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
-	--button-hover-fg: var(--text-1-invert);
+	--button-fg: var(--text-1-invert);
 	--button-hover-bg: var(--bg-hover-invert);
 }
 
 :where(.outline) {
 	--button-border: 1px solid var(--border-control);
 	--button-bg: transparent;
-	--button-fg: color-mix(in srgb, var(--text-1) 90%, transparent);
-	--button-hover-fg: var(--text-1);
+	--button-fg: var(--text-1);
 	--button-hover-bg: var(--bg-hover);
 }
 
 :where(.outline-inverted) {
 	--button-border: 1px solid color-mix(in srgb, var(--fill-gray-fg) 26%, transparent);
 	--button-bg: transparent;
-	--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
-	--button-hover-fg: var(--text-1-invert);
+	--button-fg: var(--text-1-invert);
 	--button-hover-bg: var(--bg-hover-invert);
 }
 
 :where(.danger) {
 	--button-border: none;
 	--button-bg: color-mix(in srgb, var(--scale-danger-80) 70%, transparent);
-	--button-fg: color-mix(in srgb, var(--text-danger) 90%, transparent);
-	--button-hover-fg: var(--text-danger);
+	--button-fg: var(--text-danger);
+	/* A step up from the rest: red on its pink ground loses an icon at 0.7. */
+	--button-icon-opacity: 0.8;
+	--button-hover-icon-opacity: 0.9;
 	--button-hover-bg: color-mix(in srgb, var(--scale-danger-80) 80%, transparent);
 }
 
 :where(.ghost) {
 	--button-border: none;
 	--button-bg: transparent;
-	--button-fg: color-mix(in srgb, var(--text-1) 90%, transparent);
-	--button-hover-fg: var(--text-1);
+	--button-fg: var(--text-1);
 	--button-hover-bg: var(--bg-hover);
 }
