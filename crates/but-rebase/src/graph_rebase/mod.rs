@@ -16,7 +16,7 @@ use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
 use gix::refs::transaction::RefEdit;
 
-use crate::graph_rebase::util::collect_ordered_parents;
+use crate::graph_rebase::util::{OrderedParentKind, collect_ordered_parents};
 
 use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
 pub mod cherry_pick;
@@ -358,14 +358,28 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         selector: Selector,
     ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
         let selector = self.history.normalize_selector(selector)?;
-        Ok(match &self.graph[selector.id] {
-            Step::None => None,
+        self.checkout_target_inner(selector.id)
+    }
+
+    fn checkout_target_inner(
+        &self,
+        idx: StepGraphIndex,
+    ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
+        Ok(match &self.graph[idx] {
+            Step::None => {
+                collect_ordered_parents(&self.graph, idx, OrderedParentKind::CommitOrReference)
+                    .first()
+                    .map(|child_idx| self.checkout_target_inner(*child_idx))
+                    .transpose()?
+                    .flatten()
+            }
             Step::Pick(Pick { id, .. }) => Some((*id, None)),
             Step::Reference { refname, .. } => {
-                let parent = collect_ordered_parents(&self.graph, selector.id)
-                    .into_iter()
-                    .next()
-                    .context("No first parent to reference")?;
+                let parent =
+                    collect_ordered_parents(&self.graph, idx, OrderedParentKind::CommitOnly)
+                        .into_iter()
+                        .next()
+                        .context("No first parent to reference")?;
                 let Step::Pick(Pick { id, .. }) = self.graph[parent] else {
                     bail!("collect_ordered_parents should always return a commit pick");
                 };
@@ -398,7 +412,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                 )
             })
             .with_context(|| format!("Could not find reference '{ref_name}' in rebase result"))?;
-        let parent = collect_ordered_parents(&self.graph, reference)
+        let parent = collect_ordered_parents(&self.graph, reference, OrderedParentKind::CommitOnly)
             .into_iter()
             .next()
             .context("Reference has no target commit in rebase result")?;

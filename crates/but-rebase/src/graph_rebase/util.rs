@@ -4,7 +4,13 @@ use std::collections::HashSet;
 
 use petgraph::visit::EdgeRef as _;
 
-use crate::graph_rebase::{Pick, Step, StepGraph, StepGraphIndex};
+use crate::graph_rebase::{Step, StepGraph, StepGraphIndex};
+
+/// Specify what stopping points should be considered
+pub(crate) enum OrderedParentKind {
+    CommitOnly,
+    CommitOrReference,
+}
 
 /// Find the parents of a given node that are commit - in correct parent
 /// ordering.
@@ -13,6 +19,7 @@ use crate::graph_rebase::{Pick, Step, StepGraph, StepGraphIndex};
 pub(crate) fn collect_ordered_parents(
     graph: &StepGraph,
     target: StepGraphIndex,
+    stop_kind: OrderedParentKind,
 ) -> Vec<StepGraphIndex> {
     let mut potential_parent_edges = graph
         .edges_directed(target, petgraph::Direction::Outgoing)
@@ -28,11 +35,15 @@ pub(crate) fn collect_ordered_parents(
     let mut parents = vec![];
 
     while let Some(candidate) = potential_parent_edges.pop() {
-        if let Step::Pick(Pick { .. }) = graph[candidate.target()] {
-            parents.push(candidate.target());
-            // Don't pursue the children
-            continue;
-        };
+        match (&stop_kind, &graph[candidate.target()]) {
+            (OrderedParentKind::CommitOnly, Step::Pick(..))
+            | (OrderedParentKind::CommitOrReference, Step::Pick(_) | Step::Reference { .. }) => {
+                parents.push(candidate.target());
+                // Don't pursue the children
+                continue;
+            }
+            _ => {}
+        }
 
         let mut outgoings = graph
             .edges_directed(candidate.target(), petgraph::Direction::Outgoing)
@@ -57,7 +68,10 @@ mod test {
 
         use anyhow::Result;
 
-        use crate::graph_rebase::{Edge, Step, StepGraph, util::collect_ordered_parents};
+        use crate::graph_rebase::{
+            Edge, Step, StepGraph,
+            util::{OrderedParentKind, collect_ordered_parents},
+        };
 
         #[test]
         fn basic_scenario() -> Result<()> {
@@ -88,7 +102,7 @@ mod test {
             graph.add_edge(c, d, Edge { order: 0 });
             graph.add_edge(c, e, Edge { order: 1 });
 
-            let parents = collect_ordered_parents(&graph, a);
+            let parents = collect_ordered_parents(&graph, a, OrderedParentKind::CommitOnly);
             assert_eq!(&parents, &[b, d, e, f]);
 
             Ok(())
@@ -123,7 +137,7 @@ mod test {
             graph.add_edge(c, d, Edge { order: 1 });
             graph.add_edge(c, e, Edge { order: 0 });
 
-            let parents = collect_ordered_parents(&graph, a);
+            let parents = collect_ordered_parents(&graph, a, OrderedParentKind::CommitOnly);
             assert_eq!(&parents, &[b, e, d, f]);
 
             Ok(())

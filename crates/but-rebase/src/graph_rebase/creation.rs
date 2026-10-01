@@ -7,7 +7,8 @@ use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
     Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
-    SuccessfulRebase, util,
+    SuccessfulRebase,
+    util::{self, OrderedParentKind},
 };
 
 #[derive(Clone)]
@@ -292,7 +293,8 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
 
             // Resolve what the graph thinks are the parents of this pick
-            let graph_parents = util::collect_ordered_parents(&graph, pick_ix);
+            let graph_parents =
+                util::collect_ordered_parents(&graph, pick_ix, OrderedParentKind::CommitOnly);
             let graph_parent_ids: Vec<gix::ObjectId> = graph_parents
                 .iter()
                 .filter_map(|idx| match &graph[*idx] {
