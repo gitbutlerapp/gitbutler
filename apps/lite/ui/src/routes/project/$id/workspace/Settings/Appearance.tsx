@@ -164,6 +164,19 @@ export const Appearance: FC = () => {
 						onCheckedChange={(handCursor) => saveGUISettings({ handCursor })}
 					/>
 				</Row>
+
+				<Row
+					label="Lines between stacks"
+					labelId="graph-trunk"
+					hint="Draw the line that joins each stack to the target branch."
+				>
+					<Switch
+						size="large"
+						aria-labelledby="graph-trunk"
+						checked={settings.graphTrunk ?? defaultSettings.graphTrunk}
+						onCheckedChange={(graphTrunk) => saveGUISettings({ graphTrunk })}
+					/>
+				</Row>
 			</Section>
 
 			<Section heading="Files">

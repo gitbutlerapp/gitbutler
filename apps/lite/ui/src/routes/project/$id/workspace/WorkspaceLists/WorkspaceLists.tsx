@@ -3,9 +3,11 @@ import { setCursor, useActiveList, useSelection } from "#ui/use-cursor.ts";
 import { useCommitAmend } from "#ui/api/mutations.ts";
 import {
 	changesInWorktreeQueryOptions,
+	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listReviewsQueryOptions,
 } from "#ui/api/queries.ts";
+import { defaultSettings } from "#ui/settings.ts";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitTitle } from "#ui/commit.ts";
@@ -1054,6 +1056,10 @@ const Stacks: FC<{
 	const queryClient = useQueryClient();
 	const addressSpace = useAddressSpace();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: graphTrunk = defaultSettings.graphTrunk } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.graphTrunk ?? defaultSettings.graphTrunk,
+	});
 	const selection = useSelection("applied", addressSpace);
 	const activeList = useActiveList();
 	const dispatch = useAppDispatch();
@@ -1239,6 +1245,7 @@ const Stacks: FC<{
 			style={{
 				"--row-padding-inline-start": `${ROW_INSET}px`,
 				"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
+				"--graph-trunk-opacity": graphTrunk ? 1 : 0,
 			}}
 		>
 			{/* Its own tree: the files walk with their own cursor, and the arrow
