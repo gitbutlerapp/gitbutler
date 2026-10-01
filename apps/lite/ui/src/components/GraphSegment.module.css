@@ -95,7 +95,9 @@
    Opacity, as visibility is the glyph and rail swaps' to set and a child can
    set it back. */
 .trunk {
-	opacity: var(--graph-trunk-opacity, 1);
+	@container style(--graph-trunk: hidden) {
+		opacity: 0;
+	}
 }
 
 /* The trunk's tail below the row's centre line fades to nothing. */
@@ -108,9 +110,16 @@
 	flex-direction: column;
 }
 
-/* The trunk's own column, GraphEdge's, drawn on an 8px canvas. */
+/* The trunk's own column, GraphEdge's, drawn on an 8px canvas. Hidden, it
+   gives its room back: nothing else is in the column. */
 .edge {
-	width: 8px;
+	@container style(--graph-trunk: hidden) {
+		display: none;
+	}
+
+	& > .glyph {
+		width: 8px;
+	}
 }
 
 .mainSegment {

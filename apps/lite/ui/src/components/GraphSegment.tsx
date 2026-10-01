@@ -310,8 +310,8 @@ const edgePaths = {
  * run or the bend at its head and no glyph. Rows on it carry no inset.
  */
 export const GraphEdge: FC<{ glyph: keyof typeof edgePaths }> = ({ glyph }) => (
-	<span className={styles.container} data-status="LocalOnly">
-		<span className={classes(styles.glyph, styles.edge, styles.trunk)}>
+	<span className={classes(styles.container, styles.edge)} data-status="LocalOnly">
+		<span className={styles.glyph}>
 			<svg
 				className={styles.mainSegment}
 				viewBox="0 0 8 28"

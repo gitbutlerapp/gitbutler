@@ -8,6 +8,13 @@
 	color: var(--text-3);
 }
 
+/* The chevron stands in the trunk's column; without one the row itself is the toggle. */
+.foldToggle {
+	@container style(--graph-trunk: hidden) {
+		display: none;
+	}
+}
+
 .foldToggle [data-icon] {
 	translate: -4px;
 }

@@ -311,7 +311,7 @@ const UncommittedChanges: FC<
 				    is none, and the empty row would otherwise flash "No matching files"
 				    under a header still reading "Uncommitted". */}
 				<Activity mode={isClean || worktreeChanges === undefined ? "hidden" : "visible"}>
-					<RailedList rail={trunk}>
+					<RailedList rail={trunk} className={styles.files}>
 						<FilesTree
 							className={fileRowStyles.rows}
 							aria-labelledby={uncommittedChangesHeadingId}
@@ -1245,7 +1245,7 @@ const Stacks: FC<{
 			style={{
 				"--row-padding-inline-start": `${ROW_INSET}px`,
 				"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
-				"--graph-trunk-opacity": graphTrunk ? 1 : 0,
+				"--graph-trunk": graphTrunk ? "shown" : "hidden",
 			}}
 		>
 			{/* Its own tree: the files walk with their own cursor, and the arrow
