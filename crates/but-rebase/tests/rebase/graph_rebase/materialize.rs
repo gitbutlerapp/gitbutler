@@ -1,11 +1,12 @@
 //! Tests for `materialize` vs `materialize_without_checkout` behavior differences
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, Step};
+use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide};
 use but_testsupport::{
     StackState, git_status, graph_tree, visualize_commit_graph_all,
     visualize_disk_tree_skip_dot_git,
 };
+use gix::prelude::ObjectIdExt;
 use snapbox::IntoData;
 
 use crate::{
@@ -597,6 +598,50 @@ fn visible_attached_and_detached_worktrees_follow_a_rewritten_commit() -> Result
         "the detached worktree writes the rename target"
     );
     // The detached worktree's index and files match its rewritten HEAD.
+    snapbox::assert_data_eq!(git_status(&detached)?, snapbox::str![""]);
+    Ok(())
+}
+
+#[test]
+fn visible_worktrees_follow_a_dropped_commit_to_its_parent() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let old_middle = repo.rev_parse_single("middle")?.detach();
+    let attached_dir = repo.workdir().unwrap().join("wt");
+    let detached_dir = repo.workdir().unwrap().join("wt-detached");
+    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    // A reworded copy of `middle` slides in below it, so `middle` itself
+    // replays to nothing and is dropped while both worktrees have it checked out.
+    let mut copy = but_core::Commit::from_id(old_middle.attach(&repo))?;
+    copy.message = "a copied".into();
+    let copy = repo.write_object(copy.inner)?.detach();
+    let middle_sel = editor.select_commit(old_middle)?;
+    editor.insert(middle_sel, Step::new_pick(copy), InsertSide::Below)?;
+    let mut dropped = Step::new_pick(old_middle);
+    if let Step::Pick(pick) = &mut dropped {
+        pick.drop_if_empty = true;
+    }
+    editor.replace(middle_sel, dropped)?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    let new_middle = repo.rev_parse_single("middle")?.detach();
+    assert_ne!(new_middle, old_middle);
+    assert_eq!(
+        repo.find_commit(new_middle)?.message_raw()?,
+        "a copied",
+        "the branch lands on the copy that took the dropped commit's place"
+    );
+
+    let attached = gix::open(&attached_dir)?;
+    assert_eq!(attached.head_name()?, Some("refs/heads/middle".try_into()?));
+    assert_eq!(attached.head_id()?, new_middle);
+    snapbox::assert_data_eq!(git_status(&attached)?, snapbox::str![""]);
+
+    let detached = gix::open(&detached_dir)?;
+    assert_eq!(detached.head_name()?, None, "stays detached");
+    assert_eq!(detached.head_id()?, new_middle);
     snapbox::assert_data_eq!(git_status(&detached)?, snapbox::str![""]);
     Ok(())
 }

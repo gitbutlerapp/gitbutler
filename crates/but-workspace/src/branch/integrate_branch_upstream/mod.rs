@@ -19,7 +19,7 @@ use crate::{
     divergence::{
         BranchMergeBaseCommits, classify_selectors_against_target_ref, commit_ids_from_selectors,
         find_local_commit_until_merge_base, get_commits_until_merge_base,
-        traverse_pick_ancestor_ids,
+        local_commit_ids_until_merge_base, traverse_pick_ancestor_ids,
     },
 };
 use crate::{graph_manipulation::determine_parent_selector, resolve_tracking_branch_ref_name};
@@ -130,6 +130,13 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
     // At this point, we construct the commits for the squash steps in memory.
     let prepared_steps = prepare_integration_steps_for_editor(&editor, &integration.steps)?;
 
+    // Replaying a local commit onto upstream changes that already contain it
+    // leaves nothing; such a commit drops out instead of landing empty.
+    let local_commit_ids =
+        local_commit_ids_until_merge_base(ref_name, integration.merge_base, &editor)?
+            .map(|ids| ids.into_iter().collect::<HashSet<_>>())
+            .unwrap_or_default();
+
     let delimiter_child = editor.select_reference(ref_name)?;
     let delimiter_parent = match integration.first_local_not_integrated {
         Some(commit_id) => {
@@ -201,8 +208,12 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
     )?;
 
     // Step 4: Based on the prepared steps, we rebuild the chain.
-    let new_segment_delimiter =
-        integration_steps_into_segment_nodes(&mut editor, ref_name, &prepared_steps)?;
+    let new_segment_delimiter = integration_steps_into_segment_nodes(
+        &mut editor,
+        ref_name,
+        &prepared_steps,
+        &local_commit_ids,
+    )?;
     // Step 5: Once we have our new chain, we reconnect it to the original children and parents.
     connect_segment_to_edges(
         &mut editor,

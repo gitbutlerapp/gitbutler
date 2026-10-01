@@ -9,6 +9,7 @@ mod change_id;
 mod cherry_pick;
 mod conflictable_restriction;
 mod disconnect;
+mod drop_if_empty;
 mod edge;
 mod editor_creation;
 mod graph_workspace;

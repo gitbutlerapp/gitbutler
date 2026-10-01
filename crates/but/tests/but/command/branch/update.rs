@@ -137,6 +137,249 @@ Updated branch A.
     );
 }
 
+/// A local commit whose changes the remote already carries (rewritten there, so a
+/// different id) is not replayed on top of its remote twin: that would leave an
+/// empty duplicate the user then has to notice and remove.
+#[test]
+fn integrate_pull_rebase_drops_local_commits_already_upstream() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-shared-commit");
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   491ff23 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * f3874b9 (A) add shared
+|/  
+| * 67ba860 (origin/A) add only-on-remote
+| * 432e10e add shared
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+        .raw()
+    );
+
+    env.but("branch update A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Updated branch A.
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   4540f60 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 67ba860 (origin/A, A) add only-on-remote
+| * 432e10e add shared
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}
+
+#[test]
+fn integrate_pull_rebase_drops_local_commit_upstream_rebased_over_other_files() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-rebased-commit");
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   787c31d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * f3874b9 (A) add shared
+|/  
+| * fcc8313 (origin/A) add shared
+| * e60aacd add other
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+        .raw()
+    );
+
+    env.but("branch update A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Updated branch A.
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   49be156 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * fcc8313 (origin/A, A) add shared
+| * e60aacd add other
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}
+
+#[test]
+fn integrate_pull_rebase_drops_local_commit_upstream_rebased_over_same_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "branch-integrate-rebased-same-file",
+    );
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   75177f1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 4012e3a (A) change top
+|/  
+| * 865e8df (origin/A) change top
+| * 63760d2 change bottom
+|/  
+* 0f34722 (origin/main, origin/HEAD, main) add f
+
+"#]]
+        .raw()
+    );
+
+    env.but("branch update A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Updated branch A.
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   8f9b9d5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 865e8df (origin/A, A) change top
+| * 63760d2 change bottom
+|/  
+* 0f34722 (origin/main, origin/HEAD, main, gitbutler/target) add f
+
+"#]]
+        .raw()
+    );
+}
+
+#[test]
+fn integrate_pull_rebase_keeps_a_change_reintroduced_after_its_upstream_twin() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-repeated-change");
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   1abcf29 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * a8c56fd (A) add x
+| * 9bcd67a remove x
+| * d6cad7e add x
+|/  
+| * d3bd334 (origin/A) add only-on-remote
+| * c4b69b2 add x
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+        .raw()
+    );
+
+    env.but("branch update A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Updated branch A.
+
+"#]]);
+
+    // The first `add x` is already upstream and drops out; `remove x` and the
+    // second `add x` replay, so the tip still has `x`.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   dd445fe (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 93e8df2 (A) add x
+| * 30055c3 remove x
+| * d3bd334 (origin/A) add only-on-remote
+| * c4b69b2 add x
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    assert_eq!(env.read_file("x").unwrap(), "x\n");
+}
+
+/// The integration replays a local merge as a plain commit on its first parent.
+/// Even with nothing left once upstream has what it brought in, a merge stays.
+#[test]
+fn integrate_pull_rebase_keeps_local_merge_left_with_nothing() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-shared-merge");
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   2810235 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * db3cbe0 (A) merge side
+|/| 
+| * f3874b9 (side) add shared
+|/  
+| * 67ba860 (origin/A) add only-on-remote
+| * 432e10e add shared
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main) add M
+
+"#]]
+        .raw()
+    );
+
+    env.but("branch update A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Updated branch A.
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   fba0efe (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 82d7561 (A) merge side
+| * 67ba860 (origin/A) add only-on-remote
+| * 432e10e add shared
+|/  
+| * f3874b9 (side) add shared
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}
+
 #[test]
 fn integrate_smart_squash_applies_matching_change_ids() {
     let env =
