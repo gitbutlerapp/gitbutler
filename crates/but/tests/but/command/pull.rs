@@ -161,12 +161,366 @@ fn single_branch_pull_leaves_a_diverged_local_target_branch_unchanged() {
 }
 
 #[test]
-fn single_branch_pull_replaces_a_fully_integrated_checkout() {
+fn single_branch_pull_preserves_main_after_pushing_it() {
+    let env = single_branch_integration_scenario();
+    let remote = env.app_data_dir().join("origin.git");
+    let remote_arg = shell_words::quote(&remote.display().to_string()).into_owned();
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote_arg} && git remote set-url origin {remote_arg}"
+    ));
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.invoke_git("commit --allow-empty -m 'on main'");
+
+    env.but("push").assert().success();
+    // Pushing advances origin/main and preserves the local checkout.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 1eef6fe (HEAD -> main, origin/main, origin/HEAD) on main
+* 85efbe4 M
+
+"#]]
+    );
+
+    // Ideally we wouldn't show main as merged but with the hint telling you to pull its fine
+    env.but("status").assert().success().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ma [main] [HEAD] (merged upstream)
+┊●   sxu on main (no changes)
+├╯
+┊
+┊● 1eef6fe (upstream: origin/main) 1 new commit
+├╯ 85efbe4 (common base) 2000-01-02 M
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+
+    env.but("pull").assert().success();
+
+    // Integrating the pushed commits must preserve main and keep it checked out.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 1eef6fe (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) on main
+* 85efbe4 M
+
+"#]]
+    );
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 1eef6fe (common base, main, origin/main) 2000-01-02 on main
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn single_branch_pull_preserves_develop_after_pushing_it() {
+    let env = single_branch_integration_scenario();
+    env.invoke_git("branch -m main develop");
+    let remote = env.app_data_dir().join("origin.git");
+    let remote_arg = shell_words::quote(&remote.display().to_string()).into_owned();
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote_arg} && git remote set-url origin {remote_arg}"
+    ));
+    env.invoke_git(
+        "config --replace-all remote.origin.fetch +refs/heads/develop:refs/remotes/origin/develop",
+    );
+    env.invoke_git("fetch origin");
+    env.invoke_git("symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/develop");
+    env.invoke_git("update-ref -d refs/remotes/origin/main");
+    env.invoke_git("branch --set-upstream-to=origin/develop develop");
+    let mut project_meta = env.project_meta();
+    project_meta.target_ref = Some("refs/remotes/origin/develop".try_into().unwrap());
+    project_meta.persist(&env.open_repo()).unwrap();
+
+    env.invoke_git("commit --allow-empty -m 'on develop'");
+    env.but("push").assert().success();
+    // A differently named integration branch must behave just like main.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 0a170f9 (HEAD -> develop, origin/develop, origin/HEAD) on develop
+* 85efbe4 M
+
+"#]]
+    );
+
+    env.but("pull").assert().success();
+    // Pull must preserve the configured integration branch and its checkout.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 0a170f9 (HEAD -> develop, origin/develop, origin/HEAD, gitbutler/target) on develop
+* 85efbe4 M
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_pull_preserves_integrated_develop_below_feature() {
+    let env = single_branch_integration_scenario();
+    env.invoke_git("branch -m main develop");
+    let remote = env.app_data_dir().join("origin.git");
+    let remote_arg = shell_words::quote(&remote.display().to_string()).into_owned();
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote_arg} && git remote set-url origin {remote_arg}"
+    ));
+    env.invoke_git(
+        "config --replace-all remote.origin.fetch +refs/heads/develop:refs/remotes/origin/develop",
+    );
+    env.invoke_git("fetch origin");
+    env.invoke_git("symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/develop");
+    env.invoke_git("update-ref -d refs/remotes/origin/main");
+    env.invoke_git("branch --set-upstream-to=origin/develop develop");
+    let mut project_meta = env.project_meta();
+    project_meta.target_ref = Some("refs/remotes/origin/develop".try_into().unwrap());
+    project_meta.persist(&env.open_repo()).unwrap();
+
+    env.invoke_git("commit --allow-empty -m 'on develop'");
+    env.but("commit -b feature --above develop -m 'on feature'")
+        .assert()
+        .success();
+    env.but("switch develop").assert().success();
+    env.but("push").assert().success();
+    env.but("switch feature").assert().success();
+    // Develop is integrated, but feature still has its own work above the target.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 1a76327 (HEAD -> feature) on feature
+* 0a170f9 (origin/develop, origin/HEAD, develop) on develop
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("pull").assert().success();
+    // Deleting ordinary integrated refs must not delete the local integration branch.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 1a76327 (HEAD -> feature) on feature
+* 0a170f9 (origin/develop, origin/HEAD, develop) on develop
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+}
+
+#[test]
+fn undo_and_redo_restore_checkout_after_integrated_feature_switches_to_main() {
+    let env = single_branch_integration_scenario();
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.but("branch new A").assert().success();
+    commit_file(&env, "A");
+    merge_into_upstream(&env, "A", true);
+    env.but("pull").assert().success();
+
+    env.but("undo").assert().success();
+    // Undo restores the integrated feature and its checkout, without moving main.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (origin/main, origin/HEAD, main) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 (HEAD -> A) add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("redo").assert().success();
+    // Redo restores the checkout of the existing target branch, not a generated branch.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (HEAD -> main, origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_pull_checks_out_main_after_fast_forwarding_it() {
+    let env = single_branch_integration_scenario();
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    let old_main = rev_parse(&env, "main");
+    env.but("branch new A").assert().success();
+    commit_file(&env, "A");
+    merge_into_upstream(&env, "A", true);
+
+    // Keep the merged history only in the remote. Pull must fetch it while local main
+    // and its remote-tracking ref still point at the pre-merge base.
+    let remote = env.app_data_dir().join("origin.git");
+    let remote_arg = shell_words::quote(&remote.display().to_string()).into_owned();
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote_arg} && git remote set-url origin {remote_arg}"
+    ));
+    env.invoke_git(&format!("update-ref refs/heads/main {old_main}"));
+    env.invoke_git(&format!("update-ref refs/remotes/origin/main {old_main}"));
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 2bc0e49 (HEAD -> A) add A
+* 85efbe4 (origin/main, origin/HEAD, main, gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("pull --check").assert().success();
+    // Fetching during a preview must not advance local main or change the checkout.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 (HEAD -> A) add A
+|/  
+* 85efbe4 (main, gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("pull").assert().success();
+
+    // The fast-forwardable local target should become the checkout, not a canned branch.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 5aa8cbc (common base, main, origin/main) 2000-01-02 add upstream
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (HEAD -> main, origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("undo").assert().success();
+    // Undo restores both main's old tip and the deleted feature checkout.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 (HEAD -> A) add A
+|/  
+* 85efbe4 (main, gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("redo").assert().success();
+    // Redo fast-forwards main and restores its checkout together.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (HEAD -> main, origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_pull_checks_out_main_when_feature_is_fully_integrated() {
+    let env = single_branch_integration_scenario();
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.but("branch new A").assert().success();
+    commit_file(&env, "A");
+    merge_into_upstream(&env, "A", true);
+
+    // The feature is integrated, and main is already at the updated target tip.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (origin/main, origin/HEAD, main) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 (HEAD -> A) add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("pull").assert().success();
+
+    // Reuse main instead of creating an empty replacement branch for the removed feature.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (HEAD -> main, origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 5aa8cbc (common base, main, origin/main) 2000-01-02 add upstream
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn single_branch_pull_replaces_integrated_checkout_when_main_is_in_another_worktree() {
     let env = single_branch_integration_scenario();
     env.but("branch new A").assert().success();
     commit_file(&env, "A");
     let old_head = rev_parse(&env, "A");
     merge_into_upstream(&env, "A", true);
+    let worktree = env.app_data_dir().join("linked-main");
+    let worktree_arg = shell_words::quote(&worktree.display().to_string()).into_owned();
+    env.invoke_git(&format!("worktree add -q {worktree_arg} main"));
 
     env.but("status")
         .env("NO_BG_TASKS", "1")
@@ -249,6 +603,64 @@ Hint: run `but help` for all commands
         "the replacement checkout should point at the advanced target"
     );
     assert!(!git_ref_exists(&env, but_core::WORKSPACE_REF_NAME));
+}
+
+#[test]
+fn single_branch_pull_allows_restoring_workspace_after_integrated_branch_is_removed() {
+    let env = single_branch_integration_scenario();
+    env.but("branch new A").assert().success();
+    commit_file(&env, "A");
+
+    // Remember A as applied in a managed workspace, then return to single-branch mode.
+    env.but("switch --workspace").assert().success();
+    env.but("switch A").assert().success();
+    assert!(
+        git_ref_exists(&env, but_core::WORKSPACE_REF_NAME),
+        "the saved workspace must exist before integrating its branch"
+    );
+
+    merge_into_upstream(&env, "A", false);
+    env.but("pull").assert().success();
+    assert!(
+        !git_ref_exists(&env, "refs/heads/A"),
+        "pull must remove the integrated branch while outside the saved workspace"
+    );
+
+    env.but("switch main").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 7608f76 (common base, main, origin/main) 2000-01-02 merge A
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    // Restoring the saved workspace must not attempt to reapply the deleted branch.
+    env.but("switch --workspace")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Switched to workspace
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 7608f76 (common base, main, origin/main) 2000-01-02 merge A
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
 }
 
 #[test]

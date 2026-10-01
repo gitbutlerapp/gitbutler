@@ -1539,7 +1539,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
 }
 
 #[test]
-fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip() -> Result<()> {
+fn fully_integrated_direct_checkout_without_local_target_creates_unique_canned_branch() -> Result<()>
+{
     let (_tmp, mut repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
     force_prefixless_canned_branch_name(&mut repo)?;
@@ -1547,6 +1548,8 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
     remove_managed_workspace_ref(&repo)?;
     let target_sha = repo.rev_parse_single("main")?.detach();
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
+    // Without a local target, integration must still create a collision-free fallback.
+    git(&repo).args(["branch", "-D", "main"]).run();
     let branch_1: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
     let branch_2: gix::refs::FullName = "refs/heads/branch-2".try_into()?;
 
@@ -1853,7 +1856,8 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
 }
 
 #[test]
-fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() -> Result<()> {
+fn fully_integrated_direct_checkout_without_local_target_creates_canned_branch_at_merge_tip()
+-> Result<()> {
     let (_tmp, mut repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description(
             "fully-integrated-single-branch-target-advanced-through-merge",
@@ -1863,6 +1867,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
     remove_managed_workspace_ref(&repo)?;
     let target_sha = repo.rev_parse_single("main")?.detach();
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
+    git(&repo).args(["branch", "-D", "main"]).run();
     let target_tip_parent = repo
         .find_commit(target_tip)?
         .parent_ids()
@@ -3427,18 +3432,18 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:amo-branch-1[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡:amo-branch-1[🌳] on 3183e43 {1}
-    └── :amo-branch-1[🌳]
-        └── ·56057f2 (✓)
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡:main[🌳] <> origin/main on 3183e43 {1}
+    └── :main[🌳] <> origin/main
+        └── ❄️56057f2 (✓)
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 56057f2 (HEAD -> amo-branch-1, origin/main) squash A
-* 3183e43 (main) M1
+* 56057f2 (HEAD -> main, origin/main) squash A
+* 3183e43 M1
 
 "#]]
     );

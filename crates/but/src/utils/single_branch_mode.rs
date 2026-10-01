@@ -21,6 +21,7 @@ use crate::utils::{head_name, in_single_branch_mode_with_perm, targeting::Side};
 pub struct SingleBranchMode {
     in_single_branch_mode: bool,
     target_checked_out: bool,
+    head_at_target_commit: bool,
     target_ref: FullName,
     target_commit_id: ObjectId,
     switch: bool,
@@ -49,6 +50,7 @@ impl SingleBranchMode {
         Ok(Self {
             in_single_branch_mode,
             target_checked_out,
+            head_at_target_commit: repo.head_id()?.detach() == target_commit_id,
             target_ref,
             target_commit_id,
             switch,
@@ -190,7 +192,13 @@ impl SingleBranchMode {
     }
 
     pub fn how_to_create_unstacked_reference(&self) -> HowToCreateUnstackedReference<'_> {
-        if self.target_checked_out {
+        if self.target_checked_out && self.head_at_target_commit {
+            // The integration base isn't a stack member. Create independently instead of
+            // recording an explicit branch order that would retain the empty target branch.
+            HowToCreateUnstackedReference::CreateRefAtCommitThenCheckout {
+                target_commit_id: self.target_commit_id,
+            }
+        } else if self.target_checked_out {
             let anchor = Anchor::AtReference {
                 ref_name: Cow::Borrowed(self.head_reference.as_ref()),
                 position: Side::Above.into(),

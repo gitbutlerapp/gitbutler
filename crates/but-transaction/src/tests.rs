@@ -271,6 +271,14 @@ fn create_reference_at_commit_then_commit_and_checkout() {
                 base,
                 "the new branch must start at the requested base, not the old HEAD"
             );
+            assert!(
+                ctx.meta()
+                    .unwrap()
+                    .branch_stack_order(new_branch.as_ref())
+                    .unwrap()
+                    .is_none(),
+                "independent creation must not record a stack relationship with the base"
+            );
             assert_num_snapshots(&ctx, 1);
             let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
                 .unwrap()

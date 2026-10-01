@@ -1942,15 +1942,12 @@ fn just_init_with_branches() -> anyhow::Result<()> {
 "#]]
     );
 
-    // There is no workspace as `main` is the base of the workspace, so it's shown directly
-    // as a downgraded single-branch view. The target context is preserved, and the fully
-    // integrated base commit is pruned while keeping the branch container.
+    // Checking out the integration branch produces an ad-hoc view with no local work.
+    // Its empty lane is omitted, while the target and shared base remain visible.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡:main[🌳] <> origin/main on fafd9d0 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -2039,10 +2036,9 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main
-└── ≡:main[🌳] <> origin/main {1}
+⌂:main[🌳] <> ✓refs/remotes/origin/main on fafd9d0
+└── ≡:main[🌳] <> origin/main on fafd9d0 {1}
     └── :main[🌳] <> origin/main
-        └── ❄️fafd9d0 (🏘️) ►A, ►B, ►C, ►D, ►E, ►F
 
 "#]]
     );
@@ -2930,19 +2926,26 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
 "#]]
     );
 
-    // If it's checked out, we must show the branch container, but it's not part of the
-    // managed workspace. The target context is preserved and integrated local/base commits
-    // are pruned, leaving only target-side commits ahead of the stored target.
+    // The checked-out integration branch has no local work, so its lane is omitted.
+    // The target, base, and incoming count remain visible; incoming commit IDs remain queryable.
+    let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main <> ✓refs/remotes/origin/main⇣2 on 998eae6
-└── ≡:main <> origin/main⇣2 on 998eae6 {1}
-    └── :main <> origin/main⇣2
-        ├── 🟣ca7baa7 (✓)
-        └── 🟣7ea1468 (✓)
 
 "#]]
+    );
+    // Incoming commits remain available newest first without an integration-branch lane.
+    snapbox::assert_data_eq!(
+        ws.incoming_target_commit_ids()?
+            .iter()
+            .map(|id| id.to_hex_with_len(7).to_string())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        snapbox::str![[r#"
+ca7baa7
+7ea1468"#]]
     );
     Ok(())
 }
@@ -4097,17 +4100,25 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     .validated()?;
     // When the branch is below the forkpoint, the workspace also isn't shown anymore.
     // The downgraded branch view keeps target context and prunes integrated base commits.
+    let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main <> ✓refs/remotes/origin/main⇣3 on 4b3e5a8
-└── ≡:main <> origin/main⇣3 on 4b3e5a8 {1}
-    └── :main <> origin/main⇣3
-        ├── 🟣d0df794 (✓)
-        ├── 🟣09c6e08 (✓)
-        └── 🟣7b9f260 (✓)
 
 "#]]
+    );
+    // Integration flags must not omit or reorder target commits ahead of the workspace.
+    snapbox::assert_data_eq!(
+        ws.incoming_target_commit_ids()?
+            .iter()
+            .map(|id| id.to_hex_with_len(7).to_string())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        snapbox::str![[r#"
+d0df794
+09c6e08
+7b9f260"#]]
     );
 
     let id = id_by_rev(&repo, "main~1");
@@ -4192,14 +4203,14 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
     );
 
     let ws = graph.into_workspace()?;
-    // The workspace shows the remote commit, there is nothing special about the target.
+    // Without a project target, the projection still shows the remote association and incoming count.
+    // The upstream fallback bounds shared history at main's tip.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1
-└── ≡📙:main[🌳] <> origin/main {1}
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡📙:main[🌳] <> origin/main on 3183e43 {1}
     └── 📙:main[🌳] <> origin/main
-        └── ❄️3183e43 (🏘️)
 
 "#]]
     );
@@ -4226,10 +4237,9 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1
-└── ≡📙:main[🌳] <> origin/main {1}
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡📙:main[🌳] <> origin/main on 3183e43 {1}
     └── 📙:main[🌳] <> origin/main
-        └── ❄️3183e43 (🏘️)
 
 "#]]
     );
@@ -4710,25 +4720,33 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     // Entrypoint is outside of the managed workspace, so it is projected as a
     // single-branch view. Target context is preserved and integrated commits below
     // the target trunk are pruned.
+    let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main <> ✓refs/remotes/origin/main⇣11 on 2438292
-└── ≡:main <> origin/main⇣11 on 2438292 {1}
-    └── :main <> origin/main⇣11
-        ├── 🟣232ed06 (✓)
-        ├── 🟣abcfd9a (✓)
-        ├── 🟣bc86eba (✓)
-        ├── 🟣c7ae303 (✓)
-        ├── 🟣9e2a79e (✓)
-        ├── 🟣fdeaa43 (✓)
-        ├── 🟣30565ee (✓)
-        ├── 🟣0c1c23a (✓)
-        ├── 🟣56d152c (✓)
-        ├── 🟣e6e1360 (✓)
-        └── 🟣1a22a39 (✓)
 
 "#]]
+    );
+    // Incoming commits from both target paths remain available in traversal order.
+    snapbox::assert_data_eq!(
+        ws.incoming_target_commit_ids()?
+            .iter()
+            .map(|id| id.to_hex_with_len(7).to_string())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        snapbox::str![[r#"
+232ed06
+abcfd9a
+bc86eba
+c7ae303
+9e2a79e
+fdeaa43
+30565ee
+0c1c23a
+56d152c
+e6e1360
+1a22a39"#]]
     );
 
     // When setting a limit when traversing 'main', it is respected.
@@ -4785,27 +4803,34 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
 ●  ✂·11c29b8 (⌂|🏘|✓)
 "#]]
     );
-    // The limit is visible as well. Target context is preserved in the downgraded
-    // branch view, so integrated local/base commits are pruned.
+    // The graph's traversal limit does not truncate incoming commits in the downgraded view.
+    let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main <> ✓refs/remotes/origin/main⇣11 on 2438292
-└── ≡:main <> origin/main⇣11 on 2438292 {1}
-    └── :main <> origin/main⇣11
-        ├── 🟣232ed06 (✓)
-        ├── 🟣abcfd9a (✓)
-        ├── 🟣bc86eba (✓)
-        ├── 🟣c7ae303 (✓)
-        ├── 🟣9e2a79e (✓)
-        ├── 🟣fdeaa43 (✓)
-        ├── 🟣30565ee (✓)
-        ├── 🟣0c1c23a (✓)
-        ├── 🟣56d152c (✓)
-        ├── 🟣e6e1360 (✓)
-        └── 🟣1a22a39 (✓)
 
 "#]]
+    );
+    // A traversal limit preserves the same incoming commit identities and order.
+    snapbox::assert_data_eq!(
+        ws.incoming_target_commit_ids()?
+            .iter()
+            .map(|id| id.to_hex_with_len(7).to_string())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        snapbox::str![[r#"
+232ed06
+abcfd9a
+bc86eba
+c7ae303
+9e2a79e
+fdeaa43
+30565ee
+0c1c23a
+56d152c
+e6e1360
+1a22a39"#]]
     );
 
     // From the workspace, even without limit, we don't traverse all of 'main' as it's uninteresting.
@@ -5068,33 +5093,40 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
 ●  🏁·3183e43 (⌂|🏘|✓)
 "#]]
     );
-    // `main` is integrated, but it is the entrypoint, so the branch container is shown.
-    // With preserved target context, integrated commits below the target trunk are pruned.
+    // The integrated main lane is hidden, but all incoming target paths remain queryable.
+    let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main <> ✓refs/remotes/origin/main⇣17 on bce0c5e
-└── ≡:main <> origin/main⇣17 on bce0c5e {1}
-    └── :main <> origin/main⇣17
-        ├── 🟣024f837 (✓) ►long-workspace-to-target
-        ├── 🟣64a8284 (✓)
-        ├── 🟣b72938c (✓)
-        ├── 🟣9ccbf6f (✓)
-        ├── 🟣5fa4905 (✓)
-        ├── 🟣43074d3 (✓)
-        ├── 🟣800d4a9 (✓)
-        ├── 🟣742c068 (✓)
-        ├── 🟣fe06afd (✓)
-        ├── 🟣3027746 (✓)
-        ├── 🟣f0d2a35 (✓)
-        ├── 🟣edf041f (✓)
-        ├── 🟣d9f03f6 (✓)
-        ├── 🟣8d1d264 (✓)
-        ├── 🟣fa7ceae (✓)
-        ├── 🟣95bdbf1 (✓)
-        └── 🟣5bac978 (✓)
 
 "#]]
+    );
+    // Incoming commits from all target paths remain available in traversal order.
+    snapbox::assert_data_eq!(
+        ws.incoming_target_commit_ids()?
+            .iter()
+            .map(|id| id.to_hex_with_len(7).to_string())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        snapbox::str![[r#"
+024f837
+64a8284
+b72938c
+9ccbf6f
+5fa4905
+43074d3
+800d4a9
+742c068
+fe06afd
+3027746
+f0d2a35
+edf041f
+d9f03f6
+8d1d264
+fa7ceae
+95bdbf1
+5bac978"#]]
     );
 
     // Now the target looks for the entrypoint, which is the workspace, something it can do more easily.
@@ -6414,18 +6446,14 @@ fn without_target_ref_or_managed_commit() -> anyhow::Result<()> {
 "#]]
     );
 
-    // Main can be a normal segment if there is no target ref.
+    // From A, the upstream fallback bounds shared history at A2, leaving one incoming commit.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/A⇣1
-└── ≡:A <> origin/A⇣1 {1}
-    ├── :A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️)
-    │   └── ❄️120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+⌂:A <> ✓refs/remotes/origin/A⇣1 on a62b0de
+└── ≡:A <> origin/A⇣1 on a62b0de {1}
+    └── :A <> origin/A⇣1
+        └── 🟣4fe5a6f
 
 "#]]
     );
@@ -6518,24 +6546,19 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
 "#]]
     );
 
-    // Main can be a normal segment if there is no target ref.
+    // The upstream boundary excludes B's shared history, but A keeps its incoming commit.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/A⇣1
-└── ≡:A <> origin/A⇣1 {1}
-    ├── :A <> origin/A⇣1
-    │   └── 🟣4fe5a6f
-    ├── 📙:B
-    │   ├── ❄a62b0de (🏘️)
-    │   └── ❄120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+⌂:A <> ✓refs/remotes/origin/A⇣1 on a62b0de
+└── ≡:A <> origin/A⇣1 on a62b0de {1}
+    └── :A <> origin/A⇣1
+        └── 🟣4fe5a6f
 
 "#]]
     );
 
-    // Finally, show the normal version with just disambiguated 'B".
+    // From the workspace entrypoint, metadata still selects B to own the shared history.
     let graph = Graph::from_head(
         &repo,
         &*meta,
@@ -6575,7 +6598,7 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
 "#]]
     );
 
-    // Order is respected
+    // Ordering B before A must preserve A's upstream link even with shared history excluded.
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
     let graph = Graph::from_commit_traversal(
         id,
@@ -6590,19 +6613,15 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/A⇣1
-└── ≡:A <> origin/A⇣1 {1}
-    ├── :A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️) ►B
-    │   └── ❄️120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+⌂:A <> ✓refs/remotes/origin/A⇣1 on a62b0de
+└── ≡:A <> origin/A⇣1 on a62b0de {1}
+    └── :A <> origin/A⇣1
+        └── 🟣4fe5a6f
 
 "#]]
     );
 
-    // Order is respected, vice-versa
+    // Ordering A before B produces the same projection when their shared tip is the base.
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
     let graph = Graph::from_commit_traversal(
         id,
@@ -6616,18 +6635,109 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/A⇣1
-└── ≡:A <> origin/A⇣1 {1}
-    ├── :A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️) ►B
-    │   └── ❄️120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+⌂:A <> ✓refs/remotes/origin/A⇣1 on a62b0de
+└── ≡:A <> origin/A⇣1 on a62b0de {1}
+    └── :A <> origin/A⇣1
+        └── 🟣4fe5a6f
 
 "#]]
     );
 
+    Ok(())
+}
+
+#[test]
+fn without_target_ref_or_managed_commit_ambiguous_ahead() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("ws/no-target-without-ws-commit-ambiguous-ahead")?;
+    // A and B share two local commits above origin/A, so ownership is visible in the projection.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* a62b0de (HEAD -> gitbutler/workspace, B, A) A2
+* 120a217 A1
+* fafd9d0 (origin/A, main) init
+
+"#]]
+    );
+
+    add_workspace(&mut meta);
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+    let (id, a_ref) = id_at(&repo, "A");
+    let graph = Graph::from_commit_traversal(
+        id,
+        a_ref.clone(),
+        &*meta,
+        default_project_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    // Metadata assigns the shared commits to B, while A remains the entrypoint with its upstream.
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  📕gitbutler/workspace[🌳]
+◎  👉A <> origin/A
+◎  📙B
+●  ·a62b0de (⌂|🏘)
+●  ·120a217 (⌂|🏘)
+◎  origin/A
+│ ◎  main
+├─╯
+●  🏁·fafd9d0 (⌂|🏘)
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+⌂:A <> ✓refs/remotes/origin/A on fafd9d0
+└── ≡:A <> origin/A on fafd9d0 {1}
+    ├── :A <> origin/A
+    └── 📙:B
+        ├── ·a62b0de (🏘️)
+        └── ·120a217 (🏘️)
+
+"#]]
+    );
+
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["B"]);
+    let graph = Graph::from_commit_traversal(
+        id,
+        a_ref,
+        &*meta,
+        default_project_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    // With A selected by metadata, A owns the commits and B remains a ref on the shared tip.
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  B
+│ ◎  📕gitbutler/workspace[🌳]
+│ ◎  👉A <> origin/A
+├─╯
+●  ·a62b0de (⌂|🏘)
+●  ·120a217 (⌂|🏘)
+◎  origin/A
+│ ◎  main
+├─╯
+●  🏁·fafd9d0 (⌂|🏘)
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+⌂:A <> ✓refs/remotes/origin/A on fafd9d0
+└── ≡:A <> origin/A⇡2 on fafd9d0 {1}
+    └── :A <> origin/A⇡2
+        ├── ·a62b0de (🏘️) ►B
+        └── ·120a217 (🏘️)
+
+"#]]
+    );
     Ok(())
 }
 
@@ -6718,13 +6828,9 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/A
-└── ≡:A <> origin/A {1}
-    ├── :A <> origin/A
-    │   ├── ❄️a62b0de (🏘️) ►B
-    │   └── ❄️120a217 (🏘️)
-    └── :main <> origin/main
-        └── ❄fafd9d0 (🏘️)
+⌂:A <> ✓refs/remotes/origin/A on a62b0de
+└── ≡:A <> origin/A on a62b0de {1}
+    └── :A <> origin/A
 
 "#]]
     );
@@ -6743,18 +6849,15 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:B <> ✓refs/remotes/origin/B
-└── ≡:B <> origin/B {1}
-    ├── :B <> origin/B
-    │   ├── ❄️a62b0de (🏘️) ►A
-    │   └── ❄️120a217 (🏘️)
-    └── :main <> origin/main
-        └── ❄fafd9d0 (🏘️)
+⌂:B <> ✓refs/remotes/origin/B on a62b0de
+└── ≡:B <> origin/B on a62b0de {1}
+    └── :B <> origin/B
 
 "#]]
     );
 
-    // If disambiguation happens through the workspace, 'A' still shows the right remote, and 'B' as well
+    // Metadata assigns B its own remote in the graph. In the projection, the upstream
+    // boundary excludes B's shared history while A retains its own remote association.
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
     let graph = Graph::from_commit_traversal(
         id,
@@ -6792,14 +6895,69 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/A
-└── ≡:A <> origin/A {1}
+⌂:A <> ✓refs/remotes/origin/A on a62b0de
+└── ≡:A <> origin/A on a62b0de {1}
+    └── :A <> origin/A
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn without_target_ref_or_managed_commit_ambiguous_with_remotes_ahead() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario(
+        "ws/no-target-without-ws-commit-ambiguous-with-remotes-ahead",
+    )?;
+    // Both upstreams are below A and B's shared tip, so their associations remain observable.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* a62b0de (HEAD -> gitbutler/workspace, B, A) A2
+* 120a217 A1
+* fafd9d0 (origin/B, origin/A, main) init
+
+"#]]
+    );
+
+    add_workspace(&mut meta);
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+    let (id, a_ref) = id_at(&repo, "A");
+    let graph = Graph::from_commit_traversal(
+        id,
+        a_ref,
+        &*meta,
+        default_project_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    // A keeps origin/A while metadata-owned B keeps origin/B and the local commits.
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  📕gitbutler/workspace[🌳]
+◎  👉A <> origin/A
+◎  📙B <> origin/B
+●  ·a62b0de (⌂|🏘)
+●  ·120a217 (⌂|🏘)
+│ ◎  main
+│ │ ◎  origin/B
+├───╯
+◎ │  origin/A
+├─╯
+●  🏁·fafd9d0 (⌂|🏘)
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+⌂:A <> ✓refs/remotes/origin/A on fafd9d0
+└── ≡:A <> origin/A on fafd9d0 {1}
     ├── :A <> origin/A
-    ├── 📙:B <> origin/B
-    │   ├── ❄️a62b0de (🏘️)
-    │   └── ❄️120a217 (🏘️)
-    └── :main <> origin/main
-        └── ❄fafd9d0 (🏘️)
+    └── 📙:B <> origin/B⇡2
+        ├── ·a62b0de (🏘️)
+        └── ·120a217 (🏘️)
 
 "#]]
     );
@@ -6889,17 +7047,14 @@ fn without_target_ref_with_managed_commit() -> anyhow::Result<()> {
 "#]]
     );
 
+    // From A, the upstream fallback bounds shared history even though a managed workspace exists.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/A⇣1
-└── ≡:A <> origin/A⇣1 {1}
-    ├── :A <> origin/A⇣1
-    │   ├── 🟣4fe5a6f
-    │   ├── ❄️a62b0de (🏘️)
-    │   └── ❄️120a217 (🏘️)
-    └── :main
-        └── ❄fafd9d0 (🏘️)
+⌂:A <> ✓refs/remotes/origin/A⇣1 on a62b0de
+└── ≡:A <> origin/A⇣1 on a62b0de {1}
+    └── :A <> origin/A⇣1
+        └── 🟣4fe5a6f
 
 "#]]
     );

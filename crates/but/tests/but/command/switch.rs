@@ -390,12 +390,9 @@ fn switching_to_workspace_creates_workspace_if_necessary() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] [HEAD] (no commits)
-├╯
-┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
-Hint: run `but help` for all commands
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
@@ -435,7 +432,7 @@ Hint: run `but branch new` to create a new branch to work on
     assert_data_eq!(
         env.git_log(),
         str![[r#"
-* 6c7afcb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* be6b55d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -760,6 +757,44 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn switching_back_to_workspace_ignores_deleted_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("switch main").assert().success();
+    // External deletion leaves A in the saved workspace metadata.
+    env.invoke_git("branch -D A");
+
+    // This shouldn't break switching back to the workspace.
+    env.but("switch --workspace")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Switched to workspace
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        "refs/heads/gitbutler/workspace",
+        "restoring with no surviving branches must still check out the workspace"
+    );
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
 fn switching_back_to_workspace_from_main_with_existing_empty_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
@@ -814,12 +849,9 @@ fn switching_back_to_workspace_from_main_with_conflicts() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] [HEAD] (no commits)
-├╯
-┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
-Hint: run `but help` for all commands
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
@@ -842,12 +874,9 @@ Error: Uncommitted files would be overwritten by checkout: "one"
 ╭┄ @ [uncommitted]
 ┊   kl A one
 ┊
-┊╭┄ ma [main] [HEAD] (no commits)
-├╯
-┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
-Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
@@ -857,6 +886,60 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 * b34435b (gitbutler/workspace) GitButler Workspace Commit
 * 72aceac (one) add one
 * 0dc3733 (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn committing_with_empty_workspace_in_single_branch_mode_creates_a_new_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    env.but("commit -m 'my first commit'")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Created commit lsm on new branch 'a-branch-1'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD]
+┊●   lsm my first commit (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* ca6dec0 (HEAD -> a-branch-1) my first commit
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
 
 "#]]
     );

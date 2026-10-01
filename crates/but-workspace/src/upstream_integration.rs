@@ -196,6 +196,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .clone()
         .context("Cannot update a workspace with no target ref")?;
     let target_ref_commit = repo.find_reference(&target_ref.ref_name)?.id();
+    let local_target_ref = workspace
+        .graph
+        .lookup_sibling_segment(target_ref.segment_index)
+        .and_then(|segment| segment.ref_name())
+        .map(ToOwned::to_owned);
 
     let entrypoint = workspace.graph.entrypoint()?;
     let head_commit = entrypoint
@@ -358,13 +363,18 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             if !head_is_workspace_commit
                 && direct_checkout_replacement_ref.is_none()
                 && let Some(head_ref_name) = direct_checkout_head_ref_name.as_ref()
-                && head_ref_name.as_ref().category() == Some(gix::refs::Category::LocalBranch)
+                && should_delete_integrated_local_branch(
+                    head_ref_name.as_ref(),
+                    target_ref.ref_name.as_ref(),
+                    local_target_ref.as_ref().map(|name| name.as_ref()),
+                )
             {
                 direct_checkout_replacement_ref = Some(replace_checkout_ref_with_fallback(
                     &mut editor,
                     repo,
                     head_ref_name.as_ref(),
                     target_ref_commit_selector,
+                    local_target_ref.as_ref().map(|name| name.as_ref()),
                 )?);
             }
             // TODO: Look into what happens when the head is an irrelevant
@@ -389,7 +399,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 if let Some(ws_meta) = ws_meta.as_mut() {
                     ws_meta.remove_segment(ref_name.as_ref());
                 }
-                if should_delete_integrated_local_branch(ref_name.as_ref()) {
+                if should_delete_integrated_local_branch(
+                    ref_name.as_ref(),
+                    target_ref.ref_name.as_ref(),
+                    local_target_ref.as_ref().map(|name| name.as_ref()),
+                ) {
                     if direct_checkout_replacement_ref
                         .as_ref()
                         .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
@@ -444,6 +458,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     repo,
                     workspace_ref_name,
                     target_ref_commit_selector,
+                    None,
                 )?;
             }
             [] if !fully_integrated_workspace_parents.is_empty() => {
@@ -967,12 +982,21 @@ fn reference_points_to_target(
 /// them as integrated. Those names often represent a user's primary local
 /// branch, so keeping them is safer than treating them like disposable topic
 /// branches.
-fn should_delete_integrated_local_branch(ref_name: &gix::refs::FullNameRef) -> bool {
+fn should_delete_integrated_local_branch(
+    ref_name: &gix::refs::FullNameRef,
+    target_ref: &gix::refs::FullNameRef,
+    local_target_ref: Option<&gix::refs::FullNameRef>,
+) -> bool {
+    // The integration target might not be called main or master. Some teams for example use develop.
+    if ref_name == target_ref || local_target_ref == Some(ref_name) {
+        return false;
+    }
     let Some((gix::refs::Category::LocalBranch, short_name)) = ref_name.category_and_short_name()
     else {
         return false;
     };
 
+    // But lets still be extra careful about deleting main or master
     short_name != "main" && short_name != "master"
 }
 
@@ -1115,12 +1139,13 @@ fn selector_commit_id<M: RefMetadata>(
     })
 }
 
-/// Replace a fully integrated checkout reference with a new canned local branch at the latest
-/// target tip.
+/// Replace a fully integrated checkout reference with a local branch at the latest target tip.
+/// Prefer an existing target branch at or behind that tip and not checked out in another worktree;
+/// fast-forward it as part of the rebase, or create a canned branch if it cannot be reused.
 ///
 /// Deleting the checked-out branch or empty managed workspace reference would leave `HEAD`
-/// pointing at a missing ref. Instead, reuse the checkout reference step for a fresh branch name
-/// and point it at the latest target commit.
+/// pointing at a missing ref. Instead, reuse the checkout reference step for the replacement
+/// branch name and point it at the latest target commit.
 ///
 /// The old checkout reference can be on the target ancestry path. Before repointing the step to
 /// the target tip, `disconnect_segment_from()` rewires its children around the old reference to
@@ -1130,9 +1155,36 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
     repo: &gix::Repository,
     head_ref_name: &gix::refs::FullNameRef,
     target_tip_selector: Selector,
+    preferred_ref: Option<&gix::refs::FullNameRef>,
 ) -> Result<(Selector, gix::refs::FullName)> {
     let head_ref_selector = head_ref_name.to_selector(editor)?;
-    let fallback_ref_name = unique_canned_refname(repo)?;
+    let mut reusable_ref = None;
+    if let Some(preferred_ref) = preferred_ref
+        && let Some(mut reference) = repo.try_find_reference(preferred_ref)?
+        && let Step::Pick(target) = editor.lookup_step(target_tip_selector)?
+    {
+        let local_tip = reference.peel_to_id()?.detach();
+        let can_fast_forward = local_tip == target.id
+            || repo
+                .merge_base(local_tip, target.id)
+                .is_ok_and(|base| base.detach() == local_tip);
+        if can_fast_forward
+            && but_core::branch::SafeDelete::new(repo)?
+                .worktree_dirs_with_ref(&reference)
+                .is_none()
+        {
+            // Relocate the existing reference into the checkout slot. Reparenting below
+            // advances it to the target tip in the same rebase that switches the checkout,
+            // so previews and materialization agree without an early Git ref mutation.
+            let existing_selector = editor.select_reference(preferred_ref)?;
+            editor.replace(existing_selector, Step::None)?;
+            reusable_ref = Some(preferred_ref.to_owned());
+        }
+    }
+    let fallback_ref_name = match reusable_ref {
+        Some(ref_name) => ref_name,
+        None => unique_canned_refname(repo)?,
+    };
 
     editor.replace(
         head_ref_selector,

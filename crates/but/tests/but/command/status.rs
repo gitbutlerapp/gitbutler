@@ -4,6 +4,8 @@ use super::util::{
 use crate::utils::{CommandExt as _, Sandbox};
 use snapbox::IntoData;
 
+mod status_in_single_branch_mode;
+
 #[test]
 fn common_base_shows_only_configured_default_refs() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
