@@ -1,4 +1,3 @@
-use anyhow::bail;
 use bstr::BStr;
 use but_error::bail_precondition;
 use but_oxidize::{ObjectIdExt, OidExt as _};
@@ -44,7 +43,11 @@ pub fn safe_checkout_from_head(
         && new_object.kind.is_commit()
         && crate::Commit::from_id(new_head_id.attach(repo))?.is_conflicted()
     {
-        bail!("Refusing to check out conflicted commit {new_head_id}");
+        return Err(
+            anyhow::anyhow!(but_error::Code::ConflictedCommitCheckout).context(format!(
+                "Refusing to check out conflicted commit {new_head_id}"
+            )),
+        );
     }
 
     let git2_repo = but_oxidize::open_git2_repo(repo.git_dir())?;
