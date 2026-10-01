@@ -12,7 +12,7 @@ use but_testsupport::git_at_dir;
 use crate::support::{persist_default_target, writable_scenario, write_file};
 
 const NAMESPACE: &str = "machine-a/checkout-1";
-const WIP_REF: &str = "refs/gitbutler/wip";
+const WIP_REF: &str = but_core::diff::PUBLISHED_WORKTREE_REF;
 const META_REF: &str = "refs/gitbutler/meta";
 
 fn git(dir: &Path, args: &[&str]) -> Result<String> {
@@ -265,10 +265,11 @@ fn workspace_reads_on_a_namespaced_bare_mirror() -> Result<()> {
         )?;
     }
 
-    // changesInWorktree as Lite calls it: expected to need a worktree.
+    // changesInWorktree as Lite calls it. Blob ids and the untracked flag are left out: a worktree
+    // has no ids for unhashed files and the published commit can't tell untracked from added.
     read_both(
         &mut findings,
-        "changesInWorktree(as is)",
+        "changesInWorktree",
         &source_ctx,
         &mirror_ctx,
         |ctx| {
@@ -277,64 +278,42 @@ fn workspace_reads_on_a_namespaced_bare_mirror() -> Result<()> {
                 but_api::commit::json::ChangesSource::Head,
                 true,
             )?;
-            Ok(format!("{:#?}", changes.worktree_changes.changes))
+            let files: Vec<String> = changes
+                .worktree_changes
+                .changes
+                .iter()
+                .map(|change| {
+                    format!(
+                        "{:?} {:?}",
+                        change.path,
+                        std::mem::discriminant(&change.status)
+                    )
+                })
+                .collect();
+            // Hunk assignments are deprecated and left out.
+            Ok((files, changes.dependencies.is_some()))
         },
     )?;
 
-    // The seam: on the mirror, worktree changes are HEAD diffed against the WIP commit.
-    let source_changes: Vec<but_core::TreeChange> =
-        but_core::diff::worktree_changes(&source_repo)?.changes;
-    let mirror_repo = mirror_ctx.repo.get()?.clone();
-    let wip = mirror_repo.find_reference(WIP_REF)?.peel_to_id()?.detach();
-    let head = mirror_repo.head_id()?.detach();
-    let mirror_changes = but_core::diff::tree_changes(&mirror_repo, Some(head), wip)?;
-    findings.compare(
-        "worktree changes (HEAD..wip)",
-        &mirror_changes,
-        &source_changes,
-    );
-
-    // treeChangeDiffs for each uncommitted change, resolved in each side's own repository.
-    for (mirror_change, source_change) in mirror_changes.iter().zip(&source_changes) {
-        let source_patch = source_change.unified_patch(&source_repo, 3)?;
-        match mirror_change.unified_patch(&mirror_repo, 3) {
-            Ok(mirror_patch) => findings.compare(
-                &format!("treeChangeDiffs({})", source_change.path),
-                mirror_patch,
-                source_patch,
-            ),
-            Err(err) => findings.fail(&format!("treeChangeDiffs({})", source_change.path), err),
+    // treeChangeDiffs for each uncommitted change, as each side reports it.
+    let changes_of = |ctx: &but_ctx::Context| -> Result<Vec<but_core::TreeChange>> {
+        Ok(but_core::diff::worktree_changes(&*ctx.repo.get()?)?.changes)
+    };
+    for (mirror_change, source_change) in changes_of(&mirror_ctx)?
+        .iter()
+        .zip(changes_of(&source_ctx)?)
+    {
+        let source_patch =
+            but_api::diff::tree_change_diffs(&source_ctx, source_change.clone().into())?;
+        let what = format!("treeChangeDiffs({})", source_change.path);
+        match but_api::diff::tree_change_diffs(&mirror_ctx, mirror_change.clone().into()) {
+            Ok(mirror_patch) => findings.compare(&what, mirror_patch, source_patch),
+            Err(err) => findings.fail(&what, err),
         }
     }
 
-    // Expected gaps, until the host reads worktree changes from the WIP commit: Lite's
-    // `changesInWorktree` needs a worktree, and a tree diff has blob ids where the worktree
-    // has none yet, and can't tell untracked from added.
-    snapbox::assert_data_eq!(
-        findings.0.join("\n\n"),
-        snapbox::str![[r#"
-changesInWorktree(as is): mirror failed: need non-bare repository
-
-worktree changes (HEAD..wip):
-@@ -8,5 +8,5 @@
-             },
-             state: ChangeState {
--                id: Sha1(0000000000000000000000000000000000000000),
-+                id: Sha1(21fa33431f947eae6cabb2bc94445c0f3c11bc73),
-                 kind: Blob,
-             },
-@@ -18,8 +18,8 @@
-         status: Addition {
-             state: ChangeState {
--                id: Sha1(0000000000000000000000000000000000000000),
-+                id: Sha1(fa49b077972391ad58037050f2a75f74e3671e92),
-                 kind: Blob,
-             },
--            is_untracked: true,
-+            is_untracked: false,
-         },
-     },
-"#]]
-    );
+    // A bare repository answers every read the workspace page makes like the checkout it was
+    // published from.
+    assert!(findings.0.is_empty(), "{}", findings.0.join("\n\n"));
     Ok(())
 }
