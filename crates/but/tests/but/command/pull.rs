@@ -318,12 +318,209 @@ fn single_branch_pull_preserves_integrated_develop_below_feature() {
 }
 
 #[test]
-fn single_branch_pull_replaces_a_fully_integrated_checkout() {
+fn undo_and_redo_restore_checkout_after_integrated_feature_switches_to_main() {
+    let env = single_branch_integration_scenario();
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.but("branch new A").assert().success();
+    commit_file(&env, "A");
+    merge_into_upstream(&env, "A", true);
+    env.but("pull").assert().success();
+
+    env.but("undo").assert().success();
+    // Undo restores the integrated feature and its checkout, without moving main.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (origin/main, origin/HEAD, main) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 (HEAD -> A) add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("redo").assert().success();
+    // Redo restores the checkout of the existing target branch, not a generated branch.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (HEAD -> main, origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_pull_checks_out_main_after_fast_forwarding_it() {
+    let env = single_branch_integration_scenario();
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    let old_main = rev_parse(&env, "main");
+    env.but("branch new A").assert().success();
+    commit_file(&env, "A");
+    merge_into_upstream(&env, "A", true);
+
+    // Keep the merged history only in the remote. Pull must fetch it while local main
+    // and its remote-tracking ref still point at the pre-merge base.
+    let remote = env.app_data_dir().join("origin.git");
+    let remote_arg = shell_words::quote(&remote.display().to_string()).into_owned();
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote_arg} && git remote set-url origin {remote_arg}"
+    ));
+    env.invoke_git(&format!("update-ref refs/heads/main {old_main}"));
+    env.invoke_git(&format!("update-ref refs/remotes/origin/main {old_main}"));
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 2bc0e49 (HEAD -> A) add A
+* 85efbe4 (origin/main, origin/HEAD, main, gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("pull --check").assert().success();
+    // Fetching during a preview must not advance local main or change the checkout.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 (HEAD -> A) add A
+|/  
+* 85efbe4 (main, gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("pull").assert().success();
+
+    // The fast-forwardable local target should become the checkout, not a canned branch.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 5aa8cbc (common base, main, origin/main) 2000-01-02 add upstream
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (HEAD -> main, origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("undo").assert().success();
+    // Undo restores both main's old tip and the deleted feature checkout.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 (HEAD -> A) add A
+|/  
+* 85efbe4 (main, gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("redo").assert().success();
+    // Redo fast-forwards main and restores its checkout together.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (HEAD -> main, origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+}
+
+#[test]
+fn single_branch_pull_checks_out_main_when_feature_is_fully_integrated() {
+    let env = single_branch_integration_scenario();
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.but("branch new A").assert().success();
+    commit_file(&env, "A");
+    merge_into_upstream(&env, "A", true);
+
+    // The feature is integrated, and main is already at the updated target tip.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (origin/main, origin/HEAD, main) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 (HEAD -> A) add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+
+    env.but("pull").assert().success();
+
+    // Reuse main instead of creating an empty replacement branch for the removed feature.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 5aa8cbc (HEAD -> main, origin/main, origin/HEAD) add upstream
+*   7608f76 merge A
+|/  
+| * 2bc0e49 add A
+|/  
+* 85efbe4 (gitbutler/target) M
+
+"#]]
+    );
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 5aa8cbc (common base, main, origin/main) 2000-01-02 add upstream
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn single_branch_pull_replaces_integrated_checkout_when_main_is_in_another_worktree() {
     let env = single_branch_integration_scenario();
     env.but("branch new A").assert().success();
     commit_file(&env, "A");
     let old_head = rev_parse(&env, "A");
     merge_into_upstream(&env, "A", true);
+    let worktree = env.app_data_dir().join("linked-main");
+    let worktree_arg = shell_words::quote(&worktree.display().to_string()).into_owned();
+    env.invoke_git(&format!("worktree add -q {worktree_arg} main"));
 
     env.but("status")
         .env("NO_BG_TASKS", "1")

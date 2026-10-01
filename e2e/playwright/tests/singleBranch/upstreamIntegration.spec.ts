@@ -138,7 +138,7 @@ function gitSucceeds(pathToRepo: string, args: string[]): boolean {
 	}
 }
 
-test("creates a new branch on top of the advanced target after branch is fully integrated", async ({
+test("checks out the local target after branch is fully integrated", async ({
 	page,
 	gitbutler,
 }) => {
@@ -156,14 +156,11 @@ test("creates a new branch on top of the advanced target after branch is fully i
 	await syncAndIntegrateWorkspace(page);
 
 	await expectLocalBranchNotToExist(localClone, FULLY_INTEGRATED_BRANCH);
-	const replacementBranch = await replacementBranchAtTarget(localClone);
-	await expect(stack(page)).toHaveCount(1);
-	await expect(getByTestId(page, "branch-card")).toContainText(replacementBranch);
-	await assertBranch(replacementBranch, localClone);
-	await expectCurrentBranchChip(page, replacementBranch);
-	expect(git(localClone, ["rev-parse", replacementBranch])).toBe(
-		git(localClone, ["rev-parse", TARGET_REMOTE_BRANCH]),
-	);
+	await expectCurrentBranchChip(page, TARGET_BRANCH);
+	await assertBranch(TARGET_BRANCH, localClone);
+	await expectBranchTipToBeOriginMaster(localClone, TARGET_BRANCH);
+	await expect(stack(page)).toHaveCount(0);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(0);
 	await assertCleanWorktree(localClone);
 	await expectNoErrorToast(page);
 });
@@ -196,7 +193,7 @@ test("checks out a new branch after all managed stacks are integrated", async ({
 	await expectNoErrorToast(page);
 });
 
-test("replaces an empty checked-out branch when its tracking tip is integrated", async ({
+test("checks out the local target when an empty branch's tracking tip is integrated", async ({
 	page,
 	gitbutler,
 }) => {
@@ -214,9 +211,11 @@ test("replaces an empty checked-out branch when its tracking tip is integrated",
 	await syncAndIntegrateWorkspace(page);
 
 	await expectLocalBranchNotToExist(localClone, EMPTY_INTEGRATED_BRANCH);
-	const replacementBranch = await replacementBranchAtTarget(localClone);
-	await expectCurrentBranchChip(page, replacementBranch);
-	await expectBranchTipToBeOriginMaster(localClone, replacementBranch);
+	await expectCurrentBranchChip(page, TARGET_BRANCH);
+	await assertBranch(TARGET_BRANCH, localClone);
+	await expectBranchTipToBeOriginMaster(localClone, TARGET_BRANCH);
+	await expect(stack(page)).toHaveCount(0);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(0);
 	await assertCleanWorktree(localClone);
 	await expectNoErrorToast(page);
 });

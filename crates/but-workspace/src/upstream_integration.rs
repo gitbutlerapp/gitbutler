@@ -374,6 +374,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     repo,
                     head_ref_name.as_ref(),
                     target_ref_commit_selector,
+                    local_target_ref.as_ref().map(|name| name.as_ref()),
                 )?);
             }
             // TODO: Look into what happens when the head is an irrelevant
@@ -457,6 +458,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     repo,
                     workspace_ref_name,
                     target_ref_commit_selector,
+                    None,
                 )?;
             }
             [] if !fully_integrated_workspace_parents.is_empty() => {
@@ -1137,12 +1139,13 @@ fn selector_commit_id<M: RefMetadata>(
     })
 }
 
-/// Replace a fully integrated checkout reference with a new canned local branch at the latest
-/// target tip.
+/// Replace a fully integrated checkout reference with a local branch at the latest target tip.
+/// Prefer an existing target branch at or behind that tip and not checked out in another worktree;
+/// fast-forward it as part of the rebase, or create a canned branch if it cannot be reused.
 ///
 /// Deleting the checked-out branch or empty managed workspace reference would leave `HEAD`
-/// pointing at a missing ref. Instead, reuse the checkout reference step for a fresh branch name
-/// and point it at the latest target commit.
+/// pointing at a missing ref. Instead, reuse the checkout reference step for the replacement
+/// branch name and point it at the latest target commit.
 ///
 /// The old checkout reference can be on the target ancestry path. Before repointing the step to
 /// the target tip, `disconnect_segment_from()` rewires its children around the old reference to
@@ -1152,9 +1155,36 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
     repo: &gix::Repository,
     head_ref_name: &gix::refs::FullNameRef,
     target_tip_selector: Selector,
+    preferred_ref: Option<&gix::refs::FullNameRef>,
 ) -> Result<(Selector, gix::refs::FullName)> {
     let head_ref_selector = head_ref_name.to_selector(editor)?;
-    let fallback_ref_name = unique_canned_refname(repo)?;
+    let mut reusable_ref = None;
+    if let Some(preferred_ref) = preferred_ref
+        && let Some(mut reference) = repo.try_find_reference(preferred_ref)?
+        && let Step::Pick(target) = editor.lookup_step(target_tip_selector)?
+    {
+        let local_tip = reference.peel_to_id()?.detach();
+        let can_fast_forward = local_tip == target.id
+            || repo
+                .merge_base(local_tip, target.id)
+                .is_ok_and(|base| base.detach() == local_tip);
+        if can_fast_forward
+            && but_core::branch::SafeDelete::new(repo)?
+                .worktree_dirs_with_ref(&reference)
+                .is_none()
+        {
+            // Relocate the existing reference into the checkout slot. Reparenting below
+            // advances it to the target tip in the same rebase that switches the checkout,
+            // so previews and materialization agree without an early Git ref mutation.
+            let existing_selector = editor.select_reference(preferred_ref)?;
+            editor.replace(existing_selector, Step::None)?;
+            reusable_ref = Some(preferred_ref.to_owned());
+        }
+    }
+    let fallback_ref_name = match reusable_ref {
+        Some(ref_name) => ref_name,
+        None => unique_canned_refname(repo)?,
+    };
 
     editor.replace(
         head_ref_selector,
