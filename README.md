@@ -109,6 +109,8 @@ at the [DEVELOPMENT.md](DEVELOPMENT.md) file.
 
 ### Contributors
 
+GitButler is built by many people, including [Kiril Videlov](https://github.com/krlvi).
+
 <a href="https://github.com/gitbutlerapp/gitbutler/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=gitbutlerapp/gitbutler" />
 </a>
