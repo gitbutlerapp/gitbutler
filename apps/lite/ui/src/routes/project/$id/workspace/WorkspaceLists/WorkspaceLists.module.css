@@ -79,6 +79,18 @@
 .dockRow {
 	/* Keep the trunk aligned with the stack rows and gaps: see layout.ts's ROW_INSET. */
 	--row-padding-inline-start: var(--graph-trunk-inset);
+
+	/* Without the trunk the rows are inset the same at both ends. */
+	@container style(--graph-trunk: hidden) {
+		--row-padding-inline-start: var(--row-padding-inline-end, 8px);
+	}
+}
+
+/* The files carry their own inset, so with no rail before them the list adds none. */
+.uncommittedCard .files {
+	@container style(--graph-trunk: hidden) {
+		padding-inline-start: 0;
+	}
 }
 
 .uncommittedCard {
