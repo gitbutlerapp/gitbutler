@@ -169,6 +169,7 @@ pub fn init_ctx(
                 (ctx, fetch_interval_minutes, last_fetch)
             } else {
                 // Try to find an existing project, or prompt for setup if not found
+                let mut is_registered_project = true;
                 let mut ctx = match LegacyProject::find_by_worktree_dir(workdir) {
                     Ok(project) => Context::new_from_legacy_project_and_settings(
                         &project,
@@ -186,7 +187,9 @@ pub fn init_ctx(
                             .head()?
                             .referent_name()
                             .is_some_and(|name| name.shorten().starts_with(b"gitbutler/"));
-                        if !is_configured_workspace {
+                        if is_configured_workspace {
+                            is_registered_project = false;
+                        } else {
                             let message =
                                 format!("No GitButler project found at {}", workdir.display());
                             match prompt_for_setup(out, &message) {
@@ -207,6 +210,7 @@ pub fn init_ctx(
                                                 workdir.display()
                                             )
                                         })?;
+                                    is_registered_project = true;
                                 }
                                 SetupPromptResult::Declined => {
                                     anyhow::bail!(
@@ -233,6 +237,7 @@ pub fn init_ctx(
                                     out,
                                     guard.write_permission(),
                                 )?;
+                                is_registered_project = true;
                                 // Re-find and re-check the project after setup
                                 let _project = LegacyProject::find_by_worktree_dir(workdir)
                                     .map_err(|_| {
@@ -253,7 +258,11 @@ pub fn init_ctx(
                     ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
                 }
 
-                let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
+                let fetch_interval_minutes = if is_registered_project {
+                    ctx.settings.fetch.auto_fetch_interval_minutes
+                } else {
+                    0
+                };
                 let last_fetch = ctx
                     .legacy_project
                     .project_data_last_fetch

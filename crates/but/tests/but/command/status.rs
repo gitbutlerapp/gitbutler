@@ -315,6 +315,38 @@ Error: Setup required: No GitButler project found at . - run `but setup` to conf
 "#]]);
 }
 
+#[cfg(feature = "legacy")]
+#[test]
+fn managed_workspace_fetches_without_app_registration() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.but("config feature single-branch disable")
+        .assert()
+        .success();
+    env.invoke_git("remote set-url origin .");
+    let projects_file = env.app_data_dir().join("com.gitbutler.app/projects.json");
+    std::fs::write(&projects_file, "[]").unwrap();
+
+    env.but("refresh-remote-data --fetch")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+
+Fetching from remotes...
+Done.
+"#]])
+        .stderr_eq(snapbox::str![""]);
+
+    let projects: serde_json::Value = std::fs::read_to_string(projects_file)
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert_eq!(
+        projects.as_array().map(Vec::len),
+        Some(0),
+        "fetching must not recreate application registration"
+    );
+}
+
 #[test]
 fn first_commit_no_workspace() {
     let env = Sandbox::open_scenario_with_target_and_default_settings("first-commit");
