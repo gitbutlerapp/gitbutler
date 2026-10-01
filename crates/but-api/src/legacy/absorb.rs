@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    cmp::Reverse,
+    collections::{BTreeMap, HashMap},
+};
 
 use anyhow::Context as _;
 use bstr::ByteSlice;
@@ -64,6 +67,7 @@ pub fn absorb_with_perm(
     let mut total_rejected = 0;
     let mut commit_map = CommitMap::default();
     let context_lines = ctx.settings.context_lines;
+    let absorption_plan = absorption_steps_for_application(absorption_plan);
 
     for absorption in absorption_plan {
         let diff_specs = convert_hunks_to_diff_specs(&absorption.hunks)?;
@@ -339,31 +343,36 @@ fn locks_for_candidate(index: &LockIndex, candidate: &AbsorbCandidate) -> Vec<Hu
     }
 }
 
-// Find the lock that is highest in the application order (child-most commit)
+// Find the child-most lock when every lock belongs to the same identified stack.
 fn find_top_most_lock<'a>(locks: &'a [HunkLock], workspace: &RefInfo) -> Option<&'a HunkLock> {
+    let stack_id = unique_lock_stack_id(locks)?;
+    let stack = stack_by_id(workspace, stack_id)?;
+
     // Dependency entries are grouped by changed ranges, not ordered by the
-    // workspace's application order. Walk the workspace first so overlapping
-    // dependencies resolve to the child-most commit, independent of lock order.
-    for stack in &workspace.stacks {
-        let Some(stack_id) = stack.id else {
-            continue;
-        };
-        for segment in &stack.segments {
-            for commit in &segment.commits {
-                if let Some(lock) = locks.iter().find(|lock| {
-                    lock.commit_id == commit.id && lock.target == HunkLockTarget::Stack(stack_id)
-                }) {
-                    return Some(lock);
-                }
+    // workspace's application order. Walk only this stack so parallel stacks
+    // cannot be mistaken for ancestors and descendants of one another.
+    for segment in &stack.segments {
+        for commit in &segment.commits {
+            if let Some(lock) = locks.iter().find(|lock| {
+                lock.commit_id == commit.id && lock.target == HunkLockTarget::Stack(stack_id)
+            }) {
+                return Some(lock);
             }
         }
     }
 
-    // If the stack is not represented in the workspace projection, retain the
-    // existing fallback to its first reported lock.
-    locks
-        .iter()
-        .find(|lock| lock.target == HunkLockTarget::Unidentified)
+    None
+}
+
+fn unique_lock_stack_id(locks: &[HunkLock]) -> Option<StackId> {
+    let mut stack_ids = locks.iter().map(|lock| match lock.target {
+        HunkLockTarget::Stack(stack_id) => Some(stack_id),
+        HunkLockTarget::Unidentified => None,
+    });
+    let stack_id = stack_ids.next()??;
+    stack_ids
+        .all(|candidate| candidate == Some(stack_id))
+        .then_some(stack_id)
 }
 
 /// Find the stack identified by `stack_id` in the workspace projection.
@@ -532,6 +541,40 @@ fn prepare_commit_absorptions(
     Ok(commit_absorptions)
 }
 
+/// Apply each hunk independently, ordered bottom-up within its path. A commit
+/// group can span files or disjoint ranges, so it cannot be safely ordered by
+/// one line number without risking stale selectors in another group.
+fn absorption_steps_for_application(absorptions: Vec<CommitAbsorption>) -> Vec<CommitAbsorption> {
+    let mut steps = absorptions
+        .into_iter()
+        .flat_map(|absorption| {
+            absorption
+                .hunks
+                .into_iter()
+                .map(move |hunk| CommitAbsorption {
+                    stack_id: absorption.stack_id,
+                    commit_id: absorption.commit_id,
+                    commit_summary: absorption.commit_summary.clone(),
+                    hunks: vec![hunk],
+                    reason: absorption.reason.clone(),
+                })
+        })
+        .collect::<Vec<_>>();
+
+    steps.sort_by_key(|absorption| {
+        let hunk = &absorption.hunks[0];
+        (
+            hunk.path.clone(),
+            Reverse(
+                hunk.hunk_header
+                    .map(|header| header.new_start)
+                    .unwrap_or_default(),
+            ),
+        )
+    });
+    steps
+}
+
 /// Get the commit summary message
 fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyhow::Result<String> {
     let commit = repo.find_commit(commit_id)?;
@@ -543,6 +586,99 @@ fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyho
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn absorption_steps_preserve_per_path_descending_hunk_order() {
+        let stack_id = StackId::generate();
+        let commit_id = gix::ObjectId::from_hex(b"0000000000000000000000000000000000000000")
+            .expect("valid object ID");
+        let hunk_at = |path: &str, line| but_core::SingleHunk {
+            hunk_header: Some(but_core::HunkHeader {
+                old_start: line,
+                old_lines: 1,
+                new_start: line,
+                new_lines: 1,
+            }),
+            path: path.into(),
+            diff: None,
+        };
+        let absorption = |summary: &str, hunks| CommitAbsorption {
+            stack_id,
+            commit_id,
+            commit_summary: summary.to_owned(),
+            hunks,
+            reason: AbsorptionReason::HunkDependency,
+        };
+        let steps = absorption_steps_for_application(vec![
+            absorption(
+                "A",
+                vec![
+                    hunk_at("shared.txt", 10),
+                    hunk_at("other.txt", 1),
+                    hunk_at("shared.txt", 100),
+                ],
+            ),
+            absorption("B", vec![hunk_at("shared.txt", 50)]),
+        ]);
+
+        assert_eq!(
+            steps
+                .iter()
+                .filter(|step| step.hunks[0].path == "shared.txt")
+                .map(|step| {
+                    (
+                        step.commit_summary.as_str(),
+                        step.hunks[0]
+                            .hunk_header
+                            .expect("test hunk has a header")
+                            .new_start,
+                    )
+                })
+                .collect::<Vec<_>>(),
+            [("A", 100), ("B", 50), ("A", 10)],
+            "each shared path must be applied in descending line order regardless of unrelated hunks"
+        );
+        assert!(
+            steps.iter().all(|step| step.hunks.len() == 1),
+            "application steps must not couple unrelated hunk positions"
+        );
+    }
+
+    #[test]
+    fn ambiguous_lock_targets_do_not_select_a_stack_by_workspace_order() {
+        let a = StackId::generate();
+        let b = StackId::generate();
+        let lock = |target| HunkLock {
+            target,
+            commit_id: gix::ObjectId::from_hex(b"0000000000000000000000000000000000000000")
+                .expect("valid object ID"),
+        };
+
+        assert_eq!(
+            unique_lock_stack_id(&[
+                lock(HunkLockTarget::Stack(a)),
+                lock(HunkLockTarget::Stack(b))
+            ]),
+            None,
+            "locks from parallel stacks do not have a child-most relationship"
+        );
+        assert_eq!(
+            unique_lock_stack_id(&[
+                lock(HunkLockTarget::Stack(a)),
+                lock(HunkLockTarget::Unidentified)
+            ]),
+            None,
+            "an unidentified lock cannot be ordered safely"
+        );
+        assert_eq!(
+            unique_lock_stack_id(&[
+                lock(HunkLockTarget::Stack(a)),
+                lock(HunkLockTarget::Stack(a))
+            ]),
+            Some(a),
+            "multiple locks in one stack remain eligible for child-most selection"
+        );
+    }
 
     #[test]
     fn candidate_ending_at_a_deletion_point_includes_its_lock() {
