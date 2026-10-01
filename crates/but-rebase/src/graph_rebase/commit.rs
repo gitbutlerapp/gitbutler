@@ -128,7 +128,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     ///
     /// The ID of the commit is all zeros & the commit hasn't been written into any ODB
     pub fn empty_commit(&self) -> Result<but_core::CommitOwned> {
-        let kind = gix::hash::Kind::Sha1;
+        let kind = self.repo.object_hash();
         let committer = self
             .repo
             .committer()
