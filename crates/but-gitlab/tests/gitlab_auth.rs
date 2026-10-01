@@ -563,6 +563,30 @@ fn forbidden_review_listing_carries_the_access_refusal_code() {
     });
 }
 
+#[test]
+fn missing_project_on_open_listing_carries_the_not_found_code() {
+    memory_keyring::install();
+
+    run(async {
+        let seams = vec![
+            (Read::OpenList, vec![reply(404, REJECTED)]),
+            (Read::OpenList, vec![reply(404, "<html>Not Found</html>")]),
+            (Read::OpenList, vec![reply(404, "")]),
+            (
+                Read::OpenList,
+                vec![page(format!("[{}]", mr(1)), "2"), reply(404, REJECTED)],
+            ),
+        ];
+        assert_terminal_on_every_seam(
+            seams,
+            "GitLabProjectNotFound",
+            "GitLab could not find this project, or your token cannot see it.",
+            "HTTP 404",
+        )
+        .await;
+    });
+}
+
 /// Every seam fails with `code` and only the static `message`, keeps `status`
 /// in the chain for logs, and leaks neither the token nor the host.
 async fn assert_terminal_on_every_seam(
@@ -602,8 +626,11 @@ async fn assert_terminal_on_every_seam(
         );
         let debug = format!("{error:?}");
         assert!(
-            !debug.contains(TOKEN) && !debug.contains(&host),
-            "{read:?}: neither the token nor the host may reach the error: {debug}"
+            !debug.contains(TOKEN)
+                && !debug.contains(&host)
+                && !debug.contains("group")
+                && !debug.contains("repo"),
+            "{read:?}: neither credentials nor project identifiers may reach the error: {debug}"
         );
     }
 }
@@ -614,7 +641,11 @@ fn read_failures_other_than_a_rejected_token_stay_unclassified() {
 
     run(async {
         let cases: Vec<(Read, Vec<Reply>, &str)> = vec![
-            (Read::OpenList, vec![reply(404, REJECTED)], "404"),
+            (Read::TargetList, vec![reply(404, REJECTED)], "404"),
+            (Read::CommitList, vec![reply(404, REJECTED)], "404"),
+            (Read::RecentlyClosed, vec![reply(404, REJECTED)], "404"),
+            (Read::Get, vec![reply(404, REJECTED)], "404"),
+            (Read::MergeStatus, vec![reply(404, REJECTED)], "404"),
             (Read::OpenList, vec![reply(429, REJECTED)], "429"),
             // Auth wording in the body of another status is not a rejection.
             (
