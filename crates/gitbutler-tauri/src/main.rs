@@ -291,7 +291,6 @@ fn main() -> anyhow::Result<()> {
                 branch::tauri_get_initial_branch_integration::get_initial_branch_integration,
                 branch::tauri_apply_branch_integration::apply_branch_integration,
                 legacy::stack::tauri_create_branch::create_branch,
-                legacy::stack::tauri_remove_branch::remove_branch,
                 legacy::secret::tauri_secret_get_global::secret_get_global,
                 legacy::secret::tauri_secret_set_global::secret_set_global,
                 legacy::secret::tauri_secret_delete_global::secret_delete_global,

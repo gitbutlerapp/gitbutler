@@ -1296,19 +1296,6 @@ export declare const enum ProgramCategory {
 export declare function publishReview(projectId: string, params: PublishReviewInput): Promise<PublishReviewOutcome>
 
 /**
- * Remove a branch from a stack.
- *
- * This acquires exclusive worktree access from `ctx` before creating the
- * removal snapshot and detaching the branch.
- *
- * This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
- * or on a branch that's empty.
- *
- * {@link ../../../../../crates/but-api/src/legacy/stack.rs:117}
- */
-export declare function removeBranch(projectId: string, stackId: string, branchName: string): Promise<void>
-
-/**
  * Remove one of the caller's reactions from one comment.
  *
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1192}

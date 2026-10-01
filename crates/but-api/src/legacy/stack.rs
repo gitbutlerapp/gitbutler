@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
-use but_core::{branch, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{branch, ref_metadata::StackId};
 use but_ctx::Context;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_oplog::SnapshotExt;
@@ -74,65 +74,4 @@ pub fn create_branch(
 
     *ws = new_ws.into_owned();
     Ok(())
-}
-
-/// Remove a branch without creating an oplog snapshot.
-///
-/// This is the core implementation used by both [`remove_branch`] (which creates its own snapshot)
-/// and batch operations like `but clean` (which create a single snapshot for multiple removals).
-pub fn remove_branch_only(
-    ctx: &mut Context,
-    branch_name: &str,
-    perm: &mut RepoExclusive,
-) -> Result<()> {
-    let ref_name = Category::LocalBranch
-        .to_full_name(branch_name)
-        .map_err(anyhow::Error::from)?;
-    let mut meta = ctx.meta()?;
-    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let new_ws = but_workspace::branch::remove_reference(
-        ref_name.as_ref(),
-        &mut repo,
-        &ws,
-        &mut meta,
-        but_workspace::branch::remove_reference::Options {
-            avoid_anonymous_stacks: true,
-            keep_metadata: false,
-        },
-    )?;
-
-    if let Some(new_ws) = new_ws {
-        *ws = new_ws;
-    }
-    Ok(())
-}
-
-/// Remove a branch from a stack.
-///
-/// This acquires exclusive worktree access from `ctx` before creating the
-/// removal snapshot and detaching the branch.
-///
-/// This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
-/// or on a branch that's empty.
-#[but_api(napi)]
-#[instrument(err(Debug))]
-pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) -> Result<()> {
-    let mut guard = ctx.exclusive_worktree_access();
-    remove_branch_with_perm(ctx, stack_id, branch_name, guard.write_permission())
-}
-
-/// Remove a branch from a stack while reusing caller-held exclusive access.
-///
-/// This records the dependent-branch removal snapshot and then delegates to
-/// [`remove_branch_only()`] for the actual workspace mutation.
-pub fn remove_branch_with_perm(
-    ctx: &mut Context,
-    stack_id: StackId,
-    branch_name: String,
-    perm: &mut RepoExclusive,
-) -> Result<()> {
-    let _ = stack_id;
-    ctx.snapshot_remove_dependent_branch(&branch_name, perm)
-        .ok();
-    remove_branch_only(ctx, &branch_name, perm)
 }
