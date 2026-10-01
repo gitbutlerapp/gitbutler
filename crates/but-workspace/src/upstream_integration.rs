@@ -196,6 +196,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .clone()
         .context("Cannot update a workspace with no target ref")?;
     let target_ref_commit = repo.find_reference(&target_ref.ref_name)?.id();
+    let local_target_ref = workspace
+        .graph
+        .lookup_sibling_segment(target_ref.segment_index)
+        .and_then(|segment| segment.ref_name())
+        .map(ToOwned::to_owned);
 
     let entrypoint = workspace.graph.entrypoint()?;
     let head_commit = entrypoint
@@ -358,7 +363,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             if !head_is_workspace_commit
                 && direct_checkout_replacement_ref.is_none()
                 && let Some(head_ref_name) = direct_checkout_head_ref_name.as_ref()
-                && head_ref_name.as_ref().category() == Some(gix::refs::Category::LocalBranch)
+                && should_delete_integrated_local_branch(
+                    head_ref_name.as_ref(),
+                    target_ref.ref_name.as_ref(),
+                    local_target_ref.as_ref().map(|name| name.as_ref()),
+                )
             {
                 direct_checkout_replacement_ref = Some(replace_checkout_ref_with_fallback(
                     &mut editor,
@@ -389,7 +398,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 if let Some(ws_meta) = ws_meta.as_mut() {
                     ws_meta.remove_segment(ref_name.as_ref());
                 }
-                if should_delete_integrated_local_branch(ref_name.as_ref()) {
+                if should_delete_integrated_local_branch(
+                    ref_name.as_ref(),
+                    target_ref.ref_name.as_ref(),
+                    local_target_ref.as_ref().map(|name| name.as_ref()),
+                ) {
                     if direct_checkout_replacement_ref
                         .as_ref()
                         .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
@@ -967,12 +980,21 @@ fn reference_points_to_target(
 /// them as integrated. Those names often represent a user's primary local
 /// branch, so keeping them is safer than treating them like disposable topic
 /// branches.
-fn should_delete_integrated_local_branch(ref_name: &gix::refs::FullNameRef) -> bool {
+fn should_delete_integrated_local_branch(
+    ref_name: &gix::refs::FullNameRef,
+    target_ref: &gix::refs::FullNameRef,
+    local_target_ref: Option<&gix::refs::FullNameRef>,
+) -> bool {
+    // The integration target might not be called main or master. Some teams for example use develop.
+    if ref_name == target_ref || local_target_ref == Some(ref_name) {
+        return false;
+    }
     let Some((gix::refs::Category::LocalBranch, short_name)) = ref_name.category_and_short_name()
     else {
         return false;
     };
 
+    // But lets still be extra careful about deleting main or master
     short_name != "main" && short_name != "master"
 }
 
