@@ -1766,3 +1766,74 @@ Hint: Use `--above` or `--below` to place it, or `but worktree new` for a new wo
 
 "#]]);
 }
+
+#[test]
+fn switching_between_empty_stacked_branches() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("branch new A").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("branch new B --above A").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] [HEAD] (no commits)
+┊│
+┊├┄ h0 [A] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch A").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch main").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
