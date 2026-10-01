@@ -526,3 +526,22 @@ mod utils {
         ));
     }
 }
+
+#[test]
+fn cannot_unapply_branches_in_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b my-branch --no-message")
+        .assert()
+        .success();
+
+    env.but("unapply my-branch")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Unapplying a stack requires GitButler workspace
+
+Hint: Run `but switch --workspace` or `but switch OTHER_BRANCH`
+
+"#]]);
+}
