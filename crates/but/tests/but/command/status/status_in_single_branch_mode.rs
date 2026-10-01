@@ -408,3 +408,266 @@ Hint: run `but help` for all commands
         .raw()
     );
 }
+
+#[test]
+fn top_branch_in_stack_deleted_externally() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+
+    env.but("commit -b A --no-message").assert().success();
+    env.but("commit -b B --above A --no-message")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] [HEAD]
+┊●   rpt (no commit message) (no changes)
+┊│
+┊├┄ h0 [A]
+┊●   mvk (no commit message) (no changes)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch main").assert().success();
+    env.invoke_git("branch -D B");
+
+    env.but("switch B")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find branch: 'B'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+
+    env.but("switch A").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊●   mvk (no commit message) (no changes)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch main").assert().success();
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn top_branch_in_stack_deleted_externally_after_having_been_in_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+
+    env.but("commit -b A --no-message").assert().success();
+    env.but("commit -b B --above A --no-message")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] [HEAD]
+┊●   rpt (no commit message) (no changes)
+┊│
+┊├┄ h0 [A]
+┊●   mvk (no commit message) (no changes)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+    env.but("switch main").assert().success();
+    env.invoke_git("branch -D B");
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   mvk (no commit message) (no changes)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn non_top_branch_in_stack_deleted_externally_after_having_been_in_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+
+    env.but("commit -b A --no-message").assert().success();
+    env.but("commit -b B --above A --no-message")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] [HEAD]
+┊●   rpt (no commit message) (no changes)
+┊│
+┊├┄ h0 [A]
+┊●   mvk (no commit message) (no changes)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+    env.but("switch main").assert().success();
+    env.invoke_git("branch -D A");
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   rpt (no commit message) (no changes)
+┊●   mvk (no commit message) (no changes)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn all_empty_branches_middle_branch_in_stack_deleted_externally() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+
+    env.but("branch new A").assert().success();
+    env.but("branch new B --above A").assert().success();
+    env.but("branch new C --above B").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD] (no commits)
+┊│
+┊├┄ h0 [B] (no commits)
+┊│
+┊├┄ i0 [A] (no commits)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+    env.but("switch main").assert().success();
+    env.invoke_git("branch -D B");
+
+    env.but("switch --workspace").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] (no commits)
+┊│
+┊├┄ h0 [A] (no commits)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch A").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD] (no commits)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch C").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [C] [HEAD] (no commits)
+┊│
+┊├┄ h0 [A] (no commits)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}

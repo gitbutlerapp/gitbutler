@@ -409,6 +409,64 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn single_branch_pull_allows_restoring_workspace_after_integrated_branch_is_removed() {
+    let env = single_branch_integration_scenario();
+    env.but("branch new A").assert().success();
+    commit_file(&env, "A");
+
+    // Remember A as applied in a managed workspace, then return to single-branch mode.
+    env.but("switch --workspace").assert().success();
+    env.but("switch A").assert().success();
+    assert!(
+        git_ref_exists(&env, but_core::WORKSPACE_REF_NAME),
+        "the saved workspace must exist before integrating its branch"
+    );
+
+    merge_into_upstream(&env, "A", false);
+    env.but("pull").assert().success();
+    assert!(
+        !git_ref_exists(&env, "refs/heads/A"),
+        "pull must remove the integrated branch while outside the saved workspace"
+    );
+
+    env.but("switch main").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 7608f76 (common base, main, origin/main) 2000-01-02 merge A
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    // Restoring the saved workspace must not attempt to reapply the deleted branch.
+    env.but("switch --workspace")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Switched to workspace
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 7608f76 (common base, main, origin/main) 2000-01-02 merge A
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
 fn single_branch_pull_prunes_an_integrated_lower_branch() {
     let env = single_branch_integration_scenario();
     env.but("branch new C").assert().success();

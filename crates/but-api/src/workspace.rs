@@ -90,13 +90,23 @@ pub fn workspace_recreate_with_perm(
         let mut meta = ctx.meta()?;
         let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
 
+        let mut skipped_missing_heads = false;
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
             let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
             let workspace_meta = meta.workspace(workspace_ref.as_ref())?;
-            workspace_meta
-                .stack_names(but_core::ref_metadata::StackKind::Applied)
-                .map(|name| name.to_owned())
-                .collect()
+            let mut existing_heads = Vec::new();
+            for stack in workspace_meta.stacks(but_core::ref_metadata::StackKind::Applied) {
+                // A deleted tip must not hide surviving lower branches in the saved stack.
+                // Only absence is recoverable; propagate reference lookup errors.
+                for branch in stack.branches.iter().filter(|branch| !branch.archived) {
+                    if repo.try_find_reference(branch.ref_name.as_ref())?.is_some() {
+                        existing_heads.push(branch.ref_name.clone());
+                        break;
+                    }
+                    skipped_missing_heads = true;
+                }
+            }
+            existing_heads
         };
 
         let head_name = repo
@@ -129,6 +139,42 @@ pub fn workspace_recreate_with_perm(
         }
 
         if previously_applied_stack_heads.is_empty() {
+            if skipped_missing_heads
+                && matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc)
+            {
+                // The old workspace commit still contains the deleted branches' work. Rebuild
+                // at the base rather than restoring that work as anonymous stacks.
+                let base = ws.highest_base().context("Workspace must have a base")?;
+                let segment_idx = ws
+                    .graph
+                    .segment_by_commit_id(base)
+                    .context("Workspace base must be present in the graph")?
+                    .id;
+                let merged = but_workspace::WorkspaceCommit::from_new_merge_with_tips(
+                    [but_workspace::commit::merge::Tip {
+                        name: None,
+                        commit_id: base,
+                        segment_idx,
+                    }],
+                    &ws.graph,
+                    &repo,
+                    None,
+                )?;
+                but_core::worktree::safe_checkout_from_head(
+                    merged.workspace_commit_id,
+                    &repo,
+                    but_core::worktree::checkout::Options {
+                        skip_head_update: true,
+                        ..Default::default()
+                    },
+                )?;
+                repo.reference(
+                    but_core::WORKSPACE_REF_NAME,
+                    merged.workspace_commit_id,
+                    gix::refs::transaction::PreviousValue::MustExist,
+                    "Restore workspace without deleted branches",
+                )?;
+            }
             drop((repo, ws, db));
             crate::branch::workspace_checkout_with_perm_only(ctx, perm)?;
             Vec::new()

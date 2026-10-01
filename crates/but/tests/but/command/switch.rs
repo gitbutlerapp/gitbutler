@@ -757,6 +757,44 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn switching_back_to_workspace_ignores_deleted_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("switch main").assert().success();
+    // External deletion leaves A in the saved workspace metadata.
+    env.invoke_git("branch -D A");
+
+    // This shouldn't break switching back to the workspace.
+    env.but("switch --workspace")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Switched to workspace
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        "refs/heads/gitbutler/workspace",
+        "restoring with no surviving branches must still check out the workspace"
+    );
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
 fn switching_back_to_workspace_from_main_with_existing_empty_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
