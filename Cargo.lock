@@ -1195,6 +1195,7 @@ dependencies = [
  "but-db",
  "but-graph",
  "but-meta",
+ "but-oxidize",
  "but-path",
  "but-project-handle",
  "but-settings",
