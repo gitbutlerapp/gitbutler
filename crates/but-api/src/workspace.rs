@@ -34,6 +34,33 @@ pub struct WorkspaceRecreateResult {
     pub already_on_workspace: bool,
 }
 
+/// Create an empty workspace commit at the workspace base without changing refs or the checkout.
+///
+/// Fails if the workspace has no base or the base is absent from its graph.
+/// Callers remain responsible for checkout, ref updates, metadata, and undo recording.
+pub(crate) fn create_empty_workspace_commit(
+    repo: &gix::Repository,
+    ws: &but_graph::Workspace,
+) -> anyhow::Result<gix::ObjectId> {
+    let base = ws.highest_base().context("Workspace must have a base")?;
+    let segment_idx = ws
+        .graph
+        .segment_by_commit_id(base)
+        .context("Workspace base must be present in the graph")?
+        .id;
+    let merged = but_workspace::WorkspaceCommit::from_new_merge_with_tips(
+        [but_workspace::commit::merge::Tip {
+            name: None,
+            commit_id: base,
+            segment_idx,
+        }],
+        &ws.graph,
+        repo,
+        None,
+    )?;
+    Ok(merged.workspace_commit_id)
+}
+
 /// Recreate an existing workspace by applying all previously applied branches.
 ///
 /// Unlike [`crate::branch::workspace_checkout()`], this incorporates changes made in
@@ -144,24 +171,9 @@ pub fn workspace_recreate_with_perm(
             {
                 // The old workspace commit still contains the deleted branches' work. Rebuild
                 // at the base rather than restoring that work as anonymous stacks.
-                let base = ws.highest_base().context("Workspace must have a base")?;
-                let segment_idx = ws
-                    .graph
-                    .segment_by_commit_id(base)
-                    .context("Workspace base must be present in the graph")?
-                    .id;
-                let merged = but_workspace::WorkspaceCommit::from_new_merge_with_tips(
-                    [but_workspace::commit::merge::Tip {
-                        name: None,
-                        commit_id: base,
-                        segment_idx,
-                    }],
-                    &ws.graph,
-                    &repo,
-                    None,
-                )?;
+                let workspace_commit_id = create_empty_workspace_commit(&repo, &ws)?;
                 but_core::worktree::safe_checkout_from_head(
-                    merged.workspace_commit_id,
+                    workspace_commit_id,
                     &repo,
                     but_core::worktree::checkout::Options {
                         skip_head_update: true,
@@ -170,7 +182,7 @@ pub fn workspace_recreate_with_perm(
                 )?;
                 repo.reference(
                     but_core::WORKSPACE_REF_NAME,
-                    merged.workspace_commit_id,
+                    workspace_commit_id,
                     gix::refs::transaction::PreviousValue::MustExist,
                     "Restore workspace without deleted branches",
                 )?;

@@ -16,10 +16,7 @@ use crate::{
     },
     bad_input,
     theme::{self, Theme},
-    utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        in_single_branch_mode_with_perm,
-    },
+    utils::{CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils},
 };
 
 pub struct UnapplyOutcome {
@@ -78,12 +75,6 @@ pub fn unapply(
         let repo = ctx.repo.get()?;
         resolve(args, &id_map, &repo, &head_info)?
     };
-
-    if in_single_branch_mode_with_perm(ctx, guard.read_permission())? {
-        return Err(bad_input("Unapplying a stack requires GitButler workspace")
-            .hint("Run `but switch --workspace` or `but switch OTHER_BRANCH`")
-            .into());
-    }
 
     Ok(run(ctx, guard.write_permission(), &head_info, operation)?)
 }
