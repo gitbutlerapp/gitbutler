@@ -390,7 +390,7 @@ fn switching_to_workspace_creates_workspace_if_necessary() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -849,7 +849,7 @@ fn switching_back_to_workspace_from_main_with_conflicts() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main, HEAD) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -874,7 +874,7 @@ Error: Uncommitted files would be overwritten by checkout: "one"
 ╭┄ @ [uncommitted]
 ┊   kl A one
 ┊
-┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main, HEAD) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -902,7 +902,7 @@ fn committing_with_empty_workspace_in_single_branch_mode_creates_a_new_branch() 
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
