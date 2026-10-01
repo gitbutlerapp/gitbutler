@@ -302,12 +302,10 @@ impl Context {
         }
         #[cfg(feature = "legacy")]
         {
-            use anyhow::Context as _;
-            let worktree_dir = repo
+            let legacy_project = repo
                 .workdir()
-                .context("Bare repositories aren't yet supported.")?;
-            let legacy_project = LegacyProject::find_by_worktree_dir(worktree_dir)
-                .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
+                .and_then(|worktree_dir| LegacyProject::find_by_worktree_dir(worktree_dir).ok())
+                .unwrap_or_else(|| default_legacy_project_at_repo(&repo));
             let cache_mode = CacheMode::Disk;
             Context {
                 settings,
@@ -423,12 +421,10 @@ impl Context {
             but_project_handle::gitbutler_storage_path_for_channel(&repo, channel)?;
         #[cfg(feature = "legacy")]
         {
-            use anyhow::Context as _;
-            let worktree_dir = repo
+            let legacy_project = repo
                 .workdir()
-                .context("Bare repositories aren't yet supported.")?;
-            let legacy_project = LegacyProject::find_by_worktree_dir(worktree_dir)
-                .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
+                .and_then(|worktree_dir| LegacyProject::find_by_worktree_dir(worktree_dir).ok())
+                .unwrap_or_else(|| default_legacy_project_at_repo(&repo));
             let gitdir = repo.git_dir().to_owned();
             let cache_mode = CacheMode::Disk;
             Context {
