@@ -1,6 +1,8 @@
 mod branch_apply;
 mod branch_checkout;
 mod branch_create;
+#[cfg(feature = "legacy")]
+mod branch_land;
 mod branch_list;
 mod branch_move;
 mod branch_remove;

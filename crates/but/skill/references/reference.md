@@ -515,7 +515,9 @@ Merge a branch directly onto the target (e.g. `origin/master`), skipping a pull 
 when possible, otherwise makes a signed merge commit; for a `gb-local` target it moves the refs
 locally. Then reconciles the remaining branches like `but pull`, and deletes each landed branch's
 copy on the push remote (only when fully contained in the landed target), reported as
-`Deleted <remote>/<branch> (landed)`.
+`Deleted <remote>/<branch> (landed)`. In single-branch mode, merging the checked-out branch then
+checks out the target branch, or a generated branch when the target can't be reused;
+`Checked out <branch>.` names the branch actually checked out.
 
 ```bash
 but merge <branch-selector> --yes                  # Merge onto the target (--yes required non-interactively)

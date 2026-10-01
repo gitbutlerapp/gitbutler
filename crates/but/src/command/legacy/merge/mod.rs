@@ -13,7 +13,11 @@ use std::fmt::Write;
 use anyhow::bail;
 use but_ctx::Context;
 
-use crate::{CliId, IdMap, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    theme::{self, Paint},
+    utils::OutputChannel,
+};
 
 pub fn handle(
     ctx: &mut Context,
@@ -23,20 +27,16 @@ pub fn handle(
     no_ff: bool,
     whole_stack: bool,
 ) -> anyhow::Result<()> {
-    // Resolve the branch identifier and read the target configuration. The managed-workspace guard
-    // runs here for a friendly message before the prompt; the API enforces it again, along with the
-    // bottom-segment, conflicted-commit, and triangular-remote guards, before mutating anything.
+    // Resolve the branch identifier and read the target configuration. The checkout guard runs here
+    // so the user is never asked to confirm a land that can't happen; the API enforces it again,
+    // along with the bottom-segment, conflicted-commit, and triangular-remote guards, before
+    // mutating anything.
     let (branch_name, base_branch) = {
         let mut guard = ctx.exclusive_worktree_access();
 
         {
             let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-            if !ws.kind.has_managed_ref() {
-                bail!(
-                    "`but merge` requires an active GitButler workspace (`gitbutler/workspace`). \
-                     Switch into the workspace and try again."
-                );
-            }
+            but_api::land::ensure_landable_checkout(&ws, ctx.settings.feature_flags.single_branch)?;
         }
 
         let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -93,6 +93,7 @@ pub fn handle(
         writeln!(progress, "Landing {branch_name} onto {target_display}...")?;
     }
 
+    let head_before = ctx.repo.get()?.head_name()?;
     let result = but_api::land::branch_land(ctx, branch_name.clone(), no_ff, whole_stack)?;
 
     messaging::report_land_result(
@@ -103,5 +104,19 @@ pub fn handle(
         &target_display,
         &push_remote_name,
         &target_branch_name,
-    )
+    )?;
+
+    // In single-branch mode the reconcile checks out the target (or a generated branch) once the
+    // checked-out branch has landed.
+    let head_after = ctx.repo.get()?.head_name()?;
+    if let Some(out) = out.for_human()
+        && let Some(head) = head_after.filter(|head| Some(head) != head_before.as_ref())
+    {
+        writeln!(
+            out,
+            "Checked out {}.",
+            theme::get().local_branch.paint(head.shorten().to_string())
+        )?;
+    }
+    Ok(())
 }
