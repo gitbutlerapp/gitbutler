@@ -612,11 +612,7 @@ async fn push_single_branch(
                 None
             };
             for (branch, before_sha, after_sha) in &result.push.branch_sha_updates {
-                let before_str = if before_sha == "0000000000000000000000000000000000000000" {
-                    "(new branch)".to_string()
-                } else {
-                    shorten_hex_object_id(&repo, before_sha)
-                };
+                let before_str = previous_remote_tip_for_display(&repo, before_sha);
                 let after_str = shorten_hex_object_id(&repo, after_sha);
                 let remote_ref = branch_remote_ref_for_display(
                     &result.push,
@@ -780,11 +776,7 @@ async fn push_all_branches(
             };
             for result in &pushed_results {
                 for (branch, before_sha, after_sha) in &result.push.branch_sha_updates {
-                    let before_str = if before_sha == "0000000000000000000000000000000000000000" {
-                        "(new branch)".to_string()
-                    } else {
-                        shorten_hex_object_id(&repo, before_sha)
-                    };
+                    let before_str = previous_remote_tip_for_display(&repo, before_sha);
                     let after_str = shorten_hex_object_id(&repo, after_sha);
                     let remote_ref = branch_remote_ref_for_display(
                         &result.push,
@@ -1164,6 +1156,14 @@ fn format_branch_suggestions(branches: &[String]) -> String {
         .map(|name| format!("  - {name}"))
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn previous_remote_tip_for_display(repo: &gix::Repository, before_sha: &str) -> String {
+    if before_sha == "0000000000000000000000000000000000000000" {
+        "(new branch)".to_string()
+    } else {
+        shorten_hex_object_id(repo, before_sha)
+    }
 }
 
 fn branch_remote_ref_for_display(
