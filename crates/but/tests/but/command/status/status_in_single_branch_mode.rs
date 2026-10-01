@@ -267,3 +267,144 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 
 "#]]);
 }
+
+#[test]
+fn creating_branch_preserves_main_with_local_commits() {
+    let env = Sandbox::open_with_default_settings("single-branch-ahead");
+
+    env.but("commit -b new-branch -m 'new commit'")
+        .assert()
+        .success();
+    env.but("switch main").assert().success();
+
+    // Unlike an integration branch at the base, main's local work remains visible.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ma [main] [HEAD]
+┊●   syn local (no changes)
+├╯
+┊
+┴ 85efbe4 (common base, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn creating_new_independent_empty_branch_at_main() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+
+    env.but("branch new new-branch").assert().success();
+    env.but("switch main").assert().success();
+
+    // Creating an independent branch must not retain main as a stack member.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn committing_to_new_independent_branch_at_main() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+
+    env.but("commit -b new-branch -m 'new commit'")
+        .assert()
+        .success();
+
+    // we should see the branch we just made
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch] [HEAD]
+┊●   mvk new commit (no changes)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // switching back to main should show an empty workspace
+    env.but("switch main").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    // switching back to the feature branch shows it in the workspace
+    env.but("switch new-branch").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ne [new-branch] [HEAD]
+┊●   mvk new commit (no changes)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // committing and switching to a new branch also shows just that new branch
+    env.but("commit --switch -b another-new-branch -m 'another new commit'")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ an [another-new-branch] [HEAD]
+┊●   mvk another new commit (no changes)
+├╯
+┊
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 9dd08f8 (HEAD -> another-new-branch) another new commit
+| * f95a0b8 (new-branch) new commit
+|/  
+* 85efbe4 (origin/main, main, gitbutler/target) M
+
+"#]]
+        .raw()
+    );
+}

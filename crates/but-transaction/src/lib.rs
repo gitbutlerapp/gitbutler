@@ -588,6 +588,17 @@ where
         self.inner
             .pending_ref_changes
             .record_eager_create(ref_name, None);
+        // Preserve GitButler-created branch identity, including when it later becomes empty,
+        // without recording a stack relationship with the branch owning the base commit.
+        let mut branch = ref_metadata::Branch::default();
+        branch.update_times(true);
+        self.inner
+            .pending_metadata_updates
+            .push(PendingMetadataUpdate::Branch(RecordingMetadataHandle {
+                name: ref_name.to_owned(),
+                value: branch,
+                is_default: false,
+            }));
 
         self.rebase(|mut editor, _| {
             let target = editor.select_commit(commit_id)?;
