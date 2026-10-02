@@ -11,6 +11,7 @@ export const apiProvides = {
 	commentsList: ["Comments"],
 	commitConflicts: [],
 	commitDetailsWithLineStats: ["Commits"],
+	commitRangeDiff: ["Commits"],
 	currentForgeLogin: ["ForgeLogin"],
 	editChangesFromInitial: ["WorktreeChanges"],
 	editInitialIndexState: ["OperatingMode"],

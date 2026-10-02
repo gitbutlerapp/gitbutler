@@ -40,6 +40,7 @@ export declare const apiParamNames: {
 	readonly commitInsertBlank: readonly ["projectId", "relativeTo", "side", "dryRun"];
 	readonly commitMove: readonly ["projectId", "subjectCommitIds", "relativeTo", "side", "dryRun"];
 	readonly commitMoveChangesBetween: readonly ["projectId", "sourceCommitId", "destinationCommitId", "changes", "dryRun"];
+	readonly commitRangeDiff: readonly ["projectId", "oldest", "newest"];
 	readonly commitReword: readonly ["projectId", "commitId", "message", "dryRun"];
 	readonly commitSquash: readonly ["projectId", "subjectCommitIds", "targetCommitId", "howToCombineMessages", "dryRun"];
 	readonly commitUncommit: readonly ["projectId", "subjectCommitIds", "assignTo", "dryRun"];
