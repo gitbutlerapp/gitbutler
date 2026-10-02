@@ -156,22 +156,17 @@ test("shows PR titles and labels on workspace branches without hover shifts", as
 	await expect(branch.getByText("accessibility", { exact: true })).toBeVisible();
 });
 
-for (const { reviewState, defaultTab, showCreateButton } of [
-	{ reviewState: "none", defaultTab: "Diff", showCreateButton: true },
-	{ reviewState: "open", defaultTab: "Pull Request", showCreateButton: false },
-	{ reviewState: "merged", defaultTab: "Pull Request", showCreateButton: false },
-	{ reviewState: "closed", defaultTab: "Diff", showCreateButton: true },
+for (const { reviewState, defaultTab } of [
+	{ reviewState: "none", defaultTab: "Diff" },
+	{ reviewState: "open", defaultTab: "Pull Request" },
+	{ reviewState: "merged", defaultTab: "Pull Request" },
+	{ reviewState: "closed", defaultTab: "Diff" },
 ] as const) {
 	test.describe(`applied branch, PR state: ${reviewState}`, () => {
 		test.use({ reviewState });
 		test(`defaults to ${defaultTab} and remembers a tab change`, async ({ appWindow }) => {
 			await selectBranch(appWindow, "C");
 			const tabs = branchTabs(appWindow);
-			const createPullRequest = appWindow.getByRole("button", {
-				name: "Create pull request",
-				exact: true,
-			});
-			await expect(createPullRequest).toBeVisible({ visible: showCreateButton });
 			await expect(tabs.getByRole("button", { name: defaultTab, pressed: true })).toBeVisible();
 			await expect(appWindow.getByPlaceholder("PR title")).toBeHidden();
 
@@ -189,7 +184,7 @@ test.describe("creating a PR", () => {
 	test("opens the form from the branch header", async ({ appWindow }) => {
 		await selectBranch(appWindow, "C");
 		await expect(appWindow.getByPlaceholder("PR title")).toBeHidden();
-		await appWindow.getByRole("button", { name: "Create pull request", exact: true }).click();
+		await branchTabs(appWindow).getByRole("button", { name: "Pull Request", exact: true }).click();
 		await expect(appWindow.getByPlaceholder("PR title")).toBeVisible();
 	});
 });
