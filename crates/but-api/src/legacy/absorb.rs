@@ -1,6 +1,6 @@
 use std::{
     cmp::Reverse,
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
 };
 
 use anyhow::Context as _;
@@ -57,14 +57,14 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
 /// Absorb the changes described by `absorption_plan` using the exclusive repository
 /// access granted by `perm`, applying the updates through the modern commit amend API.
 ///
-/// Returns the total amount of rejected diff specs.
+/// Returns the number of original (commit, path) groups with rejected diff specs.
 pub fn absorb_with_perm(
     ctx: &mut Context,
     absorption_plan: Vec<CommitAbsorption>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     // Apply each group to its target commit and track failures
-    let mut total_rejected = 0;
+    let mut rejected_groups = HashSet::new();
     let mut commit_map = CommitMap::default();
     let context_lines = ctx.settings.context_lines;
     let absorption_plan = absorption_steps_for_application(absorption_plan);
@@ -87,9 +87,11 @@ pub fn absorb_with_perm(
         for (old, new) in &outcome.workspace.replaced_commits {
             commit_map.add_mapping(*old, *new);
         }
-        total_rejected += outcome.rejected_specs.len();
+        for (_, spec) in outcome.rejected_specs {
+            rejected_groups.insert((absorption.commit_id, spec.path));
+        }
     }
-    Ok(total_rejected)
+    Ok(rejected_groups.len())
 }
 
 /// Build an absorption plan for `target` using the behavior documented by
@@ -586,6 +588,96 @@ fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyho
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rejected_hunks_are_counted_once_per_original_commit_and_path() -> anyhow::Result<()> {
+        use but_testsupport::{CommandExt, git_at_dir, open_repo};
+
+        let tmp = tempfile::tempdir()?;
+        git_at_dir(tmp.path()).args(["init", "-b", "main"]).run();
+        git_at_dir(tmp.path())
+            .args(["config", "user.name", "GitButler"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["config", "user.email", "gitbutler@example.com"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["commit", "--allow-empty", "-m", "base"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["checkout", "-b", "feature"])
+            .run();
+        let content = (1..=20)
+            .map(|line| format!("line {line}\n"))
+            .collect::<String>();
+        std::fs::write(tmp.path().join("shared.txt"), &content)?;
+        git_at_dir(tmp.path()).args(["add", "shared.txt"]).run();
+        git_at_dir(tmp.path())
+            .args(["commit", "-m", "add shared file"])
+            .run();
+        let worktree_content = content
+            .replace("line 1\n", "unselected change\n")
+            .replace("line 10\n", "selected change\n");
+        std::fs::write(tmp.path().join("shared.txt"), &worktree_content)?;
+
+        let repo = open_repo(tmp.path())?;
+        let commit_id = repo.head_id()?.detach();
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let plan = vec![CommitAbsorption {
+            stack_id: StackId::generate(),
+            commit_id,
+            commit_summary: "add shared file".into(),
+            hunks: [5, 10, 18]
+                .into_iter()
+                .map(|line| but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: line,
+                        old_lines: 1,
+                        new_start: line,
+                        new_lines: 1,
+                    }),
+                    path: "shared.txt".into(),
+                    diff: None,
+                })
+                .collect(),
+            reason: AbsorptionReason::HunkDependency,
+        }];
+        let mut guard = ctx.exclusive_worktree_access();
+        let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
+
+        assert_eq!(
+            rejected, 1,
+            "two stale hunks from one file count as one rejection"
+        );
+        let repo = ctx.repo.get()?;
+        let tree = repo.head_commit()?.tree()?;
+        let blob = tree
+            .lookup_entry_by_path("shared.txt")?
+            .expect("committed file")
+            .object()?
+            .into_blob();
+        assert_eq!(
+            blob.data,
+            content.replace("line 10\n", "selected change\n").as_bytes(),
+            "the valid hunk must be absorbed between the two rejections"
+        );
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("shared.txt"))?,
+            worktree_content,
+            "partial absorption must preserve the worktree"
+        );
+        Ok(())
+    }
 
     #[test]
     fn absorption_steps_preserve_per_path_descending_hunk_order() {
