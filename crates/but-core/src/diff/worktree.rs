@@ -953,6 +953,17 @@ fn id_or_hash_from_worktree(
     }
 
     let path = path_check.verified_path_allow_nonexisting(rela_path)?;
+    if change.kind == EntryKind::Commit {
+        let repo = gix::open_opts(
+            path.to_path_buf(),
+            gix::open::Options::isolated().with(gix::sec::Trust::Reduced),
+        )
+        .with_context(|| format!("open embedded repository at {}", path.display()))?;
+        return Ok(repo
+            .head_id()
+            .context("resolve embedded repository HEAD")?
+            .detach());
+    }
     let md = path.symlink_metadata()?;
     let repo = filter.repo;
     let id = if md.is_file() {
