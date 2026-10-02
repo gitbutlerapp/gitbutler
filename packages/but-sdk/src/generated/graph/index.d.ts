@@ -160,7 +160,7 @@ export declare function applyBranchIntegration(projectId: string, branch: string
  *
  * See [`assign_hunk_with_perm()`] for details.
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:288}
+ * {@link ../../../../../crates/but-api/src/diff.rs:317}
  */
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
@@ -302,7 +302,7 @@ export declare function branchRename(projectId: string, refName: FullNameBytes, 
 /**
  * See [`changes_in_worktree_with_perm()`].
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:143}
+ * {@link ../../../../../crates/but-api/src/diff.rs:172}
  */
 export declare function changesInWorktree(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
@@ -332,7 +332,7 @@ export declare function changesInWorktree(projectId: string, changesSource: Chan
  * [`but_hunk_assignment::assignments_with_fallback()`], and
  * [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:183}
+ * {@link ../../../../../crates/but-api/src/diff.rs:212}
  */
 export declare function changesInWorktreeWithPerm(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
@@ -525,6 +525,21 @@ export declare function commitMove(projectId: string, subjectCommitIds: Array<st
  * {@link ../../../../../crates/but-api/src/commit/move_changes.rs:80}
  */
 export declare function commitMoveChangesBetween(projectId: string, sourceCommitId: string, destinationCommitId: string, changes: Array<DiffSpec>, dryRun: boolean): Promise<MoveChangesResult>
+
+/**
+ * Computes the combined changes of the commits from `oldest` to `newest`,
+ * both included, with line statistics: the tree of `newest` against the tree
+ * of `oldest`'s first parent, or against an empty tree when `oldest` is a root
+ * commit.
+ *
+ * `oldest` is expected to be `newest` or one of its first-parent ancestors;
+ * otherwise the result is the plain difference between the two trees. It
+ * returns what `branch_diff` returns, so a caller can show a part of a branch
+ * the way it shows all of it.
+ *
+ * {@link ../../../../../crates/but-api/src/diff.rs:102}
+ */
+export declare function commitRangeDiff(projectId: string, oldest: string, newest: string): Promise<TreeChanges>
 
 /**
  * Reword `commit_id` to `message` using the behavior described by
@@ -1534,7 +1549,7 @@ export declare function tearOffBranch(projectId: string, subjectBranch: string, 
  * `change` must not be a type change or a submodule change. For lower-level
  * implementation details, see [`but_core::TreeChange::unified_patch()`].
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:97}
+ * {@link ../../../../../crates/but-api/src/diff.rs:126}
  */
 export declare function treeChangeDiffs(projectId: string, change: TreeChange): Promise<UnifiedPatch | null>
 
@@ -1545,7 +1560,7 @@ export declare function treeChangeDiffs(projectId: string, change: TreeChange): 
  * A linked worktree requires the `worktreeManipulation` feature flag and an active
  * worktree, see `worktrees::open_changes_source()`.
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:113}
+ * {@link ../../../../../crates/but-api/src/diff.rs:142}
  */
 export declare function treeChangeDiffsFromSource(projectId: string, changesSource: ChangesSource, change: TreeChange): Promise<UnifiedPatch | null>
 

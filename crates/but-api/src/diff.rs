@@ -90,6 +90,35 @@ pub fn commit_details_with_line_stats(
     commit_details(ctx, commit_id, ComputeLineStats::Yes)
 }
 
+/// Computes the combined changes of the commits from `oldest` to `newest`,
+/// both included, with line statistics: the tree of `newest` against the tree
+/// of `oldest`'s first parent, or against an empty tree when `oldest` is a root
+/// commit.
+///
+/// `oldest` is expected to be `newest` or one of its first-parent ancestors;
+/// otherwise the result is the plain difference between the two trees. It
+/// returns what `branch_diff` returns, so a caller can show a part of a branch
+/// the way it shows all of it.
+#[but_api(napi, provides = [Commits])]
+#[instrument(err(Debug))]
+pub fn commit_range_diff(
+    ctx: &Context,
+    oldest: gix::ObjectId,
+    newest: gix::ObjectId,
+) -> anyhow::Result<but_core::ui::TreeChanges> {
+    let repo = ctx.repo.get()?;
+    let base = repo
+        .find_commit(oldest)?
+        .parent_ids()
+        .next()
+        .map(|id| id.detach());
+    let (changes, stats) = but_core::diff::tree_changes_with_line_stats(&repo, base, newest)?;
+    Ok(but_core::ui::TreeChanges {
+        changes: changes.into_iter().map(Into::into).collect(),
+        stats: stats.into(),
+    })
+}
+
 /// Produces a unified patch for `change`.
 ///
 /// `change` must not be a type change or a submodule change. For lower-level
