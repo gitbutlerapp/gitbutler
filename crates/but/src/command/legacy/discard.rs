@@ -364,22 +364,6 @@ fn worktree_changes_cannot_be_discarded(name: &BStr) -> BadInput {
     ))
 }
 
-pub(super) fn validate_branch_discard(
-    repo: &gix::Repository,
-    branches: &NonEmpty<FullName>,
-) -> CliResult<()> {
-    if let Some(head_name) = repo.head_name()?
-        && branches.iter().any(|branch| branch == &head_name)
-    {
-        return Err(bad_input(
-            "Discarding the current branch is not currently supported.",
-        )
-        .hint("Switch to the GitButler workspace with `but switch --workspace` and then discard the branch.")
-        .into());
-    }
-    Ok(())
-}
-
 fn resolve(
     repo: &gix::Repository,
     id_map: &IdMap,
@@ -456,7 +440,6 @@ fn resolve(
                 .collect();
             let branches = NonEmpty::from_vec(branches)
                 .expect("classified branches are guaranteed to be non-empty");
-            validate_branch_discard(repo, &branches)?;
             Ok(DiscardOperation::Branches(branches))
         }
         ClassifiedDiscardables::Commits(commits) => Ok(DiscardOperation::Commits(commits)),

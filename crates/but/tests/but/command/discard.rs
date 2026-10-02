@@ -1426,7 +1426,10 @@ fn discarding_top_branch_in_single_branch_mode_stack() {
     env.but("commit -b bottom -m 'on bottom'")
         .assert()
         .success();
-    env.but("commit -b top --above bottom -m 'on top'")
+    env.but("commit -b middle --above bottom -m 'on middle'")
+        .assert()
+        .success();
+    env.but("commit -b top --above middle -m 'on top'")
         .assert()
         .success();
 
@@ -1437,7 +1440,10 @@ fn discarding_top_branch_in_single_branch_mode_stack() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ to [top] [HEAD]
-┊●   ylm on top (no changes)
+┊●   rvm on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   ylm on middle (no changes)
 ┊│
 ┊├┄ bo [bottom]
 ┊●   lsm on bottom (no changes)
@@ -1449,23 +1455,362 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("discard top")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Discarding the current branch is not currently supported.
+    env.but("discard top").assert().success();
 
-Hint: Switch to the GitButler workspace with `but switch --workspace` and then discard the branch.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mi [middle] [HEAD]
+┊●   ylm on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard middle").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard bottom").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn deleting_current_branch_in_single_branch_mode_preserves_changes_and_is_undoable() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("bottom.txt", "bottom\n");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.file("top.txt", "top\n");
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+    env.file("bottom.txt", "uncommitted bottom\n");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   tk M bottom.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   mqp on top
+┊│     mqp:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("branch delete top").assert().success();
+
+    // Deletion switches to the surviving branch and preserves unrelated tracked edits.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   tk M bottom.txt
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    // One undo restores both the branch and its checkout, without losing dirty changes.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   tk M bottom.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   mqp on top
+┊│     mqp:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn deleting_current_branch_in_single_branch_mode_preserves_conflicting_changes_and_is_undoable() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.file("top.txt", "top\n");
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+    env.file("top.txt", "uncommitted top\n");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   my M top.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   row on top
+┊│     row:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────────────╮
+ my:6 M top.txt │
+────────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -top
+  ┊ 1 │ +uncommitted top
 
 "#]]);
 
     env.but("branch delete top")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Discarding the current branch is not currently supported.
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded branch 'top'
 
-Hint: Switch to the GitButler workspace with `but switch --workspace` and then discard the branch.
+⚠ A conflict occurred during checkout. Run `but status` for more information.
+
+"#]]);
+
+    // Removing the branch conflicts with its dirty file instead of losing the edit.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊    top.txt {conflicted}
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
+
+Hint: run `but help` for all commands
+
+"#]]);
+    // `but diff` omits conflicted files, so snapshot the preserved contents directly.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("top.txt")).unwrap(),
+        snapbox::str![[r#"
+uncommitted top
+
+"#]]
+    );
+
+    env.but("undo").assert().success();
+
+    // Undo restores the checked-out branch and the original uncommitted edit.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   my M top.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   row on top
+┊│     row:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────────────╮
+ my:6 M top.txt │
+────────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -top
+  ┊ 1 │ +uncommitted top
+
+"#]]);
+}
+
+#[test]
+fn discarding_multiple_branches_in_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit -b middle --above bottom -m 'on middle'")
+        .assert()
+        .success();
+    env.but("commit -b top --above middle -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   rvm on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   ylm on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard middle top").assert().success();
+
+    // HEAD follows the removed refs and commits to the first surviving branch.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discarding_empty_current_branch_in_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("branch new top --above bottom").assert().success();
+
+    // Ensure this exercises removal of a checked-out ref with no commits of its own.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard top").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
 
 "#]]);
 }
