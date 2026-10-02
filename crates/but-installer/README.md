@@ -42,4 +42,4 @@ cargo build --release -p but-installer
 cargo test -p but-installer
 ```
 
-The binary is optimized for size (~1.0MB) using system libcurl instead of bundling an HTTP client. Keeping this installer slim is a priority since it is downloaded before every installation.
+The binary is about 5MB. It bundles `reqwest` with `rustls` instead of linking the system libcurl: `but update` uses this crate as a library, and libcurl would run its global initialisation at the start of every `but` process.
