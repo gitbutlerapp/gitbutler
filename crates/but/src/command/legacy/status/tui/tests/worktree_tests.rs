@@ -840,79 +840,85 @@ fn unarchive_worktree() {
 
 #[test]
 fn unarchive_worktree_picker_filters_archived_worktrees() {
-    let (mut tui, _editor) = worktree_tui();
-    // Keep the fixture's original worktree active; create and archive two more through the TUI.
-    for _ in 0..2 {
-        tui.input((KeyModifiers::SHIFT, 'G'));
-        tui.input('w');
-        tui.input('n');
-        tui.input('w');
-        tui.input('a');
-        tui.input('y');
-    }
-    tui.reload().assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_001.svg"
-    ]);
+    // Worktree creation resolves the user's home through but_path, outside the sandbox repo.
+    but_testsupport::isolated_app_data_dir(|| {
+        let (mut tui, _editor) = worktree_tui();
+        // Keep the fixture's original worktree active; create and archive two more through the TUI.
+        for _ in 0..2 {
+            tui.input((KeyModifiers::SHIFT, 'G'));
+            tui.input('w');
+            tui.input('n');
+            tui.input('w');
+            tui.input('a');
+            tui.input('y');
+        }
+        tui.reload().assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_001.svg"
+        ]);
 
-    tui.input('w');
-    tui.input('u').assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_002.svg"
-    ]);
-    tui.input("2").assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_003.svg"
-    ]);
-    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_004.svg"
-    ]);
-    // Only the chosen worktree was restored; the other remains available to unarchive.
-    tui.input('w');
-    tui.input('u').assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_005.svg"
-    ]);
+        tui.input('w');
+        tui.input('u').assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_002.svg"
+        ]);
+        tui.input("2").assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_003.svg"
+        ]);
+        tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_004.svg"
+        ]);
+        // Only the chosen worktree was restored; the other remains available to unarchive.
+        tui.input('w');
+        tui.input('u').assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_005.svg"
+        ]);
+    });
 }
 
 #[test]
 fn creating_new_worktrees() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack");
-    env.setup_metadata(&["A"]);
+    // Worktree creation resolves the user's home through but_path, outside the sandbox repo.
+    but_testsupport::isolated_app_data_dir(|| {
+        let env = Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack");
+        env.setup_metadata(&["A"]);
 
-    let mut tui = test_status_tui_with_options(
-        env,
-        TestTuiOptions {
-            worktree_manipulation: true,
-            ..Default::default()
-        },
-    );
+        let mut tui = test_status_tui_with_options(
+            env,
+            TestTuiOptions {
+                worktree_manipulation: true,
+                ..Default::default()
+            },
+        );
 
-    // create a new worktree at the base
-    tui.input('w')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_001.svg"]);
-    tui.input('j')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_002.svg"]);
-    tui.input('n')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_003.svg"]);
+        // create a new worktree at the base
+        tui.input('w')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_001.svg"]);
+        tui.input('j')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_002.svg"]);
+        tui.input('n')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_003.svg"]);
 
-    // create worktree at commit
-    tui.input('g');
-    tui.input('w')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_004.svg"]);
-    tui.input('n')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_005.svg"]);
+        // create worktree at commit
+        tui.input('g');
+        tui.input('w')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_004.svg"]);
+        tui.input('n')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_005.svg"]);
 
-    // discard both worktrees
-    tui.input('g');
-    tui.input('w');
-    tui.input('x')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_006.svg"]);
-    tui.input('y')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_007.svg"]);
-    tui.input('w');
-    tui.input('j')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_008.svg"]);
-    tui.input('x')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_009.svg"]);
-    tui.input('y')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_010.svg"]);
+        // discard both worktrees
+        tui.input('g');
+        tui.input('w');
+        tui.input('x')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_006.svg"]);
+        tui.input('y')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_007.svg"]);
+        tui.input('w');
+        tui.input('j')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_008.svg"]);
+        tui.input('x')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_009.svg"]);
+        tui.input('y')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_010.svg"]);
+    });
 }
 
 #[test]

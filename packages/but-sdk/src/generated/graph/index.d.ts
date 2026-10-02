@@ -1755,9 +1755,9 @@ export declare function workspaceTargetCommits(projectId: string, from: string |
  * [`but_graph::Workspace::highest_base()`].
  *
  * The branch is `new_ref` or a canned name, and the checkout lives at
- * `$GIT_COMMON_DIR/gb-wts/<slug>`, where the slug of the short branch name also names the
- * worktree. This fails without a target to base the worktree on, and refuses an existing
- * branch or directory.
+ * `~/.gitbutler-worktrees/<repo-dir-basename>/<slug>`, where the repository directory is
+ * the main worktree and the slug of the short branch name also names the worktree.
+ * This fails without a target to base the worktree on, and refuses an existing branch or directory.
  *
  * {@link ../../../../../crates/but-api/src/worktrees.rs:301}
  */

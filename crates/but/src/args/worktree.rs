@@ -29,7 +29,8 @@ pub enum Subcommands {
     /// Create a worktree on a new branch at the workspace base.
     ///
     /// The branch starts at the child-most commit any applied stack rests on, and is
-    /// checked out under `.git/gb-wts/` in a directory named by a slug of the branch name.
+    /// checked out under `~/.gitbutler-worktrees/<repo-dir-basename>/` in a directory
+    /// named by a slug of the branch name.
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     New {
         /// The name of the branch to create, or a generated one.

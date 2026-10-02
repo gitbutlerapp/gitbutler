@@ -448,9 +448,18 @@ fn new_checks_out_a_new_branch_at_the_highest_base() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Created worktree feature-one on 'Feature/One' from 0dc3733 at [..]/.git/gb-wts/feature-one
+Created worktree feature-one on 'Feature/One' from 0dc3733 at [..]/home/.gitbutler-worktrees/[..]/feature-one
 
 "#]]);
+    let checkout = env
+        .home_dir()
+        .join(".gitbutler-worktrees")
+        .join(env.projects_root().file_name().unwrap())
+        .join("feature-one");
+    assert!(
+        checkout.join(".git").is_file(),
+        "new checkouts live under the user's home, grouped by repository basename"
+    );
     // Without a name the branch is canned, and its directory is the slug of that name.
     env.but("--json worktree new")
         .assert()
@@ -460,7 +469,7 @@ Created worktree feature-one on 'Feature/One' from 0dc3733 at [..]/.git/gb-wts/f
             snapbox::str![[r#"
 {
   "name": "a-branch-1",
-  "path": "[..]/.git/gb-wts/a-branch-1",
+  "path": "[..]/home/.gitbutler-worktrees/[..]/a-branch-1",
   "refName": "refs/heads/a-branch-1",
   "base": "0dc37334a458df421bf67ea806103bf5004845dd"
 }
@@ -473,8 +482,8 @@ Created worktree feature-one on 'Feature/One' from 0dc3733 at [..]/.git/gb-wts/f
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 Active worktrees
-br a-branch-1 - [..]/.git/gb-wts/a-branch-1
-at feature-one (refs/heads/Feature/One) - [..]/.git/gb-wts/feature-one
+br a-branch-1 - [..]/home/.gitbutler-worktrees/[..]/a-branch-1
+at feature-one (refs/heads/Feature/One) - [..]/home/.gitbutler-worktrees/[..]/feature-one
 
 "#]]);
     env.but("status")
@@ -534,9 +543,33 @@ Error: A branch named 'A' is already applied
         .failure()
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
-Error: '[..]/.git/gb-wts/feature-one' already exists
+Error: '[..]/home/.gitbutler-worktrees/[..]/feature-one' already exists
 
 "#]]);
+}
+
+#[test]
+fn new_from_a_linked_worktree_uses_the_main_repository_basename() {
+    let env = flag_on_sandbox();
+    let root = env
+        .home_dir()
+        .join(".gitbutler-worktrees")
+        .join(env.projects_root().file_name().unwrap());
+    env.but("worktree new first").assert().success();
+    env.but("worktree new second")
+        .current_dir(root.join("first"))
+        .assert()
+        .success();
+    assert!(
+        root.join("second/.git").is_file(),
+        "creation from a linked checkout keeps the main repository's directory grouping"
+    );
+
+    env.but("worktree remove second").assert().success();
+    assert!(
+        !root.join("second").exists(),
+        "worktree removal also removes checkouts outside the repository"
+    );
 }
 
 /// A worktree is named by its checkout, never by a branch below it, which it merely holds.
