@@ -228,6 +228,8 @@ but resolve nn
 # 3. Edit each conflicted file to resolve
 # IMPORTANT: You MUST edit the files — do NOT just run `but resolve finish`
 # NEVER use `git add`, `git checkout --theirs/--ours`, or any git write command — just edit the files directly with the Edit tool, then `but resolve finish`
+# Exception: a conflicted submodule has no markers and `but resolve finish` refuses until you select it —
+#   check out the commit to keep inside it, then `git add -- <path>` (or `git rm -- <path>` to drop it); never `git commit`
 # (edit to remove every marker — <<<<<<< ||||||| ======= >>>>>>> — and keep correct content;
 #  with several conflicted files, `but resolve status` re-lists what remains)
 

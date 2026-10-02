@@ -418,6 +418,15 @@ conflicted commit, and the exact current `but resolve <id>` command. Add `--stat
 finish you expect to clear the last conflict only when the task needs the complete resulting
 workspace. When it says no conflicted commits remain, stop; do not run a verification status.
 
+It refuses, changing nothing, while a submodule conflict is unresolved, and names those paths.
+A submodule has no conflict markers, so even keeping the commit's own side needs an explicit
+selection: check out the wanted commit inside the submodule (or write the file that replaces it)
+and run `git add -- <path>`, or drop it with `git rm -- <path>`. Never `git commit`; `finish`
+records the result. If the submodule directory is empty or missing, do not `git add` it (for a
+missing one that stages its removal): keep any resolution edits you want and report the conflict.
+`but resolve cancel --force` abandons the resolution and discards its edits; use it only when
+those edits can be discarded.
+
 ### `but resolve cancel`
 
 Cancel conflict resolution and return to workspace mode.
@@ -434,7 +443,7 @@ but resolve cancel --force
 3. Finalize with `but resolve finish`; add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status
 4. If multiple commits are conflicted, repeat steps 1-3 for each one, oldest commit first — finishing a lower commit rebases the ones above it
 
-**Important:** Never use `git add`, `git commit`, or other git write commands during conflict resolution. Only use `but resolve` commands and edit files directly.
+**Important:** Never use `git add`, `git commit`, or other git write commands during conflict resolution. Only use `but resolve` commands and edit files directly. The one exception is selecting a side of a conflicted submodule that `but resolve finish` names, with `git add -- <path>` or `git rm -- <path>` (see `but resolve finish`).
 
 ## Remote Operations
 

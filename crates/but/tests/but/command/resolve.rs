@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use snapbox::str;
+use snapbox::{IntoData as _, str};
 
 use super::util::enter_edit_mode_with_conflicted_commit;
 use crate::utils::Sandbox;
@@ -437,5 +437,287 @@ Failed to handle conflict resolution. Conflicted uncommitted files can only be m
         env.invoke_git("ls-files --unmerged").lines().count(),
         6,
         "nothing was resolved"
+    );
+}
+
+/// Enter edit mode on branch A's commit after integrating the target of `scenario`
+/// conflicted it on submodule `sm`. Entering edit mode removes the `sm` worktree.
+fn enter_edit_mode_with_submodule_conflict(scenario: &str) -> Sandbox {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow(scenario);
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").assert().success();
+    let conflicted = env.invoke_git("rev-parse A");
+    env.but(format!("resolve {conflicted}")).assert().success();
+    assert_eq!(current_branch_name(&env), "gitbutler/edit");
+    env
+}
+
+/// Check out the submodule commit at `branch` of its source into `sm`.
+fn check_out_submodule(env: &Sandbox, branch: &str) -> String {
+    let commit = env.invoke_git(&format!("-C sm-source rev-parse {branch}"));
+    env.file("sm/.git", "gitdir: ../.git/modules/sm\n");
+    env.invoke_git(&format!("-C sm checkout -q -f {commit}"));
+    commit
+}
+
+/// The conflicted and resolved paths `but resolve status` reports.
+fn resolve_status_paths(env: &Sandbox) -> (Vec<String>, Vec<String>) {
+    let output = env.but("--json resolve status").assert().success();
+    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+    let paths = |key: &str| -> Vec<String> {
+        serde_json::from_value(json[key].clone()).expect("status lists paths")
+    };
+    (paths("conflicted_files"), paths("resolved_files"))
+}
+
+/// The refs, HEAD, index, worktree and edit-mode metadata a refused finish must leave alone.
+fn repo_state(env: &Sandbox) -> String {
+    let mut state = [
+        "symbolic-ref HEAD",
+        "for-each-ref",
+        "ls-files --stage",
+        "status --porcelain --ignore-submodules=none",
+    ]
+    .map(|args| env.invoke_git(args))
+    .join("\n");
+    for file in ["edit_mode_metadata.toml", "virtual_branches.toml"] {
+        state += &std::fs::read_to_string(env.projects_root().join(".git/gitbutler").join(file))
+            .expect("GitButler keeps its metadata in .git/gitbutler");
+    }
+    state
+}
+
+#[test]
+fn resolve_finish_refuses_unresolved_submodule_conflict() {
+    let env = enter_edit_mode_with_submodule_conflict("resolve-submodule-conflict");
+    assert_eq!(
+        env.invoke_git("ls-files --stage -- sm")
+            .lines()
+            .map(|line| line.split_whitespace().next().unwrap())
+            .collect::<Vec<_>>(),
+        ["160000"; 3],
+        "the edit-mode index carries base, ours and theirs gitlink stages"
+    );
+    env.file("README", "resolved\n");
+    let before = repo_state(&env);
+
+    env.but("resolve finish")
+        .assert()
+        .failure()
+        .stdout_eq(str![""])
+        .stderr_eq(str![[r#"
+Failed to handle conflict resolution. Unresolved submodule conflicts: "sm"
+Put the wanted submodule commit or file at each path and run `git add -- <path>`, remove it with `git rm -- <path>`, or discard the resolution with `but resolve cancel --force`.
+
+"#]]);
+    env.but("--json resolve finish")
+        .assert()
+        .failure()
+        .stdout_eq(str![""])
+        .stderr_eq(str![[r#"
+Failed to handle conflict resolution. Unresolved submodule conflicts: "sm"
+...
+"#]]);
+
+    assert_eq!(repo_state(&env), before, "a refused finish changes nothing");
+    assert_eq!(
+        resolve_status_paths(&env),
+        (vec!["sm".into()], vec!["README".into()]),
+        "status reports what finish refuses on, and README as resolved by its edit"
+    );
+
+    let tip = env.invoke_git("rev-parse A");
+    env.but("resolve cancel").assert().failure();
+    env.but("resolve cancel --force").assert().success();
+    assert_eq!(
+        (current_branch_name(&env), env.invoke_git("rev-parse A")),
+        ("gitbutler/workspace".into(), tip),
+        "the escape the refusal names leaves edit mode and keeps the commit"
+    );
+}
+
+#[test]
+fn resolve_finish_records_the_selected_submodule_side() {
+    let env = enter_edit_mode_with_submodule_conflict("resolve-submodule-conflict");
+    let upstream_side = check_out_submodule(&env, "b");
+    env.but("resolve finish").assert().failure();
+    env.invoke_git("add -- sm");
+    env.file("README", "resolved\n");
+    assert_eq!(
+        resolve_status_paths(&env),
+        (vec![], vec!["README".into(), "sm".into()]),
+        "a staged gitlink is resolved"
+    );
+
+    env.but("resolve finish").assert().success();
+    assert_eq!(current_branch_name(&env), "gitbutler/workspace");
+    assert_eq!(
+        env.invoke_git("rev-parse A:sm"),
+        upstream_side,
+        "the selected upstream submodule commit is recorded"
+    );
+}
+
+#[test]
+fn resolve_finish_keeps_the_branch_submodule_side_and_warns_about_text_markers() {
+    let env = enter_edit_mode_with_submodule_conflict("resolve-submodule-conflict");
+    let branch_side = check_out_submodule(&env, "c");
+    env.invoke_git("add -- sm");
+    assert_eq!(
+        resolve_status_paths(&env),
+        (vec!["README".into()], vec!["sm".into()]),
+        "only README still has conflict markers"
+    );
+
+    env.but("resolve finish")
+        .assert()
+        .success()
+        .stderr_eq(str![""])
+        .stdout_eq(str![[r#"
+✓ Conflict resolution finalized successfully!
+The commit has been updated with your resolved changes.
+✗ README still contains conflict markers — resolve it again if that was not intentional
+...
+"#]]);
+    assert_eq!(
+        env.invoke_git("rev-parse A:sm"),
+        branch_side,
+        "the selected branch submodule commit is recorded"
+    );
+}
+
+#[test]
+fn resolve_finish_refuses_empty_or_missing_submodule_until_removal_is_staged() {
+    let env = enter_edit_mode_with_submodule_conflict("resolve-submodule-conflict");
+    env.file("README", "resolved\n");
+    let tip = env.invoke_git("rev-parse A");
+
+    std::fs::create_dir(env.projects_root().join("sm")).unwrap();
+    env.invoke_git_fails(
+        "add -- sm",
+        "Git does not stage a submodule without a commit",
+    );
+    env.but("resolve finish").assert().failure();
+    std::fs::remove_dir(env.projects_root().join("sm")).unwrap();
+    env.but("resolve finish").assert().failure();
+    assert_eq!(
+        (current_branch_name(&env), env.invoke_git("rev-parse A")),
+        ("gitbutler/edit".into(), tip),
+        "the refusals stay in edit mode and keep the commit"
+    );
+
+    env.invoke_git("rm -q -- sm");
+    assert_eq!(resolve_status_paths(&env).0, Vec::<String>::new());
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("ls-tree --name-only A"),
+        ".gitmodules\nREADME",
+        "the staged removal is recorded"
+    );
+}
+
+#[test]
+fn resolve_finish_refuses_file_vs_submodule_conflict_until_staged() {
+    let env = enter_edit_mode_with_submodule_conflict("resolve-file-vs-submodule-conflict");
+    assert!(
+        !env.projects_root().join("sm").exists(),
+        "nothing is checked out at the conflicted path"
+    );
+    assert_eq!(resolve_status_paths(&env).0, ["sm"]);
+    env.but("resolve finish").assert().failure();
+
+    env.file("sm", "file-on-A\n");
+    env.but("resolve finish").assert().failure();
+    env.invoke_git("add -- sm");
+    assert_eq!(resolve_status_paths(&env), (vec![], vec!["sm".into()]));
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("cat-file -p A:sm"),
+        "file-on-A",
+        "the staged file side is recorded"
+    );
+}
+
+#[test]
+fn resolve_finish_checks_submodule_conflicts_under_the_worktree_lock() {
+    let env = enter_edit_mode_with_submodule_conflict("resolve-submodule-conflict");
+    let branch_side = check_out_submodule(&env, "c");
+    env.invoke_git("add -- sm");
+    env.file("README", "resolved\n");
+    let tip = env.invoke_git("rev-parse A");
+
+    // Hold the inter-process write lock as another GitButler operation would.
+    let mut lock = but_core::sync::LockFile::open(
+        env.projects_root()
+            .join(".git/gitbutler/gitbutler.write-lock"),
+    )
+    .unwrap();
+    lock.lock().unwrap();
+    let finish = super::util::but_std_cmd(&env, "resolve finish")
+        .spawn()
+        .unwrap();
+    // Give finish time to get as far as it can without the lock; the outcome
+    // must not depend on how far that is.
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    let (base, upstream) = (
+        env.invoke_git("-C sm-source rev-parse main"),
+        env.invoke_git("-C sm-source rev-parse b"),
+    );
+    env.invoke_bash(format!(
+        "printf '0 {zero} 0\\tsm\\n160000 {base} 1\\tsm\\n160000 {upstream} 2\\tsm\\n160000 {branch_side} 3\\tsm\\n' | git update-index --index-info",
+        zero = "0".repeat(40)
+    ));
+    lock.unlock().unwrap();
+
+    let output = finish.wait_with_output().unwrap();
+    assert!(
+        !output.status.success(),
+        "finish checks the conflicts it saves under one lock"
+    );
+    assert_eq!(
+        (current_branch_name(&env), env.invoke_git("rev-parse A")),
+        ("gitbutler/edit".into(), tip),
+        "the refusal stays in edit mode and keeps the commit"
+    );
+}
+
+#[test]
+fn resolve_keeps_submodule_paths_that_differ_in_non_utf8_bytes_apart() {
+    let env = enter_edit_mode_with_submodule_conflict("resolve-submodule-conflict");
+    env.file("README", "resolved\n");
+    // `but` cannot create conflicts at non-UTF-8 paths, so write their stages directly.
+    let commit = env.invoke_git("-C sm-source rev-parse b");
+    env.invoke_bash(format!(
+        "for p in $'sm\\xfe' $'sm\\xff'; do printf '160000 {commit} 2\\t%s\\n' \"$p\"; done | git update-index --index-info"
+    ));
+    let before = repo_state(&env);
+
+    env.but("resolve finish")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to handle conflict resolution. Unresolved submodule conflicts: "sm", "sm\xfe", "sm\xff"
+Put the wanted submodule commit or file at each path and run `git add -- <path>`, remove it with `git rm -- <path>`, or discard the resolution with `but resolve cancel --force`.
+
+"#]].raw());
+    assert_eq!(repo_state(&env), before, "a refused finish changes nothing");
+    assert_eq!(
+        resolve_status_paths(&env).0.len(),
+        3,
+        "each conflicted submodule is listed once"
+    );
+}
+
+#[test]
+fn resolve_status_keeps_unreadable_text_conflicts_remaining() {
+    let env = enter_edit_mode_with_conflicted_commit();
+    env.remove_file("file.txt");
+    env.file("file.txt/nested", "nested\n");
+
+    assert_eq!(
+        resolve_status_paths(&env).0,
+        ["file.txt"],
+        "a directory at a conflicted file path is not a resolution"
     );
 }
