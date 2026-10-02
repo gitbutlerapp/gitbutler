@@ -571,6 +571,8 @@ but worktree remove [-f] <id|name> # Like `git worktree remove`; `-f` for uncomm
 
 `new` generates a branch name when omitted. `--above <COMMIT>` (`-A`) starts the new branch at that commit instead of the workspace base; branch targets and conflicted commits are refused. Checkouts live under `~/.gitbutler-worktrees/<repo-dir-basename>/`.
 
+On macOS, `new` accepts `--create-mode <cow|checkout>` to tune how worktrees are populated with files. `cow` clones source worktree files, including ignored files, in order to speed up builds in the new worktree and reduce disk usage. `checkout` performs a standard checkout, and is the default mode.
+
 Worktrees are listed most recently updated first, as `id name (refs/heads/branch) - path`, with the branch shown only when it differs from the worktree name. Archiving is a GitButler-only state; none of these take part in `but undo`.
 
 Archiving and unarchiving notify open apps to refresh the worktree listing and workspace.
