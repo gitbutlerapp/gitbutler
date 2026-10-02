@@ -249,6 +249,55 @@ fn merge_first_branch_into_origin() {
     );
 }
 
+/// Landing the bottom branch in single-branch mode must free its metadata so the surviving
+/// branch can be renamed to the landed branch's name.
+#[test]
+fn merge_allows_reusing_branch_name() {
+    let (env, _remote) = sandbox_from_with_bare_origin("single-branch-mode");
+
+    env.but("branch new my-branch").assert().success();
+    env.file("first.txt", "first\n");
+    env.but("commit -b my-branch -m 'first commit'")
+        .assert()
+        .success();
+    let landed_tip = env.invoke_git("rev-parse my-branch");
+    env.but("branch new next-branch --above my-branch")
+        .assert()
+        .success();
+
+    env.but("merge my-branch --yes").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse origin/main"),
+        landed_tip,
+        "the original branch must land before its name is reused"
+    );
+    // A rename must not be blocked by metadata for a ref that no longer exists.
+    snapbox::assert_data_eq!(
+        env.invoke_git("for-each-ref --format='%(refname)' refs/heads/my-branch"),
+        str![]
+    );
+
+    env.but("reword next-branch -m my-branch")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Renamed branch 'next-branch' to 'my-branch'
+
+"#]]);
+    env.file("second.txt", "second\n");
+    env.but("commit -b my-branch -m 'second commit'")
+        .assert()
+        .success()
+        .stderr_eq(str![]);
+
+    // Only the new commit belongs to the renamed branch; the first one is on the target.
+    snapbox::assert_data_eq!(
+        env.invoke_git("log --format=%s origin/main..my-branch"),
+        str![[r#"second commit"#]]
+    );
+}
+
 /// Self-remote (`gb-local`) path: landing a branch that is ahead of the local target fast-forwards
 /// both `refs/heads/main` and the `gb-local/main` tracking ref, advances `behind` to 0, and removes
 /// the integrated branch.
