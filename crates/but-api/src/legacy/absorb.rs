@@ -591,39 +591,14 @@ mod tests {
 
     #[test]
     fn rejected_hunks_are_counted_once_per_original_commit_and_path() -> anyhow::Result<()> {
-        use but_testsupport::{CommandExt, git_at_dir, open_repo};
-
-        let tmp = tempfile::tempdir()?;
-        git_at_dir(tmp.path()).args(["init", "-b", "main"]).run();
-        git_at_dir(tmp.path())
-            .args(["config", "user.name", "GitButler"])
-            .run();
-        git_at_dir(tmp.path())
-            .args(["config", "user.email", "gitbutler@example.com"])
-            .run();
-        git_at_dir(tmp.path())
-            .args(["commit", "--allow-empty", "-m", "base"])
-            .run();
-        git_at_dir(tmp.path())
-            .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
-            .run();
-        git_at_dir(tmp.path())
-            .args(["checkout", "-b", "feature"])
-            .run();
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-rejected-hunks");
         let content = (1..=20)
             .map(|line| format!("line {line}\n"))
             .collect::<String>();
-        std::fs::write(tmp.path().join("shared.txt"), &content)?;
-        git_at_dir(tmp.path()).args(["add", "shared.txt"]).run();
-        git_at_dir(tmp.path())
-            .args(["commit", "-m", "add shared file"])
-            .run();
         let worktree_content = content
             .replace("line 1\n", "unselected change\n")
             .replace("line 10\n", "selected change\n");
-        std::fs::write(tmp.path().join("shared.txt"), &worktree_content)?;
 
-        let repo = open_repo(tmp.path())?;
         let commit_id = repo.head_id()?.detach();
         but_core::ref_metadata::ProjectMeta {
             target_ref: Some("refs/remotes/origin/main".try_into()?),
