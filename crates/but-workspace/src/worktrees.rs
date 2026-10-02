@@ -236,6 +236,7 @@ fn clone_directory(
 }
 
 /// TODO actually clone file
+#[cfg(target_os = "linux")]
 fn clone_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
     if source.is_symlink() {
         let target = fs::read_link(source)?;
@@ -252,6 +253,25 @@ fn clone_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
         )
     }
 
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn clone_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
+    use std::{ffi::CString, os::unix::ffi::OsStrExt};
+
+    let source = CString::new(source.as_os_str().as_bytes())?;
+    let destination = CString::new(destination.as_os_str().as_bytes())?;
+    // Defined by <sys/clonefile.h>, but not exported by libc.
+    const CLONE_NOFOLLOW: u32 = 0x0001;
+    // SAFETY: Both pointers reference live, NUL-terminated path strings. CLONE_NOFOLLOW
+    // clones symlinks themselves, including dangling links, rather than their targets.
+    let result = unsafe { libc::clonefile(source.as_ptr(), destination.as_ptr(), CLONE_NOFOLLOW) };
+    if result != 0 {
+        return Err(std::io::Error::last_os_error()).context(
+            "clonefile(2) failed; source and destination must share a filesystem supporting copy-on-write cloning (no full-copy fallback)",
+        );
+    }
     Ok(())
 }
 
