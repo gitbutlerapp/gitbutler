@@ -2,7 +2,7 @@ use anyhow::Context as _;
 use snapbox::{IntoData as _, str};
 
 use super::util::enter_edit_mode_with_conflicted_commit;
-use crate::utils::Sandbox;
+use crate::{command::util::sandbox_with_conflicted_commit, utils::Sandbox};
 
 fn current_branch_name(env: &Sandbox) -> String {
     let repo = env.open_repo();
@@ -719,5 +719,53 @@ fn resolve_status_keeps_unreadable_text_conflicts_remaining() {
         resolve_status_paths(&env).0,
         ["file.txt"],
         "a directory at a conflicted file path is not a resolution"
+    );
+}
+
+#[test]
+fn cannot_checkout_a_conflicted_commit_in_single_branch_mode() {
+    let env = sandbox_with_conflicted_commit();
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊◐   nyo A-change (no changes) {conflicted}
+├╯
+┊
+┴ bdfcf28 (common base, main, origin/main) 2000-01-02 main-change
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    let head_before = env.invoke_git("rev-parse HEAD");
+    let head_ref_before = env.invoke_git("symbolic-ref HEAD");
+
+    env.but("switch A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot check out a conflicted commit.
+
+Hint: Run `but switch --workspace` and start conflict resolution with `but resolve`
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse HEAD"),
+        head_before,
+        "rejecting a conflicted checkout leaves the HEAD commit unchanged"
+    );
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        head_ref_before,
+        "rejecting a conflicted checkout leaves the checked-out branch unchanged"
     );
 }

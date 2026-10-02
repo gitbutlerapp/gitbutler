@@ -53,12 +53,13 @@ Hint: run `but help` for all commands
 
 "#]]
     );
-    env.but("move suw --above source -b moved").assert().failure()
+    env.but("move suw --above source -b moved")
+        .assert()
+        .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not safely check out 'refs/heads/moved' from ae5714b53ad5051b29a9dc69d1f18bd5c4b745f1 to cf2bcd3b5b19b9d7214efe41eba4bae642252d95
+Error: Cannot check out a conflicted commit.
 
-Caused by:
-    Refusing to check out conflicted commit cf2bcd3b5b19b9d7214efe41eba4bae642252d95
+Hint: Run `but switch --workspace` and start conflict resolution with `but resolve`
 
 "#]]);
     // A failed checkout must restore the original source refs and leave no destination branch.
@@ -155,10 +156,9 @@ Hint: run `but help` for all commands
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not safely check out 'refs/heads/first' from [..] to [..]
+Error: Cannot check out a conflicted commit.
 
-Caused by:
-    Refusing to check out conflicted commit [..]
+Hint: Run `but switch --workspace` and start conflict resolution with `but resolve`
 
 "#]]);
     // Restacking existing branches must also roll back every rewritten ref and branch order.
@@ -5611,5 +5611,142 @@ Hint: run `but help` for all commands
 
 "#]]
         .raw()
+    );
+}
+
+#[test]
+fn move_cannot_create_and_switch_to_conflicted_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    env.file("file", "content");
+    env.but("commit -b A -m 'add file'").assert().success();
+
+    env.file("file", "new content");
+    env.but("commit -b A -m 'change file'").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   oxm change file
+┊●   oln add file
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move oxm -b B --switch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot check out a conflicted commit.
+
+Hint: Run `but switch --workspace` and start conflict resolution with `but resolve`
+
+"#]]);
+
+    assert!(
+        env.open_repo()
+            .try_find_reference("refs/heads/B")
+            .unwrap()
+            .is_none(),
+        "the failed move rolls back creation of the destination branch"
+    );
+
+    // The failed checkout rolls back the move, preserving A's history.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   oxm change file
+┊●   oln add file
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn moving_commits_around_causing_conflicts_in_sbm() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+
+    env.file("file", "content");
+    env.but("commit -b A -m 'add file' --switch")
+        .assert()
+        .success();
+
+    env.file("file", "new content");
+    env.but("commit -b A -m 'change file'").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊●   oxm change file
+┊●   oln add file
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move oln --above oxm").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊●   oln add file
+┊●   oxm change file (no changes) {conflicted}
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    let head_before = env.invoke_git("rev-parse HEAD");
+    let head_ref_before = env.invoke_git("symbolic-ref HEAD");
+
+    env.but("discard oln")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot check out a conflicted commit.
+
+Hint: Run `but switch --workspace` and start conflict resolution with `but resolve`
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse HEAD"),
+        head_before,
+        "the rejected discard preserves the branch tip and its history"
+    );
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        head_ref_before,
+        "the rejected discard keeps the same branch checked out"
     );
 }

@@ -150,6 +150,7 @@ pub enum Code {
     DefaultTargetNotFound,
     CommitSigningFailed,
     CommitMergeConflictFailure,
+    ConflictedCommitCheckout,
     ProjectMissing,
     AuthorMissing,
     BranchNotFound,

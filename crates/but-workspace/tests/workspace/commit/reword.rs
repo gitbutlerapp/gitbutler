@@ -108,9 +108,10 @@ fn reword_conflicted_commit_keeps_conflict_markers() -> Result<()> {
     let id = repo.rev_parse_single("conflicted")?;
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    // Test conflict metadata preservation without checking out the conflicted commit.
     reword(editor, id.detach(), b"New name".into())?
         .0
-        .materialize(Default::default())?;
+        .materialize_without_checkout()?;
 
     // Prefix and trailer are re-applied, so the commit still reads as conflicted.
     snapbox::assert_data_eq!(

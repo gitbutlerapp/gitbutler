@@ -150,6 +150,12 @@ fn conflicted_commits_cannot_be_checked_out() -> anyhow::Result<()> {
     assert_eq!(
         err.to_string(),
         "Refusing to check out conflicted commit 84503317a1e1464381fcff65ece14bc1f4315b7c",
+        "the rejection retains its descriptive message"
+    );
+    assert_eq!(
+        err.downcast_ref::<but_error::Code>(),
+        Some(&but_error::Code::ConflictedCommitCheckout),
+        "callers can classify the rejection without matching its message"
     );
 
     safe_checkout_from_head(
