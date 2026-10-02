@@ -306,7 +306,7 @@ pub fn worktree_new(
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
     let mut guard = ctx.exclusive_worktree_access();
-    worktree_new_with_perm(ctx, new_ref, guard.write_permission())
+    worktree_new_with_perm(ctx, new_ref, false, guard.write_permission())
 }
 
 /// See [`worktree_new()`]; this variant is for callers that already hold exclusive
@@ -314,6 +314,7 @@ pub fn worktree_new(
 pub fn worktree_new_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
+    cow: bool,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
@@ -322,7 +323,7 @@ pub fn worktree_new_with_perm(
         ws.highest_base()
             .context("The workspace has no target to base a new worktree on")?
     };
-    worktree_new_at_base_with_perm(ctx, new_ref, base, perm)
+    worktree_new_at_base_with_perm(ctx, new_ref, base, cow, perm)
 }
 
 /// Create a worktree at a given base.
@@ -330,6 +331,7 @@ pub fn worktree_new_at_base_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
     base: gix::ObjectId,
+    cow: bool,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
@@ -346,7 +348,7 @@ pub fn worktree_new_at_base_with_perm(
         );
     }
     let path = repo.common_dir().join("gb-wts").join(&slug);
-    let name = but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?;
+    let name = but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base, cow)?;
     let path = gix::path::realpath(&path)?;
     drop((repo, ws, db));
     ctx.invalidate_workspace_cache()?;

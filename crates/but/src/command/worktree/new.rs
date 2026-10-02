@@ -12,9 +12,9 @@ use crate::{
     utils::{CliOutput, CliOutputHuman, WriteWithUtils},
 };
 
-pub fn new(ctx: &mut Context, name: Option<&BranchArg>) -> CliResult<NewOutcome> {
+pub fn new(ctx: &mut Context, name: Option<&BranchArg>, cow: bool) -> CliResult<NewOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
-    let op = NewOperation::resolve(ctx, guard.read_permission(), name)?;
+    let op = NewOperation::resolve(ctx, guard.read_permission(), name, cow)?;
     Ok(run(ctx, guard.write_permission(), op)?)
 }
 
@@ -22,6 +22,7 @@ pub(crate) struct NewOperation {
     /// The branch to create, or `None` for a canned name.
     pub ref_name: Option<FullName>,
     pub base: Option<ObjectId>,
+    pub cow: bool,
 }
 
 impl NewOperation {
@@ -29,6 +30,7 @@ impl NewOperation {
         ctx: &Context,
         perm: &RepoShared,
         name: Option<&BranchArg>,
+        cow: bool,
     ) -> CliResult<Self> {
         but_api::worktrees::ensure_worktree_manipulation_enabled(ctx)?;
         let ref_name = match name {
@@ -41,15 +43,16 @@ impl NewOperation {
         Ok(Self {
             ref_name,
             base: None,
+            cow,
         })
     }
 }
 
 pub fn run(ctx: &Context, perm: &mut RepoExclusive, op: NewOperation) -> Result<NewOutcome> {
     let created = if let Some(base) = op.base {
-        but_api::worktrees::worktree_new_at_base_with_perm(ctx, op.ref_name, base, perm)?
+        but_api::worktrees::worktree_new_at_base_with_perm(ctx, op.ref_name, base, op.cow, perm)?
     } else {
-        but_api::worktrees::worktree_new_with_perm(ctx, op.ref_name, perm)?
+        but_api::worktrees::worktree_new_with_perm(ctx, op.ref_name, op.cow, perm)?
     };
     Ok(NewOutcome { created })
 }

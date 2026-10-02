@@ -34,6 +34,9 @@ pub enum Subcommands {
     New {
         /// The name of the branch to create, or a generated one.
         name: Option<BranchArg>,
+        /// If true, clone the worktree content.
+        #[clap(long)]
+        cow: bool,
     },
     /// Hide a worktree from the workspace.
     Archive {

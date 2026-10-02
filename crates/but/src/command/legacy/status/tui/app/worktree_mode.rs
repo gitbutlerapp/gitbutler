@@ -210,6 +210,7 @@ impl App {
             StatusOutputLineData::MergeBase => NewOperation {
                 ref_name: None,
                 base: None,
+                cow: false,
             },
             StatusOutputLineData::Commit { cli_id, .. } => {
                 let CliId::Commit { commit, .. } = &**cli_id else {
@@ -229,6 +230,7 @@ impl App {
                 NewOperation {
                     ref_name: None,
                     base: Some(commit.commit_id),
+                    cow: false,
                 }
             }
 

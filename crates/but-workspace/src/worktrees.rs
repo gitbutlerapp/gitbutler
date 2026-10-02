@@ -5,7 +5,11 @@
 //! Enumeration, archived-state reconciliation, and `HEAD` resolution are
 //! centralized in `but-ctx`, keeping this crate independent of it.
 
-use std::{ffi::OsStr, path::Path};
+use std::{
+    ffi::OsStr,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString};
@@ -108,27 +112,106 @@ pub fn add(
     path: &Path,
     branch: &gix::refs::FullNameRef,
     base: gix::ObjectId,
+    no_checkout: bool,
 ) -> anyhow::Result<BString> {
     if path.exists() {
         bail!("'{}' already exists", path.display());
     }
     let short_name = gix::path::from_bstr(branch.shorten());
     let base = base.to_string();
-    git_worktree(
-        repo,
-        "add",
-        &[
-            OsStr::new("-b"),
-            short_name.as_os_str(),
-            OsStr::new("--"),
-            path.as_os_str(),
-            OsStr::new(&base),
-        ],
-    )?;
+
+    let mut args = vec![];
+    if no_checkout {
+        args.push(OsStr::new("--no-checkout"));
+    }
+    args.extend([
+        OsStr::new("-b"),
+        short_name.as_os_str(),
+        OsStr::new("--"),
+        path.as_os_str(),
+        OsStr::new(&base),
+    ]);
+
+    git_worktree(repo, "add", &args)?;
     gix::open(path)?
         .worktree()
         .and_then(|worktree| worktree.id().map(ToOwned::to_owned))
         .context("git registered the new checkout as a linked worktree")
+}
+
+/// TODO
+pub fn add_cow(
+    repo: &gix::Repository,
+    path: &Path,
+    branch: &gix::refs::FullNameRef,
+    base: gix::ObjectId,
+) -> anyhow::Result<BString> {
+    let worktree_path = add(repo, path, branch, base, true)?;
+
+    let source_directory = fs::canonicalize(
+        repo.workdir()
+            .context("Repository must have workdir to create COW worktree")?,
+    )?;
+    let destination = gix::path::realpath(path)?;
+
+    anyhow::ensure!(
+        !destination.starts_with(&source_directory),
+        "Nested worktrees not allowed for COW"
+    );
+
+    clone_directory(
+        &source_directory,
+        &destination,
+        &[repo.common_dir().to_owned()],
+    )?;
+
+    Ok(worktree_path)
+}
+
+fn clone_directory(
+    source: &Path,
+    destination: &Path,
+    ignored_paths: &[PathBuf],
+) -> anyhow::Result<()> {
+    anyhow::ensure!(source.is_dir(), "Source must be a directory");
+
+    for entry in
+        fs::read_dir(source).with_context(|| format!("Failed to read '{}'", source.display()))?
+    {
+        let entry = entry?;
+
+        let source = entry.path();
+        if ignored_paths.contains(&source) {
+            continue;
+        }
+
+        let destination = destination.join(entry.file_name());
+
+        let kind = entry.file_type()?;
+        if kind.is_dir() {
+            fs::create_dir(&destination)
+                .with_context(|| format!("Failed to create '{}'", destination.display()))?;
+            clone_directory(&source, &destination, ignored_paths)?;
+            fs::set_permissions(&destination, entry.metadata()?.permissions())?;
+        } else {
+            clone_file(&source, &destination).with_context(|| {
+                format!(
+                    "Failed to clone file from '{}' to '{}'",
+                    source.display(),
+                    destination.display()
+                )
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
+/// TODO actually clone file
+fn clone_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
+    anyhow::ensure!(source.is_file(), "Source must be a file");
+    fs::copy(source, destination)?;
+    Ok(())
 }
 
 fn git_worktree(repo: &gix::Repository, subcommand: &str, args: &[&OsStr]) -> anyhow::Result<()> {
