@@ -8,7 +8,10 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_meta::VirtualBranchesTomlMetadata;
-use but_testsupport::{gix_testtools, open_repo, visualize_commit_graph};
+use but_testsupport::{
+    CommandExt as _, git, gix_testtools, open_repo, visualize_commit_graph,
+    visualize_disk_tree_with_hashes_skip_dot_git, visualize_index,
+};
 use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
 };
@@ -273,6 +276,295 @@ fn assert_locked_index_rejects_enter_edit_mode(symlink_index: bool) -> Result<()
         commit_to_edit,
         "the retry records the commit being edited"
     );
+    Ok(())
+}
+
+/// Everything a failed edit-mode entry must leave exactly as it found it.
+#[derive(Debug, PartialEq)]
+struct EntryState {
+    worktree: String,
+    raw_index: BString,
+    index: String,
+    head_name: Option<gix::refs::FullName>,
+    head_ref_id: gix::ObjectId,
+    edit_ref: Option<gix::ObjectId>,
+    saved_ref: Option<gix::ObjectId>,
+    has_metadata: bool,
+    oplog_head: Option<gix::ObjectId>,
+}
+
+fn entry_state(ctx: &Context) -> Result<EntryState> {
+    let repo = ctx.repo.get()?;
+    let head_name = repo.head_name()?;
+    let head_ref = head_name.as_ref().context("symbolic HEAD")?;
+    let ref_id = |name: &str| -> Result<Option<gix::ObjectId>> {
+        Ok(repo.try_find_reference(name)?.map(|r| r.id().detach()))
+    };
+    Ok(EntryState {
+        worktree: visualize_disk_tree_with_hashes_skip_dot_git(
+            repo.workdir().context("non-bare test repository")?,
+        )?
+        .to_string(),
+        raw_index: std::fs::read(repo.index_path())?.into(),
+        index: visualize_index(&repo.open_index()?.into()),
+        head_ref_id: repo.find_reference(head_ref)?.id().detach(),
+        head_name,
+        edit_ref: ref_id("refs/heads/gitbutler/edit")?,
+        saved_ref: ref_id("refs/gitbutler/edit-uncommitted-changes")?,
+        has_metadata: read_edit_mode_metadata(ctx).is_ok(),
+        oplog_head: ctx.oplog_head()?,
+    })
+}
+
+fn assert_head(ctx: &Context, expected: &str) -> Result<()> {
+    let head_name = ctx.repo.get()?.head_name()?.context("symbolic HEAD")?;
+    assert_eq!(head_name.as_bstr(), expected, "HEAD points to {expected}");
+    Ok(())
+}
+
+/// Write user changes into the `late_destination_lock` fixture that the edit-mode checkout
+/// overwrites, removes or must leave alone, and make `zz-late/blocked` read-only so the
+/// checkout fails there after it already changed every `aa-*` path.
+#[cfg(unix)]
+fn write_user_changes_with_late_blocker(ctx: &Context) -> Result<std::path::PathBuf> {
+    let repo = ctx.repo.get()?;
+    let worktree = repo.workdir().context("non-bare")?.to_owned();
+    // Staged and as long as the edited commit's version, so the index entry is stat-clean
+    // and names exactly the saved blob.
+    std::fs::write(worktree.join("aa-staged"), "user-st-1\n")?;
+    git(&repo).args(["add", "aa-staged"]).run();
+    // The checkout replaces this directory and its content with a file.
+    std::fs::create_dir(worktree.join("aa-leaf"))?;
+    for (path, bytes) in [
+        ("aa-earlier", "user-aa\n"),
+        ("aa-untracked", "untracked\n"),
+        (".gitignore", "ignored\naa-ignored\n"),
+        ("ignored", "ignored bytes\n"),
+        ("aa-file", "user file\n"),
+        ("aa-leaf/user", "leaf content\n"),
+        ("zz-late/blocked", "user-zz\n"),
+    ] {
+        std::fs::write(worktree.join(path), bytes)?;
+    }
+    // The checkout creates a file in this directory, and removing that file must keep it.
+    std::fs::create_dir(worktree.join("aa-empty"))?;
+    // Deleting a tracked directory's only file keeps the directory, which the checkout refills.
+    std::fs::remove_file(worktree.join("aa-kept/only"))?;
+    set_mode(&worktree.join("aa-kept"), 0o750)?;
+    set_mode(&worktree.join("aa-leaf"), 0o700)?;
+    std::os::unix::fs::symlink("file", worktree.join("aa-symlink"))?;
+    std::fs::write(worktree.join("large-untracked"), vec![b'x'; 2 << 20])?;
+    gix::init(worktree.join("nested-repo"))?;
+    std::fs::write(worktree.join("nested-repo/file"), "nested bytes\n")?;
+    set_mode(&worktree.join("zz-late/blocked"), 0o444)?;
+    assert_blocked_write(&worktree);
+    Ok(worktree)
+}
+
+#[cfg(unix)]
+fn set_mode(path: &std::path::Path, mode: u32) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt as _;
+    let permissions = std::fs::Permissions::from_mode(mode);
+    Ok(std::fs::set_permissions(path, permissions)?)
+}
+
+/// Fail instead of passing vacuously when permissions don't apply, e.g. when running as root.
+#[cfg(unix)]
+fn assert_permission_denied<T: std::fmt::Debug>(result: std::io::Result<T>) {
+    assert_eq!(
+        result.as_ref().map_err(std::io::Error::kind).err(),
+        Some(std::io::ErrorKind::PermissionDenied),
+        "the blocker must deny access, which requires running unprivileged: {result:?}"
+    );
+}
+
+#[cfg(unix)]
+fn assert_blocked_write(worktree: &std::path::Path) {
+    let blocked = worktree.join("zz-late/blocked");
+    assert_permission_denied(std::fs::OpenOptions::new().write(true).open(blocked));
+}
+
+#[test]
+#[cfg(unix)]
+fn failed_checkout_restores_entry_state_from_workspace_ref() -> Result<()> {
+    assert_failed_checkout_restores_entry_state(false)
+}
+
+#[test]
+#[cfg(unix)]
+fn failed_checkout_restores_entry_state_from_integration_ref() -> Result<()> {
+    assert_failed_checkout_restores_entry_state(true)
+}
+
+/// A checkout that fails on a late path has already rewritten, created and removed earlier
+/// paths. Entry must restore all of them, the index and every ref, while the blocker stays.
+#[cfg(unix)]
+fn assert_failed_checkout_restores_entry_state(from_integration_ref: bool) -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("late_destination_lock")?;
+    if from_integration_ref {
+        // Renaming the checked-out workspace branch also moves HEAD to the integration branch.
+        let rename = "branch -m gitbutler/workspace gitbutler/integration".split(' ');
+        git(&*ctx.repo.get()?).args(rename).run();
+    }
+    let commit_to_edit = ctx.repo.get()?.rev_parse_single("edit-target")?.detach();
+    let worktree = write_user_changes_with_late_blocker(&ctx)?;
+    let before = entry_state(&ctx)?;
+    println!("before entry: {before:#?}");
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = StackId::from_number_for_testing(1);
+    let error = enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())
+        .expect_err("the late blocker must fail the checkout");
+    println!("error: {error:#}");
+    assert!(
+        format!("{error:#}").contains("zz-late/blocked"),
+        "fails at the late path"
+    );
+
+    let after = entry_state(&ctx)?;
+    println!("after failed entry: {after:#?}");
+    for (path, bytes) in [
+        ("aa-earlier", "user-aa\n"),
+        ("aa-staged", "user-st-1\n"),
+        ("aa-untracked", "untracked\n"),
+        ("aa-removed", "removed\n"),
+        ("ignored", "ignored bytes\n"),
+        ("aa-file", "user file\n"),
+        ("aa-leaf/user", "leaf content\n"),
+        ("zz-late/blocked", "user-zz\n"),
+    ] {
+        let restored = BString::from(std::fs::read(worktree.join(path))?);
+        assert_eq!(restored, bytes, "{path} is restored byte for byte");
+    }
+    for created in ["aa-created", "aa-ignored", "aa-dir", "aa-empty/created"] {
+        let exists = worktree.join(created).exists();
+        assert!(!exists, "only the checkout created {created}");
+    }
+    assert_eq!(after, before, "the failed entry is undone");
+    assert_blocked_write(&worktree);
+    for (dir, mode) in [("aa-kept", 0o750), ("aa-leaf", 0o700)] {
+        let metadata = std::fs::symlink_metadata(worktree.join(dir))?;
+        let mode_bits = std::os::unix::fs::MetadataExt::mode(&metadata) & 0o777;
+        let kept = (metadata.is_dir(), mode_bits);
+        assert_eq!(
+            kept,
+            (true, mode),
+            "{dir} stays a directory with its permissions"
+        );
+    }
+
+    set_mode(&worktree.join("zz-late/blocked"), 0o644)?;
+    enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())?;
+    assert_head(&ctx, "refs/heads/gitbutler/edit")?;
+    assert_eq!(
+        std::fs::read(worktree.join("zz-late/blocked"))?,
+        b"target-zz\n"
+    );
+    Ok(())
+}
+
+/// When the recovery cannot write a path either, the entry stays in edit mode with all of its
+/// artifacts, so a forced abort can restore the workspace once the blocker is gone.
+#[test]
+#[cfg(unix)]
+fn failed_recovery_keeps_edit_mode_for_forced_abort() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("late_destination_lock")?;
+    let commit_to_edit = ctx.repo.get()?.rev_parse_single("edit-target")?.detach();
+    let worktree = write_user_changes_with_late_blocker(&ctx)?;
+    // The checkout removes the untracked file, and only the saved tree refers to its blob.
+    // An unreadable blob keeps the recovery from writing it back.
+    let blob = {
+        let repo = ctx.repo.get()?;
+        let hex = repo.write_blob("untracked\n")?.to_hex().to_string();
+        repo.git_dir()
+            .join(format!("objects/{}/{}", &hex[..2], &hex[2..]))
+    };
+    set_mode(&blob, 0o000)?;
+    assert_permission_denied(std::fs::read(&blob));
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = StackId::from_number_for_testing(1);
+    let error = enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())
+        .expect_err("the late blocker must fail the checkout");
+    let error = format!("{error:#}");
+    println!("error: {error}");
+    assert!(
+        error.contains("zz-late/blocked") && error.contains("Failed to restore workspace"),
+        "the error names both the checkout and the recovery failure: {error}"
+    );
+    let state = entry_state(&ctx)?;
+    println!("after failed recovery: {state:#?}");
+    assert_head(&ctx, "refs/heads/gitbutler/edit")?;
+    assert!(
+        state.edit_ref.is_some() && state.saved_ref.is_some() && state.has_metadata,
+        "the edit-mode artifacts survive"
+    );
+    assert!(
+        !worktree.join("aa-untracked").exists(),
+        "recovery could not write it back"
+    );
+
+    set_mode(&blob, 0o444)?;
+    set_mode(&worktree.join("zz-late/blocked"), 0o644)?;
+    abort_and_return_to_workspace(&mut ctx, true, guard.write_permission())?;
+    assert_edit_mode_cleaned_up(&ctx)?;
+    assert_head(&ctx, "refs/heads/gitbutler/workspace")?;
+    assert_eq!(
+        std::fs::read(worktree.join("aa-untracked"))?,
+        b"untracked\n"
+    );
+    assert_eq!(std::fs::read(worktree.join("aa-earlier"))?, b"user-aa\n");
+
+    enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())?;
+    assert_head(&ctx, "refs/heads/gitbutler/edit")?;
+    Ok(())
+}
+
+/// A failure before HEAD moves leaves the worktree alone and only removes what the entry wrote.
+#[test]
+fn failed_head_update_cleans_up_entry_artifacts() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("late_destination_lock")?;
+    let (commit_to_edit, head_lock) = {
+        let repo = ctx.repo.get()?;
+        std::fs::write(repo.workdir().context("non-bare")?.join("file"), "user\n")?;
+        let commit_to_edit = repo.rev_parse_single("edit-target")?.detach();
+        (commit_to_edit, repo.git_dir().join("HEAD.lock"))
+    };
+    std::fs::write(&head_lock, "")?;
+    let before = entry_state(&ctx)?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = StackId::from_number_for_testing(1);
+    let error = enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())
+        .expect_err("a locked HEAD must fail the entry");
+    println!("error: {error:#}");
+    assert_eq!(entry_state(&ctx)?, before, "nothing of the entry remains");
+
+    std::fs::remove_file(&head_lock)?;
+    enter_edit_mode(&mut ctx, commit_to_edit, stack_id, guard.write_permission())?;
+    assert_head(&ctx, "refs/heads/gitbutler/edit")?;
+    Ok(())
+}
+
+#[test]
+fn leaving_edit_mode_allows_entering_again() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = StackId::from_number_for_testing(1);
+    for leave in ["save", "abort", "forced abort", "stay"] {
+        let repo = ctx.repo.get()?;
+        let foobar = repo.rev_parse_single("HEAD^{/foobar}")?.detach();
+        drop(repo);
+        enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
+        assert_head(&ctx, "refs/heads/gitbutler/edit")?;
+        let perm = guard.write_permission();
+        match leave {
+            "save" => save_and_return_to_workspace(&mut ctx, perm)?,
+            "stay" => break,
+            _ => abort_and_return_to_workspace(&mut ctx, leave == "forced abort", perm)?,
+        }
+        assert_edit_mode_cleaned_up(&ctx)?;
+    }
     Ok(())
 }
 

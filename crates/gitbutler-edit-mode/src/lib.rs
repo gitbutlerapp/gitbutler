@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use std::fs::Permissions;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
@@ -138,7 +140,30 @@ fn get_uncommitted_changes(repo: &gix::Repository) -> Result<gix::ObjectId> {
     Ok(uncommitted_changes)
 }
 
-fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
+/// What a path was before [`checkout_edit_branch`] changed the worktree.
+enum Before {
+    Missing,
+    Dir(Permissions),
+    Other,
+}
+
+fn before(path: &Path) -> std::io::Result<Before> {
+    use std::io::ErrorKind::{NotADirectory, NotFound};
+    match path.symlink_metadata() {
+        Ok(metadata) if metadata.is_dir() => Ok(Before::Dir(metadata.permissions())),
+        Ok(_) => Ok(Before::Other),
+        // Also missing when an ancestor isn't a directory.
+        Err(err) if matches!(err.kind(), NotFound | NotADirectory) => Ok(Before::Missing),
+        Err(err) => Err(err),
+    }
+}
+
+/// Checkout the edit branch, first recording what each path it writes and its parents were.
+fn checkout_edit_branch(
+    ctx: &Context,
+    commit_id: gix::ObjectId,
+    prior: &mut BTreeMap<PathBuf, Before>,
+) -> Result<()> {
     let repo = &*ctx.repo.get()?;
     #[expect(deprecated, reason = "checkout/index materialization boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
@@ -179,6 +204,19 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
         "New base: (no commit)".to_string()
     };
 
+    let workdir = repo.workdir().context("edit mode needs a worktree")?;
+    for entry in index.iter() {
+        let path = workdir.join(gix::path::try_from_bstr(entry.path.as_bstr())?);
+        for dir in path.ancestors().take_while(|dir| *dir != workdir) {
+            let None = prior.get(dir) else { break };
+            let was = before(dir)?;
+            // An existing file is restored from the saved tree, like its parents.
+            if dir == path && matches!(was, Before::Other) {
+                break;
+            }
+            prior.insert(dir.into(), was);
+        }
+    }
     git2_repo.checkout_index(
         Some(&mut index),
         Some(
@@ -247,6 +285,7 @@ pub(crate) fn enter_edit_mode(
     };
 
     ensure_stack_in_workspace(ctx, stack_id)?;
+    let original_head = repo.head_name()?.context("Expected a symbolic HEAD")?;
 
     // Fail before writing anything if the index is already locked, as checkout would only
     // notice after refs and HEAD were moved. The probe is released so checkout can take it.
@@ -261,9 +300,70 @@ pub(crate) fn enter_edit_mode(
 
     commit_uncommited_changes(repo)?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
-    checkout_edit_branch(ctx, commit_oid).context("Failed to checkout edit branch")?;
+    let mut prior = BTreeMap::new();
+    if let Err(err) = checkout_edit_branch(ctx, commit_oid, &mut prior) {
+        let err = err.context("Failed to checkout edit branch");
+        restore_after_failed_entry(ctx, &original_head, &prior)
+            .with_context(|| format!("{err:#}"))?;
+        return Err(err);
+    }
 
     Ok(edit_mode_metadata)
+}
+
+/// Undo a partial [`checkout_edit_branch`]: restore the saved tree without touching the index, so
+/// formerly untracked files aren't staged, then remove what the checkout wrote at `prior` paths
+/// that were missing or directories, even if ignored, keeping non-empty directories, and restore
+/// those directories with their permissions. Only then `HEAD` moves back, so a failed restore keeps
+/// edit mode for a forced abort. Cleanup removes edit refs and metadata even if they predate entry.
+fn restore_after_failed_entry(
+    ctx: &Context,
+    original_head: &gix::refs::FullName,
+    prior: &BTreeMap<PathBuf, Before>,
+) -> Result<()> {
+    let repo = &*ctx.repo.get()?;
+    if repo
+        .head_name()?
+        .is_some_and(|name| name.as_bstr() == EDIT_BRANCH_REF)
+    {
+        #[expect(deprecated, reason = "checkout/materialization boundary")]
+        let git2_repo = &*ctx.git2_repo.get()?;
+        let saved_tree = git2_repo.find_tree(get_uncommitted_changes(repo)?.to_git2())?;
+        // Forget the failed checkout's unsaved index entries so the restore can't act on them.
+        git2_repo.index()?.read(true)?;
+        let mut checkout = CheckoutBuilder::new();
+        checkout.force().update_index(false).baseline(&saved_tree);
+        git2_repo
+            .checkout_tree(saved_tree.as_object(), Some(&mut checkout))
+            .context("Failed to restore workspace after checkout failure")?;
+        // Children sort after their parents, so reversed they are removed first.
+        for (path, was) in prior.iter().rev() {
+            let is_dir = path.symlink_metadata().map(|m| m.is_dir());
+            match (was, is_dir) {
+                (Before::Missing, Ok(true)) => drop(std::fs::remove_dir(path)),
+                (Before::Missing | Before::Dir(_), Ok(false)) => std::fs::remove_file(path)
+                    .with_context(|| format!("Failed to remove {}", path.display()))?,
+                _ => {}
+            }
+        }
+        // Parents come first, and all of a directory's parents were directories too.
+        for (dir, was) in prior {
+            if let Before::Dir(permissions) = was {
+                std::fs::create_dir_all(dir)
+                    .and_then(|()| std::fs::set_permissions(dir, permissions.clone()))
+                    .with_context(|| format!("Failed to restore {}", dir.display()))?;
+            }
+        }
+        update_head_reference(
+            repo,
+            gix::refs::Target::Symbolic(original_head.clone()),
+            false,
+            "leave edit mode after failed checkout",
+            original_head.as_bstr(),
+            0,
+        )?;
+    }
+    cleanup_edit_mode(ctx, repo)
 }
 
 /// Remove the references and metadata that [`enter_edit_mode`] created.
