@@ -318,6 +318,8 @@ struct Checkout {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Announcement {
+    /// The format of this announcement; only 1 exists.
+    version: u32,
     /// Shown in the project list, e.g. the repository's directory name.
     title: String,
     /// The ref `HEAD` points at in the checkout, e.g. `refs/heads/gitbutler/workspace`.
@@ -364,6 +366,9 @@ fn update_view(hosted: &Hosted, published: &Checkout) -> anyhow::Result<()> {
         )
         .context("the push carried no announcement")?,
     )?;
+    if announcement.version != 1 {
+        bail!("unsupported announcement version {}", announcement.version);
+    }
     if !announcement.includes_uncommitted {
         git(
             &view,

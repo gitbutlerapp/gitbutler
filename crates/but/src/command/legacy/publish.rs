@@ -150,6 +150,7 @@ fn run(ctx: &mut Context, operation: PublishOperation) -> anyhow::Result<Publish
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct Announcement {
+        version: u32,
         title: String,
         head: String,
         target_ref: Option<String>,
@@ -159,6 +160,7 @@ fn run(ctx: &mut Context, operation: PublishOperation) -> anyhow::Result<Publish
         includes_uncommitted: bool,
     }
     let announcement = serde_json::to_vec(&Announcement {
+        version: 1,
         title: checkout.clone(),
         head,
         target_ref: project_meta.target_ref.map(|name| name.to_string()),
