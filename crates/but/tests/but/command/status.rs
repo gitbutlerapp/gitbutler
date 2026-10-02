@@ -6,6 +6,32 @@ use snapbox::IntoData;
 
 mod status_in_single_branch_mode;
 
+/// Other Rust tools read the status model directly instead of parsing `but status --json`.
+#[test]
+fn workspace_status_as_library() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let status = but::workspace_status(&mut env.context(), but::StatusFlags::all_false())?;
+    let mut branches: Vec<_> = status
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.branches)
+        .map(|branch| branch.name.as_str())
+        .collect();
+    branches.sort();
+    assert_eq!(branches, ["A", "B"], "both applied stacks are in the model");
+
+    let env = enter_edit_mode_with_conflicted_commit();
+    let err = but::workspace_status(&mut env.context(), but::StatusFlags::all_false())
+        .expect_err("edit mode has no workspace status");
+    assert_eq!(
+        err.to_string(),
+        "workspace status is unavailable during conflict resolution",
+        "edit mode is refused rather than reported as an ordinary workspace"
+    );
+    Ok(())
+}
+
 #[test]
 fn common_base_shows_head_on_local_target() {
     let env = Sandbox::open_with_default_settings("single-branch-in-sync");
