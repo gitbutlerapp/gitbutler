@@ -38,7 +38,6 @@ clap.workspace = true
 colored = "3.0.0"
 anyhow.workspace = true
 inventory.workspace = true
-base64.workspace = true
 but-core.workspace = true
 but-schemars.workspace = true
 gix.workspace = true
