@@ -1,10 +1,5 @@
-use std::time::SystemTime;
-
-use anyhow::Context as _;
-use bstr::ByteSlice as _;
 use but_ctx::Context;
 use gix::refs::Category;
-use nonempty::NonEmpty;
 use ratatui::{style::Style, text::Span};
 
 use crate::{
@@ -31,10 +26,10 @@ use crate::{
                 render::{ModeRender, RenderSingleLineSpans, SpanExt as _},
             },
         },
-        switch::{self, SwitchOperation},
+        switch::{self, SwitchBranchItem, SwitchOperation, switch_branch_items},
     },
     theme::Theme,
-    utils::{targeting::Side, time::format_relative_time},
+    utils::targeting::Side,
 };
 
 use super::MoveCursorDiration;
@@ -223,65 +218,13 @@ impl App {
                     None
                 }
             });
-        let current_branch = {
-            let repo = ctx.repo.get()?;
-            repo.head_ref()?
-                .map(|head_ref| head_ref.name().shorten().to_owned())
+
+        let items = {
+            let guard = ctx.shared_worktree_access();
+            switch_branch_items(ctx, guard.read_permission(), selected_branch, true)?
         };
-        let branch_listings = but_api::branch::branch_list(ctx)
-            .context("Failed to list branches available to switch to")?
-            .into_iter()
-            .flat_map(|stack| stack.branches)
-            .map(|listed_branch| listed_branch.branch)
-            .filter(|branch| branch.has_local)
-            .filter(|branch| {
-                current_branch
-                    .as_ref()
-                    .is_none_or(|current_branch| current_branch.as_bstr() != *branch.display_name)
-            });
-
-        let now = SystemTime::now();
-        let mut branches = branch_listings
-            .map(|listing| SwitchBranchItem::Branch {
-                name: listing.display_name.to_str_lossy().into_owned(),
-                updated_at: listing.updated_at_ms,
-                updated_at_display: listing
-                    .updated_at_ms
-                    .map(|updated_at| format_relative_time(now, updated_at / 1000))
-                    .unwrap_or_default(),
-            })
-            .collect::<Vec<_>>();
-        branches.sort_by(|a, b| match (a, b) {
-            (SwitchBranchItem::Workspace, _) | (_, SwitchBranchItem::Workspace) => {
-                std::cmp::Ordering::Less
-            }
-            (
-                SwitchBranchItem::Branch {
-                    name: a_name,
-                    updated_at: a_updated_at,
-                    ..
-                },
-                SwitchBranchItem::Branch {
-                    name: b_name,
-                    updated_at: b_updated_at,
-                    ..
-                },
-            ) => (selected_branch == Some(b_name.as_str()))
-                .cmp(&(selected_branch == Some(a_name.as_str())))
-                .then_with(|| b_updated_at.cmp(a_updated_at))
-                .then_with(|| a_name.cmp(b_name)),
-        });
-
-        let items = if crate::utils::in_single_branch_mode(ctx)? {
-            NonEmpty {
-                head: SwitchBranchItem::Workspace,
-                tail: branches,
-            }
-        } else {
-            let Some(items) = NonEmpty::from_vec(branches) else {
-                return Ok(());
-            };
-            items
+        let Some(items) = items else {
+            return Ok(());
         };
 
         let picker = FuzzyPicker::new(items, self.theme, |item, ctx, messages| {
@@ -407,16 +350,6 @@ impl App {
 
         Ok(())
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum SwitchBranchItem {
-    Workspace,
-    Branch {
-        name: String,
-        updated_at: Option<i64>,
-        updated_at_display: String,
-    },
 }
 
 impl FuzzyPickerItem for SwitchBranchItem {

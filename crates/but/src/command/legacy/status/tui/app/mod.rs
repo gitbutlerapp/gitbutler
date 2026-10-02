@@ -36,6 +36,7 @@ use crate::{
                     render::render_app,
                 },
             },
+            switch::SwitchBranchItem,
         },
         open::{self, Openable},
     },

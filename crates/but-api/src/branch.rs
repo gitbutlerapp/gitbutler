@@ -8,7 +8,7 @@ use but_core::{
     DryRun, RefMetadata, WORKSPACE_REF_NAME,
     branch::unique_canned_refname,
     ref_metadata::StackId,
-    sync::RepoExclusive,
+    sync::{RepoExclusive, RepoShared},
     ui::TreeChanges,
     update_head_reference,
     worktree::{checkout, safe_checkout_from_head},
@@ -1579,9 +1579,17 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
 #[but_api(napi, json::ListedStack, provides = [Branches])]
 #[instrument(err(Debug))]
 pub fn branch_list(ctx: &Context) -> anyhow::Result<Vec<ListedStack>> {
+    let guard = ctx.shared_worktree_access();
+    branch_list_with_perm(ctx, guard.read_permission())
+}
+
+/// See [`branch_list()`]; this variant uses the caller's existing worktree access.
+pub fn branch_list_with_perm(
+    ctx: &Context,
+    _perm: &RepoShared,
+) -> anyhow::Result<Vec<ListedStack>> {
     let meta = ctx.meta()?;
     let project_meta = ctx.project_meta()?;
-    let _guard = ctx.shared_worktree_access();
     let listing = {
         let repo = ctx.repo.get()?;
         let mut db = ctx.db.get_cache_mut()?;

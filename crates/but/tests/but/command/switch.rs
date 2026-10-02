@@ -252,8 +252,6 @@ fn creates_named_branch_and_switches_to_it() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    assert_workspace_status(&env);
-
     env.but("switch --new my-feature")
         .assert()
         .success()
@@ -266,10 +264,15 @@ Created branch 'my-feature'
 
 "#]]);
 
-    assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "my-feature");
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "my-feature",
+        "the named branch is checked out"
+    );
     assert_eq!(
         env.invoke_git("rev-parse my-feature"),
-        env.invoke_git("rev-parse main")
+        env.invoke_git("rev-parse main"),
+        "the branch starts at the project target"
     );
 }
 
@@ -294,7 +297,78 @@ fn creates_named_branch_with_json_output() {
 
 "#]]);
 
-    assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "my-feature");
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "my-feature",
+        "JSON mode also checks out the named branch"
+    );
+}
+
+#[test]
+fn creates_generated_branch_with_json_output() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("--json switch --new")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![[r#"
+⚠ `--new/-n` is deprecated and will be removed in a future release. Use `but branch new --switch` instead
+
+"#]])
+        .stdout_eq(str![[r#"
+{
+  "type": "createdBranch",
+  "branch": "a-branch-1"
+}
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "a-branch-1",
+        "the generated branch is checked out"
+    );
+}
+
+#[test]
+fn rejects_workspace_with_new() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+
+    env.but("switch --workspace --new")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+error: the argument '--workspace' cannot be used with '--new'
+
+Usage: but switch --workspace [TARGET]
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn bare_switch_requires_terminal_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("switch")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Terminal input not available. Specify a branch or use `--workspace` or `--new`
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "gitbutler/workspace",
+        "missing terminal input must not switch branches"
+    );
 }
 
 #[test]
@@ -335,7 +409,7 @@ fn rejects_workspace_with_target() {
         .stderr_eq(str![[r#"
 error: the argument '--workspace' cannot be used with '[TARGET]'
 
-Usage: but switch <TARGET|--workspace|--new>
+Usage: but switch --workspace [TARGET]
 
 For more information, try '--help'.
 

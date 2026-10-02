@@ -14,6 +14,12 @@ use crate::args::atoms::CliIdArg;
 /// but switch my-feature
 /// ```
 ///
+/// Show a fuzzy branch picker:
+///
+/// ```text
+/// but switch
+/// ```
+///
 /// Switch back to the GitButler workspace:
 ///
 /// ```text
@@ -36,7 +42,7 @@ use crate::args::atoms::CliIdArg;
 #[clap(group(
     clap::ArgGroup::new("switch_target")
         .args(["target", "workspace", "new"])
-        .required(true)
+        .required(false)
         .multiple(true)
 ))]
 pub struct Platform {
