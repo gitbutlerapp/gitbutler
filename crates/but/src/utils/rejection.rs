@@ -107,23 +107,47 @@ pub fn explain_after_rollback(
         Target::Branch(name) => Some(name.clone()),
         Target::NewBranch(_) => None,
     };
-    let exclude_target_branch = (verb == "amend")
-        .then_some(target_branch.as_deref())
-        .flatten();
+    let amend_target = match (&target, verb) {
+        (Target::Commit(commit), "amend") => Some(commit.commit_id),
+        _ => None,
+    };
     let changes = match explain_rejections(
         repo,
         ws,
         &rejected.0,
         target_branch.as_deref(),
-        exclude_target_branch,
+        amend_target,
     ) {
         Ok(changes) => changes,
         Err(other) => return other,
     };
 
+    let has_descendant_dependency = amend_target.is_some_and(|target| {
+        changes
+            .iter()
+            .flat_map(|change| &change.dependencies)
+            .flat_map(|dependency| &dependency.commits)
+            .any(|dependency| {
+                ws.graph
+                    .relation_between_by_commit_id(target, dependency.commit.commit_id)
+                    .map_or(true, |relation| {
+                        matches!(
+                            relation,
+                            but_graph::SegmentRelation::Ancestor
+                                | but_graph::SegmentRelation::Identity
+                        )
+                    })
+            })
+    });
     let mut message = format!("Cannot {verb}: {rejected}:\n");
     // Writing to a String cannot fail.
-    let _ = write_report(&mut message, &changes, &target, target_branch.as_deref());
+    let _ = write_report(
+        &mut message,
+        &changes,
+        &target,
+        target_branch.as_deref(),
+        !has_descendant_dependency,
+    );
     anyhow::Error::new(ExplainedRejection(message.trim_end().to_string()))
 }
 
@@ -175,7 +199,7 @@ fn explain_rejections(
     ws: &Workspace,
     rejected_specs: &[(RejectionReason, DiffSpec)],
     target_branch: Option<&str>,
-    exclude_target_branch: Option<&str>,
+    amend_target: Option<gix::ObjectId>,
 ) -> anyhow::Result<Vec<RejectedChange>> {
     let needs_dependencies = rejected_specs
         .iter()
@@ -209,7 +233,7 @@ fn explain_rejections(
         .map(|(reason, spec)| {
             let dependencies = match &dependencies {
                 Some(deps) if is_dependency_reason(*reason) => {
-                    dependencies_for_spec(ws, repo, deps, spec, exclude_target_branch)?
+                    dependencies_for_spec(ws, repo, deps, spec, amend_target)?
                 }
                 _ => Vec::new(),
             };
@@ -240,6 +264,7 @@ fn write_report<W: std::fmt::Write + ?Sized>(
     changes: &[RejectedChange],
     target: &Target,
     target_branch: Option<&str>,
+    allow_stacking_hint: bool,
 ) -> std::fmt::Result {
     let t = theme::get();
     for change in changes {
@@ -279,6 +304,9 @@ fn write_report<W: std::fmt::Write + ?Sized>(
 
     // Stacking on the dependency resolves the rejection, but only when there
     // is exactly one dependency branch — so frame it as a hint, not a directive.
+    if !allow_stacking_hint {
+        return Ok(());
+    }
     let Some(dependency) = sole_dependency_branch(changes) else {
         return Ok(());
     };
@@ -396,7 +424,7 @@ fn dependencies_for_spec(
     repo: &gix::Repository,
     dependencies: &HunkDependencies,
     spec: &DiffSpec,
-    exclude_target_branch: Option<&str>,
+    amend_target: Option<gix::ObjectId>,
 ) -> anyhow::Result<Vec<HunkDependency>> {
     let spec_path = spec.path.as_bstr();
     let mut result = Vec::new();
@@ -420,15 +448,17 @@ fn dependencies_for_spec(
         }
         let mut commits = Vec::new();
         for lock in locks {
-            let branch = branch_of_commit(ws, lock.commit_id, stack_of(lock.target));
-            if exclude_target_branch
-                .is_some_and(|target_branch| branch.as_deref() == Some(target_branch))
-            {
+            if amend_target.is_some_and(|target| {
+                target == lock.commit_id
+                    || repo
+                        .merge_base(target, lock.commit_id)
+                        .is_ok_and(|base| base.detach() == lock.commit_id)
+            }) {
                 continue;
             }
             commits.push(DependencyCommit {
                 commit: CommitId::try_from_commit_id(lock.commit_id, repo)?,
-                branch,
+                branch: branch_of_commit(ws, lock.commit_id, stack_of(lock.target)),
             });
         }
         if commits.is_empty() {
