@@ -143,11 +143,10 @@ impl WorkspaceRanges {
     /// Finds commits that intersect with a given path and hunk.
     ///
     /// For `Modification`-type commit ranges that only *touch* (are adjacent to, but don't
-    /// overlap) the worktree hunk, the adjacency is only counted as an intersection when the
-    /// hunk's diff content suggests the change is a reorder or block-move — the class of
-    /// edits that can produce an LCS insertion point right at the boundary and thereby cause
-    /// a cherry-pick conflict even with no overlapping lines.  Plain substitutions (where
-    /// none of the old lines appear in the new lines) are not flagged.
+    /// overlap) the worktree hunk, the adjacency is counted when the hunk is a reorder or
+    /// block-move, or when a shrinking hunk ends at a commit's deletion point. These cases can
+    /// cause a cherry-pick conflict even with no overlapping lines. Plain substitutions are
+    /// not flagged.
     pub fn intersection(&self, path: &BString, hunk: &DiffHunk) -> Option<Vec<&HunkRange>> {
         let start = hunk.old_start;
         let lines = hunk.old_lines;
@@ -169,9 +168,14 @@ impl WorkspaceRanges {
                         //   the span, and the merge algorithm can anchor outside it.
                         // - the hunk content signals a reorder/move (not a plain
                         //   substitution) via `hunk_suggests_boundary_insertion`.
+                        // - a shrinking hunk ends exactly at a commit's deletion point:
+                        //   applying it there can conflict with the commit's removed line.
                         hr.intersects_or_adjacent(start, lines).unwrap_or(false)
                             && ((lines == 0 && hr.lines == 0)
-                                || (lines > 0 && hunk_suggests_boundary_insertion(&hunk.diff)))
+                                || (lines > 0 && hunk_suggests_boundary_insertion(&hunk.diff))
+                                || (hr.lines == 0
+                                    && hr.start == start.saturating_add(lines)
+                                    && hunk.old_lines > hunk.new_lines))
                     } else {
                         // For additions and deletions, we consider the hunk to always intersect.
                         true

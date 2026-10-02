@@ -67,6 +67,87 @@ Error: 'kp' is ambiguous - it matches more than one uncommitted change. Use more
 }
 
 #[test]
+fn absorbs_ancestor_changes_before_descendant_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("absorb-parent-before-child");
+    env.setup_metadata_at_target(&["B", "A"], "origin/main");
+    let padding = "/* padding */\n".repeat(12);
+    let source = format!(
+        "static unsigned long domain_reduce_node_claims(void)\n\
+         {{\n\
+         \x20   unsigned long released = 0;\n\
+         \x20   unsigned int node;\n\
+         \n\
+         \x20   for ( node = 0; node < 8; ++node )\n\
+         \x20       released += node;\n\
+         \n\
+         \x20   return released;\n\
+         }}\n\
+         \n\
+         {padding}\
+         void release_claims(void)\n\
+         {{\n\
+         \x20   domain_reduce_node_claims();\n\
+         }}\n\
+         \n\
+         {padding}\
+         void unset_claims(void)\n\
+         {{\n\
+         \x20   domain_reduce_node_claims();\n\
+         }}\n\
+         \n\
+         {padding}\
+         void redeem_claims(void)\n\
+         {{\n\
+         \x20   domain_reduce_node_claims();\n\
+         }}\n"
+    );
+    env.file("claims.c", source);
+
+    env.but("absorb")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Found 1 changed file to absorb:
+
+Absorbed to commit: ryy add claim release call sites
+  (files locked to commit due to hunk range overlap)
+    claims.c @32,7 +23,7
+    claims.c @49,7 +40,7
+
+Absorbed to commit: qkt redeem claims during allocation
+  (files locked to commit due to hunk range overlap)
+    claims.c @1,21 +1,12
+    claims.c @66,5 +57,5
+
+
+Hint: you can run `but undo` to undo these changes
+
+"#]])
+        .stderr_eq(str![""]);
+
+    let status = util::status_json(&env);
+    assert_eq!(
+        status["uncommittedChanges"]
+            .as_array()
+            .map(Vec::len)
+            .unwrap_or(0),
+        0,
+        "the changes to both commits should be absorbed"
+    );
+
+    let parent_diff = env.invoke_git("show A --format= -- claims.c");
+    assert!(
+        parent_diff.contains("+    domain_reduce_node_claims();"),
+        "the ancestor's call sites should be absorbed into A; commit diff:\n{parent_diff}"
+    );
+    let child_diff = env.invoke_git("show B --format= -- claims.c");
+    assert!(
+        child_diff.contains("+static unsigned long domain_reduce_node_claims(void)"),
+        "the descendant's helper rename should be absorbed into B:\n{child_diff}"
+    );
+}
+
+#[test]
 fn uncommitted_file() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 

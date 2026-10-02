@@ -452,6 +452,85 @@ fn adjacent_reorder_is_locked_but_substitution_is_not() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn shrinking_hunk_at_deletion_boundary_locks_to_both_commits() -> anyhow::Result<()> {
+    let path = BString::from("file.txt");
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
+    let commit_a = id_from_hex_char('a');
+    let commit_b = id_from_hex_char('b');
+
+    let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![InputStack {
+        target: stack_id,
+        commits_from_base_to_tip: vec![
+            InputCommit {
+                commit_id: commit_a,
+                files: vec![InputFile {
+                    path: path.clone(),
+                    change_type: TreeStatusKind::Addition,
+                    hunks: vec![InputDiffHunk {
+                        old_start: 0,
+                        old_lines: 0,
+                        new_start: 1,
+                        new_lines: 27,
+                    }],
+                }],
+            },
+            InputCommit {
+                commit_id: commit_b,
+                files: vec![InputFile {
+                    path: path.clone(),
+                    change_type: TreeStatusKind::Modification,
+                    hunks: vec![InputDiffHunk {
+                        old_start: 27,
+                        old_lines: 1,
+                        new_start: 27,
+                        new_lines: 0,
+                    }],
+                }],
+            },
+        ],
+    }])?;
+
+    let shrinking_hunk = DiffHunk {
+        old_start: 3,
+        old_lines: 24,
+        new_start: 3,
+        new_lines: 9,
+        diff: "@@ -3,24 +3,9 @@\n-old content\n+new content\n".into(),
+    };
+    let locks = workspace_ranges
+        .intersection(&path, &shrinking_hunk)
+        .unwrap_or_default();
+    let lock_commits: Vec<_> = locks.iter().map(|hunk| hunk.commit_id).collect();
+
+    assert!(
+        lock_commits.contains(&commit_b),
+        "a shrinking hunk ending at a later deletion must also depend on that commit, got: {lock_commits:?}"
+    );
+    assert!(
+        lock_commits.contains(&commit_a),
+        "the same hunk must retain its dependency on the commit that introduced the file, got: {lock_commits:?}"
+    );
+
+    let substitution_hunk = DiffHunk {
+        old_start: 3,
+        old_lines: 24,
+        new_start: 3,
+        new_lines: 24,
+        diff: "@@ -3,24 +3,24 @@\n-old content\n+replacement content\n".into(),
+    };
+    let locks = workspace_ranges
+        .intersection(&path, &substitution_hunk)
+        .unwrap_or_default();
+    let lock_commits: Vec<_> = locks.iter().map(|hunk| hunk.commit_id).collect();
+    assert!(
+        !lock_commits.contains(&commit_b),
+        "a same-sized substitution adjacent to a deletion must not depend on it, got: {lock_commits:?}"
+    );
+
+    Ok(())
+}
+
 /// Mimics the real StackCodegen.svelte scenario:
 /// - Commit A creates a file with 20 lines
 /// - Commit B deletes line 14 (context_lines=0 → old_start=14, old_lines=1, new_lines=0)
