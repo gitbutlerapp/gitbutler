@@ -3753,6 +3753,7 @@ fn integrate_and_materialize<M: RefMetadata>(
         rebase,
         ws_meta,
         project_meta,
+        deleted_refs,
     } = integrate_upstream(workspace, meta, current_project_meta, repo, db, updates)?;
     let materialized = rebase.materialize(Default::default())?;
     if let Some(ref_name) = materialized.workspace.ref_name()
@@ -3761,6 +3762,9 @@ fn integrate_and_materialize<M: RefMetadata>(
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
         materialized.meta.set_workspace(&md)?;
+    }
+    for ref_name in deleted_refs {
+        materialized.meta.remove(ref_name.as_ref())?;
     }
     drop(materialized);
 
@@ -3789,6 +3793,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         rebase,
         ws_meta,
         project_meta,
+        deleted_refs,
     } = integrate_upstream_with_hints(
         workspace,
         meta,
@@ -3806,6 +3811,9 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
         materialized.meta.set_workspace(&md)?;
+    }
+    for ref_name in deleted_refs {
+        materialized.meta.remove(ref_name.as_ref())?;
     }
     drop(materialized);
 

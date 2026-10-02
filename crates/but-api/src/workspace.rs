@@ -908,6 +908,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             mut rebase,
             ws_meta,
             project_meta,
+            deleted_refs,
         } = but_workspace::integrate_upstream_with_hints(
             &mut ws,
             &mut meta,
@@ -951,6 +952,10 @@ pub fn workspace_integrate_upstream_only_with_perm(
             let mut md = materialized.meta.workspace(ref_name)?;
             *md = ws_meta;
             materialized.meta.set_workspace(&md)?;
+        }
+        // Only discard metadata once the corresponding Git refs have been removed successfully.
+        for ref_name in deleted_refs {
+            materialized.meta.remove(ref_name.as_ref())?;
         }
 
         let workspace_state = WorkspaceState::from_materialized(materialized, &repo)?;

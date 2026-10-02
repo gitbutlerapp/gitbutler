@@ -56,6 +56,8 @@ pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
     pub ws_meta: Option<but_core::ref_metadata::Workspace>,
     /// The updated project metadata.
     pub project_meta: ProjectMeta,
+    /// Integrated local branches whose metadata must be removed after successful materialization.
+    pub deleted_refs: Vec<gix::refs::FullName>,
     /// The rebased outcome.
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
 }
@@ -342,6 +344,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let mut fully_integrated_workspace_parents = HashSet::new();
     let mut direct_checkout_replacement_ref: Option<(Selector, gix::refs::FullName)> = None;
     let mut selected_stack_nodes = HashSet::new();
+    let mut deleted_refs = Vec::new();
     for stack in &stacks {
         let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase)
             || stack.to_merge
@@ -404,6 +407,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     target_ref.ref_name.as_ref(),
                     local_target_ref.as_ref().map(|name| name.as_ref()),
                 ) {
+                    deleted_refs.push(ref_name.clone());
                     if direct_checkout_replacement_ref
                         .as_ref()
                         .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
@@ -579,6 +583,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     Ok(IntegrateUpstreamOutcome {
         ws_meta,
         project_meta,
+        deleted_refs,
         rebase,
     })
 }
