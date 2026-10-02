@@ -4,6 +4,7 @@
   <rect x="50" y="46" width="8" height="18" fill="#00AA00" />
   <rect x="58" y="64" width="8" height="18" fill="#00AA00" />
   <rect x="10" y="352" width="64" height="18" fill="#0000AA" />
+  <rect x="106" y="352" width="8" height="18" fill="#CCCCCC" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#FFFFFF;font-weight:bold;">╭┄</text>
     <text x="34" y="24" style="fill:#0000AA;font-weight:bold;opacity:0.75;">@</text>
