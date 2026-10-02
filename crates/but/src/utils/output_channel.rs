@@ -169,6 +169,17 @@ impl<'out> WriteWithUtils for IntermediateChannel<'out> {
     }
 }
 
+/// In-memory output, which is never paged or truncated.
+impl WriteWithUtils for String {
+    fn truncate_if_unpaged(&self, text: &str, _max_width: usize) -> String {
+        text.to_owned()
+    }
+
+    fn is_paged(&self) -> bool {
+        false
+    }
+}
+
 pub struct StderrChannel(std::io::Stderr);
 
 impl StderrChannel {

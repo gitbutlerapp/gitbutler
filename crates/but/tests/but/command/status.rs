@@ -21,6 +21,17 @@ fn workspace_status_as_library() -> anyhow::Result<()> {
     branches.sort();
     assert_eq!(branches, ["A", "B"], "both applied stacks are in the model");
 
+    // The only in-process renderer in this binary, so the theme is set up once.
+    but::theme::init(Default::default());
+    let text = but::workspace_status_text(&mut env.context(), but::StatusFlags::all_false())?;
+    for branch in status.stacks.iter().flat_map(|stack| &stack.branches) {
+        assert!(
+            text.contains(&format!("{} [{}]", branch.cli_id, branch.name)),
+            "the text names each branch with the ID the model has:\n{text}"
+        );
+    }
+    assert!(text.contains("(common base"), "{text}");
+
     let env = enter_edit_mode_with_conflicted_commit();
     let err = but::workspace_status(&mut env.context(), but::StatusFlags::all_false())
         .expect_err("edit mode has no workspace status");

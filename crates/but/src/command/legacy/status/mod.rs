@@ -66,6 +66,38 @@ pub fn workspace_status(
     ctx: &mut Context,
     flags: StatusFlags,
 ) -> anyhow::Result<json::WorkspaceStatus> {
+    with_status_context(ctx, flags, OutputFormat::Json, |ctx, status_ctx| {
+        json::build_workspace_status_json(status_ctx, &*ctx.repo.get()?)
+    })
+}
+
+/// The text `but status` prints, for in-process callers that add their own lines to it.
+///
+/// Like [`workspace_status()`], and painted with the global [`crate::theme`], which the caller
+/// must have initialized.
+pub fn workspace_status_text(ctx: &mut Context, flags: StatusFlags) -> anyhow::Result<String> {
+    // Agents get untruncated text, as from the CLI.
+    let format = OutputFormat::Human {
+        agent: crate::utils::detect_agent::detect().is_some(),
+    };
+    with_status_context(ctx, flags, format, |ctx, status_ctx| {
+        let mut text = String::new();
+        build_status_output(
+            ctx,
+            status_ctx,
+            &mut StatusOutput::Immediate { out: &mut text },
+        )?;
+        Ok(text)
+    })
+}
+
+/// Build what `but status` shows in `format` and hand it to `f`, refusing edit mode.
+fn with_status_context<T>(
+    ctx: &mut Context,
+    flags: StatusFlags,
+    format: OutputFormat,
+    f: impl FnOnce(&Context, &StatusContext<'_>) -> anyhow::Result<T>,
+) -> anyhow::Result<T> {
     let mut guard = ctx.exclusive_worktree_access();
     let mode = but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
         .operating_mode;
@@ -75,13 +107,13 @@ pub fn workspace_status(
     let status_ctx = build_status_context(
         ctx,
         guard.write_permission(),
-        &mut OutputChannel::new(OutputFormat::Json),
-        OutputFormat::Json,
+        &mut OutputChannel::new(format),
+        format,
         &mode,
         flags,
         StatusRenderMode::Oneshot(None),
     )?;
-    json::build_workspace_status_json(&status_ctx, &*ctx.repo.get()?)
+    f(ctx, &status_ctx)
 }
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");

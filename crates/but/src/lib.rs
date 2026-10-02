@@ -63,7 +63,11 @@ mod alias;
 /// A place for all command implementations.
 pub(crate) mod command;
 #[cfg(feature = "legacy")]
-pub use command::legacy::status::{FilesStatusFlag, StatusFlags, json as status, workspace_status};
+pub use command::legacy::status::{
+    FilesStatusFlag, StatusFlags, json as status, workspace_status, workspace_status_text,
+};
+#[cfg(feature = "legacy")]
+pub use utils::change_source::active_worktree_sources;
 mod retired_syntax;
 pub mod theme;
 mod tui;
