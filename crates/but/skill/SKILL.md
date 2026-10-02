@@ -53,7 +53,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 
 ## Non-Negotiable Rules
 
-1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. If the user says a `git` write command, translate it to `but` and run that. Running from a linked worktree shows the same workspace and IDs as the main worktree, and `@` still means the main worktree's changes; a bare `but commit` or `but diff` takes that worktree's changes, and `<worktree>:@` names them from anywhere. `but setup` refuses to run from a worktree.
+1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. The only exception is selecting a side of a conflicted submodule in resolution mode (see Resolve conflicted commits). If the user says a `git` write command, translate it to `but` and run that. Running from a linked worktree shows the same workspace and IDs as the main worktree, and `@` still means the main worktree's changes; a bare `but commit` or `but diff` takes that worktree's changes, and `<worktree>:@` names them from anywhere. `but setup` refuses to run from a worktree.
 2. Mutation commands print their result without appending workspace status. Add `--status-after` only when the next step needs resulting workspace IDs or details; otherwise trust the mutation result and do not run a verification status/diff.
 3. Branches marked `(merged upstream)` have landed; start new work on another branch. That marker alone does not mean `but pull` removes them: run `but pull --check` first. `but pull` removes only branches listed `[integrated]` ("has been integrated upstream and removed locally") and rebases the rest, which stay applied. To clear a landed branch that stays applied, use `but unapply <branch>` (acts on its whole stack; `but apply <branch>` restores it) rather than `but discard`. `push` and mutations (`commit`, `amend`, `squash`, `uncommit`, `reword`, `move`) refuse landed branches and commits, `absorb` skips them with a notice, and `commit` skips them when picking a default target.
 4. In non-interactive CLI workflows, do not narrate progress between routine commands. Execute the needed `but` commands and give a concise final summary.
@@ -174,7 +174,7 @@ If that recovery command fails, do NOT try `uncommit`, `squash`, or `undo` as a 
 
 ### Resolve conflicted commits (after pull, move, or reorder)
 
-**NEVER use `git add`, `git commit`, `git checkout --theirs/--ours`, or any git write command during resolution.** Only `but resolve` commands plus direct file edits.
+**NEVER use `git add`, `git commit`, `git checkout --theirs/--ours`, or any git write command during resolution.** Only `but resolve` commands plus direct file edits. The one exception is a conflicted submodule in edit mode, below.
 
 Conflicts do not interrupt operations in GitButler: a rebase always completes, and commits that conflicted are marked `{conflicted}` in `but status`. Find them from the warning that history-editing commands (`move`, `discard`, …) print, from the `but pull` summary, or from `but status`. Resolve them one conflict at a time, without entering any mode. Work through one branch at a time, oldest commit first — the loop is:
 
@@ -194,6 +194,7 @@ A wrong resolution is reverted with `but undo`.
 
 1. `but resolve <commit-id>` — enters resolution mode and prints the conflict regions.
 2. **Edit the files** to remove every conflict marker — `<<<<<<<`, `|||||||` (the common-ancestor section), `=======` and `>>>>>>>` — and keep the correct content. Do NOT skip this; do NOT use `but amend` on conflicted commits.
+   - A conflicted submodule has no markers, and `but resolve finish` refuses while it is unresolved, even to keep the commit's own side. Select it explicitly: check out the wanted commit inside the submodule (or write the file that replaces it) and run `git add -- <path>`, or drop it with `git rm -- <path>`. These are the only git write commands allowed during resolution, and only for the paths `finish` names; never `git commit`. If the submodule directory is empty or missing, do not `git add` it (for a missing one that stages its removal): keep any resolution edits you want and report the conflict. `but resolve cancel --force` abandons the resolution and discards its edits; use it only when those edits can be discarded.
 3. `but resolve finish` reports leftover markers, surviving uncommitted changes, every remaining conflicted commit, and the exact current `but resolve <id>` command. Add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status. Cancel instead with `but resolve cancel`.
 4. Repeat for remaining conflicted commits, oldest first — finishing a lower commit rebases the ones above it.
 
