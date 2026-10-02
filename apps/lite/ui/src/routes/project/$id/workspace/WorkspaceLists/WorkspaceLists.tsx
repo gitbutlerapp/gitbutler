@@ -1066,8 +1066,9 @@ const Stacks: FC<{
 	// Cards in the graph's order, the section below.
 	const { plan, stacks } = graph;
 	// Undefined `headInfo` is still loading, which is not the same as "empty" —
-	// treating it as empty would flash the empty state on every open.
-	const isEmpty = headInfo !== undefined && stacks.length === 0;
+	// treating it as empty would flash the empty state on every open. A hosted
+	// project never has stacks of its own; its work is in the worktree lanes.
+	const isEmpty = window.lite.hosted !== true && headInfo !== undefined && stacks.length === 0;
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
@@ -1546,19 +1547,22 @@ export const WorkspaceLists: FC<
 					onAmendCommit={amendCommit}
 					canAmendCommit={canAmendCommit}
 					onEdgeSpill={spillIntoUncommittedChanges}
-					head={uncommitted}
+					// A hosted project has no checkout of its own; its work is in the worktrees.
+					head={window.lite.hosted === true ? null : uncommitted}
 					dockOffset={cardHeadHeight}
 					dock={
-						<UncommittedChangesRow
-							changes={worktreeChanges?.changes ?? []}
-							isClean={worktreeChanges !== undefined && worktreeChanges.changes.length === 0}
-							projectId={projectId}
-							mode={{
-								kind: "docked",
-								onSelect: () => scrollElementRef.current?.scrollTo({ top: 0 }),
-							}}
-							className={styles.dockRow}
-						/>
+						window.lite.hosted !== true && (
+							<UncommittedChangesRow
+								changes={worktreeChanges?.changes ?? []}
+								isClean={worktreeChanges !== undefined && worktreeChanges.changes.length === 0}
+								projectId={projectId}
+								mode={{
+									kind: "docked",
+									onSelect: () => scrollElementRef.current?.scrollTo({ top: 0 }),
+								}}
+								className={styles.dockRow}
+							/>
+						)
 					}
 					scrollElementRef={scrollElementRef}
 					scrollPaddingEnd={scrollPaddingEnd}

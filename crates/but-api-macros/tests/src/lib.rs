@@ -26,6 +26,27 @@ pub mod tags {
     pub fn signal_invalidation(_project_data_dir: &std::path::Path, _tags: &[&str]) {}
 }
 
+/// Stand-in for `but_api::CmdEntry`, which `napi` expansion registers each `_cmd` wrapper as.
+#[cfg(feature = "legacy")]
+pub struct CmdEntry {
+    pub js_name: &'static str,
+    pub call: CmdFn,
+}
+
+/// Stand-in for `but_api::CmdFn`.
+#[cfg(feature = "legacy")]
+pub enum CmdFn {
+    Sync(fn(serde_json::Value) -> anyhow::Result<serde_json::Value>),
+    Async(
+        fn(
+            serde_json::Value,
+        ) -> futures::future::BoxFuture<'static, anyhow::Result<serde_json::Value>>,
+    ),
+}
+
+#[cfg(feature = "legacy")]
+inventory::collect!(CmdEntry);
+
 pub mod panic_capture {
     pub fn panic_payload_to_anyhow(
         function_name: &str,

@@ -25,6 +25,7 @@ serde.workspace = true
 serde_json.workspace = true
 gix.workspace = true
 futures.workspace = true
+inventory.workspace = true
 bstr = { workspace = true, features = ["serde"] }
 tauri = { version = "^2.10.3", features = ["unstable"], optional = true, default-features = false }
 napi = { version = "3.8.5", features = ["serde-json", "tokio_rt"], optional = true }

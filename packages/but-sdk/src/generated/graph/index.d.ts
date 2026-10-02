@@ -945,6 +945,42 @@ export declare function gitTestPush(projectId: string, remoteName: string, branc
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
 /**
+ * Fetch from the hosted server and list the branches published for this project.
+ *
+ * {@link ../../../../../crates/but-api/src/hosted.rs:234}
+ */
+export declare function hostedBranches(projectId: string): Promise<Array<HostedBranch>>
+
+/**
+ * Publish `branch` (a short name) to the hosted server, from wherever it lives locally.
+ *
+ * It's one atomic push of the branch, the target branch it's based on, and a snapshot commit
+ * on top of the branch whose message describes it. With `include_uncommitted`, the snapshot
+ * holds the uncommitted changes of the worktree the branch is checked out in; in the
+ * workspace, uncommitted changes don't belong to one branch, so they stay local.
+ *
+ * If the server's branch has commits this one doesn't, publishing would replace them: without
+ * `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
+ *
+ * {@link ../../../../../crates/but-api/src/hosted.rs:270}
+ */
+export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
+
+/**
+ * Pull the published `branch` (a short name) down.
+ *
+ * Where the branch already lives locally, it's updated there. Otherwise it goes into a new
+ * worktree next to the main one, with the published uncommitted changes restored, or, with
+ * `into_workspace`, it's applied in the workspace without them.
+ *
+ * If the local branch has commits of its own, or its worktree has uncommitted changes,
+ * pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
+ *
+ * {@link ../../../../../crates/but-api/src/hosted.rs:369}
+ */
+export declare function hostedBranchPull(projectId: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
+
+/**
  * Initialize the secret namespace used by build-kind scoped credentials.
  *
  * Applications embedding the SDK should call this once during startup before
@@ -3399,6 +3435,16 @@ export type HeadSha = {
  */
 export type HexHashString = string;
 
+/** A branch published to the hosted server, as of the last fetch. */
+export type HostedBranch = {
+  /** The branch's short name, e.g. `agent/search`. */
+  branch: string;
+  /** Whether it was published with uncommitted changes. */
+  uncommitted: boolean;
+  /** Where a local branch of that name lives. */
+  local: LocalHome;
+};
+
 export type HunkAssignment = {
   /**
    * A stable identifier for the hunk assignment.
@@ -3788,6 +3834,18 @@ export type ListedWorktree = {
   updatedAtMs: number | null;
 };
 
+/** Where a branch lives locally. */
+export type LocalHome = {
+  type: "none";
+} | {
+  type: "worktree";
+  subject: string;
+} | {
+  type: "workspace";
+} | {
+  type: "branch";
+};
+
 /** Response from `POST /api/login/token.json`. */
 export type LoginToken = {
   /**
@@ -3890,6 +3948,9 @@ export type NewWorktree = {
 
 /** A column in a detailed graph node row. */
 export type NodeLine = "blank" | "ancestor" | "parent" | "node";
+
+/** What to do when publishing or pulling would replace work. */
+export type OnConflict = "overwrite" | "keep";
 
 export type OperatingMode = {
   type: "OpenWorkspace";
@@ -4419,6 +4480,15 @@ export type StackReference = {
   branches: Array<string>;
   /** Pull Request numbers by branch name associated with the stack */
   pullRequests: Record<string, number>;
+};
+
+/** The result of publishing or pulling. */
+export type SyncOutcome = {
+  type: "done";
+  subject: string;
+} | {
+  type: "needsChoice";
+  subject: string;
 };
 
 /** Information about the target reference, the one we want to integrate with. */

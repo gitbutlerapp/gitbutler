@@ -52,6 +52,10 @@ impl Subcommands {
         ) {
             return None;
         }
+        #[cfg(all(feature = "nightly", feature = "legacy"))]
+        if matches!(self, Subcommands::_Publish(_) | Subcommands::_Pull(_)) {
+            return None;
+        }
         let cmd = self.to_metrics_command();
         let extra_props = self.to_metrics_extra_props();
         Some(OneshotMetricsContext::new(
@@ -68,6 +72,8 @@ impl Subcommands {
         use crate::args::{agent, alias as alias_args, branch, forge, skill, update, worktree};
         match self {
             Subcommands::_Comment(_) => Comment,
+            #[cfg(all(feature = "nightly", feature = "legacy"))]
+            Subcommands::_Publish(_) | Subcommands::_Pull(_) => Publish,
             Subcommands::Completions { .. } => Completions,
             Subcommands::Mcp(_) => Mcp,
             Subcommands::Metrics { .. } => Metrics,

@@ -72,6 +72,8 @@ export type LiteElectronApi = SDK & {
 	readGUISettings: () => Promise<GUISettings>;
 	writeGUISettings: (settings: GUISettings) => Promise<void>;
 	platform: string;
+	/** Served by a hosted server, which shows published worktrees only. */
+	hosted?: boolean;
 };
 
 /**

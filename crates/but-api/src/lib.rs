@@ -51,6 +51,10 @@ pub mod commit;
 /// Functions that operate on linked git worktrees (experimental).
 pub mod worktrees;
 
+/// Worktrees published to a hosted GitButler server (experimental).
+#[cfg(feature = "legacy")]
+pub mod hosted;
+
 /// Resolve the conflicts of a conflicted commit with an LLM.
 pub mod resolve;
 
@@ -80,6 +84,32 @@ pub mod ai;
 
 /// Functions for workspace state.
 pub mod workspace_state;
+
+/// A `#[but_api(napi)]` function's `_cmd` wrapper under its JavaScript name, so a server can
+/// expose every SDK endpoint by the name the SDK uses, without listing them by hand.
+#[cfg(feature = "legacy")]
+pub struct CmdEntry {
+    /// The name napi-rs exposes to JavaScript, e.g. `branchDiff`.
+    pub js_name: &'static str,
+    /// Calls the function with its named parameters as a JSON object.
+    pub call: CmdFn,
+}
+
+/// How a [`CmdEntry`] runs, matching the asyncness of the function it wraps.
+#[cfg(feature = "legacy")]
+pub enum CmdFn {
+    /// A blocking call, to be run off the async executor.
+    Sync(fn(serde_json::Value) -> anyhow::Result<serde_json::Value>),
+    /// An async call.
+    Async(
+        fn(
+            serde_json::Value,
+        ) -> futures::future::BoxFuture<'static, anyhow::Result<serde_json::Value>>,
+    ),
+}
+
+#[cfg(feature = "legacy")]
+inventory::collect!(CmdEntry);
 
 /// Represents the workspace for the frontend
 ///

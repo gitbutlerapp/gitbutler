@@ -4,7 +4,7 @@
 
 use but_api_macros::but_api;
 
-pub use but_api_macros_tests::{json, panic_capture};
+pub use but_api_macros_tests::{json, panic_capture, CmdEntry, CmdFn};
 
 #[but_api(napi)]
 pub fn napi_ctx_and_oid(_ctx: but_ctx::Context, oid: gix::ObjectId) -> anyhow::Result<String> {

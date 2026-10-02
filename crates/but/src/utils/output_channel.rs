@@ -19,7 +19,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfirmDefault {
     Yes,
-    #[expect(dead_code)]
+    #[cfg_attr(not(all(feature = "nightly", feature = "legacy")), expect(dead_code))]
     No,
 }
 

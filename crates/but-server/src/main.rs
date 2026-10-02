@@ -15,6 +15,15 @@ struct Args {
     /// Prefix all API routes with this path (e.g. /api).
     #[arg(long)]
     base_path: Option<String>,
+
+    /// Serve published checkouts from this directory, read-only, instead of local projects.
+    /// Requests must carry the token in `BUT_HOSTED_TOKEN`.
+    #[arg(long)]
+    hosted_dir: Option<std::path::PathBuf>,
+
+    /// The built Lite web bundle to serve in hosted mode.
+    #[arg(long, requires = "hosted_dir")]
+    web_dir: Option<std::path::PathBuf>,
 }
 
 #[tokio::main]
@@ -35,6 +44,18 @@ async fn main() -> anyhow::Result<()> {
     but_askpass::disable();
 
     let args = Args::parse();
+    if let Some(data_dir) = args.hosted_dir {
+        let token = std::env::var("BUT_HOSTED_TOKEN")
+            .map_err(|_| anyhow::anyhow!("hosted mode needs BUT_HOSTED_TOKEN"))?;
+        return but_server::hosted::run(but_server::hosted::HostedConfig {
+            port: args.port,
+            bind_addr: args.bind_addr.unwrap_or_else(|| "127.0.0.1".into()),
+            data_dir,
+            web_dir: args.web_dir,
+            token,
+        })
+        .await;
+    }
     let config = Config {
         port: Some(args.port),
         bind_addr: args.bind_addr,

@@ -16,7 +16,8 @@ type RendererOnlyKey =
 	| "onDeepLink"
 	| "onFullScreenChange"
 	| "onNotificationClick"
-	| "platform";
+	| "platform"
+	| "hosted";
 
 /** Handlers needing the transport event itself, or taking variadic arguments. */
 type ImperativeKey =

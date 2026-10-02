@@ -8,7 +8,7 @@
 
 use but_api_macros::but_api;
 
-pub use but_api_macros_tests::{json, panic_capture, tags};
+pub use but_api_macros_tests::{json, panic_capture, tags, CmdEntry, CmdFn};
 
 #[but_api(napi, invalidates = [Reviews])]
 pub fn sync_signal(_ctx: &but_ctx::Context, value: i32) -> anyhow::Result<i32> {

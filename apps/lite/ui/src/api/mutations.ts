@@ -1504,6 +1504,13 @@ export const useWorktreeSetArchived = (projectId: string) =>
 		meta: { failureTitle: "Failed to change the worktree's archived state" },
 	});
 
+export const useHostedBranchPull = (projectId: string) =>
+	useMutation({
+		mutationKey: [projectId, "hostedBranchPull"],
+		mutationFn: window.lite.hostedBranchPull,
+		meta: { failureTitle: "Failed to pull the branch" },
+	});
+
 export const useWorktreeRemove = (projectId: string) =>
 	useMutation({
 		mutationKey: [projectId, "worktreeRemove"],

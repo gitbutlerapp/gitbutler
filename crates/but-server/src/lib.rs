@@ -30,6 +30,8 @@ use tower_http::cors::{self, CorsLayer};
 mod projects;
 use crate::projects::ActiveProjects;
 
+pub mod hosted;
+
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 enum Response {
@@ -224,6 +226,31 @@ return POSIX path of theFolder"#,
     {
         anyhow::bail!("Native file picker is not supported on this platform")
     }
+}
+
+/// Call any SDK endpoint by its JavaScript name, with its named parameters as the body,
+/// as Lite calls them over its other transports.
+async fn post_sdk_endpoint(
+    Path(endpoint): Path<String>,
+    Json(params): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    call_sdk_endpoint(&endpoint, params).await
+}
+
+pub(crate) async fn call_sdk_endpoint(
+    endpoint: &str,
+    params: serde_json::Value,
+) -> Json<serde_json::Value> {
+    let Some(entry) = inventory::iter::<but_api::CmdEntry>().find(|e| e.js_name == endpoint) else {
+        return cmd_result_to_json(Err(anyhow::anyhow!("Unknown endpoint: {endpoint}")));
+    };
+    let res = match entry.call {
+        but_api::CmdFn::Sync(call) => tokio::task::spawn_blocking(move || call(params))
+            .await
+            .unwrap_or_else(|e| Err(anyhow::anyhow!("handler task panicked: {e}"))),
+        but_api::CmdFn::Async(call) => call(params).await,
+    };
+    cmd_result_to_json(res)
 }
 
 fn cmd_result_to_json(res: anyhow::Result<serde_json::Value>) -> Json<serde_json::Value> {
@@ -799,6 +826,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
 
     // Catch-all for commands that need special handling (app, extra, app_settings_sync)
     let app = app
+        .route("/sdk/{endpoint}", post(post_sdk_endpoint))
         .route("/{command}", post(post_handle_command_with_path))
         .route(
             "/ws",

@@ -24,7 +24,12 @@ export const usePlan = (projectId: string) => {
 	const folds = useAppSelector((state) =>
 		projectSlice.selectors.selectGraphFolds(state, projectId),
 	);
-	const listOrder = useMemo(() => headInfo?.stacks ?? [], [headInfo]);
+	// A hosted project's own HEAD only sits on the target, so it has no stacks of its own;
+	// its work is in the worktree lanes.
+	const listOrder = useMemo(
+		() => (window.lite.hosted === true ? [] : (headInfo?.stacks ?? [])),
+		[headInfo],
+	);
 	const target = headInfo?.target ?? null;
 	const worktrees = headInfo?.worktrees ?? noWorktrees;
 	const olderFrom = baseListing?.commits.at(-1)?.commit.id ?? "";

@@ -14,6 +14,7 @@ export type LiteApiTransport = {
 	/** Hear every event on a named channel until the returned function runs. */
 	subscribe: (channel: string, listener: (payload: unknown) => void) => () => void;
 	platform: LiteElectronApi["platform"];
+	hosted?: boolean;
 };
 
 /** API members implemented below rather than forwarded. */
@@ -24,6 +25,7 @@ type SpecialKey =
 	| "onFullScreenChange"
 	| "onNotificationClick"
 	| "platform"
+	| "hosted"
 	| "streamAiResponse"
 	| "watcherSubscribe"
 	| "watcherUnsubscribe"
@@ -69,6 +71,7 @@ export const createLiteApi = ({
 	invoke,
 	subscribe,
 	platform,
+	hosted,
 }: LiteApiTransport): LiteElectronApi => {
 	/** Unsubscribers per watcher subscription; the UI knows ids, not channels. */
 	const watcherUnsubscribeBySubscription = new Map<string, () => void>();
@@ -141,5 +144,6 @@ export const createLiteApi = ({
 			return invoke("watcherStopAll") as Promise<number>;
 		},
 		platform,
+		hosted,
 	};
 };

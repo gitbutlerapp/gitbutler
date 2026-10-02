@@ -302,12 +302,10 @@ impl Context {
         }
         #[cfg(feature = "legacy")]
         {
-            use anyhow::Context as _;
-            let worktree_dir = repo
+            let legacy_project = repo
                 .workdir()
-                .context("Bare repositories aren't yet supported.")?;
-            let legacy_project = LegacyProject::find_by_worktree_dir(worktree_dir)
-                .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
+                .and_then(|worktree_dir| LegacyProject::find_by_worktree_dir(worktree_dir).ok())
+                .unwrap_or_else(|| default_legacy_project_at_repo(&repo));
             let cache_mode = CacheMode::Disk;
             Context {
                 settings,
@@ -423,12 +421,10 @@ impl Context {
             but_project_handle::gitbutler_storage_path_for_channel(&repo, channel)?;
         #[cfg(feature = "legacy")]
         {
-            use anyhow::Context as _;
-            let worktree_dir = repo
+            let legacy_project = repo
                 .workdir()
-                .context("Bare repositories aren't yet supported.")?;
-            let legacy_project = LegacyProject::find_by_worktree_dir(worktree_dir)
-                .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
+                .and_then(|worktree_dir| LegacyProject::find_by_worktree_dir(worktree_dir).ok())
+                .unwrap_or_else(|| default_legacy_project_at_repo(&repo));
             let gitdir = repo.git_dir().to_owned();
             let cache_mode = CacheMode::Disk;
             Context {
@@ -1112,6 +1108,13 @@ fn app_settings(config_dir: impl AsRef<Path>) -> anyhow::Result<AppSettings> {
 
 #[cfg(feature = "legacy")]
 fn default_legacy_project_at_repo(repo: &gix::Repository) -> LegacyProject {
+    if repo.workdir().is_none() {
+        // A bare repository has no worktree for a legacy project to point at.
+        let handle = ProjectHandle::from_path(repo.git_dir()).expect("git dir is a valid handle");
+        return LegacyProject::default_with_id(ProjectHandleOrLegacyProjectId::ProjectHandle(
+            handle,
+        ));
+    }
     LegacyProject::from_path(repo.workdir().unwrap_or_else(|| repo.git_dir()))
         .expect("test repositories are valid projects")
 }

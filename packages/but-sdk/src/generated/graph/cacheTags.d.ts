@@ -26,6 +26,7 @@ export declare const apiProvides: {
 	readonly getWorkspaceFile: readonly [];
 	readonly getWorkspaceFileFromSource: readonly [];
 	readonly headInfo: readonly ["Workspace"];
+	readonly hostedBranches: readonly ["Worktrees"];
 	readonly listCiChecks: readonly ["Checks"];
 	readonly listCommentReactions: readonly ["CommentReactions"];
 	readonly listRepoLabels: readonly ["RepoLabels"];
@@ -65,6 +66,8 @@ export declare const apiInvalidates: {
 	readonly forgetBitbucketAccount: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly forgetGithubAccount: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly forgetGitlabAccount: readonly ["ForgeAccounts", "ForgeLogin"];
+	readonly hostedBranchPublish: readonly ["Worktrees"];
+	readonly hostedBranchPull: readonly ["Worktrees", "Workspace", "Branches"];
 	readonly mergeReview: readonly ["Reviews", "MergeStatus", "Checks", "Branches"];
 	readonly publishReview: readonly ["Reviews", "Branches", "Workspace"];
 	readonly removeCommentReaction: readonly ["CommentReactions", "ReviewComments"];

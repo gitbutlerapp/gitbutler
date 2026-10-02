@@ -183,6 +183,10 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 SubcommandDiscriminant::Edit => continue,
                 #[cfg(feature = "nightly")]
                 SubcommandDiscriminant::_Open => continue,
+                #[cfg(all(feature = "nightly", feature = "legacy"))]
+                SubcommandDiscriminant::_Publish => continue,
+                #[cfg(all(feature = "nightly", feature = "legacy"))]
+                SubcommandDiscriminant::_Pull => continue,
                 #[cfg(feature = "nightly")]
                 SubcommandDiscriminant::_Expand => continue,
                 SubcommandDiscriminant::Metrics => continue,

@@ -99,6 +99,7 @@ but-forge.workspace = true
 but-forge-storage.workspace = true
 but-comments.workspace = true
 but-project-handle.workspace = true
+inventory.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
 but-github.workspace = true

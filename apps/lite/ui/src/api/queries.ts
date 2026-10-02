@@ -220,6 +220,13 @@ export const worktreesListQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.worktreesList(projectId),
 	});
 
+/** Branches published for the project on the hosted server, fetched fresh on each read. */
+export const hostedBranchesQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: [projectId, "hostedBranches"],
+		queryFn: () => window.lite.hostedBranches(projectId),
+	});
+
 export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "workspaceTargetCommits"],
