@@ -36,10 +36,8 @@ pub fn delete(
             .into_iter()
             .unique()
             .collect::<Vec<_>>();
-        let branches = NonEmpty::from_vec(branches)
-            .context("BUG: branches is required to be non-empty in clap args")?;
-        discard::validate_branch_discard(&repo, &branches)?;
-        branches
+        NonEmpty::from_vec(branches)
+            .context("BUG: branches is required to be non-empty in clap args")?
     };
 
     Ok(discard::run(
