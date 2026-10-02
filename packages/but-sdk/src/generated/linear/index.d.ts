@@ -239,15 +239,15 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  * `branch` is the short name of the branch to land (its `refs/heads/<branch>` ref). The branch
  * must be the bottom segment of its stack — or, with `whole_stack`, the top segment, which
  * publishes every segment below it as well — and the landed segments must be free of conflicted
- * commits. The workspace must be a managed GitButler workspace with a configured, non-triangular
- * target remote.
+ * commits. HEAD must be the managed workspace or, in single-branch mode, the checked-out branch
+ * (see [`ensure_landable_checkout`]), and the target remote must be configured and non-triangular.
  *
  * This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
  * the target moves underneath us), then reconciles the remaining applied branches onto the moved
  * target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
  * workspace state for what to report.
  *
- * {@link ../../../../../crates/but-api/src/land/mod.rs:172}
+ * {@link ../../../../../crates/but-api/src/land/mod.rs:174}
  */
 export declare function branchLand(projectId: string, branch: string, noFf: boolean, wholeStack: boolean): Promise<BranchLandResult>
 
@@ -909,7 +909,7 @@ export declare function getUserProfileLocal(): Promise<UserProfile | null>
  * This is a read-only projection of the current workspace graph. It does not
  * mutate the cached [`WorkspaceState`] returned by mutation APIs.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:406}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:464}
  */
 export declare function getWorkspace(projectId: string): Promise<DetailedGraphWorkspace>
 
@@ -990,7 +990,7 @@ export declare function installCliV2(cliPath: string, symlinkPolicy: ExistingSym
 export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:678}
+ * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:708}
  */
 export declare function listBranches(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
 
@@ -1296,19 +1296,6 @@ export declare const enum ProgramCategory {
 export declare function publishReview(projectId: string, params: PublishReviewInput): Promise<PublishReviewOutcome>
 
 /**
- * Remove a branch from a stack.
- *
- * This acquires exclusive worktree access from `ctx` before creating the
- * removal snapshot and detaching the branch.
- *
- * This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
- * or on a branch that's empty.
- *
- * {@link ../../../../../crates/but-api/src/legacy/stack.rs:117}
- */
-export declare function removeBranch(projectId: string, stackId: string, branchName: string): Promise<void>
-
-/**
  * Remove one of the caller's reactions from one comment.
  *
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1192}
@@ -1373,7 +1360,7 @@ export declare function resolveCommitConflictHunks(projectId: string, commitId: 
  *
  * For lower-level details, see [`but_workspace::resolve_worktree_conflicts()`].
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:465}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:523}
  */
 export declare function resolveWorktreeConflicts(projectId: string, paths: Array<string>): Promise<void>
 
@@ -1422,7 +1409,7 @@ export declare function setGbConfig(projectId: string, config: GitConfigSettings
  * This acquires exclusive repository access, updates project metadata through
  * [`but_workspace::init::set_push_remote()`], and invalidates the cached workspace projection.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:448}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:506}
  */
 export declare function setPushRemote(projectId: string, pushRemote: string): Promise<void>
 
@@ -1466,7 +1453,7 @@ export declare function setReviewThreadResolved(projectId: string, threadId: str
  * An omitted `push_remote` preserves its current value. It deliberately records no oplog snapshot
  * because only project metadata changes, not repository state.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:427}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:485}
  */
 export declare function setTargetRefAndInitProject(projectId: string, targetRef: string, pushRemote: string | null): Promise<void>
 
@@ -1680,7 +1667,7 @@ export declare function workspaceCheckout(projectId: string): Promise<BranchChec
  * repository serialize among themselves so concurrent `git fetch` runs cannot trip over Git's
  * per-ref locks; fetches from other processes are not affected.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:226}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:284}
  */
 export declare function workspaceFetchFromRemotes(projectId: string, action: string | null): Promise<void>
 
@@ -1691,7 +1678,7 @@ export declare function workspaceFetchFromRemotes(projectId: string, action: str
  * A project that hasn't used the workspace fetch API returns an empty status. Legacy fetch state
  * is intentionally not imported.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:389}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:447}
  */
 export declare function workspaceFetchStatus(projectId: string): Promise<WorkspaceFetchStatus>
 
@@ -1705,7 +1692,7 @@ export declare function workspaceFetchStatus(projectId: string): Promise<Workspa
  * workspace previews the integration and no oplog entry is persisted. See
  * [`workspace_integrate_upstream_with_perm()`] for lower-level details.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:748}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:806}
  */
 export declare function workspaceIntegrateUpstream(projectId: string, updates: Array<BottomUpdate>, dryRun: boolean): Promise<WorkspaceIntegrateUpstreamOutcome>
 
@@ -1719,7 +1706,7 @@ export declare function workspaceIntegrateUpstream(projectId: string, updates: A
  *
  * The workspace reference must already exist. This does not initialize a new workspace.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:45}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:72}
  */
 export declare function workspaceRecreate(projectId: string): Promise<WorkspaceRecreateResult>
 
@@ -2485,7 +2472,7 @@ export type Claude = {
  *
  * In practice, it should match its [frontend counterpart](https://github.com/gitbutlerapp/gitbutler/blob/fa973fd8f1ae8807621f47601803d98b8a9cf348/app/src/lib/backend/ipc.ts#L5).
  */
-export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "GitLabUnauthorized" | "GitLabForbidden" | "GitLabInvalidHost" | "GitHubOrgOAuthRestricted" | "GitHubOrgSamlRestricted" | "GitHubInsufficientPermissions" | "GitHubRateLimited" | "GitHubTokenLifetimeRestricted" | "ForgeNotAuthenticated" | "GitHubDeviceCodeExpired" | "GitHubDeviceAccessDenied" | "GitHubDeviceFlowRejected" | "ForgeUnrecognized" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
+export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "GitLabUnauthorized" | "GitLabForbidden" | "GitLabProjectNotFound" | "GitLabInvalidHost" | "GitHubOrgOAuthRestricted" | "GitHubOrgSamlRestricted" | "GitHubInsufficientPermissions" | "GitHubRateLimited" | "GitHubTokenLifetimeRestricted" | "ForgeNotAuthenticated" | "GitHubDeviceCodeExpired" | "GitHubDeviceAccessDenied" | "GitHubDeviceFlowRejected" | "ForgeUnrecognized" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
 
 /** Commit that is part of a legacy stack branch and contains state derived in relation to it. */
 export type Commit = {

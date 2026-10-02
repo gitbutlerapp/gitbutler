@@ -165,6 +165,33 @@ export const createInitialProjectState = (): ProjectState => ({
 	workspace: createInitialWorkspaceState(),
 });
 
+const setCheckedAddresses = (
+	state: ProjectState,
+	addresses: Array<CheckableAddress>,
+	checked: boolean,
+): void => {
+	const stored = state.workspace.checkedAddresses;
+	const files = new Set(
+		addresses.filter((address) => address._tag === "File").map(addressIdentityKey),
+	);
+	if (files.size > 0) {
+		for (const [key, address] of Object.entries(stored)) {
+			if (address._tag === "Hunk" && files.has(addressIdentityKey(fileAddress(address.parent))))
+				delete stored[key];
+		}
+	}
+	for (const address of addresses) {
+		const key = addressIdentityKey(address);
+		if (!checked) delete stored[key];
+		else if (
+			address._tag !== "Hunk" ||
+			(!files.has(addressIdentityKey(fileAddress(address.parent))) &&
+				stored[addressIdentityKey(fileAddress(address.parent))] === undefined)
+		)
+			stored[key] ??= address;
+	}
+};
+
 export const projectReducers = {
 	selectDiffCursor: (
 		state: ProjectState,
@@ -379,20 +406,64 @@ export const projectReducers = {
 	checkAddress: (
 		state: ProjectState,
 		{ address, checked }: { address: CheckableAddress; checked: boolean },
-	) => {
-		const key = addressIdentityKey(address);
-		if (checked) state.workspace.checkedAddresses[key] = address;
-		else delete state.workspace.checkedAddresses[key];
-	},
+	) => setCheckedAddresses(state, [address], checked),
 	checkAddresses: (
 		state: ProjectState,
 		{ addresses, checked }: { addresses: Array<CheckableAddress>; checked: boolean },
+	) => setCheckedAddresses(state, addresses, checked),
+	// Unlike raw removal during reconciliation, a user unchecking a covered line needs the
+	// complete file's lines to retain everything outside that line, including folded hunks.
+	checkLines: (
+		state: ProjectState,
+		{
+			files,
+			checked: linesToCheck,
+			unchecked: linesToUncheck,
+		}: {
+			files: Array<{
+				file: FileAddress;
+				lines: Array<Extract<CheckableAddress, { _tag: "Hunk" }>>;
+			}>;
+			checked: Array<Extract<CheckableAddress, { _tag: "Hunk" }>>;
+			unchecked: Array<Extract<CheckableAddress, { _tag: "Hunk" }>>;
+		},
 	) => {
-		for (const address of addresses) {
-			const key = addressIdentityKey(address);
-			if (checked) state.workspace.checkedAddresses[key] = address;
-			else delete state.workspace.checkedAddresses[key];
+		const stored = state.workspace.checkedAddresses;
+		const keysToCheck = new Set(linesToCheck.map(addressIdentityKey));
+		const keysToUncheck = new Set(linesToUncheck.map(addressIdentityKey));
+		const affectedFileKeys = new Set<string>();
+		const nextChecks = new Map<string, CheckableAddress>();
+
+		for (const { file, lines: allLines } of files) {
+			if (allLines.length === 0) continue;
+
+			const wholeFileAddress = fileAddress(file);
+			const fileKey = addressIdentityKey(wholeFileAddress);
+			affectedFileKeys.add(fileKey);
+			const isWholeFileChecked = stored[fileKey] !== undefined;
+			const checkedLines = allLines.filter((line) => {
+				const key = addressIdentityKey(line);
+				if (keysToUncheck.has(key)) return false;
+				if (keysToCheck.has(key)) return true;
+				return isWholeFileChecked || stored[key] !== undefined;
+			});
+
+			if (checkedLines.length === allLines.length) {
+				nextChecks.set(fileKey, wholeFileAddress);
+				continue;
+			}
+			for (const line of checkedLines) nextChecks.set(addressIdentityKey(line), line);
 		}
+
+		// Keep unchanged entries untouched so repeating a check preserves state identity.
+		for (const [key, address] of Object.entries(stored)) {
+			if (address._tag === "Commit") continue;
+			const fileKey = addressIdentityKey(
+				address._tag === "File" ? address : fileAddress(address.parent),
+			);
+			if (affectedFileKeys.has(fileKey) && !nextChecks.has(key)) delete stored[key];
+		}
+		for (const [key, address] of nextChecks) stored[key] ??= address;
 	},
 	clearCheckedAddresses: (state: ProjectState) => {
 		state.workspace.checkedAddresses = {};
@@ -578,15 +649,21 @@ const selectCheckedAddressKeys = createSelector(
 
 type GroupedCheckedAddresses = {
 	commits: Array<CommitAddress>;
-	uncommittedFiles: Array<FileAddress>;
+	/** Total checked whole-file count pre-calculated for the selection label. */
+	fileCount: number;
+	/** Total checked line count, excluding checked whole-files, pre-calculated for the selection label. */
+	lineCount: number;
+	uncommittedFilesByWorktree: Map<string | undefined, Array<FileAddress>>;
 	filesByCommitId: Map<string, Array<FileAddress>>;
 	filesByBranchRef: Map<string, Array<FileAddress>>;
 	hunksByFileParent: Map<string, Array<HunkAddress>>;
+	hunkFileKeys: Set<string>;
 };
 
 const selectGroupedCheckedAddresses = createSelector(
 	selectCheckedAddresses,
-	(checkedAddresses): GroupedCheckedAddresses =>
+	selectCheckedAddressKeys,
+	(checkedAddresses, checkedKeys): GroupedCheckedAddresses =>
 		checkedAddresses.reduce<GroupedCheckedAddresses>(
 			(acc, address) => {
 				switch (address._tag) {
@@ -594,9 +671,12 @@ const selectGroupedCheckedAddresses = createSelector(
 						acc.commits.push(address);
 						break;
 					case "File": {
+						acc.fileCount++;
 						switch (address.parent._tag) {
 							case "UncommittedChanges":
-								acc.uncommittedFiles.push(address);
+								acc.uncommittedFilesByWorktree
+									.getOrInsert(address.parent.worktree, [])
+									.push(address);
 								break;
 							case "Commit":
 								acc.filesByCommitId.getOrInsert(address.parent.commitId, []).push(address);
@@ -614,6 +694,9 @@ const selectGroupedCheckedAddresses = createSelector(
 					case "Hunk": {
 						const parentKey = addressIdentityKey(address.parent.parent);
 						acc.hunksByFileParent.getOrInsert(parentKey, []).push(address);
+						acc.hunkFileKeys.add(addressIdentityKey(fileAddress(address.parent)));
+						if (!checkedKeys.has(addressIdentityKey(fileAddress(address.parent))))
+							acc.lineCount += address.lineGroups.reduce((count, group) => count + group.lines, 0);
 						break;
 					}
 					default:
@@ -624,10 +707,13 @@ const selectGroupedCheckedAddresses = createSelector(
 			},
 			{
 				commits: [],
-				uncommittedFiles: [],
+				fileCount: 0,
+				lineCount: 0,
+				uncommittedFilesByWorktree: new Map(),
 				filesByCommitId: new Map(),
 				filesByBranchRef: new Map(),
 				hunksByFileParent: new Map(),
+				hunkFileKeys: new Set(),
 			},
 		),
 );
@@ -641,7 +727,11 @@ const selectCheckedCommitIds = createSelector(
 const selectCheckedUncommittedFilePaths = createSelector(
 	selectGroupedCheckedAddresses,
 	(checkedGroupedAddresses): Set<string> =>
-		new Set(checkedGroupedAddresses.uncommittedFiles.map((address) => address.path)),
+		new Set(
+			checkedGroupedAddresses.uncommittedFilesByWorktree
+				.values()
+				.flatMap((files) => files.map((address) => address.path)),
+		),
 );
 
 const selectCheckedAddressCount = createSelector(
@@ -653,6 +743,18 @@ const selectDependencyCommitIds = createSelector(
 	(state: ProjectState) => state.workspace.dependencyCommitIds,
 	(commitIds): Set<string> => new Set(commitIds),
 );
+
+const selectCanCheckFilesOrHunks = (state: ProjectState, parent: FileParent): boolean => {
+	if (parent._tag === "Branch") return false;
+
+	const grouped = selectGroupedCheckedAddresses(state);
+	const files =
+		parent._tag === "UncommittedChanges"
+			? grouped.uncommittedFilesByWorktree.get(parent.worktree)
+			: grouped.filesByCommitId.get(parent.commitId);
+	const hunks = grouped.hunksByFileParent.get(addressIdentityKey(parent));
+	return selectCheckedAddressCount(state) === (files?.length ?? 0) + (hunks?.length ?? 0);
+};
 
 export const projectSelectors = {
 	selectFilesVisible: (state: ProjectState) => state.filesVisible,
@@ -688,52 +790,37 @@ export const projectSelectors = {
 		state.workspace.expandedIncoming[branchRef] === true,
 	selectDependencyCommitIds,
 	selectAddressChecked: (state: ProjectState, address: CheckableAddress) =>
-		state.workspace.checkedAddresses[addressIdentityKey(address)] !== undefined,
+		state.workspace.checkedAddresses[addressIdentityKey(address)] !== undefined ||
+		(address._tag === "Hunk" &&
+			state.workspace.checkedAddresses[addressIdentityKey(fileAddress(address.parent))] !==
+				undefined),
 	selectCheckedAddresses,
 	selectCheckedAddressKeys,
+	selectCheckedHunkFileKeys: (state: ProjectState) =>
+		selectGroupedCheckedAddresses(state).hunkFileKeys,
 	selectCheckedCommitIds,
 	selectCheckedUncommittedFilePaths,
 	selectCheckedAddressCount,
+	selectCheckedFileCount: (state: ProjectState) => selectGroupedCheckedAddresses(state).fileCount,
+	selectCheckedLineCount: (state: ProjectState) => selectGroupedCheckedAddresses(state).lineCount,
 	// Checking has been defined in a flexible way to support heterogeneous items, however in the UI
-	// we currently only allow a single context of checked items at a time, hence these selectors.
-	selectCheckedAddressesContext: (state: ProjectState): CheckableAddress["_tag"] | null =>
-		selectCheckedAddressCount(state) === 0
-			? null
-			: selectGroupedCheckedAddresses(state).commits.length > 0
-				? "Commit"
-				: selectGroupedCheckedAddresses(state).hunksByFileParent.size > 0
-					? "Hunk"
-					: "File",
+	// we currently only allow a single context of checked items at a time - with the exception of
+	// files and hunks with the same parent - hence these selectors.
+	selectCheckedAddressesContext: (
+		state: ProjectState,
+	): CheckableAddress["_tag"] | "FileAndHunk" | null => {
+		if (selectCheckedAddressCount(state) === 0) return null;
+		const grouped = selectGroupedCheckedAddresses(state);
+		if (grouped.commits.length > 0) return "Commit";
+		if (grouped.hunksByFileParent.size > 0) return grouped.fileCount > 0 ? "FileAndHunk" : "Hunk";
+		return "File";
+	},
 	selectCanCheckCommits: (state: ProjectState) =>
 		selectCheckedAddresses(state).length === selectGroupedCheckedAddresses(state).commits.length,
-	selectCanCheckFiles: (state: ProjectState, fileParent: FileParent) => {
-		switch (fileParent._tag) {
-			case "UncommittedChanges":
-				return (
-					selectCheckedAddresses(state).length ===
-					selectGroupedCheckedAddresses(state).uncommittedFiles.length
-				);
-			case "Commit":
-				return (
-					selectCheckedAddresses(state).length ===
-					(selectGroupedCheckedAddresses(state).filesByCommitId.get(fileParent.commitId)?.length ??
-						0)
-				);
-			// We currently don't support any operations on branch files.
-			case "Branch":
-				return false;
-		}
-	},
-	selectCanCheckHunks: (state: ProjectState, fileParent: FileParent) => {
-		// We currently don't support any operations on branch hunks.
-		if (fileParent._tag === "Branch") return false;
-
-		return (
-			selectCheckedAddresses(state).length ===
-			(selectGroupedCheckedAddresses(state).hunksByFileParent.get(addressIdentityKey(fileParent))
-				?.length ?? 0)
-		);
-	},
+	selectCanCheckFilesOrHunks,
+	selectCheckedSetIsFilesFromParent: (state: ProjectState, parent: FileParent) =>
+		selectCanCheckFilesOrHunks(state, parent) &&
+		selectGroupedCheckedAddresses(state).hunksByFileParent.size === 0,
 	...getBranchesSelectors((state: ProjectState) => state.branches),
 	...getGraphSelectors((state: ProjectState) => state.graph),
 };

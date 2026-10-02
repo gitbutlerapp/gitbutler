@@ -162,28 +162,7 @@ Ok(
         symbolic_remote_names: {
             "origin",
         },
-        stacks: [
-            Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(0),
-                        ref_name: "►main[🌳]",
-                        remote_tracking_ref_name: "refs/remotes/origin/main",
-                        commits: [],
-                        commits_on_remote: [],
-                        metadata: "None",
-                        push_status: NothingToPush,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
+        stacks: [],
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
@@ -220,28 +199,7 @@ Ok(
         symbolic_remote_names: {
             "origin",
         },
-        stacks: [
-            Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(0),
-                        ref_name: "►main[🌳]",
-                        remote_tracking_ref_name: "refs/remotes/origin/main",
-                        commits: [],
-                        commits_on_remote: [],
-                        metadata: "None",
-                        push_status: NothingToPush,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-        ],
+        stacks: [],
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(

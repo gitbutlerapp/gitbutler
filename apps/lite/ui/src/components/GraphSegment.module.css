@@ -91,6 +91,15 @@
 	visibility: var(--graph-through-visibility, visible);
 }
 
+/* The main line and the legs onto it, which the workspace can go without.
+   Opacity, as visibility is the glyph and rail swaps' to set and a child can
+   set it back. */
+.trunk {
+	@container style(--graph-trunk: hidden) {
+		opacity: 0;
+	}
+}
+
 /* The trunk's tail below the row's centre line fades to nothing. */
 .edgePassFading {
 	mask-image: linear-gradient(to bottom, black 50%, transparent);
@@ -101,9 +110,16 @@
 	flex-direction: column;
 }
 
-/* The trunk's own column, GraphEdge's, drawn on an 8px canvas. */
+/* The trunk's own column, GraphEdge's, drawn on an 8px canvas. Hidden, it
+   gives its room back: nothing else is in the column. */
 .edge {
-	width: 8px;
+	@container style(--graph-trunk: hidden) {
+		display: none;
+	}
+
+	& > .glyph {
+		width: 8px;
+	}
 }
 
 .mainSegment {

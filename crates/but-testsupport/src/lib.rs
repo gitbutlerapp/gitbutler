@@ -211,7 +211,14 @@ pub fn visualize_commit_graph(
     refspec: impl ToString,
 ) -> std::io::Result<String> {
     let log = git(repo)
-        .args(["log", "--oneline", "--graph", "--decorate"])
+        .args([
+            "-c",
+            "log.graphIndent=false",
+            "log",
+            "--oneline",
+            "--graph",
+            "--decorate",
+        ])
         .arg(refspec.to_string())
         .output()?;
     assert!(log.status.success());
@@ -227,7 +234,15 @@ pub fn visualize_commit_graph_all(repo: &gix::Repository) -> std::io::Result<Str
 /// of a valid Git repository.
 pub fn visualize_commit_graph_all_from_dir(dir: impl AsRef<Path>) -> std::io::Result<String> {
     let log = git_at_dir(dir)
-        .args(["log", "--oneline", "--graph", "--decorate", "--all"])
+        .args([
+            "-c",
+            "log.graphIndent=false",
+            "log",
+            "--oneline",
+            "--graph",
+            "--decorate",
+            "--all",
+        ])
         .output()?;
     assert!(log.status.success());
     Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())

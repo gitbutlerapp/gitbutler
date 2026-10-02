@@ -143,6 +143,69 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
 }
 
 #[test]
+fn materialize_checkout_allows_current_head_to_be_replaced_with_none() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let _worktree = repo.workdir().unwrap();
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 120e3a9 (HEAD -> main) c
+* a96434e b
+* d591dfe a
+* 35b8235 base
+
+"#]]
+    );
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    // Drop the 'c' commit (HEAD)
+    let c = repo.rev_parse_single("HEAD")?;
+    let c_sel = editor.select_commit(c.detach())?;
+    editor.replace(c_sel, Step::None)?;
+    let head_ref_sel = editor.select_reference("refs/heads/main".try_into()?)?;
+    editor.replace(head_ref_sel, Step::None)?;
+
+    let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
+
+└── ►:0[0]:anon:
+    ├── 👉·a96434e (⌂)
+    ├── ·d591dfe (⌂)
+    └── 🏁·35b8235 (⌂)
+
+"#]]
+    );
+
+    outcome.materialize(Default::default())?;
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* a96434e (HEAD) b
+* d591dfe a
+* 35b8235 base
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
     let worktree = repo.workdir().unwrap();

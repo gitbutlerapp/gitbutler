@@ -23,6 +23,7 @@ type FileRowProps = {
 	branchNameByCommitId: (commitId: string) => string | undefined;
 	canCheck: boolean;
 	isChecked: boolean;
+	isIndeterminate?: boolean;
 	/** Whether the diff on show has been reviewed; the row says so in place of its change type. */
 	isReviewed: boolean;
 	checkFile: (evt: { path: string; shiftKey: boolean }) => void;
@@ -76,6 +77,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	branchNameByCommitId,
 	canCheck,
 	isChecked,
+	isIndeterminate = false,
 	isReviewed,
 	checkFile,
 	depth,
@@ -124,6 +126,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 					disabled={anyOperationPending || !canCheck}
 					aria-label={`Check file ${relativePath}`}
 					checked={isChecked}
+					indeterminate={isIndeterminate}
 					nativeButton
 					render={
 						presentationalOnly ? (

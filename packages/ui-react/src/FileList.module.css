@@ -181,8 +181,7 @@
 	button {
 		--button-border: none;
 		--button-bg: transparent;
-		--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
-		--button-hover-fg: var(--text-1-invert);
+		--button-fg: var(--text-1-invert);
 		--button-hover-bg: var(--bg-hover-invert);
 	}
 }

@@ -11,6 +11,14 @@ invisible to anyone not on a mouse. Neither is optional or a separate ticket.
 own `--bg-hover`, or `--bg-hover-invert` on a dark surface. A disabled control
 shows no hover.
 
+**A button's label is full strength; its icons are not.** Icons sit at 0.7 and
+lift to 0.8 on hover, so the label leads at rest and the button answers the
+pointer beyond its ground. One opacity rather than a muted colour per variant,
+because it works on every ground — gray, pop and danger have no quieter text
+token to reach for. Danger is the one exception, 0.8 lifting to 0.9: red on
+its pink ground is too faint at 0.7. The label never fades: hover changes its
+ground, not its colour.
+
 **Focus is the one ring.** `--focus-ring` (1.5px of `--border-focus`) is the
 only focus outline. The global stylesheet puts it on every `button` and `a`
 under `:focus-visible`; a component that draws its own — a field, a switch, a

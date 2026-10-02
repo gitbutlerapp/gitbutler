@@ -775,7 +775,7 @@ export const PullRequestPanel: FC<{
 
 	const status = reviewStatus(review);
 	// A merged review is final; anything else can move between open, draft and
-	// closed from the status badge.
+	// closed from the Status section's menu.
 	const canSwitchStatus = status !== "merged";
 	const isStatusPending = isDraftinessPending || isUpdateReviewPending;
 
@@ -888,7 +888,6 @@ export const PullRequestPanel: FC<{
 		<Badge variant={statusVariant} size="large">
 			<Icon name={statusIcon} size={12} />
 			{statusLabel}
-			{canSwitchStatus && <Icon name="chevron-down" size={12} />}
 		</Badge>
 	);
 
@@ -907,23 +906,23 @@ export const PullRequestPanel: FC<{
 					heading="Status"
 					action={
 						<div className={styles.statusActions}>
-							{canSwitchStatus ? (
-								<button
-									aria-label="Change status"
-									className={styles.statusTrigger}
-									disabled={isStatusPending}
-									onClick={openStatusMenu}
-									type="button"
-								>
-									{statusBadge}
-								</button>
-							) : (
-								statusBadge
-							)}
+							{statusBadge}
 							<TextLink href={review.htmlUrl} className="text-12" onClick={openLinkExternally}>
 								{review.unitSymbol}
 								{review.number}
 							</TextLink>
+							{canSwitchStatus && (
+								<Button
+									aria-label="Change status"
+									variant="ghost"
+									size="small"
+									iconOnly
+									disabled={isStatusPending}
+									onClick={openStatusMenu}
+								>
+									<Icon name="chevron-down" />
+								</Button>
+							)}
 						</div>
 					}
 				>

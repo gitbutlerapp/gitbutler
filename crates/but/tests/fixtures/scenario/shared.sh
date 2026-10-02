@@ -7,7 +7,7 @@ function remote_tracking_caught_up() {
 }
 
 function git-init-frozen() {
-  git init
+  git init "$@"
   git config gitbutler.testing.changeId content-hash
 }
 

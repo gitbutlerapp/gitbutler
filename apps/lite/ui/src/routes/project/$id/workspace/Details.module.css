@@ -1,8 +1,17 @@
+/* How round the file cards' corners are, as a share of --radius-card, as
+   ui-react's DiffFile registers it: Lite doesn't load DiffFile's stylesheet.
+   Registered so the diff's scroll-driven animation (unsafeCSS in Details.tsx)
+   can ease it to 0 as a card leaves, where an unregistered one would jump. */
+@property --diff-file-roundness {
+	syntax: "<number>";
+	inherits: true;
+	initial-value: 1;
+}
+
 .container {
 	/* The PR panel's column. It lives up here because the panel — a separate
 	   module, so no literal to share — reads it for its own flex-basis. */
 	--pr-panel-width: 315px;
-
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
 	row-gap: 0;
@@ -66,14 +75,16 @@
 	display: flex;
 	align-items: center;
 	/* With a separate header above (commit/branch views), use tighter padding. */
-	padding: 8px;
+	/* The inline inset and the bottom are the diff's file spacing (set in
+	   Page.tsx from ui-react's diffFileSpacing), so the file cards line up
+	   under the buttons and start that far below them. */
+	padding-inline: var(--diff-file-inset);
+	padding-block: 8px var(--diff-file-top);
 	gap: 12px;
-	border-bottom: 1px solid var(--border-section);
 
 	/* Lone layout: the title lives in this row, match the panel padding. */
 	.containerLone & {
-		padding-inline: var(--panel-padding-inline);
-		padding-block: var(--panel-padding-block);
+		padding-block-start: var(--panel-padding-block);
 	}
 }
 
@@ -160,12 +171,17 @@
 	z-index: 1;
 }
 
+/* Each file is a card on the pane, inset as far as the toolbar (.actions) so
+   the cards line up with its buttons. The scroller starts right under the
+   toolbar, so a stuck header sits where the first card began and the code
+   scrolling under it is cut off at its top edge. */
 .diffContents {
 	--diffs-bg-selection-number-override: var(--bg-selected-inactive);
 	--diffs-bg-selection-override: transparent;
 
+	padding-inline: var(--diff-file-inset);
 	overflow: auto;
-	background-color: var(--bg-2);
+	background-color: var(--bg-1);
 	font-variant-ligatures: common-ligatures;
 	/* ScrollBars draws the bars over it instead. */
 	scrollbar-width: none;
@@ -178,15 +194,11 @@
 		outline: none;
 	}
 
+	/* The card is drawn by its parts, not by this host: the header draws its
+	   top and the diff under it (Pierre's [data-diff]) its sides and bottom.
+	   A border here would run on past a stuck header's rounded corners. */
 	diffs-container {
 		--diffs-selection-number-fg: var(--text-1);
-		border-top: 1px solid var(--border-section);
-		border-bottom: 1px solid var(--border-section);
-
-		/* Hide the first diff's top border so it doesn't double up with the container above. */
-		&:first-child {
-			border-top-color: var(--bg-1);
-		}
 
 		/* Pierre still reserves the paddingTop item metric (diff-view.ts) under a
 		   folded file's header, though the code it pads is not rendered. Left
@@ -320,15 +332,14 @@
 	}
 }
 
+/* The top of the file's card, with the line under it; the diff below draws
+   the rest. It clips so the selection bar keeps to the rounded corner. */
 .fileHeader {
-	display: grid;
-	grid-template-columns: auto 1fr auto;
-	column-gap: 8px;
-	align-items: center;
-	justify-content: space-between;
-	padding: 8px 10px;
-	border-bottom: 1px solid var(--border-3);
-	white-space: nowrap;
+	overflow: clip;
+	border: 1px solid var(--border-section);
+	border-radius: calc(var(--radius-card) * var(--diff-file-roundness))
+		calc(var(--radius-card) * var(--diff-file-roundness)) 0 0;
+	border-bottom-color: var(--border-3);
 
 	/* Focusable only so a click lands here rather than on the diff container;
 	   the platform ring around a whole header would be noise, and the diff pane
@@ -337,21 +348,25 @@
 		outline: none;
 	}
 
+	/* No diff follows, so the header is the whole card. */
 	&.lone {
-		border-bottom: none;
+		border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+		border-bottom-color: var(--border-section);
 	}
 }
 
 /* Marks the file holding the diff selection — including a folded one, whose
-   header stands in for its hidden hunks. A plain accent bar for now;
-   positioned absolutely so the layout is untouched. */
+   header stands in for its hidden hunks: a tab on the card's left edge, inset
+   from the header's top and bottom and rounded on its open side. Positioned
+   absolutely so the layout is untouched. */
 .fileHeaderSelected {
 	position: relative;
 
 	&::before {
 		position: absolute;
-		width: 3px;
-		inset: 0 auto 0 0;
+		width: 4px;
+		inset: 5px auto 5px 0;
+		border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
 		/* The row-selection fill, dimmed like row selections in a blurred
 		   panel; full strength while the diff pane owns focus. */
 		background-color: var(--bg-selected-inactive);
@@ -363,79 +378,6 @@
 		&::before {
 		background-color: var(--fill-gray-bg);
 	}
-}
-
-/* The trailing cluster: what the file changed, then what you can do about it. */
-.fileHeaderEnd {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-}
-
-.fileHeaderActions {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-/* Splits the file's read-only tallies from the controls that act on it. */
-.fileHeaderSeparator {
-	width: 1px;
-	height: 20px;
-	/* Makes up the 12px the design puts either side of it, over the 8px the
-	   surrounding toolbar gap gives. */
-	margin-inline: 2px;
-	background-color: var(--border-3);
-}
-
-.fileReview {
-	/* The box is the button's own mark, not a decorative icon: the tick inside it
-	   sits on the accent fill and must not be dimmed like a leading icon. */
-	--button-icon-opacity: 1;
-	--button-hover-icon-opacity: 1;
-	/* Wider than a small button's icon gap: the box reads as a control of its
-	   own, so it needs more air from the word than an icon would. */
-	--button-gap: 6px;
-}
-
-/* The checkbox the design draws inside the button. It is the button's mark
-   rather than a Checkbox of its own: nesting a real one would put a second
-   control inside the first. Kept in step with Checkbox.module.css. */
-.fileReviewBox {
-	display: flex;
-	flex-shrink: 0;
-	align-items: center;
-	justify-content: center;
-	width: 14px;
-	height: 14px;
-	border-radius: var(--radius-xs);
-	background-color: var(--bg-1);
-	box-shadow: inset 0 0 0 1px var(--border-2);
-
-	[aria-pressed="true"] &,
-	[aria-pressed="mixed"] & {
-		background-color: var(--fill-pop-bg);
-		box-shadow: inset 0 0 0 1px var(--fill-pop-bg);
-		color: var(--fill-pop-fg);
-	}
-}
-
-.fileMeta {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.filePath {
-	display: flex;
-	align-items: center;
-	overflow: hidden;
-	gap: 6px;
-	text-overflow: ellipsis;
-}
-
-.pathInit {
-	color: var(--text-2);
 }
 
 .hunkHeaderRow {

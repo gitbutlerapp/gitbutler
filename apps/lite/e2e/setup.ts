@@ -64,9 +64,12 @@ export const removeLiteTestEnvironment = (environment: LiteTestEnvironment): voi
 	rmSync(environment.rootDir, { force: true, maxRetries: 3, recursive: true, retryDelay: 100 });
 };
 
+export type ObjectFormat = "sha1" | "sha256";
+
 export const seedScenario = async (
 	scenario: string,
 	environment: LiteTestEnvironment,
+	objectFormat: ObjectFormat,
 ): Promise<void> => {
 	const scriptPath = path.join(fixtureScriptsDir, scenario);
 	if (!existsSync(scriptPath)) throw new Error(`Fixture script does not exist: ${scriptPath}`);
@@ -81,7 +84,7 @@ export const seedScenario = async (
 	const child = spawn("bash", [scriptPath], {
 		cwd: environment.workdir,
 		stdio: "inherit",
-		env: fixtureEnvironment(environment),
+		env: { ...fixtureEnvironment(environment), OBJECT_FORMAT: objectFormat },
 	});
 
 	child.on("error", reject);

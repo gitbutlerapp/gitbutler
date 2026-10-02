@@ -49,7 +49,7 @@ use crate::{
     },
 };
 
-pub(crate) mod json;
+pub mod json;
 pub(crate) mod uncommitted_file;
 
 mod output;
@@ -57,6 +57,32 @@ mod render_oneshot;
 mod tui;
 
 pub use tui::Selectable;
+
+/// The workspace status that `but status --json` prints, for in-process callers.
+///
+/// Acquires exclusive repository access, so callers must not hold a repository guard.
+/// Fails while the repository is in edit mode (conflict resolution).
+pub fn workspace_status(
+    ctx: &mut Context,
+    flags: StatusFlags,
+) -> anyhow::Result<json::WorkspaceStatus> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let mode = but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
+        .operating_mode;
+    if matches!(mode, OperatingMode::Edit(_)) {
+        anyhow::bail!("workspace status is unavailable during conflict resolution");
+    }
+    let status_ctx = build_status_context(
+        ctx,
+        guard.write_permission(),
+        &mut OutputChannel::new(OutputFormat::Json),
+        OutputFormat::Json,
+        &mode,
+        flags,
+        StatusRenderMode::Oneshot(None),
+    )?;
+    json::build_workspace_status_json(&status_ctx, &*ctx.repo.get()?)
+}
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
@@ -110,7 +136,6 @@ impl FilesStatusFlag {
         }
     }
 
-    #[expect(dead_code)]
     pub fn is_none(self) -> bool {
         matches!(self, Self::None)
     }
@@ -302,6 +327,11 @@ pub(crate) fn worktree(
         return show_edit_mode_status(ctx, out).map_err(Into::into);
     }
 
+    if let Some(out) = out.for_json() {
+        out.write_value(workspace_status(ctx, flags)?)?;
+        return Ok(());
+    }
+
     let mut status_ctx = {
         let mut guard = ctx.exclusive_worktree_access();
         let format = out.format();
@@ -315,17 +345,6 @@ pub(crate) fn worktree(
             render_mode.clone(),
         )?
     };
-
-    {
-        // Re-acquire repo for use after the async call
-        let repo = ctx.repo.get()?;
-
-        if let Some(out) = out.for_json() {
-            let workspace_status = json::build_workspace_status_json(&status_ctx, &repo)?;
-            out.write_value(workspace_status)?;
-            return Ok(());
-        }
-    }
 
     match render_mode {
         StatusRenderMode::Oneshot(_) => {
@@ -1179,6 +1198,7 @@ fn print_common_merge_base_summary(
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let mut label = String::from("common base");
+    let mut is_head = false;
     if let Some(base_branch) = &status_ctx.base_branch {
         let repo = ctx.repo.get()?;
         let local_ref = format!("refs/heads/{}", base_branch.short_name);
@@ -1189,6 +1209,10 @@ fn print_common_merge_base_summary(
             {
                 label.push_str(", ");
                 label.push_str(&reference.name().shorten().to_string());
+                is_head |= status_ctx
+                    .head_ref
+                    .as_ref()
+                    .is_some_and(|head_ref| head_ref.as_ref() == reference.name());
             }
         }
     }
@@ -1205,21 +1229,25 @@ fn print_common_merge_base_summary(
     };
     let t = crate::theme::get();
     let first_line = truncate_when_needed(first_line, 40, status_ctx.should_truncate_for_terminal);
+    if is_head {
+        label.push_str(", HEAD");
+    }
+    let summary = Vec::from([
+        Span::raw(format!(" ({label}) ")),
+        Span::styled(
+            status_ctx.common_merge_base_data.commit_date.clone(),
+            t.hint,
+        ),
+        Span::raw(" "),
+        Span::raw(first_line.to_string()),
+    ]);
     output.merge_base(
         Vec::from([Span::raw(connector), Span::raw(" ")]),
         Vec::from([Span::styled(
             status_ctx.common_merge_base_data.common_merge_base.clone(),
             t.hint,
         )]),
-        Vec::from([
-            Span::raw(format!(" ({label}) ")),
-            Span::styled(
-                status_ctx.common_merge_base_data.commit_date.clone(),
-                t.hint,
-            ),
-            Span::raw(" "),
-            Span::raw(first_line.to_string()),
-        ]),
+        summary,
         status_ctx.common_merge_base_data.commit_id,
     )?;
     Ok(())

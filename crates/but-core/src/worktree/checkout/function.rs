@@ -47,7 +47,7 @@ pub fn safe_checkout_from_head(
         bail!("Refusing to check out conflicted commit {new_head_id}");
     }
 
-    let git2_repo = git2::Repository::open(repo.git_dir())?;
+    let git2_repo = but_oxidize::open_git2_repo(repo.git_dir())?;
     let head_tree_id = repo.head_tree_id_or_empty()?;
     let head_tree = git2_repo.find_tree(head_tree_id.to_git2())?;
     let old_tree = if let Some(id) = merge_base_override {

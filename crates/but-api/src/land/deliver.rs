@@ -12,6 +12,8 @@ use gix::refs::transaction::{PreviousValue, RefEdit};
 
 /// Self-remote (`gb-local`) path: move `refs/heads/<target>` and the remote-tracking ref to the
 /// landed commit in a single transaction, guarded by a compare-and-swap on the previous target.
+/// Refuses when `<target>` is checked out in any worktree, as moving it there would leave that
+/// worktree's index and files behind the moved ref.
 pub(super) fn update_local_target_refs(
     repo: &gix::Repository,
     new_target_oid: gix::ObjectId,
@@ -21,6 +23,17 @@ pub(super) fn update_local_target_refs(
 ) -> anyhow::Result<()> {
     let head_ref = format!("refs/heads/{target_branch_name}");
     let tracking_ref = format!("refs/remotes/{push_remote_name}/{target_branch_name}");
+
+    if let Some(reference) = repo.try_find_reference(&head_ref)?
+        && let Some(dirs) =
+            but_core::branch::SafeDelete::new(repo)?.worktree_dirs_with_ref(&reference)
+    {
+        bail!(
+            "Cannot land onto `{target_branch_name}`: it is checked out in {}. Check out another \
+             branch there first.",
+            dirs[0].display()
+        );
+    }
 
     // The two refs must already point at the same commit. If local `<target>` has diverged from
     // `<remote>/<target>`, the shared compare-and-swap below can never succeed (the head edit keeps

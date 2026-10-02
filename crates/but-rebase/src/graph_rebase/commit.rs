@@ -5,6 +5,7 @@ use but_core::commit::SignCommit;
 use but_core::{RefMetadata, commit::Headers};
 use gix::prelude::ObjectIdExt;
 
+use crate::graph_rebase::util::OrderedParentKind;
 use crate::{
     commit::{DateMode, create},
     graph_rebase::{
@@ -92,7 +93,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             .history
             .normalize_selector(selector.to_reference_selector(self)?)?;
 
-        let parents = collect_ordered_parents(&self.graph, selector.id);
+        let parents =
+            collect_ordered_parents(&self.graph, selector.id, OrderedParentKind::CommitOnly);
         let first_parent = parents
             .first()
             .context("Failed to find a parent for selected reference in the step graph.")?;
@@ -128,7 +130,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     ///
     /// The ID of the commit is all zeros & the commit hasn't been written into any ODB
     pub fn empty_commit(&self) -> Result<but_core::CommitOwned> {
-        let kind = gix::hash::Kind::Sha1;
+        let kind = self.repo.object_hash();
         let committer = self
             .repo
             .committer()

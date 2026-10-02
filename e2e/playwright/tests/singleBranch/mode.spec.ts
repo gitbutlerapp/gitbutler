@@ -92,7 +92,8 @@ test.describe("single-branch mode enabled", () => {
 		expect(branchTip("master", localClone)).toBe(branchTip("origin/master", localClone));
 
 		await openSingleBranchWorkspace(page);
-		await expect(branchHeader(page, "master")).toBeVisible();
+		// A synced integration branch has no lane, unlike the new feature branch below.
+		await expect(branchHeader(page, "master")).toHaveCount(0);
 
 		const branchName = "external-branch-at-target";
 		await gitbutler.runScript("project-with-remote-branches__checkout-new-branch-at-target.sh", [

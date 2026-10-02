@@ -225,6 +225,13 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 		userMessage:
 			"GitLab refused access for your stored token. Check the token scopes, your membership in the project, and any GitLab instance policies. If the token needs different scopes, store a new one under Settings → Integrations.",
 	},
+	GitLabProjectNotFound: {
+		severity: "error",
+		terminal: true,
+		title: "GitLab Project Not Found",
+		userMessage:
+			"GitLab could not find this project, or your token cannot see it. Check the GitLab host URL. Confirm that the project exists at the path in your remote URL and that your account is a member of it, then try again.",
+	},
 	...GITHUB_DEVICE_OAUTH_CLASSIFICATIONS,
 	GitHubOrgOAuthRestricted: GH_ORG_AUTH_CLASSIFICATION,
 	GitHubOrgSamlRestricted: {

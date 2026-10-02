@@ -1,0 +1,99 @@
+/* How round the card's corners are, as a share of --radius-card: 1, easing to
+   0 as the card leaves. Registered so the scroll-driven animation below eases
+   it rather than jumping between values. */
+@property --diff-file-roundness {
+	syntax: "<number>";
+	inherits: true;
+	initial-value: 1;
+}
+
+/* The card is drawn by its parts: the header its top, the body its sides and
+   bottom. A border on the card would run on past a stuck header's rounded
+   corners, since the card's own top has scrolled away above it.
+
+   As the file scrolls away the card shrinks from the bottom around its stuck
+   header, so the frame stays whole. Over the card's last header height sticky
+   pushes the header up; `header-hold` moves it down by as much, and the card
+   clips it. Over the last two radii the corners flatten with it, so the top
+   and bottom curves meet rather than cross. Both ranges end where the header
+   sticks, `--diff-file-sticky-top` below the scroller's edge (`stickyTop`,
+   else what an enclosing DiffFileList sets, else 0). */
+.file {
+	position: relative;
+	/* `clip` rather than `hidden`: hidden would make the card a scroller, and
+	   the header would stick to it instead of to the page. */
+	overflow: clip;
+	border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+	view-timeline: --diff-file block;
+	animation: flatten linear both;
+	animation-timeline: --diff-file;
+	animation-range: exit-crossing
+		calc(100% - var(--diff-file-sticky-top, 0px) - 2 * var(--radius-card)) exit-crossing
+		calc(100% - var(--diff-file-sticky-top, 0px));
+
+	/* The card's bottom edge, over a header the edge is cutting off. */
+	&::after {
+		z-index: 2;
+		position: absolute;
+		height: calc(var(--radius-card) * var(--diff-file-roundness));
+		inset: auto 0 0;
+		border: 1px solid var(--border-section);
+		border-top: none;
+		border-bottom-right-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+		border-bottom-left-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+		content: "";
+		pointer-events: none;
+	}
+}
+
+/* Square, on the pane's own background: a stuck header's rounded corners sit
+   over the diff scrolling under it, and this fills the notches outside them.
+   The rounded top of the card is the header inside. */
+.header {
+	z-index: 1;
+	position: sticky;
+	top: var(--diff-file-sticky-top, 0px);
+	background-color: var(--bg-1);
+	animation: header-hold linear both;
+	animation-timeline: --diff-file;
+	animation-range: exit-crossing
+		calc(100% - var(--diff-file-sticky-top, 0px) - var(--diff-file-header-height)) exit-crossing
+		calc(100% - var(--diff-file-sticky-top, 0px));
+
+	& > * {
+		/* Keeps a host's marks inside the header, such as a selection bar, to the
+		   rounded corners. */
+		overflow: clip;
+		border: 1px solid var(--border-section);
+		border-radius: calc(var(--radius-card) * var(--diff-file-roundness))
+			calc(var(--radius-card) * var(--diff-file-roundness)) 0 0;
+		/* Divides the header from the diff under it, and stays with the header
+		   while it sticks, where a line on the diff would scroll away. */
+		border-bottom-color: var(--border-3);
+	}
+
+	/* Folded: the header is the whole card. */
+	&:last-child > * {
+		border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+		border-bottom-color: var(--border-section);
+	}
+}
+
+.body {
+	border: 1px solid var(--border-section);
+	border-top: none;
+	border-bottom-right-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+	border-bottom-left-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+}
+
+@keyframes flatten {
+	to {
+		--diff-file-roundness: 0;
+	}
+}
+
+@keyframes header-hold {
+	to {
+		translate: 0 var(--diff-file-header-height);
+	}
+}

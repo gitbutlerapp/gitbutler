@@ -197,9 +197,14 @@ const CheckedAddressOperationControls: FC<{
 }> = ({ checkedAddressCount, projectId, appliedAddressSpace }) => {
 	const dispatch = useAppDispatch();
 
-	// A primitive, so a check that leaves the context alone doesn't re-render the bar.
 	const checkedContext = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddressesContext(state, projectId),
+	);
+	const checkedFileCount = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedFileCount(state, projectId),
+	);
+	const checkedLineCount = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedLineCount(state, projectId),
 	);
 	const actions = useCheckedActions({ projectId, appliedAddressSpace });
 
@@ -217,21 +222,35 @@ const CheckedAddressOperationControls: FC<{
 
 	if (checkedContext === null) return;
 
-	const { noun, icon } = Match.value(checkedContext).pipe(
-		Match.withReturnType<{ noun: string; icon: IconName }>(),
-		Match.when("Commit", () => ({ noun: "commit", icon: "commit" as const })),
-		Match.when("File", () => ({ noun: "file", icon: "file-diff" as const })),
-		Match.when("Hunk", () => ({ noun: "line", icon: "diff" as const })),
+	const icon = Match.value(checkedContext).pipe(
+		Match.withReturnType<IconName>(),
+		Match.when("Commit", () => "commit"),
+		Match.when("File", () => "file-diff"),
+		Match.when("Hunk", () => "diff"),
+		Match.when("FileAndHunk", () => "diff"),
 		Match.exhaustive,
 	);
+
+	const counts: Array<[number, string]> = [
+		[checkedContext === "Commit" ? checkedAddressCount : 0, "commit"],
+		[checkedFileCount, "file"],
+		[checkedLineCount, "line"],
+	];
+
+	const countLabels = counts
+		.values()
+		.filter(([count]) => count > 0)
+		.map(
+			([count, noun]) =>
+				`${new Intl.NumberFormat().format(count)} ${noun}${new Intl.PluralRules().select(count) !== "one" ? "s" : ""}`,
+		);
+
+	const labelPrefix = new Intl.ListFormat("en", { type: "conjunction" }).format(countLabels);
 
 	return (
 		<Toolbox>
 			<ToolboxMeta icon={icon}>
-				<span>
-					{new Intl.NumberFormat().format(checkedAddressCount)} {noun}
-					{new Intl.PluralRules().select(checkedAddressCount) !== "one" && "s"} selected
-				</span>
+				<span>{labelPrefix} selected</span>
 				<ToolboxMetaHint>
 					{formatForDisplaySorted(operationHotkeys.cancel.hotkey)} to close
 				</ToolboxMetaHint>

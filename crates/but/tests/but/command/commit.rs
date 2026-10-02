@@ -1952,6 +1952,43 @@ Hint: Target must be an applied branch or commit. Run `but status` for applicabl
 }
 
 #[test]
+fn cannot_commit_above_or_below_main() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit --above main --no-message")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'main'
+
+Hint: Target must be an applied branch or commit. Run `but status` for applicable targets.
+
+"#]]);
+
+    env.but("commit --below main --no-message")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'main'
+
+Hint: Target must be an applied branch or commit. Run `but status` for applicable targets.
+
+"#]]);
+
+    // you also cannot apply main
+    env.but("apply main")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Failed to apply branch
+
+Caused by:
+    Cannot add the target 'refs/heads/main' branch to its own workspace
+
+"#]]);
+}
+
+#[test]
 fn above_commit_not_in_workspace_returns_bad_input() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
@@ -3807,13 +3844,12 @@ Created commit lpo on branch 'wt-feature'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * d3e2ba3 (B) add B
+* | d3e2ba3 (B) add B
 | | * 0a6784b (wt-feature) note from the worktree
 | |/  
-|/|   
-* | 9477ae7 (A) add A
+| * 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 

@@ -344,7 +344,7 @@ export const Section: FC<{
 						{branched && <Icon name={plan.incomingExpanded ? "chevron-down" : "chevron-right"} />}
 					</span>
 				) : branched ? (
-					<GraphSegment glyph="forkRight" status="Upstream" behind={1} />
+					<GraphSegment glyph="forkRight" status="Upstream" behind={1} trunk={!expanded} />
 				) : (
 					<GraphSegment
 						glyph="space"
@@ -412,6 +412,7 @@ export const Section: FC<{
 								behind={plan.historyExpanded ? 1 : 0}
 								status="LocalOnly"
 								railEnds={!plan.historyExpanded}
+								trunk
 							/>
 						}
 					/>

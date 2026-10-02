@@ -8,7 +8,7 @@ use but_core::ref_metadata::ProjectMeta;
 use but_ctx::{Context, ProjectHandle};
 use but_path::AppChannel;
 use but_testsupport::{
-    CommandExt as _, git, gix_testtools::tempfile::TempDir, graph_tree, open_repo,
+    CommandExt as _, git, git_at_dir, gix_testtools::tempfile::TempDir, graph_tree, open_repo,
     writable_scenario_slow,
 };
 
@@ -70,6 +70,22 @@ fn new_from_project_handle_keeps_repo_cached() -> anyhow::Result<()> {
         assert!(ctx.to_sync().repo.is_some());
         Ok(())
     })
+}
+
+#[test]
+fn git2_repo_finds_the_empty_tree_in_a_sha256_repository() -> anyhow::Result<()> {
+    let tmp = TempDir::new()?;
+    git_at_dir(tmp.path())
+        .args(["init", "--object-format=sha256"])
+        .run();
+    let repo = open_repo(tmp.path())?;
+    let empty_tree = repo.empty_tree().id;
+    let ctx = Context::from_repo_for_testing(repo)?;
+
+    #[expect(deprecated, reason = "the libgit2 handle is under test")]
+    let git2_repo = ctx.git2_repo.get()?;
+    git2_repo.find_tree(git2::Oid::from_bytes(empty_tree.as_bytes())?)?;
+    Ok(())
 }
 
 #[test]
@@ -932,11 +948,13 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
         workspace_graph(&ctx)?,
         snapbox::str![[r#"
 
+├── 👉►:0[0]:main[🌳@repo]
+│   └── ►:3[2]:anon:
+│       └── 🏁·85efbe4 (⌂)
 └── ►:2[0]:feat-b[📁wt-b]
     └── ►:1[1]:anon:
         └── ·7d7d38f (⌂)
-            └── 👉►:0[2]:main[🌳@repo]
-                └── 🏁·85efbe4 (⌂)
+            └── →:3:
 
 "#]]
     );

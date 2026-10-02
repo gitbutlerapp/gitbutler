@@ -108,10 +108,22 @@ impl WorkspaceKind {
     /// by means of workspace metadata that is associated with that ref.
     /// If `false`, we are more conservative and may not support all features.
     pub fn has_managed_ref(&self) -> bool {
-        matches!(
-            self,
-            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. }
-        )
+        match self {
+            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+                true
+            }
+            WorkspaceKind::AdHoc => false,
+        }
+    }
+
+    /// Return `true` if this workspace is adhoc.
+    pub fn has_adhoc_ref(&self) -> bool {
+        match self {
+            WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+                false
+            }
+            WorkspaceKind::AdHoc => true,
+        }
     }
 
     /// Return `true` if we have a workspace commit, a commit that merges all stacks together.

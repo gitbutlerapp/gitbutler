@@ -264,13 +264,16 @@ Graph {
 
 #[test]
 fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
-    let (repo, meta, mut db) =
-        utils::named_read_only_in_memory_scenario("special-conditions", "shallow-clone-depth-2")?;
+    let (repo, meta, mut db) = utils::named_read_only_in_memory_scenario(
+        "special-conditions",
+        "shallow-clone-ahead-of-upstream",
+    )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 71a64f3 (HEAD -> main, origin/main, origin/HEAD) commit 4
+* 71a64f3 (HEAD -> main) commit 4
 * 62d65ed (grafted) commit 3
+* f41afe5 (origin/main, origin/HEAD) commit 1
 
 "#]]
     );
@@ -293,10 +296,11 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  origin/main
 ◎  👉main[🌳] <> origin/main
 ●  ·71a64f3 (⌂)
 ●  ⛰·62d65ed (⌂|⛰)
+◎  origin/main
+●  🏁🟣f41afe5 (0x0)
 "#]]
     );
     let (boundary_sidx, boundary_cidx) = graph
@@ -335,14 +339,20 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
     assert!(!condition.contains(StopCondition::FirstCommit));
 
     let ws = graph.into_workspace()?;
+    assert!(
+        ws.lower_bound.is_none(),
+        "the shallow boundary prevents reaching a common base with the older upstream"
+    );
+    // The projection must expose the shallow cutoff, not silently hide incomplete local history.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣2
-└── ≡:main[🌳] <> origin/main {1}
-    └── :main[🌳] <> origin/main
-        ├── ❄️71a64f3
-        └── ❄️62d65ed (⛰)
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1
+└── ≡:main[🌳] <> origin/main⇡2⇣1 {1}
+    └── :main[🌳] <> origin/main⇡2⇣1
+        ├── 🟣f41afe5
+        ├── ·71a64f3
+        └── ·62d65ed (⛰)
 
 "#]]
     );
@@ -458,13 +468,11 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣3
-└── ≡:main[🌳] <> origin/main⇡1⇣1 {1}
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1 on ce09734
+└── ≡:main[🌳] <> origin/main⇡1⇣1 on ce09734 {1}
     └── :main[🌳] <> origin/main⇡1⇣1
         ├── 🟣5d29d62
-        ├── ·971953d
-        ├── ❄️ce09734
-        └── ❄️fafd9d0
+        └── ·971953d
 
 "#]]
     );
@@ -508,19 +516,16 @@ fn only_remote_advanced() -> anyhow::Result<()> {
 "#]]
     );
 
-    // TODO: it should detect that `main` has no own commits as it's fully integrated.
-    //       This also affects the base which would have to be 085535d, the first commit.
-    //       which is strange but maybe can work?
+    // The upstream fallback bounds shared history at main's tip, with two incoming commits.
+    // Without a project target, main's lane remains visible.
+    // TODO: The lane's remote listing still omits RM1 in the origin/split-segment segment.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣5
-└── ≡:main[🌳] <> origin/main⇣1 {1}
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
+└── ≡:main[🌳] <> origin/main⇣1 on 971953d {1}
     └── :main[🌳] <> origin/main⇣1
-        ├── 🟣085535d
-        ├── ❄️971953d
-        ├── ❄️ce09734
-        └── ❄️fafd9d0
+        └── 🟣085535d
 
 "#]]
     );
@@ -572,13 +577,10 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣5
-└── ≡:main[🌳] <> origin/main⇣1 {1}
+⌂:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
+└── ≡:main[🌳] <> origin/main⇣1 on 971953d {1}
     └── :main[🌳] <> origin/main⇣1
-        ├── 🟣085535d
-        ├── ❄️971953d
-        ├── ❄️ce09734
-        └── ❄️fafd9d0
+        └── 🟣085535d
 
 "#]]
     );
@@ -1155,20 +1157,18 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 "#]]
     );
 
-    // 'main' is frozen because it connects to a 'foreign' remote, the commit was pushed.
+    // Shared main becomes the base; both stacked branches retain their local and remote commits.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:B[🌳] <> ✓refs/remotes/origin/B⇣3
-└── ≡:B[🌳] <> origin/B⇡1⇣1 {1}
+⌂:B[🌳] <> ✓refs/remotes/origin/B⇣2 on fafd9d0
+└── ≡:B[🌳] <> origin/B⇡1⇣1 on fafd9d0 {1}
     ├── :B[🌳] <> origin/B⇡1⇣1
     │   ├── 🟣682be32
     │   └── ·312f819
-    ├── :A <> origin/A⇡1⇣1
-    │   ├── 🟣e29c23d
-    │   └── ·e255adc
-    └── :main
-        └── ❄fafd9d0
+    └── :A <> origin/A⇡1⇣1
+        ├── 🟣e29c23d
+        └── ·e255adc
 
 "#]]
     );
@@ -1271,13 +1271,11 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:A <> ✓refs/remotes/origin/A⇣2
-└── ≡:A <> origin/A⇡1⇣1 {1}
-    ├── :A <> origin/A⇡1⇣1
-    │   ├── 🟣e29c23d
-    │   └── ·e255adc
-    └── :main
-        └── ❄fafd9d0
+⌂:A <> ✓refs/remotes/origin/A⇣1 on fafd9d0
+└── ≡:A <> origin/A⇡1⇣1 on fafd9d0 {1}
+    └── :A <> origin/A⇡1⇣1
+        ├── 🟣e29c23d
+        └── ·e255adc
 
 "#]]
     );
@@ -1833,10 +1831,11 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ●  ·3c2f313 (⌂)
+│ ◎  👉main[🌳@repo]
+├─╯
 │ ◎  wt-feature[📁worktree-ahead-feature]
 │ ●  ·9175ab3 (⌂)
 ├─╯
-◎  👉main[🌳@repo]
 ●  🏁·85efbe4 (⌂)
 "#]]
     );
@@ -1867,9 +1866,10 @@ fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
     )?
     .validated()?;
     let feature_only = snapbox::str![[r#"
-◎  wt-feature[📁worktree-ahead-feature]
-●  ·9175ab3 (⌂)
 ◎  👉main[🌳@repo]
+│ ◎  wt-feature[📁worktree-ahead-feature]
+│ ●  ·9175ab3 (⌂)
+├─╯
 ●  🏁·85efbe4 (⌂)
 "#]];
     snapbox::assert_data_eq!(graph_dag(&graph), feature_only.clone());
@@ -1990,9 +1990,10 @@ fn worktree_created_after_adoption_is_active() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  wt-feature[📁]
-●  ·88cbbc5 (⌂)
 ◎  👉main[🌳@repo]
+│ ◎  wt-feature[📁]
+│ ●  ·88cbbc5 (⌂)
+├─╯
 ●  🏁·7dfaa8f (⌂)
 "#]]
     );
@@ -2549,16 +2550,14 @@ fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
     .validated()?
     .into_workspace()?;
 
-    // Without a stored target commit the walk isn't cut off by the target ref.
+    // Without a stored target commit, the target ref's tip bounds the walk.
+    // The empty feature branch remains visible because it isn't the local integration branch.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:feature[🌳] <> ✓refs/remotes/origin/main⇣2
-└── ≡:feature[🌳] {1}
-    ├── :feature[🌳]
-    │   └── ❄d1b2aed (✓)
-    └── :main <> origin/main
-        └── ❄️0cc01ab (✓)
+⌂:feature[🌳] <> ✓refs/remotes/origin/main on d1b2aed
+└── ≡:feature[🌳] on d1b2aed {1}
+    └── :feature[🌳]
 
 "#]]
     );

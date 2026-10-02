@@ -116,7 +116,6 @@ export const apiParamNames = {
 	operatingMode: ["projectId"],
 	peelRestoreSnapshot: ["projectId", "sha"],
 	publishReview: ["projectId", "params"],
-	removeBranch: ["projectId", "stackId", "branchName"],
 	removeCommentReaction: ["projectId", "commentId", "reactionId"],
 	removeReviewLabel: ["projectId", "reviewId", "label"],
 	removeReviewReaction: ["projectId", "reviewId", "reactionId"],
