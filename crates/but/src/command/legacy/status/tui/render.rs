@@ -1678,7 +1678,7 @@ pub struct RenderSingleLineSpans<'a, 'b> {
 }
 
 impl<'a, 'b> RenderSingleLineSpans<'a, 'b> {
-    pub(super) fn new(frame: &'a mut Frame<'b>, area: Rect) -> Self {
+    pub fn new(frame: &'a mut Frame<'b>, area: Rect) -> Self {
         Self { frame, area }
     }
 

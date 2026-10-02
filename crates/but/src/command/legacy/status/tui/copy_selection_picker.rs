@@ -300,7 +300,7 @@ impl FuzzyPickerItem for CopySelectionItem {
         }]
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         theme.default
     }
 }

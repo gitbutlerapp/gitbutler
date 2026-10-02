@@ -449,10 +449,14 @@ impl FuzzyPickerItem for SwitchBranchItem {
         }
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         match self {
             SwitchBranchItem::Branch { .. } => theme.local_branch,
             SwitchBranchItem::Workspace => theme.info,
         }
+    }
+
+    fn secondary_style(&self, theme: &Theme) -> Style {
+        theme.hint
     }
 }
