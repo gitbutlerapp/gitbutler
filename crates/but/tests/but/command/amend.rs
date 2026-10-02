@@ -162,10 +162,64 @@ Error: Cannot amend: 1 change could not be applied:
   shared.txt
     line 4 depends on B ([..])
 
-Hint: to apply these changes, stack A on top of B and try again — commits already on the branch move with it:
-  but move A --above B
+"#]]);
+}
+
+#[test]
+fn amend_rejection_keeps_descendant_on_target_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file(
+        "shared.txt",
+        "ancestor version\nmiddle one\nmiddle two\nbase fourth line\nlast line\n",
+    );
+    env.but("commit -m 'add shared file' -b ancestor")
+        .assert()
+        .success();
+    env.but("move A --above ancestor").assert().success();
+    env.file(
+        "shared.txt",
+        "target version\nmiddle one\nmiddle two\nbase fourth line\nlast line\n",
+    );
+    env.but("commit -m 'change first line' -b A")
+        .assert()
+        .success();
+    let target_commit_cli_id = branch_commit_cli_ids(&status_json(&env), "A")[0].clone();
+
+    env.file(
+        "shared.txt",
+        "target version\nmiddle one\nmiddle two\nlater version\nlast line\n",
+    );
+    env.but("commit -m 'change shared file' -b A")
+        .assert()
+        .success();
+    env.file(
+        "shared.txt",
+        "worktree target version\nmiddle one\nmiddle two\nworktree later version\nlast line\n",
+    );
+    let before = status_json(&env);
+
+    env.but(format!("amend shared.txt --target {target_commit_cli_id}"))
+        .assert()
+        .failure()
+        .stdout_eq(str![""])
+        .stderr_eq(str![[r#"
+Error: Cannot amend: 1 change could not be applied:
+  shared.txt
+    line 4 depends on A ([..])
 
 "#]]);
+
+    let after = status_json(&env);
+    assert_eq!(
+        branch_commit_cli_ids(&before, "A"),
+        branch_commit_cli_ids(&after, "A"),
+        "a rejected amend must preserve the branch commits"
+    );
+    assert!(
+        uncommitted_contains_file(&after, "shared.txt"),
+        "a rejected amend must leave its source uncommitted"
+    );
 }
 
 #[test]
