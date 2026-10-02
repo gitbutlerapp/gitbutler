@@ -438,12 +438,16 @@ fn published_projects(hosted: &Hosted) -> anyhow::Result<serde_json::Value> {
                     .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
                     .and_then(|v| v["title"].as_str().map(ToOwned::to_owned))
                     .unwrap_or_default();
-                let machine_name = machine.file_name().unwrap_or_default().to_string_lossy();
-                let checkout = view.file_stem().unwrap_or_default().to_string_lossy();
+                let id = format!(
+                    "{}/{}/{}",
+                    project.file_name().unwrap_or_default().to_string_lossy(),
+                    machine.file_name().unwrap_or_default().to_string_lossy(),
+                    view.file_stem().unwrap_or_default().to_string_lossy(),
+                );
                 projects.push(json!({
-                    "id": ProjectHandle::from_path(&view)?.to_string(),
-                    "title": format!("{title} · {machine_name}/{checkout}"),
-                    "path": view,
+                    "id": id,
+                    "title": format!("{title} · {}", machine.file_name().unwrap_or_default().to_string_lossy()),
+                    "path": id,
                     "isOpen": false,
                 }));
             }
@@ -468,25 +472,34 @@ async fn sdk_endpoint(
             "{endpoint} is not available on a hosted server"
         )));
     }
-    if let Err(err) = check_project(&hosted, &params) {
+    let mut params = params;
+    if let Err(err) = resolve_project(&hosted, &mut params) {
         return cmd_result_to_json(Err(err));
     }
     crate::call_sdk_endpoint(&endpoint, params).await
 }
 
-/// A request may only name a project that is a published checkout.
-fn check_project(hosted: &Hosted, params: &serde_json::Value) -> anyhow::Result<()> {
-    let Some(project_id) = params.get("projectId") else {
+/// A hosted project ID names a published checkout as `<project>/<machine>/<checkout>`; the
+/// endpoint gets the handle of its view instead.
+fn resolve_project(hosted: &Hosted, params: &mut serde_json::Value) -> anyhow::Result<()> {
+    let Some(project_id) = params.get_mut("projectId") else {
         return Ok(());
     };
-    let handle: ProjectHandle = project_id
-        .as_str()
-        .context("projectId must be a string")?
-        .parse()?;
-    let path = handle.into_path()?;
-    let views = std::fs::canonicalize(hosted.views())?;
-    if !std::fs::canonicalize(&path)?.starts_with(&views) {
-        bail!("not a published project");
+    let id = project_id.as_str().context("projectId must be a string")?;
+    let mut parts = id.splitn(3, '/');
+    let (Some(project), Some(machine), Some(checkout)) = (parts.next(), parts.next(), parts.next())
+    else {
+        bail!("not a published checkout: {id}");
+    };
+    validate_names(project, machine, checkout)?;
+    let view = hosted.view(&Checkout {
+        project: project.to_owned(),
+        machine: machine.to_owned(),
+        checkout: checkout.to_owned(),
+    });
+    if !view.join("HEAD").exists() {
+        bail!("not a published checkout: {id}");
     }
+    *project_id = ProjectHandle::from_path(&view)?.to_string().into();
     Ok(())
 }
