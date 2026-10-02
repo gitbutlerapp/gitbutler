@@ -12,11 +12,14 @@ use std::{
 };
 
 use anyhow::{Context as _, bail};
-use bstr::{BStr, BString};
-use but_core::{DiffSpec, RepositoryExt};
+use bstr::{BStr, BString, ByteSlice};
+use but_core::{DiffSpec, RepositoryExt, diff::worktree_changes};
 pub use but_graph::workspace::WorktreeBase;
 
-use crate::ref_info::{LocalCommit, Segment};
+use crate::{
+    discard_workspace_changes,
+    ref_info::{LocalCommit, Segment},
+};
 
 /// A non-archived linked worktree along with the first-parent history it owns exclusively,
 /// i.e. the segments between its `HEAD` and the workspace, an earlier worktree, or the target.
@@ -146,7 +149,14 @@ pub fn add_cow(
     branch: &gix::refs::FullNameRef,
     base: gix::ObjectId,
 ) -> anyhow::Result<BString> {
-    let worktree_path = add(repo, path, branch, base, true)?;
+    let Some(workdir) = repo.workdir() else {
+        anyhow::bail!("Cannot use COW worktree mode on bare repository");
+    };
+    if let Some(mut submodules) = repo.submodules()? {
+        anyhow::ensure!(submodules.next().is_none(), "COW mode is not supported for submodules");
+    }
+
+    let worktree_name = add(repo, path, branch, base, true)?;
 
     let source_directory = fs::canonicalize(
         repo.workdir()
@@ -158,20 +168,36 @@ pub fn add_cow(
     //        !destination.starts_with(&source_directory),
     //        "Nested worktrees not allowed for COW"
     //    );
-
+    //
     clone_directory(
         &source_directory,
         &destination,
-        &[repo.common_dir().to_owned()],
+        &[workdir.join(".git")],
     )?;
 
-    Ok(worktree_path)
+    let worktree_repo = open_worktree_repo(repo, worktree_name.as_bstr())?;
+
+    // Build target index
+    let mut index = worktree_repo.index_from_tree(&worktree_repo.head_tree_id_or_empty()?)?;
+    index.write(Default::default())?;
+
+    // Discard untracked files
+    // TODO Should be optimized. We're first diffing in `worktree_changes`, and then again in
+    // `discard_workspace_changes`, both using full rename tracking.
+    let changes = worktree_changes(&worktree_repo)?;
+    discard_workspace_changes(
+        &worktree_repo,
+        changes.changes.iter().map(DiffSpec::from),
+        0,
+    )?;
+
+    Ok(worktree_name)
 }
 
 fn clone_directory(
     source: &Path,
     destination: &Path,
-    ignored_paths: &[PathBuf],
+    ignored_source_paths: &[PathBuf],
 ) -> anyhow::Result<()> {
     anyhow::ensure!(source.is_dir(), "Source must be a directory");
 
@@ -181,7 +207,7 @@ fn clone_directory(
         let entry = entry?;
 
         let source = entry.path();
-        if ignored_paths.contains(&source) {
+        if ignored_source_paths.contains(&source) {
             continue;
         }
 
@@ -191,9 +217,9 @@ fn clone_directory(
         if kind.is_dir() {
             fs::create_dir(&destination)
                 .with_context(|| format!("Failed to create '{}'", destination.display()))?;
-            clone_directory(&source, &destination, ignored_paths)?;
+            clone_directory(&source, &destination, ignored_source_paths)?;
             fs::set_permissions(&destination, entry.metadata()?.permissions())?;
-        } else {
+        } else if source.is_symlink() || source.is_file() {
             clone_file(&source, &destination).with_context(|| {
                 format!(
                     "Failed to clone file from '{}' to '{}'",
@@ -201,6 +227,8 @@ fn clone_directory(
                     destination.display()
                 )
             })?;
+        } else {
+            tracing::debug!("Cannot clone special file '{}' - skipping", source.display())
         }
     }
 
