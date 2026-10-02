@@ -56,7 +56,7 @@ mod output;
 mod render_oneshot;
 mod tui;
 
-pub use tui::Selectable;
+pub use tui::{Selectable, fuzzy_picker};
 
 /// The workspace status that `but status --json` prints, for in-process callers.
 ///

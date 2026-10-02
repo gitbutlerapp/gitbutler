@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="92" viewBox="0 0 420 92">
+  <rect x="0" y="0" width="420" height="92" fill="#000000" />
+  <rect x="26" y="10" width="8" height="18" fill="#555555" />
+  <rect x="10" y="46" width="400" height="18" fill="#45475A" />
+  <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
+    <text x="10" y="24" style="fill:#CCCCCC;">&gt;</text>
+    <text x="34 42 50 58 66 74" y="24" style="fill:#555555;">Select</text>
+    <text x="90 98 106 114 122 130" y="24" style="fill:#555555;">branch</text>
+    <text x="10 18 26 34 42 50 58 66 74" y="42" style="fill:#CCCCCC;opacity:0.75;">workspace</text>
+    <text x="10 18 26 34 42 50 58 66 74 82 90" y="60" style="fill:#CCCCCC;">feature-one</text>
+    <text x="362 370" y="60" style="fill:#CCCCCC;opacity:0.75;">1h</text>
+    <text x="386 394 402" y="60" style="fill:#CCCCCC;opacity:0.75;">ago</text>
+    <text x="10 18 26 34 42 50 58 66 74 82 90" y="78" style="fill:#CCCCCC;">feature-two</text>
+    <text x="362 370" y="78" style="fill:#CCCCCC;opacity:0.75;">2h</text>
+    <text x="386 394 402" y="78" style="fill:#CCCCCC;opacity:0.75;">ago</text>
+  </g>
+</svg>

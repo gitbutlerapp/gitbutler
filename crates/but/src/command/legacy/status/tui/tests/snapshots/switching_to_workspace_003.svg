@@ -35,14 +35,14 @@
     <text x="114" y="78" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">A</text>
     <text x="154" y="78" style="fill:#555555;">│</text>
     <text x="162" y="78" style="fill:#00AA00;">B</text>
-    <text x="610 618 626" y="78" style="fill:#CCCCCC;">26y</text>
-    <text x="642 650 658" y="78" style="fill:#CCCCCC;">ago</text>
+    <text x="610 618 626" y="78" style="fill:#CCCCCC;opacity:0.75;">26y</text>
+    <text x="642 650 658" y="78" style="fill:#CCCCCC;opacity:0.75;">ago</text>
     <text x="666" y="78" style="fill:#555555;">│</text>
     <text x="10 18" y="96" style="fill:#CCCCCC;">├╯</text>
     <text x="154" y="96" style="fill:#555555;">│</text>
     <text x="162 170 178 186" y="96" style="fill:#00AA00;">main</text>
-    <text x="610 618 626" y="96" style="fill:#CCCCCC;">26y</text>
-    <text x="642 650 658" y="96" style="fill:#CCCCCC;">ago</text>
+    <text x="610 618 626" y="96" style="fill:#CCCCCC;opacity:0.75;">26y</text>
+    <text x="642 650 658" y="96" style="fill:#CCCCCC;opacity:0.75;">ago</text>
     <text x="666" y="96" style="fill:#555555;">│</text>
     <text x="10" y="114" style="fill:#CCCCCC;">┊</text>
     <text x="154" y="114" style="fill:#555555;">│</text>

@@ -36,6 +36,7 @@ use crate::{
                     render::render_app,
                 },
             },
+            switch::SwitchBranchItem,
         },
         open::{self, Openable},
     },
@@ -2291,7 +2292,7 @@ impl FuzzyPickerItem for GotoBranchItem {
         }
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         match self {
             GotoBranchItem::Branch(..) | GotoBranchItem::Worktree { .. } => theme.local_branch,
             Self::Uncommitted => theme.info,
@@ -2313,7 +2314,7 @@ impl FuzzyPickerItem for ProgramSpec {
         ]
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         theme.info
     }
 }

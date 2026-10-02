@@ -58,7 +58,7 @@ mod cursor;
 mod details;
 mod file_browser;
 mod fps;
-mod fuzzy_picker;
+pub mod fuzzy_picker;
 mod graph_extension;
 mod help;
 mod highlight;
