@@ -55,6 +55,39 @@ fn workspace_with_worktree_tips(
 }
 
 #[test]
+fn no_checkout() {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+
+    let tempdir = tempfile::tempdir().unwrap();
+
+    let base = repo.head_id().unwrap().detach();
+    let path = tempdir.path().join("wt");
+    let branch: &gix::refs::FullNameRef = "refs/heads/wt-no-checkout".try_into().unwrap();
+
+    but_workspace::worktrees::add(&repo, &path, branch, base, true)
+        .expect("Worktree creation should succeed");
+
+    let worktree = gix::open(&path).unwrap();
+    assert_eq!(
+        worktree.head_id().unwrap().detach(),
+        base,
+        "HEAD points to requested base"
+    );
+    assert!(path.join(".git").is_file(), "linked worktree is registered");
+
+    let entries = std::fs::read_dir(&path)
+        .unwrap()
+        .map(|entry| entry.map(|entry| entry.file_name()))
+        .collect::<std::io::Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(
+        entries,
+        vec![std::ffi::OsString::from(".git")],
+        "no tracked files were checked out"
+    );
+}
+
+#[test]
 fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
     let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(

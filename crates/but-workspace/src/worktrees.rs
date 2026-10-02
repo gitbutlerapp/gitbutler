@@ -154,10 +154,10 @@ pub fn add_cow(
     )?;
     let destination = gix::path::realpath(path)?;
 
-    anyhow::ensure!(
-        !destination.starts_with(&source_directory),
-        "Nested worktrees not allowed for COW"
-    );
+    //    anyhow::ensure!(
+    //        !destination.starts_with(&source_directory),
+    //        "Nested worktrees not allowed for COW"
+    //    );
 
     clone_directory(
         &source_directory,
@@ -209,8 +209,21 @@ fn clone_directory(
 
 /// TODO actually clone file
 fn clone_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
-    anyhow::ensure!(source.is_file(), "Source must be a file");
-    fs::copy(source, destination)?;
+    if source.is_symlink() {
+        let target = fs::read_link(source)?;
+        std::os::unix::fs::symlink(&target, destination)?;
+    } else if source.is_file() {
+        fs::copy(source, destination)?;
+    } else {
+        bail!(
+            "Invalid source type '{}' for clone_file",
+            source
+                .metadata()
+                .map(|meta| format!("{:?}", meta.file_type()))
+                .unwrap_or("UNKNOWN".to_string())
+        )
+    }
+
     Ok(())
 }
 

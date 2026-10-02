@@ -348,7 +348,11 @@ pub fn worktree_new_at_base_with_perm(
         );
     }
     let path = repo.common_dir().join("gb-wts").join(&slug);
-    let name = but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base, cow)?;
+    let name = if cow {
+        but_workspace::worktrees::add_cow(&repo, &path, ref_name.as_ref(), base)?
+    } else {
+        but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base, false)?
+    };
     let path = gix::path::realpath(&path)?;
     drop((repo, ws, db));
     ctx.invalidate_workspace_cache()?;
