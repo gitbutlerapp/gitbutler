@@ -4,7 +4,7 @@
 
 use crate::args::atoms::CliIdArg;
 
-/// Switch to a local branch, workspace branch ID, or the GitButler workspace.
+/// Switch to a local branch or the GitButler workspace.
 ///
 /// ## Examples
 ///
@@ -34,10 +34,10 @@ use crate::args::atoms::CliIdArg;
         .multiple(true)
 ))]
 pub struct Platform {
-    /// Branch name, full local branch ref, or workspace CLI branch ID.
+    /// Name of the branch to switch to.
     pub target: Option<CliIdArg>,
 
-    /// Switch back to gitbutler/workspace.
+    /// Switch back to the GitButler workspace.
     #[clap(long, short = 'w', conflicts_with = "target")]
     pub workspace: bool,
 }
