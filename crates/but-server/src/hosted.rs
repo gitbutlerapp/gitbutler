@@ -6,6 +6,8 @@
 //! * `views/<project>/<machine>/<checkout>.git` - a bare repository per checkout holding only
 //!   that namespace's refs, borrowing objects from the store. This is what reads open, so a
 //!   published checkout is an ordinary project to `but-api`. A push updates it.
+//!
+//! Browsers follow publishes over the `/events` WebSocket, see [`events`].
 
 use std::{
     path::{Path, PathBuf},
@@ -17,17 +19,20 @@ use anyhow::{Context as _, bail};
 use axum::{
     Json, Router,
     body::{Body, Bytes},
-    extract::{DefaultBodyLimit, Path as UrlPath, RawQuery, Request, State},
+    extract::{DefaultBodyLimit, FromRef, Path as UrlPath, RawQuery, Request, State},
     http::{HeaderMap, Method, StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{any, post},
+    routing::{any, get, post},
 };
 use but_core::diff::PUBLISHED_WORKTREE_REF;
-use tokio::io::AsyncWriteExt as _;
+use tokio::{io::AsyncWriteExt as _, sync::broadcast};
 use tower_http::services::{ServeDir, ServeFile};
 
 use crate::cmd_result_to_json;
+
+mod events;
+use events::{EVENTS_BUFFER, EventTickets, ProjectEvent};
 
 /// Configuration for the hosted server.
 #[derive(Debug)]
@@ -44,34 +49,68 @@ pub struct HostedConfig {
     pub token: String,
 }
 
+#[derive(Clone)]
+struct HostedState {
+    config: Arc<HostedConfig>,
+    events: broadcast::Sender<ProjectEvent>,
+    tickets: EventTickets,
+}
+
+impl FromRef<HostedState> for Arc<HostedConfig> {
+    fn from_ref(state: &HostedState) -> Self {
+        state.config.clone()
+    }
+}
+
+impl FromRef<HostedState> for broadcast::Sender<ProjectEvent> {
+    fn from_ref(state: &HostedState) -> Self {
+        state.events.clone()
+    }
+}
+
+impl FromRef<HostedState> for EventTickets {
+    fn from_ref(state: &HostedState) -> Self {
+        state.tickets.clone()
+    }
+}
+
 /// Run the hosted server until interrupted.
 pub async fn run(config: HostedConfig) -> anyhow::Result<()> {
     let url = format!("{}:{}", config.bind_addr, config.port);
-    let web_dir = config.web_dir.clone();
-    let config = Arc::new(config);
-    let api = Router::new()
-        .route(
-            "/git/{project}/{machine}/{checkout}/{*rest}",
-            any(git_http).layer(DefaultBodyLimit::disable()),
-        )
-        .route("/sdk/{endpoint}", post(sdk_endpoint))
-        .route_layer(middleware::from_fn_with_state(
-            config.clone(),
-            require_token,
-        ))
-        .with_state(config);
-    let app = match web_dir {
-        Some(dir) => api
-            .fallback_service(ServeDir::new(&dir).fallback(ServeFile::new(dir.join("index.html")))),
-        None => api,
-    };
-
+    let app = router(config);
     let listener = tokio::net::TcpListener::bind(&url)
         .await
         .with_context(|| format!("Failed to bind to {url}"))?;
     println!("Hosted: http://{url}");
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+/// Every hosted route, ready to serve; `config.port` and `config.bind_addr` are left to the caller.
+pub fn router(config: HostedConfig) -> Router {
+    let web_dir = config.web_dir.clone();
+    let config = Arc::new(config);
+    let state = HostedState {
+        config: config.clone(),
+        events: broadcast::channel(EVENTS_BUFFER).0,
+        tickets: EventTickets::default(),
+    };
+    let api = Router::new()
+        .route(
+            "/git/{project}/{machine}/{checkout}/{*rest}",
+            any(git_http).layer(DefaultBodyLimit::disable()),
+        )
+        .route("/sdk/{endpoint}", post(sdk_endpoint))
+        .route("/events/ticket", post(events::events_ticket))
+        .route_layer(middleware::from_fn_with_state(config, require_token))
+        // A WebSocket can't carry the bearer header, so it presents a ticket from `/events/ticket`.
+        .route("/events", get(events::events))
+        .with_state(state);
+    match web_dir {
+        Some(dir) => api
+            .fallback_service(ServeDir::new(&dir).fallback(ServeFile::new(dir.join("index.html")))),
+        None => api,
+    }
 }
 
 async fn require_token(
@@ -106,6 +145,23 @@ fn is_name(name: &str) -> bool {
 }
 
 impl Checkout {
+    /// The checkout a hosted project ID names, refusing one that was never published.
+    fn published(config: &HostedConfig, id: &str) -> anyhow::Result<Self> {
+        let parts: Vec<&str> = id.splitn(3, '/').collect();
+        let [project, machine, checkout] = parts[..] else {
+            bail!("not a published checkout: {id}");
+        };
+        let checkout = Checkout::new(project, machine, checkout)?;
+        if !checkout.view(config).join("HEAD").exists() {
+            bail!("not a published checkout: {id}");
+        }
+        Ok(checkout)
+    }
+
+    fn id(&self) -> String {
+        format!("{}/{}/{}", self.project, self.machine, self.checkout)
+    }
+
     fn new(project: &str, machine: &str, checkout: &str) -> anyhow::Result<Self> {
         let is_root_commit =
             matches!(project.len(), 40 | 64) && project.bytes().all(|b| b.is_ascii_hexdigit());
@@ -167,6 +223,7 @@ fn init_bare(dir: &Path) -> anyhow::Result<()> {
 /// Git's smart HTTP protocol through `git http-backend`, inside the checkout's namespace.
 async fn git_http(
     State(config): State<Arc<HostedConfig>>,
+    State(events): State<broadcast::Sender<ProjectEvent>>,
     UrlPath((project, machine, checkout, rest)): UrlPath<(String, String, String, String)>,
     method: Method,
     RawQuery(query): RawQuery,
@@ -206,9 +263,10 @@ async fn git_http(
         let out = child.wait_with_output().await?;
         writer.await??;
         if rest == "git-receive-pack" && out.status.success() {
-            update_view(&config, &checkout)
-                .inspect_err(|err| tracing::warn!("failed to update a view: {err:#}"))
-                .ok();
+            match update_view(&config, &checkout) {
+                Ok(head_sha) => events::announce_publish(&events, &checkout, head_sha),
+                Err(err) => tracing::warn!("failed to update a view: {err:#}"),
+            }
         }
 
         // CGI output: headers, a blank line, then the body.
@@ -251,8 +309,8 @@ struct Announcement {
     includes_uncommitted: bool,
 }
 
-/// Make the checkout's view match what it last pushed.
-fn update_view(config: &HostedConfig, checkout: &Checkout) -> anyhow::Result<()> {
+/// Make the checkout's view match what it last pushed, returning the view's new `HEAD`.
+fn update_view(config: &HostedConfig, checkout: &Checkout) -> anyhow::Result<gix::ObjectId> {
     let (store, view, namespace) = (
         checkout.store(config),
         checkout.view(config),
@@ -307,6 +365,7 @@ fn update_view(config: &HostedConfig, checkout: &Checkout) -> anyhow::Result<()>
         let fetch = format!("+refs/heads/*:refs/remotes/{name}/*");
         git(&view, &["config", &format!("remote.{name}.fetch"), &fetch])?;
     }
+    let view = gix::open(&view)?;
     but_core::ref_metadata::ProjectMeta {
         target_ref: announcement.target_ref.map(TryInto::try_into).transpose()?,
         target_commit_id: announcement
@@ -315,8 +374,8 @@ fn update_view(config: &HostedConfig, checkout: &Checkout) -> anyhow::Result<()>
             .transpose()?,
         push_remote: announcement.push_remote,
     }
-    .persist(&gix::open(&view)?)?;
-    Ok(())
+    .persist(&view)?;
+    Ok(view.head_id()?.detach())
 }
 
 /// Every published checkout, as the project list Lite shows.
@@ -380,14 +439,7 @@ fn resolve_project(config: &HostedConfig, params: &mut serde_json::Value) -> any
         return Ok(());
     };
     let id = project_id.as_str().context("projectId must be a string")?;
-    let parts: Vec<&str> = id.splitn(3, '/').collect();
-    let [project, machine, checkout] = parts[..] else {
-        bail!("not a published checkout: {id}");
-    };
-    let view = Checkout::new(project, machine, checkout)?.view(config);
-    if !view.join("HEAD").exists() {
-        bail!("not a published checkout: {id}");
-    }
+    let view = Checkout::published(config, id)?.view(config);
     *project_id = but_ctx::ProjectHandle::from_path(&view)?.to_string().into();
     Ok(())
 }
