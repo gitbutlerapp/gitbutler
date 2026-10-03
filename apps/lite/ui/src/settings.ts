@@ -26,7 +26,6 @@ export const defaultSettings = {
 	// Pierre's own default, named here so the setting has somewhere to fall back to.
 	lineDiffType: "word-alt",
 	// Experimental; opt in from the Experimental settings.
-	minimap: false,
 	// Lite has always led with the file name; desktop leads with the path.
 	pathFirst: false,
 	// Loud = the notification bell; quiet = tracked but nothing shown;

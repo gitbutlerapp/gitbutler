@@ -31,7 +31,6 @@ const guiSettingsV1 = type({
 	"graphTrunk?": "boolean",
 	"handCursor?": "boolean",
 	"lineDiffType?": "'word-alt' | 'word' | 'char' | 'none'",
-	"minimap?": "boolean",
 	"pathFirst?": "boolean",
 	"prNotifications?": "'loud' | 'quiet' | 'off'",
 	"terminalId?": "string",
