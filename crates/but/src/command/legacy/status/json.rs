@@ -1,4 +1,5 @@
-//! Structured workspace status shared by the CLI and Rust callers.
+//! Definitions for the JSON output of the but CLI
+//! The types defined here specific to the CLI output format, hence they are not to be exported.
 //!
 //! The focus of this serialization format is:
 //! - Simplicity: The output should be easy to read and understand.
@@ -28,57 +29,57 @@ use super::StatusContext;
 /// This represents the status of the GitButler "workspace".
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WorkspaceStatus {
+pub(crate) struct WorkspaceStatus {
     /// Represents uncommitted changes that are not assigned to any stack
-    pub uncommitted_changes: Vec<FileChange>,
+    uncommitted_changes: Vec<FileChange>,
     /// Uncommitted files with unresolved merge conflicts in the index; not committable until resolved.
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub conflicted_files: Vec<String>,
+    conflicted_files: Vec<String>,
     /// The stacks that are applied in the current workspace
-    pub stacks: Vec<Stack>,
+    stacks: Vec<Stack>,
     /// The active linked worktrees, omitted unless the `worktreeManipulation` flag is on
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub worktrees: Vec<Worktree>,
+    worktrees: Vec<Worktree>,
     /// The most recent common merge base between all applied stacks and the target upstream branch
-    pub merge_base: Commit,
+    merge_base: Commit,
     /// Information about how ahead the target upstream branch is compared to the merge base
-    pub upstream_state: UpstreamState,
+    upstream_state: UpstreamState,
 }
 
 /// A linked worktree with the commits it owns exclusively.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Worktree {
+pub(crate) struct Worktree {
     /// The CLI ID of the worktree's top branch; `<cliId>:@` names its uncommitted area,
     /// the way `@` names the main worktree's
-    pub cli_id: String,
+    cli_id: String,
     /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`
-    pub name: String,
+    name: String,
     /// The branch checked out in the worktree, or `null` for a detached `HEAD`
-    pub reference: Option<String>,
+    reference: Option<String>,
     /// The commit the worktree's own commits rest on
-    pub base: Option<WorktreeBase>,
+    base: Option<WorktreeBase>,
     /// The worktree's uncommitted changes
-    pub uncommitted_changes: Vec<FileChange>,
+    uncommitted_changes: Vec<FileChange>,
     /// The branches of the worktree's lane with the commits it owns alone, newest first
-    pub branches: Vec<Branch>,
+    branches: Vec<Branch>,
 }
 
 /// What a linked worktree's commits rest on, and whether that is inside the workspace.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WorktreeBase {
+pub(crate) struct WorktreeBase {
     /// The commit the worktree branches off
-    pub commit_id: String,
+    commit_id: String,
     /// Whether that commit belongs to one of the workspace stacks, as opposed to being at or
     /// below the target
-    pub in_workspace: bool,
+    in_workspace: bool,
 }
 
 /// Represents the state of the upstream branch compared to the merge base
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UpstreamState {
+pub(crate) struct UpstreamState {
     /// The number of commits the upstream is ahead of the merge base
     pub behind: usize,
     /// The latest commit on the upstream branch
@@ -91,7 +92,7 @@ pub struct UpstreamState {
 }
 
 impl WorkspaceStatus {
-    pub(crate) fn new(
+    pub fn new(
         uncommitted_changes: Vec<FileChange>,
         conflicted_files: Vec<String>,
         stacks: Vec<Stack>,
@@ -113,21 +114,17 @@ impl WorkspaceStatus {
 /// Represents a stack of branches applied in the current workspace
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Stack {
+pub(crate) struct Stack {
     /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `squash`)
-    pub cli_id: String,
+    cli_id: String,
     /// Represents uncommitted changes assigned to this stack
-    pub assigned_changes: Vec<FileChange>,
+    assigned_changes: Vec<FileChange>,
     /// The branches that are part of this stack, newest first
-    pub branches: Vec<Branch>,
+    branches: Vec<Branch>,
 }
 
 impl Stack {
-    pub(crate) fn new(
-        cli_id: String,
-        assigned_changes: Vec<FileChange>,
-        branches: Vec<Branch>,
-    ) -> Self {
+    pub fn new(cli_id: String, assigned_changes: Vec<FileChange>, branches: Vec<Branch>) -> Self {
         Self {
             cli_id,
             assigned_changes,
@@ -139,33 +136,33 @@ impl Stack {
 /// Represents a branch in the GitButler workspace
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Branch {
+pub(crate) struct Branch {
     /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `squash`)
-    pub cli_id: String,
+    cli_id: String,
     /// The name of the branch, e.g. "feature/add-new-api"
-    pub name: String,
+    name: String,
     /// The commits that are part of this branch, newest first
-    pub commits: Vec<Commit>,
+    commits: Vec<Commit>,
     /// The commits that are only at the upstream of this branch, newest first
-    pub upstream_commits: Vec<Commit>,
+    upstream_commits: Vec<Commit>,
     /// Represents the status of the branch with respect to the upstream
-    pub branch_status: BranchStatus,
+    branch_status: BranchStatus,
     /// If but status was invoked with --review and if the branch has an associated review ID (eg. PR number), it will be present here
-    pub review_id: Option<String>,
+    review_id: Option<String>,
     /// The CI status checks associated with this branch, including pending, passing, and failing checks.
     /// This is only populated when CI information is available for the branch (for example, when the
     /// repository is configured with CI and the status has been fetched); otherwise it will be `None`.
-    pub ci: Option<Ci>,
+    ci: Option<Ci>,
     /// The merge status of the branch with upstream, indicating whether it can be cleanly integrated.
     /// This is only populated when `but status --upstream` is used.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub merge_status: Option<MergeStatus>,
+    merge_status: Option<MergeStatus>,
 }
 
 /// The aggregated status of CI checks associated with a branch.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Ci {
+pub(crate) struct Ci {
     /// Titles of CI checks that are currently pending or still running
     pub pending_check_titles: Vec<String>,
     /// Titles of CI checks that have completed successfully
@@ -180,7 +177,7 @@ pub struct Ci {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum CiStatus {
+pub(crate) enum CiStatus {
     /// All CI checks have finished running, regardless of whether they passed or failed.
     Complete,
     /// At least one CI check is still running or has not started yet.
@@ -189,7 +186,7 @@ pub enum CiStatus {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum CiConclusion {
+pub(crate) enum CiConclusion {
     /// At least one required CI check failed or reported an error.
     Failure,
     /// All required CI checks completed successfully.
@@ -202,7 +199,7 @@ pub enum CiConclusion {
 /// The merge status of a branch with the upstream branch
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum MergeStatus {
+pub(crate) enum MergeStatus {
     /// The branch can be cleanly merged or rebased onto the upstream
     Clean,
     /// The branch has already been integrated into the upstream
@@ -219,7 +216,7 @@ pub enum MergeStatus {
 /// The status of a branch with respect to its upstream
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum BranchStatus {
+pub(crate) enum BranchStatus {
     /// Can push, but there are no changes to be pushed
     NothingToPush,
     /// Can push. This is the case when there are local changes that can be pushed to the remote.
@@ -235,48 +232,48 @@ pub enum BranchStatus {
 /// A commit that is in the GitButler workspace
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Commit {
+pub(crate) struct Commit {
     /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `squash`)
-    pub cli_id: String,
+    cli_id: String,
     /// Full change ID, including a synthetic one if the commit does not persist one.
     ///
     /// Currently optional as we don't resolve change IDs for remote commits at this time.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub change_id: Option<String>,
+    change_id: Option<String>,
     /// The commit ID (SHA-1 or SHA-256 depending on the repository configuration)
-    pub commit_id: String,
+    commit_id: String,
     /// Timestamp of when the commit was created in format "YYYY-MM-DD HH:MM:SS +ZZZZ"
-    pub created_at: String,
+    created_at: String,
     /// The commit message
-    pub message: String,
+    message: String,
     /// The name of the commit author
-    pub author_name: String,
+    author_name: String,
     /// The email of the commit author
-    pub author_email: String,
+    author_email: String,
     /// Whether the commit is in a conflicted state. Only applicable to local commits (and not to upstream commits)
-    pub conflicted: Option<bool>,
+    conflicted: Option<bool>,
     /// If but status was invoked with --review and if the commit has an associated review ID (eg. Gerrit review number), it will be present here
-    pub review_id: Option<String>,
+    review_id: Option<String>,
     /// If but status was invoked with --files, the list of file changes in this commit will be present here
-    pub changes: Option<Vec<FileChange>>,
+    changes: Option<Vec<FileChange>>,
 }
 
 /// A change to a file in the repository
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FileChange {
+pub(crate) struct FileChange {
     /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `squash`)
-    pub cli_id: String,
+    cli_id: String,
     /// The file path, UTF-8 encoded (note - this can be lossy for some Operating Systems)
-    pub file_path: String,
+    file_path: String,
     /// The type of change that happened to the file
-    pub change_type: ChangeType,
+    change_type: ChangeType,
 }
 
 /// The type of change that happened to a file
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum ChangeType {
+pub(crate) enum ChangeType {
     /// The file was newly added (it was not tracked before)
     Added,
     /// The file was deleted
@@ -347,7 +344,7 @@ impl From<Vec<but_forge::CiCheck>> for Ci {
 
 impl Branch {
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn from_branch_details(
+    pub fn from_branch_details(
         repo: &gix::Repository,
         cli_id: String,
         segment: SegmentWithId,
@@ -407,7 +404,7 @@ impl Branch {
 }
 
 impl FileChange {
-    pub(crate) fn from_tree_change(cli_id: String, tree_change: but_core::ui::TreeChange) -> Self {
+    pub fn from_tree_change(cli_id: String, tree_change: but_core::ui::TreeChange) -> Self {
         FileChange {
             cli_id,
             file_path: tree_change.path.to_string(),
@@ -417,7 +414,7 @@ impl FileChange {
 }
 
 impl Commit {
-    pub(crate) fn from_local_commit(
+    pub fn from_local_commit(
         repo: &gix::Repository,
         cli_id: String,
         commit: WorkspaceCommitWithId,
@@ -461,7 +458,7 @@ impl Commit {
             changes,
         })
     }
-    pub(crate) fn from_remote_commit(
+    pub fn from_remote_commit(
         cli_id: String,
         commit: RemoteCommitWithId,
         remote_commits_by_id: &HashMap<gix::ObjectId, but_workspace::ref_info::Commit>,
@@ -488,7 +485,7 @@ impl Commit {
     }
     /// A commit not obtained from a stack. `IdMap` does not know
     /// about this commit, so it will not have a CLI ID.
-    pub(crate) fn from_upstream_commit(
+    pub fn from_upstream_commit(
         commit: but_workspace::ui::UpstreamCommit,
         changes: Option<Vec<FileChange>>,
     ) -> Self {
