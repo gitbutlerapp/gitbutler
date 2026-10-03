@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { autoSelectBranchNameFeature } from "$lib/config/uiFeatureFlags";
-	import { TestId } from "@gitbutler/ui-svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, TestId } from "@gitbutler/ui-svelte";
 	import { clickOutside } from "@gitbutler/ui-svelte/utils/clickOutside";
 	import { resizeObserver } from "@gitbutler/ui-svelte/utils/resizeObserver";
+
 
 	interface Props {
 		name: string;
@@ -33,6 +36,8 @@
 	let currentValue = $derived(name);
 
 	const inputWidth = $derived(`${Math.max(measureWidth, 44)}px`);
+
+	const clipboardService = inject(CLIPBOARD_SERVICE);
 
 	function handleInputChange(e: Event) {
 		const target = e.currentTarget as HTMLInputElement;
@@ -92,11 +97,17 @@
 		currentValue = target.value;
 	}
 
+	function handleBranchNameCopy(e: Event) {
+		clipboardService.write(name, {message: "Copied branch name to clipboard"});
+		e.stopPropagation();
+	}
+
 	$effect(() => {
 		if (error) {
 			currentValue = name;
 		}
 	});
+
 </script>
 
 <!-- Hidden element for measuring text width -->
@@ -110,34 +121,49 @@
 	{currentValue}
 </span>
 
-<input
-	type="text"
-	{disabled}
-	{readonly}
-	bind:this={inputEl}
-	bind:value={currentValue}
-	onchange={handleInputChange}
-	oninput={handleInput}
-	title={currentValue}
-	class="branch-name-input text-{fontSize} text-bold"
-	ondblclick={handleDoubleClick}
-	oncontextmenu={handleContextMenu}
-	onclick={handleClick}
-	onkeypress={handleKeypress}
-	onfocus={handleFocus}
-	onkeydown={handleKeydown}
-	autocomplete="off"
-	autocorrect="off"
-	spellcheck="false"
-	data-remove-from-panning
-	data-no-drag
-	use:clickOutside={{
-		handler: () => inputEl?.blur(),
-	}}
-	style:width={inputWidth}
-/>
+<div class="branch-name-wrapper">
+    <input
+        type="text"
+        {disabled}
+        {readonly}
+        bind:this={inputEl}
+        bind:value={currentValue}
+        onchange={handleInputChange}
+        oninput={handleInput}
+        title={currentValue}
+        class="branch-name-input text-{fontSize} text-bold"
+        ondblclick={handleDoubleClick}
+        oncontextmenu={handleContextMenu}
+        onclick={handleClick}
+        onkeypress={handleKeypress}
+        onfocus={handleFocus}
+        onkeydown={handleKeydown}
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+        data-remove-from-panning
+        data-no-drag
+        use:clickOutside={{
+            handler: () => inputEl?.blur(),
+        }}
+        style:width={inputWidth}
+    />
+
+    <Button
+        icon="copy"
+        kind="ghost"
+        size="tag"
+        tooltip="Copy branch name"
+        onclick={handleBranchNameCopy}
+    />
+</div>
 
 <style lang="postcss">
+	.branch-name-wrapper {
+		display: inline-flex;
+		align-items: center;
+	}
+
 	.branch-name-measure-el,
 	.branch-name-input {
 		min-width: 44px;
