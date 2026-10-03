@@ -303,7 +303,9 @@ export class UiState {
 	}
 
 	private update(id: string, value: UiStateValue) {
-		this.dispatch(upsertOne({ id, value }));
+		// Values may be $state proxies (e.g. picked from a $state array), which
+		// Immer's auto-freeze cannot handle — snapshot to plain data first.
+		this.dispatch(upsertOne({ id, value: $state.snapshot(value) as UiStateValue }));
 	}
 
 	/**
