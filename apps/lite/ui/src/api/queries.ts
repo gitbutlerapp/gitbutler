@@ -44,6 +44,15 @@ export const branchDiffQueryOptions = ({ projectId, ...params }: PayloadFor<"bra
 		queryFn: () => window.lite.branchDiff({ projectId, ...params }),
 	});
 
+export const commitRangeDiffQueryOptions = ({
+	projectId,
+	...params
+}: PayloadFor<"commitRangeDiff">) =>
+	queryOptions({
+		queryKey: [projectId, "commitRangeDiff", params],
+		queryFn: () => window.lite.commitRangeDiff({ projectId, ...params }),
+	});
+
 export const branchListQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "branchList"],
