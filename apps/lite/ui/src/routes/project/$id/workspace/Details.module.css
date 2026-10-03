@@ -71,27 +71,42 @@
 	white-space: nowrap;
 }
 
+/* The diff's controls, over the diff column. The inline inset and the space
+   above and below are the diff's file spacing (set in Page.tsx from
+   ui-react's diffFileSpacing), so the buttons line up with the file cards and
+   sit that far above the first one. */
 .actions {
 	display: flex;
 	align-items: center;
-	/* With a separate header above (commit/branch views), use tighter padding. */
-	/* The inline inset and the bottom are the diff's file spacing (set in
-	   Page.tsx from ui-react's diffFileSpacing), so the file cards line up
-	   under the buttons and start that far below them. */
+	margin-block-end: var(--diff-file-top);
 	padding-inline: var(--diff-file-inset);
-	padding-block: 8px var(--diff-file-top);
-	gap: 12px;
+	padding-block-start: var(--diff-file-top);
+	gap: 8px;
 
-	/* Lone layout: the title lives in this row, match the panel padding. */
+	/* Lone layout: the title lives in this row, so it is the view's header. */
 	.containerLone & {
-		padding-block-start: var(--panel-padding-block);
+		padding-block: var(--panel-padding-block) 8px;
+		gap: 12px;
+		border-bottom: 1px solid var(--border-section);
+		background-color: var(--bg-1);
 	}
 }
 
+/* At the end of the bar; the files toggle, where there is one, leads it. */
 .diffControls {
 	display: flex;
+	align-items: center;
 	margin-inline-start: auto;
-	gap: 6px;
+	gap: 8px;
+}
+
+.diffControlsSpread {
+	flex: 1;
+	margin-inline-start: 0;
+
+	.diffStyleToggle {
+		margin-inline-start: auto;
+	}
 }
 
 .panel {
@@ -272,6 +287,21 @@
 .tabsRow {
 	display: flex;
 	column-gap: 12px;
+	align-items: center;
+}
+
+/* Under the branch name, close to it, and further from the toolbar below. */
+.branchMeta {
+	margin-block: -4px 4px;
+	overflow: hidden;
+	color: var(--text-3);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.titleRowEnd {
+	flex-shrink: 0;
+	margin-inline-start: auto;
 }
 
 .tabsRowRight {
@@ -336,7 +366,7 @@
    the rest. It clips so the selection bar keeps to the rounded corner. */
 .fileHeader {
 	overflow: clip;
-	border: 1px solid var(--border-section);
+	border: 1px solid var(--border-2);
 	border-radius: calc(var(--radius-card) * var(--diff-file-roundness))
 		calc(var(--radius-card) * var(--diff-file-roundness)) 0 0;
 	border-bottom-color: var(--border-3);
@@ -351,7 +381,7 @@
 	/* No diff follows, so the header is the whole card. */
 	&.lone {
 		border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
-		border-bottom-color: var(--border-section);
+		border-bottom-color: var(--border-2);
 	}
 }
 
