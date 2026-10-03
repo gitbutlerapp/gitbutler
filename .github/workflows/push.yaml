@@ -757,9 +757,14 @@ jobs:
           retention-days: 30
 
   lite-e2e:
+    name: lite-e2e (${{ matrix.shard }}/${{ strategy.job-total }})
     needs: changes
     if: ${{ needs.changes.outputs.lite_e2e == 'true' }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     timeout-minutes: 30
     permissions:
       contents: read
@@ -778,7 +783,7 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: lite-e2e-rust-binaries
-          save-if: ${{ github.ref == 'refs/heads/master' }}
+          save-if: ${{ github.ref == 'refs/heads/master' && matrix.shard == 1 }}
       - name: Build dependencies
         run: |
           pnpm --filter @gitbutler/but-sdk build:napi
@@ -796,7 +801,7 @@ jobs:
           sudo chmod 4755 "$electron_sandbox"
       - name: Run Lite E2E tests
         # Concurrent Electron launches can fail during renderer bootstrap on GitHub's Linux runners.
-        run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1
+        run: xvfb-run --auto-servernum pnpm --filter @gitbutler/lite test:e2e --forbid-only --workers=1 --shard=${{ matrix.shard }}/${{ strategy.job-total }}
         env:
           BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_LITE_E2E }}
           BUILDKITE_ANALYTICS_BASE_URL: https://tests.but.dev/v1/uploads
@@ -808,7 +813,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
-          name: lite-e2e-output
+          name: lite-e2e-output-${{ matrix.shard }}-of-${{ strategy.job-total }}
           path: apps/lite/test-results/
           if-no-files-found: ignore
           retention-days: 30
