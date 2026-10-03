@@ -568,8 +568,8 @@ fn worktree_changes_inner(
             )?,
             None => Some(index_wt_change),
         };
-        // A rename can land on a path whose own staged deletion is still unclaimed;
-        // fold that deletion in so each path keeps a single change.
+        // A rename (or the addition it merges into) can land on a path whose own staged
+        // deletion is still unclaimed; fold that deletion in so each path keeps a single change.
         while let Some(change) = merged.take() {
             match &change.status {
                 // A merge that nets out to a deletion freed its path from index and
@@ -578,7 +578,7 @@ fn worktree_changes_inner(
                 TreeStatus::Deletion { .. } if was_claimed => {
                     tree_index_by_path.insert(change.path.clone(), change);
                 }
-                TreeStatus::Rename { .. }
+                TreeStatus::Rename { .. } | TreeStatus::Addition { .. }
                     if tree_index_by_path
                         .get(change.path.as_bstr())
                         .is_some_and(|ti| matches!(ti.status, TreeStatus::Deletion { .. })) =>
@@ -715,35 +715,19 @@ fn merge_changes(
                 index_wt.status.kind()
             );
         }
-        (
-            TreeStatus::Addition {
-                is_untracked,
-                state,
-            },
-            TreeStatus::Modification {
-                state: state_wt, ..
-            },
-        ) => {
-            *is_untracked = true;
-            *state = *state_wt;
-            return Ok(single(tree_index));
-        }
-        (TreeStatus::Addition { .. }, TreeStatus::Deletion { .. }) => {
-            // keep the most recent known state, which is from the index.
-            return Ok(single(index_wt));
-        }
-        (
-            TreeStatus::Addition { state, .. },
-            TreeStatus::Rename {
-                previous_state: ps_wt,
-                ..
-            },
-        ) => {
-            // This is conflicting actually, and a little bit unclear what committing this will do.
-            // Pretend the added file (in index) is the one that was deleted, hence the rename.
-            *ps_wt = *state;
-            // Can't be no-op as this is a rename
-            return Ok(single(index_wt));
+        (TreeStatus::Addition { .. }, wt_status) => {
+            // The tree never had the path, so only what the worktree holds now counts:
+            // an untracked addition wherever the file ended up, or nothing if it is gone.
+            return Ok(match wt_status.state() {
+                Some(state) => single(TreeChange {
+                    path: index_wt.path,
+                    status: TreeStatus::Addition {
+                        state,
+                        is_untracked: true,
+                    },
+                }),
+                None => [None, None],
+            });
         }
         (
             TreeStatus::Deletion { previous_state, .. },
@@ -803,7 +787,13 @@ fn merge_changes(
             *ps_wt = *previous_state;
             index_wt
         }
-        (TreeStatus::Modification { .. }, TreeStatus::Deletion { .. }) => {
+        (
+            TreeStatus::Modification { previous_state, .. },
+            TreeStatus::Deletion {
+                previous_state: ps_wt,
+            },
+        ) => {
+            *ps_wt = *previous_state;
             return Ok(single(index_wt));
         }
         (
@@ -836,15 +826,26 @@ fn merge_changes(
             TreeStatus::Rename {
                 previous_path: pp_wt,
                 previous_state: ps_wt,
+                state,
                 ..
             },
         ) => {
-            // The worktree-rename is dominating, but we can combine both
-            // so there is the indexed version as source, and the one in the worktree
-            // as destination.
-            *pp_wt = std::mem::take(previous_path);
-            *ps_wt = *previous_state;
-            return Ok(single(index_wt));
+            if *previous_path == index_wt.path {
+                // Renamed back to where the tree has it: at most a modification remains.
+                index_wt.status = TreeStatus::Modification {
+                    previous_state: *previous_state,
+                    state: *state,
+                    flags: None, /* recalculated after the merge */
+                };
+                index_wt
+            } else {
+                // The worktree-rename is dominating, but we can combine both
+                // so there is the indexed version as source, and the one in the worktree
+                // as destination.
+                *pp_wt = std::mem::take(previous_path);
+                *ps_wt = *previous_state;
+                return Ok(single(index_wt));
+            }
         }
         (
             TreeStatus::Rename {
