@@ -92,6 +92,8 @@ test("keeps to-dos with the branch, before its pull request and across a rename"
 	await branchName.fill("B-renamed");
 	await branchName.press("Enter");
 	await selectBranch(appWindow, "B-renamed");
-	await appWindow.getByRole("button", { name: "Create pull request", exact: true }).click();
+	await expect(
+		appWindow.getByRole("button", { name: "Pull Request", pressed: true }),
+	).toBeVisible();
 	await expect(description).toBeVisible();
 });

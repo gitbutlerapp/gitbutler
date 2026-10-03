@@ -44,3 +44,32 @@ describe("updateRewrittenBranchReferences", () => {
 		});
 	});
 });
+
+describe("updateRewrittenBranchReferences carries per-branch state", () => {
+	const rename = (state: ReturnType<typeof createInitialProjectState>) =>
+		projectReducers.updateRewrittenBranchReferences(state, {
+			oldBranch: { branchRef: encodeBytes("refs/heads/old") },
+			newBranch: { branchRef: encodeBytes("refs/heads/new") },
+		});
+
+	test("the selected branch tab", () => {
+		const state = createInitialProjectState();
+		projectReducers.setSelectedBranchTab(state, { branchName: "old", tab: "pr" });
+		rename(state);
+		expect(state.workspace.selectedBranchTabs).toEqual({ new: "pr" });
+	});
+
+	test("an expanded remote leg", () => {
+		const state = createInitialProjectState();
+		projectReducers.toggleIncomingExpanded(state, { branchRef: "refs/heads/old" });
+		rename(state);
+		expect(state.workspace.expandedIncoming).toEqual({ "refs/heads/new": true });
+	});
+
+	test("an unfolded branch in the branches list", () => {
+		const state = createInitialProjectState();
+		state.branches = { ...state.branches, unfolded: { "refs/heads/old": true } };
+		rename(state);
+		expect(state.branches.unfolded).toEqual({ "refs/heads/new": true });
+	});
+});

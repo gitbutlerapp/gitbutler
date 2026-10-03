@@ -1,7 +1,7 @@
 import { reportError } from "#ui/error-reporting.ts";
 import { forgeAuthTags } from "#ui/forge.ts";
-import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
-import { remapSearchBranch, remapSearchCommits, setCursor } from "#ui/use-cursor.ts";
+import { encodeBytes } from "#ui/api/bytes.ts";
+import { remapSearchCommits, setCursor } from "#ui/use-cursor.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
 	appSettingsQueryOptions,
@@ -61,7 +61,7 @@ import type {
 } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { GUISettings } from "#electron/settings.ts";
-import { moveBranchChecklist, moveDraftPR } from "#ui/pr.ts";
+import { applyBranchRename } from "#ui/branch-rename.ts";
 import { invalidateTags } from "#ui/api/tags.ts";
 import { presentableOperation } from "#ui/snapshot.ts";
 import { sameLogin } from "#ui/review-users.ts";
@@ -1449,32 +1449,15 @@ export const useBranchRename = (projectId: string) => {
 	return useMutation({
 		mutationKey: [projectId, "branchRename"],
 		mutationFn: window.lite.branchRename,
-		onSuccess: async (response, input, _context, mutation) => {
+		onSuccess: (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
-
-			dispatch(
-				projectSlice.actions.updateRewrittenBranchReferences({
-					projectId: input.projectId,
-					oldBranch: {
-						branchRef: input.refName,
-					},
-					newBranch: {
-						branchRef: response.newRef.fullNameBytes,
-					},
-				}),
-			);
-			remapSearchBranch(decodeBytes(input.refName), decodeBytes(response.newRef.fullNameBytes));
-
-			const renamed = {
+			applyBranchRename({
 				queryClient: mutation.client,
+				dispatch,
 				projectId: input.projectId,
-				oldBranch:
-					// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-					decodeBytes(input.refName).replace(/^refs\/heads\//, ""),
-				newBranch: response.newRef.displayName,
-			};
-			await moveDraftPR(renamed);
-			await moveBranchChecklist(renamed);
+				oldRef: input.refName,
+				newRef: response.newRef.fullNameBytes,
+			});
 
 			dispatch(projectSlice.actions.clearPendingOperation({ projectId: input.projectId }));
 		},
