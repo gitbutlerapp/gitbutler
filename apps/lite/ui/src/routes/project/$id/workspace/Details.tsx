@@ -30,6 +30,7 @@ import {
 	blobFileQueryOptions,
 	branchDiffQueryOptions,
 	branchListQueryOptions,
+	commitRangeDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commentsQueryOptions,
 	commitConflictsQueryOptions,
@@ -105,10 +106,12 @@ import { classes } from "@gitbutler/ui-react/classes.ts";
 import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import { Toggle, ToggleGroup, Toolbar } from "@base-ui/react";
 import type {
+	Commit,
 	CommitDetails as CommitDetailsData,
 	ConflictedFile,
 	ManualConflict,
 	TreeChange,
+	TreeChanges,
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
 import {
@@ -191,9 +194,15 @@ import {
 } from "#ui/hunk.ts";
 import {
 	nativeMenuItem,
+	nativeMenuItemsFromGroups,
 	showNativeContextMenu,
 	showNativeMenuFromTrigger,
 } from "#ui/native-menu.ts";
+import {
+	filterSpan,
+	toggleCommit,
+	unpushedCount,
+} from "#ui/routes/project/$id/workspace/commitFilter.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
@@ -268,6 +277,7 @@ export type DiffViewerHandle = CodeViewHandle<Annotation>;
 // stored in local storage.
 type PanelId = "files-panel" | "diff-panel";
 
+const EMPTY_COMMITS: ReadonlyArray<Commit> = [];
 const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
 const EMPTY_THREADS_BY_PATH: ThreadsByPath = new Map();
 const EMPTY_CONFLICTS: Array<ConflictedFile> = [];
@@ -3174,13 +3184,19 @@ const LandedReviewView: FC<{ projectId: string; reviewId: number; branchName?: s
 };
 
 /** A branch's own changes, whatever the branch's standing. */
-const BranchDiff: FC<BranchDetailsProps> = ({
+const BranchDiff: FC<
+	BranchDetailsProps & {
+		/** Part of the branch to show, oldest and newest commit included; the whole of it if `null`. */
+		range?: { oldest: string; newest: string } | null;
+	}
+> = ({
 	branch,
 	projectId,
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
 	pendingFileRef,
+	range = null,
 }) => {
 	const filesVisibleState = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
@@ -3192,31 +3208,37 @@ const BranchDiff: FC<BranchDetailsProps> = ({
 		setCursor("files", selection);
 	};
 
-	return (
+	const renderDiff = ({ data: branchDiff }: { data: TreeChanges }) => (
+		<Diff
+			changes={branchDiff.changes}
+			filesVisible={filesVisible}
+			canShowFiles={canShowFiles}
+			filesItems={branchDiff.changes.map((change) =>
+				changeFileRowItem({
+					change,
+					path: change.path,
+					dependencyCommitIds: [],
+				}),
+			)}
+			onPassiveFileSelection={selectFile}
+			selection={branchAddress(branch)}
+			projectId={projectId}
+			onActiveFileSelection={onActiveFileSelection}
+			viewerRef={viewerRef}
+			didScrollToViaFileRef={didScrollToViaFileRef}
+			pendingFileRef={pendingFileRef}
+		/>
+	);
+
+	return range === null ? (
 		<SuspenseQuery
 			{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branch.branchRef) })}
 		>
-			{({ data: branchDiff }) => (
-				<Diff
-					changes={branchDiff.changes}
-					filesVisible={filesVisible}
-					canShowFiles={canShowFiles}
-					filesItems={branchDiff.changes.map((change) =>
-						changeFileRowItem({
-							change,
-							path: change.path,
-							dependencyCommitIds: [],
-						}),
-					)}
-					onPassiveFileSelection={selectFile}
-					selection={branchAddress(branch)}
-					projectId={projectId}
-					onActiveFileSelection={onActiveFileSelection}
-					viewerRef={viewerRef}
-					didScrollToViaFileRef={didScrollToViaFileRef}
-					pendingFileRef={pendingFileRef}
-				/>
-			)}
+			{renderDiff}
+		</SuspenseQuery>
+	) : (
+		<SuspenseQuery {...commitRangeDiffQueryOptions({ projectId, ...range })}>
+			{renderDiff}
 		</SuspenseQuery>
 	);
 };
@@ -3327,6 +3349,79 @@ const BranchTabToggle: FC<{
 		</Toggle>
 	</ToggleGroup>
 );
+
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+
+/**
+ * Narrows the branch's diff to some of its commits: all of them, the ones not pushed yet, or a
+ * run ticked in the list. Its menu is native, so the run is kept unbroken by `toggleCommit`
+ * rather than by the menu.
+ */
+const CommitFilterButton: FC<{
+	projectId: string;
+	branchName: string;
+	/** The branch's own commits, newest first. */
+	commits: ReadonlyArray<Commit>;
+}> = ({ projectId, branchName, commits }) => {
+	const dispatch = useAppDispatch();
+	const filter = useAppSelector((state) =>
+		projectSlice.selectors.selectBranchCommitFilter(state, projectId, branchName),
+	);
+	const span = filterSpan(filter, commits);
+	const unpushed = unpushedCount(commits);
+	const setFilter = (next: typeof filter): void => {
+		dispatch(projectSlice.actions.setBranchCommitFilter({ projectId, branchName, filter: next }));
+	};
+
+	const label =
+		span === null
+			? commits.length === 1
+				? "1 commit"
+				: `All ${commits.length} commits`
+			: filter._tag === "Unpushed"
+				? plural(span[1] - span[0] + 1, "unpushed commit")
+				: plural(span[1] - span[0] + 1, "commit");
+
+	const openMenu = (trigger: HTMLElement) => {
+		void showNativeMenuFromTrigger(
+			trigger,
+			nativeMenuItemsFromGroups([
+				[
+					nativeMenuItem({ label: "Show changes from", enabled: false }),
+					nativeMenuItem({
+						label: `All ${plural(commits.length, "commit")}`,
+						checked: span === null,
+						onSelect: () => setFilter({ _tag: "All" }),
+					}),
+					nativeMenuItem({
+						label: unpushed === 0 ? "No unpushed commits" : plural(unpushed, "unpushed commit"),
+						checked: span !== null && filter._tag === "Unpushed",
+						enabled: unpushed > 0 && unpushed < commits.length,
+						onSelect: () => setFilter({ _tag: "Unpushed" }),
+					}),
+				],
+				[
+					nativeMenuItem({ label: "Specific commits", enabled: false }),
+					...commits.map((commit, index) =>
+						nativeMenuItem({
+							label: commitTitle(commit.message) ?? "(no message)",
+							checked:
+								span !== null && filter._tag === "Range" && index >= span[0] && index <= span[1],
+							onSelect: () => setFilter(toggleCommit(filter, commits, commit.id)),
+						}),
+					),
+				],
+			]),
+		);
+	};
+
+	return (
+		<Button aria-haspopup="menu" onClick={(event) => openMenu(event.currentTarget)}>
+			<Icon name="commit" />
+			{label}
+		</Button>
+	);
+};
 
 /** `[` and `]` step between a branch's tabs; with two of them, either key toggles. */
 const useBranchTabHotkeys = ({
@@ -3731,6 +3826,16 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 		: null;
 	const canSubmit = pushFirst === null || !downstack?.anyHasConflicts;
 
+	const commits = laneBranch?.segment.commits ?? EMPTY_COMMITS;
+	const commitFilter = useAppSelector((state) =>
+		projectSlice.selectors.selectBranchCommitFilter(state, projectId, branchName),
+	);
+	const span = filterSpan(commitFilter, commits);
+	const range =
+		span === null
+			? null
+			: { newest: assert(commits[span[0]]).id, oldest: assert(commits[span[1]]).id };
+
 	return (
 		<div className={styles.container} ref={ref}>
 			<div className={styles.headerWrap}>
@@ -3739,6 +3844,13 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 
 				<div className={styles.tabsRow}>
 					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
+
+					{branchTab === "diff" && commits.length > 1 && (
+						<>
+							<div aria-hidden className={styles.toolbarSeparator} />
+							<CommitFilterButton projectId={projectId} branchName={branchName} commits={commits} />
+						</>
+					)}
 
 					{branchTab === "pr" && supportsPullRequests && canUseForge && (
 						<Suspense>
@@ -3836,6 +3948,7 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 						viewerRef={viewerRef}
 						didScrollToViaFileRef={didScrollToViaFileRef}
 						pendingFileRef={pendingFileRef}
+						range={range}
 					/>
 				)}
 			</Suspense>

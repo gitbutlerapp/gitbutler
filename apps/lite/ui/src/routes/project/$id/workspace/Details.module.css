@@ -100,13 +100,13 @@
 	gap: 8px;
 }
 
-.diffControlsSpread {
-	flex: 1;
-	margin-inline-start: 0;
-
-	.diffStyleToggle {
-		margin-inline-start: auto;
-	}
+/* Between the tab toggle and the commit filter: the toggle picks what the pane
+   shows, the filter narrows the diff it shows. */
+.toolbarSeparator {
+	align-self: center;
+	width: 1px;
+	height: 18px;
+	background-color: var(--border-2);
 }
 
 .panel {
