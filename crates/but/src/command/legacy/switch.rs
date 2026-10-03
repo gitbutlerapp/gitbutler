@@ -17,13 +17,8 @@ use serde::Serialize;
 
 use crate::{
     CliResult, IdMap,
-    args::{atoms::BranchArg, switch::Platform},
+    args::switch::Platform,
     bad_input,
-    command::legacy::branch::{
-        self,
-        new::{NewOperation, NewUnstackedBranchOperation},
-    },
-    print_deprecation_warning,
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, time::format_relative_time,
@@ -39,13 +34,6 @@ pub fn switch(
 ) -> CliResult<SwitchOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
 
-    if args.new {
-        print_deprecation_warning(
-            "`--new/-n` is deprecated and will be removed in a future release. \
-                Use `but branch new --switch` instead",
-        );
-    }
-
     let operation = resolve(ctx, guard.read_permission(), &mut out, args)?;
 
     Ok(run(ctx, guard.write_permission(), operation)?)
@@ -57,25 +45,10 @@ fn resolve(
     out: &mut IntermediateChannel<'_>,
     args: Platform,
 ) -> CliResult<SwitchOperation> {
-    let Platform {
-        target,
-        workspace,
-        new,
-    } = args;
+    let Platform { target, workspace } = args;
 
     if workspace {
         return Ok(SwitchOperation::Workspace);
-    }
-
-    if new {
-        let name = target
-            .map(|target| {
-                let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
-                BranchArg(target.0).resolve_for_creation(&repo, &ws)
-            })
-            .transpose()?;
-
-        return Ok(SwitchOperation::NewBranch { name });
     }
 
     if let Some(target) = target {
@@ -86,7 +59,7 @@ fn resolve(
     } else {
         let Some(mut input) = out.prepare_for_terminal_input() else {
             return Err(bad_input(
-                "Terminal input not available. Specify a branch or use `--workspace` or `--new`",
+                "Terminal input not available. Specify a branch or use `--workspace`",
             )
             .into());
         };
@@ -143,29 +116,12 @@ pub fn run(
 
             Ok(SwitchOutcome::Branch { branch })
         }
-        SwitchOperation::NewBranch { name } => {
-            let mut meta = ctx.meta()?;
-            let outcome = branch::new::run(
-                ctx,
-                &mut meta,
-                perm,
-                NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation {
-                    name,
-                    switch: true,
-                }),
-            )?;
-
-            Ok(SwitchOutcome::CreatedBranch {
-                branch: outcome.name,
-            })
-        }
     }
 }
 
 pub enum SwitchOperation {
     Workspace,
     Branch { branch: FullName },
-    NewBranch { name: Option<FullName> },
 }
 
 #[must_use]
@@ -173,7 +129,6 @@ pub enum SwitchOutcome {
     Workspace { conflicting_stacks: Vec<FullName> },
     AlreadyOnWorkspace,
     Branch { branch: FullName },
-    CreatedBranch { branch: FullName },
 }
 
 impl CliOutputHuman for SwitchOutcome {
@@ -208,9 +163,6 @@ impl CliOutputHuman for SwitchOutcome {
             SwitchOutcome::Branch { branch } => {
                 writeln!(out, "Switched to branch {}", theme::Branch(branch))?
             }
-            SwitchOutcome::CreatedBranch { branch } => {
-                writeln!(out, "Created branch {}", theme::Branch(branch))?
-            }
         }
 
         Ok(())
@@ -226,7 +178,6 @@ impl CliOutput for SwitchOutcome {
             rename_all_fields = "camelCase"
         )]
         enum Output {
-            CreatedBranch { branch: String },
             SwitchedToWorkspace { conflicting_branches: Vec<String> },
         }
 
@@ -241,9 +192,6 @@ impl CliOutput for SwitchOutcome {
                 conflicting_branches: Default::default(),
             }),
             SwitchOutcome::Branch { .. } => None,
-            SwitchOutcome::CreatedBranch { branch } => Some(Output::CreatedBranch {
-                branch: branch.shorten().to_string(),
-            }),
         }
     }
 }
