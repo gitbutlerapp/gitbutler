@@ -214,6 +214,8 @@ impl Subcommands {
             Subcommands::Edit { .. } => Edit,
             #[cfg(feature = "legacy")]
             Subcommands::Clean { .. } => Clean,
+            #[cfg(all(feature = "nightly", feature = "legacy"))]
+            Subcommands::_Publish(_) => Publish,
             Subcommands::External(_) => External,
         }
     }
