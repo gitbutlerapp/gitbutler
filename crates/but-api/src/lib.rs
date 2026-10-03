@@ -73,7 +73,7 @@ pub mod open;
 pub mod panic_capture;
 
 /// The types for watcher events
-#[cfg(feature = "export-schema")]
+#[cfg(feature = "legacy")]
 pub mod watcher;
 
 /// The tag vocabulary clients cache API results under.

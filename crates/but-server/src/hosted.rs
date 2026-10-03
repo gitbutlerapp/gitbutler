@@ -5,6 +5,8 @@
 //!   project the API opens, and every published worktree is one of its linked worktrees.
 //! * `worktrees/<project>/<worktree>/` - the empty directory git requires each linked
 //!   worktree to have. Its uncommitted changes come from the published snapshot instead.
+//!
+//! Browsers follow publishes over the `/events` WebSocket, see [`events`].
 
 use std::{
     path::{Path, PathBuf},
@@ -16,20 +18,23 @@ use anyhow::{Context as _, bail};
 use axum::{
     Json, Router,
     body::{Body, Bytes},
-    extract::{DefaultBodyLimit, Path as UrlPath, RawQuery, Request, State},
+    extract::{DefaultBodyLimit, FromRef, Path as UrlPath, RawQuery, Request, State},
     http::{HeaderMap, Method, StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{any, post},
+    routing::{any, get, post},
 };
 use but_core::diff::PUBLISHED_WORKTREE_REF;
-use tokio::io::AsyncWriteExt as _;
+use tokio::{io::AsyncWriteExt as _, sync::broadcast};
 use tower_http::{
     services::{ServeDir, ServeFile},
     set_header::SetResponseHeaderLayer,
 };
 
 use crate::cmd_result_to_json;
+
+mod events;
+use events::{EVENTS_BUFFER, EventTickets, ProjectEvent};
 
 /// Configuration for the hosted server.
 #[derive(Debug)]
@@ -44,6 +49,31 @@ pub struct HostedConfig {
     pub web_dir: Option<PathBuf>,
     /// The bearer token every API and git request must carry.
     pub token: String,
+}
+
+#[derive(Clone)]
+struct HostedState {
+    config: Arc<HostedConfig>,
+    events: broadcast::Sender<ProjectEvent>,
+    tickets: EventTickets,
+}
+
+impl FromRef<HostedState> for Arc<HostedConfig> {
+    fn from_ref(state: &HostedState) -> Self {
+        state.config.clone()
+    }
+}
+
+impl FromRef<HostedState> for broadcast::Sender<ProjectEvent> {
+    fn from_ref(state: &HostedState) -> Self {
+        state.events.clone()
+    }
+}
+
+impl FromRef<HostedState> for EventTickets {
+    fn from_ref(state: &HostedState) -> Self {
+        state.tickets.clone()
+    }
 }
 
 /// Run the hosted server until interrupted.
@@ -63,8 +93,24 @@ pub async fn run(config: HostedConfig) -> anyhow::Result<()> {
     })?;
 
     let url = format!("{}:{}", config.bind_addr, config.port);
+    let app = router(config);
+    let listener = tokio::net::TcpListener::bind(&url)
+        .await
+        .with_context(|| format!("Failed to bind to {url}"))?;
+    println!("Hosted: http://{url}");
+    axum::serve(listener, app).await?;
+    Ok(())
+}
+
+/// Every hosted route, ready to serve; `config.port` and `config.bind_addr` are left to the caller.
+pub fn router(config: HostedConfig) -> Router {
     let web_dir = config.web_dir.clone();
     let config = Arc::new(config);
+    let state = HostedState {
+        config: config.clone(),
+        events: broadcast::channel(EVENTS_BUFFER).0,
+        tickets: EventTickets::default(),
+    };
     let api = Router::new()
         .route(
             "/git/{project}/{worktree}/{*rest}",
@@ -72,18 +118,18 @@ pub async fn run(config: HostedConfig) -> anyhow::Result<()> {
         )
         .route("/sdk/{endpoint}", post(sdk_endpoint))
         .route("/get_app_settings", post(app_settings))
-        .route_layer(middleware::from_fn_with_state(
-            config.clone(),
-            require_token,
-        ))
-        .with_state(config);
+        .route("/events/ticket", post(events::events_ticket))
+        .route_layer(middleware::from_fn_with_state(config, require_token))
+        // A WebSocket can't carry the bearer header, so it presents a ticket from `/events/ticket`.
+        .route("/events", get(events::events))
+        .with_state(state);
     let cache = |value| {
         SetResponseHeaderLayer::overriding(
             header::CACHE_CONTROL,
             header::HeaderValue::from_static(value),
         )
     };
-    let app = match web_dir {
+    match web_dir {
         // The page is never stored, so it can't go stale; the assets it names are
         // content-hashed, so they never change.
         Some(dir) => api
@@ -99,14 +145,7 @@ pub async fn run(config: HostedConfig) -> anyhow::Result<()> {
                     .service(ServeDir::new(&dir).fallback(ServeFile::new(dir.join("index.html")))),
             ),
         None => api,
-    };
-
-    let listener = tokio::net::TcpListener::bind(&url)
-        .await
-        .with_context(|| format!("Failed to bind to {url}"))?;
-    println!("Hosted: http://{url}");
-    axum::serve(listener, app).await?;
-    Ok(())
+    }
 }
 
 async fn require_token(
@@ -122,6 +161,15 @@ async fn require_token(
     } else {
         StatusCode::UNAUTHORIZED.into_response()
     }
+}
+
+/// The store of a project something was pushed to or fetched from.
+fn existing_store(config: &HostedConfig, project: &str) -> anyhow::Result<PathBuf> {
+    let store = store(config, project)?;
+    if !store.join("HEAD").exists() {
+        bail!("not a published project: {project}");
+    }
+    Ok(store)
 }
 
 /// The project's store, named by its root commit.
@@ -155,6 +203,7 @@ fn git(dir: &Path, args: &[&str]) -> anyhow::Result<String> {
 /// Git's smart HTTP protocol through `git http-backend`; a successful push publishes a worktree.
 async fn git_http(
     State(config): State<Arc<HostedConfig>>,
+    State(events): State<broadcast::Sender<ProjectEvent>>,
     UrlPath((project, worktree, rest)): UrlPath<(String, String, String)>,
     method: Method,
     RawQuery(query): RawQuery,
@@ -200,9 +249,10 @@ async fn git_http(
         let out = child.wait_with_output().await?;
         writer.await??;
         if rest == "git-receive-pack" && out.status.success() {
-            register_worktree(&config, &project, &store, &worktree)
-                .inspect_err(|err| tracing::warn!("failed to register {worktree}: {err:#}"))
-                .ok();
+            match register_worktree(&config, &project, &store, &worktree) {
+                Ok(tip) => events::announce_publish(&events, &project, tip),
+                Err(err) => tracing::warn!("failed to register {worktree}: {err:#}"),
+            }
         }
 
         // CGI output: headers, a blank line, then the body.
@@ -242,13 +292,13 @@ struct Snapshot {
 }
 
 /// Make the pushed snapshot `worktree`, a linked worktree of the project, checked out on its
-/// branch with the snapshot as its uncommitted changes.
+/// branch with the snapshot as its uncommitted changes. Returns the branch's tip.
 fn register_worktree(
     config: &HostedConfig,
     project: &str,
     store: &Path,
     worktree: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<String> {
     // Kept as pushed too, so others can fetch the worktree.
     let pushed = format!("refs/gitbutler/snapshots/{worktree}");
     let snapshot: Snapshot =
@@ -311,7 +361,8 @@ fn register_worktree(
     // Worktrees that exist when GitButler first looks are archived; a published one is shown.
     let mut ctx =
         but_ctx::Context::new_from_project_handle(but_ctx::ProjectHandle::from_path(store)?)?;
-    but_api::worktrees::worktree_set_archived(&mut ctx, worktree.to_owned(), false)
+    but_api::worktrees::worktree_set_archived(&mut ctx, worktree.to_owned(), false)?;
+    git(store, &["rev-parse", &snapshot.head])
 }
 
 /// The server's own settings, with worktrees turned on.
@@ -396,13 +447,10 @@ fn resolve_project(config: &HostedConfig, params: &mut serde_json::Value) -> any
     let Some(project_id) = params.get_mut("projectId") else {
         return Ok(());
     };
-    let store = store(
+    let store = existing_store(
         config,
         project_id.as_str().context("projectId must be a string")?,
     )?;
-    if !store.join("HEAD").exists() {
-        bail!("not a published project");
-    }
     *project_id = but_ctx::ProjectHandle::from_path(&store)?
         .to_string()
         .into();
