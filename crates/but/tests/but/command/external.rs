@@ -90,6 +90,8 @@ Default aliases (overridable):
   s        →  squash
   m        →  move
   wt       →  worktree
+  b        →  branch
+  sw       →  switch
 
 "#]]);
 }

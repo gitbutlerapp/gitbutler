@@ -229,6 +229,8 @@ Default aliases (overridable):
   s        →  squash
   m        →  move
   wt       →  worktree
+  b        →  branch
+  sw       →  switch
 
 "#]]);
 
@@ -248,7 +250,9 @@ Default aliases (overridable):
     "c": "commit",
     "s": "squash",
     "m": "move",
-    "wt": "worktree"
+    "wt": "worktree",
+    "b": "branch",
+    "sw": "switch"
   }
 }
 
