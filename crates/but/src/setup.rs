@@ -169,45 +169,61 @@ pub fn init_ctx(
                 (ctx, fetch_interval_minutes, last_fetch)
             } else {
                 // Try to find an existing project, or prompt for setup if not found
-                let project = match LegacyProject::find_by_worktree_dir(workdir) {
-                    Ok(project) => project,
+                let mut is_registered_project = true;
+                let mut ctx = match LegacyProject::find_by_worktree_dir(workdir) {
+                    Ok(project) => Context::new_from_legacy_project_and_settings(
+                        &project,
+                        app_settings.clone(),
+                    )?,
                     Err(_) => {
-                        let message =
-                            format!("No GitButler project found at {}", workdir.display());
-                        match prompt_for_setup(out, &message) {
-                            SetupPromptResult::RunSetup => {
-                                // Run setup
-                                let mut ctx = Context::from_repo_with_settings(
-                                    repo.clone(),
-                                    app_settings.clone(),
-                                )?;
-                                let mut guard = ctx.exclusive_worktree_access();
-                                crate::command::legacy::setup::repo(
-                                    &mut ctx,
-                                    &args.current_dir,
-                                    out,
-                                    guard.write_permission(),
-                                )?;
-                                // Retry finding the project after setup
-                                LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
-                                    anyhow::anyhow!(
-                                        "Setup completed but project still not found at {}",
-                                        workdir.display()
-                                    )
-                                })?
-                            }
-                            SetupPromptResult::Declined => {
-                                anyhow::bail!(
-                                    "Setup required: {message} - run `but setup` to configure the project"
-                                );
+                        // A previously configured workspace may have been copied or cloned
+                        // without its app-level project registration. Its Git-local metadata
+                        // is sufficient to recognize it; do not require setup to be repeated.
+                        let mut ctx =
+                            Context::from_repo_with_settings(repo.clone(), app_settings.clone())?;
+                        let is_configured_workspace = ctx
+                            .repo
+                            .get()?
+                            .head()?
+                            .referent_name()
+                            .is_some_and(|name| name.shorten().starts_with(b"gitbutler/"));
+                        if is_configured_workspace {
+                            is_registered_project = false;
+                        } else {
+                            let message =
+                                format!("No GitButler project found at {}", workdir.display());
+                            match prompt_for_setup(out, &message) {
+                                SetupPromptResult::RunSetup => {
+                                    // Run setup
+                                    let mut guard = ctx.exclusive_worktree_access();
+                                    crate::command::legacy::setup::repo(
+                                        &mut ctx,
+                                        &args.current_dir,
+                                        out,
+                                        guard.write_permission(),
+                                    )?;
+                                    // Retry finding the project after setup
+                                    let _project = LegacyProject::find_by_worktree_dir(workdir)
+                                        .map_err(|_| {
+                                            anyhow::anyhow!(
+                                                "Setup completed but project still not found at {}",
+                                                workdir.display()
+                                            )
+                                        })?;
+                                    is_registered_project = true;
+                                }
+                                SetupPromptResult::Declined => {
+                                    anyhow::bail!(
+                                        "Setup required: {message} - run `but setup` to configure the project"
+                                    );
+                                }
                             }
                         }
+                        ctx
                     }
                 };
 
                 // Check project setup, prompt for setup if needed
-                let mut ctx =
-                    Context::new_from_legacy_project_and_settings(&project, app_settings.clone())?;
                 {
                     let mut guard = ctx.exclusive_worktree_access();
                     if let Err(e) = check_project_setup(&ctx, guard.read_permission()) {
@@ -221,6 +237,7 @@ pub fn init_ctx(
                                     out,
                                     guard.write_permission(),
                                 )?;
+                                is_registered_project = true;
                                 // Re-find and re-check the project after setup
                                 let _project = LegacyProject::find_by_worktree_dir(workdir)
                                     .map_err(|_| {
@@ -241,7 +258,11 @@ pub fn init_ctx(
                     ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
                 }
 
-                let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
+                let fetch_interval_minutes = if is_registered_project {
+                    ctx.settings.fetch.auto_fetch_interval_minutes
+                } else {
+                    0
+                };
                 let last_fetch = ctx
                     .legacy_project
                     .project_data_last_fetch

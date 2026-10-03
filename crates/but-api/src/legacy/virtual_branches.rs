@@ -785,11 +785,18 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
     // Updates the project controller with the last fetched timestamp
     //
     // TODO: This cross dependency likely indicates that last_fetched is stored in the wrong place - value is coupled with virtual branches state
-    gitbutler_project::update(gitbutler_project::UpdateRequest {
+    if gitbutler_project::update_if_registered(gitbutler_project::UpdateRequest {
         project_data_last_fetched: Some(project_data_last_fetched.clone()),
         ..gitbutler_project::UpdateRequest::default_with_id(ctx.legacy_project.id.clone())
     })
-    .context("failed to update project with last fetched timestamp")?;
+    .context("failed to update project with last fetched timestamp")?
+    .is_none()
+    {
+        tracing::debug!(
+            project_id = %ctx.legacy_project.id,
+            "skipping fetch timestamp persistence for an unregistered project"
+        );
+    }
 
     if let FetchResult::Error { error, .. } = project_data_last_fetched {
         // The target counts as failed when its fetch errored — and also when it isn't among the
