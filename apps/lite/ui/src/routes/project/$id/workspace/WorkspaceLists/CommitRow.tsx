@@ -13,7 +13,7 @@ import { classes } from "@gitbutler/ui-react/classes.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
-import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import {
 	changesHotkeys,
@@ -39,6 +39,7 @@ import { type ComponentProps, type FC, useId, useOptimistic, useTransition } fro
 import { RowCheckbox, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
+import { commitCopyMenuItem } from "../commitMenuItems.ts";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import { selectAfterDiscardedCommits } from "./selectAfterDiscardedCommit.ts";
@@ -280,33 +281,10 @@ export const CommitRow: FC<
 	};
 
 	const title = commitTitle(optimisticMessage);
-	const body = commitBody(optimisticMessage);
 
 	// Items that only read the commit, the whole menu of a commit outside the workspace.
 	const readOnlyMenuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({
-			label: "Copy",
-			submenu: [
-				nativeMenuItem({
-					label: "Change ID",
-					onSelect: () => window.lite.clipboardWriteText(commit.changeId),
-				}),
-				nativeMenuItem({
-					label: "Commit ID",
-					onSelect: () => window.lite.clipboardWriteText(commit.id),
-				}),
-				nativeMenuItem({
-					label: "Commit Title",
-					enabled: title !== undefined,
-					onSelect: () => window.lite.clipboardWriteText(title ?? ""),
-				}),
-				nativeMenuItem({
-					label: "Commit Body",
-					enabled: body !== undefined,
-					onSelect: () => window.lite.clipboardWriteText(body ?? ""),
-				}),
-			],
-		}),
+		commitCopyMenuItem(commit, optimisticMessage),
 		nativeMenuItem({
 			label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
 			enabled: mforgeUrl != null,
