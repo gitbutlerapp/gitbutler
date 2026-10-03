@@ -12,6 +12,7 @@ use crate::{
                 NewUnstackedBranchOperation,
             },
         },
+        merge::messaging,
         status::{
             output::StatusOutputLineData,
             tui::{
@@ -20,10 +21,12 @@ use crate::{
                     App, Modal,
                     mark::{Marks, MarksRef},
                 },
+                confirm::Confirm,
                 fuzzy_picker::{Col, FuzzyPicker, FuzzyPickerItem, SearchableToken},
                 key_bind::fuzzy_picker_key_binds,
                 mode::Mode,
                 render::{ModeRender, RenderSingleLineSpans, SpanExt as _},
+                toast::ToastKind,
             },
         },
         switch::{self, SwitchBranchItem, SwitchOperation, switch_branch_items},
@@ -118,6 +121,7 @@ pub enum BranchMessage {
     New { switch: bool },
     PickAndSwitch,
     ToggleInsertSide,
+    Land,
 }
 
 impl App {
@@ -133,6 +137,7 @@ impl App {
             BranchMessage::New { switch } => self.handle_branch_new(ctx, messages, switch)?,
             BranchMessage::PickAndSwitch => self.handle_branch_pick_and_switch(ctx)?,
             BranchMessage::ToggleInsertSide => self.handle_branch_toggle_insert_side(),
+            BranchMessage::Land => self.handle_branch_land(ctx)?,
         }
 
         Ok(())
@@ -192,6 +197,101 @@ impl App {
                 ReloadCause::Mutation,
             ),
         ]);
+
+        Ok(())
+    }
+
+    /// Land the marked branches — or the branch under the cursor when none are marked — directly
+    /// onto the target with a single update, after a confirmation that discloses everything being
+    /// published. A marked branch with segments below it lands its whole stack.
+    fn handle_branch_land(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
+        let Mode::Branch(branch_mode) = &*self.mode else {
+            return Ok(());
+        };
+        let branch_names: Vec<String> = match &branch_mode.marks {
+            Marks::Branches(branches) => branches.iter().map(|b| b.name.clone()).collect(),
+            Marks::Empty => {
+                let Some(selection) = self
+                    .cursor
+                    .selected_line(&self.status_lines)
+                    .and_then(|line| line.data.cli_id())
+                else {
+                    return Ok(());
+                };
+                let CliId::Branch(branch) = &**selection else {
+                    return Ok(());
+                };
+                vec![branch.name.clone()]
+            }
+            Marks::Commits(_) | Marks::Hunks(_) | Marks::CommittedFiles(_) => return Ok(()),
+        };
+
+        let base_branch = {
+            let mut guard = ctx.exclusive_worktree_access();
+            but_api::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())?
+                .context("No base branch configured")?
+        };
+        let push_remote_name = if base_branch.push_remote_name.is_empty() {
+            base_branch.remote_name
+        } else {
+            base_branch.push_remote_name
+        };
+        let target_display = format!("{push_remote_name}/{}", base_branch.short_name);
+
+        // Look below every branch: one sitting on other segments can only land with its whole
+        // stack, and the confirmation must name what that publishes.
+        let landings = messaging::landings(ctx, &branch_names, true)?;
+        let whole_stack = landings
+            .iter()
+            .any(|landing| !landing.lower.segments.is_empty() || landing.lower.unnamed_commits > 0);
+        let warning = messaging::direct_target_update_warning(ctx, &landings, &target_display)?;
+
+        let mut lines: Vec<ratatui::text::Line<'static>> =
+            textwrap::wrap(&warning, textwrap::Options::new(72))
+                .into_iter()
+                .map(|line| line.into_owned().into())
+                .collect();
+        lines.push("".into());
+        lines.push(format!("Land {} onto {target_display}?", branch_names.join(", ")).into());
+        let Some(lines) = NonEmpty::from_vec(lines) else {
+            anyhow::bail!("BUG: the land confirmation must have lines")
+        };
+
+        let confirm = Confirm::new(lines, self.theme, move |ctx, messages| {
+            let result = but_api::land::branch_land(ctx, branch_names.clone(), false, whole_stack)?;
+            let text = match result.landed {
+                but_api::land::BranchLandKind::AlreadyIntegrated => {
+                    format!("Already on {target_display}: {}", branch_names.join(", "))
+                }
+                but_api::land::BranchLandKind::Updated { .. } => {
+                    let landed: Vec<&str> = branch_names
+                        .iter()
+                        .filter(|name| !result.already_integrated.contains(name))
+                        .map(String::as_str)
+                        .collect();
+                    format!("Landed {} onto {target_display}", landed.join(", "))
+                }
+            };
+            messages.push(Message::ShowToast {
+                kind: ToastKind::Info,
+                text: text.into(),
+            });
+            if result.reconcile_skipped {
+                messages.push(Message::ShowToast {
+                    kind: ToastKind::Error,
+                    text: "The remaining branches were not updated onto the new target. Run \
+                           `but pull` to finish."
+                        .into(),
+                });
+            }
+            messages.extend([
+                Message::ClearMarks,
+                Message::EnterNormalModeAfterConfirmingOperation,
+                Message::Reload(None, ReloadCause::Mutation),
+            ]);
+            Ok(())
+        });
+        self.modal = Some(Modal::Confirm { confirm });
 
         Ok(())
     }

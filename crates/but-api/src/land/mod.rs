@@ -1,15 +1,15 @@
-//! `but_api::land::branch_land`: land a branch directly onto the target ref (the "avoid pull
-//! requests" workflow), exposed for every client (CLI, desktop, SDK).
+//! `but_api::land::branch_land`: land one or more branches directly onto the target ref (the
+//! "avoid pull requests" workflow), exposed for every client (CLI, desktop, SDK).
 //!
-//! This fast-forwards (or merges) the branch onto the configured target — pushing to the real
-//! remote, or moving the local refs for a self-remote (`gb-local`) — and then reconciles the
-//! remaining applied branches onto the moved target. The reconcile is the one `but pull` runs, so
-//! in single-branch mode landing the checked-out branch checks out the target branch afterwards, or
-//! a generated branch when the target can't be reused.
+//! This fast-forwards (or merges) the branches onto the configured target with a single update —
+//! pushing to the real remote, or moving the local refs for a self-remote (`gb-local`) — and then
+//! reconciles the remaining applied branches onto the moved target. The reconcile is the one
+//! `but pull` runs, so in single-branch mode landing the checked-out branch checks out the target
+//! branch afterwards, or a generated branch when the target can't be reused.
 //!
 //! ## Boundary
 //!
-//! The input is the branch's name (a ref, resolved by the caller from whatever identifier it
+//! The input is the branches' names (refs, resolved by the caller from whatever identifier it
 //! uses) plus flags; no `StackId` crosses the boundary. The output is a `BranchLandResult`
 //! carrying the standard [`WorkspaceState`](crate::WorkspaceState), so clients reason over graph
 //! state.
@@ -42,7 +42,6 @@ use gix::prelude::ObjectIdExt;
 use tracing::instrument;
 
 use crate::WorkspaceState;
-use merge::LandOutcome;
 
 /// How many times we re-fetch and re-merge when the target moved underneath us before giving up.
 const MAX_PUSH_ATTEMPTS: usize = 5;
@@ -50,9 +49,9 @@ const MAX_PUSH_ATTEMPTS: usize = 5;
 /// What `branch_land` ended up doing, used to drive honest end-of-command reporting.
 #[derive(Debug, Clone)]
 pub enum BranchLandKind {
-    /// The branch was already reachable from the target; nothing was pushed or moved.
+    /// Every branch was already reachable from the target; nothing was pushed or moved.
     AlreadyIntegrated,
-    /// The target advanced to `new_target_oid` (a fast-forward to the branch tip, or a merge commit).
+    /// The target advanced to `new_target_oid` (a fast-forward to a branch tip, or a merge commit).
     Updated {
         /// The commit the target now points at.
         new_target_oid: gix::ObjectId,
@@ -61,11 +60,14 @@ pub enum BranchLandKind {
     },
 }
 
-/// The result of landing a branch onto the target.
+/// The result of landing branches onto the target.
 #[derive(Debug, Clone)]
 pub struct BranchLandResult {
     /// What landing did to the target.
     pub landed: BranchLandKind,
+    /// The requested branches that were already reachable from the target (or from the branches
+    /// landed before them), so landing them changed nothing.
+    pub already_integrated: Vec<String>,
     /// The landed branches whose copy on the push remote was deleted after the land (only copies
     /// fully contained in the landed target are deleted).
     pub deleted_remote_branches: Vec<String>,
@@ -93,7 +95,7 @@ pub mod json {
         tag = "type"
     )]
     pub enum BranchLandKind {
-        /// The branch was already reachable from the target.
+        /// Every branch was already reachable from the target.
         AlreadyIntegrated,
         /// The target advanced to a new commit.
         Updated {
@@ -131,6 +133,8 @@ pub mod json {
     pub struct BranchLandResult {
         /// What landing did to the target.
         pub landed: BranchLandKind,
+        /// The requested branches that were already reachable from the target.
+        pub already_integrated: Vec<String>,
         /// The landed branches whose copy on the push remote was deleted after the land.
         pub deleted_remote_branches: Vec<String>,
         /// Whether delivery moved local refs rather than pushing to a remote.
@@ -150,6 +154,7 @@ pub mod json {
         fn try_from(value: super::BranchLandResult) -> Result<Self, Self::Error> {
             Ok(Self {
                 landed: value.landed.into(),
+                already_integrated: value.already_integrated,
                 deleted_remote_branches: value.deleted_remote_branches,
                 local_delivery: value.local_delivery,
                 reconcile_skipped: value.reconcile_skipped,
@@ -159,26 +164,38 @@ pub mod json {
     }
 }
 
-/// Land `branch` directly onto the configured target ref.
+/// Land `branches` directly onto the configured target ref with a single target update.
 ///
-/// `branch` is the short name of the branch to land (its `refs/heads/<branch>` ref). The branch
-/// must be the bottom segment of its stack — or, with `whole_stack`, the top segment, which
-/// publishes every segment below it as well — and the landed segments must be free of conflicted
-/// commits. HEAD must be the managed workspace or, in single-branch mode, the checked-out branch
-/// (see [`ensure_landable_checkout`]), and the target remote must be configured and non-triangular.
+/// `branches` are the short names of the branches to land (their `refs/heads/<branch>` refs), in
+/// landing order; duplicates are ignored. Each branch must be the bottom segment of its stack — or,
+/// with `whole_stack`, the top segment, which publishes every segment below it as well — and the
+/// landed segments must be free of conflicted commits. HEAD must be the managed workspace or, in
+/// single-branch mode, the checked-out branch (see [`ensure_landable_checkout`]), and the target
+/// remote must be configured and non-triangular.
 ///
-/// This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
-/// the target moves underneath us), then reconciles the remaining applied branches onto the moved
-/// target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
+/// This fetches the target, lands the branches one after another onto it locally (each a
+/// fast-forward or signed merge commit), publishes the result with one push or ref move (retrying
+/// when the target moves underneath us), then reconciles the remaining applied branches onto the
+/// moved target. A conflict in any branch fails the whole land before anything is published. The
+/// remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
 /// workspace state for what to report.
 #[but_api(napi, try_from = json::BranchLandResult)]
 #[instrument(skip(ctx), err(Debug))]
 pub fn branch_land(
     ctx: &mut Context,
-    branch: String,
+    branches: Vec<String>,
     no_ff: bool,
     whole_stack: bool,
 ) -> anyhow::Result<BranchLandResult> {
+    let mut branches = branches;
+    {
+        let mut seen = std::collections::HashSet::new();
+        branches.retain(|branch| seen.insert(branch.clone()));
+    }
+    if branches.is_empty() {
+        bail!("No branch to land");
+    }
+
     let base_branch = {
         let mut guard = ctx.exclusive_worktree_access();
         {
@@ -229,12 +246,15 @@ pub fn branch_land(
     };
 
     // Safety guards a non-CLI caller must not be able to bypass: never publish lower stack segments
-    // the user did not opt into, and never publish conflicted commits onto the target. The names
-    // being landed are captured before anything mutates: their remote copies are deleted after a
-    // successful land.
-    let lower_segments = validate_branch_landing(ctx, &branch, &target_display, whole_stack)?;
-    let mut landed_branch_names = vec![branch.clone()];
-    landed_branch_names.extend(lower_segments);
+    // the user did not opt into, and never publish conflicted commits onto the target. Every branch
+    // is validated before anything mutates, and the names being landed are captured now: their
+    // remote copies are deleted after a successful land.
+    let mut landed_branch_names = Vec::new();
+    for branch in &branches {
+        let lower_segments = validate_branch_landing(ctx, branch, &target_display, whole_stack)?;
+        landed_branch_names.push(branch.clone());
+        landed_branch_names.extend(lower_segments);
+    }
     // Landing the target branch's own name must never delete the target on the remote.
     landed_branch_names.retain(|name| *name != target_branch_name);
 
@@ -242,34 +262,30 @@ pub fn branch_land(
     // and an unreachable unrelated remote must not block the land.
     fetch_target_remote(ctx, &fetch_remote_name)?;
 
-    // Land the branch, retrying when the target moves underneath us (optimistic concurrency).
+    // Land the branches, retrying when the target moves underneath us (optimistic concurrency).
     let mut landed: Option<BranchLandKind> = None;
+    let mut already_integrated = Vec::new();
     for attempt in 1..=MAX_PUSH_ATTEMPTS {
-        // Recompute the merge decision against the freshly-fetched target on every attempt — a
-        // branch can go from fast-forwardable to divergent between retries.
-        let outcome = {
+        // Recompute the plan against the freshly-fetched target on every attempt — a branch can go
+        // from fast-forwardable to divergent between retries.
+        let plan = {
             let _guard = ctx.exclusive_worktree_access();
             let repo = ctx.repo.get()?;
-            merge::decide_land_outcome(
+            merge::plan_land(
                 &repo,
-                &branch,
+                &branches,
                 &fetch_remote_name,
                 &target_branch_name,
                 no_ff,
             )
         }?;
+        already_integrated = plan.already_integrated;
 
-        let (new_target_oid, prev_target_oid) = match &outcome {
-            LandOutcome::AlreadyIntegrated => {
-                landed = Some(BranchLandKind::AlreadyIntegrated);
-                break;
-            }
-            LandOutcome::FastForward {
-                feature_oid,
-                target_oid,
-            } => (*feature_oid, *target_oid),
-            LandOutcome::Merge { oid, target_oid } => (*oid, *target_oid),
-        };
+        let (new_target_oid, prev_target_oid) = (plan.new_target_oid, plan.target_oid);
+        if new_target_oid == prev_target_oid {
+            landed = Some(BranchLandKind::AlreadyIntegrated);
+            break;
+        }
 
         let push_result = if update_target_locally {
             let repo = ctx.repo.get()?;
@@ -312,7 +328,10 @@ pub fn branch_land(
     let Some(landed) = landed else {
         // The loop only exits without a result when every attempt hit a retryable race; that path
         // already returned an error above, so this is unreachable in practice.
-        bail!("Failed to land {branch} onto {target_display}");
+        bail!(
+            "Failed to land {} onto {target_display}",
+            branches.join(", ")
+        );
     };
 
     // On the real-remote path, re-fetch so the tracking ref reflects the landed commit, then verify
@@ -334,6 +353,7 @@ pub fn branch_land(
         if !advanced {
             return Ok(BranchLandResult {
                 landed,
+                already_integrated,
                 deleted_remote_branches: Vec::new(),
                 local_delivery: update_target_locally,
                 reconcile_skipped: true,
@@ -380,6 +400,7 @@ pub fn branch_land(
 
     Ok(BranchLandResult {
         landed,
+        already_integrated,
         deleted_remote_branches,
         local_delivery: update_target_locally,
         reconcile_skipped: reconciled.blocked_by_worktree,

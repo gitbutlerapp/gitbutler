@@ -445,7 +445,7 @@ describe("buildStackEndpoints", () => {
 			}),
 		).toEqual({
 			projectId: "project-1",
-			branch: "feature",
+			branches: ["feature"],
 			noFf: false,
 			wholeStack: true,
 		});

@@ -322,14 +322,16 @@ pub enum Subcommands {
 
     Worktree(worktree::Platform),
 
-    /// Merge a branch directly onto the target branch, bypassing review.
+    /// Merge branches directly onto the target branch, bypassing review.
     ///
-    /// Merges the branch onto the configured target (for example `origin/master`) without going
+    /// Merges the branches onto the configured target (for example `origin/master`) without going
     /// through a pull request — the "just push to the target" workflow. By default the target is
-    /// fast-forwarded to the branch tip when possible (no merge commit); otherwise a merge commit
-    /// is created. For a local (`gb-local`) target the refs are moved locally; otherwise the result
-    /// is pushed to the remote. After merging, the remaining applied branches are reconciled onto
-    /// the moved target, just like `but pull`.
+    /// fast-forwarded to a branch tip when possible (no merge commit); otherwise a merge commit is
+    /// created. Several branches are merged locally one after another, in the order given, and the
+    /// result is published in a single update, so the target (and its CI) moves once. If any
+    /// branch conflicts, nothing is published. For a local (`gb-local`) target the refs are moved
+    /// locally; otherwise the result is pushed to the remote. After merging, the remaining applied
+    /// branches are reconciled onto the moved target, just like `but pull`.
     ///
     /// Requires the GitButler workspace or, in single-branch mode, a checked-out branch. In
     /// single-branch mode, merging the checked-out branch checks out the target branch afterwards,
@@ -342,7 +344,8 @@ pub enum Subcommands {
     /// process. On a real remote, a branch protected against direct pushes will reject the merge.
     ///
     /// Merging a segment with other segments below it is refused unless `--whole-stack` is
-    /// passed with the stack's top segment, which merges the entire stack.
+    /// passed with the stack's top segment, which merges the entire stack. With several branches,
+    /// `--whole-stack` and `--no-ff` apply to each of them.
     ///
     /// ## Examples
     ///
@@ -358,6 +361,12 @@ pub enum Subcommands {
     /// but merge my-feature-branch --no-ff
     /// ```
     ///
+    /// Merge several branches with a single push:
+    ///
+    /// ```text
+    /// but merge bu fe other-branch
+    /// ```
+    ///
     /// Merge an entire stack by naming its top segment:
     ///
     /// ```text
@@ -367,16 +376,17 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(alias = "land")]
     Merge {
-        /// Branch ID or name to merge onto the target branch.
-        branch: String,
+        /// Branch IDs or names to merge onto the target branch, in merge order.
+        #[clap(required = true, num_args = 1..)]
+        branches: Vec<String>,
         /// Skip the confirmation prompt.
         #[clap(long)]
         yes: bool,
         /// Always create a merge commit, even when the branch can be fast-forwarded.
         #[clap(long)]
         no_ff: bool,
-        /// Merge the entire stack: BRANCH must be the top segment, and the segments below it are
-        /// published to the target along with it.
+        /// Merge the entire stack: each BRANCH must be the top segment of its stack, and the
+        /// segments below it are published to the target along with it.
         #[clap(long)]
         whole_stack: bool,
     },
