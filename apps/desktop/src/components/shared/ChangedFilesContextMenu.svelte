@@ -9,6 +9,7 @@
 	import { changesToDiffSpec } from "$lib/commits/utils";
 	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { isTreeChange } from "$lib/hunks/change";
+	import { t } from "$lib/i18n";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
@@ -185,7 +186,7 @@
 			{#if isConflictedFileItem(item)}
 				<ContextMenuSection>
 					<ContextMenuItem
-						label="Mark as Resolved"
+						label={t("mark-as-resolved")}
 						icon="tick"
 						onclick={() => {
 							menuOpen = false;
@@ -199,7 +200,7 @@
 					{@const changes = item.changes}
 					{#if isUncommitted}
 						<ContextMenuItem
-							label="Discard changes…"
+							label={t("discard-changes")}
 							testId={TestId.FileListItemContextMenu_DiscardChanges}
 							icon="bin"
 							onclick={() => {
@@ -208,7 +209,7 @@
 							}}
 						/>
 						<ContextMenuItem
-							label="Stash into branch…"
+							label={t("stash-into-branch")}
 							icon="branch-bottom-up-arrow"
 							onclick={() => {
 								stashModal.show(item);
@@ -216,7 +217,7 @@
 							}}
 						/>
 						<ContextMenuItem
-							label="Absorb changes"
+							label={t("absorb-changes")}
 							icon="commit-absorb"
 							testId={TestId.FileListItemContextMenu_Absorb}
 							onclick={() => {
@@ -229,7 +230,7 @@
 					{#if selectionId.type === "commit" && stackId && !editMode}
 						{@const commitId = selectionId.commitId}
 						<ContextMenuItem
-							label="Uncommit changes"
+							label={t("uncommit-changes")}
 							icon="commit-undo"
 							onclick={async () => uncommitChanges(stackId, commitId, changes)}
 						/>
@@ -239,11 +240,11 @@
 
 			{#if itemPath}
 				<ContextMenuSection>
-					<ContextMenuItemSubmenu label="Copy path" icon="copy">
+					<ContextMenuItemSubmenu label={t("copy-path")} icon="copy">
 						{#snippet submenu(_sub)}
 							<ContextMenuSection>
 								<ContextMenuItem
-									label="Copy path"
+									label={t("copy-path")}
 									onclick={async () => {
 										menuOpen = false;
 										const project = await projectService.fetchProject(projectId);
@@ -259,7 +260,7 @@
 									}}
 								/>
 								<ContextMenuItem
-									label="Copy relative path"
+									label={t("copy-relative-path")}
 									onclick={async () => {
 										menuOpen = false;
 										await clipboardService.write(itemPath, {
@@ -322,7 +323,7 @@
 			</ContextMenuSection>
 		{:else}
 			<ContextMenuSection>
-				<p class="text-13">'Woops! Malformed data :(</p>
+				<p class="text-13">{t("woops-malformed-data")}</p>
 			</ContextMenuSection>
 		{/if}
 	</ContextMenu>

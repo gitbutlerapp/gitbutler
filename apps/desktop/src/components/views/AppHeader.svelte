@@ -5,6 +5,7 @@
 	import IntegrateUpstreamModal from "$components/upstream/IntegrateUpstreamModal.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { t } from "$lib/i18n";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { handleAddProjectOutcome } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
@@ -195,7 +196,7 @@
 			{:else}
 				<div class="chrome-you-are-up-to-date">
 					<Icon name="tick" />
-					<span class="text-12">You’re up to date</span>
+					<span class="text-12">{t("you-re-up-to-date")}</span>
 				</div>
 			{/if}
 		</div>
@@ -271,7 +272,7 @@
 								}
 							}}
 						>
-							Add local repository
+							{t("add-local-repository")}
 						</SelectItem>
 					{/if}
 					<SelectItem
@@ -280,7 +281,7 @@
 							goto("/onboarding/clone");
 						}}
 					>
-						Clone repository
+						{t("clone-repository")}
 					</SelectItem>
 				</OptionsGroup>
 
@@ -315,7 +316,7 @@
 					reversedDirection
 					disabled={workspaceSwitch.current.isLoading}
 				>
-					Back to workspace
+					{t("back-to-workspace")}
 				</Button>
 			</Tooltip>
 		{/if}
@@ -331,7 +332,7 @@
 				reversedDirection
 				onclick={() => createBranchModal?.show()}
 			>
-				Create branch
+				{t("create-branch")}
 			</Button>
 		{/if}
 	</div>

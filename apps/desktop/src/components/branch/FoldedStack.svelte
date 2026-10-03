@@ -1,5 +1,7 @@
 <script lang="ts">
 	import CollapseStackButton from "$components/branch/CollapseStackButton.svelte";
+	import { t } from "$lib/i18n";
+
 	import { Icon } from "@gitbutler/ui-svelte";
 
 	type Props = {
@@ -34,7 +36,7 @@
 				{/if}
 			{/each}
 		{:else}
-			<span class="branch-name">Folded Stack</span>
+			<span class="branch-name">{t("folded-stack")}</span>
 		{/if}
 	</div>
 </div>

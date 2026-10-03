@@ -4,6 +4,7 @@
 	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
 	import { parseQueryError } from "$lib/error/error";
+	import { t } from "$lib/i18n";
 	import { Button, InfoMessage } from "@gitbutler/ui-svelte";
 
 	type Props = {
@@ -34,7 +35,7 @@
 	<IllustrationSplitLayout img={loadErrorSvg}>
 		<div class="container">
 			<div class="text-content">
-				<h2 class="title-text text-18 text-body text-bold">Something went wrong</h2>
+				<h2 class="title-text text-18 text-body text-bold">{t("something-went-wrong")}</h2>
 
 				<p class="description-text text-13 text-body">
 					{apologiy()}
@@ -46,12 +47,14 @@
 					{parsedError.name}
 				{/snippet}
 				{#snippet content()}
-					An asynchronous operation failed.
+					{t("an-asynchronous-operation-failed")}
 				{/snippet}
 			</InfoMessage>
 
 			<div class="button-container">
-				<Button type="button" style="pop" onclick={async () => await goto("/")}>Go back</Button>
+				<Button type="button" style="pop" onclick={async () => await goto("/")}
+					>{t("go-back")}</Button
+				>
 			</div>
 		</div>
 	</IllustrationSplitLayout>

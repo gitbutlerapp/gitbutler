@@ -6,6 +6,7 @@
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { REPO_SERVICE } from "$lib/forge/repoService.svelte";
 	import { pullRequestTargetsBaseBranch } from "$lib/forge/shared/pullRequestTargets";
+	import { t } from "$lib/i18n";
 	import { inject } from "@gitbutler/core/context";
 	import { AsyncButton, TestId } from "@gitbutler/ui-svelte";
 
@@ -106,7 +107,7 @@
 		{#if !pr.closedAt && !pr.mergedAt}
 			{#if pr.draft}
 				<AsyncButton wide kind="outline" action={() => setDraft(false)}
-					>Ready for review</AsyncButton
+					>{t("ready-for-review")}</AsyncButton
 				>
 			{:else}
 				<MergeButton

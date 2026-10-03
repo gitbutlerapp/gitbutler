@@ -2,6 +2,7 @@
 	import { changesToDiffSpec } from "$lib/commits/utils";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { isTreeChange } from "$lib/hunks/change";
+	import { t } from "$lib/i18n";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -69,14 +70,14 @@
 		{#if isChangedFilesItem(item)}
 			{#if isChangedFolderItem(item)}
 				<p class="discard-caption">
-					Are you sure you want to discard all changes in
+					{t("are-you-sure-you-want-to-discard-all-changes-in")}
 					<span class="text-bold">{item.path}</span>?
 				</p>
 			{:else}
 				{@const changes = item.changes}
 				{#if changes.length < 10}
 					<p class="discard-caption">
-						Are you sure you want to discard the changes<br />to the following files:
+						{t("are-you-sure-you-want-to-discard-the-changes")}<br />{t("to-the-following-files")}
 					</p>
 					<ul class="file-list">
 						{#each changes as change}
@@ -90,14 +91,15 @@
 					</ul>
 				{:else}
 					<p>
-						Discard the changes to all <span class="text-bold">
+						{t("discard-the-changes-to-all")}
+						<span class="text-bold">
 							{changes.length} files
 						</span>?
 					</p>
 				{/if}
 			{/if}
 		{:else}
-			<p class="text-13">Woops! Malformed data :(</p>
+			<p class="text-13">{t("woops-malformed-data-2")}</p>
 		{/if}
 	{/snippet}
 	{#snippet controls(close, item)}
