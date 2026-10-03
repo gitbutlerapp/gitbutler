@@ -4,10 +4,7 @@
 	z-index: 2;
 	position: absolute;
 	top: 8px;
-	/* The top's 8px past the 10px scrollbar gutter, which the pane's edge includes. Over the minimap
-	   rather than beside it: the ruler owns the right edge but is invisible at rest, and a bar held
-	   68px clear of it floated mid-header most of the time. Awake, the ruler loses its top few
-	   percent under the bar, which is the smaller cost. */
+	/* The top's 8px past the 10px scrollbar gutter, which the pane's edge includes. */
 	right: 18px;
 	width: 290px;
 	padding: 6px;

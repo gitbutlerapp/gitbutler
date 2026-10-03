@@ -37,10 +37,7 @@ export type Annotation =
 	/** Workaround to render images w/o native library support. */
 	| { _tag: "image" };
 
-/**
- * Layout and metrics handed to CodeView. Shared because the minimap models item
- * positions from the same numbers, and would drift silently if they diverged.
- */
+/** Layout and metrics handed to CodeView. */
 export const codeViewLayout: CodeViewLayout = {
 	// The toolbar above the scroller supplies the top (see .actions).
 	paddingTop: 0,
@@ -157,9 +154,8 @@ export const prepareDiffFiles = ({
 		];
 	});
 
-export const parsePreparedDiffFile = (
-	file: PreparedDiffFile,
-): CodeViewDiffItem<Annotation>["fileDiff"] => parseFileDiff(file.patch, String(file.version));
+const parsePreparedDiffFile = (file: PreparedDiffFile): CodeViewDiffItem<Annotation>["fileDiff"] =>
+	parseFileDiff(file.patch, String(file.version));
 
 /** Build relationships between our SDK data and Pierre's view. */
 export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {

@@ -164,7 +164,7 @@
 
 .diffContentsContainer {
 	display: grid;
-	/* Anchors the minimap overlay. */
+	/* Anchors the search bar. */
 	position: relative;
 	/* Bound the row to the pane rather than letting the diff size it. */
 	grid-template-rows: minmax(0, 1fr);
@@ -173,12 +173,6 @@
 	   above renders nothing unless there are conflicts, and auto placement would
 	   otherwise drop this into that row's `auto` track and size it to the diff. */
 	grid-row: 2;
-
-	/* The minimap stands in for the scrollbar while it maps the diff; a diff too
-	   short to map keeps the bars. */
-	&:has([data-minimap-navigable="true"]) .diffScrollBars {
-		display: none;
-	}
 }
 
 .diffScrollBars {
@@ -480,8 +474,7 @@
 }
 
 /* Grid items floor at min-content, so without this the diff sizes to its whole
-   length and the row scrolls the minimap away with it instead of the code area
-   scrolling beneath a pinned ruler. */
+   length and the whole row scrolls instead of the code area inside it. */
 .diffArea > * {
 	min-height: 0;
 }
