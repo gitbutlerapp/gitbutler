@@ -26,7 +26,7 @@
 		"build:web": "vite build --config web/vite.config.ts",
 		"build:harness": "vite build --config harness/vite.config.ts && vite build --config harness/vite.host.config.ts",
 		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit && tsgo -p harness/tsconfig.json --noEmit && tsgo -p web/tsconfig.json --noEmit && tsgo -p e2e/tsconfig.json --noEmit && node scripts/check-tokens.mjs",
-		"test": "vitest run --config ui/vite.config.ts && vitest run --config harness/vitest.config.ts && pnpm test:stories",
+		"test": "vitest run --config ui/vite.config.ts && vitest run --config harness/vitest.config.ts && vitest run --config web/vitest.config.ts && pnpm test:stories",
 		"test:stories": "vitest run --config vitest.storybook.config.ts",
 		"playwright:install:unit": "playwright install chromium",
 		"test:e2e": "pnpm prepare-askpass --debug && pnpm build:electron && playwright test --config ./e2e/playwright.config.ts",
