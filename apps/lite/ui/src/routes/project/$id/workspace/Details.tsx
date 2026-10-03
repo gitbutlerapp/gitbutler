@@ -250,17 +250,10 @@ import {
 	resolveDiffSelection,
 	withoutFoldedHunks,
 } from "./diff-view.ts";
-import { DiffMinimap } from "./DiffMinimap.tsx";
 import { ImageDiff } from "./ImageDiff.tsx";
 import { DiffSearchBar } from "./DiffSearchBar.tsx";
 import type { DiffSearchMatch } from "./diff-search.ts";
 import { diffSearchMarksUnsafeCSS, useDiffSearchMarks } from "./diff-search-marks.ts";
-import {
-	getMinimapFiles,
-	measureWrapColumns,
-	type MinimapFile,
-	type MinimapSelection,
-} from "./diff-minimap.ts";
 import {
 	type ReviewedFileVersions,
 	reviewedFilesQueryOptions,
@@ -486,7 +479,6 @@ const DiffContents: FC<{
 	didScrollToViaFileRef: RefObject<boolean>;
 	pendingFileRef: RefObject<FileAddress | null>;
 	renderAllFiles: boolean;
-	minimapFiles: Array<MinimapFile> | null;
 }> = ({
 	activeFileItemId,
 	diffContextKey,
@@ -510,7 +502,6 @@ const DiffContents: FC<{
 	didScrollToViaFileRef,
 	pendingFileRef,
 	renderAllFiles,
-	minimapFiles,
 }) => {
 	const dispatch = useAppDispatch();
 	const newFocusableAnnotationIdRef = useRef<string | null>(null);
@@ -611,18 +602,6 @@ const DiffContents: FC<{
 		: null;
 	const selectedLines = storedSelectionHunk ? storedSelectedLines : cursorSelectedRange;
 
-	const minimapSelection = useMemo((): MinimapSelection | null => {
-		if (!selectedLines) return null;
-
-		const { start, end, side, endSide } = selectedLines.range;
-		return {
-			itemId: selectedLines.id,
-			side: side ?? "additions",
-			start,
-			endSide: endSide ?? side ?? "additions",
-			end,
-		};
-	}, [selectedLines]);
 	const selectedLinesHunk = storedSelectionHunk ?? diffSelection;
 	// Primitives, so the item list and header closures below only pick up new
 	// identities when the selection crosses into another file — not on every
@@ -1618,7 +1597,6 @@ const DiffContents: FC<{
 		onPostRender: handleMarkedDiffPostRender,
 		setSearchMatches,
 		getSearchSource,
-		searchMarks,
 	} = useDiffSearchMarks(handleDiffPostRender, items);
 
 	const handOffCollapsedSelection = (itemId: string): void => {
@@ -2015,18 +1993,6 @@ const DiffContents: FC<{
 				onNavigate={navigateToSearchMatch}
 				onMatchesChange={setSearchMatches}
 			/>
-
-			{minimapFiles && (
-				<DiffMinimap
-					viewerRef={viewerRef}
-					files={minimapFiles}
-					diffStyle={effectiveDiffStyle}
-					annotationsByPath={annotationsByPath}
-					threadsByPath={threadsByPath}
-					selection={minimapSelection}
-					searchMarks={searchMarks}
-				/>
-			)}
 		</>
 	);
 };
@@ -2450,8 +2416,7 @@ const Diff: FC<{
 		enabled: threadReview != null,
 	});
 	// Grouped here rather than in `select`, which re-runs per render and would
-	// hand the minimap a new map every time — its paint loop compares by
-	// identity, so that would repaint the canvas on every scroll frame.
+	// hand the memos below, which compare by identity, a new map every time.
 	const threadsByPath = useMemo(
 		() =>
 			threads === undefined ? EMPTY_THREADS_BY_PATH : threadsByPathForScope(threads, fileParent),
@@ -2491,8 +2456,8 @@ const Diff: FC<{
 	// amend or rebase it has not seen moves the code underneath. A thread
 	// whose quoted line no longer matches is dropped rather than hung on
 	// whatever now occupies that number — filtered once here, so every
-	// surface reading the map (the annotations, their cards, the minimap's
-	// pins) agrees on which threads exist.
+	// surface reading the map (the annotations and their cards) agrees on
+	// which threads exist.
 	const anchoredThreadsByPath = useMemo((): ThreadsByPath => {
 		if (threadsByPath.size === 0) return threadsByPath;
 		const anchored = new Map<string, Array<AnchoredThread>>();
@@ -2545,9 +2510,7 @@ const Diff: FC<{
 			diffBackground: cfg.diffBackground,
 			diffOverflow: cfg.diffOverflow,
 			diffStyle: cfg.diffStyle,
-			diffTabSize: cfg.diffTabSize,
 			filesPanelRight: cfg.filesPanelRight,
-			minimap: cfg.minimap,
 		}),
 	});
 
@@ -2555,14 +2518,7 @@ const Diff: FC<{
 
 	const diffContentsEl = useRef<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
-	const [wrapColumns, setWrapColumns] = useState<number | null>(null);
 
-	// Wrapping stretches a long line over several rows, which the minimap has to
-	// model or its marks drift down the file it is mapping.
-	const wraps = (diffSettings?.diffOverflow ?? defaultSettings.diffOverflow) === "wrap";
-
-	// Split and unified lay hunks out differently, so the minimap has to model
-	// whichever style the viewer is actually rendering.
 	const diffStyle = canUseSplitDiff
 		? (diffSettings?.diffStyle ?? defaultSettings.diffStyle)
 		: "unified";
@@ -2593,27 +2549,6 @@ const Diff: FC<{
 	});
 	const changesMenuItems = useChangesMenuItems({ projectId, fileParent, changes });
 
-	const tabSize = diffSettings?.diffTabSize ?? defaultSettings.diffTabSize;
-
-	const minimapShown = diffSettings?.minimap ?? defaultSettings.minimap;
-	// Modelling the map reads every line of the diff, so a ruler nobody asked for
-	// shouldn't be parsed for either.
-	const minimapFiles = useMemo(
-		() =>
-			minimapShown
-				? getMinimapFiles({
-						files:
-							shownFileIndex === null || shownFileIndex < 0
-								? preparedDiffFiles
-								: preparedDiffFiles.slice(shownFileIndex, shownFileIndex + 1),
-						diffStyle,
-						tabSize,
-						wrapColumns,
-					})
-				: [],
-		[minimapShown, shownFileIndex, preparedDiffFiles, diffStyle, tabSize, wrapColumns],
-	);
-
 	useHotkeys([
 		{
 			hotkey: diffHotkeys.toggleDiffStyle.hotkey,
@@ -2632,26 +2567,13 @@ const Diff: FC<{
 		},
 	]);
 
-	// Both of these are facts about the rendered pane rather than about the diff,
-	// so they are measured on the same resize rather than derived.
+	// A fact about the rendered pane rather than about the diff, so it is
+	// measured on resize rather than derived.
 	useLayoutEffect(() => {
 		const el = diffContentsEl.current;
 		if (!el) return;
 
-		const measure = () => {
-			setCanUseSplitDiff(el.getBoundingClientRect().width >= 700);
-
-			if (!wraps) {
-				setWrapColumns(null);
-				return;
-			}
-
-			// Held only once it can be read: a resize that lands between renders would
-			// otherwise drop the count and unwrap the whole model for a frame.
-			const viewer = viewerRef.current?.getInstance();
-			const columns = viewer ? measureWrapColumns(viewer) : null;
-			if (columns !== null) setWrapColumns(columns);
-		};
+		const measure = () => setCanUseSplitDiff(el.getBoundingClientRect().width >= 700);
 
 		measure();
 
@@ -2659,7 +2581,7 @@ const Diff: FC<{
 		resizeObserver.observe(el);
 
 		return () => resizeObserver.disconnect();
-	}, [diffContentsEl, viewerRef, wraps, diffViewSansAnno]);
+	}, [diffContentsEl]);
 
 	const layoutId = `project=${projectId}:details`;
 	const panelIds: Array<PanelId> = filesVisible ? ["files-panel", "diff-panel"] : ["diff-panel"];
@@ -2877,7 +2799,6 @@ const Diff: FC<{
 								didScrollToViaFileRef={didScrollToViaFileRef}
 								pendingFileRef={pendingFileRef}
 								renderAllFiles={renderAllFiles}
-								minimapFiles={minimapShown ? minimapFiles : null}
 							/>
 						</div>
 					</div>

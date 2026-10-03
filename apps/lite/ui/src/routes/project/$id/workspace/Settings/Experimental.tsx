@@ -29,19 +29,6 @@ export const Experimental: FC = () => {
 			</Row>
 
 			<Row
-				label="Minimap"
-				labelId="minimap"
-				hint="A map of the diff down the right-hand edge, standing in for the scrollbar."
-			>
-				<Switch
-					size="large"
-					aria-labelledby="minimap"
-					checked={settings.minimap ?? defaultSettings.minimap}
-					onCheckedChange={(minimap) => saveGUISettings({ minimap })}
-				/>
-			</Row>
-
-			<Row
 				label="Linked worktrees"
 				labelId="worktree-manipulation"
 				hint="Shows the repository's other worktrees in the workspace. Existing ones start out archived; bring them back under Project → Worktrees."
