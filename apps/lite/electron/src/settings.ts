@@ -30,6 +30,7 @@ const guiSettingsV1 = type({
 	"filesPanelRight?": "boolean",
 	"graphTrunk?": "boolean",
 	"handCursor?": "boolean",
+	"hostedBranches?": "boolean",
 	"lineDiffType?": "'word-alt' | 'word' | 'char' | 'none'",
 	"minimap?": "boolean",
 	"pathFirst?": "boolean",

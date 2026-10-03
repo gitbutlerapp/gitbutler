@@ -354,18 +354,21 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 							virtualizerRef={virtualizerRef}
 						/>
 
-						<PopupSection className={styles.actions}>
-							<PopupItem
-								trailing="plus"
-								disabled={isAddingProject}
-								onClick={() => {
-									setOpen(false);
-									void addLocalRepository();
-								}}
-							>
-								{isAddingProject ? "Adding repository…" : "Add local repository"}
-							</PopupItem>
-						</PopupSection>
+						{/* A hosted server's projects are published to it, never added. */}
+						{window.lite.hosted !== true && (
+							<PopupSection className={styles.actions}>
+								<PopupItem
+									trailing="plus"
+									disabled={isAddingProject}
+									onClick={() => {
+										setOpen(false);
+										void addLocalRepository();
+									}}
+								>
+									{isAddingProject ? "Adding repository…" : "Add local repository"}
+								</PopupItem>
+							</PopupSection>
+						)}
 					</Popup>
 				</Combobox.Positioner>
 			</Combobox.Portal>

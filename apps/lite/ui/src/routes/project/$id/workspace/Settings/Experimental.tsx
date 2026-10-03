@@ -42,6 +42,19 @@ export const Experimental: FC = () => {
 			</Row>
 
 			<Row
+				label="Hosted branches"
+				labelId="hosted-branches"
+				hint="Publish branches to a hosted GitButler server, and pull ones published from your other machines."
+			>
+				<Switch
+					size="large"
+					aria-labelledby="hosted-branches"
+					checked={settings.hostedBranches ?? defaultSettings.hostedBranches}
+					onCheckedChange={(hostedBranches) => saveGUISettings({ hostedBranches })}
+				/>
+			</Row>
+
+			<Row
 				label="Linked worktrees"
 				labelId="worktree-manipulation"
 				hint="Shows the repository's other worktrees in the workspace. Existing ones start out archived; bring them back under Project → Worktrees."

@@ -17,7 +17,8 @@ struct Args {
     base_path: Option<String>,
 
     /// Serve published checkouts from this directory, read-only, instead of local projects.
-    /// Requests must carry the token in `BUT_HOSTED_TOKEN`.
+    /// Requests are made as GitButler users, checked against the same GitButler API as the
+    /// apps: production for release and nightly builds, staging for dev builds.
     #[arg(long)]
     hosted_dir: Option<std::path::PathBuf>,
 
@@ -45,14 +46,15 @@ async fn main() -> anyhow::Result<()> {
 
     let args = Args::parse();
     if let Some(data_dir) = args.hosted_dir {
-        let token = std::env::var("BUT_HOSTED_TOKEN")
-            .map_err(|_| anyhow::anyhow!("hosted mode needs BUT_HOSTED_TOKEN"))?;
+        // Absolute, as the worktree links written under it must be.
+        std::fs::create_dir_all(&data_dir)?;
+        let data_dir = data_dir.canonicalize()?;
         return but_server::hosted::run(but_server::hosted::HostedConfig {
             port: args.port,
             bind_addr: args.bind_addr.unwrap_or_else(|| "127.0.0.1".into()),
             data_dir,
             web_dir: args.web_dir,
-            token,
+            gitbutler_api: gitbutler_user::api::default_api_url(),
         })
         .await;
     }

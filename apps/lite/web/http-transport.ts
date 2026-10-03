@@ -10,25 +10,6 @@ import type { GUISettings } from "#electron/settings.ts";
 type ServerResponse = { type: "success"; subject: unknown } | { type: "error"; subject: unknown };
 
 const GUI_SETTINGS_KEY = "lite.guiSettings";
-const TOKEN_KEY = "lite.serverToken";
-
-/** A hosted server's token arrives once as `?token=` and is kept for later visits. */
-const serverToken = (): string | null => {
-	const url = new URL(window.location.href);
-	const fromUrl = url.searchParams.get("token");
-	try {
-		if (fromUrl !== null) {
-			localStorage.setItem(TOKEN_KEY, fromUrl);
-			url.searchParams.delete("token");
-			window.history.replaceState(null, "", url);
-		}
-		return localStorage.getItem(TOKEN_KEY);
-	} catch {
-		return fromUrl;
-	}
-};
-
-const token = serverToken();
 
 const errorFrom = (subject: unknown): Error => {
 	const message =
@@ -41,12 +22,11 @@ const errorFrom = (subject: unknown): Error => {
 const post = async (url: string, body: unknown): Promise<unknown> => {
 	const response = await fetch(url, {
 		method: "POST",
-		headers: {
-			"content-type": "application/json",
-			...(token === null ? {} : { authorization: `Bearer ${token}` }),
-		},
+		headers: { "content-type": "application/json" },
 		body: JSON.stringify(body),
 	});
+	// The hosted server signs browsers in with a session cookie; without one, sign in first.
+	if (response.status === 401 && url.startsWith("/")) window.location.assign("/sign-in");
 	if (!response.ok) {
 		throw Object.assign(new Error(`${url}: ${response.status} ${response.statusText}`), {
 			status: response.status,
@@ -82,6 +62,9 @@ const WATCHER_CHANNEL_PREFIX = "watcher:";
 const watcherChannel = (projectId: string) => `${WATCHER_CHANNEL_PREFIX}${projectId}`;
 const projectIdOf = (channel: string) => channel.slice(WATCHER_CHANNEL_PREFIX.length);
 
+/** Says a user's set of projects may have changed; it needs no subscription. */
+const PROJECTS_CHANNEL = "projectsChanged";
+
 /** The server's own messages; anything else on the socket is a `{ channel, payload }` event. */
 type EventsReply = { type: "subscribed" | "rejected"; projectId: string } | { type: "heartbeat" };
 
@@ -91,17 +74,17 @@ const EVENTS_IDLE_TIMEOUT = 60_000;
 /** One WebSocket to `/events` per page, open while anything listens and reopened when it drops or goes silent. */
 const createEventStream = (serverUrl: string) => {
 	const listeners = new Map<string, Set<Listener>>();
+	// Projects that weren't published yet when subscribed to, asked again once projects change.
+	const rejected = new Set<string>();
 	let socket: WebSocket | null = null;
 	let reconnect: ReturnType<typeof setTimeout> | undefined;
 	let idle: ReturnType<typeof setTimeout> | undefined;
-	let connecting = false;
 	let retryDelay = 1_000;
-	// The server has no `/events`, so nothing is retried for the rest of the page.
-	let unsupported = false;
 
 	// Before the socket opens, the "open" handler sends whatever is subscribed by then.
 	const send = (type: "subscribe" | "unsubscribe", channel: string) => {
-		if (socket?.readyState !== WebSocket.OPEN) return;
+		if (socket?.readyState !== WebSocket.OPEN || !channel.startsWith(WATCHER_CHANNEL_PREFIX))
+			return;
 		socket.send(JSON.stringify({ type, projectId: projectIdOf(channel) }));
 	};
 
@@ -120,7 +103,7 @@ const createEventStream = (serverUrl: string) => {
 		reconnect = setTimeout(
 			() => {
 				reconnect = undefined;
-				void connect();
+				connect();
 			},
 			retryDelay * (0.5 + Math.random() / 2),
 		);
@@ -136,38 +119,25 @@ const createEventStream = (serverUrl: string) => {
 		scheduleReconnect();
 	};
 
-	// The socket can't carry the bearer header, so it presents a single-use ticket instead.
-	const connect = async () => {
-		connecting = true;
-		let ticket: string;
-		try {
-			({ ticket } = (await post(`${serverUrl}/events/ticket`, {})) as { ticket: string });
-		} catch (error) {
-			// A server without the route (a plain local but-server) has no events to wait for.
-			const status = (error as { status?: number }).status;
-			if (status === 404 || status === 405) unsupported = true;
-			else scheduleReconnect();
-			return;
-		} finally {
-			connecting = false;
-		}
-		if (listeners.size === 0) return;
-
+	// The handshake carries the session cookie, as any request from the page does.
+	const connect = () => {
 		const url = new URL(`${serverUrl}/events`, window.location.href);
 		url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-		url.searchParams.set("ticket", ticket);
-
 		const current = new WebSocket(url);
 		socket = current;
+		let opened = false;
 		const stillAlive = () => {
 			clearTimeout(idle);
 			idle = setTimeout(abandon, EVENTS_IDLE_TIMEOUT);
 		};
 		current.addEventListener("open", () => {
+			opened = true;
 			retryDelay = 1_000;
 			stillAlive();
 			// The server forgets a socket's subscriptions when it closes.
 			for (const channel of listeners.keys()) send("subscribe", channel);
+			// Projects may have been published while no socket was open.
+			for (const listener of listeners.get(PROJECTS_CHANNEL) ?? []) listener(null);
 		});
 		current.addEventListener("message", (message) => {
 			if (socket !== current) return;
@@ -182,14 +152,27 @@ const createEventStream = (serverUrl: string) => {
 			if (!("channel" in data)) {
 				// Changes from before the subscription went live never arrive as events.
 				if (data.type === "subscribed") refresh(data.projectId);
+				if (data.type === "subscribed" || data.type === "rejected") {
+					const channel = watcherChannel(data.projectId);
+					if (data.type === "rejected") rejected.add(channel);
+					else rejected.delete(channel);
+				}
 				return;
 			}
+			if (data.channel === PROJECTS_CHANNEL)
+				for (const channel of rejected) if (listeners.has(channel)) send("subscribe", channel);
 			for (const listener of listeners.get(data.channel) ?? []) listener(data.payload);
 		});
 		current.addEventListener("close", () => {
 			if (socket !== current) return;
 			socket = null;
 			clearTimeout(idle);
+			// A refused handshake says nothing of why; signed out, the page has to sign in again.
+			if (!opened) {
+				void fetch(`${serverUrl}/session`).then((response) => {
+					if (response.status === 401) window.location.assign("/sign-in");
+				});
+			}
 			scheduleReconnect();
 		});
 	};
@@ -202,7 +185,8 @@ const createEventStream = (serverUrl: string) => {
 			send("subscribe", channel);
 		}
 		channelListeners.add(listener);
-		if (socket === null && reconnect === undefined && !connecting && !unsupported) void connect();
+		// Only a hosted server, which serves the page itself, has `/events`.
+		if (socket === null && reconnect === undefined && serverUrl === "") connect();
 
 		return () => {
 			channelListeners.delete(listener);
@@ -276,9 +260,12 @@ export const createHttpTransport = (serverUrl: string): LiteApiTransport => {
 			}
 			throw new Error(`Unknown endpoint: ${channel}`);
 		},
-		// Only watcher events come from the server; other host events have no browser source.
+		// Only watcher and project-list events come from the server; other host events have no
+		// browser source.
 		subscribe: (channel, listener) =>
-			channel.startsWith(WATCHER_CHANNEL_PREFIX) ? subscribeToEvents(channel, listener) : () => {},
+			channel.startsWith(WATCHER_CHANNEL_PREFIX) || channel === PROJECTS_CHANNEL
+				? subscribeToEvents(channel, listener)
+				: () => {},
 		platform: browserPlatform(),
 		// Only a hosted server serves this page itself; a local one is reached by URL.
 		hosted: serverUrl === "",

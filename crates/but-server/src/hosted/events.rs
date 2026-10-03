@@ -1,15 +1,11 @@
 //! The `/events` WebSocket: browsers follow publishes with the same watcher events a desktop
 //! host gets from its file watcher.
 
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex, PoisonError},
-    time::{Duration, Instant},
-};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use axum::{
     extract::{
-        Query, State, WebSocketUpgrade,
+        Extension, State, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
     http::{HeaderMap, StatusCode, Uri, header},
@@ -18,29 +14,32 @@ use axum::{
 use but_api::watcher::{WatcherGitActivityPayload, WatcherPayload};
 use tokio::sync::broadcast;
 
-use super::{HostedConfig, existing_store};
-use crate::cmd_result_to_json;
+use super::{HostedConfig, UserId, existing_store};
 
-/// Single-use tickets for opening `/events`. In memory: a restart only makes clients ask again,
-/// but each server instance only knows the tickets it issued.
-pub(super) type EventTickets = Arc<Mutex<HashMap<String, Instant>>>;
-
-const EVENT_TICKET_LIFETIME: Duration = Duration::from_secs(30);
-
-/// A watcher event for one published project, for the `/events` sockets subscribed to it.
+/// What reaches every `/events` socket, for each to pick out its own.
 #[derive(Clone)]
-pub(super) struct ProjectEvent {
-    project_id: String,
-    /// Serialized once, for every socket.
-    message: String,
+pub(super) enum ProjectEvent {
+    /// For `user`'s sockets: about one project, for those subscribed to it, or, without a
+    /// project, about the user's projects as a whole, for all of them.
+    Changed {
+        user: UserId,
+        project_id: Option<String>,
+        /// Serialized once, for every socket.
+        message: String,
+    },
+    /// A browser signed out: the sockets it opened close.
+    SignedOut { session: String },
 }
+
+/// The channel of the event saying a user's set of projects may have changed.
+const PROJECTS_CHANNEL: &str = "projectsChanged";
 
 /// An event on the `/events` socket: the watcher event Lite's desktop host emits, on the channel
 /// the web transport listens to.
 #[derive(serde::Serialize)]
 struct EventMessage {
     channel: String,
-    payload: WatcherEvent,
+    payload: Option<WatcherEvent>,
 }
 
 /// The shape of `but-napi`'s `WatcherEvent`, which isn't available here.
@@ -86,93 +85,56 @@ const MAX_SUBSCRIPTIONS_PER_SOCKET: usize = 64;
 pub(super) const EVENTS_BUFFER: usize = 64;
 /// Browsers only send small subscription messages.
 const MAX_EVENTS_MESSAGE_SIZE: usize = 16 * 1024;
-/// Unredeemed tickets are swept when they expire, and capped until then.
-const MAX_OUTSTANDING_TICKETS: usize = 1024;
 
-pub(super) async fn events_ticket(State(tickets): State<EventTickets>) -> Response {
-    let ticket = issue_ticket(
-        &mut tickets.lock().unwrap_or_else(PoisonError::into_inner),
-        Instant::now(),
-    );
-    let Some(ticket) = ticket else {
-        return StatusCode::TOO_MANY_REQUESTS.into_response();
+/// Whether a browser request comes from a page this server served; other clients send no
+/// `Origin`.
+pub(super) fn same_origin(headers: &HeaderMap) -> bool {
+    let Some(origin) = headers.get(header::ORIGIN) else {
+        return true;
     };
-    // A ticket is a credential until it's redeemed.
-    (
-        [(header::CACHE_CONTROL, "no-store")],
-        cmd_result_to_json(Ok(serde_json::json!({ "ticket": ticket }))),
-    )
-        .into_response()
+    let host = headers
+        .get(header::HOST)
+        .and_then(|host| host.to_str().ok());
+    origin
+        .to_str()
+        .ok()
+        .and_then(|origin| origin.parse::<Uri>().ok())
+        .zip(host)
+        .is_some_and(|(origin, host)| {
+            origin
+                .authority()
+                .is_some_and(|authority| authority.as_str().eq_ignore_ascii_case(host))
+        })
 }
 
-/// A new ticket valid until `now + EVENT_TICKET_LIFETIME`, sweeping the expired ones first,
-/// or `None` while `MAX_OUTSTANDING_TICKETS` are still unredeemed.
-fn issue_ticket(tickets: &mut HashMap<String, Instant>, now: Instant) -> Option<String> {
-    tickets.retain(|_, expires| *expires > now);
-    if tickets.len() >= MAX_OUTSTANDING_TICKETS {
-        return None;
-    }
-    let ticket = uuid::Uuid::new_v4().to_string();
-    tickets.insert(ticket.clone(), now + EVENT_TICKET_LIFETIME);
-    Some(ticket)
-}
-
-/// Whether `ticket` was issued and is unexpired at `now`. Redeeming spends it either way.
-fn redeem_ticket(tickets: &mut HashMap<String, Instant>, ticket: &str, now: Instant) -> bool {
-    tickets.remove(ticket).is_some_and(|expires| expires > now)
-}
-
-#[derive(serde::Deserialize)]
-pub(super) struct EventsQuery {
-    ticket: String,
-}
-
+/// Signed in like any other route: a browser's handshake carries its session cookie.
 pub(super) async fn events(
     State(config): State<Arc<HostedConfig>>,
-    State(tickets): State<EventTickets>,
     State(events): State<broadcast::Sender<ProjectEvent>>,
-    Query(query): Query<EventsQuery>,
+    Extension(user): Extension<UserId>,
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
-    // Pages come from this server, so a browser's socket is same-origin; other clients send
-    // no `Origin`. This backs up the ticket, it doesn't replace it.
-    if let Some(origin) = headers.get(header::ORIGIN) {
-        let host = headers
-            .get(header::HOST)
-            .and_then(|host| host.to_str().ok());
-        let same_origin = origin
-            .to_str()
-            .ok()
-            .and_then(|origin| origin.parse::<Uri>().ok())
-            .zip(host)
-            .is_some_and(|(origin, host)| {
-                origin
-                    .authority()
-                    .is_some_and(|authority| authority.as_str().eq_ignore_ascii_case(host))
-            });
-        if !same_origin {
-            return StatusCode::FORBIDDEN.into_response();
-        }
+    // WebSockets aren't bound by CORS, so another site's page could open one with the
+    // browser's cookie, were it not `SameSite=Strict`; this checks it too.
+    if !same_origin(&headers) {
+        return StatusCode::FORBIDDEN.into_response();
     }
-    let redeemed = redeem_ticket(
-        &mut tickets.lock().unwrap_or_else(PoisonError::into_inner),
-        &query.ticket,
-        Instant::now(),
-    );
-    if !redeemed {
-        return StatusCode::UNAUTHORIZED.into_response();
-    }
+    let session = super::session_id(&headers).map(ToOwned::to_owned);
     let receiver = events.subscribe();
     ws.max_message_size(MAX_EVENTS_MESSAGE_SIZE)
-        .on_upgrade(move |socket| forward_events(socket, receiver, config))
+        .on_upgrade(move |socket| forward_events(socket, receiver, config, user, session))
 }
 
-/// Subscriptions belong to the socket, so they end with it, as a desktop window's do.
+/// Subscriptions belong to the socket, so they end with it, as a desktop window's do. A socket
+/// only ever gets its user's events, and closes when the session it came from signs out.
 async fn forward_events(
     mut socket: WebSocket,
     mut events: broadcast::Receiver<ProjectEvent>,
     config: Arc<HostedConfig>,
+    user: UserId,
+    // The browser session it was opened in, whose end closes it; clients with a token have none.
+    session: Option<String>,
 ) {
     let mut subscriptions = HashSet::new();
     let mut heartbeat = tokio::time::interval(EVENTS_HEARTBEAT_INTERVAL);
@@ -181,7 +143,15 @@ async fn forward_events(
     loop {
         let message = tokio::select! {
             event = events.recv() => match event {
-                Ok(event) if subscriptions.contains(&event.project_id) => event.message,
+                Ok(ProjectEvent::Changed { user: of, project_id, message })
+                    if of == user
+                        && project_id.as_ref().is_none_or(|id| subscriptions.contains(id)) =>
+                {
+                    message
+                }
+                Ok(ProjectEvent::SignedOut { session: ended }) if session.as_ref() == Some(&ended) => {
+                    return;
+                }
                 Ok(_) => continue,
                 // Some events were dropped, and whose is unknown. Closing makes the page
                 // reconnect, and each resubscription refreshes what it shows.
@@ -195,7 +165,7 @@ async fn forward_events(
                     Ok(EventsRequest::Subscribe { project_id }) => {
                         let has_room = subscriptions.len() < MAX_SUBSCRIPTIONS_PER_SOCKET
                             || subscriptions.contains(&project_id);
-                        let published = existing_store(&config, &project_id)
+                        let published = existing_store(&user.dir(&config), &project_id)
                             .inspect_err(|err| tracing::debug!("rejected a subscription: {err:#}"))
                             .is_ok();
                         if has_room && published {
@@ -231,26 +201,33 @@ fn reply(reply: EventsReply<'_>) -> String {
     serde_json::to_string(&reply).expect("replies serialize")
 }
 
-/// Tell browsers that `project` changed, as its file watcher would have; `head_sha` is the
-/// published branch's tip.
+/// Tell `user`'s browsers that `project` changed, as its file watcher would have, and that their
+/// project list may have; `head_sha` is the published branch's tip.
 pub(super) fn announce_publish(
     events: &broadcast::Sender<ProjectEvent>,
+    user: UserId,
     project: &str,
     head_sha: String,
 ) {
-    let project_id = project.to_owned();
-    let message = EventMessage {
-        channel: format!("watcher:{project_id}"),
-        payload: WatcherEvent {
-            name: format!("project://{project_id}/git/activity"),
+    let watcher = EventMessage {
+        channel: format!("watcher:{project}"),
+        payload: Some(WatcherEvent {
+            name: format!("project://{project}/git/activity"),
             payload: WatcherPayload::GitActivity(WatcherGitActivityPayload { head_sha }),
-        },
+        }),
     };
-    // No receivers means no browser is open, which is fine.
-    events
-        .send(ProjectEvent {
-            project_id,
-            message: serde_json::to_string(&message).expect("events serialize"),
-        })
-        .ok();
+    let projects = EventMessage {
+        channel: PROJECTS_CHANNEL.to_owned(),
+        payload: None,
+    };
+    for (project_id, message) in [(Some(project.to_owned()), watcher), (None, projects)] {
+        // No receivers means no browser is open, which is fine.
+        events
+            .send(ProjectEvent::Changed {
+                user,
+                project_id,
+                message: serde_json::to_string(&message).expect("events serialize"),
+            })
+            .ok();
+    }
 }

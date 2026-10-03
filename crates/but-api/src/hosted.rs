@@ -6,9 +6,10 @@
 //! worktree lane either way. Branches are keyed by name: publishing or pulling a branch that
 //! already exists elsewhere replaces it, after asking whenever work would be lost.
 //!
-//! The server is fixed rather than a git remote: `BUT_HOSTED_URL` and `BUT_HOSTED_TOKEN`,
-//! defaulting to a local demo server. A fetch keeps what it publishes under
-//! `refs/gitbutler/hosted/`, apart from the repository's own remotes.
+//! The server is fixed rather than a git remote: `BUT_HOSTED_URL`, defaulting to a local demo
+//! server. Requests to it are made as the signed-in GitButler user, and see only that user's
+//! branches. A fetch keeps what it publishes under `refs/gitbutler/hosted/`, apart from the
+//! repository's own remotes.
 
 use std::path::{Path, PathBuf};
 
@@ -20,11 +21,10 @@ use tracing::instrument;
 /// Where fetched branches and snapshots of published branches are kept.
 const HOSTED_REFS: &str = "refs/gitbutler/hosted";
 
-/// The hosted server's URL and access token.
-pub fn hosted_server() -> (String, String) {
+/// The hosted server's URL.
+fn hosted_server() -> String {
     let url = std::env::var("BUT_HOSTED_URL").unwrap_or_else(|_| "http://localhost:6980".into());
-    let token = std::env::var("BUT_HOSTED_TOKEN").unwrap_or_else(|_| "secret".into());
-    (url.trim_end_matches('/').to_owned(), token)
+    url.trim_end_matches('/').to_owned()
 }
 
 /// The project as the hosted server knows it: its earliest root commit, the same everywhere.
@@ -62,15 +62,10 @@ fn git_command(dir: &Path) -> std::process::Command {
     git
 }
 
-/// Run git in `dir` with `env`, with the hosted server's token for any request to it.
+/// Run git in `dir` with `env`.
 fn git(dir: &Path, env: &[(&str, &std::ffi::OsStr)], args: &[&str]) -> Result<String> {
-    let auth = format!(
-        "http.extraHeader=Authorization: Bearer {}",
-        hosted_server().1
-    );
     let out = git_command(dir)
         .envs(env.iter().copied())
-        .args(["-c", &auth])
         .args(args)
         .stdin(std::process::Stdio::null())
         .output()?;
@@ -82,6 +77,26 @@ fn git(dir: &Path, env: &[(&str, &std::ffi::OsStr)], args: &[&str]) -> Result<St
         );
     }
     Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
+}
+
+/// Run git in `dir` against the hosted server, as the signed-in GitButler user. The token goes in
+/// through git's environment, which other processes can't read as they can its arguments.
+fn git_as_user(dir: &Path, args: &[&str]) -> Result<String> {
+    let user = gitbutler_user::get_user()?.context(
+        "Sign in to GitButler first: the hosted server shows each account its own branches",
+    )?;
+    let token = user
+        .access_token()
+        .context("Sign in to GitButler again: this account's access token is missing")?;
+    let header = std::ffi::OsString::from(format!("X-Auth-Token: {}", *token));
+    let env = [
+        ("GIT_CONFIG_COUNT", "1".as_ref()),
+        ("GIT_CONFIG_KEY_0", "http.extraHeader".as_ref()),
+        ("GIT_CONFIG_VALUE_0", header.as_os_str()),
+        // A refused token fails rather than asking for a password.
+        ("GIT_TERMINAL_PROMPT", "0".as_ref()),
+    ];
+    git(dir, &env, args)
 }
 
 /// Whether `ancestor` is reachable from `descendant`, including being the same commit.
@@ -141,13 +156,11 @@ fn workdir(ctx: &but_ctx::Context) -> Result<PathBuf> {
 
 /// Fetch the project's published branches and snapshots from the hosted server.
 fn fetch(dir: &Path) -> Result<()> {
-    let (url, _) = hosted_server();
-    let url = format!("{url}/git/{}/fetch", hosted_project(dir)?);
+    let url = format!("{}/git/{}/fetch", hosted_server(), hosted_project(dir)?);
     let heads = format!("+refs/heads/*:{HOSTED_REFS}/heads/*");
     let snapshots = format!("+refs/gitbutler/snapshots/*:{HOSTED_REFS}/snapshots/*");
-    git(
+    git_as_user(
         dir,
-        &[],
         &[
             "fetch",
             "--prune",
@@ -418,11 +431,11 @@ pub fn hosted_branch_publish(
         format!("+{snapshot}:refs/gitbutler/snapshots/{name}"),
     ];
     refspecs.extend(target.map(|target| format!("+{target}:{target}")));
-    let url = format!("{}/git/{}/{name}", hosted_server().0, hosted_project(&dir)?);
+    let url = format!("{}/git/{}/{name}", hosted_server(), hosted_project(&dir)?);
     // No hooks: they'd run with the token in git's environment.
     let mut push = vec!["push", "--atomic", "--quiet", "--no-verify", &url];
     push.extend(refspecs.iter().map(String::as_str));
-    git(&dir, &[], &push)?;
+    git_as_user(&dir, &push)?;
     git(&dir, &[], &["update-ref", &synced_ref(&branch), &snapshot])?;
     Ok(SyncOutcome::Done(format!("Published {branch}")))
 }

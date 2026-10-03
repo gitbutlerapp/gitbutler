@@ -17,3 +17,26 @@
 		color: var(--text-2);
 	}
 }
+
+.projects {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	min-width: min(20rem, 100%);
+	margin: 0.5rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.project {
+	display: block;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-md);
+	color: var(--text-1);
+	text-decoration: none;
+
+	&:hover {
+		background: var(--bg-2);
+	}
+}

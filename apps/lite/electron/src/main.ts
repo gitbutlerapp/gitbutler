@@ -624,7 +624,9 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 	void session.defaultSession;
 	initLogging();
 	Object.assign(process.env, await shellEnvironment);
-	await initApplicationNamespace(null);
+	// Unpackaged, credentials sit where a CLI built without an identifier keeps them, so the
+	// two share an account.
+	await initApplicationNamespace(app.isPackaged ? null : "com.gitbutler.app");
 	if (app.isPackaged) {
 		const channel = process.env.CHANNEL;
 		await initMetrics(

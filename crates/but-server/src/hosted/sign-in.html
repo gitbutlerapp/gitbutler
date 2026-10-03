@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Sign in</title>
+		<style>
+			:root {
+				color-scheme: light dark;
+				--bg: #ffffff;
+				--fg: #1a1a1a;
+				--muted: #6b6b6b;
+				--line: #dcdcdc;
+				--accent: #1f7a6d;
+				--danger: #c0392b;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--bg: #292929;
+					--fg: #ececec;
+					--muted: #a3a3a3;
+					--line: #444444;
+					--accent: #4fb3a5;
+					--danger: #e57368;
+				}
+			}
+			body {
+				margin: 0;
+				min-height: 100dvh;
+				display: grid;
+				place-items: center;
+				background: var(--bg);
+				color: var(--fg);
+				font: 15px/1.5 system-ui, sans-serif;
+			}
+			main {
+				width: min(420px, calc(100% - 32px));
+			}
+			h1 {
+				font-size: 20px;
+				margin: 0 0 8px;
+			}
+			p {
+				color: var(--muted);
+				margin: 0 0 16px;
+			}
+			ol {
+				padding-left: 20px;
+				margin: 0 0 16px;
+			}
+			a {
+				color: var(--accent);
+			}
+			input {
+				box-sizing: border-box;
+				width: 100%;
+				padding: 8px 10px;
+				border: 1px solid var(--line);
+				border-radius: 6px;
+				background: transparent;
+				color: inherit;
+				font: inherit;
+			}
+			button {
+				margin-top: 12px;
+				padding: 8px 14px;
+				border: 0;
+				border-radius: 6px;
+				background: var(--accent);
+				color: #ffffff;
+				font: inherit;
+				cursor: pointer;
+			}
+			.failed {
+				display: none;
+				color: var(--danger);
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>Sign in with GitButler</h1>
+			<p>You'll see the branches you've published from your machines.</p>
+			<ol>
+				<li><a href="/sign-in/gitbutler" target="_blank" rel="noopener">Sign in to GitButler</a> in a new tab.</li>
+				<li>Copy the access token it shows, and paste it here.</li>
+			</ol>
+			<form method="post" action="/sign-in">
+				<input name="token" type="password" autocomplete="off" required aria-label="Access token" />
+				<p class="failed" id="failed">That token wasn't accepted. Copy it again and retry.</p>
+				<button type="submit">Sign in</button>
+			</form>
+		</main>
+		<script>
+			if (new URLSearchParams(location.search).has("failed")) {
+				document.getElementById("failed").style.display = "block";
+			}
+		</script>
+	</body>
+</html>

@@ -12,10 +12,14 @@ import {
 	useCommitInsertBlank,
 	useTearOffBranch,
 	useBranchRename,
+	useHostedBranchPublish,
 	useWorkspaceBranchAndAncestorsPush,
 } from "#ui/api/mutations.ts";
+import { useHostedSync } from "#ui/HostedSync.tsx";
+import { defaultSettings } from "#ui/settings.ts";
 import {
 	forgeInfoOptions,
+	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listCIChecksQueryOptions,
 	listReviewsQueryOptions,
@@ -253,6 +257,29 @@ export const BranchRow: FC<
 	const { mutate: commitInsertBlank } = useCommitInsertBlank();
 	const { isPending: isTearOffBranchPending, mutate: tearOffBranch } = useTearOffBranch();
 	const { isPending: isBranchRemovePending, mutate: branchRemove } = useBranchRemove(projectId);
+	const { data: hostedBranches = defaultSettings.hostedBranches } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.hostedBranches ?? defaultSettings.hostedBranches,
+	});
+	const { isPending: isPublishPending, mutate: publish } = useHostedBranchPublish(projectId);
+	const settle = useHostedSync();
+	const publishBranch = (includeUncommitted: boolean, overwrite: boolean) =>
+		publish(
+			{
+				projectId,
+				branch: refName.displayName,
+				includeUncommitted,
+				onConflict: overwrite ? "overwrite" : null,
+			},
+			{
+				onSuccess: (outcome) =>
+					settle(outcome, {
+						title: "Overwrite the published branch?",
+						keepLabel: "Keep published",
+						overwrite: () => publishBranch(includeUncommitted, true),
+					}),
+			},
+		);
 	const { mutate: branchCreate } = useBranchCreate();
 
 	const pushesMultipleBranches = downstackPushStatus.downstackBranches > 1;
@@ -405,6 +432,26 @@ export const BranchRow: FC<
 			accelerator: toElectronAccelerator(sidebarHotkeys.workspaceBranchAndAncestorsPush.hotkey),
 			onSelect: pushBranch,
 		}),
+		// Publishing goes from a machine to the hosted server, never from the server's own page.
+		...(hostedBranches && window.lite.hosted !== true
+			? [
+					nativeMenuItem({
+						label: "Publish Branch",
+						enabled: !isPublishPending,
+						onSelect: () => publishBranch(false, false),
+					}),
+					// Uncommitted changes belong to a branch only in its own worktree.
+					...(lane.type === "worktree"
+						? [
+								nativeMenuItem({
+									label: "Publish Branch With Uncommitted Changes",
+									enabled: !isPublishPending,
+									onSelect: () => publishBranch(true, false),
+								}),
+							]
+						: []),
+				]
+			: []),
 		...(lane.type === "stack"
 			? [
 					nativeMenuItem({

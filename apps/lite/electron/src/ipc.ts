@@ -46,6 +46,8 @@ export type LiteElectronApi = SDK & {
 	onFullScreenChange: (callback: (fullScreen: boolean) => void) => () => void;
 	/** A click on a desktop notification, by the id it was shown with. */
 	onNotificationClick: (callback: (id: string) => void) => () => void;
+	/** The set of projects may have changed; only a hosted server says so. */
+	onProjectsChanged: (callback: () => void) => () => void;
 	openInWebBrowser: (url: string) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	pickDirectory: () => Promise<string | null>;
@@ -104,6 +106,7 @@ export const localEndpoints = [
 	"isPackaged",
 	"installCli",
 	"notificationClick",
+	"projectsChanged",
 	"openInWebBrowser",
 	"pathJoin",
 	"pickDirectory",

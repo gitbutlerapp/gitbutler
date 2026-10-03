@@ -16,6 +16,7 @@ type RendererOnlyKey =
 	| "onDeepLink"
 	| "onFullScreenChange"
 	| "onNotificationClick"
+	| "onProjectsChanged"
 	| "platform"
 	| "hosted";
 

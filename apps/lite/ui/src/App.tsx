@@ -8,6 +8,7 @@ import { Provider } from "react-redux";
 import { store } from "#ui/store.ts";
 import { Toasts } from "@gitbutler/ui-react/Toasts.tsx";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
+import { HostedSyncProvider } from "#ui/HostedSync.tsx";
 import { AppUpdater } from "./AppUpdater.tsx";
 import { guiSettingsQueryOptions } from "./api/queries.ts";
 import { defaultSettings } from "./settings.ts";
@@ -68,7 +69,9 @@ export const App: FC<{
 							<SyntaxThemeSync />
 							<HandCursorSync />
 							<AppUpdater>
-								<RouterProvider router={router} />
+								<HostedSyncProvider toastManager={toastManager}>
+									<RouterProvider router={router} />
+								</HostedSyncProvider>
 							</AppUpdater>
 							<AskpassPromptDialog />
 							<Toasts />

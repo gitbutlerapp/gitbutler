@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client";
 import "./global.css";
 import { Toast } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
+import { listProjectsQueryOptions } from "#ui/api/queries.ts";
 
 const toastManager = Toast.createToastManager();
 
@@ -77,6 +78,11 @@ const router = createAppRouter(queryClient, createRouteTree({ workspace: Page })
 // app's own parseSearch, so there is nothing to take apart here.
 window.lite.onDeepLink((path) => {
 	void router.navigate({ href: path });
+});
+
+// A hosted server publishes projects from other machines; no project's own events can say so.
+window.lite.onProjectsChanged(() => {
+	void queryClient.invalidateQueries({ queryKey: listProjectsQueryOptions.queryKey });
 });
 
 const rootElement = document.getElementById("root");

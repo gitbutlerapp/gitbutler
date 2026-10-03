@@ -1,7 +1,8 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { type FC, type ReactNode, useState } from "react";
+import type { FC, ReactNode } from "react";
 import {
 	appSettingsQueryOptions,
+	guiSettingsQueryOptions,
 	hostedBranchesQueryOptions,
 	worktreesListQueryOptions,
 } from "#ui/api/queries.ts";
@@ -11,7 +12,6 @@ import {
 	useWorktreeSetArchived,
 } from "#ui/api/mutations.ts";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
-import { Modal, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
 import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
@@ -20,6 +20,8 @@ import { revealInFolderLabel } from "#ui/hotkeys.ts";
 import { nativeMenuItem, nativeMenuSeparator, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import type { HostedBranch, ListedWorktree } from "@gitbutler/but-sdk";
 import { IconButton } from "./IconButton.tsx";
+import { useHostedSync } from "#ui/HostedSync.tsx";
+import { defaultSettings } from "#ui/settings.ts";
 import styles from "./Worktrees.module.css";
 import { Section } from "./Section.tsx";
 
@@ -51,6 +53,7 @@ const worktreeLabel = (worktree: ListedWorktree) =>
 
 const WorktreeList: FC<{ projectId: string }> = ({ projectId }) => {
 	const { data: listing } = useSuspenseQuery(worktreesListQueryOptions(projectId));
+	const { data: guiSettings } = useSuspenseQuery(guiSettingsQueryOptions);
 	const { mutate: setArchived, isPending: isArchiving } = useWorktreeSetArchived(projectId);
 	const { mutate: remove, isPending: isRemoving } = useWorktreeRemove(projectId);
 	const busy = isArchiving || isRemoving;
@@ -113,7 +116,8 @@ const WorktreeList: FC<{ projectId: string }> = ({ projectId }) => {
 			{listing.archived.length > 0 && (
 				<Section heading="Archived">{rows(listing.archived, true)}</Section>
 			)}
-			{window.lite.hosted !== true && <Published projectId={projectId} />}
+			{(guiSettings.hostedBranches ?? defaultSettings.hostedBranches) &&
+				window.lite.hosted !== true && <Published projectId={projectId} />}
 		</>
 	);
 };
@@ -136,22 +140,19 @@ const Published: FC<{ projectId: string }> = ({ projectId }) => {
 	// A server that can't be reached just has nothing to list.
 	const { data: published } = useQuery(hostedBranchesQueryOptions(projectId));
 	const { mutate, isPending } = useHostedBranchPull(projectId);
-	// A pull that would replace local work, waiting for the answer.
-	const [asking, setAsking] = useState<{
-		branch: string;
-		intoWorkspace: boolean;
-		reason: string;
-	}>();
+	const settle = useHostedSync();
 	if (published === undefined || published.length === 0) return null;
 
 	const pull = (branch: string, intoWorkspace: boolean, overwrite: boolean) =>
 		mutate(
 			{ projectId, branch, intoWorkspace, onConflict: overwrite ? "overwrite" : null },
 			{
-				onSuccess: (outcome) => {
-					if (outcome.type === "needsChoice")
-						setAsking({ branch, intoWorkspace, reason: outcome.subject });
-				},
+				onSuccess: (outcome) =>
+					settle(outcome, {
+						title: "Overwrite local work?",
+						keepLabel: "Keep local",
+						overwrite: () => pull(branch, intoWorkspace, true),
+					}),
 			},
 		);
 
@@ -187,28 +188,6 @@ const Published: FC<{ projectId: string }> = ({ projectId }) => {
 					</div>
 				</div>
 			))}
-			<Modal
-				open={asking !== undefined}
-				onOpenChange={(open) => {
-					if (!open) setAsking(undefined);
-				}}
-			>
-				<ModalHeader title="Overwrite local work?" description={asking?.reason} />
-				<ModalFooter>
-					<Button variant="ghost" onClick={() => setAsking(undefined)}>
-						Keep local
-					</Button>
-					<Button
-						variant="gray"
-						onClick={() => {
-							if (asking) pull(asking.branch, asking.intoWorkspace, true);
-							setAsking(undefined);
-						}}
-					>
-						Overwrite
-					</Button>
-				</ModalFooter>
-			</Modal>
 		</Section>
 	);
 };
