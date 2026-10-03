@@ -256,3 +256,80 @@ pub(super) fn announce_publish(
         .ok();
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn issue(tickets: &mut HashMap<String, Instant>, now: Instant) -> String {
+        issue_ticket(tickets, now).expect("the store has room")
+    }
+
+    #[test]
+    fn a_ticket_redeems_once() {
+        let mut tickets = HashMap::new();
+        let now = Instant::now();
+        let ticket = issue(&mut tickets, now);
+        assert!(
+            redeem_ticket(&mut tickets, &ticket, now),
+            "a fresh ticket opens a socket"
+        );
+        assert!(
+            !redeem_ticket(&mut tickets, &ticket, now),
+            "redeeming spent it, so the same ticket can't open a second socket"
+        );
+    }
+
+    #[test]
+    fn a_ticket_expires() {
+        let mut tickets = HashMap::new();
+        let now = Instant::now();
+        let ticket = issue(&mut tickets, now);
+        assert!(
+            !redeem_ticket(&mut tickets, &ticket, now + EVENT_TICKET_LIFETIME),
+            "a ticket is invalid from the end of its lifetime"
+        );
+        assert!(
+            tickets.is_empty(),
+            "the expired ticket was spent by the attempt"
+        );
+    }
+
+    #[test]
+    fn an_unknown_ticket_is_refused() {
+        let mut tickets = HashMap::new();
+        assert!(
+            !redeem_ticket(&mut tickets, "never-issued", Instant::now()),
+            "only issued tickets open a socket"
+        );
+    }
+
+    #[test]
+    fn issuing_sweeps_expired_tickets() {
+        let mut tickets = HashMap::new();
+        let now = Instant::now();
+        let unused = issue(&mut tickets, now);
+        let fresh = issue(&mut tickets, now + EVENT_TICKET_LIFETIME);
+        assert!(
+            !tickets.contains_key(&unused) && tickets.contains_key(&fresh),
+            "tickets nobody redeemed don't accumulate"
+        );
+    }
+
+    #[test]
+    fn outstanding_tickets_are_capped() {
+        let mut tickets = HashMap::new();
+        let now = Instant::now();
+        for _ in 0..MAX_OUTSTANDING_TICKETS {
+            issue(&mut tickets, now);
+        }
+        assert_eq!(
+            issue_ticket(&mut tickets, now),
+            None,
+            "unredeemed tickets can't grow the store without bound"
+        );
+        assert!(
+            issue_ticket(&mut tickets, now + EVENT_TICKET_LIFETIME).is_some(),
+            "once they expire, there is room again"
+        );
+    }
+}
