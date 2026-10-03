@@ -120,10 +120,10 @@ Use native bindings in the Electron **main process**, then expose only typed IPC
 ### Main process model
 
 ```ts
-import { listProjectsStatelessNapi } from '@gitbutler/but-sdk';
+import { listProjectsStateless } from '@gitbutler/but-sdk';
 
 export function listProjects() {
-	return listProjectsStatelessNapi();
+	return listProjectsStateless();
 }
 ```
 
