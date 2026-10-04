@@ -26,8 +26,8 @@ use but_api::{
     self as _,
     watcher::{
         WatcherExternalInvalidationPayload, WatcherGitActivityPayload, WatcherGitFetchPayload,
-        WatcherGitHeadPayload, WatcherHostedPresencePayload, WatcherPayload,
-        WatcherWorkspaceActivityPayload, WatcherWorktreeChangesPayload,
+        WatcherGitHeadPayload, WatcherHostedPresencePayload, WatcherHostedPublishedPayload,
+        WatcherPayload, WatcherWorkspaceActivityPayload, WatcherWorktreeChangesPayload,
     },
 };
 
@@ -422,10 +422,8 @@ pub fn hosted_listen(
     let dir = ctx.workdir_or_fail().map_err(to_napi_err)?;
     let listener = but_api::hosted::listen(&dir, move |event| {
         let payload = match event {
-            but_api::hosted::HostedEvent::Published => {
-                WatcherPayload::ExternalInvalidation(WatcherExternalInvalidationPayload {
-                    tags: vec![but_api::tags::CacheTag::Hosted.name().to_owned()],
-                })
+            but_api::hosted::HostedEvent::Published(root) => {
+                WatcherPayload::HostedPublished(WatcherHostedPublishedPayload { root })
             }
             but_api::hosted::HostedEvent::Online(online) => {
                 WatcherPayload::HostedPresence(WatcherHostedPresencePayload { online })

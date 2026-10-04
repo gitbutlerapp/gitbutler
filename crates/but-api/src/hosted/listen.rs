@@ -14,9 +14,9 @@ use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest as _};
 /// What the hosted server says, as a client acts on it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostedEvent {
-    /// Something was published to the account, or may have been while disconnected: what the
-    /// server holds changed.
-    Published,
+    /// Something was published to the project with this root commit, or, without one, to any
+    /// project while disconnected.
+    Published(Option<String>),
     /// The account's other machines connected right now, by host name.
     Online(Vec<String>),
 }
@@ -109,7 +109,7 @@ async fn connect(
         .await
         .context("the hosted server can't be reached")?;
     // Anything may have been published while disconnected.
-    on_event(HostedEvent::Published);
+    on_event(HostedEvent::Published(None));
 
     loop {
         let frame = tokio::select! {
@@ -129,7 +129,9 @@ async fn connect(
             continue;
         };
         match message["channel"].as_str() {
-            Some("projectsChanged") => on_event(HostedEvent::Published),
+            Some("projectsChanged") => on_event(HostedEvent::Published(
+                message["payload"]["root"].as_str().map(ToOwned::to_owned),
+            )),
             Some("presence") => {
                 let online = message["payload"]["online"]
                     .as_array()

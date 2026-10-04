@@ -20,7 +20,8 @@ export type MeshRow = RowBase &
 		| { _tag: "Checkout"; checkout: MeshCheckout; name: string }
 		| { _tag: "Uncommitted"; checkout: MeshCheckout }
 		| { _tag: "Branch"; checkout: MeshCheckout; branch: MeshBranch }
-		| { _tag: "Commit"; checkout: MeshCheckout; commit: Commit }
+		/** `uncommitted` when it's another machine's published uncommitted changes. */
+		| { _tag: "Commit"; checkout: MeshCheckout; commit: Commit; uncommitted: boolean }
 	);
 
 /**
@@ -91,16 +92,20 @@ export const buildMeshRows = ({
 					branch,
 				});
 				if (branchFolded) return;
-				branch.commits.forEach((commit, commitIndex) => {
+				const commits = branch.uncommitted
+					? [branch.uncommitted, ...branch.commits]
+					: branch.commits;
+				commits.forEach((commit, commitIndex) => {
 					rows.push({
 						_tag: "Commit",
 						key: `${branchKey}:commit:${commit.id}`,
 						parentKey: branchKey,
 						depth: 3,
 						positionInSet: commitIndex + 1,
-						setSize: branch.commits.length,
+						setSize: commits.length,
 						checkout,
 						commit,
+						uncommitted: commit === branch.uncommitted,
 					});
 				});
 			});

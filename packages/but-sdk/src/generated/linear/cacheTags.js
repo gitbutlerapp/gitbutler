@@ -99,6 +99,7 @@ export const watcherInvalidates = {
 	gitFetch: ["Branches", "TargetCommits", "FetchStatus", "Reviews"],
 	gitHead: ["OperatingMode"],
 	hostedPresence: [],
+	hostedPublished: [],
 	workspaceActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
 	worktreeChanges: ["Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"],
 };

@@ -50,7 +50,7 @@ pub fn pull(
         into_workspace,
         conflict,
     } = args;
-    let machines = but_api::hosted::hosted_machines(ctx)?;
+    let machines = but_api::hosted::hosted_machines(ctx)?.machines;
     let Some(branch) = branch else {
         return Ok(Outcome::Listed(machines));
     };

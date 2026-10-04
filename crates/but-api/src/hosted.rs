@@ -322,6 +322,20 @@ pub enum SyncOutcome {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(SyncOutcome);
 
+/// The machines that published a project, and which project that is, as the hosted server
+/// names it in what it announces.
+#[derive(Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct HostedProject {
+    /// The project's root commit.
+    pub root: String,
+    /// Most recent first.
+    pub machines: Vec<HostedMachine>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HostedProject);
+
 /// A machine that published to the hosted server, as of the last fetch.
 #[derive(Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -362,7 +376,7 @@ but_schemars::register_sdk_type!(MachineBranch);
 /// record of every machine.
 #[but_api(napi, provides = [Hosted])]
 #[instrument(err(Debug))]
-pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<Vec<HostedMachine>> {
+pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
     use gix::prelude::ObjectIdExt as _;
 
     let repo = ctx.repo.get()?;
@@ -379,6 +393,15 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<Vec<HostedMachine>> {
         ),
     };
     let on_hub = repo.workdir().is_none();
+    // The hub keeps each project as `<root>.git`.
+    let root = match repo.workdir() {
+        Some(workdir) => hosted_project(workdir)?,
+        None => dir
+            .file_stem()
+            .context("a hosted project's directory")?
+            .to_string_lossy()
+            .into_owned(),
+    };
     // Commits are listed up to the target, as a branch's own are in the workspace.
     let target = but_core::ref_metadata::ProjectMeta::resolve(&repo)?
         .target_ref
@@ -448,7 +471,7 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<Vec<HostedMachine>> {
     }
     let mut machines: Vec<_> = machines.into_values().collect();
     machines.sort_by_key(|machine| std::cmp::Reverse(machine.published_at));
-    Ok(machines)
+    Ok(HostedProject { root, machines })
 }
 
 /// Publish `branch` (a short name) to the hosted server, from wherever it lives locally.

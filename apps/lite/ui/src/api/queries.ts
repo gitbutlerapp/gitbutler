@@ -220,17 +220,12 @@ export const worktreesListQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.worktreesList(projectId),
 	});
 
-/**
- * Other machines publish without this app knowing, so hosted data is kept fresh
- * the way forge data is: a gentle poll, and a refresh on focus once stale.
- */
-const hostedPoll = { staleTime: 30_000, refetchInterval: 60_000 };
-
 export const hostedMachinesQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "hostedMachines"],
 		queryFn: () => window.lite.hostedMachines(projectId),
-		...hostedPoll,
+		// The root stays in the cache, where a publish's event finds the project by it.
+		select: (project) => project.machines,
 	});
 
 /**

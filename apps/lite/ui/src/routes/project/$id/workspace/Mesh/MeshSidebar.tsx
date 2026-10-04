@@ -352,7 +352,7 @@ const MeshRowItem: FC<{
 					icon={<Icon name="branch" size={14} />}
 					marks={
 						<span className="text-12">
-							{row.branch.uncommitted ? `${commits}, uncommitted` : commits}
+							{row.branch.uncommitted !== null ? `${commits}, uncommitted` : commits}
 						</span>
 					}
 					menuLabel="Branch menu"
@@ -361,6 +361,15 @@ const MeshRowItem: FC<{
 			);
 		}
 		case "Commit": {
+			if (row.uncommitted) {
+				return (
+					<MeshItem
+						{...shared}
+						name="Uncommitted changes"
+						icon={<Icon name="file-diff" size={14} />}
+					/>
+				);
+			}
 			const title = commitTitle(row.commit.message);
 			const body = commitBody(row.commit.message);
 			return (

@@ -372,18 +372,36 @@ async fn git_http(
     let result = async {
         let dir = user.dir(&config);
         let store = store(&dir, &project)?;
+        // Both a push's ref advertisement and the push itself.
+        let for_push =
+            rest == "git-receive-pack" || query.as_deref() == Some("service=git-receive-pack");
         let writing = writing.lock().await;
-        if !store.join("HEAD").exists() {
-            std::fs::create_dir_all(&store)?;
-            git(&store, &["init", "--bare", "-q"])?;
-            // Bare repositories keep no reflogs by default; these record every machine's pushes.
-            git(&store, &["config", "core.logAllRefUpdates", "always"])?;
-        }
+        // Only a push makes a project; a fetch of one nobody published reads an empty repository.
+        let (root, path) = if for_push || store.join("HEAD").exists() {
+            if !store.join("HEAD").exists() {
+                std::fs::create_dir_all(&store)?;
+                git(&store, &["init", "--bare", "-q"])?;
+                // Bare repositories keep no reflogs by default; these record every machine's pushes.
+                git(&store, &["config", "core.logAllRefUpdates", "always"])?;
+            }
+            (dir.join("store"), format!("/{project}.git/{rest}"))
+        } else {
+            let empty = config.data_dir.join("empty.git");
+            if !empty.join("HEAD").exists() {
+                std::fs::create_dir_all(&empty)?;
+                git(&empty, &["init", "--bare", "-q"])?;
+            }
+            (config.data_dir.clone(), format!("/empty.git/{rest}"))
+        };
         let pushing = rest == "git-receive-pack";
         let _writing = pushing.then_some(writing);
         // A push git rejects, e.g. one planned against refs another push has since moved,
         // still ends well for `http-backend`; only a moved snapshot means a publish.
-        let snapshots_before = snapshots(&store)?;
+        let snapshots_before = if pushing {
+            snapshots(&store)?
+        } else {
+            Default::default()
+        };
 
         let header = |name: &str| {
             headers
@@ -394,9 +412,9 @@ async fn git_http(
         };
         let mut child = tokio::process::Command::new("git")
             .arg("http-backend")
-            .env("GIT_PROJECT_ROOT", dir.join("store"))
+            .env("GIT_PROJECT_ROOT", root)
             .env("GIT_HTTP_EXPORT_ALL", "1")
-            .env("PATH_INFO", format!("/{project}.git/{rest}"))
+            .env("PATH_INFO", path)
             .env("REQUEST_METHOD", method.as_str())
             .env("QUERY_STRING", query.unwrap_or_default())
             .env("CONTENT_TYPE", header("content-type"))

@@ -267,6 +267,8 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	]);
 };
 
+const noFolds: Record<string, true> = {};
+
 const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	useReconcileState(projectId);
 	useReviewActivityInbox(projectId);
@@ -425,6 +427,12 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		...hostedMachinesQueryOptions(projectId),
 		enabled: showRemoteMachines,
 	});
+	const { data: meshSidebar } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.meshSidebar ?? defaultSettings.meshSidebar,
+	});
+	// The mesh selects into the address space, and the workspace sidebar's folds aren't its own.
+	const folds = meshSidebar === true ? noFolds : foldedSegments;
 	// Captured by name: the graph object is new every render, its worktrees are
 	// not, so the compiler keeps the `combine` callback below stable on them.
 	const graphWorktrees = graph.worktrees;
@@ -450,7 +458,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	);
 
 	const remoteCommits = (showRemoteMachines ? (remoteMachines ?? []) : [])
-		.filter((machine) => foldedSegments[machineFoldKey(machine.name)] !== true)
+		.filter((machine) => folds[machineFoldKey(machine.name)] !== true)
 		.flatMap((machine) =>
 			machine.branches.flatMap((branch) =>
 				branch.uncommitted ? [branch.uncommitted, ...branch.commits] : branch.commits,
@@ -463,7 +471,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		worktreeFiles,
 		pendingOperation,
 		absorptionTargetCommitIds,
-		foldedSegments,
+		foldedSegments: folds,
 		remoteCommits,
 	});
 
@@ -614,11 +622,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.terminalId ?? "",
 	});
-	const { data: meshSidebar } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.meshSidebar ?? defaultSettings.meshSidebar,
-	});
-
 	const canOpenTerminal = project !== undefined && terminalId !== undefined && terminalId !== "";
 	useHotkey(
 		workspaceHotkeys.openInTerminal.hotkey,

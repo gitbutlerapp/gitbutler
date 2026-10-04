@@ -101,6 +101,7 @@ export declare const watcherInvalidates: {
 	readonly gitFetch: readonly ["Branches", "TargetCommits", "FetchStatus", "Reviews"];
 	readonly gitHead: readonly ["OperatingMode"];
 	readonly hostedPresence: readonly [];
+	readonly hostedPublished: readonly [];
 	readonly workspaceActivity: readonly ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"];
 	readonly worktreeChanges: readonly ["Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"];
 };

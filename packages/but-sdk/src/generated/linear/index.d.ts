@@ -953,7 +953,7 @@ export declare function headInfo(projectId: string): Promise<RefInfo>
  * is checked out in; in the workspace, uncommitted changes don't belong to one branch, so
  * they stay local. Nothing another machine published is replaced, so it never asks.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:461}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:484}
  */
 export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean): Promise<string>
 
@@ -967,7 +967,7 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * If the local branch has commits of its own, or its worktree has uncommitted changes,
  * pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:548}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:571}
  */
 export declare function hostedBranchPull(projectId: string, machine: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
@@ -978,9 +978,9 @@ export declare function hostedBranchPull(projectId: string, machine: string, bra
  * branches are here already. On the hosted server, which has no files, it's the server's own
  * record of every machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:363}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:377}
  */
-export declare function hostedMachines(projectId: string): Promise<Array<HostedMachine>>
+export declare function hostedMachines(projectId: string): Promise<HostedProject>
 
 /**
  * Initialize the secret namespace used by build-kind scoped credentials.
@@ -3461,6 +3461,17 @@ export type HostedMachine = {
   branches: Array<MachineBranch>;
 };
 
+/**
+ * The machines that published a project, and which project that is, as the hosted server
+ * names it in what it announces.
+ */
+export type HostedProject = {
+  /** The project's root commit. */
+  root: string;
+  /** Most recent first. */
+  machines: Array<HostedMachine>;
+};
+
 export type HunkAssignment = {
   /**
    * A stable identifier for the hunk assignment.
@@ -4885,6 +4896,12 @@ export type WatcherHostedPresencePayload = {
   online: Array<string>;
 };
 
+/** Something was published to the hosted server. */
+export type WatcherHostedPublishedPayload = {
+  /** The root commit of the project published to, or `None` when any may have been. */
+  root: string | null;
+};
+
 /** The type of payloads a watcher event can have */
 export type WatcherPayload = {
   type: "gitFetch";
@@ -4907,6 +4924,9 @@ export type WatcherPayload = {
 } | {
   type: "hostedPresence";
   subject: WatcherHostedPresencePayload;
+} | {
+  type: "hostedPublished";
+  subject: WatcherHostedPublishedPayload;
 };
 
 /** Workspace activity that requires the UI to re-read branch/stack state. */

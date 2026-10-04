@@ -22,7 +22,8 @@ export type MeshBranch = {
 	commits: Array<Commit>;
 	/** Its newest commit, or when the machine published it. */
 	at: number | null;
-	uncommitted: boolean;
+	/** What another machine published of its uncommitted changes, as a commit on top. */
+	uncommitted: Commit | null;
 };
 
 /** One repository as one machine has it: a local project here, or what another machine published. */
@@ -58,7 +59,10 @@ type MeshTree = {
 	repos: Array<MeshRepo>;
 };
 
-/** This machine has no name the UI knows; the hosted server names it by host name. */
+/**
+ * This machine has no name the UI knows; the hosted server names it by host name. Published
+ * names have no spaces, so this never collides with one.
+ */
 const THIS_MACHINE = "This machine";
 
 const newest = (times: Array<number | null>): number | null =>
@@ -80,7 +84,7 @@ const localBranches = (headInfo: RefInfo | undefined): Array<MeshBranch> =>
 			name: segment.refName?.displayName ?? "",
 			commits: segment.commits,
 			at: newest(segment.commits.map((commit) => commit.committedAt)),
-			uncommitted: false,
+			uncommitted: null,
 		}));
 
 const buildTree = (
@@ -121,7 +125,7 @@ const buildTree = (
 					name: branch.branch,
 					commits: branch.commits,
 					at: machine.publishedAt,
-					uncommitted: branch.uncommitted !== null,
+					uncommitted: branch.uncommitted,
 				})),
 				at: machine.publishedAt,
 			});

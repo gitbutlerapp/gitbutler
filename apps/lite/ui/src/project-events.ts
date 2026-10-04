@@ -12,7 +12,7 @@ import { projectQueryKeys, type ProjectQueryKey } from "#ui/api/query-keys.ts";
 import { getReviewQueryOptions, hostedPresenceQueryOptions } from "#ui/api/queries.ts";
 import { recordedPullRequest } from "#ui/api/ref-info.ts";
 import { invalidateTags, providedTag } from "#ui/api/tags.ts";
-import type { ForgeReview, WatcherEvent } from "@gitbutler/but-sdk";
+import type { ForgeReview, HostedProject, WatcherEvent } from "@gitbutler/but-sdk";
 import { apiProvides, watcherInvalidates, type CacheTag } from "@gitbutler/but-sdk/cache-tags";
 import type { QueryClient } from "@tanstack/react-query";
 
@@ -126,6 +126,19 @@ export const handleProjectEvent = (
 
 	if (payload.type === "hostedPresence")
 		client.setQueryData(hostedPresenceQueryOptions(projectId).queryKey, payload.subject.online);
+
+	// Any project may show another machine's publish, so the root picks which, not `projectId`.
+	if (payload.type === "hostedPublished") {
+		const { root } = payload.subject;
+		void client.invalidateQueries({
+			predicate: ({ queryKey, state }) => {
+				if (queryKey[1] !== "hostedMachines") return false;
+				// Not loaded yet, its root is unknown.
+				const loaded = state.data as HostedProject | undefined;
+				return root === null || loaded === undefined || loaded.root === root;
+			},
+		});
+	}
 
 	for (const query of invalidateOn.get(payload.type) ?? []) {
 		void client.invalidateQueries({

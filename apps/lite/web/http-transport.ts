@@ -176,7 +176,8 @@ const createEventStream = (serverUrl: string) => {
 			}
 			if (data.channel === PROJECTS_CHANNEL) {
 				for (const channel of rejected) if (listeners.has(channel)) send("subscribe", channel);
-				toWatchers({ type: "externalInvalidation", subject: { tags: ["Hosted"] } });
+				const root = (data.payload as { root?: string } | null)?.root ?? null;
+				toWatchers({ type: "hostedPublished", subject: { root } });
 			}
 			if (data.channel === PRESENCE_CHANNEL) {
 				presence = { type: "hostedPresence", subject: data.payload };

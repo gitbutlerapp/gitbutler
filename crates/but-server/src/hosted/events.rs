@@ -35,7 +35,8 @@ pub(super) enum ProjectEvent {
     SignedOut { session: String },
 }
 
-/// The channel of the event saying a user's set of projects may have changed.
+/// The channel of the event saying a user's set of projects may have changed; a publish names
+/// its project's root commit.
 const PROJECTS_CHANNEL: &str = "projectsChanged";
 
 /// The channel of the event listing a user's connected machines.
@@ -332,17 +333,24 @@ pub(super) fn announce_publish(
             payload: WatcherPayload::GitActivity(WatcherGitActivityPayload { head_sha }),
         }),
     };
-    let projects = EventMessage {
-        channel: PROJECTS_CHANNEL.to_owned(),
-        payload: None,
-    };
-    for (project_id, message) in [(Some(project.to_owned()), watcher), (None, projects)] {
+    // Account-wide, naming the project, so clients refresh only what shows it.
+    let projects = serde_json::json!({
+        "channel": PROJECTS_CHANNEL,
+        "payload": { "root": project },
+    });
+    for (project_id, message) in [
+        (
+            Some(project.to_owned()),
+            serde_json::to_string(&watcher).expect("events serialize"),
+        ),
+        (None, projects.to_string()),
+    ] {
         // No receivers means no browser is open, which is fine.
         events
             .send(ProjectEvent::Changed {
                 user,
                 project_id,
-                message: serde_json::to_string(&message).expect("events serialize"),
+                message,
             })
             .ok();
     }
