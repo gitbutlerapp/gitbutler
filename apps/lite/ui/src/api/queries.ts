@@ -228,15 +228,21 @@ export const hostedAccountQueryOptions = queryOptions({
 	refetchOnWindowFocus: false,
 });
 
-export const hostedMachinesQueryOptions = (projectId: string) =>
+/** What other machines published to the project, and how this machine's own branches compare. */
+export const hostedProjectQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "hostedMachines"],
 		queryFn: () => window.lite.hostedMachines(projectId),
-		// The root stays in the cache, where a publish's event finds the project by it.
-		select: (project) => project.machines,
 		// Publishes are announced, so focus brings nothing new; and a failed one, such as a project
 		// whose directory is gone, would only fail again.
 		refetchOnWindowFocus: false,
+	});
+
+export const hostedMachinesQueryOptions = (projectId: string) =>
+	queryOptions({
+		...hostedProjectQueryOptions(projectId),
+		// The root stays in the cache, where a publish's event finds the project by it.
+		select: (project) => project.machines,
 	});
 
 /**

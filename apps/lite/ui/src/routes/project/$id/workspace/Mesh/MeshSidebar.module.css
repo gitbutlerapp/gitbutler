@@ -93,3 +93,20 @@
 	.badge {
 	color: var(--text-1-invert);
 }
+
+.publish {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	color: var(--text-3);
+}
+
+.publishWarn {
+	color: var(--text-warn);
+}
+
+:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
+	[data-selected]
+	.publish:not(.publishWarn) {
+	color: var(--text-2-invert);
+}

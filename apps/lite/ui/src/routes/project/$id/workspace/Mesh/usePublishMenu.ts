@@ -8,6 +8,7 @@ import {
 } from "#ui/api/queries.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuSeparator } from "#ui/native-menu.ts";
 import { defaultSettings } from "#ui/settings.ts";
+import type { PublishState } from "@gitbutler/but-sdk";
 
 /**
  * Publishing and sending a branch of this machine's, as menu items, or none where publishing
@@ -19,12 +20,15 @@ export const usePublishMenu = ({
 	branch,
 	local,
 	inWorktree,
+	state,
 }: {
 	projectId: string;
 	branch: string;
 	/** Whether this machine has the branch; another machine's isn't this one's to publish. */
 	local: boolean;
 	inWorktree: boolean;
+	/** How it compares with what this machine last published; null if it never did. */
+	state: PublishState | null;
 }): Array<NativeMenuItem> => {
 	const { data: hostedBranches = false } = useQuery({
 		...guiSettingsQueryOptions,
@@ -61,8 +65,16 @@ export const usePublishMenu = ({
 			),
 		});
 
+	// Publishing replaces what was published either way; said where that drops published commits.
+	const publishBranch =
+		state?.type === "published"
+			? nativeMenuItem({ label: "Published", enabled: false })
+			: state?.type === "diverged" || state?.type === "behind"
+				? publishItem("Publish Branch (Replaces Published)", false)
+				: publishItem("Publish Branch", false);
+
 	return [
-		publishItem("Publish Branch", false),
+		publishBranch,
 		sendItem("Send Branch To", false),
 		...(inWorktree
 			? [

@@ -26,8 +26,9 @@ import { setActiveList, setCursor, useActiveList } from "#ui/use-cursor.ts";
 import { buildIndexByKey } from "#ui/workspace/address-space.ts";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import type { ProjectForFrontend } from "@gitbutler/but-sdk";
+import type { ProjectForFrontend, PublishState } from "@gitbutler/but-sdk";
 import { Badge } from "@gitbutler/ui-react/Badge.tsx";
+import { Tooltip as HintTooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { FileListItem } from "@gitbutler/ui-react/FileList.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
@@ -320,17 +321,56 @@ const MeshTree: FC<{ projectId: string; grouping: MeshGrouping }> = ({ projectId
  * A machine, with a light in its corner for whether it's online; this machine has none, as being
  * here is being online. The light is read out, as it's only seen.
  */
-const MachineIcon: FC<{ online?: boolean }> = ({ online }) => (
-	<span className={styles.machineIcon}>
-		<Icon name="workbench" size={14} />
-		{online !== undefined && (
-			<>
-				<span aria-hidden className={classes(styles.light, online && styles.lightOn)} />
-				<span className={styles.hidden}>{online ? "Online" : "Offline"}</span>
-			</>
-		)}
-	</span>
-);
+const MachineIcon: FC<{ online?: boolean }> = ({ online }) => {
+	const icon = (
+		<span className={styles.machineIcon}>
+			<Icon name="workbench" size={14} />
+			{online !== undefined && (
+				<>
+					<span aria-hidden className={classes(styles.light, online && styles.lightOn)} />
+					<span className={styles.hidden}>{online ? "Online" : "Offline"}</span>
+				</>
+			)}
+		</span>
+	);
+	return online === undefined ? (
+		icon
+	) : (
+		<HintTooltip content={online ? "Online: Lite is running there" : "Offline"}>{icon}</HintTooltip>
+	);
+};
+
+/**
+ * How a branch of this machine's compares with what it last published, as a dim globe: alone when
+ * the same, with the count it's ahead or behind, tinted when the two have diverged.
+ */
+const PublishMark: FC<{ state: PublishState | null }> = ({ state }) => {
+	if (state === null) return null;
+	const [count, label] = Match.value(state).pipe(
+		Match.when({ type: "published" }, () => [null, "Published"] as const),
+		Match.when(
+			{ type: "ahead" },
+			({ subject }) =>
+				[`↑${subject}`, `${pluralize(subject, "commit")} not published yet`] as const,
+		),
+		Match.when(
+			{ type: "behind" },
+			({ subject }) =>
+				[`↓${subject}`, `Published with ${pluralize(subject, "commit")} not here`] as const,
+		),
+		Match.when({ type: "diverged" }, () => [null, "Differs from what was published"] as const),
+		Match.exhaustive,
+	);
+	return (
+		<HintTooltip content={label}>
+			<span className={classes(styles.publish, state.type === "diverged" && styles.publishWarn)}>
+				<Icon name="globe" size={12} />
+				{count !== null && <span className="text-12">{count}</span>}
+				<span className={styles.hidden}>{label}</span>
+			</span>
+		</HintTooltip>
+	);
+};
 
 const When: FC<{ at: number | null }> = ({ at }) =>
 	at === null ? null : (
@@ -520,6 +560,7 @@ const MeshWorktreeItem: FC<{
 		branch: branch?.name ?? "",
 		local: checkout.isThisMachine && branch !== undefined,
 		inWorktree: true,
+		state: branch?.publishState ?? null,
 	});
 	// Its branch only when it differs from the directory's name.
 	const summary = [
@@ -531,8 +572,19 @@ const MeshWorktreeItem: FC<{
 		<MeshItem
 			{...shared}
 			name={`${worktree.name}/`}
-			icon={<Icon name="folder-tree" size={14} />}
-			marks={summary.length > 0 && <span className="text-12">{summary.join(", ")}</span>}
+			icon={
+				<HintTooltip content="Linked worktree">
+					<span className={styles.machineIcon}>
+						<Icon name="folder-tree" size={14} />
+					</span>
+				</HintTooltip>
+			}
+			marks={
+				<>
+					{summary.length > 0 && <span className="text-12">{summary.join(", ")}</span>}
+					<PublishMark state={branch?.publishState ?? null} />
+				</>
+			}
 			menuLabel="Worktree menu"
 			menuItems={
 				branch === undefined
@@ -560,6 +612,7 @@ const MeshBranchItem: FC<{
 		branch: branch.name,
 		local: checkout.isThisMachine,
 		inWorktree: branch.worktree !== undefined,
+		state: branch.publishState,
 	});
 	const pullInto = (intoWorkspace: boolean, overwrite = false) =>
 		pull(
@@ -587,7 +640,12 @@ const MeshBranchItem: FC<{
 			{...shared}
 			name={branch.name}
 			icon={<Icon name="branch" size={14} />}
-			marks={<span className="text-12">{summary}</span>}
+			marks={
+				<>
+					<span className="text-12">{summary}</span>
+					<PublishMark state={branch.publishState} />
+				</>
+			}
 			menuLabel="Branch menu"
 			menuItems={[
 				...publishItems,

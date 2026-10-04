@@ -949,14 +949,14 @@ export declare function headInfo(projectId: string): Promise<RefInfo>
  * the hosted server; no project is fetched. Local projects are matched to what was published by
  * root commit, and one whose directory is gone is left out rather than failing the call.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:398}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:446}
  */
 export declare function hostedAccount(): Promise<Array<HostedAccountProject>>
 
 /**
  * Take what `machine` sent of `branch` out of this machine's inbox, without pulling it.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:630}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:691}
  */
 export declare function hostedBranchDismiss(projectId: string, machine: string, branch: string): Promise<void>
 
@@ -969,7 +969,7 @@ export declare function hostedBranchDismiss(projectId: string, machine: string, 
  * is checked out in; in the workspace, uncommitted changes don't belong to one branch, so
  * they stay local. Nothing another machine published is replaced, so it never asks.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:603}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:664}
  */
 export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean): Promise<string>
 
@@ -987,7 +987,7 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * with itself; one it never published stays unpublished. Pulling also clears anything
  * `machine` sent of it to this machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:738}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:799}
  */
 export declare function hostedBranchPull(projectId: string, machine: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
@@ -995,7 +995,7 @@ export declare function hostedBranchPull(projectId: string, machine: string, bra
  * Publish `branch` as [`hosted_branch_publish()`] does, and send it to the machine named `to`:
  * it shows up there as sent, to pull or dismiss, and if `to` is online, it's told right away.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:615}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:676}
  */
 export declare function hostedBranchSend(projectId: string, branch: string, to: string, includeUncommitted: boolean): Promise<string>
 
@@ -1006,7 +1006,7 @@ export declare function hostedBranchSend(projectId: string, branch: string, to: 
  * branches are here already. On the hosted server, which has no files, it's the server's own
  * record of every machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:489}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:537}
  */
 export declare function hostedMachines(projectId: string): Promise<HostedProject>
 
@@ -3523,6 +3523,8 @@ export type HostedProject = {
   root: string;
   /** Most recent first. */
   machines: Array<HostedMachine>;
+  /** This machine's own published branches that are still local, and how each compares. */
+  publishedHere: Array<PublishedBranch>;
 };
 
 export type HunkAssignment = {
@@ -4164,6 +4166,27 @@ export type PublishReviewInput = {
 export type PublishReviewOutcome = {
   review: ForgeReview;
   reviewSync: ReviewSyncOutcome;
+};
+
+/** How a local branch compares with what this machine last published of it, by commits only. */
+export type PublishState = {
+  type: "published";
+} | {
+  type: "ahead";
+  subject: number;
+} | {
+  type: "behind";
+  subject: number;
+} | {
+  type: "diverged";
+};
+
+/** One of this machine's branches as it last published it. */
+export type PublishedBranch = {
+  /** The branch's short name, e.g. `agent/search`. */
+  branch: string;
+  /** How the local branch compares with it. */
+  state: PublishState;
 };
 
 export type PullRequestMinimal = {

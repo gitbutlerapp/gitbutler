@@ -232,6 +232,52 @@ fn snapshot_head(dir: &Path, snapshot: &str) -> Result<String> {
         .context("the snapshot names no branch")
 }
 
+/// One of this machine's branches as it last published it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct PublishedBranch {
+    /// The branch's short name, e.g. `agent/search`.
+    pub branch: String,
+    /// How the local branch compares with it.
+    pub state: PublishState,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(PublishedBranch);
+
+/// How a local branch compares with what this machine last published of it, by commits only.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum PublishState {
+    /// The published tip is the local tip.
+    Published,
+    /// The local branch has this many commits the published one doesn't.
+    Ahead(u32),
+    /// The published branch has this many commits the local one doesn't, as after undoing.
+    Behind(u32),
+    /// Each has commits the other doesn't, as after an amend or a rebase.
+    Diverged,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(PublishState);
+
+/// How `local` compares with `published`, both commit ids in `dir`.
+fn publish_state(dir: &Path, published: &str, local: &str) -> Result<PublishState> {
+    let count = |range: String| -> Result<u32> {
+        Ok(git(dir, &[], &["rev-list", "--count", &range])?.parse()?)
+    };
+    Ok(if published == local {
+        PublishState::Published
+    } else if is_ancestor(dir, published, local)? {
+        PublishState::Ahead(count(format!("{published}..{local}"))?)
+    } else if is_ancestor(dir, local, published)? {
+        PublishState::Behind(count(format!("{local}..{published}"))?)
+    } else {
+        PublishState::Diverged
+    })
+}
+
 /// Where a branch lives locally.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -354,6 +400,8 @@ pub struct HostedProject {
     pub root: String,
     /// Most recent first.
     pub machines: Vec<HostedMachine>,
+    /// This machine's own published branches that are still local, and how each compares.
+    pub published_here: Vec<PublishedBranch>,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HostedProject);
@@ -538,6 +586,7 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
         ],
     )?;
     let mut machines = BTreeMap::<String, HostedMachine>::new();
+    let mut published_here = Vec::new();
     for line in refs.lines() {
         let (sent, time) = line.split_once(' ').context("a ref and its date")?;
         // <machine>/<published name>
@@ -545,6 +594,14 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
             continue;
         };
         if this.as_deref() == Some(machine) {
+            let branch = snapshot_head(&dir, sent)?
+                .trim_start_matches("refs/heads/")
+                .to_owned();
+            if let Some(local) = rev(&dir, &format!("refs/heads/{branch}")) {
+                let published = rev(&dir, &format!("{sent}^")).context("a snapshot's branch")?;
+                let state = publish_state(&dir, &published, &local)?;
+                published_here.push(PublishedBranch { branch, state });
+            }
             continue;
         }
         let branch = snapshot_head(&dir, sent)?
@@ -590,7 +647,11 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
     }
     let mut machines: Vec<_> = machines.into_values().collect();
     machines.sort_by_key(|machine| std::cmp::Reverse(machine.published_at));
-    Ok(HostedProject { root, machines })
+    Ok(HostedProject {
+        root,
+        machines,
+        published_here,
+    })
 }
 
 /// Publish `branch` (a short name) to the hosted server, from wherever it lives locally.
@@ -877,4 +938,49 @@ fn restore_snapshot(path: &Path, snapshot: &str) -> Result<()> {
         &["restore", "--source", snapshot, "--worktree", "--", "."],
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PublishState, git, publish_state};
+    use but_testsupport::{CommandExt, git_at_dir};
+
+    #[test]
+    fn publish_state_compares_commits_both_ways() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let dir = tmp.path();
+        git_at_dir(dir).args(["init", "-q", "-b", "main"]).run();
+        let commit = |message: &str| -> anyhow::Result<String> {
+            git_at_dir(dir)
+                .args(["commit", "-q", "--allow-empty", "-m", message])
+                .run();
+            git(dir, &[], &["rev-parse", "HEAD"])
+        };
+        let published = commit("published")?;
+        let ahead = commit("one more")?;
+        git_at_dir(dir).args(["reset", "-q", "--hard", &published]).run();
+        let diverged = commit("instead")?;
+
+        assert_eq!(
+            publish_state(dir, &published, &published)?,
+            PublishState::Published,
+            "the same tip is published"
+        );
+        assert_eq!(
+            publish_state(dir, &published, &ahead)?,
+            PublishState::Ahead(1),
+            "a commit on top is one not yet published"
+        );
+        assert_eq!(
+            publish_state(dir, &ahead, &published)?,
+            PublishState::Behind(1),
+            "a published commit the local branch lost is behind"
+        );
+        assert_eq!(
+            publish_state(dir, &ahead, &diverged)?,
+            PublishState::Diverged,
+            "each having a commit the other lacks is diverged"
+        );
+        Ok(())
+    }
 }

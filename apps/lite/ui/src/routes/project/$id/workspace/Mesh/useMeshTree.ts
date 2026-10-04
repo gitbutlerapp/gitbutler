@@ -3,7 +3,7 @@ import {
 	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
-	hostedMachinesQueryOptions,
+	hostedProjectQueryOptions,
 	hostedPresenceQueryOptions,
 	listProjectsQueryOptions,
 	worktreeChangesQueryOptions,
@@ -13,7 +13,8 @@ import { defaultSettings } from "#ui/settings.ts";
 import type {
 	Commit,
 	HostedAccountProject,
-	HostedMachine,
+	HostedProject,
+	PublishState,
 	ProjectForFrontend,
 	RefInfo,
 	Segment,
@@ -36,6 +37,8 @@ export type MeshBranch = {
 	uncommitted: Commit | null;
 	/** Another machine sent it to this one, to pull or dismiss. */
 	sent: boolean;
+	/** How this machine's branch compares with what it last published; null if never published. */
+	publishState: PublishState | null;
 };
 
 /** One repository as one machine has it: a local project here, or what another machine published. */
@@ -100,12 +103,20 @@ const newest = (times: Array<number | null>): number | null =>
 		null,
 	);
 
-const byNewest = <T extends { at: number | null }>(a: T, b: T) => (b.at ?? 0) - (a.at ?? 0);
+// By name, which is known before anything loads: by activity, a repo moved once unfolding loaded
+// its branches.
+const byName = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "base" });
 
-const thisMachineFirst = <T extends { at: number | null; isThisMachine: boolean }>(a: T, b: T) =>
-	a.isThisMachine === b.isThisMachine ? byNewest(a, b) : a.isThisMachine ? -1 : 1;
+const thisMachineFirst =
+	<T extends { isThisMachine: boolean }>(name: (item: T) => string) =>
+	(a: T, b: T) =>
+		a.isThisMachine === b.isThisMachine ? byName(name(a), name(b)) : a.isThisMachine ? -1 : 1;
 
-const localBranches = (segments: Array<Segment>, worktree?: string): Array<MeshBranch> =>
+const localBranches = (
+	segments: Array<Segment>,
+	published: ReadonlyMap<string, PublishState>,
+	worktree?: string,
+): Array<MeshBranch> =>
 	segments.flatMap((segment) =>
 		segment.refName === null
 			? []
@@ -118,6 +129,7 @@ const localBranches = (segments: Array<Segment>, worktree?: string): Array<MeshB
 						at: newest(segment.commits.map((commit) => commit.committedAt)),
 						uncommitted: null,
 						sent: false,
+						publishState: published.get(segment.refName.displayName) ?? null,
 					},
 				],
 	);
@@ -134,7 +146,7 @@ const buildTree = (
 	projects: Array<ProjectForFrontend>,
 	heads: Array<UseQueryResult<RefInfo>>,
 	changes: Array<UseQueryResult<WorktreeChanges>>,
-	hosted: Array<UseQueryResult<Array<HostedMachine>>>,
+	hosted: Array<UseQueryResult<HostedProject>>,
 	presence: Array<UseQueryResult<Array<string>>>,
 	worktreeFiles: ReadonlyMap<string, Array<string>>,
 	account: Array<HostedAccountProject>,
@@ -158,10 +170,16 @@ const buildTree = (
 	projects.forEach((project, i) => {
 		if (!onServer) {
 			const head = heads[i]?.data;
-			const branches = localBranches(head?.stacks.flatMap((stack) => stack.segments) ?? []);
+			const published = new Map(
+				(hosted[i]?.data?.publishedHere ?? []).map(({ branch, state }) => [branch, state]),
+			);
+			const branches = localBranches(
+				head?.stacks.flatMap((stack) => stack.segments) ?? [],
+				published,
+			);
 			const worktrees = (head?.worktrees ?? []).map((worktree) => ({
 				name: worktree.name,
-				branches: localBranches(worktree.segments, worktree.name),
+				branches: localBranches(worktree.segments, published, worktree.name),
 				files: worktreeFiles.get(filesKey(project.id, worktree.name)) ?? [],
 			}));
 			checkouts.push({
@@ -184,7 +202,7 @@ const buildTree = (
 			});
 		}
 		// Branches once loaded; until then, what the account listing says each machine published.
-		const loaded = hosted[i]?.data;
+		const loaded = hosted[i]?.data?.machines;
 		const listed = accountByProject.get(project.id)?.machines ?? [];
 		for (const summary of loaded === undefined ? listed : []) {
 			checkouts.push({
@@ -218,6 +236,7 @@ const buildTree = (
 					at: machine.publishedAt,
 					uncommitted: branch.uncommitted,
 					sent: branch.sent,
+					publishState: null,
 				})),
 				worktrees: [],
 				at: machine.publishedAt,
@@ -253,9 +272,9 @@ const buildTree = (
 		isThisMachine: name === THIS_MACHINE,
 		online: name === THIS_MACHINE || online.has(name),
 		at: newest(list.map((c) => c.at)),
-		checkouts: list.toSorted(byNewest),
+		checkouts: list.toSorted((a, b) => byName(a.repo, b.repo)),
 	}));
-	machines.sort(thisMachineFirst);
+	machines.sort(thisMachineFirst((machine) => machine.name));
 
 	const repos: Array<MeshRepo> = [...Map.groupBy(checkouts, (c) => c.projectId)].map(
 		([projectId, list]) => ({
@@ -263,10 +282,10 @@ const buildTree = (
 			name: list[0]?.repo ?? projectId,
 			path: list.find((checkout) => checkout.path !== undefined)?.path,
 			at: newest(list.map((c) => c.at)),
-			checkouts: list.toSorted(thisMachineFirst),
+			checkouts: list.toSorted(thisMachineFirst((checkout) => checkout.machine)),
 		}),
 	);
-	repos.sort(byNewest);
+	repos.sort((a, b) => byName(a.name, b.name));
 
 	return { machines, repos };
 };
@@ -330,11 +349,15 @@ export const useMeshTree = ({
 				enabled: local && localUnfolded(project.id),
 			})),
 			...projects.map((project) => ({
-				...hostedMachinesQueryOptions(project.id),
+				...hostedProjectQueryOptions(project.id),
 				enabled:
 					hostedEnabled === true &&
 					(local
-						? unfolded[repoKey(project.id)] === true || remoteUnfolded(project.id)
+						? // This machine's own unfolded repo too, for how its branches compare with
+							// what it published.
+							localUnfolded(project.id) ||
+							unfolded[repoKey(project.id)] === true ||
+							remoteUnfolded(project.id)
 						: grouping === "machines" || unfolded[repoKey(project.id)] === true),
 			})),
 			...projects.map((project) => hostedPresenceQueryOptions(project.id)),
@@ -349,7 +372,7 @@ export const useMeshTree = ({
 				projects,
 				results.slice(0, count) as Array<UseQueryResult<RefInfo>>,
 				results.slice(count, 2 * count) as Array<UseQueryResult<WorktreeChanges>>,
-				results.slice(2 * count, 3 * count) as Array<UseQueryResult<Array<HostedMachine>>>,
+				results.slice(2 * count, 3 * count) as Array<UseQueryResult<HostedProject>>,
 				results.slice(3 * count, 4 * count) as Array<UseQueryResult<Array<string>>>,
 				new Map(
 					worktreesUnfolded.map(({ projectId, worktree }, i) => [
