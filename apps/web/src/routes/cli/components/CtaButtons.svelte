@@ -1,13 +1,18 @@
 <script lang="ts">
+	import VideoOverlay from "$home/components/VideoOverlay.svelte";
 	import { getOS } from "$lib/utils/getOS";
 	import { fetchAndProcessReleases, findLinuxCliBuild } from "$lib/utils/releaseUtils";
 	import { onMount } from "svelte";
 
 	interface Props {
 		darkMode?: boolean;
+		/** YouTube URL; when set, a "Watch demo" card opens it in an overlay. */
+		demoVideoUrl?: string;
 	}
 
-	const { darkMode = false }: Props = $props();
+	const { darkMode = false, demoVideoUrl }: Props = $props();
+
+	let showVideoOverlay = $state(false);
 
 	let copied = $state(false);
 	let isLinux = $state(false);
@@ -111,38 +116,80 @@
 		</svg>
 	</button>
 
-	<a class="docs-button" href="https://docs.gitbutler.com/cli-overview" target="_blank">
-		<svg
-			class="docs-button__book"
-			width="38"
-			height="31"
-			viewBox="0 0 38 31"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-		>
-			<path
-				d="M32.5322 3.71777C34.3685 3.39503 36.0516 4.80838 36.0518 6.67285V22.7432L36.04 23.0137C35.9197 24.3512 34.9157 25.4607 33.5713 25.6973L19.5186 28.1699L19.2588 28.2041C19.0857 28.2192 18.9114 28.2192 18.7383 28.2041L18.4785 28.1699L4.42578 25.6973C3.08126 25.4607 2.07736 24.3513 1.95703 23.0137L1.94531 22.7432V6.67285C1.94546 4.80831 3.62847 3.39487 5.46484 3.71777L18.4785 6.00684C18.7363 6.05218 18.9988 6.06366 19.2588 6.04102L19.5186 6.00684L32.5322 3.71777ZM5.20508 5.19531C4.28692 5.03385 3.44546 5.74063 3.44531 6.67285V22.7432C3.44548 23.4712 3.96851 24.0936 4.68555 24.2197L18.25 26.6064V7.48926C18.2396 7.4875 18.2291 7.4862 18.2188 7.48438L5.20508 5.19531ZM34.5518 6.67285C34.5516 5.7407 33.7101 5.034 32.792 5.19531L19.7783 7.48438C19.769 7.48602 19.7593 7.4867 19.75 7.48828V26.6055L33.3115 24.2197C34.0285 24.0935 34.5516 23.4711 34.5518 22.7432V6.67285ZM32.1475 18.7354L22.1475 20.7354L21.8525 19.2646L31.8525 17.2646L32.1475 18.7354ZM16.1475 15.2646L15.8525 16.7354L5.85254 14.7354L6.14746 13.2646L16.1475 15.2646ZM32.1475 14.7354L22.1475 16.7354L21.8525 15.2646L31.8525 13.2646L32.1475 14.7354ZM16.1475 11.2646L15.8525 12.7354L5.85254 10.7354L6.14746 9.26465L16.1475 11.2646ZM32.1475 10.7354L22.1475 12.7354L21.8525 11.2646L31.8525 9.26465L32.1475 10.7354Z"
-			/>
-		</svg>
-
-		<div class="flex items-center gap-16 justify-between">
-			<span>View docs</span>
+	<div class="secondary-ctas" class:stacked={demoVideoUrl}>
+		<a class="docs-button" href="https://docs.gitbutler.com/cli-overview" target="_blank">
 			<svg
-				class="docs-button__arrow"
-				width="22"
-				height="22"
-				viewBox="0 0 22 22"
+				class="docs-button__book"
+				width="38"
+				height="31"
+				viewBox="0 0 38 31"
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
 			>
 				<path
-					d="M13.5618 0.414062L20.5 10.9141M20.5 10.9141L13.5618 21.4141M20.5 10.9141H0"
-					stroke-width="1.5"
+					d="M32.5322 3.71777C34.3685 3.39503 36.0516 4.80838 36.0518 6.67285V22.7432L36.04 23.0137C35.9197 24.3512 34.9157 25.4607 33.5713 25.6973L19.5186 28.1699L19.2588 28.2041C19.0857 28.2192 18.9114 28.2192 18.7383 28.2041L18.4785 28.1699L4.42578 25.6973C3.08126 25.4607 2.07736 24.3513 1.95703 23.0137L1.94531 22.7432V6.67285C1.94546 4.80831 3.62847 3.39487 5.46484 3.71777L18.4785 6.00684C18.7363 6.05218 18.9988 6.06366 19.2588 6.04102L19.5186 6.00684L32.5322 3.71777ZM5.20508 5.19531C4.28692 5.03385 3.44546 5.74063 3.44531 6.67285V22.7432C3.44548 23.4712 3.96851 24.0936 4.68555 24.2197L18.25 26.6064V7.48926C18.2396 7.4875 18.2291 7.4862 18.2188 7.48438L5.20508 5.19531ZM34.5518 6.67285C34.5516 5.7407 33.7101 5.034 32.792 5.19531L19.7783 7.48438C19.769 7.48602 19.7593 7.4867 19.75 7.48828V26.6055L33.3115 24.2197C34.0285 24.0935 34.5516 23.4711 34.5518 22.7432V6.67285ZM32.1475 18.7354L22.1475 20.7354L21.8525 19.2646L31.8525 17.2646L32.1475 18.7354ZM16.1475 15.2646L15.8525 16.7354L5.85254 14.7354L6.14746 13.2646L16.1475 15.2646ZM32.1475 14.7354L22.1475 16.7354L21.8525 15.2646L31.8525 13.2646L32.1475 14.7354ZM16.1475 11.2646L15.8525 12.7354L5.85254 10.7354L6.14746 9.26465L16.1475 11.2646ZM32.1475 10.7354L22.1475 12.7354L21.8525 11.2646L31.8525 9.26465L32.1475 10.7354Z"
 				/>
 			</svg>
-		</div>
-	</a>
+
+			<div class="flex items-center gap-16 justify-between">
+				<span>View docs</span>
+				<svg
+					class="docs-button__arrow"
+					width="22"
+					height="22"
+					viewBox="0 0 22 22"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+						d="M13.5618 0.414062L20.5 10.9141M20.5 10.9141L13.5618 21.4141M20.5 10.9141H0"
+						stroke-width="1.5"
+					/>
+				</svg>
+			</div>
+		</a>
+
+		{#if demoVideoUrl}
+			<button type="button" class="docs-button" onclick={() => (showVideoOverlay = true)}>
+				<svg
+					class="docs-button__play"
+					width="44"
+					height="31"
+					viewBox="0 0 49 34"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+						d="M47.9762 5.30912C47.4126 3.21936 45.7524 1.57359 43.6438 1.01506C39.8229 0 24.5 0 24.5 0C24.5 0 9.17728 0 5.35611 1.01506C3.24758 1.57359 1.58693 3.21936 1.02378 5.30912C0 9.09688 0 17 0 17C0 17 0 24.9027 1.02378 28.6909C1.58693 30.7808 3.24758 32.4262 5.3559 32.9854C9.17708 34 24.4998 34 24.4998 34C24.4998 34 39.8227 34 43.6436 32.9854C45.7522 32.4264 47.4124 30.7808 47.976 28.6911C48.9999 24.9029 48.9999 17.0002 48.9999 17.0002C48.9999 17.0002 48.9999 9.09709 47.976 5.30933"
+						fill="#FF0000"
+					/>
+					<path d="M19 23.5714L31.8068 16.2861L19 9V23.5714Z" fill="white" />
+				</svg>
+
+				<div class="flex items-center gap-16 justify-between">
+					<span>Watch demo</span>
+					<svg
+						class="docs-button__arrow"
+						width="22"
+						height="22"
+						viewBox="0 0 22 22"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M13.5618 0.414062L20.5 10.9141M20.5 10.9141L13.5618 21.4141M20.5 10.9141H0"
+							stroke-width="1.5"
+						/>
+					</svg>
+				</div>
+			</button>
+		{/if}
+	</div>
 </section>
+
+{#if demoVideoUrl && showVideoOverlay}
+	<VideoOverlay videoUrl={demoVideoUrl} onClose={() => (showVideoOverlay = false)} />
+{/if}
 
 <style lang="postcss">
 	.cta-wrap {
@@ -306,6 +353,52 @@
 	.docs-button__book {
 		margin-bottom: 8px;
 		fill: var(--docs-text);
+	}
+
+	.docs-button__play {
+		margin-bottom: 8px;
+		transition: transform 0.2s;
+	}
+
+	.secondary-ctas {
+		display: contents;
+
+		/* With a second link beside "View docs", stack both as compact rows so the
+		   install command keeps its full width. */
+		&.stacked {
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+
+			& .docs-button {
+				flex: 1;
+				flex-direction: row;
+				align-items: center;
+				padding: 12px 20px;
+				gap: 16px;
+
+				& > div {
+					flex: 1;
+				}
+			}
+
+			& .docs-button__book,
+			& .docs-button__play {
+				width: auto;
+				height: 24px;
+				margin-bottom: 0;
+			}
+		}
+	}
+
+	button.docs-button {
+		align-items: stretch;
+		text-align: left;
+		cursor: pointer;
+
+		&:hover .docs-button__play {
+			transform: scale(1.08);
+		}
 	}
 
 	@media (--tablet-viewport) {

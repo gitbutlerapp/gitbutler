@@ -16,6 +16,8 @@
 
 	const { currentPage = "home", descriptionContent }: Props = $props();
 
+	const DEMO_VIDEO_URL = "https://youtu.be/pXPTPr91Xew";
+
 	const scriptKeys = Object.keys(scriptsData);
 	let selectedScript = $state("skill-install");
 	let scriptProgress = $state(0);
@@ -50,7 +52,7 @@
 	<div class="hero-content">
 		<HeroHeader {currentPage} {descriptionContent} />
 
-		<CtaButtons />
+		<CtaButtons demoVideoUrl={DEMO_VIDEO_URL} />
 
 		<div class="terminal-with-switcher">
 			<TerminalMockup
