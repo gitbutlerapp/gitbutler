@@ -134,6 +134,8 @@ enum Prompt {
 }
 
 pub fn run(args: Platform) -> anyhow::Result<()> {
+    // The hub checks tokens against production, and dev builds would otherwise sign in to staging.
+    but_api::legacy::users::use_production_api();
     if args.sign_out {
         but_api::legacy::users::delete_user()?;
         println!("Signed out of GitButler");

@@ -37,16 +37,28 @@ pub struct ApiHttpError {
 /// 2. `PUBLIC_API_BASE_URL` env var at runtime (shared with the desktop frontend)
 /// 3. Compile-time [`AppChannel`]:
 ///    - `Release` / `Nightly` → `https://app.gitbutler.com`
-///    - `Dev` → `https://app.staging.gitbutler.com`
+///    - `Dev` → `https://app.staging.gitbutler.com`, unless [`use_production_api()`] was called
 pub fn default_api_url() -> String {
     if let Some(url) = api_url_override_from_env(|key| std::env::var(key).ok()) {
         return url;
     }
+    if USE_PRODUCTION.get().is_some() {
+        return PRODUCTION_API_URL.to_owned();
+    }
     match AppChannel::new() {
-        AppChannel::Release | AppChannel::Nightly => "https://app.gitbutler.com",
+        AppChannel::Release | AppChannel::Nightly => PRODUCTION_API_URL,
         AppChannel::Dev => "https://app.staging.gitbutler.com",
     }
     .to_string()
+}
+
+const PRODUCTION_API_URL: &str = "https://app.gitbutler.com";
+static USE_PRODUCTION: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+
+/// Use production's API for the rest of the process even in a dev build, for callers that talk
+/// to services which only know production accounts. The environment variables still win.
+pub fn use_production_api() {
+    USE_PRODUCTION.set(()).ok();
 }
 
 fn normalize_api_url(url: String) -> String {

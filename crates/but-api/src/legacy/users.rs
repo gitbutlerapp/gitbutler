@@ -238,6 +238,12 @@ pub fn get_login_token() -> Result<gitbutler_user::api::LoginToken> {
     gitbutler_user::api::fetch_login_token()
 }
 
+/// Sign in and talk to production's GitButler API for the rest of the process, even in a dev
+/// build; see [`gitbutler_user::api::use_production_api()`].
+pub fn use_production_api() {
+    gitbutler_user::api::use_production_api();
+}
+
 #[but_api]
 #[instrument(skip(token), err(Debug))]
 pub fn login_with_token(token: String) -> Result<serde_json::Value> {
