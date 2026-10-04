@@ -112,14 +112,14 @@ const meshItemId = (key: string): string => `mesh-treeitem-${encodeURIComponent(
 const MeshTree: FC<{ projectId: string; grouping: MeshGrouping }> = ({ projectId, grouping }) => {
 	const dispatch = useAppDispatch();
 	const navigate = useNavigate();
-	const { machines, repos } = useMeshTree();
-	const toggled = useAppSelector(interfaceSlice.selectors.selectMeshToggled);
+	const unfolded = useAppSelector(interfaceSlice.selectors.selectMeshUnfolded);
+	const { machines, repos } = useMeshTree({ grouping, unfolded });
 	const selection = useAppSelector(interfaceSlice.selectors.selectMeshSelection);
 	const activeList = useActiveList();
 	const ref = useRef<HTMLDivElement>(null);
 	const [tooltipHandle] = useState(() => Tooltip.createHandle<FileRowTooltipPayload>());
 
-	const rows = buildMeshRows({ machines, repos, grouping, toggled });
+	const rows = buildMeshRows({ machines, repos, grouping, unfolded });
 	const keys = rows.map((row) => row.key);
 	const addressSpace = { items: keys, indexByKey: buildIndexByKey(keys, (key) => key) };
 	const rowOf = (key: string | null): MeshRow | undefined => {
@@ -292,7 +292,8 @@ const MeshRowItem: FC<{
 					{...shared}
 					name={row.machine.name}
 					className={styles.groupItem}
-					icon={<OnlineLight online={row.machine.online} />}
+					// Being here is being online; the light is for the others.
+					icon={row.machine.isThisMachine ? undefined : <OnlineLight online={row.machine.online} />}
 					marks={<When at={row.machine.at} />}
 					menuLabel="Machine menu"
 					menuItems={[copyItem("Copy Machine Name", row.machine.name)]}
@@ -319,7 +320,11 @@ const MeshRowItem: FC<{
 				<MeshItem
 					{...shared}
 					name={row.name}
-					icon={grouping === "repos" ? <OnlineLight online={row.checkout.online} /> : undefined}
+					icon={
+						grouping === "repos" && !row.checkout.isThisMachine ? (
+							<OnlineLight online={row.checkout.online} />
+						) : undefined
+					}
 					marks={
 						<>
 							{grouping === "machines" &&

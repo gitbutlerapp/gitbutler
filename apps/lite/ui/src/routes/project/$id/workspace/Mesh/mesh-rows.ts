@@ -24,6 +24,11 @@ export type MeshRow = RowBase &
 		| { _tag: "Commit"; checkout: MeshCheckout; commit: Commit; uncommitted: boolean }
 	);
 
+export const checkoutKey = (machine: string, projectId: string) =>
+	`checkout:${machine}:${projectId}`;
+
+export const repoKey = (projectId: string) => `repo:${projectId}`;
+
 /**
  * The tree's visible rows in reading order, flattened as the files tree's are: depth is reported
  * rather than nested, and the order is what the arrow keys walk.
@@ -32,16 +37,66 @@ export const buildMeshRows = ({
 	machines,
 	repos,
 	grouping,
-	toggled,
+	unfolded,
 }: {
 	machines: Array<MeshMachine>;
 	repos: Array<MeshRepo>;
 	grouping: MeshGrouping;
-	toggled: Record<string, true>;
+	unfolded: Record<string, true>;
 }): Array<MeshRow> => {
 	const rows: Array<MeshRow> = [];
-	const isFolded = (key: string, startsFolded: boolean) =>
-		toggled[key] === true ? !startsFolded : startsFolded;
+	const isFolded = (key: string) => unfolded[key] !== true;
+
+	/**
+	 * A checkout's uncommitted changes and branches, under `parentKey` at `depth`. Their keys stay
+	 * the checkout's, so folds hold whether or not the checkout has a row of its own.
+	 */
+	const pushContents = (checkout: MeshCheckout, parentKey: string, depth: number) => {
+		const key = checkoutKey(checkout.machine, checkout.projectId);
+		const hasUncommitted = checkout.uncommittedFiles > 0;
+		const setSize = checkout.branches.length + (hasUncommitted ? 1 : 0);
+		if (hasUncommitted) {
+			rows.push({
+				_tag: "Uncommitted",
+				key: `${key}:uncommitted`,
+				parentKey,
+				depth,
+				positionInSet: 1,
+				setSize,
+				checkout,
+			});
+		}
+		checkout.branches.forEach((branch, branchIndex) => {
+			const branchKey = `${key}:branch:${branch.name}`;
+			const branchFolded = isFolded(branchKey);
+			rows.push({
+				_tag: "Branch",
+				key: branchKey,
+				parentKey,
+				depth,
+				positionInSet: branchIndex + 1 + (hasUncommitted ? 1 : 0),
+				setSize,
+				folded: branchFolded,
+				checkout,
+				branch,
+			});
+			if (branchFolded) return;
+			const commits = branch.uncommitted ? [branch.uncommitted, ...branch.commits] : branch.commits;
+			commits.forEach((commit, commitIndex) => {
+				rows.push({
+					_tag: "Commit",
+					key: `${branchKey}:commit:${commit.id}`,
+					parentKey: branchKey,
+					depth: depth + 1,
+					positionInSet: commitIndex + 1,
+					setSize: commits.length,
+					checkout,
+					commit,
+					uncommitted: commit === branch.uncommitted,
+				});
+			});
+		});
+	};
 
 	const pushCheckouts = (
 		parentKey: string,
@@ -49,8 +104,8 @@ export const buildMeshRows = ({
 		name: (checkout: MeshCheckout) => string,
 	) => {
 		checkouts.forEach((checkout, index) => {
-			const key = `checkout:${checkout.machine}:${checkout.projectId}`;
-			const folded = isFolded(key, false);
+			const key = checkoutKey(checkout.machine, checkout.projectId);
+			const folded = isFolded(key);
 			rows.push({
 				_tag: "Checkout",
 				key,
@@ -62,60 +117,14 @@ export const buildMeshRows = ({
 				checkout,
 				name: name(checkout),
 			});
-			if (folded) return;
-
-			const hasUncommitted = checkout.uncommittedFiles > 0;
-			const setSize = checkout.branches.length + (hasUncommitted ? 1 : 0);
-			if (hasUncommitted) {
-				rows.push({
-					_tag: "Uncommitted",
-					key: `${key}:uncommitted`,
-					parentKey: key,
-					depth: 2,
-					positionInSet: 1,
-					setSize,
-					checkout,
-				});
-			}
-			checkout.branches.forEach((branch, branchIndex) => {
-				const branchKey = `${key}:branch:${branch.name}`;
-				const branchFolded = isFolded(branchKey, true);
-				rows.push({
-					_tag: "Branch",
-					key: branchKey,
-					parentKey: key,
-					depth: 2,
-					positionInSet: branchIndex + 1 + (hasUncommitted ? 1 : 0),
-					setSize,
-					folded: branchFolded,
-					checkout,
-					branch,
-				});
-				if (branchFolded) return;
-				const commits = branch.uncommitted
-					? [branch.uncommitted, ...branch.commits]
-					: branch.commits;
-				commits.forEach((commit, commitIndex) => {
-					rows.push({
-						_tag: "Commit",
-						key: `${branchKey}:commit:${commit.id}`,
-						parentKey: branchKey,
-						depth: 3,
-						positionInSet: commitIndex + 1,
-						setSize: commits.length,
-						checkout,
-						commit,
-						uncommitted: commit === branch.uncommitted,
-					});
-				});
-			});
+			if (!folded) pushContents(checkout, key, 2);
 		});
 	};
 
 	if (grouping === "machines") {
 		machines.forEach((machine, index) => {
 			const key = `machine:${machine.name}`;
-			const folded = isFolded(key, false);
+			const folded = isFolded(key);
 			rows.push({
 				_tag: "Machine",
 				key,
@@ -130,8 +139,8 @@ export const buildMeshRows = ({
 		});
 	} else {
 		repos.forEach((repo, index) => {
-			const key = `repo:${repo.projectId}`;
-			const folded = isFolded(key, false);
+			const key = repoKey(repo.projectId);
+			const folded = isFolded(key);
 			rows.push({
 				_tag: "Repo",
 				key,
@@ -142,7 +151,11 @@ export const buildMeshRows = ({
 				folded,
 				repo,
 			});
-			if (!folded) pushCheckouts(key, repo.checkouts, (checkout) => checkout.machine);
+			if (folded) return;
+			// A repo only this machine has needs no row saying so.
+			const [only, ...others] = repo.checkouts;
+			if (only?.isThisMachine === true && others.length === 0) pushContents(only, key, 1);
+			else pushCheckouts(key, repo.checkouts, (checkout) => checkout.machine);
 		});
 	}
 

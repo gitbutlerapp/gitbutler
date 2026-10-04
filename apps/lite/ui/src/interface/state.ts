@@ -24,8 +24,8 @@ type InterfaceState = {
 	 */
 	mesh: {
 		grouping: MeshGrouping;
-		/** Rows toggled from how they start: most start unfolded, branches folded. */
-		toggled: Record<string, true>;
+		/** Every row starts folded, and loads what it shows only once unfolded. */
+		unfolded: Record<string, true>;
 		selection: string | null;
 	};
 };
@@ -34,7 +34,7 @@ const initialState: InterfaceState = {
 	detailsFullWindow: false,
 	diffFooterView: "feedback",
 	dialog: { _tag: "None" },
-	mesh: { grouping: "machines", toggled: {}, selection: null },
+	mesh: { grouping: "machines", unfolded: {}, selection: null },
 };
 
 export const interfaceSlice = createSlice({
@@ -66,8 +66,8 @@ export const interfaceSlice = createSlice({
 			state.mesh.grouping = grouping;
 		},
 		toggleMeshRow: (state, { payload: { key } }: PayloadAction<{ key: string }>) => {
-			if (state.mesh.toggled[key]) delete state.mesh.toggled[key];
-			else state.mesh.toggled[key] = true;
+			if (state.mesh.unfolded[key]) delete state.mesh.unfolded[key];
+			else state.mesh.unfolded[key] = true;
 		},
 		selectMeshRow: (state, { payload: { key } }: PayloadAction<{ key: string }>) => {
 			state.mesh.selection = key;
@@ -78,7 +78,7 @@ export const interfaceSlice = createSlice({
 		selectDetailsFullWindow: (state) => state.detailsFullWindow,
 		selectDialogState: (state) => state.dialog,
 		selectMeshGrouping: (state) => state.mesh.grouping,
-		selectMeshToggled: (state) => state.mesh.toggled,
+		selectMeshUnfolded: (state) => state.mesh.unfolded,
 		selectMeshSelection: (state) => state.mesh.selection,
 		selectIsMeshRowSelected: (state, key: string) => state.mesh.selection === key,
 	},

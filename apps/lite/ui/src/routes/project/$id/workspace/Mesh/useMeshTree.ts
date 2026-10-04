@@ -16,6 +16,8 @@ import type {
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
 import { type UseQueryResult, useQueries, useQuery } from "@tanstack/react-query";
+import type { MeshGrouping } from "#ui/interface/state.ts";
+import { checkoutKey, repoKey } from "./mesh-rows.ts";
 
 export type MeshBranch = {
 	name: string;
@@ -161,8 +163,17 @@ const buildTree = (
 /**
  * Every local project and every machine that published one, grouped by machine and by repo.
  * Built in `combine`, so the tree keeps its identity until the data behind it changes.
+ *
+ * A project's branches load once its checkout here, or grouped by repo its repo, is unfolded. What other machines published
+ * loads once its repo is unfolded, except grouped by machine, where it's how machines are found.
  */
-export const useMeshTree = (): MeshTree => {
+export const useMeshTree = ({
+	grouping,
+	unfolded,
+}: {
+	grouping: MeshGrouping;
+	unfolded: Record<string, true>;
+}): MeshTree => {
 	const { data: projects = [] } = useQuery(listProjectsQueryOptions);
 	const { data: hostedEnabled } = useQuery({
 		...guiSettingsQueryOptions,
@@ -171,17 +182,26 @@ export const useMeshTree = (): MeshTree => {
 			window.lite.hosted === true || (settings.hostedBranches ?? defaultSettings.hostedBranches),
 	});
 	const local = window.lite.hosted !== true;
+	// Grouped by repo, an unfolded repo may show this machine's branches without a row of its own.
+	const localUnfolded = (projectId: string) =>
+		unfolded[checkoutKey(THIS_MACHINE, projectId)] === true ||
+		(grouping === "repos" && unfolded[repoKey(projectId)] === true);
 
 	return useQueries({
 		queries: [
-			...projects.map((project) => ({ ...headInfoQueryOptions(project.id), enabled: local })),
+			...projects.map((project) => ({
+				...headInfoQueryOptions(project.id),
+				enabled: local && localUnfolded(project.id),
+			})),
 			...projects.map((project) => ({
 				...changesInWorktreeQueryOptions(project.id),
-				enabled: local,
+				enabled: local && localUnfolded(project.id),
 			})),
 			...projects.map((project) => ({
 				...hostedMachinesQueryOptions(project.id),
-				enabled: hostedEnabled === true,
+				enabled:
+					hostedEnabled === true &&
+					(grouping === "machines" || unfolded[repoKey(project.id)] === true),
 			})),
 			...projects.map((project) => hostedPresenceQueryOptions(project.id)),
 		],
