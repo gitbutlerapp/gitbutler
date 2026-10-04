@@ -6,8 +6,8 @@
 //! named by its host name, so machines never replace each other's branches: pulling names the
 //! machine to pull from, and asks before replacing local work.
 //!
-//! The server is fixed rather than a git remote: `BUT_HOSTED_URL`, defaulting to a local demo
-//! server. Requests to it are made as the signed-in GitButler user, and see only that user's
+//! The server is fixed rather than a git remote: `BUT_HOSTED_URL`, defaulting to
+//! https://mesh.but.dev. Requests to it are made as the signed-in GitButler user, and see only that user's
 //! branches. A fetch keeps what it publishes under `refs/gitbutler/hosted/`, apart from the
 //! repository's own remotes.
 
@@ -29,7 +29,7 @@ const HOSTED_REFS: &str = "refs/gitbutler/hosted";
 
 /// The hosted server's URL.
 fn hosted_server() -> String {
-    let url = std::env::var("BUT_HOSTED_URL").unwrap_or_else(|_| "http://localhost:6980".into());
+    let url = std::env::var("BUT_HOSTED_URL").unwrap_or_else(|_| "https://mesh.but.dev".into());
     url.trim_end_matches('/').to_owned()
 }
 

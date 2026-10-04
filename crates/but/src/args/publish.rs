@@ -8,7 +8,7 @@
 /// one atomic push. The branch can be checked out in a worktree or applied in
 /// the workspace. It's published under this machine's host name, or
 /// `BUT_MACHINE`, so it never replaces what other machines published. The
-/// server is `BUT_HOSTED_URL`, a local demo server by default.
+/// server is `BUT_HOSTED_URL`, https://mesh.but.dev by default.
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct Platform {
