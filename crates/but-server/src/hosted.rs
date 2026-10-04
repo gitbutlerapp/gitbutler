@@ -64,10 +64,13 @@ impl UserId {
     }
 }
 
-/// Signed-in browsers, by the session ID in their cookie. In memory: a restart signs them out.
-type Sessions = Arc<Mutex<std::collections::HashMap<String, UserId>>>;
+/// Signed-in browsers, by the session ID in their cookie, with when they signed in. In memory: a
+/// restart signs them out.
+type Sessions = Arc<Mutex<std::collections::HashMap<String, (UserId, std::time::Instant)>>>;
 
 const SESSION_COOKIE: &str = "but_hosted_session";
+/// How long a browser stays signed in.
+const SESSION_TTL: std::time::Duration = std::time::Duration::from_secs(14 * 24 * 60 * 60);
 
 #[derive(Clone)]
 struct HostedState {
@@ -126,7 +129,11 @@ pub fn router(config: HostedConfig) -> Router {
         presence: Presence::default(),
         sessions: Sessions::default(),
         writing: Arc::default(),
-        http: reqwest::Client::new(),
+        // A stalled GitButler API would otherwise hold every request waiting on it.
+        http: reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("a client with a timeout builds"),
     };
     let api = Router::new()
         .route(
@@ -229,11 +236,12 @@ fn session_id(headers: &HeaderMap) -> Option<&str> {
 }
 
 fn session_user(state: &HostedState, headers: &HeaderMap) -> Option<UserId> {
-    let sessions = state
+    let mut sessions = state
         .sessions
         .lock()
         .unwrap_or_else(PoisonError::into_inner);
-    sessions.get(session_id(headers)?).copied()
+    sessions.retain(|_, (_, since)| since.elapsed() < SESSION_TTL);
+    sessions.get(session_id(headers)?).map(|(user, _)| *user)
 }
 
 /// Where a browser signs in, by pasting the access token GitButler shows after signing in there.
@@ -293,9 +301,16 @@ async fn sign_in(
         .sessions
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
-        .insert(session.clone(), user);
-    // Not `Secure`, so it also works over plain HTTP on localhost; one of the design doc's shortcuts.
-    let cookie = format!("{SESSION_COOKIE}={session}; Path=/; HttpOnly; SameSite=Strict");
+        .insert(session.clone(), (user, std::time::Instant::now()));
+    // `Secure` behind the https proxy, which says so; plain HTTP on localhost goes without.
+    let secure = headers
+        .get("x-forwarded-proto")
+        .is_some_and(|proto| proto == "https");
+    let cookie = format!(
+        "{SESSION_COOKIE}={session}; Path=/; HttpOnly; SameSite=Strict; Max-Age={}{}",
+        SESSION_TTL.as_secs(),
+        if secure { "; Secure" } else { "" }
+    );
     ([(header::SET_COOKIE, cookie)], Redirect::to("/")).into_response()
 }
 
@@ -373,12 +388,11 @@ async fn git_http(
     let result = async {
         let dir = user.dir(&config);
         let store = store(&dir, &project)?;
-        // Both a push's ref advertisement and the push itself.
-        let for_push =
-            rest == "git-receive-pack" || query.as_deref() == Some("service=git-receive-pack");
+        let pushing = rest == "git-receive-pack";
         let writing = writing.lock().await;
-        // Only a push makes a project; a fetch of one nobody published reads an empty repository.
-        let (root, path) = if for_push || store.join("HEAD").exists() {
+        // Only a push makes a project. Anything else of one nobody published, a push's ref
+        // advertisement included, reads an empty repository, which advertises the same nothing.
+        let (root, path) = if pushing || store.join("HEAD").exists() {
             if !store.join("HEAD").exists() {
                 std::fs::create_dir_all(&store)?;
                 git(&store, &["init", "--bare", "-q"])?;
@@ -394,7 +408,6 @@ async fn git_http(
             }
             (config.data_dir.clone(), format!("/empty.git/{rest}"))
         };
-        let pushing = rest == "git-receive-pack";
         let _writing = pushing.then_some(writing);
         // A push git rejects, e.g. one planned against refs another push has since moved,
         // still ends well for `http-backend`; only a moved snapshot means a publish.
