@@ -1,8 +1,10 @@
 ## General information
 
 This is a Rust/Svelte/React/TypeScript monorepo with multiple projects. For
-agent instruction precedence and scoped guidance, follow the nearest applicable
-`AGENTS.md`; use this file as Copilot-oriented project context.
+agent instruction precedence, required workflow skills, and scoped guidance, read
+[AGENTS.md](../AGENTS.md) and all applicable ancestor and nested `AGENTS.md` files
+for the paths being developed, tested, or reviewed. Apply them again before pushing
+PR updates; use this file as Copilot-oriented project context.
 
 The main applications are found in the `apps` directory:
 

@@ -36,6 +36,17 @@ this order:
 - When a fix calls for a new mechanism (a new module, a new public API, or a parallel
   walk where one already exists), propose the intended shape before building it.
 
+## Required Workflow Skills
+
+- Before implementation, bug fixes, or test/fixture changes, read and apply
+  [gitbutler-change-check](.agents/skills/gitbutler-change-check/SKILL.md).
+- For code reviews, PR feedback, and before committing or pushing a PR update,
+  read and apply
+  [gitbutler-review-prepush](.agents/skills/gitbutler-review-prepush/SKILL.md).
+- These skills route work to the current conventions; they do not replace this
+  file or scoped instructions. Read all applicable ancestor `AGENTS.md` files for
+  implementation, tests, fixtures, and documentation, and repeat when scope changes.
+
 ## Scoped Instructions
 
 - For Rust work under `crates/`, follow `crates/AGENTS.md`.
