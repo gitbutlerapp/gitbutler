@@ -296,10 +296,39 @@ describe("AIService", () => {
 			expect(await aiService.getOpenAIModelName()).toBe(OpenAIModelName.GPT54);
 		});
 
-		test("When a legacy/unknown model is stored, it falls back to the default", async () => {
+		test("When a custom model is stored, it returns the stored value", async () => {
 			const gitConfig = new DummyGitConfigService({
 				...defaultGitConfig,
-				[GitAIConfigKey.OpenAIModelName]: "gpt-4-turbo",
+				[GitAIConfigKey.OpenAIModelName]: "self-hosted-model",
+				[GitAIConfigKey.OpenAICustomEndpoint]: "https://models.example.test/v1",
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+
+			expect(await aiService.getOpenAIModelName()).toBe("self-hosted-model");
+		});
+
+		test("When a custom model is stored without a custom endpoint, it falls back to the default", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.OpenAIModelName]: "self-hosted-model",
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+
+			expect(await aiService.getOpenAIModelName()).toBe(OpenAIModelName.GPT54Nano);
+		});
+
+		test("When a blank model is stored, it falls back to the default", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.OpenAIModelName]: "   ",
 			});
 			const secretsService = new DummySecretsService();
 			const tokenMemoryService = new TokenMemoryService();
