@@ -73,7 +73,12 @@ impl ChangeSource<'_> {
 
 /// Tell the editor which of `all_changes` were consumed, so the checkout that
 /// provided them doesn't reintroduce them as uncommitted changes.
-fn cancel_consumed_changes<M: but_core::RefMetadata>(
+/// Configure checkout cancellation for all accepted changes from `source`.
+///
+/// Composed operations that call [`commit_amend_without_checkout_cancellation()`]
+/// repeatedly must call this once with their complete accepted change set before
+/// materializing the resulting editor graph.
+pub fn cancel_consumed_changes<M: but_core::RefMetadata>(
     editor: &mut but_rebase::graph_rebase::Editor<'_, '_, M>,
     source: &ChangeSource<'_>,
     all_changes: Vec<DiffSpec>,
@@ -104,7 +109,9 @@ pub use reword::reword;
 pub mod commit_create;
 pub use commit_create::{CommitCreateOutcome, commit_create};
 pub mod commit_amend;
-pub use commit_amend::{CommitAmendOutcome, commit_amend};
+pub use commit_amend::{
+    CommitAmendOutcome, commit_amend, commit_amend_without_checkout_cancellation,
+};
 pub mod insert_blank_commit;
 pub use insert_blank_commit::insert_blank_commit;
 pub mod move_changes;

@@ -53,11 +53,37 @@ pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
 pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
+    editor: Editor<'ws, 'meta, M>,
+    commit: impl ToCommitSelector,
+    changes: Vec<DiffSpec>,
+    context_lines: u32,
+    source: ChangeSource<'_>,
+) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
+    commit_amend_impl(editor, commit, changes, context_lines, source, true)
+}
+
+/// Amend a commit without configuring checkout cancellation for consumed changes.
+///
+/// This is for operations that compose multiple amendments from one source
+/// checkout. The caller must invoke [`super::cancel_consumed_changes()`] once
+/// with the complete accepted change set before materialization.
+pub fn commit_amend_without_checkout_cancellation<'ws, 'meta, M: RefMetadata>(
+    editor: Editor<'ws, 'meta, M>,
+    commit: impl ToCommitSelector,
+    changes: Vec<DiffSpec>,
+    context_lines: u32,
+    source: ChangeSource<'_>,
+) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
+    commit_amend_impl(editor, commit, changes, context_lines, source, false)
+}
+
+fn commit_amend_impl<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     commit: impl ToCommitSelector,
     changes: Vec<DiffSpec>,
     context_lines: u32,
     source: ChangeSource<'_>,
+    cancel_consumed: bool,
 ) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
     let (target_selector, target) = editor.find_selectable_commit(commit)?;
 
@@ -100,13 +126,15 @@ pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
     };
 
     // Runs before `replace` so an unknown worktree fails with zero graph mutation.
-    cancel_consumed_changes(
-        &mut editor,
-        &source,
-        all_changes,
-        &create_out.rejected_specs,
-        context_lines,
-    )?;
+    if cancel_consumed {
+        cancel_consumed_changes(
+            &mut editor,
+            &source,
+            all_changes,
+            &create_out.rejected_specs,
+            context_lines,
+        )?;
+    }
 
     editor.replace(target_selector, Step::new_pick(new_commit_id))?;
 

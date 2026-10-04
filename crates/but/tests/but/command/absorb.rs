@@ -819,12 +819,12 @@ warning: skipped absorbing into 1 merged-upstream commit(s): 756ee31. Run `but p
 }
 
 #[test]
-fn absorb_json_reports_partially_skipped_merged_upstream_commits() {
+fn absorb_json_reports_blocked_mixed_merged_upstream_commits() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
     env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
-    // file-a.txt depends on branch A's landed commit (skipped); file-b.txt on
-    // branch B's live commit (absorbed).
+    // file-a.txt depends on branch A's landed commit; file-b.txt depends on
+    // branch B's live commit. Selecting both blocks the whole invocation.
     env.file("file-a.txt", "change-A-modified\n");
     env.file("file-b.txt", "change-B-modified\n");
 
@@ -832,11 +832,13 @@ fn absorb_json_reports_partially_skipped_merged_upstream_commits() {
         .allow_json()
         .env("NO_BG_TASKS", "1")
         .assert()
-        .success()
+        .failure()
         .stdout_eq(str![[r#"
 {
-  "ok": true,
-  "rejected": 0,
+  "ok": false,
+  "skippedMergedUpstream": [
+    "756ee31783c2adf1542abe10ea254866d1464983"
+  ],
   "plan": {
     "total_files": 1,
     "commits": [
@@ -855,17 +857,126 @@ fn absorb_json_reports_partially_skipped_merged_upstream_commits() {
         ]
       }
     ]
-  },
-  "skippedMergedUpstream": [
-    "756ee31783c2adf1542abe10ea254866d1464983"
-  ]
+  }
 }
 
 "#]])
         .stderr_eq(str![[r#"
 warning: skipped absorbing into 1 merged-upstream commit(s): 756ee31. Run `but pull` to update the workspace, or pass --allow-merged to absorb anyway.
+Error: Cannot absorb selected changes because at least one target commit is merged upstream
 
 "#]]);
+}
+
+#[test]
+fn absorb_selected_landed_target_blocks_other_selected_targets() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    env.file("file-a.txt", "change-A-modified\n");
+    env.file("file-b.txt", "change-B-modified\n");
+
+    let repo = env.open_repo();
+    let a_before = repo.rev_parse_single(b"refs/heads/A").unwrap().detach();
+    let b_before = repo.rev_parse_single(b"refs/heads/B").unwrap().detach();
+    let a_worktree_before = env.read_file("file-a.txt").unwrap();
+    let b_worktree_before = env.read_file("file-b.txt").unwrap();
+    let output = env
+        .but("--json absorb")
+        .allow_json()
+        .env("NO_BG_TASKS", "1")
+        .output()
+        .unwrap();
+    let stdout = output.stdout.as_bstr();
+    assert!(
+        stdout.contains_str(b"file-b.txt") && stdout.contains_str(b"skippedMergedUpstream"),
+        "the eligible plan and selected landed target must be observable at the filter boundary: {stdout}"
+    );
+    let a_after = repo.rev_parse_single(b"refs/heads/A").unwrap().detach();
+    let b_after = repo.rev_parse_single(b"refs/heads/B").unwrap().detach();
+    let a_worktree_after = env.read_file("file-a.txt").unwrap();
+    let b_worktree_after = env.read_file("file-b.txt").unwrap();
+    assert!(
+        !output.status.success()
+            && a_after == a_before
+            && b_after == b_before
+            && a_worktree_after == a_worktree_before
+            && b_worktree_after == b_worktree_before,
+        "a selected landed target must block the full invocation; status={:?}, \
+             A: {a_before:?} -> {a_after:?}, B: {b_before:?} -> {b_after:?}, \
+             worktree A: {a_worktree_before:?} -> {a_worktree_after:?}, \
+             worktree B: {b_worktree_before:?} -> {b_worktree_after:?}, stdout={stdout}",
+        output.status,
+    );
+}
+
+#[test]
+fn dry_run_with_selected_landed_target_keeps_state_unchanged() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    env.file("file-a.txt", "change-A-modified\n");
+    env.file("file-b.txt", "change-B-modified\n");
+
+    let repo = env.open_repo();
+    let refs_before = ["refs/heads/A", "refs/heads/B"].map(|reference| {
+        repo.rev_parse_single(reference.as_bytes())
+            .unwrap()
+            .detach()
+    });
+    let status_before = util::status_json(&env);
+    env.but("absorb --dry-run")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success();
+    let refs_after = ["refs/heads/A", "refs/heads/B"].map(|reference| {
+        repo.rev_parse_single(reference.as_bytes())
+            .unwrap()
+            .detach()
+    });
+    assert_eq!(
+        refs_after, refs_before,
+        "blocked dry-run does not move refs"
+    );
+    assert_eq!(
+        util::status_json(&env),
+        status_before,
+        "blocked dry-run does not change worktree status"
+    );
+}
+
+#[test]
+fn dry_run_with_planner_created_blank_target_keeps_state_unchanged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+    env.but("branch new empty --above A").assert().success();
+    env.file("new.txt", "new empty-target content\n");
+
+    let repo = env.open_repo();
+    let refs_before = ["refs/heads/empty", "refs/heads/A", "refs/heads/B"].map(|reference| {
+        repo.rev_parse_single(reference.as_bytes())
+            .unwrap()
+            .detach()
+    });
+    let status_before = util::status_json(&env);
+    env.but("absorb --dry-run")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success();
+    let refs_after = ["refs/heads/empty", "refs/heads/A", "refs/heads/B"].map(|reference| {
+        repo.rev_parse_single(reference.as_bytes())
+            .unwrap()
+            .detach()
+    });
+    assert_eq!(
+        refs_after, refs_before,
+        "blank-target dry-run does not move refs"
+    );
+    assert_eq!(
+        util::status_json(&env),
+        status_before,
+        "blank-target dry-run does not change worktree status"
+    );
 }
 
 /// Regression test for GB-1534: in single-branch mode absorb must amend the

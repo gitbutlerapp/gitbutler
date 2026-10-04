@@ -217,6 +217,32 @@ pub fn changes_in_worktree_with_perm(
     compute_deps_and_assignments: bool,
     perm: &RepoShared,
 ) -> anyhow::Result<WorktreeChanges> {
+    changes_in_worktree_with_perm_impl(
+        ctx,
+        changes_source,
+        compute_deps_and_assignments,
+        perm,
+        true,
+    )
+}
+
+/// Like [`changes_in_worktree_with_perm()`], but does not persist fallback
+/// hunk assignments while inspecting the worktree.
+pub(crate) fn changes_in_worktree_without_persisting_assignments_with_perm(
+    ctx: &Context,
+    changes_source: ChangesSource,
+    perm: &RepoShared,
+) -> anyhow::Result<WorktreeChanges> {
+    changes_in_worktree_with_perm_impl(ctx, changes_source, true, perm, false)
+}
+
+fn changes_in_worktree_with_perm_impl(
+    ctx: &Context,
+    changes_source: ChangesSource,
+    compute_deps_and_assignments: bool,
+    perm: &RepoShared,
+    persist_assignments: bool,
+) -> anyhow::Result<WorktreeChanges> {
     let context_lines = ctx.settings.context_lines;
 
     if let Some((_name, wt_repo)) = crate::worktrees::open_changes_source(ctx, &changes_source)? {
@@ -249,7 +275,11 @@ pub fn changes_in_worktree_with_perm(
         )?
     };
 
-    trans.commit()?;
+    if persist_assignments {
+        trans.commit()?;
+    } else {
+        drop(trans);
+    }
 
     let mut worktree_changes: but_core::ui::WorktreeChanges = changes.into();
     worktree_changes.modification_times =

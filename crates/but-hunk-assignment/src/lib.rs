@@ -233,6 +233,7 @@ impl AbsorptionReason {
 /// Information about absorptions grouped by commit
 #[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "export-schema", schemars(extend("x-input" = true)))]
 #[serde(rename_all = "camelCase")]
 pub struct CommitAbsorption {
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
@@ -240,6 +241,22 @@ pub struct CommitAbsorption {
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     #[serde(with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,
+    /// A branch with no commits of its own where execution must stage the first commit.
+    #[serde(
+        default,
+        with = "but_serde::fullname_lossy_opt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
+    pub blank_commit_ref: Option<gix::refs::FullName>,
+    /// Snapshot tree for the worktree and index state the selectors were planned against.
+    #[serde(
+        default,
+        with = "but_serde::object_id_opt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
+    pub source_snapshot_tree: Option<gix::ObjectId>,
     pub commit_summary: String,
     pub hunks: Vec<but_core::SingleHunk>,
     pub reason: AbsorptionReason,
@@ -505,6 +522,7 @@ fn reconcile_worktree_changes_with_worktree(
     };
 
     if worktree_changes.is_empty() {
+        state::set_assignments(db, Vec::new())?;
         return Ok(vec![]);
     }
     let worktree_assignments: Vec<_> =

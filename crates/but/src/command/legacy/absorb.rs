@@ -8,10 +8,7 @@ use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorptionTarget, CommitAbsorption, JsonAbsorbOutput, JsonCommitAbsorption, JsonFileAbsorption,
 };
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails},
-};
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use itertools::Itertools;
 
 use crate::{
@@ -146,12 +143,23 @@ pub(crate) fn handle(
         return Ok(());
     }
 
-    // Create a snapshot before performing absorb or auto-commit operations
-    // This allows the user to undo if needed
-    let operation = OperationKind::Absorb;
-    let _snapshot = ctx
-        .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
-        .ok(); // Ignore errors for snapshot creation
+    if !skipped_merged.is_empty() {
+        if let Some(out) = out.for_json() {
+            let mut blocked = serde_json::json!({
+                "ok": false,
+                "skippedMergedUpstream": skipped_merged,
+            });
+            if let Some(plan) = plan_json {
+                blocked["plan"] = serde_json::to_value(plan).unwrap_or(serde_json::Value::Null);
+            }
+            out.write_value(blocked)?;
+        }
+        return Err(anyhow::anyhow!(
+            "Cannot absorb selected changes because at least one target commit is merged upstream"
+        )
+        .into());
+    }
+
     absorb_assignments(
         ctx,
         absorption_plan,
@@ -173,7 +181,17 @@ fn absorb_assignments(
     plan_json: Option<JsonAbsorbOutput>,
     skipped_merged: Vec<String>,
 ) -> anyhow::Result<()> {
-    let total_rejected = but_api::legacy::absorb::absorb_with_perm(ctx, absorption_plan, perm)?;
+    let snapshot = but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
+        ctx,
+        SnapshotDetails::new(OperationKind::Absorb),
+        perm.read_permission(),
+    )?;
+    let total_rejected = but_api::legacy::absorb::absorb_with_checkpoint_with_perm(
+        ctx,
+        absorption_plan,
+        perm,
+        Some(snapshot),
+    )?;
 
     // Display completion message
     let t = theme::get();

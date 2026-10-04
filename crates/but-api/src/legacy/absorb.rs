@@ -1,7 +1,4 @@
-use std::{
-    cmp::Reverse,
-    collections::{BTreeMap, HashMap, HashSet},
-};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::Context as _;
 use bstr::ByteSlice;
@@ -10,26 +7,26 @@ use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorbCandidate, AbsorptionReason, AbsorptionTarget, CommitAbsorption, CommitMap,
-    GroupedChanges, convert_hunks_to_diff_specs,
+    convert_hunks_to_diff_specs,
 };
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, HunkLockTarget,
     hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_workspace::{RefInfo, branch::Stack};
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails},
-};
+use but_rebase::graph_rebase::{Editor, LookupStep as _};
+use but_workspace::{RefInfo, branch::Stack, commit::ChangeSource};
+use gitbutler_oplog::OplogExt as _;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use itertools::Itertools;
 use tracing::instrument;
 
-use crate::{
-    commit::amend::commit_amend_only_impl, commit::insert_blank::commit_insert_blank_only_impl,
-    commit::json::ChangesSource,
-};
-use but_core::DryRun;
+use crate::commit::json::ChangesSource;
+
+type GroupedChanges = BTreeMap<
+    (StackId, gix::ObjectId, Option<gix::refs::FullName>),
+    (Vec<AbsorbCandidate>, AbsorptionReason),
+>;
 
 /// Absorb the changes described by `absorption_plan` using the behavior documented by
 /// [`absorb_with_perm()`].
@@ -42,16 +39,17 @@ use but_core::DryRun;
 #[instrument(err(Debug))]
 pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyhow::Result<usize> {
     let mut guard = ctx.exclusive_worktree_access();
-    // Create a snapshot before performing absorb operations
-    // This allows the user to undo if needed
-    let _snapshot = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::Absorb),
-            guard.write_permission(),
-        )
-        .ok(); // Ignore errors for snapshot creation
-
-    absorb_with_perm(ctx, absorption_plan, guard.write_permission())
+    let snapshot = but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
+        ctx,
+        SnapshotDetails::new(OperationKind::Absorb),
+        guard.read_permission(),
+    )?;
+    absorb_with_checkpoint_with_perm(
+        ctx,
+        absorption_plan,
+        guard.write_permission(),
+        Some(snapshot),
+    )
 }
 
 /// Absorb the changes described by `absorption_plan` using the exclusive repository
@@ -63,34 +61,146 @@ pub fn absorb_with_perm(
     absorption_plan: Vec<CommitAbsorption>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
-    // Apply each group to its target commit and track failures
+    absorb_with_checkpoint_with_perm(ctx, absorption_plan, perm, None)
+}
+
+pub fn absorb_with_checkpoint_with_perm(
+    ctx: &mut Context,
+    absorption_plan: Vec<CommitAbsorption>,
+    perm: &mut RepoExclusive,
+    checkpoint: Option<but_oplog::UnmaterializedOplogSnapshot>,
+) -> anyhow::Result<usize> {
+    let context_lines = ctx.settings.context_lines;
+    anyhow::ensure!(
+        absorption_plan.is_empty()
+            || absorption_plan
+                .iter()
+                .all(|absorption| absorption.source_snapshot_tree.is_some()),
+        "Absorb plan is stale: it has no source snapshot; create a new plan"
+    );
+    let current_source_snapshot = source_snapshot_tree(ctx, perm.read_permission())?;
+    for absorption in &absorption_plan {
+        if let Some(planned_precondition) = absorption.source_snapshot_tree {
+            let current_precondition = absorption_precondition_tree(
+                ctx,
+                current_source_snapshot,
+                absorption,
+                context_lines,
+            )?;
+            let changed_components = changed_source_components(
+                &*ctx.repo.get()?,
+                planned_precondition,
+                current_precondition,
+            )?;
+            anyhow::ensure!(
+                current_precondition == planned_precondition,
+                "Absorb plan is stale: its source, routing, target, selection, or settings \
+                 changed after planning (expected {planned_precondition}, current \
+                 {current_precondition}, changed components: {changed_components:?})"
+            );
+        }
+    }
+    let mut meta = ctx.meta()?;
+    let (repo, mut workspace, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let source_hunks = but_core::worktree_hunks(&repo, context_lines)?;
+    let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
+    let mut rebase = editor.rebase()?;
+
+    // Apply each group to the in-memory rebase and track failures. Nothing is
+    // materialized until every planned group has been interpreted.
     let mut rejected_groups = HashSet::new();
     let mut commit_map = CommitMap::default();
-    let context_lines = ctx.settings.context_lines;
-    let absorption_plan = absorption_steps_for_application(absorption_plan);
+    let mut blank_commits = BTreeMap::new();
+    let mut accepted_diff_specs = Vec::new();
+    let absorption_plan = absorption_steps_for_application(absorption_plan, &source_hunks);
 
     for absorption in absorption_plan {
         let diff_specs = convert_hunks_to_diff_specs(&absorption.hunks)?;
-        let commit_id = commit_map.find_mapped_id(absorption.commit_id);
-        let outcome = commit_amend_only_impl(
-            ctx,
+        accepted_diff_specs.extend(diff_specs.iter().cloned());
+        let rewritten_commits = rebase.history.commit_mappings();
+        let commit_id = if let Some(blank_commit_ref) = &absorption.blank_commit_ref {
+            let blank_commit = if let Some(blank_commit) = blank_commits.get(blank_commit_ref) {
+                *blank_commit
+            } else {
+                let expected_target = rewritten_commits
+                    .get(&absorption.commit_id)
+                    .copied()
+                    .unwrap_or(absorption.commit_id);
+                let actual_target = rebase.reference_target(blank_commit_ref.as_ref())?;
+                anyhow::ensure!(
+                    actual_target == expected_target,
+                    "Absorb plan is stale: {blank_commit_ref} moved from {expected_target} to {actual_target}"
+                );
+                let (next_rebase, selector) = but_workspace::commit::insert_blank_commit(
+                    rebase.into_editor(),
+                    InsertSide::Below,
+                    RelativeTo::Reference(blank_commit_ref.clone()),
+                )?;
+                rebase = next_rebase;
+                let blank_commit = rebase.lookup_pick(selector)?;
+                blank_commits.insert(blank_commit_ref.clone(), blank_commit);
+                blank_commit
+            };
+            commit_map.find_mapped_id(blank_commit)
+        } else {
+            rewritten_commits
+                .get(&absorption.commit_id)
+                .copied()
+                .unwrap_or(absorption.commit_id)
+        };
+        let but_workspace::commit::CommitAmendOutcome {
+            rebase: next_rebase,
+            commit_selector,
+            rejected_specs,
+        } = but_workspace::commit::commit_amend_without_checkout_cancellation(
+            rebase.into_editor(),
             commit_id,
             diff_specs,
-            &ChangesSource::Head,
-            DryRun::No,
             context_lines,
-            perm,
+            ChangeSource::Head,
         )?;
-        if !outcome.rejected_specs.is_empty() {
-            tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
+        rebase = next_rebase;
+        if !rejected_specs.is_empty() {
+            tracing::warn!(?rejected_specs, "Failed to commit at least one hunk");
         }
-        for (old, new) in &outcome.workspace.replaced_commits {
-            commit_map.add_mapping(*old, *new);
+        if let Some(commit_selector) = commit_selector {
+            let new_commit = rebase.lookup_pick(commit_selector)?;
+            commit_map.add_mapping(commit_id, new_commit);
         }
-        for (_, spec) in outcome.rejected_specs {
-            rejected_groups.insert((absorption.commit_id, spec.path));
+        for (_, spec) in rejected_specs {
+            rejected_groups.insert((
+                absorption.commit_id,
+                absorption.blank_commit_ref.clone(),
+                spec.path,
+            ));
         }
     }
+
+    if !rejected_groups.is_empty() {
+        return Ok(rejected_groups.len());
+    }
+
+    let mut editor = rebase.into_editor();
+    but_workspace::commit::cancel_consumed_changes(
+        &mut editor,
+        &ChangeSource::Head,
+        accepted_diff_specs,
+        &[],
+        context_lines,
+    )?;
+    let rebase = editor.rebase()?;
+    let materialized = rebase.materialize(Default::default())?;
+    drop(materialized);
+    drop((repo, workspace, db));
+    if let Some(checkpoint) = checkpoint {
+        checkpoint.commit(ctx, perm)?;
+    }
+    crate::diff::changes_in_worktree_with_perm(
+        ctx,
+        ChangesSource::Head,
+        true,
+        perm.read_permission(),
+    )?;
     Ok(rejected_groups.len())
 }
 
@@ -119,17 +229,18 @@ pub fn absorption_plan_with_perm(
     target: AbsorptionTarget,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<Vec<CommitAbsorption>> {
+    let planned_source_snapshot = source_snapshot_tree(ctx, perm.read_permission())?;
     let (candidates, dependencies) = match target {
         AbsorptionTarget::Branch { branch_name } => {
             // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
-            let worktree_changes = crate::diff::changes_in_worktree_with_perm(
-                ctx,
-                ChangesSource::Head,
-                true,
-                perm.read_permission(),
-            )?;
+            let worktree_changes =
+                crate::diff::changes_in_worktree_without_persisting_assignments_with_perm(
+                    ctx,
+                    ChangesSource::Head,
+                    perm.read_permission(),
+                )?;
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
@@ -170,12 +281,12 @@ pub fn absorption_plan_with_perm(
             assigned_stack_id,
         } => {
             // Get all worktree changes, assignments, and dependencies
-            let worktree_changes = crate::diff::changes_in_worktree_with_perm(
-                ctx,
-                ChangesSource::Head,
-                true,
-                perm.read_permission(),
-            )?;
+            let worktree_changes =
+                crate::diff::changes_in_worktree_without_persisting_assignments_with_perm(
+                    ctx,
+                    ChangesSource::Head,
+                    perm.read_permission(),
+                )?;
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
@@ -208,12 +319,12 @@ pub fn absorption_plan_with_perm(
             // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
-            let worktree_changes = crate::diff::changes_in_worktree_with_perm(
-                ctx,
-                ChangesSource::Head,
-                true,
-                perm.read_permission(),
-            )?;
+            let worktree_changes =
+                crate::diff::changes_in_worktree_without_persisting_assignments_with_perm(
+                    ctx,
+                    ChangesSource::Head,
+                    perm.read_permission(),
+                )?;
             (
                 worktree_changes
                     .assignments
@@ -227,10 +338,22 @@ pub fn absorption_plan_with_perm(
 
     // Group all changes by their target commit
     let changes_by_commit =
-        group_changes_by_target_commit(ctx, &candidates, dependencies.as_ref(), perm)?;
+        group_changes_by_target_commit(ctx, &candidates, dependencies.as_ref())?;
 
     // Prepare commit absorptions for display
-    let commit_absorptions = prepare_commit_absorptions(ctx, changes_by_commit)?;
+    let mut commit_absorptions = prepare_commit_absorptions(ctx, changes_by_commit)?;
+    anyhow::ensure!(
+        source_snapshot_tree(ctx, perm.read_permission())? == planned_source_snapshot,
+        "Absorb plan became stale while it was being created; retry planning"
+    );
+    for absorption in &mut commit_absorptions {
+        absorption.source_snapshot_tree = Some(absorption_precondition_tree(
+            ctx,
+            planned_source_snapshot,
+            absorption,
+            ctx.settings.context_lines,
+        )?);
+    }
 
     Ok(commit_absorptions)
 }
@@ -240,32 +363,58 @@ fn group_changes_by_target_commit(
     ctx: &mut Context,
     candidates: &[AbsorbCandidate],
     dependencies: Option<&HunkDependencies>,
-    perm: &mut RepoExclusive,
 ) -> anyhow::Result<GroupedChanges> {
     let mut changes_by_commit: GroupedChanges = BTreeMap::new();
+    let source_hunks = {
+        let repo = ctx.repo.get()?;
+        but_core::worktree_hunks(&repo, ctx.settings.context_lines)?
+    };
 
-    // One projection of the workspace serves every candidate; it is re-read whenever
-    // `ensure_target_commit()` inserts a blank commit.
-    let mut workspace = crate::legacy::workspace::head_info(ctx)?;
+    let workspace = crate::legacy::workspace::head_info(ctx)?;
 
     // Build an index for O(1) lock lookups per candidate
     let lock_index = dependencies.map(build_lock_index);
 
-    // Process each candidate
-    for candidate in candidates {
-        // Determine the target commit for this candidate
+    let candidate_hunks = candidates
+        .iter()
+        .map(|candidate| &candidate.hunk)
+        .collect::<Vec<_>>();
+    for candidate_indices in hunk_groups_by_source(&candidate_hunks, &source_hunks) {
+        let grouped_candidates = candidate_indices
+            .into_iter()
+            .map(|index| &candidates[index])
+            .collect::<Vec<_>>();
+        let candidate = grouped_candidates[0];
+        if grouped_candidates.iter().any(|other| {
+            other.stack_id != candidate.stack_id || other.branch_ref != candidate.branch_ref
+        }) {
+            anyhow::bail!(
+                "Coupled hunk selections have conflicting assignments in path: {}",
+                candidate.hunk.path
+            );
+        }
+        let routing_candidate = grouped_candidates
+            .iter()
+            .copied()
+            .find(|candidate| {
+                candidate
+                    .hunk
+                    .hunk_header
+                    .is_some_and(|header| header.new_lines > 0)
+            })
+            .unwrap_or(candidate);
         let locks = lock_index
             .as_ref()
-            .map(|idx| locks_for_candidate(idx, candidate))
+            .map(|idx| locks_for_candidate(idx, routing_candidate))
             .filter(|l| !l.is_empty());
-        let (stack_id, commit_id, reason) =
-            ensure_target_commit(ctx, candidate, locks.as_deref(), &mut workspace, perm)?;
+        let (stack_id, commit_id, reason, blank_commit_ref) =
+            ensure_target_commit(ctx, candidate, locks.as_deref(), &workspace)?;
 
         let entry = changes_by_commit
-            .entry((stack_id, commit_id))
+            .entry((stack_id, commit_id, blank_commit_ref))
             .or_insert_with(|| (Vec::new(), reason.clone()));
 
-        entry.0.push(candidate.clone());
+        entry.0.extend(grouped_candidates.into_iter().cloned());
         // If we have any hunk dependencies, that takes precedence as the reason for this commit group
         if reason == AbsorptionReason::HunkDependency {
             entry.1 = reason;
@@ -420,18 +569,23 @@ fn ensure_target_commit(
     ctx: &mut Context,
     candidate: &AbsorbCandidate,
     locks: Option<&[HunkLock]>,
-    workspace: &mut RefInfo,
-    perm: &mut RepoExclusive,
+    workspace: &RefInfo,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     gix::ObjectId,
     AbsorptionReason,
+    Option<gix::refs::FullName>,
 )> {
     // Priority 1: Check if there's a dependency lock for this hunk
     if let Some(locks) = locks {
         if let Some(lock) = find_top_most_lock(locks, workspace) {
             if let HunkLockTarget::Stack(stack_id) = lock.target {
-                return Ok((stack_id, lock.commit_id, AbsorptionReason::HunkDependency));
+                return Ok((
+                    stack_id,
+                    lock.commit_id,
+                    AbsorptionReason::HunkDependency,
+                    None,
+                ));
             }
         } else {
             anyhow::bail!(
@@ -447,50 +601,40 @@ fn ensure_target_commit(
 
         let (reference, commit_id) = target_segment(workspace, stack_id, branch_ref)?;
         if let Some(commit_id) = commit_id {
-            return Ok((stack_id, commit_id, AbsorptionReason::StackAssignment));
+            return Ok((stack_id, commit_id, AbsorptionReason::StackAssignment, None));
         }
-
-        // If there are no commits in the target branch, create a blank commit first
-        commit_insert_blank_only_impl(
-            ctx,
-            RelativeTo::Reference(reference),
-            InsertSide::Below,
-            DryRun::No,
-            perm,
-        )?;
-
-        // Project the workspace again to see the newly created commit
-        *workspace = crate::legacy::workspace::head_info(ctx)?;
-        if let (_, Some(commit_id)) = target_segment(workspace, stack_id, branch_ref)? {
-            return Ok((stack_id, commit_id, AbsorptionReason::StackAssignment));
-        }
-
-        anyhow::bail!("Failed to create blank commit in stack: {stack_id:?}");
+        let anchor = ctx
+            .repo
+            .get()?
+            .find_reference(reference.as_ref())?
+            .peel_to_id()?
+            .detach();
+        return Ok((
+            stack_id,
+            anchor,
+            AbsorptionReason::StackAssignment,
+            Some(reference),
+        ));
     }
 
     // Priority 3: If no assignment, find the topmost commit of the leftmost lane
     if let Some(stack_id) = workspace.stacks.first().and_then(|stack| stack.id) {
         let (reference, commit_id) = target_segment(workspace, stack_id, None)?;
         if let Some(commit_id) = commit_id {
-            return Ok((stack_id, commit_id, AbsorptionReason::DefaultStack));
+            return Ok((stack_id, commit_id, AbsorptionReason::DefaultStack, None));
         }
-
-        // If the first stack has no commits, create a blank commit first
-        commit_insert_blank_only_impl(
-            ctx,
-            RelativeTo::Reference(reference),
-            InsertSide::Below,
-            DryRun::No,
-            perm,
-        )?;
-
-        // Now project the workspace again to see the newly created commit
-        *workspace = crate::legacy::workspace::head_info(ctx)?;
-        if let (_, Some(commit_id)) = target_segment(workspace, stack_id, None)? {
-            return Ok((stack_id, commit_id, AbsorptionReason::DefaultStack));
-        }
-
-        anyhow::bail!("Failed to create blank commit in leftmost stack");
+        let anchor = ctx
+            .repo
+            .get()?
+            .find_reference(reference.as_ref())?
+            .peel_to_id()?
+            .detach();
+        return Ok((
+            stack_id,
+            anchor,
+            AbsorptionReason::DefaultStack,
+            Some(reference),
+        ));
     }
 
     anyhow::bail!(
@@ -512,7 +656,7 @@ fn prepare_commit_absorptions(
     let workspace = crate::legacy::workspace::head_info(ctx)?;
     let all_stack_ids = changes_by_commit
         .keys()
-        .map(|(stack_id, _)| *stack_id)
+        .map(|(stack_id, _, _)| *stack_id)
         .unique()
         .collect::<Vec<_>>();
 
@@ -522,7 +666,7 @@ fn prepare_commit_absorptions(
             .with_context(|| format!("Couldn't find {stack_id} in the current workspace"))?;
         for segment in stack.segments.iter().rev() {
             for commit in segment.commits.iter().rev() {
-                let key = (stack_id, commit.id);
+                let key = (stack_id, commit.id, None);
                 if let Some((candidates, reason)) = changes_by_commit.get(&key) {
                     let hunks = candidates
                         .iter()
@@ -531,6 +675,8 @@ fn prepare_commit_absorptions(
                     commit_absorptions.push(CommitAbsorption {
                         stack_id,
                         commit_id: commit.id,
+                        blank_commit_ref: None,
+                        source_snapshot_tree: None,
                         commit_summary: get_commit_summary(&*ctx.repo.get()?, commit.id)?,
                         hunks,
                         reason: reason.clone(),
@@ -540,41 +686,188 @@ fn prepare_commit_absorptions(
         }
     }
 
+    for ((stack_id, commit_id, blank_commit_ref), (candidates, reason)) in &changes_by_commit {
+        let Some(blank_commit_ref) = blank_commit_ref else {
+            continue;
+        };
+        commit_absorptions.push(CommitAbsorption {
+            stack_id: *stack_id,
+            commit_id: *commit_id,
+            blank_commit_ref: Some(blank_commit_ref.clone()),
+            source_snapshot_tree: None,
+            commit_summary: "New commit".into(),
+            hunks: candidates
+                .iter()
+                .map(|candidate| candidate.hunk.clone())
+                .collect(),
+            reason: reason.clone(),
+        });
+    }
+
     Ok(commit_absorptions)
 }
 
-/// Apply each hunk independently, ordered bottom-up within its path. A commit
-/// group can span files or disjoint ranges, so it cannot be safely ordered by
-/// one line number without risking stale selectors in another group.
-fn absorption_steps_for_application(absorptions: Vec<CommitAbsorption>) -> Vec<CommitAbsorption> {
-    let mut steps = absorptions
+/// Preserve selectors from one source diff hunk as one amendment so they retain
+/// their shared coordinate space.
+fn absorption_steps_for_application(
+    absorptions: Vec<CommitAbsorption>,
+    source_hunks: &[but_core::SingleHunk],
+) -> Vec<CommitAbsorption> {
+    absorptions
         .into_iter()
         .flat_map(|absorption| {
-            absorption
-                .hunks
+            let selected_hunks = absorption.hunks.iter().collect::<Vec<_>>();
+            hunk_groups_by_source(&selected_hunks, source_hunks)
                 .into_iter()
-                .map(move |hunk| CommitAbsorption {
+                .map(move |indices| CommitAbsorption {
                     stack_id: absorption.stack_id,
                     commit_id: absorption.commit_id,
+                    blank_commit_ref: absorption.blank_commit_ref.clone(),
+                    source_snapshot_tree: absorption.source_snapshot_tree,
                     commit_summary: absorption.commit_summary.clone(),
-                    hunks: vec![hunk],
+                    hunks: indices
+                        .into_iter()
+                        .map(|index| absorption.hunks[index].clone())
+                        .collect(),
                     reason: absorption.reason.clone(),
                 })
         })
-        .collect::<Vec<_>>();
+        .collect()
+}
 
-    steps.sort_by_key(|absorption| {
-        let hunk = &absorption.hunks[0];
-        (
-            hunk.path.clone(),
-            Reverse(
-                hunk.hunk_header
-                    .map(|header| header.new_start)
-                    .unwrap_or_default(),
-            ),
-        )
-    });
-    steps
+fn source_snapshot_tree(
+    ctx: &Context,
+    perm: &but_core::sync::RepoShared,
+) -> anyhow::Result<gix::ObjectId> {
+    let snapshot_tree = ctx.prepare_snapshot(perm)?;
+    let mut assignments = ctx
+        .db
+        .get_cache()?
+        .hunk_assignments()
+        .list_all()?
+        .into_iter()
+        .map(|assignment| serde_json::to_vec(&assignment))
+        .collect::<Result<Vec<_>, _>>()?;
+    assignments.sort();
+
+    let repo = ctx.repo.get()?;
+    let assignments_blob = repo.write_blob(serde_json::to_vec(&assignments)?)?;
+    let metadata_path = ctx.project_data_dir().join("virtual_branches.toml");
+    let metadata = match std::fs::read(metadata_path) {
+        Ok(metadata) => metadata,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(err) => return Err(err.into()),
+    };
+    let metadata_blob = repo.write_blob(metadata)?;
+    let mut source_tree = repo.find_tree(snapshot_tree)?.edit()?;
+    source_tree.upsert(
+        "virtual_branches.toml",
+        gix::object::tree::EntryKind::Blob,
+        metadata_blob,
+    )?;
+    source_tree.upsert(
+        "hunk-assignments",
+        gix::object::tree::EntryKind::Blob,
+        assignments_blob,
+    )?;
+    Ok(source_tree.write()?.detach())
+}
+
+fn absorption_precondition_tree(
+    ctx: &Context,
+    source_snapshot_tree: gix::ObjectId,
+    absorption: &CommitAbsorption,
+    context_lines: u32,
+) -> anyhow::Result<gix::ObjectId> {
+    let repo = ctx.repo.get()?;
+    let precondition_blob = repo.write_blob(serde_json::to_vec(&serde_json::json!({
+        "stackId": absorption.stack_id.to_string(),
+        "commitId": absorption.commit_id.to_string(),
+        "blankCommitRef": absorption.blank_commit_ref.as_ref().map(ToString::to_string),
+        "commitSummary": absorption.commit_summary,
+        "hunks": absorption.hunks,
+        "reason": absorption.reason,
+        "contextLines": context_lines,
+    }))?)?;
+    let mut precondition_tree = repo.find_tree(source_snapshot_tree)?.edit()?;
+    precondition_tree.upsert(
+        "absorb-plan",
+        gix::object::tree::EntryKind::Blob,
+        precondition_blob,
+    )?;
+    Ok(precondition_tree.write()?.detach())
+}
+
+fn changed_source_components(
+    repo: &gix::Repository,
+    expected: gix::ObjectId,
+    current: gix::ObjectId,
+) -> anyhow::Result<Vec<bstr::BString>> {
+    let entries = |tree_id| -> anyhow::Result<BTreeMap<bstr::BString, gix::ObjectId>> {
+        repo.find_tree(tree_id)?
+            .iter()
+            .map(|entry| {
+                let entry = entry?;
+                Ok((entry.filename().to_owned(), entry.id().detach()))
+            })
+            .collect()
+    };
+    let expected = entries(expected)?;
+    let current = entries(current)?;
+    Ok(expected
+        .keys()
+        .chain(current.keys())
+        .unique()
+        .filter(|name| expected.get(*name) != current.get(*name))
+        .cloned()
+        .collect())
+}
+
+fn hunk_groups_by_source(
+    selected_hunks: &[&but_core::SingleHunk],
+    source_hunks: &[but_core::SingleHunk],
+) -> Vec<Vec<usize>> {
+    let mut groups: Vec<(Option<usize>, Vec<usize>)> = Vec::new();
+    for (selected_index, selected) in selected_hunks.iter().enumerate() {
+        let source_index = source_hunks
+            .iter()
+            .position(|source| hunk_is_within_source(selected, source));
+        if let Some((_, indices)) = groups
+            .iter_mut()
+            .find(|(group_source, _)| source_index.is_some() && *group_source == source_index)
+        {
+            indices.push(selected_index);
+        } else {
+            groups.push((source_index, vec![selected_index]));
+        }
+    }
+    groups.into_iter().map(|(_, indices)| indices).collect()
+}
+
+fn hunk_is_within_source(selected: &but_core::SingleHunk, source: &but_core::SingleHunk) -> bool {
+    if selected.path != source.path {
+        return false;
+    }
+    let (Some(selected), Some(source)) = (selected.hunk_header, source.hunk_header) else {
+        return selected.hunk_header.is_none() && source.hunk_header.is_none();
+    };
+    let side_is_within = |start: u32, lines: u32, source_start: u32, source_lines: u32| {
+        lines == 0
+            || (source_lines > 0
+                && source_start <= start
+                && start.saturating_add(lines) <= source_start.saturating_add(source_lines))
+    };
+    side_is_within(
+        selected.old_start,
+        selected.old_lines,
+        source.old_start,
+        source.old_lines,
+    ) && side_is_within(
+        selected.new_start,
+        selected.new_lines,
+        source.new_start,
+        source.new_lines,
+    )
 }
 
 /// Get the commit summary message
@@ -588,6 +881,925 @@ fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyho
 #[cfg(test)]
 mod tests {
     use super::*;
+    use but_core::RefMetadata as _;
+
+    fn stamp_plan(ctx: &mut Context, plan: &mut [CommitAbsorption]) -> anyhow::Result<()> {
+        let context_lines = ctx.settings.context_lines;
+        let guard = ctx.exclusive_worktree_access();
+        let source_snapshot_tree = source_snapshot_tree(ctx, guard.read_permission())?;
+        for absorption in plan {
+            absorption.source_snapshot_tree = Some(absorption_precondition_tree(
+                ctx,
+                source_snapshot_tree,
+                absorption,
+                context_lines,
+            )?);
+        }
+        Ok(())
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct WorktreeFileState {
+        bytes: Vec<u8>,
+        is_file: bool,
+        is_symlink: bool,
+        symlink_target: Option<std::path::PathBuf>,
+        #[cfg(unix)]
+        mode: u32,
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct AbsorbInvocationState {
+        worktree_files: Vec<(String, Option<WorktreeFileState>)>,
+        index: String,
+        git_status: String,
+        head_name: Option<gix::refs::FullName>,
+        refs: Vec<(String, Option<gix::ObjectId>)>,
+        commits: Vec<CommitState>,
+        project_meta: but_core::ref_metadata::ProjectMeta,
+        workspace_meta: but_core::ref_metadata::Workspace,
+        assignments: Vec<but_db::HunkAssignment>,
+        oplog_head: Option<gix::ObjectId>,
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct CommitState {
+        reference: String,
+        parent_ids: Vec<gix::ObjectId>,
+        blobs: Vec<(String, Option<Vec<u8>>)>,
+    }
+
+    fn reference_id(
+        repo: &gix::Repository,
+        reference: &str,
+    ) -> anyhow::Result<Option<gix::ObjectId>> {
+        let Some(mut reference) = repo.try_find_reference(reference)? else {
+            return Ok(None);
+        };
+        Ok(Some(reference.peel_to_id()?.detach()))
+    }
+
+    fn worktree_file_state(path: &std::path::Path) -> anyhow::Result<Option<WorktreeFileState>> {
+        let metadata = match std::fs::symlink_metadata(path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+        };
+        Ok(Some(WorktreeFileState {
+            bytes: std::fs::read(path)?,
+            is_file: metadata.file_type().is_file(),
+            is_symlink: metadata.file_type().is_symlink(),
+            symlink_target: metadata
+                .file_type()
+                .is_symlink()
+                .then(|| std::fs::read_link(path))
+                .transpose()?,
+            #[cfg(unix)]
+            mode: {
+                use std::os::unix::fs::PermissionsExt;
+
+                metadata.permissions().mode()
+            },
+        }))
+    }
+
+    fn absorb_invocation_state(
+        ctx: &mut Context,
+        worktree: &std::path::Path,
+        worktree_paths: &[&str],
+        references: &[&str],
+        commit_paths: &[(&str, &[&str])],
+    ) -> anyhow::Result<AbsorbInvocationState> {
+        let mut worktree_files = worktree_paths
+            .iter()
+            .map(|path| {
+                Ok((
+                    (*path).to_owned(),
+                    worktree_file_state(&worktree.join(path))?,
+                ))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        worktree_files.sort_by(|left, right| left.0.cmp(&right.0));
+        let (index, git_status, head_name, refs, commits) = {
+            let repo = ctx.repo.get()?;
+            let index = repo.open_index()?;
+            (
+                but_testsupport::visualize_index_with_content(&repo, &index),
+                but_testsupport::git_status(&repo)?,
+                repo.head_name()?.map(|name| name.to_owned()),
+                references
+                    .iter()
+                    .map(|reference| Ok(((*reference).to_owned(), reference_id(&repo, reference)?)))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+                commit_paths
+                    .iter()
+                    .map(|(reference, paths)| {
+                        let commit = repo.find_commit(repo.rev_parse_single(*reference)?)?;
+                        let tree = commit.tree()?;
+                        let blobs = paths
+                            .iter()
+                            .map(|path| {
+                                let blob = tree
+                                    .lookup_entry_by_path(path)?
+                                    .map(|entry| -> anyhow::Result<Vec<u8>> {
+                                        Ok(entry.object()?.into_blob().data.to_vec())
+                                    })
+                                    .transpose()?;
+                                Ok(((*path).to_owned(), blob))
+                            })
+                            .collect::<anyhow::Result<Vec<_>>>()?;
+                        Ok(CommitState {
+                            reference: (*reference).to_owned(),
+                            parent_ids: commit.parent_ids().map(|id| id.detach()).collect(),
+                            blobs,
+                        })
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+            )
+        };
+        let mut assignments = ctx.db.get_cache()?.hunk_assignments().list_all()?;
+        assignments.sort_by(|left, right| {
+            left.path
+                .cmp(&right.path)
+                .then_with(|| left.hunk_header.cmp(&right.hunk_header))
+        });
+        let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
+        let workspace_meta = {
+            let metadata = ctx.meta()?;
+            let workspace = metadata.workspace(workspace_ref.as_ref())?;
+            (*workspace).clone()
+        };
+
+        Ok(AbsorbInvocationState {
+            worktree_files,
+            index,
+            git_status,
+            head_name,
+            refs,
+            commits,
+            project_meta: ctx.project_meta()?,
+            workspace_meta,
+            assignments,
+            oplog_head: ctx.oplog_head()?,
+        })
+    }
+
+    fn state_summary(state: &AbsorbInvocationState) -> String {
+        let worktree_files = state
+            .worktree_files
+            .iter()
+            .map(|(path, file)| {
+                let Some(file) = file else {
+                    return format!("{path}: absent");
+                };
+                let mode: Option<u32> = {
+                    #[cfg(unix)]
+                    {
+                        Some(file.mode)
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        None
+                    }
+                };
+                format!(
+                    "{path}: bytes={:?}, file={}, symlink={}, target={:?}, mode={:?}",
+                    String::from_utf8_lossy(&file.bytes),
+                    file.is_file,
+                    file.is_symlink,
+                    file.symlink_target,
+                    mode,
+                )
+            })
+            .collect::<Vec<_>>();
+        let commits = state
+            .commits
+            .iter()
+            .map(|commit| {
+                (
+                    &commit.reference,
+                    &commit.parent_ids,
+                    commit
+                        .blobs
+                        .iter()
+                        .map(|(path, bytes)| (path, bytes.as_deref().map(String::from_utf8_lossy)))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>();
+        format!(
+            "worktree files: {worktree_files:#?}\n\
+             index: {:?}\n\
+             status: {:?}\n\
+             HEAD: {:?}\n\
+             refs: {:#?}\n\
+             commits: {commits:#?}\n\
+             project metadata: {:#?}\n\
+             workspace metadata: {:#?}\n\
+             assignments: {:#?}\n\
+             oplog head: {:?}",
+            state.index,
+            state.git_status,
+            state.head_name,
+            state.refs,
+            state.project_meta,
+            state.workspace_meta,
+            state.assignments,
+            state.oplog_head,
+        )
+    }
+
+    #[test]
+    fn applicable_hunk_is_absorbed_through_public_planning_and_execution() -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-rejected-hunks");
+        let expected_worktree_content = (1..=20)
+            .map(|line| match line {
+                1 => "unselected change\n".to_owned(),
+                10 => "selected change\n".to_owned(),
+                _ => format!("line {line}\n"),
+            })
+            .collect::<String>();
+        let expected_target_content = (1..=20)
+            .map(|line| match line {
+                10 => "selected change\n".to_owned(),
+                _ => format!("line {line}\n"),
+            })
+            .collect::<String>();
+        let feature_commit = repo.head_id()?.detach();
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+
+        let plan = absorption_plan(
+            &mut ctx,
+            AbsorptionTarget::Hunks {
+                hunks: vec![but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: 10,
+                        old_lines: 1,
+                        new_start: 10,
+                        new_lines: 1,
+                    }),
+                    path: "shared.txt".into(),
+                    diff: None,
+                }],
+            },
+        )?;
+
+        assert_eq!(
+            plan.len(),
+            1,
+            "the selected hunk produces one planned target"
+        );
+        assert_eq!(
+            plan[0].commit_id, feature_commit,
+            "planning routes the selected line to the feature commit"
+        );
+
+        let rejected = absorb(&mut ctx, plan)?;
+
+        assert_eq!(rejected, 0, "the applicable hunk is not rejected");
+        let repo = ctx.repo.get()?;
+        let tree = repo
+            .find_commit(repo.rev_parse_single("refs/heads/feature")?)?
+            .tree()?;
+        let blob = tree
+            .lookup_entry_by_path("shared.txt")?
+            .expect("committed file")
+            .object()?
+            .into_blob();
+        assert_eq!(
+            blob.data,
+            expected_target_content.as_bytes(),
+            "the selected line is absorbed into the planned commit"
+        );
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("shared.txt"))?,
+            expected_worktree_content,
+            "the worktree retains its exact user-visible bytes"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn source_change_after_planning_fails_without_publishing() -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-rejected-hunks");
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let plan = absorption_plan(
+            &mut ctx,
+            AbsorptionTarget::Hunks {
+                hunks: vec![but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: 10,
+                        old_lines: 1,
+                        new_start: 10,
+                        new_lines: 1,
+                    }),
+                    path: "shared.txt".into(),
+                    diff: None,
+                }],
+            },
+        )?;
+        let path = tmp.path().join("shared.txt");
+        let changed_source = std::fs::read_to_string(&path)?
+            .replace("selected change\n", "changed after planning\n");
+        std::fs::write(&path, changed_source)?;
+        let before = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &["refs/heads/feature", "refs/remotes/origin/main"],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+
+        let err = absorb(&mut ctx, plan).expect_err("a stale source plan must fail");
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &["refs/heads/feature", "refs/remotes/origin/main"],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+
+        assert!(
+            err.to_string().contains("stale"),
+            "the caller receives an actionable stale-plan error: {err:#}"
+        );
+        assert_eq!(
+            after, before,
+            "a stale plan leaves invocation state unchanged"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn assignment_change_after_planning_fails_without_publishing() -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-rejected-hunks");
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
+
+        {
+            let guard = ctx.exclusive_worktree_access();
+            crate::diff::changes_in_worktree_with_perm(
+                &ctx,
+                ChangesSource::Head,
+                true,
+                guard.read_permission(),
+            )?;
+        }
+        let before = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &["refs/heads/feature", "refs/remotes/origin/main"],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+
+        let err = absorb(&mut ctx, plan).expect_err("changed routing state must stale the plan");
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &["refs/heads/feature", "refs/remotes/origin/main"],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+
+        assert!(
+            err.to_string().contains("stale"),
+            "the caller receives an actionable stale-plan error: {err:#}"
+        );
+        assert_eq!(
+            after, before,
+            "changed assignment state leaves invocation state unchanged"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn changed_or_unstamped_plan_preconditions_fail_without_publishing() -> anyhow::Result<()> {
+        for mutation in ["route", "context", "unstamped"] {
+            let (repo, tmp) = but_testsupport::writable_scenario("absorb-rejected-hunks");
+            but_core::ref_metadata::ProjectMeta {
+                target_ref: Some("refs/remotes/origin/main".try_into()?),
+                target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+                push_remote: None,
+            }
+            .persist(&repo)?;
+            let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+            ctx.settings.context_lines = 0;
+            let mut plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
+
+            match mutation {
+                "route" => {
+                    plan[0].commit_id = ctx
+                        .repo
+                        .get()?
+                        .rev_parse_single("refs/remotes/origin/main")?
+                        .detach();
+                }
+                "context" => ctx.settings.context_lines = 3,
+                "unstamped" => plan[0].source_snapshot_tree = None,
+                _ => unreachable!("all mutation cases are listed above"),
+            }
+
+            let before = absorb_invocation_state(
+                &mut ctx,
+                tmp.path(),
+                &["shared.txt"],
+                &["refs/heads/feature", "refs/remotes/origin/main"],
+                &[("refs/heads/feature", &["shared.txt"])],
+            )?;
+            let err = absorb(&mut ctx, plan)
+                .expect_err("a changed or unstamped plan precondition must fail");
+            let after = absorb_invocation_state(
+                &mut ctx,
+                tmp.path(),
+                &["shared.txt"],
+                &["refs/heads/feature", "refs/remotes/origin/main"],
+                &[("refs/heads/feature", &["shared.txt"])],
+            )?;
+
+            assert!(
+                err.to_string().contains("stale"),
+                "{mutation} returns an actionable stale-plan error: {err:#}"
+            );
+            assert_eq!(
+                after, before,
+                "{mutation} leaves invocation state unchanged"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn rejected_hunk_after_applicable_hunk_leaves_public_absorb_invocation_unchanged()
+    -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-rejected-hunks");
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let before = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+
+        let plan = absorption_plan(
+            &mut ctx,
+            AbsorptionTarget::Hunks {
+                hunks: [10, 5]
+                    .into_iter()
+                    .map(|line| but_core::SingleHunk {
+                        hunk_header: Some(but_core::HunkHeader {
+                            old_start: line,
+                            old_lines: 1,
+                            new_start: line,
+                            new_lines: 1,
+                        }),
+                        path: "shared.txt".into(),
+                        diff: None,
+                    })
+                    .collect(),
+            },
+        )?;
+        assert_eq!(
+            plan.iter()
+                .map(|absorption| absorption.hunks.len())
+                .sum::<usize>(),
+            2,
+            "planning retains both selected hunk candidates for execution"
+        );
+
+        let rejected = absorb(&mut ctx, plan)?;
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+
+        assert!(
+            rejected > 0 && after == before,
+            "a rejected invocation must not publish an earlier applicable amendment; \
+             rejected groups: {rejected};\nstate before:\n{}\nstate after:\n{}",
+            state_summary(&before),
+            state_summary(&after),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn rejection_on_one_independent_branch_leaves_all_planned_branches_unchanged()
+    -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-independent-branches");
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let a_commit = repo.rev_parse_single("refs/heads/A")?.detach();
+        let b_commit = repo.rev_parse_single("refs/heads/B")?.detach();
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        {
+            let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
+            let mut metadata = ctx.meta()?;
+            let mut workspace = metadata.workspace(workspace_ref.as_ref())?;
+            for branch in ["A", "B"] {
+                let branch_ref: gix::refs::FullName = format!("refs/heads/{branch}").try_into()?;
+                workspace.add_or_insert_new_stack_if_not_present(
+                    branch_ref.as_ref(),
+                    None,
+                    but_core::ref_metadata::WorkspaceCommitRelation::Merged,
+                    |_| StackId::generate(),
+                );
+            }
+            metadata.set_workspace(&workspace)?;
+        }
+        let before = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["a.txt", "b.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/A",
+                "refs/heads/B",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[
+                ("refs/heads/A", &["a.txt"]),
+                ("refs/heads/B", &["b.txt"]),
+                ("refs/heads/gitbutler/workspace", &["a.txt", "b.txt"]),
+            ],
+        )?;
+
+        let mut plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
+        assert_eq!(
+            plan.len(),
+            2,
+            "the independent fixture produces one planned target on each branch"
+        );
+        let planned_targets = plan
+            .iter()
+            .map(|absorption| {
+                (
+                    absorption.commit_id,
+                    absorption
+                        .hunks
+                        .iter()
+                        .map(|hunk| hunk.path.to_string())
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            planned_targets.contains(&(a_commit, vec!["a.txt".to_owned()])),
+            "a.txt is locked to A rather than routed by workspace order: {planned_targets:#?}"
+        );
+        assert!(
+            planned_targets.contains(&(b_commit, vec!["b.txt".to_owned()])),
+            "b.txt is locked to B rather than routed by workspace order: {planned_targets:#?}"
+        );
+
+        let b_absorption = plan
+            .iter_mut()
+            .find(|absorption| absorption.commit_id == b_commit)
+            .expect("planning includes B's selected hunk");
+        assert_eq!(
+            b_absorption.hunks.len(),
+            1,
+            "the fixture has one selected hunk on B"
+        );
+        b_absorption.hunks[0].hunk_header = Some(but_core::HunkHeader {
+            old_start: 5,
+            old_lines: 1,
+            new_start: 5,
+            new_lines: 1,
+        });
+
+        stamp_plan(&mut ctx, &mut plan)?;
+        let rejected = absorb(&mut ctx, plan)?;
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["a.txt", "b.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/A",
+                "refs/heads/B",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[
+                ("refs/heads/A", &["a.txt"]),
+                ("refs/heads/B", &["b.txt"]),
+                ("refs/heads/gitbutler/workspace", &["a.txt", "b.txt"]),
+            ],
+        )?;
+
+        assert!(
+            rejected > 0 && after == before,
+            "a rejection on B must not publish the independently planned A amendment; \
+             rejected groups: {rejected};\nstate before:\n{}\nstate after:\n{}",
+            state_summary(&before),
+            state_summary(&after),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn planning_blank_commit_before_rejection_leaves_invocation_unchanged() -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-independent-branches");
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        {
+            let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
+            let mut metadata = ctx.meta()?;
+            let mut workspace = metadata.workspace(workspace_ref.as_ref())?;
+            for branch in ["A", "B"] {
+                let branch_ref: gix::refs::FullName = format!("refs/heads/{branch}").try_into()?;
+                workspace.add_or_insert_new_stack_if_not_present(
+                    branch_ref.as_ref(),
+                    None,
+                    but_core::ref_metadata::WorkspaceCommitRelation::Merged,
+                    |_| StackId::generate(),
+                );
+            }
+            metadata.set_workspace(&workspace)?;
+        }
+        let empty_branch: gix::refs::FullName = "refs/heads/empty".try_into()?;
+        let a_branch: gix::refs::FullName = "refs/heads/A".try_into()?;
+        crate::branch::branch_create(
+            &mut ctx,
+            Some(empty_branch.clone()),
+            crate::branch::json::BranchCreatePlacement::Dependent {
+                relative_to: crate::commit::json::RelativeTo::Reference(a_branch.clone()),
+                side: InsertSide::Above,
+            },
+        )?;
+        std::fs::write(tmp.path().join("empty.txt"), "new empty-branch content\n")?;
+
+        crate::diff::assign_hunk_only(
+            &ctx,
+            vec![but_hunk_assignment::HunkAssignmentRequest {
+                hunk_header: Some(but_core::HunkHeader {
+                    old_start: 1,
+                    old_lines: 0,
+                    new_start: 1,
+                    new_lines: 1,
+                }),
+                path_bytes: bstr::BString::from("empty.txt"),
+                target: Some(but_hunk_assignment::HunkAssignmentTarget::Branch {
+                    branch_ref_bytes: bstr::BString::from(empty_branch.to_string().as_bytes()),
+                }),
+            }],
+        )?;
+        let before = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["a.txt", "b.txt", "empty.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/A",
+                "refs/heads/B",
+                "refs/heads/empty",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[
+                ("refs/heads/A", &["a.txt"]),
+                ("refs/heads/B", &["b.txt"]),
+                ("refs/heads/empty", &["empty.txt"]),
+                ("refs/heads/gitbutler/workspace", &["a.txt", "b.txt"]),
+            ],
+        )?;
+
+        let mut plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
+        let b_commit = ctx.repo.get()?.rev_parse_single("refs/heads/B")?.detach();
+        let b_absorption = plan
+            .iter_mut()
+            .find(|absorption| absorption.commit_id == b_commit)
+            .expect("planning includes B's selected hunk");
+        b_absorption.hunks[0].hunk_header = Some(but_core::HunkHeader {
+            old_start: 5,
+            old_lines: 1,
+            new_start: 5,
+            new_lines: 1,
+        });
+
+        stamp_plan(&mut ctx, &mut plan)?;
+        let empty_absorption = plan
+            .iter()
+            .find(|absorption| absorption.blank_commit_ref.as_ref() == Some(&empty_branch))
+            .expect("planning defers a target for the empty branch");
+        assert_eq!(
+            empty_absorption.commit_id,
+            ctx.repo
+                .get()?
+                .rev_parse_single("refs/heads/empty")?
+                .detach(),
+            "the deferred plan anchors the empty branch's current target"
+        );
+
+        let rejected = absorb(&mut ctx, plan)?;
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["a.txt", "b.txt", "empty.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/A",
+                "refs/heads/B",
+                "refs/heads/empty",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[
+                ("refs/heads/A", &["a.txt"]),
+                ("refs/heads/B", &["b.txt"]),
+                ("refs/heads/empty", &["empty.txt"]),
+                ("refs/heads/gitbutler/workspace", &["a.txt", "b.txt"]),
+            ],
+        )?;
+        assert!(
+            rejected > 0 && after == before,
+            "a later rejection must roll back planner-created commits and assignments; \
+             rejected groups: {rejected};\nstate before:\n{}\nstate after:\n{}",
+            state_summary(&before),
+            state_summary(&after),
+        );
+
+        let empty_before = ctx
+            .repo
+            .get()?
+            .rev_parse_single("refs/heads/empty")?
+            .detach();
+        let empty_plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?
+            .into_iter()
+            .filter(|absorption| absorption.blank_commit_ref.as_ref() == Some(&empty_branch))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            empty_plan.len(),
+            1,
+            "the successful control has one deferred empty-branch target"
+        );
+        assert_eq!(
+            absorb(&mut ctx, empty_plan)?,
+            0,
+            "the deferred empty-branch absorption succeeds"
+        );
+        let repo = ctx.repo.get()?;
+        let empty_after = repo.rev_parse_single("refs/heads/empty")?.detach();
+        assert_ne!(
+            empty_after, empty_before,
+            "successful execution publishes the staged blank commit"
+        );
+        let blob = repo
+            .find_commit(empty_after)?
+            .tree()?
+            .lookup_entry_by_path("empty.txt")?
+            .expect("empty branch contains the absorbed file")
+            .object()?
+            .into_blob();
+        assert_eq!(
+            blob.data, b"new empty-branch content\n",
+            "the staged blank commit receives the selected content"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn independent_branch_absorption_succeeds_for_all_planned_targets() -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-independent-branches");
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        {
+            let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
+            let mut metadata = ctx.meta()?;
+            let mut workspace = metadata.workspace(workspace_ref.as_ref())?;
+            for branch in ["A", "B"] {
+                let branch_ref: gix::refs::FullName = format!("refs/heads/{branch}").try_into()?;
+                workspace.add_or_insert_new_stack_if_not_present(
+                    branch_ref.as_ref(),
+                    None,
+                    but_core::ref_metadata::WorkspaceCommitRelation::Merged,
+                    |_| StackId::generate(),
+                );
+            }
+            metadata.set_workspace(&workspace)?;
+        }
+        let a_before = ctx.repo.get()?.rev_parse_single("refs/heads/A")?.detach();
+        let b_before = ctx.repo.get()?.rev_parse_single("refs/heads/B")?.detach();
+        let before_files = ["a.txt", "b.txt"]
+            .map(|path| std::fs::read_to_string(tmp.path().join(path)))
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        {
+            let guard = ctx.exclusive_worktree_access();
+            crate::diff::changes_in_worktree_with_perm(
+                &ctx,
+                ChangesSource::Head,
+                true,
+                guard.read_permission(),
+            )?;
+        }
+        assert!(
+            !ctx.db
+                .get_cache()?
+                .hunk_assignments()
+                .list_all()?
+                .is_empty(),
+            "the control starts with persisted worktree assignments"
+        );
+
+        let plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
+        assert_eq!(plan.len(), 2, "both independent changes are planned");
+        let rejected = absorb(&mut ctx, plan)?;
+        assert_eq!(rejected, 0, "both eligible independent targets succeed");
+        assert_ne!(
+            ctx.repo.get()?.rev_parse_single("refs/heads/A")?.detach(),
+            a_before,
+            "A is amended exactly once"
+        );
+        assert_ne!(
+            ctx.repo.get()?.rev_parse_single("refs/heads/B")?.detach(),
+            b_before,
+            "B is amended exactly once"
+        );
+        let after_files = ["a.txt", "b.txt"]
+            .map(|path| std::fs::read_to_string(tmp.path().join(path)))
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?;
+        assert_eq!(
+            after_files, before_files,
+            "successful absorb preserves worktree bytes"
+        );
+        assert!(
+            but_core::worktree_hunks(&*ctx.repo.get()?, 0)?.is_empty(),
+            "all accepted groups are absent from the residual worktree diff"
+        );
+        assert!(
+            ctx.db
+                .get_cache()?
+                .hunk_assignments()
+                .list_all()?
+                .is_empty(),
+            "consumed worktree hunks leave no stale assignment rows"
+        );
+        Ok(())
+    }
 
     #[test]
     fn rejected_hunks_are_counted_once_per_original_commit_and_path() -> anyhow::Result<()> {
@@ -608,9 +1820,11 @@ mod tests {
         .persist(&repo)?;
         let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
         ctx.settings.context_lines = 0;
-        let plan = vec![CommitAbsorption {
+        let mut plan = vec![CommitAbsorption {
             stack_id: StackId::generate(),
             commit_id,
+            blank_commit_ref: None,
+            source_snapshot_tree: None,
             commit_summary: "add shared file".into(),
             hunks: [5, 10, 18]
                 .into_iter()
@@ -627,6 +1841,7 @@ mod tests {
                 .collect(),
             reason: AbsorptionReason::HunkDependency,
         }];
+        stamp_plan(&mut ctx, &mut plan)?;
         let mut guard = ctx.exclusive_worktree_access();
         let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
 
@@ -643,8 +1858,8 @@ mod tests {
             .into_blob();
         assert_eq!(
             blob.data,
-            content.replace("line 10\n", "selected change\n").as_bytes(),
-            "the valid hunk must be absorbed between the two rejections"
+            content.as_bytes(),
+            "a rejection must leave the target commit unchanged"
         );
         assert_eq!(
             std::fs::read_to_string(tmp.path().join("shared.txt"))?,
@@ -655,7 +1870,529 @@ mod tests {
     }
 
     #[test]
-    fn absorption_steps_preserve_per_path_descending_hunk_order() {
+    fn paired_old_and_new_hunk_selections_preserve_their_shared_replacement() -> anyhow::Result<()>
+    {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-paired-selection");
+        let worktree_content = (1..=10)
+            .map(|line| format!("new-{line:02}\n"))
+            .collect::<String>();
+        let expected_target_content = (1..=10)
+            .map(|line| {
+                if line == 5 {
+                    "new-05\n".to_owned()
+                } else {
+                    format!("old-{line:02}\n")
+                }
+            })
+            .collect::<String>();
+        let initial_hunks = but_core::worktree_hunks(&repo, 0)?;
+        assert_eq!(
+            initial_hunks.len(),
+            1,
+            "the fixture begins as one zero-context replacement hunk"
+        );
+        assert_eq!(
+            initial_hunks[0].hunk_header,
+            Some(but_core::HunkHeader {
+                old_start: 1,
+                old_lines: 10,
+                new_start: 1,
+                new_lines: 10,
+            }),
+            "the fixture's only hunk spans both ten-line images"
+        );
+
+        let commit_id = repo.head_id()?.detach();
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let mut plan = vec![CommitAbsorption {
+            stack_id: StackId::generate(),
+            commit_id,
+            blank_commit_ref: None,
+            source_snapshot_tree: None,
+            commit_summary: "add selected lines".into(),
+            hunks: vec![
+                but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: 5,
+                        old_lines: 1,
+                        new_start: 0,
+                        new_lines: 0,
+                    }),
+                    path: "selected.txt".into(),
+                    diff: None,
+                },
+                but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: 0,
+                        old_lines: 0,
+                        new_start: 5,
+                        new_lines: 1,
+                    }),
+                    path: "selected.txt".into(),
+                    diff: None,
+                },
+            ],
+            reason: AbsorptionReason::HunkDependency,
+        }];
+        stamp_plan(&mut ctx, &mut plan)?;
+
+        let mut guard = ctx.exclusive_worktree_access();
+        let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
+
+        assert_eq!(rejected, 0, "paired selections must both be accepted");
+        let repo = ctx.repo.get()?;
+        let tree = repo.head_commit()?.tree()?;
+        let blob = tree
+            .lookup_entry_by_path("selected.txt")?
+            .expect("committed file")
+            .object()?
+            .into_blob();
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("selected.txt"))?,
+            worktree_content,
+            "a successful absorb preserves the worktree bytes"
+        );
+        assert_eq!(
+            but_core::worktree_hunks(&repo, 0)?
+                .into_iter()
+                .map(|hunk| hunk.hunk_header.expect("text hunk"))
+                .collect::<Vec<_>>(),
+            [
+                but_core::HunkHeader {
+                    old_start: 1,
+                    old_lines: 4,
+                    new_start: 1,
+                    new_lines: 4,
+                },
+                but_core::HunkHeader {
+                    old_start: 6,
+                    old_lines: 5,
+                    new_start: 6,
+                    new_lines: 5,
+                },
+            ],
+            "the residual diff excludes only the paired replacement"
+        );
+        assert_eq!(
+            blob.data,
+            expected_target_content.as_bytes(),
+            "only the selected replacement line belongs in the target commit"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn multiple_old_side_hunk_selections_do_not_use_shifted_coordinates() -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-paired-selection");
+        let worktree_content = (1..=10)
+            .map(|line| format!("new-{line:02}\n"))
+            .collect::<String>();
+        let expected_target_content = [1, 3, 4, 5, 6, 8, 9, 10]
+            .into_iter()
+            .map(|line| format!("old-{line:02}\n"))
+            .collect::<String>();
+        assert_eq!(
+            but_core::worktree_hunks(&repo, 0)?.len(),
+            1,
+            "the fixture begins as one zero-context replacement hunk"
+        );
+
+        let commit_id = repo.head_id()?.detach();
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let mut plan = vec![CommitAbsorption {
+            stack_id: StackId::generate(),
+            commit_id,
+            blank_commit_ref: None,
+            source_snapshot_tree: None,
+            commit_summary: "add selected lines".into(),
+            hunks: [2, 7]
+                .into_iter()
+                .map(|old_start| but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start,
+                        old_lines: 1,
+                        new_start: 0,
+                        new_lines: 0,
+                    }),
+                    path: "selected.txt".into(),
+                    diff: None,
+                })
+                .collect(),
+            reason: AbsorptionReason::HunkDependency,
+        }];
+        stamp_plan(&mut ctx, &mut plan)?;
+
+        let mut guard = ctx.exclusive_worktree_access();
+        let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
+
+        assert_eq!(rejected, 0, "both old-side selections must be accepted");
+        let repo = ctx.repo.get()?;
+        let tree = repo.head_commit()?.tree()?;
+        let blob = tree
+            .lookup_entry_by_path("selected.txt")?
+            .expect("committed file")
+            .object()?
+            .into_blob();
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("selected.txt"))?,
+            worktree_content,
+            "a successful absorb preserves the worktree bytes"
+        );
+        assert_eq!(
+            but_core::worktree_hunks(&repo, 0)?
+                .into_iter()
+                .map(|hunk| hunk.hunk_header.expect("text hunk"))
+                .collect::<Vec<_>>(),
+            [but_core::HunkHeader {
+                old_start: 1,
+                old_lines: 8,
+                new_start: 1,
+                new_lines: 10,
+            }],
+            "the residual diff contains every new line against the reduced target"
+        );
+        assert_eq!(
+            blob.data,
+            expected_target_content.as_bytes(),
+            "only the selected original lines are removed from the target"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn mixed_full_and_paired_hunk_selections_preserve_only_selected_content() -> anyhow::Result<()>
+    {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-mixed-selection");
+        let worktree_content = (1..=22)
+            .map(|line| match line {
+                1..=4 | 13..=22 => format!("new-{line:02}\n"),
+                5..=12 => format!("stable-{line:02}\n"),
+                _ => unreachable!("fixture line is within its documented range"),
+            })
+            .collect::<String>();
+        let expected_target_content = (1..=22)
+            .map(|line| match line {
+                1..=4 | 15 => format!("new-{line:02}\n"),
+                5..=12 => format!("stable-{line:02}\n"),
+                13..=14 | 16..=22 => format!("old-{line:02}\n"),
+                _ => unreachable!("fixture line is within its documented range"),
+            })
+            .collect::<String>();
+        assert_eq!(
+            but_core::worktree_hunks(&repo, 0)?
+                .into_iter()
+                .map(|hunk| hunk.hunk_header.expect("text hunk"))
+                .collect::<Vec<_>>(),
+            [
+                but_core::HunkHeader {
+                    old_start: 1,
+                    old_lines: 4,
+                    new_start: 1,
+                    new_lines: 4,
+                },
+                but_core::HunkHeader {
+                    old_start: 13,
+                    old_lines: 10,
+                    new_start: 13,
+                    new_lines: 10,
+                },
+            ],
+            "the fixture begins with two independent zero-context replacement hunks"
+        );
+
+        let commit_id = repo.head_id()?.detach();
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let mut plan = vec![CommitAbsorption {
+            stack_id: StackId::generate(),
+            commit_id,
+            blank_commit_ref: None,
+            source_snapshot_tree: None,
+            commit_summary: "add selected regions".into(),
+            hunks: vec![
+                but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: 1,
+                        old_lines: 4,
+                        new_start: 1,
+                        new_lines: 4,
+                    }),
+                    path: "selected.txt".into(),
+                    diff: None,
+                },
+                but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: 15,
+                        old_lines: 1,
+                        new_start: 0,
+                        new_lines: 0,
+                    }),
+                    path: "selected.txt".into(),
+                    diff: None,
+                },
+                but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: 0,
+                        old_lines: 0,
+                        new_start: 15,
+                        new_lines: 1,
+                    }),
+                    path: "selected.txt".into(),
+                    diff: None,
+                },
+            ],
+            reason: AbsorptionReason::HunkDependency,
+        }];
+        stamp_plan(&mut ctx, &mut plan)?;
+
+        let mut guard = ctx.exclusive_worktree_access();
+        let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
+
+        assert_eq!(rejected, 0, "all mixed selections must be accepted");
+        let repo = ctx.repo.get()?;
+        let tree = repo.head_commit()?.tree()?;
+        let blob = tree
+            .lookup_entry_by_path("selected.txt")?
+            .expect("committed file")
+            .object()?
+            .into_blob();
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("selected.txt"))?,
+            worktree_content,
+            "a successful absorb preserves the worktree bytes"
+        );
+        assert_eq!(
+            but_core::worktree_hunks(&repo, 0)?
+                .into_iter()
+                .map(|hunk| hunk.hunk_header.expect("text hunk"))
+                .collect::<Vec<_>>(),
+            [
+                but_core::HunkHeader {
+                    old_start: 13,
+                    old_lines: 2,
+                    new_start: 13,
+                    new_lines: 2,
+                },
+                but_core::HunkHeader {
+                    old_start: 16,
+                    old_lines: 7,
+                    new_start: 16,
+                    new_lines: 7,
+                },
+            ],
+            "the residual diff excludes the full hunk and the selected paired line"
+        );
+        assert_eq!(
+            blob.data,
+            expected_target_content.as_bytes(),
+            "the target contains the full first hunk and only the paired second-region line"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn planner_and_executor_preserve_paired_hunk_selection_content() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("absorb-paired-selection");
+        let expected_target_content = (1..=10)
+            .map(|line| {
+                if line == 5 {
+                    "new-05\n".to_owned()
+                } else {
+                    format!("old-{line:02}\n")
+                }
+            })
+            .collect::<String>();
+        let commit_id = repo.head_id()?.detach();
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let selected_hunks = vec![
+            but_core::SingleHunk {
+                hunk_header: Some(but_core::HunkHeader {
+                    old_start: 5,
+                    old_lines: 1,
+                    new_start: 0,
+                    new_lines: 0,
+                }),
+                path: "selected.txt".into(),
+                diff: None,
+            },
+            but_core::SingleHunk {
+                hunk_header: Some(but_core::HunkHeader {
+                    old_start: 0,
+                    old_lines: 0,
+                    new_start: 5,
+                    new_lines: 1,
+                }),
+                path: "selected.txt".into(),
+                diff: None,
+            },
+        ];
+
+        let mut guard = ctx.exclusive_worktree_access();
+        let plan = absorption_plan_with_perm(
+            &mut ctx,
+            AbsorptionTarget::Hunks {
+                hunks: selected_hunks,
+            },
+            guard.write_permission(),
+        )?;
+
+        assert_eq!(
+            plan.len(),
+            1,
+            "the single-target fixture produces one absorption destination"
+        );
+        assert_eq!(
+            plan[0].commit_id, commit_id,
+            "both selections are routed to the only mutable target commit"
+        );
+        assert_eq!(
+            plan[0]
+                .hunks
+                .iter()
+                .map(|hunk| hunk.hunk_header.expect("text hunk"))
+                .collect::<Vec<_>>(),
+            [
+                but_core::HunkHeader {
+                    old_start: 5,
+                    old_lines: 1,
+                    new_start: 0,
+                    new_lines: 0,
+                },
+                but_core::HunkHeader {
+                    old_start: 0,
+                    old_lines: 0,
+                    new_start: 5,
+                    new_lines: 1,
+                },
+            ],
+            "planning retains the caller's paired-selector order"
+        );
+
+        let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
+
+        assert_eq!(rejected, 0, "the routed paired selections must be accepted");
+        let repo = ctx.repo.get()?;
+        let tree = repo.head_commit()?.tree()?;
+        let blob = tree
+            .lookup_entry_by_path("selected.txt")?
+            .expect("committed file")
+            .object()?
+            .into_blob();
+        assert_eq!(
+            blob.data,
+            expected_target_content.as_bytes(),
+            "routing must not lose the pair's selection meaning before execution"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn planner_does_not_split_a_paired_selection_across_dependency_targets() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("absorb-paired-routing");
+        let first_region_commit = repo.rev_parse_single("HEAD~1")?.detach();
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let paired_hunks = vec![
+            but_core::SingleHunk {
+                hunk_header: Some(but_core::HunkHeader {
+                    old_start: 5,
+                    old_lines: 1,
+                    new_start: 0,
+                    new_lines: 0,
+                }),
+                path: "routed.txt".into(),
+                diff: None,
+            },
+            but_core::SingleHunk {
+                hunk_header: Some(but_core::HunkHeader {
+                    old_start: 0,
+                    old_lines: 0,
+                    new_start: 5,
+                    new_lines: 1,
+                }),
+                path: "routed.txt".into(),
+                diff: None,
+            },
+        ];
+
+        let mut guard = ctx.exclusive_worktree_access();
+        let plan = absorption_plan_with_perm(
+            &mut ctx,
+            AbsorptionTarget::Hunks {
+                hunks: paired_hunks,
+            },
+            guard.write_permission(),
+        )?;
+
+        assert_eq!(
+            plan.len(),
+            1,
+            "a coupled pair must not be split across candidate destinations"
+        );
+        assert_eq!(
+            plan[0].commit_id, first_region_commit,
+            "the pair belongs to the commit that last changed its first-region lines"
+        );
+        assert_eq!(
+            plan[0]
+                .hunks
+                .iter()
+                .map(|hunk| hunk.hunk_header.expect("text hunk"))
+                .collect::<Vec<_>>(),
+            [
+                but_core::HunkHeader {
+                    old_start: 5,
+                    old_lines: 1,
+                    new_start: 0,
+                    new_lines: 0,
+                },
+                but_core::HunkHeader {
+                    old_start: 0,
+                    old_lines: 0,
+                    new_start: 5,
+                    new_lines: 1,
+                },
+            ],
+            "the routed group retains both sides in caller order"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn absorption_steps_preserve_source_hunk_groups() {
         let stack_id = StackId::generate();
         let commit_id = gix::ObjectId::from_hex(b"0000000000000000000000000000000000000000")
             .expect("valid object ID");
@@ -672,43 +2409,57 @@ mod tests {
         let absorption = |summary: &str, hunks| CommitAbsorption {
             stack_id,
             commit_id,
+            blank_commit_ref: None,
+            source_snapshot_tree: None,
             commit_summary: summary.to_owned(),
             hunks,
             reason: AbsorptionReason::HunkDependency,
         };
-        let steps = absorption_steps_for_application(vec![
-            absorption(
-                "A",
-                vec![
-                    hunk_at("shared.txt", 10),
-                    hunk_at("other.txt", 1),
-                    hunk_at("shared.txt", 100),
-                ],
-            ),
-            absorption("B", vec![hunk_at("shared.txt", 50)]),
-        ]);
+        let steps = absorption_steps_for_application(
+            vec![
+                absorption(
+                    "A",
+                    vec![
+                        hunk_at("shared.txt", 10),
+                        hunk_at("other.txt", 1),
+                        hunk_at("shared.txt", 100),
+                    ],
+                ),
+                absorption("B", vec![hunk_at("shared.txt", 50)]),
+            ],
+            &[
+                but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: 1,
+                        old_lines: 100,
+                        new_start: 1,
+                        new_lines: 100,
+                    }),
+                    path: "shared.txt".into(),
+                    diff: None,
+                },
+                hunk_at("other.txt", 1),
+            ],
+        );
 
         assert_eq!(
-            steps
-                .iter()
-                .filter(|step| step.hunks[0].path == "shared.txt")
-                .map(|step| {
-                    (
-                        step.commit_summary.as_str(),
-                        step.hunks[0]
-                            .hunk_header
-                            .expect("test hunk has a header")
-                            .new_start,
-                    )
-                })
-                .collect::<Vec<_>>(),
-            [("A", 100), ("B", 50), ("A", 10)],
-            "each shared path must be applied in descending line order regardless of unrelated hunks"
+            steps.len(),
+            3,
+            "selectors from independent source hunks become separate steps"
         );
-        assert!(
-            steps.iter().all(|step| step.hunks.len() == 1),
-            "application steps must not couple unrelated hunk positions"
+        assert_eq!(steps[0].commit_summary, "A");
+        assert_eq!(
+            steps[0].hunks.len(),
+            2,
+            "selectors from one source hunk retain their shared coordinates"
         );
+        assert_eq!(steps[1].commit_summary, "A");
+        assert_eq!(
+            steps[1].hunks.len(),
+            1,
+            "an independent file remains a separate step"
+        );
+        assert_eq!(steps[2].commit_summary, "B");
     }
 
     #[test]
