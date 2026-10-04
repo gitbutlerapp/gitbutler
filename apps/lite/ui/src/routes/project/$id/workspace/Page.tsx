@@ -10,6 +10,7 @@ import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
+	hostedMachinesQueryOptions,
 	listProjectsQueryOptions,
 	operatingModeQueryOptions,
 	worktreeChangesQueryOptions,
@@ -63,6 +64,7 @@ import {
 } from "#ui/addresses.ts";
 import { Details, type DiffViewerHandle, UncommittedFilesDetails } from "./Details.tsx";
 import { buildAppliedAddressSpace } from "./applied-address-space.ts";
+import { machineFoldKey } from "./WorkspaceLists/fold.ts";
 import { targetCommitReview } from "./Graph/layout.ts";
 import { usePlan } from "./Graph/usePlan.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
@@ -413,6 +415,15 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
+	const { data: showRemoteMachines = false } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) =>
+			window.lite.hosted !== true && (cfg.hostedBranches ?? defaultSettings.hostedBranches),
+	});
+	const { data: remoteMachines } = useQuery({
+		...hostedMachinesQueryOptions(projectId),
+		enabled: showRemoteMachines,
+	});
 	// Captured by name: the graph object is new every render, its worktrees are
 	// not, so the compiler keeps the `combine` callback below stable on them.
 	const graphWorktrees = graph.worktrees;
@@ -437,6 +448,10 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
 	);
 
+	const remoteCommits = (showRemoteMachines ? (remoteMachines ?? []) : [])
+		.filter((machine) => foldedSegments[machineFoldKey(machine.name)] !== true)
+		.flatMap((machine) => machine.branches.flatMap((branch) => branch.commits));
+
 	const appliedAddressSpace = buildAppliedAddressSpace({
 		stacks: graph.stacks,
 		plan: graph.plan,
@@ -444,6 +459,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		pendingOperation,
 		absorptionTargetCommitIds,
 		foldedSegments,
+		remoteCommits,
 	});
 
 	const page = usePage();

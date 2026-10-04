@@ -11,7 +11,10 @@
 //! branches. A fetch keeps what it publishes under `refs/gitbutler/hosted/`, apart from the
 //! repository's own remotes.
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
@@ -37,10 +40,16 @@ fn hosted_project(dir: &Path) -> Result<String> {
         .to_owned())
 }
 
-/// This machine as the hosted server knows it: its host name, as a path segment.
+/// This machine as the hosted server knows it: its host name, as a path segment, or
+/// `BUT_MACHINE`, so that one computer can stand in for several.
 fn machine_name() -> Option<String> {
-    let out = std::process::Command::new("hostname").output().ok()?;
-    let name = String::from_utf8_lossy(&out.stdout);
+    let name = match std::env::var("BUT_MACHINE") {
+        Ok(name) => name,
+        Err(_) => {
+            let out = std::process::Command::new("hostname").output().ok()?;
+            String::from_utf8_lossy(&out.stdout).into_owned()
+        }
+    };
     let name = published_name(name.trim().trim_end_matches(".local"));
     (!name.is_empty()).then_some(name)
 }
@@ -167,6 +176,7 @@ fn fetch(dir: &Path) -> Result<()> {
     let url = format!("{}/git/{}/fetch", hosted_server(), hosted_project(dir)?);
     let heads = format!("+refs/heads/*:{HOSTED_REFS}/heads/*");
     let snapshots = format!("+refs/gitbutler/snapshots/*:{HOSTED_REFS}/snapshots/*");
+    let machines = format!("+refs/gitbutler/machines/*:{HOSTED_REFS}/machines/*");
     git_as_user(
         dir,
         &[
@@ -177,6 +187,7 @@ fn fetch(dir: &Path) -> Result<()> {
             &url,
             &heads,
             &snapshots,
+            &machines,
         ],
     )?;
     Ok(())
@@ -321,7 +332,7 @@ pub struct HostedBranch {
 but_schemars::register_sdk_type!(HostedBranch);
 
 /// Fetch from the hosted server and list the branches published for this project.
-#[but_api(napi, provides = [Worktrees])]
+#[but_api(napi, provides = [Hosted])]
 #[instrument(err(Debug))]
 pub fn hosted_branches(ctx: &but_ctx::Context) -> Result<Vec<HostedBranch>> {
     let dir = workdir(ctx)?;
@@ -346,6 +357,115 @@ pub fn hosted_branches(ctx: &but_ctx::Context) -> Result<Vec<HostedBranch>> {
         .collect()
 }
 
+/// Another machine that published to the hosted server, as of the last fetch.
+#[derive(Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct HostedMachine {
+    /// Its host name.
+    pub name: String,
+    /// When it last published, in milliseconds since the Unix epoch.
+    pub published_at: i64,
+    /// What it last sent of each branch, most recent first.
+    pub branches: Vec<MachineBranch>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HostedMachine);
+
+/// What a machine last sent of a branch.
+#[derive(Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct MachineBranch {
+    /// The branch's short name, e.g. `agent/search`.
+    pub branch: String,
+    /// Whether it was sent with uncommitted changes.
+    pub uncommitted: bool,
+    /// Whether it's still the published branch: a later publish from elsewhere replaces it,
+    /// and pulling brings down the published one.
+    pub current: bool,
+    /// Where a local branch of that name lives.
+    pub local: LocalHome,
+    /// Its commits that the target doesn't have, newest first.
+    pub commits: Vec<but_workspace::ui::Commit>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(MachineBranch);
+
+/// Fetch from the hosted server and list the other machines that published to this project,
+/// most recent first, with what each last sent.
+#[but_api(napi, provides = [Hosted])]
+#[instrument(err(Debug))]
+pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<Vec<HostedMachine>> {
+    let dir = workdir(ctx)?;
+    fetch(&dir)?;
+    let this = machine_name();
+    let repo = ctx.repo.get()?;
+    // Commits are listed up to the target, as a branch's own are in the workspace.
+    let target = but_core::ref_metadata::ProjectMeta::resolve(&repo)?
+        .target_ref
+        .and_then(|name| rev(&dir, name.as_bstr().to_string().as_str()))
+        .map(|id| gix::ObjectId::from_hex(id.as_bytes()))
+        .transpose()?;
+    let prefix = format!("{HOSTED_REFS}/machines/");
+    let refs = git(
+        &dir,
+        &[],
+        &[
+            "for-each-ref",
+            "--sort=-committerdate",
+            "--format=%(refname) %(committerdate:unix)",
+            &prefix,
+        ],
+    )?;
+    let mut machines = BTreeMap::<String, HostedMachine>::new();
+    for line in refs.lines() {
+        let (sent, time) = line.split_once(' ').context("a ref and its date")?;
+        // <user>/<machine>/<published name>
+        let mut parts = sent.trim_start_matches(&prefix).splitn(3, '/');
+        let (Some(_user), Some(machine), Some(name)) = (parts.next(), parts.next(), parts.next())
+        else {
+            continue;
+        };
+        if this.as_deref() == Some(machine) {
+            continue;
+        }
+        let branch = snapshot_head(&dir, sent)?
+            .trim_start_matches("refs/heads/")
+            .to_owned();
+        let entry = machines
+            .entry(machine.to_owned())
+            .or_insert_with(|| HostedMachine {
+                name: machine.to_owned(),
+                published_at: time.parse::<i64>().unwrap_or_default() * 1000,
+                branches: Vec::new(),
+            });
+        // The snapshot sits on top of the branch, so the branch's commits start at its parent.
+        let tip = gix::ObjectId::from_hex(
+            rev(&dir, &format!("{sent}^"))
+                .context("a snapshot has its branch as parent")?
+                .as_bytes(),
+        )?;
+        let commits = match target {
+            Some(target) => {
+                use gix::prelude::ObjectIdExt as _;
+                but_workspace::local_commits_for_branch(tip.attach(&repo), target)?
+            }
+            None => Vec::new(),
+        };
+        entry.branches.push(MachineBranch {
+            commits,
+            uncommitted: has_uncommitted(&dir, sent),
+            current: rev(&dir, sent) == rev(&dir, &format!("{HOSTED_REFS}/snapshots/{name}")),
+            local: local_home(ctx, &dir, &branch)?,
+            branch,
+        });
+    }
+    let mut machines: Vec<_> = machines.into_values().collect();
+    machines.sort_by_key(|machine| std::cmp::Reverse(machine.published_at));
+    Ok(machines)
+}
+
 /// Publish `branch` (a short name) to the hosted server, from wherever it lives locally.
 ///
 /// It's one atomic push of the branch, the target branch it's based on, and a snapshot commit
@@ -355,7 +475,7 @@ pub fn hosted_branches(ctx: &but_ctx::Context) -> Result<Vec<HostedBranch>> {
 ///
 /// If the server's branch has commits this one doesn't, publishing would replace them: without
 /// `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
-#[but_api(napi, invalidates = [Worktrees])]
+#[but_api(napi, invalidates = [Hosted])]
 #[instrument(err(Debug))]
 pub fn hosted_branch_publish(
     ctx: &but_ctx::Context,
@@ -461,7 +581,7 @@ pub fn hosted_branch_publish(
 ///
 /// If the local branch has commits of its own, or its worktree has uncommitted changes,
 /// pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
-#[but_api(napi, invalidates = [Worktrees, Workspace, Branches])]
+#[but_api(napi, invalidates = [Hosted, Worktrees, Workspace, Branches])]
 #[instrument(err(Debug))]
 pub fn hosted_branch_pull(
     ctx: &mut but_ctx::Context,

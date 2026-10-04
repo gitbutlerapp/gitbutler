@@ -1,0 +1,16 @@
+.machines {
+	border-block-start: 1px solid var(--border-section);
+}
+
+.header {
+	border-block-end: 1px solid var(--border-section);
+}
+
+.when {
+	padding-inline-end: 8px;
+	color: var(--text-2);
+}
+
+.card {
+	padding-inline-end: 8px;
+}

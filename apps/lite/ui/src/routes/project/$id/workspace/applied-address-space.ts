@@ -12,7 +12,7 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
 import { getTransferKind, type PendingOperation } from "#ui/operations/pending-operation.ts";
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
-import type { Segment, Stack, Worktree } from "@gitbutler/but-sdk";
+import type { Commit, Segment, Stack, Worktree } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { sectionAddresses, worktreesOnTip, type Plan } from "./Graph/layout.ts";
 
@@ -36,6 +36,7 @@ export const buildAppliedAddressSpace = ({
 	pendingOperation,
 	absorptionTargetCommitIds,
 	foldedSegments,
+	remoteCommits = [],
 }: {
 	/** The cards in the graph's order, as `usePlan` gives them. */
 	stacks: ReadonlyArray<Stack>;
@@ -45,6 +46,8 @@ export const buildAppliedAddressSpace = ({
 	pendingOperation: PendingOperation;
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	foldedSegments: Record<string, true>;
+	/** Commits other machines published, drawn below the workspace, of the machines unfolded. */
+	remoteCommits?: ReadonlyArray<Pick<Commit, "id" | "changeId">>;
 }): AddressSpace<Address> => {
 	// Operations take a card's rows, a worktree's uncommitted files, and a
 	// worktree's branches; not the section's rows or a worktree's own commits.
@@ -80,7 +83,7 @@ export const buildAppliedAddressSpace = ({
 	];
 	const lanesOn = (commitId: string): Array<Row> =>
 		(plan.worktrees.on.get(commitId) ?? []).flatMap(laneRows);
-	const rows = (): Array<Row> => [
+	const localRows = (): Array<Row> => [
 		...stacks.flatMap((stack) => [
 			// Matches what WorkspaceLists renders: worktrees on the tip come above the
 			// top branch; a folded segment hides its commits, so they are not
@@ -103,6 +106,21 @@ export const buildAppliedAddressSpace = ({
 		...plan.worktrees.standalone.flatMap(laneRows),
 		...sectionAddresses(plan).map(foreign),
 	];
+	// A commit another machine published may also be here; its row above stands for it.
+	const rows = (): Array<Row> => {
+		const local = localRows();
+		const seen = new Set(local.map((row) => addressIdentityKey(row.address)));
+		return [
+			...local,
+			...remoteCommits.flatMap(({ id, changeId }) => {
+				const address = commitAddress({ commitId: id, changeId });
+				const key = addressIdentityKey(address);
+				if (seen.has(key)) return [];
+				seen.add(key);
+				return [foreign(address)];
+			}),
+		];
+	};
 	const allItems = (): Array<Address> => rows().map((row) => row.address);
 	const workspaceItems = (): Array<Address> =>
 		rows().flatMap((row) => (row.owned ? [row.address] : []));

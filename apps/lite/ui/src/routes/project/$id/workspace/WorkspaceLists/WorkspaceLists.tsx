@@ -59,6 +59,7 @@ import {
 	type RefObject,
 } from "react";
 import styles from "./WorkspaceLists.module.css";
+import { RemoteMachines } from "./RemoteMachines.tsx";
 import { RailedList, Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { Section } from "../Graph/Section.tsx";
 import {
@@ -1039,6 +1040,8 @@ const Stacks: FC<{
 	dockOffset: number;
 	scrollElementRef: RefObject<HTMLDivElement | null>;
 	scrollPaddingEnd: number;
+	/** Other machines' published branches, after the target's section. */
+	remote: ReactNode;
 }> = ({
 	projectId,
 	graph,
@@ -1051,6 +1054,7 @@ const Stacks: FC<{
 	dockOffset,
 	scrollElementRef,
 	scrollPaddingEnd,
+	remote,
 }) => {
 	const store = useAppStore();
 	const queryClient = useQueryClient();
@@ -1330,6 +1334,8 @@ const Stacks: FC<{
 					onFoldRun={foldRun}
 					scrollElementRef={scrollElementRef}
 				/>
+				{/* In the tree, after the section, as the address space orders them. */}
+				{remote}
 			</div>
 
 			<div className={styles.foot} />
@@ -1360,6 +1366,12 @@ export const WorkspaceLists: FC<
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
+	// Other machines are this machine's view of the hub; the hub's own page has no "this machine".
+	const { data: showRemoteMachines = false } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) =>
+			window.lite.hosted !== true && (cfg.hostedBranches ?? defaultSettings.hostedBranches),
+	});
 	const appliedSelection = useSelection("applied", addressSpace);
 	// After the hook on purpose: a hook call between the index and the commit
 	// target derivation below stops the compiler from memoizing that derivation,
@@ -1566,6 +1578,7 @@ export const WorkspaceLists: FC<
 					}
 					scrollElementRef={scrollElementRef}
 					scrollPaddingEnd={scrollPaddingEnd}
+					remote={showRemoteMachines && <RemoteMachines projectId={projectId} />}
 				/>
 			</div>
 		</WorkspaceListsProvider>

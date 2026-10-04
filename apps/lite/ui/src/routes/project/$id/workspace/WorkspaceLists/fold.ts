@@ -13,6 +13,9 @@ import type { AppDispatch } from "#ui/store.ts";
  * the address space, making selection jump to the top of the sidebar);
  * unfolds and folds of unrelated segments leave the selection alone.
  */
+/** Where a remote machine's fold is kept: beside the segments', under a key no ref can have. */
+export const machineFoldKey = (machine: string): string => `machine:${machine}`;
+
 export const toggleFoldedSegment = (
 	dispatch: AppDispatch,
 	{

@@ -947,7 +947,7 @@ export declare function headInfo(projectId: string): Promise<RefInfo>
 /**
  * Fetch from the hosted server and list the branches published for this project.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:234}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:335}
  */
 export declare function hostedBranches(projectId: string): Promise<Array<HostedBranch>>
 
@@ -962,7 +962,7 @@ export declare function hostedBranches(projectId: string): Promise<Array<HostedB
  * If the server's branch has commits this one doesn't, publishing would replace them: without
  * `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:270}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:478}
  */
 export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
@@ -976,9 +976,17 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * If the local branch has commits of its own, or its worktree has uncommitted changes,
  * pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:369}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:584}
  */
 export declare function hostedBranchPull(projectId: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
+
+/**
+ * Fetch from the hosted server and list the other machines that published to this project,
+ * most recent first, with what each last sent.
+ *
+ * {@link ../../../../../crates/but-api/src/hosted.rs:397}
+ */
+export declare function hostedMachines(projectId: string): Promise<Array<HostedMachine>>
 
 /**
  * Initialize the secret namespace used by build-kind scoped credentials.
@@ -3445,6 +3453,16 @@ export type HostedBranch = {
   local: LocalHome;
 };
 
+/** Another machine that published to the hosted server, as of the last fetch. */
+export type HostedMachine = {
+  /** Its host name. */
+  name: string;
+  /** When it last published, in milliseconds since the Unix epoch. */
+  publishedAt: number;
+  /** What it last sent of each branch, most recent first. */
+  branches: Array<MachineBranch>;
+};
+
 export type HunkAssignment = {
   /**
    * A stable identifier for the hunk assignment.
@@ -3862,6 +3880,23 @@ export type LoginToken = {
   expires: string;
   /** The full URL to redirect the user's browser to for login. */
   url: string;
+};
+
+/** What a machine last sent of a branch. */
+export type MachineBranch = {
+  /** The branch's short name, e.g. `agent/search`. */
+  branch: string;
+  /** Whether it was sent with uncommitted changes. */
+  uncommitted: boolean;
+  /**
+   * Whether it's still the published branch: a later publish from elsewhere replaces it,
+   * and pulling brings down the published one.
+   */
+  current: boolean;
+  /** Where a local branch of that name lives. */
+  local: LocalHome;
+  /** Its commits that the target doesn't have, newest first. */
+  commits: Array<Commit>;
 };
 
 /**

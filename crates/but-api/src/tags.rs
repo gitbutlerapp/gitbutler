@@ -57,6 +57,8 @@ cache_tags! {
     WorktreeChanges,
     /// The linked-worktree listing with its archived state.
     Worktrees,
+    /// Branches published to a hosted server, and the machines that published them.
+    Hosted,
     /// Where uncommitted changes would absorb into existing commits.
     AbsorptionPlan,
     /// GitButler's own diff comments.
