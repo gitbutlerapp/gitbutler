@@ -24,7 +24,6 @@ import type { AddressSpace } from "#ui/workspace/address-space.ts";
 import type { AbsorptionTarget } from "@gitbutler/but-sdk";
 import type { TransferKind } from "#ui/operations/operation.ts";
 import { useSearch } from "@tanstack/react-router";
-import { useEffect } from "react";
 import { isFocusScope } from "#ui/focus.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 
@@ -425,31 +424,4 @@ export const remapSearchBranch = (oldRef: string, newRef: string): void => {
 			if (next[param] === `branch:${oldRef}`) next[param] = `branch:${newRef}`;
 		return next;
 	});
-};
-
-/* ------------------------------------------------------------- write-back */
-
-/**
- * Rows highlight by comparing against the stored cursor, so whenever
- * resolution lands elsewhere — entering the tab, or the cursor's item leaving
- * the index — the list stores the resolved value to keep the two in
- * agreement. One effect for every list.
- */
-export const useCursorWriteBack = <L extends UrlCursorName>(
-	list: L,
-	addressSpace: AddressSpace<CursorItem[L]>,
-): void => {
-	const resolved = useSelection(list, addressSpace);
-	const storedParam = useSearch({
-		from: WORKSPACE_ROUTE,
-		select: (params: UrlQueryParams): string | undefined => params[list],
-	});
-
-	const outOfSync =
-		resolved !== null && storedParam !== encodeUnion(list, resolved) ? resolved : null;
-
-	useEffect(() => {
-		// oxlint-disable-next-line react-you-might-not-need-an-effect/no-event-handler -- Reconcile the URL cursor when the address space changes; this is not an event response.
-		if (outOfSync !== null) setCursor(list, outOfSync);
-	}, [outOfSync, list]);
 };

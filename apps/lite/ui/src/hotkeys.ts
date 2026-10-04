@@ -137,17 +137,6 @@ export const workspaceHotkeys = {
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
-export const branchesHotkeys = {
-	copy: {
-		hotkey: "Mod+C",
-		meta: { group: "Sidebar", name: "Copy" },
-	},
-	deleteBranchRef: {
-		hotkey: globalThis.window.lite.platform === "darwin" ? "Mod+Backspace" : "Delete",
-		meta: { group: "Branch", name: "Delete branch reference" },
-	},
-} satisfies Record<string, HotkeyWithMeta>;
-
 export const sidebarHotkeys = {
 	checkAll: {
 		hotkey: "Mod+A",

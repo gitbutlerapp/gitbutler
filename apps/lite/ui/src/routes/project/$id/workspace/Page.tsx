@@ -60,16 +60,14 @@ import {
 	branchAddress,
 	type BranchAddress,
 	type FileAddress,
-	uncommittedChangesFileParent,
 	weakFileIdentityKey,
 } from "#ui/addresses.ts";
 import { Details, type DiffViewerHandle, UncommittedFilesDetails } from "./Details.tsx";
 import { buildAppliedAddressSpace } from "./applied-address-space.ts";
-import { machineFoldKey } from "./WorkspaceLists/fold.ts";
 import { targetCommitReview } from "./Graph/layout.ts";
 import { usePlan } from "./Graph/usePlan.ts";
 import { buildUncommittedFileRows } from "./file-row.ts";
-import { fileTreeAddressSpace, selectedFilePath } from "./file-tree.ts";
+import { fileTreeAddressSpace } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import styles from "./Page.module.css";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
@@ -77,7 +75,6 @@ import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
 import { OperationsLogPicker } from "./OperationsLogPicker.tsx";
 import { DetailsPlaceholder } from "./DetailsPlaceholder.tsx";
-import { Sidebar } from "./Sidebar.tsx";
 import { MeshSidebar } from "./Mesh/MeshSidebar.tsx";
 import { MeshOverview } from "./Mesh/MeshOverview.tsx";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
@@ -411,15 +408,12 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		},
 	]);
 
-	// These two hooks sit above the derivation below on purpose. The compiler
+	// These hooks sit above the derivation below on purpose. The compiler
 	// cannot memoize a value whose mutable range spans a hook call, and a hook
 	// between `new Set(...)` and `buildAppliedAddressSpace(...)` left both
 	// unmemoized: every render rebuilt the address space and re-rendered every
 	// row that reads it through context.
 	const graph = usePlan(projectId);
-	const foldedSegments = useAppSelector((state) =>
-		projectSlice.selectors.selectFoldedSegments(state, projectId),
-	);
 	const { data: showRemoteMachines = false } = useQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) =>
@@ -429,12 +423,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		...hostedMachinesQueryOptions(projectId),
 		enabled: showRemoteMachines,
 	});
-	const { data: meshSidebar } = useQuery({
-		...guiSettingsQueryOptions,
-		select: (cfg) => cfg.meshSidebar ?? defaultSettings.meshSidebar,
-	});
-	// The mesh selects into the address space, and the workspace sidebar's folds aren't its own.
-	const folds = meshSidebar === true ? noFolds : foldedSegments;
 	// Captured by name: the graph object is new every render, its worktrees are
 	// not, so the compiler keeps the `combine` callback below stable on them.
 	const graphWorktrees = graph.worktrees;
@@ -459,9 +447,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
 	);
 
-	const shownMachines = (showRemoteMachines ? (remoteMachines ?? []) : []).filter(
-		(machine) => folds[machineFoldKey(machine.name)] !== true,
-	);
+	const shownMachines = showRemoteMachines ? (remoteMachines ?? []) : [];
 	const remoteBranchRefs = shownMachines.flatMap((machine) =>
 		machine.branches.map((branch) => hostedBranchRef(machine.name, branch.branch)),
 	);
@@ -477,18 +463,15 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		worktreeFiles,
 		pendingOperation,
 		absorptionTargetCommitIds,
-		foldedSegments: folds,
+		// The mesh selects into it whatever is folded, and has folds of its own.
+		foldedSegments: noFolds,
 		remoteCommits,
 		remoteBranchRefs,
 	});
 
 	const page = usePage();
 	// Destructured here: the result object itself is a new identity every render.
-	const {
-		data: branches,
-		isPending: branchesPending,
-		isError: branchesError,
-	} = useBranchesList(projectId);
+	const { data: branches } = useBranchesList(projectId);
 
 	const appliedSelection = useSelection("applied", appliedAddressSpace);
 	const branchesSelection = useSelection("unapplied", branches?.addressSpace);
@@ -514,13 +497,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	// Directories take the cursor as files do, so the index follows the layout the
 	// list renders — and a collapsed directory takes its files out of it too.
 	const uncommittedAddressSpace = fileTreeAddressSpace(uncommittedFileRows);
-	const onActiveUncommittedFileSelection = (selection: string) => {
-		// A directory row stands for the first file below it, so activating a
-		// folder still gives the details pane somewhere to go.
-		const path = selectedFilePath(uncommittedFileRows, selection);
-		setCursor("uncommitted", selection);
-		if (path !== null) onActiveFileSelection({ parent: uncommittedChangesFileParent, path });
-	};
 
 	const uncommittedFilesSelection = useSelection("uncommitted", uncommittedAddressSpace);
 
@@ -567,7 +543,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 			) ?? activeList;
 
 		// A machine or repo picked in the mesh has no diff; its overview stands in until a row that does.
-		if (page === "workspace" && meshSidebar === true && meshOverview !== null)
+		if (page === "workspace" && meshOverview !== null)
 			return <MeshOverview overview={meshOverview} projectId={projectId} />;
 
 		return Match.value(page).pipe(
@@ -602,7 +578,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		page,
 		uncommittedFilesSelection,
 		activeList,
-		meshSidebar,
 		meshOverview,
 	]);
 
@@ -693,22 +668,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 						{/* No reset key: the child is built inline, so its identity changes
 						    every render. Recovery here is the fallback's Retry button. */}
 						<ErrorBoundary>
-							{meshSidebar === true ? (
-								<MeshSidebar projectId={projectId} project={selectedProject} />
-							) : (
-								<Sidebar
-									projectId={projectId}
-									project={selectedProject}
-									branches={branches}
-									branchesPending={branchesPending}
-									branchesError={branchesError}
-									graph={graph}
-									addressSpace={appliedAddressSpace}
-									uncommittedAddressSpace={uncommittedAddressSpace}
-									absorptionTargetCommitIds={absorptionTargetCommitIds}
-									onActiveFileSelection={onActiveUncommittedFileSelection}
-								/>
-							)}
+							<MeshSidebar projectId={projectId} project={selectedProject} />
 						</ErrorBoundary>
 					</Panel>
 					<ResizeHandle gap />

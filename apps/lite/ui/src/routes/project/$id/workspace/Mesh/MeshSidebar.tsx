@@ -48,7 +48,7 @@ import styles from "./MeshSidebar.module.css";
 
 /**
  * The sidebar as a mesh, like but.dev's navigator: every local project and every machine that
- * published one, grouped by machine or by repo. It only reads; the workspace sidebar commits.
+ * published one, grouped by machine or by repo.
  */
 export const MeshSidebar: FC<{ project: ProjectForFrontend; projectId: string }> = ({
 	project,

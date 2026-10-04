@@ -32,16 +32,10 @@ type BranchesListStack = {
 	reviewCount: number;
 };
 
-export type BranchesListContent = {
+type BranchesListContent = {
 	stacks: Array<BranchesListStack>;
 	stackIndexByAddressIndex: Array<number>;
 	addressSpace: AddressSpace<Address>;
-};
-
-export const emptyBranchesListContent: BranchesListContent = {
-	stacks: [],
-	stackIndexByAddressIndex: [],
-	addressSpace: { items: [], indexByKey: new Map() },
 };
 
 /**
