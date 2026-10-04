@@ -1,5 +1,6 @@
 import preview from "#storybook/preview";
 import { ToggleGroup, Toggle } from "@base-ui/react";
+import { Badge } from "./Badge.tsx";
 import { Icon } from "./Icon.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
 
@@ -54,6 +55,33 @@ export const WithIcons = meta.story({
 			<Toggle render={<ToggleStyles />} value="tree">
 				<Icon name="folder-tree" size={14} />
 				Tree
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+// A count rides after the label as a plain child; the item's gap spaces it.
+export const WithBadge = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=1183-3597",
+		},
+	},
+	render: () => (
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["selection"]} aria-label="Diff view">
+			<Toggle render={<ToggleStyles />} value="selection">
+				<Icon name="checklist" size={14} />
+				Selection
+				<Badge variant="lightGray">12</Badge>
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="plain">
+				<Icon name="text-plain" size={14} />
+				Plain
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="wrap">
+				<Icon name="text-wrap" size={14} />
+				Wrap
 			</Toggle>
 		</ToggleGroup>
 	),
