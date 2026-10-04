@@ -505,19 +505,23 @@ pub enum Subcommands {
     /// - If there are no commits on that branch, a new commit is created there
     /// - Changes are amended into the topmost commit of the leftmost (first) branch
     ///
-    /// Optionally an identifier to an Uncommitted File may be provided.
+    /// Optionally an identifier to an uncommitted file, hunk, or branch may be provided.
     ///
-    /// - If an Uncommitted File id is provided, absorb will be performed for just that file
+    /// - If an uncommitted file or hunk id is provided, absorb will be performed for just that selection
+    /// - If a branch id is provided, absorb will be performed for changes assigned to that branch
     /// - If no source is provided, absorb is performed for all uncommitted changes
     ///
     /// If `--dry-run` is specified, no changes will be made; instead, the absorption plan
     /// (what changes would be absorbed by which commits) will be shown.
     ///
+    /// Absorb is atomic. If any selected target is merged upstream, the whole operation is refused
+    /// unless `--allow-merged` is specified.
+    ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Absorb {
-        /// An uncommitted file or hunk to absorb; if omitted, everything uncommitted in the
-        /// checkout `but` runs in is absorbed. A linked worktree's changes cannot be absorbed yet.
+        /// An uncommitted file, hunk, or branch to absorb; if omitted, everything uncommitted in
+        /// the checkout `but` runs in is absorbed. A linked worktree's changes cannot be absorbed yet.
         source: Option<String>,
         /// Show the absorption plan without making any changes.
         #[clap(long = "dry-run")]

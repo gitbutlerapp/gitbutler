@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use anyhow::Context as _;
 use bstr::ByteSlice;
@@ -28,6 +28,106 @@ type GroupedChanges = BTreeMap<
     (Vec<AbsorbCandidate>, AbsorptionReason),
 >;
 
+#[derive(Debug, Default)]
+pub struct AbsorbExecutionOutcome {
+    rejected: Vec<RejectedAbsorption>,
+}
+
+#[derive(Debug)]
+pub struct AbsorbFinalizationError(anyhow::Error);
+
+impl std::fmt::Display for AbsorbFinalizationError {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            out,
+            "Absorb changes were published and an undo checkpoint was created, but finalization \
+             failed. Run `but undo` before retrying: {}",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for AbsorbFinalizationError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
+    }
+}
+
+#[derive(Debug)]
+pub struct AbsorbCheckpointError(anyhow::Error);
+
+impl std::fmt::Display for AbsorbCheckpointError {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            out,
+            "Absorb changes were published, but creating the undo checkpoint failed. Automatic undo \
+             is unavailable; inspect the workspace before retrying: {}",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for AbsorbCheckpointError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
+    }
+}
+
+impl AbsorbExecutionOutcome {
+    pub fn rejected_count(&self) -> usize {
+        self.rejected.len()
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.rejected.is_empty()
+    }
+}
+
+#[derive(Debug)]
+struct RejectedAbsorption {
+    commit_id: gix::ObjectId,
+    commit_summary: String,
+    path: bstr::BString,
+    hunk_headers: Vec<but_core::HunkHeader>,
+    reason: AbsorptionReason,
+}
+
+impl std::fmt::Display for AbsorbExecutionOutcome {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            out,
+            "Absorb rejected {} selected file group{}; no changes were published.",
+            self.rejected.len(),
+            if self.rejected.len() == 1 { "" } else { "s" }
+        )?;
+        for rejected in &self.rejected {
+            let ranges = rejected
+                .hunk_headers
+                .iter()
+                .map(|header| {
+                    format!(
+                        "-{},{} +{},{}",
+                        header.old_start, header.old_lines, header.new_start, header.new_lines
+                    )
+                })
+                .join(", ");
+            writeln!(
+                out,
+                "- {} {} -> {} ({}): {}",
+                rejected.path,
+                ranges,
+                rejected.commit_summary,
+                rejected.commit_id,
+                rejected.reason.description()
+            )?;
+        }
+        write!(
+            out,
+            "Refresh the absorb plan and inspect the listed dependencies before retrying."
+        )
+    }
+}
+
 /// Absorb the changes described by `absorption_plan` using the behavior documented by
 /// [`absorb_with_perm()`].
 ///
@@ -44,12 +144,14 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
         SnapshotDetails::new(OperationKind::Absorb),
         guard.read_permission(),
     )?;
-    absorb_with_checkpoint_with_perm(
+    let outcome = absorb_with_checkpoint_with_perm(
         ctx,
         absorption_plan,
         guard.write_permission(),
         Some(snapshot),
-    )
+    )?;
+    anyhow::ensure!(outcome.is_success(), outcome);
+    Ok(0)
 }
 
 /// Absorb the changes described by `absorption_plan` using the exclusive repository
@@ -60,7 +162,7 @@ pub fn absorb_with_perm(
     ctx: &mut Context,
     absorption_plan: Vec<CommitAbsorption>,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<usize> {
+) -> anyhow::Result<AbsorbExecutionOutcome> {
     absorb_with_checkpoint_with_perm(ctx, absorption_plan, perm, None)
 }
 
@@ -69,7 +171,7 @@ pub fn absorb_with_checkpoint_with_perm(
     absorption_plan: Vec<CommitAbsorption>,
     perm: &mut RepoExclusive,
     checkpoint: Option<but_oplog::UnmaterializedOplogSnapshot>,
-) -> anyhow::Result<usize> {
+) -> anyhow::Result<AbsorbExecutionOutcome> {
     let context_lines = ctx.settings.context_lines;
     anyhow::ensure!(
         absorption_plan.is_empty()
@@ -108,7 +210,7 @@ pub fn absorb_with_checkpoint_with_perm(
 
     // Apply each group to the in-memory rebase and track failures. Nothing is
     // materialized until every planned group has been interpreted.
-    let mut rejected_groups = HashSet::new();
+    let mut rejected_groups = HashMap::new();
     let mut commit_map = CommitMap::default();
     let mut blank_commits = BTreeMap::new();
     let mut accepted_diff_specs = Vec::new();
@@ -168,16 +270,26 @@ pub fn absorb_with_checkpoint_with_perm(
             commit_map.add_mapping(commit_id, new_commit);
         }
         for (_, spec) in rejected_specs {
-            rejected_groups.insert((
-                absorption.commit_id,
-                absorption.blank_commit_ref.clone(),
-                spec.path,
-            ));
+            rejected_groups
+                .entry((
+                    absorption.commit_id,
+                    absorption.blank_commit_ref.clone(),
+                    spec.path.clone(),
+                ))
+                .or_insert_with(|| RejectedAbsorption {
+                    commit_id: absorption.commit_id,
+                    commit_summary: absorption.commit_summary.clone(),
+                    path: spec.path,
+                    hunk_headers: spec.hunk_headers,
+                    reason: absorption.reason.clone(),
+                });
         }
     }
 
     if !rejected_groups.is_empty() {
-        return Ok(rejected_groups.len());
+        return Ok(AbsorbExecutionOutcome {
+            rejected: rejected_groups.into_values().collect(),
+        });
     }
 
     let mut editor = rebase.into_editor();
@@ -193,15 +305,18 @@ pub fn absorb_with_checkpoint_with_perm(
     drop(materialized);
     drop((repo, workspace, db));
     if let Some(checkpoint) = checkpoint {
-        checkpoint.commit(ctx, perm)?;
+        checkpoint
+            .commit(ctx, perm)
+            .map_err(AbsorbCheckpointError)?;
     }
     crate::diff::changes_in_worktree_with_perm(
         ctx,
         ChangesSource::Head,
         true,
         perm.read_permission(),
-    )?;
-    Ok(rejected_groups.len())
+    )
+    .map_err(AbsorbFinalizationError)?;
+    Ok(AbsorbExecutionOutcome::default())
 }
 
 /// Build an absorption plan for `target` using the behavior documented by
@@ -1401,7 +1516,7 @@ mod tests {
             "planning retains both selected hunk candidates for execution"
         );
 
-        let rejected = absorb(&mut ctx, plan)?;
+        let rejected = absorb(&mut ctx, plan).expect_err("atomic rejection must be an error");
         let after = absorb_invocation_state(
             &mut ctx,
             tmp.path(),
@@ -1416,7 +1531,9 @@ mod tests {
         )?;
 
         assert!(
-            rejected > 0 && after == before,
+            rejected.to_string().contains("shared.txt")
+                && rejected.to_string().contains("no changes were published")
+                && after == before,
             "a rejected invocation must not publish an earlier applicable amendment; \
              rejected groups: {rejected};\nstate before:\n{}\nstate after:\n{}",
             state_summary(&before),
@@ -1517,7 +1634,7 @@ mod tests {
         });
 
         stamp_plan(&mut ctx, &mut plan)?;
-        let rejected = absorb(&mut ctx, plan)?;
+        let rejected = absorb(&mut ctx, plan).expect_err("atomic rejection must be an error");
         let after = absorb_invocation_state(
             &mut ctx,
             tmp.path(),
@@ -1537,7 +1654,7 @@ mod tests {
         )?;
 
         assert!(
-            rejected > 0 && after == before,
+            rejected.to_string().contains("b.txt") && after == before,
             "a rejection on B must not publish the independently planned A amendment; \
              rejected groups: {rejected};\nstate before:\n{}\nstate after:\n{}",
             state_summary(&before),
@@ -1646,7 +1763,7 @@ mod tests {
             "the deferred plan anchors the empty branch's current target"
         );
 
-        let rejected = absorb(&mut ctx, plan)?;
+        let rejected = absorb(&mut ctx, plan).expect_err("atomic rejection must be an error");
         let after = absorb_invocation_state(
             &mut ctx,
             tmp.path(),
@@ -1667,7 +1784,7 @@ mod tests {
             ],
         )?;
         assert!(
-            rejected > 0 && after == before,
+            rejected.to_string().contains("b.txt") && after == before,
             "a later rejection must roll back planner-created commits and assignments; \
              rejected groups: {rejected};\nstate before:\n{}\nstate after:\n{}",
             state_summary(&before),
@@ -1846,8 +1963,18 @@ mod tests {
         let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
 
         assert_eq!(
-            rejected, 1,
+            rejected.rejected_count(),
+            1,
             "two stale hunks from one file count as one rejection"
+        );
+        let diagnostic = rejected.to_string();
+        assert!(
+            diagnostic.contains("shared.txt -5,1 +5,1")
+                && diagnostic.contains("add shared file")
+                && diagnostic.contains("files locked to commit")
+                && diagnostic.contains("no changes were published"),
+            "rejection diagnostics identify the selection, target, reason, and atomic outcome: \
+             {diagnostic}"
         );
         let repo = ctx.repo.get()?;
         let tree = repo.head_commit()?.tree()?;
@@ -1946,7 +2073,11 @@ mod tests {
         let mut guard = ctx.exclusive_worktree_access();
         let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
 
-        assert_eq!(rejected, 0, "paired selections must both be accepted");
+        assert_eq!(
+            rejected.rejected_count(),
+            0,
+            "paired selections must both be accepted"
+        );
         let repo = ctx.repo.get()?;
         let tree = repo.head_commit()?.tree()?;
         let blob = tree
@@ -2039,7 +2170,11 @@ mod tests {
         let mut guard = ctx.exclusive_worktree_access();
         let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
 
-        assert_eq!(rejected, 0, "both old-side selections must be accepted");
+        assert_eq!(
+            rejected.rejected_count(),
+            0,
+            "both old-side selections must be accepted"
+        );
         let repo = ctx.repo.get()?;
         let tree = repo.head_commit()?.tree()?;
         let blob = tree
@@ -2168,7 +2303,11 @@ mod tests {
         let mut guard = ctx.exclusive_worktree_access();
         let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
 
-        assert_eq!(rejected, 0, "all mixed selections must be accepted");
+        assert_eq!(
+            rejected.rejected_count(),
+            0,
+            "all mixed selections must be accepted"
+        );
         let repo = ctx.repo.get()?;
         let tree = repo.head_commit()?.tree()?;
         let blob = tree
@@ -2297,7 +2436,11 @@ mod tests {
 
         let rejected = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
 
-        assert_eq!(rejected, 0, "the routed paired selections must be accepted");
+        assert_eq!(
+            rejected.rejected_count(),
+            0,
+            "the routed paired selections must be accepted"
+        );
         let repo = ctx.repo.get()?;
         let tree = repo.head_commit()?.tree()?;
         let blob = tree

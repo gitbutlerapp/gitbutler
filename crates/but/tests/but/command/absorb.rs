@@ -782,11 +782,15 @@ fn absorb_skips_merged_upstream_commits() {
     env.but("absorb")
         .env("NO_BG_TASKS", "1")
         .assert()
-        .success()
+        .failure()
         .stdout_eq(str![[r#"
 Skipped: not absorbing into 756ee31 A-change: commit is merged upstream
 Hint: most likely you want `but pull`, which removes landed work; in rare cases pass --allow-merged to absorb anyway
 Nothing left to absorb
+
+"#]])
+    .stderr_eq(str![[r#"
+Error: Cannot absorb selected changes because every target commit is merged upstream
 
 "#]]);
 }
@@ -802,7 +806,7 @@ fn absorb_json_reports_skipped_merged_upstream_commits_on_stderr() {
         .allow_json()
         .env("NO_BG_TASKS", "1")
         .assert()
-        .success()
+        .failure()
         .stdout_eq(str![[r#"
 {
   "ok": false,
@@ -814,6 +818,7 @@ fn absorb_json_reports_skipped_merged_upstream_commits_on_stderr() {
 "#]])
         .stderr_eq(str![[r#"
 warning: skipped absorbing into 1 merged-upstream commit(s): 756ee31. Run `but pull` to update the workspace, or pass --allow-merged to absorb anyway.
+Error: Cannot absorb selected changes because every target commit is merged upstream
 
 "#]]);
 }
@@ -928,7 +933,11 @@ fn dry_run_with_selected_landed_target_keeps_state_unchanged() {
     env.but("absorb --dry-run")
         .env("NO_BG_TASKS", "1")
         .assert()
-        .success();
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Cannot absorb selected changes because at least one target commit is merged upstream
+
+"#]]);
     let refs_after = ["refs/heads/A", "refs/heads/B"].map(|reference| {
         repo.rev_parse_single(reference.as_bytes())
             .unwrap()

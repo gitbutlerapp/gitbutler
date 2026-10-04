@@ -5,17 +5,18 @@ Updated: 2026-10-04. This is evidence tracking, not an automatic approval gate.
 
 ## Resume Here
 
-Active packet: **W06 - Audit Callers And Diagnostics**. W05 completed the
-approved atomic path and passed focused implementation review. Verify every
-caller treats rejection and finalization failure honestly and gives actionable
-diagnostics without weakening the atomic contract.
+Active packet: **W07 - Recovery, Generated Cases, And Cost**. W06 completed the
+cross-caller outcome contract: unchanged rejection is an error, post-publication
+failures disclose publication and undo availability, and UI callers surface the
+backend's actionable detail. W07 must now fault-test those boundaries, close the
+supported-domain matrix, add bounded generated cases, and measure cost.
 Later direction briefs: [W04 design](absorb-w04-design-approval.md),
 [W05 implementation](absorb-w05-implementation.md),
 [W06 callers](absorb-w06-callers-diagnostics.md),
 [W07 verification](absorb-w07-verification-cost.md), and
 [W08 release readiness](absorb-w08-review-release.md).
-Current blocker to completion: API, CLI, Desktop, Lite, and transport callers
-still need a consistent non-success contract for atomic rejection.
+Current blocker to completion: recovery/fault-boundary evidence and a concrete
+performance acceptance decision remain open.
 
 The old chat task list about committing skills and updating review threads belongs
 to earlier completed publication work; it is not this implementation queue.
@@ -26,17 +27,17 @@ Use states `pending`, `active`, `blocked`, or `done`. Only mark done with linked
 evidence below. A failed reproduction test may complete a test-writing packet;
 it does not complete its implementation fix or permit release.
 
-| Packet                    | Prerequisites | State       | Evidence / next action                                                       |
-| ------------------------- | ------------- | ----------- | ---------------------------------------------------------------------------- |
-| W00 baseline              | None          | done        | Baseline evidence recorded below; next action is W01 state/transaction audit |
-| W01 state/caller audit    | W00           | done        | Source-backed audit and W03/W04 inputs recorded below                        |
-| W02 selector regressions  | W00           | done        | Five expected-red fixture regressions recorded below; W03 is next            |
-| W03 atomicity regressions | W01           | done        | A1-A6 executable evidence recorded below; W04 design approval is next        |
-| W04 design approval       | W01-W03       | done        | Original scope and blank-target amendment approved by the Author             |
-| W05 implementation        | W04 approved  | done        | Atomic path, preconditions, finalization and focused validation recorded     |
-| W06 diagnostics/callers   | W05           | active      | Make rejection/finalization non-success explicit across callers              |
-| W07 verification/cost     | W05-W06       | pending     | Recovery, generated tests, performance decision                              |
-| W08 review/release        | W07           | pending     | Independent review; publication separately authorized                        |
+| Packet                    | Prerequisites | State   | Evidence / next action                                                       |
+| ------------------------- | ------------- | ------- | ---------------------------------------------------------------------------- |
+| W00 baseline              | None          | done    | Baseline evidence recorded below; next action is W01 state/transaction audit |
+| W01 state/caller audit    | W00           | done    | Source-backed audit and W03/W04 inputs recorded below                        |
+| W02 selector regressions  | W00           | done    | Five expected-red fixture regressions recorded below; W03 is next            |
+| W03 atomicity regressions | W01           | done    | A1-A6 executable evidence recorded below; W04 design approval is next        |
+| W04 design approval       | W01-W03       | done    | Original scope and blank-target amendment approved by the Author             |
+| W05 implementation        | W04 approved  | done    | Atomic path, preconditions, finalization and focused validation recorded     |
+| W06 diagnostics/callers   | W05           | done    | Caller inventory, diagnostics, and non-success contracts recorded below      |
+| W07 verification/cost     | W05-W06       | active  | Recovery, generated tests, performance decision                              |
+| W08 review/release        | W07           | pending | Independent review; publication separately authorized                        |
 
 Recommended serial order is W00-W08. Dependencies permit W02 before W01 is
 finished, but do not authorize concurrent edits. First-release scope excludes
@@ -74,14 +75,14 @@ running process identified. The next agent verifies state before repeating write
 
 ### Caller Table
 
-| Caller / surface         | Current plan/apply and outcome contract                                                                                                                                          | Required change or unaffected rationale                                                                                                                                       | Evidence                                                                                                                                                                               |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Direct but-api and N-API | `absorption_plan` and `absorb` are separate `#[but_api(napi)]` functions. Plans have commit IDs and hunk headers but no source revision; apply returns a rejection-group `usize` | Atomic failure requires revalidation/versioning and a public return/error-contract decision                                                                                   | [API](crates/but-api/src/legacy/absorb.rs), [N-API linkage](crates/but-napi/src/lib.rs), [SDK declarations](packages/but-sdk/src/generated/graph/index.d.ts)                           |
-| CLI `but absorb`         | One handler holds an internal exclusive guard while planning, filtering landed targets, displaying, snapshotting, and applying. It returns `Ok(())` after nonzero rejections     | Internal locking is not stale-plan protection against external edits. Landed entries are currently dropped, including mixed plans, contrary to approved selected-input policy | [CLI handler](crates/but/src/command/legacy/absorb.rs) and `absorb_json_reports_partially_skipped_merged_upstream_commits`                                                             |
-| Desktop / Tauri          | Tauri registers separate plan/apply commands. Desktop fetches a plan, waits for confirmation, then submits the stored array; any resolved numeric result yields a success toast  | W06 must distinguish partial/atomic failure and revalidate old plans before submit                                                                                            | [Tauri registration](crates/gitbutler-tauri/src/main.rs), [endpoint](apps/desktop/src/lib/stacks/stackEndpoints.ts), [modal](apps/desktop/src/components/stack/AbsorbPlanModal.svelte) |
-| Lite / Electron          | React Query fetches `window.lite.absorptionPlan`; `useAbsorb` later submits that array through `window.lite.absorb`, without inspecting a resolved rejection count               | W06 must specify stale-plan and atomic-failure behavior across query/mutation state                                                                                           | [query](apps/lite/ui/src/api/queries.ts), [mutation](apps/lite/ui/src/api/mutations.ts), [controls](apps/lite/ui/src/routes/project/$id/workspace/OperationControls.tsx)               |
-| HTTP server              | Separate `/absorption_plan` and `/absorb` generated command routes                                                                                                               | Treat as split plan/apply transport until focused server coverage says otherwise                                                                                              | [server routes](crates/but-server/src/lib.rs)                                                                                                                                          |
-| Web and TUI              | Targeted search found Web documentation only and no absorb invocation in the status TUI source subtree                                                                           | No application caller to change is established; recheck if a transport/action is added                                                                                        | Search scopes: `apps/web/**`, `crates/but/src/command/legacy/status/tui/**`                                                                                                            |
+| Caller / surface         | Current plan/apply and outcome contract                                                                                                       | Required change or unaffected rationale                                                                                                 | Evidence                                                                                                                                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Direct but-api and N-API | Plans bind source, route, selection, and context preconditions. Public success remains numeric `0`; rejection is an error                     | Generated transports preserve backward-compatible success typing while stale or rejected plans reject the call                          | [API](crates/but-api/src/legacy/absorb.rs), [N-API linkage](crates/but-napi/src/lib.rs), [SDK declarations](packages/but-sdk/src/generated/graph/index.d.ts)                           |
+| CLI `but absorb`         | Any landed selected target or executor rejection fails the whole invocation. JSON reports `ok: false`; undo is advertised only when available | W07 must fault-test post-publication checkpoint and finalization classifications                                                        | [CLI handler](crates/but/src/command/legacy/absorb.rs), absorb CLI suite, and installed CLI skill/reference                                                                            |
+| Desktop / Tauri          | Success appears only after resolution; rejection leaves the modal open and displays the backend's detailed error                              | No additional caller change required; focused diagnostics and ESLint pass while the broad Desktop check has unrelated baseline failures | [Tauri registration](crates/gitbutler-tauri/src/main.rs), [endpoint](apps/desktop/src/lib/stacks/stackEndpoints.ts), [modal](apps/desktop/src/components/stack/AbsorbPlanModal.svelte) |
+| Lite / Electron          | React Query treats backend rejection as mutation failure; the global mutation handler displays `errorMessageForToast(error)`                  | Existing caller already preserves detailed backend errors; Lite package check passes                                                    | [mutation](apps/lite/ui/src/api/mutations.ts), [global handler](apps/lite/ui/src/main.tsx), [controls](apps/lite/ui/src/routes/project/$id/workspace/OperationControls.tsx)            |
+| HTTP server              | Separate generated routes propagate public API errors                                                                                         | Source-backed behavior is consistent; an explicit rejection transport test remains a nonblocking coverage gap                           | [server routes](crates/but-server/src/lib.rs)                                                                                                                                          |
+| Web and TUI              | Targeted search found Web documentation only and no absorb invocation in the status TUI source subtree                                        | No application caller to change is established; recheck if a transport/action is added                                                  | Search scopes: `apps/web/**`, `crates/but/src/command/legacy/status/tui/**`                                                                                                            |
 
 W04 records the approved design in the plan, with reviewer, date, intended file
 map, and test-to-invariant mapping here. Approval of product policy is not design
@@ -186,9 +187,12 @@ approved policies constrain their answers. D1 still needs design review.
 - [x] F2: multiple old-only selections must not run with stale coordinates.
       Confirmed by W02's two-selection fixture: original lines 2 and 7 select
       removal of lines 2 and 8 after the first materialized amendment.
-- [ ] F3: fallback branch suspects may bypass descendant hint suppression.
-      Prior evidence: code-path review only; not an end-to-end confirmed failure.
-      Missing: reachable reproduction or documented withdrawal/narrowing.
+- [x] F3 narrowed: exact resolved descendant dependencies are covered by
+      `amend_rejection_keeps_descendant_on_target_branch` and suppress the hint.
+      Fallback `suspected_branches` do not participate in the same ancestry check,
+      but no reachable fallback-descendant fixture was established. This remains
+      an unconfirmed risk in the generic commit/amend rejection reporter, outside
+      absorb planning/execution; a focused fixture is deferred from W06.
 - [ ] F4: quantify repeated rebase/materialization cost per selector.
       Prior evidence: inspected call path; no benchmark or acceptance budget yet.
 
@@ -745,6 +749,47 @@ legacy::absorb::tests::paired_old_and_new_hunk_selections_preserve_their_shared_
   published. Fault injection for checkpoint/finalization failures belongs to
   W07. Caller interpretation of nonzero rejection remains W06 work.
 - Commit status: ready for the authorized W05 checkpoint commit.
+
+## W06 Caller And Diagnostics Evidence
+
+- Packet / owner / status / date: W06 / GitHub Copilot / done / 2026-10-05.
+- Source and scope: W05 commit `kwn` on `fix-absorb-deletion-boundary`; W06 touched
+  absorb API/CLI outcomes, CLI tests and documentation, and the Desktop modal.
+  Unrelated applied branches and their files were preserved.
+- Atomic rejection contract: internal execution returns structured rejected
+  groups with path, source range, intended target, and reason. Public `absorb()`
+  converts any nonempty rejection into an error, so direct, N-API, Tauri, Lite,
+  and HTTP callers cannot interpret rejected selections as numeric success.
+- Publication/finalization contract: unchanged rejection says no changes were
+  published and gives no undo hint. A reconciliation failure after checkpoint
+  commit reports published state with undo available. A checkpoint-commit failure
+  after graph publication reports published state with automatic undo unavailable.
+  W07 owns fault-injection proof for both post-publication boundaries.
+- CLI contract: mixed or all-landed selected targets fail as one operation in
+  execution and dry-run unless `--allow-merged` is explicit. Human output exits
+  nonzero; JSON uses `ok: false`. Only successful execution prints the ordinary
+  undo hint. Help and installed skill/reference document branch inputs, atomic
+  refusal, and conditional undo availability.
+- UI/transport inventory: Desktop displays `parseError(error).message` and leaves
+  its modal open on failure. Lite already sends backend details through its global
+  mutation-error toast. Web/status TUI have no absorb caller. Generated N-API/HTTP
+  adapters propagate public errors; explicit rejection transport tests remain a
+  nonblocking coverage consideration.
+- Validation: `cargo test -p but-api legacy::absorb::tests:: --no-default-features`
+  passed 17 tests; `cargo test -p but --test but command::absorb::` passed 18.
+  `cargo clippy -p but-api -p but --all-targets --no-deps -- -D warnings`, focused
+  Svelte ESLint, targeted Prettier, and `git diff --check` passed. VS Code reported
+  no diagnostics in the touched Svelte/Rust files. `pnpm -F @gitbutler/lite check`
+  passed. `pnpm -F @gitbutler/desktop check` remains blocked by pre-existing
+  workspace resolution and unrelated component type errors; no new error was
+  reported for `AbsorbPlanModal.svelte`.
+- Independent rereview: prior mixed-dry-run, Desktop-detail, assertion-placement,
+  and stale-doc findings are closed. It identified checkpoint-commit failure as a
+  distinct post-publication boundary; that boundary now has its own error and JSON
+  classification. F3 is narrowed as recorded above rather than claimed fixed.
+- Remaining uncertainty: no fault hook has yet demonstrated checkpoint commit or
+  post-checkpoint assignment failure, and no approved performance budget exists.
+  These are the first W07 actions.
 
 ## Release Checklist
 

@@ -7,6 +7,7 @@ Agent-focused reference for useful `but` commands.
 - [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`, `open`
 - [Branching](#branching) - `branch new`, `apply`, `unapply`, `branch delete`, `pick`
 - [Committing](#committing) - `commit`
+- [Absorbing Changes](#absorbing-changes) - `absorb`
 - [Editing History](#editing-history) - `squash`, `amend`, `move`, `split`, `uncommit`, `reword`, `discard`
 - [Conflict Resolution](#conflict-resolution) - `resolve`
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
@@ -219,6 +220,25 @@ Example new branch: `but commit -b feature/contact-form -m "Validate contact for
 To commit specific hunks from a file with multiple changes, use `but diff` to see hunk IDs, then specify them individually.
 
 Edge case: if wanted and unwanted edits are in the same hunk, GitButler cannot split that hunk by ID. Only when the task requires keeping part of that hunk uncommitted, temporarily edit the working tree to isolate the wanted lines, commit those IDs, then restore the leftover lines so they remain uncommitted.
+
+## Absorbing Changes
+
+### `but absorb [SOURCE]`
+
+Amend uncommitted changes into the commits selected by dependency and assignment analysis.
+
+```bash
+but absorb                    # Absorb all uncommitted changes
+but absorb <file-or-hunk-id>  # Absorb one uncommitted selection
+but absorb <branch>           # Absorb changes assigned to one branch
+but absorb --dry-run [SOURCE] # Preview without changing state
+```
+
+The operation is atomic: if any selected group cannot be applied, no selected group is published.
+Likewise, if any selected target is merged upstream, the whole operation is refused unless
+`--allow-merged` is specified. A successful operation creates an undo checkpoint; use `but undo` to
+restore it. On failure, follow the reported undo availability instead of assuming an undo checkpoint
+exists.
 
 ## Editing History
 

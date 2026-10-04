@@ -125,23 +125,16 @@ pub(crate) fn handle(
     let Some((absorption_plan, skipped_merged)) =
         drop_landed_absorptions(absorption_plan, &merged, out)?
     else {
-        return Ok(());
+        return Err(anyhow::anyhow!(
+            "Cannot absorb selected changes because every target commit is merged upstream"
+        )
+        .into());
     };
 
     // Display the plan (in JSON mode for non-dry-run, collect without writing — we'll
     // combine it with the result in absorb_assignments to avoid a double-write that
     // would overwrite the plan in the JSON buffer).
     let plan_json = display_absorption_plan(&absorption_plan, &id_map, out, dry_run)?;
-
-    if dry_run {
-        // Nothing more to do
-        if let Some(out) = out.for_human() {
-            let t = theme::get();
-            let message = t.success.paint("Dry run complete. No changes were made.");
-            writeln!(out, "{message}")?;
-        }
-        return Ok(());
-    }
 
     if !skipped_merged.is_empty() {
         if let Some(out) = out.for_json() {
@@ -158,6 +151,16 @@ pub(crate) fn handle(
             "Cannot absorb selected changes because at least one target commit is merged upstream"
         )
         .into());
+    }
+
+    if dry_run {
+        // Nothing more to do
+        if let Some(out) = out.for_human() {
+            let t = theme::get();
+            let message = t.success.paint("Dry run complete. No changes were made.");
+            writeln!(out, "{message}")?;
+        }
+        return Ok(());
     }
 
     absorb_assignments(
@@ -186,26 +189,65 @@ fn absorb_assignments(
         SnapshotDetails::new(OperationKind::Absorb),
         perm.read_permission(),
     )?;
-    let total_rejected = but_api::legacy::absorb::absorb_with_checkpoint_with_perm(
+    let outcome = match but_api::legacy::absorb::absorb_with_checkpoint_with_perm(
         ctx,
         absorption_plan,
         perm,
         Some(snapshot),
-    )?;
+    ) {
+        Ok(outcome) => outcome,
+        Err(err) => {
+            if let Some(out) = out.for_json() {
+                if err
+                    .downcast_ref::<but_api::legacy::absorb::AbsorbFinalizationError>()
+                    .is_some()
+                {
+                    out.write_value(serde_json::json!({
+                        "ok": false,
+                        "published": true,
+                        "undoAvailable": true,
+                        "error": err.to_string(),
+                    }))?;
+                } else if err
+                    .downcast_ref::<but_api::legacy::absorb::AbsorbCheckpointError>()
+                    .is_some()
+                {
+                    out.write_value(serde_json::json!({
+                        "ok": false,
+                        "published": true,
+                        "undoAvailable": false,
+                        "error": err.to_string(),
+                    }))?;
+                }
+            }
+            return Err(err);
+        }
+    };
+    let total_rejected = outcome.rejected_count();
+
+    if !outcome.is_success() {
+        if let Some(out) = out.for_json() {
+            let mut combined = serde_json::json!({
+                "ok": false,
+                "rejected": total_rejected,
+                "error": outcome.to_string(),
+            });
+            if let Some(plan) = plan_json {
+                combined["plan"] = serde_json::to_value(plan).unwrap_or(serde_json::Value::Null);
+            }
+            if !skipped_merged.is_empty() {
+                combined["skippedMergedUpstream"] =
+                    serde_json::to_value(skipped_merged).unwrap_or(serde_json::Value::Null);
+            }
+            out.write_value(combined)?;
+        }
+        return Err(anyhow::anyhow!(outcome.to_string()));
+    }
 
     // Display completion message
     let t = theme::get();
     if let Some(out) = out.for_human() {
         writeln!(out)?;
-        if total_rejected > 0 {
-            writeln!(
-                out,
-                "{}: Failed to absorb {} file{}",
-                t.attention.paint("Warning"),
-                total_rejected,
-                if total_rejected == 1 { "" } else { "s" }
-            )?;
-        }
         writeln!(
             out,
             "{}: you can run `but undo` to undo these changes",
@@ -215,7 +257,7 @@ fn absorb_assignments(
         // Combine plan and result into a single JSON write to avoid overwriting
         // the plan in the JSON buffer (which would lose absorption plan data).
         let mut combined = serde_json::json!({
-            "ok": total_rejected == 0,
+            "ok": true,
             "rejected": total_rejected,
         });
         if let Some(plan) = plan_json {

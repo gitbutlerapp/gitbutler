@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { parseError } from "$lib/error/parser";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import {
@@ -66,14 +67,15 @@
 	bind:this={modal}
 	testId={TestId.AbsobModal}
 	onSubmit={async () => {
+		const loadingToastId = chipToasts.loading("Absorbing changes");
 		try {
-			await chipToasts.promise(absorb({ projectId, absorptionPlan: absorbPlan }), {
-				loading: "Absorbing changes",
-				success: "Changes absorbed successfully",
-				error: "Failed to absorb changes",
-			});
+			await absorb({ projectId, absorptionPlan: absorbPlan });
+			chipToasts.removeChipToast(loadingToastId);
+			chipToasts.success("Changes absorbed successfully");
 			modal?.close();
 		} catch (error) {
+			chipToasts.removeChipToast(loadingToastId);
+			chipToasts.error(parseError(error).message);
 			console.error("Failed to absorb changes:", error);
 		}
 	}}
