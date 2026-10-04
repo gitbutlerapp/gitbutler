@@ -945,6 +945,13 @@ export declare function gitTestPush(projectId: string, remoteName: string, branc
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
 /**
+ * Take what `machine` sent of `branch` out of this machine's inbox, without pulling it.
+ *
+ * {@link ../../../../../crates/but-api/src/hosted.rs:536}
+ */
+export declare function hostedBranchDismiss(projectId: string, machine: string, branch: string): Promise<void>
+
+/**
  * Publish `branch` (a short name) to the hosted server, from wherever it lives locally.
  *
  * It's one atomic push, into this machine's own namespace, of the branch, the target branch
@@ -953,7 +960,7 @@ export declare function headInfo(projectId: string): Promise<RefInfo>
  * is checked out in; in the workspace, uncommitted changes don't belong to one branch, so
  * they stay local. Nothing another machine published is replaced, so it never asks.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:484}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:509}
  */
 export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean): Promise<string>
 
@@ -967,9 +974,17 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * If the local branch has commits of its own, or its worktree has uncommitted changes,
  * pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:571}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:640}
  */
 export declare function hostedBranchPull(projectId: string, machine: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
+
+/**
+ * Publish `branch` as [`hosted_branch_publish()`] does, and send it to the machine named `to`:
+ * it shows up there as sent, to pull or dismiss, and if `to` is online, it's told right away.
+ *
+ * {@link ../../../../../crates/but-api/src/hosted.rs:521}
+ */
+export declare function hostedBranchSend(projectId: string, branch: string, to: string, includeUncommitted: boolean): Promise<string>
 
 /**
  * The machines that published to this project, most recent first, with what each last sent.
@@ -978,7 +993,7 @@ export declare function hostedBranchPull(projectId: string, machine: string, bra
  * branches are here already. On the hosted server, which has no files, it's the server's own
  * record of every machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:377}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:401}
  */
 export declare function hostedMachines(projectId: string): Promise<HostedProject>
 
@@ -3904,6 +3919,8 @@ export type MachineBranch = {
   local: LocalHome;
   /** Its commits that the target doesn't have, newest first. */
   commits: Array<Commit>;
+  /** Whether that machine sent it to this one, and it wasn't pulled or dismissed since. */
+  sent: boolean;
 };
 
 /**
@@ -4902,6 +4919,18 @@ export type WatcherHostedPublishedPayload = {
   root: string | null;
 };
 
+/** A branch another machine sent this one, as the hosted server announces it. */
+export type WatcherHostedSentPayload = {
+  /** The root commit of the project it's a branch of. */
+  root: string;
+  /** The project's name, as the sender has it. */
+  title: string;
+  /** The machine that sent it. */
+  from: string;
+  /** The branch's short name, e.g. `agent/search`. */
+  branch: string;
+};
+
 /** The type of payloads a watcher event can have */
 export type WatcherPayload = {
   type: "gitFetch";
@@ -4927,6 +4956,9 @@ export type WatcherPayload = {
 } | {
   type: "hostedPublished";
   subject: WatcherHostedPublishedPayload;
+} | {
+  type: "hostedSent";
+  subject: WatcherHostedSentPayload;
 };
 
 /** Workspace activity that requires the UI to re-read branch/stack state. */

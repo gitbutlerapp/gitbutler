@@ -1511,6 +1511,20 @@ export const useHostedBranchPublish = (projectId: string) =>
 		meta: { failureTitle: "Failed to publish the branch" },
 	});
 
+export const useHostedBranchSend = (projectId: string) =>
+	useMutation({
+		mutationKey: [projectId, "hostedBranchSend"],
+		mutationFn: window.lite.hostedBranchSend,
+		meta: { failureTitle: "Failed to send the branch" },
+	});
+
+export const useHostedBranchDismiss = (projectId: string) =>
+	useMutation({
+		mutationKey: [projectId, "hostedBranchDismiss"],
+		mutationFn: window.lite.hostedBranchDismiss,
+		meta: { failureTitle: "Failed to dismiss the branch" },
+	});
+
 export const useHostedBranchPull = (projectId: string) =>
 	useMutation({
 		mutationKey: [projectId, "hostedBranchPull"],

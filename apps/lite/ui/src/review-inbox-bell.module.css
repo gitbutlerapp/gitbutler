@@ -152,3 +152,18 @@
 .entryTime {
 	color: var(--text-3);
 }
+
+.sent {
+	display: flex;
+	align-items: center;
+	padding: 8px 12px;
+	gap: 6px;
+	border-bottom: 1px solid var(--border-3);
+	color: var(--text-2);
+}
+
+.sentText {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}

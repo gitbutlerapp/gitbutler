@@ -64,8 +64,10 @@ export const apiInvalidates = {
 	forgetBitbucketAccount: ["ForgeAccounts", "ForgeLogin"],
 	forgetGithubAccount: ["ForgeAccounts", "ForgeLogin"],
 	forgetGitlabAccount: ["ForgeAccounts", "ForgeLogin"],
+	hostedBranchDismiss: ["Hosted"],
 	hostedBranchPublish: ["Hosted"],
 	hostedBranchPull: ["Hosted", "Worktrees", "Workspace", "Branches"],
+	hostedBranchSend: ["Hosted"],
 	mergeReview: ["Reviews", "MergeStatus", "Checks", "Branches"],
 	publishReview: ["Reviews", "Branches", "Workspace"],
 	removeCommentReaction: ["CommentReactions", "ReviewComments"],
@@ -100,6 +102,7 @@ export const watcherInvalidates = {
 	gitHead: ["OperatingMode"],
 	hostedPresence: [],
 	hostedPublished: [],
+	hostedSent: [],
 	workspaceActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
 	worktreeChanges: ["Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"],
 };

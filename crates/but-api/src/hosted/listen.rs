@@ -19,6 +19,8 @@ pub enum HostedEvent {
     Published(Option<String>),
     /// The account's other machines connected right now, by host name.
     Online(Vec<String>),
+    /// Another machine sent this one a branch.
+    Sent(crate::watcher::WatcherHostedSentPayload),
 }
 
 /// A connection kept open in the background, reconnecting as needed, until this is dropped.
@@ -132,6 +134,11 @@ async fn connect(
             Some("projectsChanged") => on_event(HostedEvent::Published(
                 message["payload"]["root"].as_str().map(ToOwned::to_owned),
             )),
+            Some("sent") if this.is_some() && message["payload"]["to"].as_str() == this => {
+                if let Ok(sent) = serde_json::from_value(message["payload"].clone()) {
+                    on_event(HostedEvent::Sent(sent));
+                }
+            }
             Some("presence") => {
                 let online = message["payload"]["online"]
                     .as_array()

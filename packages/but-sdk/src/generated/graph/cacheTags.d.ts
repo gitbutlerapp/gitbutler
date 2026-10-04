@@ -66,8 +66,10 @@ export declare const apiInvalidates: {
 	readonly forgetBitbucketAccount: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly forgetGithubAccount: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly forgetGitlabAccount: readonly ["ForgeAccounts", "ForgeLogin"];
+	readonly hostedBranchDismiss: readonly ["Hosted"];
 	readonly hostedBranchPublish: readonly ["Hosted"];
 	readonly hostedBranchPull: readonly ["Hosted", "Worktrees", "Workspace", "Branches"];
+	readonly hostedBranchSend: readonly ["Hosted"];
 	readonly mergeReview: readonly ["Reviews", "MergeStatus", "Checks", "Branches"];
 	readonly publishReview: readonly ["Reviews", "Branches", "Workspace"];
 	readonly removeCommentReaction: readonly ["CommentReactions", "ReviewComments"];
@@ -102,6 +104,7 @@ export declare const watcherInvalidates: {
 	readonly gitHead: readonly ["OperatingMode"];
 	readonly hostedPresence: readonly [];
 	readonly hostedPublished: readonly [];
+	readonly hostedSent: readonly [];
 	readonly workspaceActivity: readonly ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"];
 	readonly worktreeChanges: readonly ["Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"];
 };

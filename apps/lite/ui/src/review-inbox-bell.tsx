@@ -7,7 +7,15 @@
  * works everywhere else in this feature.
  */
 
-import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import {
+	forgeInfoOptions,
+	guiSettingsQueryOptions,
+	headInfoQueryOptions,
+	hostedMachinesQueryOptions,
+} from "#ui/api/queries.ts";
+import { useHostedBranchDismiss, useHostedBranchPull } from "#ui/api/mutations.ts";
+import { useHostedSync } from "#ui/HostedSync.tsx";
+import { defaultSettings } from "#ui/settings.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { Toggle, ToggleGroup } from "@base-ui/react";
@@ -104,9 +112,73 @@ const Entry: FC<{
 	);
 };
 
+/** Branches other machines sent this one, each until it's pulled or dismissed. */
+const useSentBranches = (projectId: string) => {
+	const { data: hostedBranches = false } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.hostedBranches ?? defaultSettings.hostedBranches,
+	});
+	const { data: machines = [] } = useQuery({
+		...hostedMachinesQueryOptions(projectId),
+		enabled: hostedBranches && window.lite.hosted !== true,
+	});
+	return machines.flatMap((machine) =>
+		machine.branches
+			.filter((branch) => branch.sent)
+			.map((branch) => ({ machine: machine.name, branch: branch.branch })),
+	);
+};
+
+const SentEntry: FC<{ projectId: string; machine: string; branch: string }> = ({
+	projectId,
+	machine,
+	branch,
+}) => {
+	const { mutate: pull, isPending: isPullPending } = useHostedBranchPull(projectId);
+	const { mutate: dismiss, isPending: isDismissPending } = useHostedBranchDismiss(projectId);
+	const settle = useHostedSync();
+	const pullHere = (overwrite = false) =>
+		pull(
+			{
+				projectId,
+				machine,
+				branch,
+				intoWorkspace: false,
+				onConflict: overwrite ? "overwrite" : null,
+			},
+			{
+				onSuccess: (outcome) =>
+					settle(outcome, {
+						title: "Overwrite local work?",
+						keepLabel: "Keep local",
+						overwrite: () => pullHere(true),
+					}),
+			},
+		);
+	return (
+		<div className={styles.sent}>
+			<span className={classes("text-12", styles.sentText)}>
+				{machine} sent you <span className="text-semibold">{branch}</span>
+			</span>
+			<Button size="small" disabled={isPullPending} onClick={() => pullHere()}>
+				Pull
+			</Button>
+			<Button
+				size="small"
+				variant="ghost"
+				disabled={isDismissPending}
+				onClick={() => dismiss({ projectId, machine, branch })}
+			>
+				Dismiss
+			</Button>
+		</div>
+	);
+};
+
 /**
  * The bell in the sidebar header. It owns its visibility: nothing renders
- * without forge review support, or below the loud dial.
+ * without forge review support, or below the loud dial, unless a branch was
+ * sent here.
  */
 export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 	const [open, setOpen] = useState(false);
@@ -114,19 +186,21 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	// Unconditional: behind `&&` the hook count would change mid-mount.
 	const level = usePrNotificationsLevel();
-	const shown = level === "loud" && !!forgeInfo?.capabilities.prService;
-	const allEntries = useInboxEntries(projectId, shown);
+	const reviewsShown = level === "loud" && !!forgeInfo?.capabilities.prService;
+	const sent = useSentBranches(projectId);
+	const shown = reviewsShown || sent.length > 0;
+	const allEntries = useInboxEntries(projectId, reviewsShown);
 	const humanEntries = allEntries.filter((entry) => !isBotEntry(entry));
 	const agentEntries = allEntries.filter(isBotEntry);
 	const humanUnseen = humanEntries.filter((entry) => !entry.seen).length;
 	const agentUnseen = agentEntries.filter((entry) => !entry.seen).length;
-	const unseen = humanUnseen + agentUnseen;
+	const unseen = humanUnseen + agentUnseen + sent.length;
 	const entries = tab === "agents" ? agentEntries : humanEntries;
 	const tabUnseen = tab === "agents" ? agentUnseen : humanUnseen;
 	const { data: laneRefs } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: laneRefsByName,
-		enabled: shown,
+		enabled: reviewsShown,
 	});
 
 	if (!shown) return null;
@@ -152,60 +226,72 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 			<div className={styles.panelHeader}>
 				<span className={classes("text-12", "text-semibold")}>Notifications</span>
 			</div>
-			<div className={styles.switcher}>
-				<ToggleGroup
-					render={<ToggleGroupStyles />}
-					aria-label="Notification type"
-					value={[tab]}
-					onValueChange={([next]) => {
-						if (next !== undefined) setTab(next);
-					}}
-				>
-					<Toggle
-						render={<ToggleStyles size="small" />}
-						value={"humans" satisfies NotificationType}
-					>
-						Humans{humanUnseen > 0 && ` (${humanUnseen})`}
-					</Toggle>
-					<Toggle
-						render={<ToggleStyles size="small" />}
-						value={"agents" satisfies NotificationType}
-					>
-						Agents{agentUnseen > 0 && ` (${agentUnseen})`}
-					</Toggle>
-				</ToggleGroup>
-				{tabUnseen > 0 && (
-					<button
-						className={classes("text-12", styles.markAll)}
-						onClick={() =>
-							markInboxSeen(
-								projectId,
-								entries.map((entry) => entry.id),
-							)
-						}
-						type="button"
-					>
-						Mark all read
-					</button>
-				)}
-			</div>
-			<ScrollArea className={styles.list}>
-				{entries.length === 0 ? (
-					<div className={classes("text-12", styles.empty)}>
-						{tab === "agents" ? "No agent notifications yet" : "No human notifications yet"}
+			{sent.map(({ machine, branch }) => (
+				<SentEntry
+					key={`${machine}/${branch}`}
+					projectId={projectId}
+					machine={machine}
+					branch={branch}
+				/>
+			))}
+			{reviewsShown && (
+				<>
+					<div className={styles.switcher}>
+						<ToggleGroup
+							render={<ToggleGroupStyles />}
+							aria-label="Notification type"
+							value={[tab]}
+							onValueChange={([next]) => {
+								if (next !== undefined) setTab(next);
+							}}
+						>
+							<Toggle
+								render={<ToggleStyles size="small" />}
+								value={"humans" satisfies NotificationType}
+							>
+								Humans{humanUnseen > 0 && ` (${humanUnseen})`}
+							</Toggle>
+							<Toggle
+								render={<ToggleStyles size="small" />}
+								value={"agents" satisfies NotificationType}
+							>
+								Agents{agentUnseen > 0 && ` (${agentUnseen})`}
+							</Toggle>
+						</ToggleGroup>
+						{tabUnseen > 0 && (
+							<button
+								className={classes("text-12", styles.markAll)}
+								onClick={() =>
+									markInboxSeen(
+										projectId,
+										entries.map((entry) => entry.id),
+									)
+								}
+								type="button"
+							>
+								Mark all read
+							</button>
+						)}
 					</div>
-				) : (
-					entries.map((entry) => (
-						<Entry
-							key={entry.id}
-							projectId={projectId}
-							entry={entry}
-							laneRefs={laneRefs}
-							onNavigate={() => setOpen(false)}
-						/>
-					))
-				)}
-			</ScrollArea>
+					<ScrollArea className={styles.list}>
+						{entries.length === 0 ? (
+							<div className={classes("text-12", styles.empty)}>
+								{tab === "agents" ? "No agent notifications yet" : "No human notifications yet"}
+							</div>
+						) : (
+							entries.map((entry) => (
+								<Entry
+									key={entry.id}
+									projectId={projectId}
+									entry={entry}
+									laneRefs={laneRefs}
+									onNavigate={() => setOpen(false)}
+								/>
+							))
+						)}
+					</ScrollArea>
+				</>
+			)}
 		</Dropdown>
 	);
 };

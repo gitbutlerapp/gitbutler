@@ -425,6 +425,7 @@ pub fn hosted_listen(
             but_api::hosted::HostedEvent::Published(root) => {
                 WatcherPayload::HostedPublished(WatcherHostedPublishedPayload { root })
             }
+            but_api::hosted::HostedEvent::Sent(sent) => WatcherPayload::HostedSent(sent),
             but_api::hosted::HostedEvent::Online(online) => {
                 WatcherPayload::HostedPresence(WatcherHostedPresencePayload { online })
             }

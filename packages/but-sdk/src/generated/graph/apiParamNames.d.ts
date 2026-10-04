@@ -84,8 +84,10 @@ export declare const apiParamNames: {
 	readonly gitTestFetch: readonly ["projectId", "remoteName", "action"];
 	readonly gitTestPush: readonly ["projectId", "remoteName", "branchName"];
 	readonly headInfo: readonly ["projectId"];
+	readonly hostedBranchDismiss: readonly ["projectId", "machine", "branch"];
 	readonly hostedBranchPublish: readonly ["projectId", "branch", "includeUncommitted"];
 	readonly hostedBranchPull: readonly ["projectId", "machine", "branch", "intoWorkspace", "onConflict"];
+	readonly hostedBranchSend: readonly ["projectId", "branch", "to", "includeUncommitted"];
 	readonly hostedMachines: readonly ["projectId"];
 	readonly initApplicationNamespace: readonly ["identifier"];
 	readonly initGithubDeviceOauth: readonly [];

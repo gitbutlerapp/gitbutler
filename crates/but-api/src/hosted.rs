@@ -179,23 +179,45 @@ fn workdir(ctx: &but_ctx::Context) -> Result<PathBuf> {
         .to_owned())
 }
 
-/// Fetch the project's published branches and snapshots from the hosted server.
+/// Fetch the project's published branches and snapshots from the hosted server, and what was
+/// sent to this machine.
 fn fetch(dir: &Path) -> Result<()> {
     let url = format!("{}/git/{}", hosted_server(), hosted_project(dir)?);
     let heads = format!("+refs/heads/*:{HOSTED_REFS}/heads/*");
     let snapshots = format!("+refs/gitbutler/snapshots/*:{HOSTED_REFS}/snapshots/*");
-    git_as_user(
-        dir,
-        &[
-            "fetch",
-            "--prune",
-            "--no-tags",
-            "--quiet",
-            &url,
-            &heads,
-            &snapshots,
-        ],
-    )?;
+    let inbox =
+        machine_name().map(|this| format!("+refs/gitbutler/inbox/{this}/*:{HOSTED_REFS}/inbox/*"));
+    let mut fetch = vec![
+        "fetch",
+        "--prune",
+        "--no-tags",
+        "--quiet",
+        &url,
+        &heads,
+        &snapshots,
+    ];
+    fetch.extend(inbox.as_deref());
+    git_as_user(dir, &fetch)?;
+    Ok(())
+}
+
+/// Where the hosted server keeps what `from` sent `to` of a branch, by its published name.
+fn inbox_ref(to: &str, from: &str, name: &str) -> String {
+    format!("refs/gitbutler/inbox/{to}/{from}/{name}")
+}
+
+/// Take what `from` sent of `branch` out of this machine's inbox, here and on the server.
+fn clear_inbox(dir: &Path, from: &str, branch: &str) -> Result<()> {
+    let name = published_name(branch);
+    let mirror = format!("{HOSTED_REFS}/inbox/{from}/{name}");
+    if rev(dir, &mirror).is_none() {
+        return Ok(());
+    }
+    let this = machine_name().context("This machine has no name; set BUT_MACHINE")?;
+    let url = format!("{}/git/{}", hosted_server(), hosted_project(dir)?);
+    let delete = format!(":{}", inbox_ref(&this, from, &name));
+    git_as_user(dir, &["push", "--quiet", "--no-verify", &url, &delete])?;
+    git(dir, &[], &["update-ref", "-d", &mirror])?;
     Ok(())
 }
 
@@ -365,6 +387,8 @@ pub struct MachineBranch {
     pub local: LocalHome,
     /// Its commits that the target doesn't have, newest first.
     pub commits: Vec<but_workspace::ui::Commit>,
+    /// Whether that machine sent it to this one, and it wasn't pulled or dismissed since.
+    pub sent: bool,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(MachineBranch);
@@ -429,7 +453,7 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
     for line in refs.lines() {
         let (sent, time) = line.split_once(' ').context("a ref and its date")?;
         // <machine>/<published name>
-        let Some((machine, _name)) = sent.trim_start_matches(&prefix).split_once('/') else {
+        let Some((machine, name)) = sent.trim_start_matches(&prefix).split_once('/') else {
             continue;
         };
         if this.as_deref() == Some(machine) {
@@ -461,6 +485,7 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
         entry.branches.push(MachineBranch {
             commits,
             uncommitted,
+            sent: !on_hub && rev(&dir, &format!("{HOSTED_REFS}/inbox/{machine}/{name}")).is_some(),
             local: if on_hub {
                 LocalHome::None
             } else {
@@ -488,6 +513,43 @@ pub fn hosted_branch_publish(
     branch: String,
     include_uncommitted: bool,
 ) -> Result<String> {
+    publish(ctx, &branch, include_uncommitted, None)
+}
+
+/// Publish `branch` as [`hosted_branch_publish()`] does, and send it to the machine named `to`:
+/// it shows up there as sent, to pull or dismiss, and if `to` is online, it's told right away.
+#[but_api(napi, invalidates = [Hosted])]
+#[instrument(err(Debug))]
+pub fn hosted_branch_send(
+    ctx: &but_ctx::Context,
+    branch: String,
+    to: String,
+    include_uncommitted: bool,
+) -> Result<String> {
+    if published_name(&to) != to {
+        bail!("{to} isn't a machine name");
+    }
+    publish(ctx, &branch, include_uncommitted, Some(&to))
+}
+
+/// Take what `machine` sent of `branch` out of this machine's inbox, without pulling it.
+#[but_api(napi, invalidates = [Hosted])]
+#[instrument(err(Debug))]
+pub fn hosted_branch_dismiss(
+    ctx: &but_ctx::Context,
+    machine: String,
+    branch: String,
+) -> Result<()> {
+    clear_inbox(&workdir(ctx)?, &machine, &branch)
+}
+
+fn publish(
+    ctx: &but_ctx::Context,
+    branch: &str,
+    include_uncommitted: bool,
+    to: Option<&str>,
+) -> Result<String> {
+    let branch = branch.to_owned();
     let dir = workdir(ctx)?;
     let full = format!("refs/heads/{branch}");
     if full == but_core::WORKSPACE_REF_NAME {
@@ -505,6 +567,9 @@ pub fn hosted_branch_publish(
 
     let machine = machine_name()
         .context("This machine has no name to publish under; set BUT_MACHINE to give it one")?;
+    if to == Some(machine.as_str()) {
+        bail!("{branch} is already on {machine}, this machine");
+    }
     let main = ctx.repo.get()?.clone();
     fetch(&dir)?;
     let name = published_name(&branch);
@@ -551,13 +616,17 @@ pub fn hosted_branch_publish(
         format!("+{snapshot}:refs/gitbutler/snapshots/{machine}/{name}"),
     ];
     refspecs.extend(target.map(|target| format!("+{target}:{target}")));
+    refspecs.extend(to.map(|to| format!("+{snapshot}:{}", inbox_ref(to, &machine, &name))));
     let url = format!("{}/git/{}", hosted_server(), hosted_project(&dir)?);
     // No hooks: they'd run with the token in git's environment.
     let mut push = vec!["push", "--atomic", "--quiet", "--no-verify", &url];
     push.extend(refspecs.iter().map(String::as_str));
     git_as_user(&dir, &push)?;
     git(&dir, &[], &["update-ref", &synced_ref(&branch), &snapshot])?;
-    Ok(format!("Published {branch} as {machine}"))
+    Ok(match to {
+        Some(to) => format!("Sent {branch} to {to}"),
+        None => format!("Published {branch} as {machine}"),
+    })
 }
 
 /// Pull `branch` (a short name) down as `machine` last published it.
@@ -568,6 +637,10 @@ pub fn hosted_branch_publish(
 ///
 /// If the local branch has commits of its own, or its worktree has uncommitted changes,
 /// pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
+///
+/// A branch this machine had published is published again as pulled, so it doesn't disagree
+/// with itself; one it never published stays unpublished. Pulling also clears anything
+/// `machine` sent of it to this machine.
 #[but_api(napi, invalidates = [Hosted, Worktrees, Workspace, Branches])]
 #[instrument(err(Debug))]
 pub fn hosted_branch_pull(
@@ -678,6 +751,26 @@ pub fn hosted_branch_pull(
         }
     };
     git(&dir, &[], &["update-ref", &synced_ref(&branch), &snapshot])?;
+    // Pulled is handled; the branch itself is here either way.
+    if let Err(err) = clear_inbox(&dir, &machine, &branch) {
+        tracing::warn!("{branch} was pulled, but stays in the inbox: {err:#}");
+    }
+    // What this machine published of the branch would now disagree with it, so it's published
+    // again as pulled. After the pull, so a pull that stops never leaves it claiming more.
+    let own = machine_name()
+        .map(|this| format!("{HOSTED_REFS}/snapshots/{this}/{}", published_name(&branch)));
+    let done = match own.filter(|own| rev(&dir, own).is_some()) {
+        None => done,
+        Some(_) => {
+            let with_uncommitted =
+                matches!(local_home(ctx, &dir, &branch)?, LocalHome::Worktree(_))
+                    && has_uncommitted(&dir, &snapshot);
+            match publish(ctx, &branch, with_uncommitted, None) {
+                Ok(_) => format!("{done}, and published it again from here"),
+                Err(err) => format!("{done}, but couldn't publish it again from here: {err:#}"),
+            }
+        }
+    };
     Ok(SyncOutcome::Done(done))
 }
 

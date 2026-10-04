@@ -13,12 +13,15 @@ import {
 	useTearOffBranch,
 	useBranchRename,
 	useHostedBranchPublish,
+	useHostedBranchSend,
 	useWorkspaceBranchAndAncestorsPush,
 } from "#ui/api/mutations.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import {
 	forgeInfoOptions,
 	guiSettingsQueryOptions,
+	hostedMachinesQueryOptions,
+	hostedPresenceQueryOptions,
 	headInfoQueryOptions,
 	listCIChecksQueryOptions,
 	listReviewsQueryOptions,
@@ -267,6 +270,31 @@ export const BranchRow: FC<
 			{ projectId, branch: refName.displayName, includeUncommitted },
 			{ onSuccess: (done) => toastManager.add({ title: done }) },
 		);
+	const { isPending: isSendPending, mutate: send } = useHostedBranchSend(projectId);
+	// Every machine known to have this project or to be online; one offline gets it on return.
+	const { data: published = [] } = useQuery({
+		...hostedMachinesQueryOptions(projectId),
+		enabled: hostedBranches && window.lite.hosted !== true,
+	});
+	const { data: online = [] } = useQuery(hostedPresenceQueryOptions(projectId));
+	const recipients = [
+		...new Set([...published.map((machine) => machine.name), ...online]),
+	].toSorted();
+	const sendTo = (label: string, includeUncommitted: boolean) =>
+		nativeMenuItem({
+			label,
+			enabled: !isSendPending && recipients.length > 0,
+			submenu: recipients.map((to) =>
+				nativeMenuItem({
+					label: to,
+					onSelect: () =>
+						send(
+							{ projectId, branch: refName.displayName, to, includeUncommitted },
+							{ onSuccess: (done) => toastManager.add({ title: done }) },
+						),
+				}),
+			),
+		});
 	const { mutate: branchCreate } = useBranchCreate();
 
 	const pushesMultipleBranches = downstackPushStatus.downstackBranches > 1;
@@ -427,6 +455,7 @@ export const BranchRow: FC<
 						enabled: !isPublishPending,
 						onSelect: () => publishBranch(false),
 					}),
+					sendTo("Send Branch To", false),
 					// Uncommitted changes belong to a branch only in its own worktree.
 					...(lane.type === "worktree"
 						? [
@@ -435,6 +464,7 @@ export const BranchRow: FC<
 									enabled: !isPublishPending,
 									onSelect: () => publishBranch(true),
 								}),
+								sendTo("Send Branch With Uncommitted Changes To", true),
 							]
 						: []),
 				]

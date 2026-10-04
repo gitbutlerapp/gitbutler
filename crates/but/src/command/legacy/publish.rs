@@ -19,6 +19,7 @@ pub fn publish(ctx: &mut Context, args: Platform, current_dir: &Path) -> CliResu
     let Platform {
         branch,
         include_uncommitted,
+        to,
     } = args;
     let branch = match branch {
         Some(branch) => branch,
@@ -32,11 +33,10 @@ pub fn publish(ctx: &mut Context, args: Platform, current_dir: &Path) -> CliResu
             }
         },
     };
-    Ok(Outcome::Done(but_api::hosted::hosted_branch_publish(
-        ctx,
-        branch,
-        include_uncommitted,
-    )?))
+    Ok(Outcome::Done(match to {
+        Some(to) => but_api::hosted::hosted_branch_send(ctx, branch, to, include_uncommitted)?,
+        None => but_api::hosted::hosted_branch_publish(ctx, branch, include_uncommitted)?,
+    }))
 }
 
 pub fn pull(
@@ -136,6 +136,7 @@ impl CliOutputHuman for Outcome {
                         branch,
                         uncommitted,
                         local,
+                        sent,
                         ..
                     } in branches
                     {
@@ -150,7 +151,8 @@ impl CliOutputHuman for Outcome {
                             LocalHome::Workspace => " (local: in the workspace)",
                             LocalHome::Branch => " (local: a branch)",
                         };
-                        writeln!(out, "  {branch}{uncommitted}{local}")?;
+                        let sent = if sent { " (sent to you)" } else { "" };
+                        writeln!(out, "  {branch}{sent}{uncommitted}{local}")?;
                     }
                 }
             }

@@ -3,7 +3,7 @@ import { type FC, useId } from "react";
 import type { Commit, HostedMachine, MachineBranch } from "@gitbutler/but-sdk";
 import { commitAddress } from "#ui/addresses.ts";
 import { hostedMachinesQueryOptions, hostedPresenceQueryOptions } from "#ui/api/queries.ts";
-import { useHostedBranchPull } from "#ui/api/mutations.ts";
+import { useHostedBranchDismiss, useHostedBranchPull } from "#ui/api/mutations.ts";
 import { commitBody, commitTitle } from "#ui/commit.ts";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import {
@@ -147,6 +147,7 @@ const RemoteBranch: FC<{ projectId: string; machine: string; branch: MachineBran
 	branch,
 }) => {
 	const { mutate, isPending } = useHostedBranchPull(projectId);
+	const { mutate: dismiss, isPending: isDismissPending } = useHostedBranchDismiss(projectId);
 	const settle = useHostedSync();
 	const { local } = branch;
 
@@ -190,6 +191,15 @@ const RemoteBranch: FC<{ projectId: string; machine: string; branch: MachineBran
 			enabled: !isPending && local.type !== "worktree",
 			onSelect: () => pull("workspace"),
 		}),
+		...(branch.sent
+			? [
+					nativeMenuItem({
+						label: "Dismiss",
+						enabled: !isDismissPending,
+						onSelect: () => dismiss({ projectId, machine, branch: branch.branch }),
+					}),
+				]
+			: []),
 		nativeMenuSeparator,
 	];
 	const menuItems: Array<NativeMenuItem> = [
@@ -214,6 +224,7 @@ const RemoteBranch: FC<{ projectId: string; machine: string; branch: MachineBran
 				<RowLabelGroup>
 					<BranchRowHeadline title={branch.branch} />
 					<RowMeta>
+						{branch.sent && "Sent to you · "}
 						{branch.uncommitted ? "With uncommitted changes" : "Committed changes only"}
 					</RowMeta>
 				</RowLabelGroup>

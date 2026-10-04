@@ -42,6 +42,19 @@ const PROJECTS_CHANNEL: &str = "projectsChanged";
 /// The channel of the event listing a user's connected machines.
 const PRESENCE_CHANNEL: &str = "presence";
 
+/// The channel of the event saying a machine sent another a branch.
+const SENT_CHANNEL: &str = "sent";
+
+/// A branch one of a user's machines sent another, as announced on [`SENT_CHANNEL`].
+#[derive(serde::Serialize)]
+pub(super) struct Sent {
+    pub from: String,
+    pub to: String,
+    pub branch: String,
+    /// The project's name, for a receiver that doesn't have it open.
+    pub title: String,
+}
+
 /// Each user's connected machines, by host name, with how many sockets each holds. In memory:
 /// after a restart, machines are online again as soon as they reconnect.
 pub(super) type Presence = Arc<Mutex<HashMap<UserId, HashMap<String, usize>>>>;
@@ -333,25 +346,54 @@ pub(super) fn announce_publish(
             payload: WatcherPayload::GitActivity(WatcherGitActivityPayload { head_sha }),
         }),
     };
-    // Account-wide, naming the project, so clients refresh only what shows it.
-    let projects = serde_json::json!({
+    // No receivers means no browser is open, which is fine.
+    events
+        .send(ProjectEvent::Changed {
+            user,
+            project_id: Some(project.to_owned()),
+            message: serde_json::to_string(&watcher).expect("events serialize"),
+        })
+        .ok();
+    announce_project_changed(events, user, project);
+}
+
+/// Tell all of `user`'s clients that what they're shown of `project` changed; account-wide,
+/// naming the project, so clients refresh only what shows it.
+pub(super) fn announce_project_changed(
+    events: &broadcast::Sender<ProjectEvent>,
+    user: UserId,
+    project: &str,
+) {
+    let message = serde_json::json!({
         "channel": PROJECTS_CHANNEL,
         "payload": { "root": project },
     });
-    for (project_id, message) in [
-        (
-            Some(project.to_owned()),
-            serde_json::to_string(&watcher).expect("events serialize"),
-        ),
-        (None, projects.to_string()),
-    ] {
-        // No receivers means no browser is open, which is fine.
-        events
-            .send(ProjectEvent::Changed {
-                user,
-                project_id,
-                message,
-            })
-            .ok();
-    }
+    events
+        .send(ProjectEvent::Changed {
+            user,
+            project_id: None,
+            message: message.to_string(),
+        })
+        .ok();
+}
+
+/// Tell `user`'s clients that one of their machines sent another a branch of `project`; the
+/// receiver picks out what's addressed to it.
+pub(super) fn announce_send(
+    events: &broadcast::Sender<ProjectEvent>,
+    user: UserId,
+    project: &str,
+    sent: Sent,
+) {
+    let message = serde_json::json!({
+        "channel": SENT_CHANNEL,
+        "payload": { "root": project, "from": sent.from, "to": sent.to, "branch": sent.branch, "title": sent.title },
+    });
+    events
+        .send(ProjectEvent::Changed {
+            user,
+            project_id: None,
+            message: message.to_string(),
+        })
+        .ok();
 }

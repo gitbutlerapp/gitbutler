@@ -18,6 +18,10 @@ pub struct Platform {
     /// Also publish the uncommitted changes of the branch's worktree.
     #[clap(long)]
     pub include_uncommitted: bool,
+
+    /// Also send it to another of your machines, by name, to pull or dismiss there.
+    #[clap(long)]
+    pub to: Option<String>,
 }
 
 /// List the branches published for this project, or pull one down.

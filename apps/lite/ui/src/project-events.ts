@@ -127,6 +127,16 @@ export const handleProjectEvent = (
 	if (payload.type === "hostedPresence")
 		client.setQueryData(hostedPresenceQueryOptions(projectId).queryKey, payload.subject.online);
 
+	// Only shown while the window is in the background; in front, the sidebar and bell show it.
+	if (payload.type === "hostedSent") {
+		const { from, branch, title, root } = payload.subject;
+		void window.lite.showNotification({
+			id: `sent:${root}:${from}:${branch}`,
+			title: `${from} sent you ${branch}`,
+			body: title,
+		});
+	}
+
 	// Any project may show another machine's publish, so the root picks which, not `projectId`.
 	if (payload.type === "hostedPublished") {
 		const { root } = payload.subject;

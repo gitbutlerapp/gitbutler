@@ -30,6 +30,8 @@ pub enum WatcherPayload {
     HostedPresence(WatcherHostedPresencePayload),
     /// Something was published to the hosted server, for any of the account's projects.
     HostedPublished(WatcherHostedPublishedPayload),
+    /// Another of the account's machines sent this one a branch.
+    HostedSent(WatcherHostedSentPayload),
 }
 
 #[cfg(feature = "export-schema")]
@@ -57,6 +59,8 @@ pub enum WatcherEventKind {
     HostedPresence,
     /// See [`WatcherPayload::HostedPublished`].
     HostedPublished,
+    /// See [`WatcherPayload::HostedSent`].
+    HostedSent,
 }
 
 impl WatcherEventKind {
@@ -70,6 +74,7 @@ impl WatcherEventKind {
         WatcherEventKind::ExternalInvalidation,
         WatcherEventKind::HostedPresence,
         WatcherEventKind::HostedPublished,
+        WatcherEventKind::HostedSent,
     ];
 
     /// The event's name as clients see it, matching the payload's serde tag.
@@ -83,6 +88,7 @@ impl WatcherEventKind {
             WatcherEventKind::ExternalInvalidation => "externalInvalidation",
             WatcherEventKind::HostedPresence => "hostedPresence",
             WatcherEventKind::HostedPublished => "hostedPublished",
+            WatcherEventKind::HostedSent => "hostedSent",
         }
     }
 
@@ -119,6 +125,8 @@ impl WatcherEventKind {
             WatcherEventKind::HostedPresence => &[],
             // `Hosted` in whichever project has the payload's root, which the table can't say.
             WatcherEventKind::HostedPublished => &[],
+            // The publish that carried it refreshes what shows it.
+            WatcherEventKind::HostedSent => &[],
         }
     }
 }
@@ -202,6 +210,23 @@ pub struct WatcherHostedPublishedPayload {
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WatcherHostedPublishedPayload);
+
+/// A branch another machine sent this one, as the hosted server announces it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherHostedSentPayload {
+    /// The root commit of the project it's a branch of.
+    pub root: String,
+    /// The project's name, as the sender has it.
+    pub title: String,
+    /// The machine that sent it.
+    pub from: String,
+    /// The branch's short name, e.g. `agent/search`.
+    pub branch: String,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(WatcherHostedSentPayload);
 
 /// Worktree files changes.
 #[derive(Debug, Clone, Serialize)]

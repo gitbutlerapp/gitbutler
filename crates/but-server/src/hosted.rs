@@ -397,8 +397,8 @@ async fn git_http(
         let _writing = pushing.then_some(writing);
         // A push git rejects, e.g. one planned against refs another push has since moved,
         // still ends well for `http-backend`; only a moved snapshot means a publish.
-        let snapshots_before = if pushing {
-            snapshots(&store)?
+        let published_before = if pushing {
+            published_refs(&store)?
         } else {
             Default::default()
         };
@@ -429,15 +429,28 @@ async fn git_http(
         let out = child.wait_with_output().await?;
         writer.await??;
         if pushing && out.status.success() {
-            let after = snapshots(&store)?;
-            for (snapshot, id) in &after {
-                if snapshots_before.get(snapshot) == Some(id) {
-                    continue;
-                }
+            let after = published_refs(&store)?;
+            let moved = after
+                .iter()
+                .filter(|(name, id)| published_before.get(*name) != Some(*id));
+            for (name, _) in moved {
                 // The refs landed but can't be shown, so the push mustn't look like it worked.
-                let tip = record_publish(&store, snapshot)
-                    .with_context(|| format!("the push landed, but {snapshot} isn't valid"))?;
-                events::announce_publish(&events, user, &project, tip);
+                if name.starts_with(SNAPSHOTS) {
+                    let tip = record_publish(&store, name)
+                        .with_context(|| format!("the push landed, but {name} isn't valid"))?;
+                    events::announce_publish(&events, user, &project, tip);
+                } else {
+                    let sent = record_send(&store, name)
+                        .with_context(|| format!("the push landed, but {name} isn't valid"))?;
+                    events::announce_send(&events, user, &project, sent);
+                }
+            }
+            // Dismissed or pulled, so other windows of the receiving machine catch up.
+            if published_before
+                .keys()
+                .any(|name| !after.contains_key(name))
+            {
+                events::announce_project_changed(&events, user, &project);
             }
         }
 
@@ -464,15 +477,20 @@ async fn git_http(
         .unwrap_or_else(|err| (StatusCode::BAD_REQUEST, format!("{err:#}")).into_response())
 }
 
-/// Every machine's snapshots in `store`, `refs/gitbutler/snapshots/<machine>/<name>`, with
-/// the commit each points at.
-fn snapshots(store: &Path) -> anyhow::Result<std::collections::BTreeMap<String, String>> {
+const SNAPSHOTS: &str = "refs/gitbutler/snapshots/";
+const INBOX: &str = "refs/gitbutler/inbox/";
+
+/// Every machine's snapshots in `store`, `refs/gitbutler/snapshots/<machine>/<name>`, and what
+/// machines sent each other, `refs/gitbutler/inbox/<to>/<from>/<name>`, with the commit each
+/// points at.
+fn published_refs(store: &Path) -> anyhow::Result<std::collections::BTreeMap<String, String>> {
     let refs = git(
         store,
         &[
             "for-each-ref",
             "--format=%(refname) %(objectname)",
-            "refs/gitbutler/snapshots",
+            SNAPSHOTS,
+            INBOX,
         ],
     )?;
     Ok(refs
@@ -480,6 +498,32 @@ fn snapshots(store: &Path) -> anyhow::Result<std::collections::BTreeMap<String, 
         .filter_map(|line| line.split_once(' '))
         .map(|(name, id)| (name.to_owned(), id.to_owned()))
         .collect())
+}
+
+/// Check a pushed inbox ref: it must be the sender's latest snapshot of that branch, pushed with
+/// it. Returns what's announced to the receiving machine.
+fn record_send(store: &Path, inbox_ref: &str) -> anyhow::Result<events::Sent> {
+    let (to, rest) = inbox_ref
+        .strip_prefix(INBOX)
+        .and_then(|rest| rest.split_once('/'))
+        .context("an inbox ref names its receiver")?;
+    let (from, name) = rest.split_once('/').context("and its sender")?;
+    let snapshot = format!("{SNAPSHOTS}{from}/{name}");
+    if git(store, &["rev-parse", inbox_ref])? != git(store, &["rev-parse", &snapshot])? {
+        bail!("it isn't {from}'s latest {name}");
+    }
+    let message: Snapshot =
+        serde_json::from_str(&git(store, &["log", "-1", "--format=%B", &snapshot])?)?;
+    Ok(events::Sent {
+        from: from.to_owned(),
+        to: to.to_owned(),
+        branch: message
+            .head
+            .strip_prefix("refs/heads/")
+            .unwrap_or(&message.head)
+            .to_owned(),
+        title: message.title,
+    })
 }
 
 /// What a snapshot commit says about its branch, as its message.
