@@ -12,7 +12,7 @@
 //! repository's own remotes.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap, HashSet},
     path::{Path, PathBuf},
 };
 
@@ -34,13 +34,24 @@ pub fn hosted_server() -> String {
 }
 
 /// The project as the hosted server knows it: its earliest root commit, the same everywhere.
+///
+/// Worked out once and kept in the repository's config, so it neither costs a history walk on
+/// every call nor changes when unrelated history is merged in later.
 fn hosted_project(dir: &Path) -> Result<String> {
+    const KEY: &str = "gitbutler.hostedRoot";
+    if let Ok(root) = git(dir, &[], &["config", "--get", KEY])
+        && !root.is_empty()
+    {
+        return Ok(root);
+    }
     let roots = git(dir, &[], &["rev-list", "--max-parents=0", "HEAD"])?;
-    Ok(roots
+    let root = roots
         .lines()
         .last()
         .context("HEAD has no root commit")?
-        .to_owned())
+        .to_owned();
+    git(dir, &[], &["config", KEY, &root])?;
+    Ok(root)
 }
 
 /// This machine as the hosted server knows it: its host name, as a path segment, or
@@ -297,25 +308,63 @@ but_schemars::register_sdk_type!(LocalHome);
 
 /// The local home of `branch` (a short name).
 fn local_home(ctx: &but_ctx::Context, dir: &Path, branch: &str) -> Result<LocalHome> {
-    let full = format!("refs/heads/{branch}");
-    let worktrees = git(dir, &[], &["worktree", "list", "--porcelain"])?;
-    let mut path = None;
-    for line in worktrees.lines() {
-        if let Some(p) = line.strip_prefix("worktree ") {
-            path = Some(p.to_owned());
-        } else if line.strip_prefix("branch ") == Some(full.as_str()) {
-            return Ok(LocalHome::Worktree(path.unwrap_or_default()));
+    LocalHomes::read(ctx, dir)?.of(branch)
+}
+
+/// Where each local branch lives, read once for a whole listing: the worktree list and the
+/// workspace's applied branches cost a process and a graph build each.
+struct LocalHomes {
+    /// Branch ref to the path of the worktree it's checked out in.
+    worktrees: HashMap<String, String>,
+    applied: HashSet<String>,
+    repo: gix::Repository,
+}
+
+impl LocalHomes {
+    fn read(ctx: &but_ctx::Context, dir: &Path) -> Result<Self> {
+        let mut worktrees = HashMap::new();
+        let mut path = None;
+        for line in git(dir, &[], &["worktree", "list", "--porcelain"])?.lines() {
+            if let Some(p) = line.strip_prefix("worktree ") {
+                path = Some(p.to_owned());
+            } else if let Some(branch) = line.strip_prefix("branch ") {
+                worktrees.insert(branch.to_owned(), path.clone().unwrap_or_default());
+            }
         }
+        let repo = ctx.repo.get()?.clone();
+        let on_workspace = repo
+            .head_name()?
+            .is_some_and(|head| head.as_bstr() == but_core::WORKSPACE_REF_NAME);
+        let applied = if on_workspace {
+            crate::legacy::workspace::head_info(ctx)?
+                .stacks
+                .iter()
+                .flat_map(|stack| &stack.segments)
+                .filter_map(|segment| segment.ref_info.as_ref())
+                .map(|info| info.ref_name.to_string())
+                .collect()
+        } else {
+            HashSet::new()
+        };
+        Ok(LocalHomes {
+            worktrees,
+            applied,
+            repo,
+        })
     }
-    if applied_stack(ctx, &full)?.is_some() {
-        return Ok(LocalHome::Workspace);
+
+    fn of(&self, branch: &str) -> Result<LocalHome> {
+        let full = format!("refs/heads/{branch}");
+        Ok(if let Some(path) = self.worktrees.get(&full) {
+            LocalHome::Worktree(path.clone())
+        } else if self.applied.contains(&full) {
+            LocalHome::Workspace
+        } else if self.repo.try_find_reference(full.as_str())?.is_some() {
+            LocalHome::Branch
+        } else {
+            LocalHome::None
+        })
     }
-    let exists = ctx.repo.get()?.try_find_reference(full.as_str())?.is_some();
-    Ok(if exists {
-        LocalHome::Branch
-    } else {
-        LocalHome::None
-    })
 }
 
 /// The workspace stack `full` (a full ref name) is applied in, if any: its id, and how many
@@ -595,6 +644,11 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
     )?;
     let mut machines = BTreeMap::<String, HostedMachine>::new();
     let mut published_here = Vec::new();
+    let homes = if on_hub {
+        None
+    } else {
+        Some(LocalHomes::read(ctx, &dir)?)
+    };
     for line in refs.lines() {
         let (sent, time) = line.split_once(' ').context("a ref and its date")?;
         // <machine>/<published name>
@@ -645,10 +699,9 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
             commits,
             uncommitted,
             sent: !on_hub && rev(&dir, &format!("{HOSTED_REFS}/inbox/{machine}/{name}")).is_some(),
-            local: if on_hub {
-                LocalHome::None
-            } else {
-                local_home(ctx, &dir, &branch)?
+            local: match &homes {
+                Some(homes) => homes.of(&branch)?,
+                None => LocalHome::None,
             },
             branch,
         });

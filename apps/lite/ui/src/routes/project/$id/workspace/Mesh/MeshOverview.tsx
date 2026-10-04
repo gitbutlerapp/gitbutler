@@ -6,6 +6,7 @@ import {
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	hostedMachinesQueryOptions,
+	hostedAccountQueryOptions,
 	hostedPresenceQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -19,7 +20,7 @@ import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
-import { useMeshTree } from "./useMeshTree.ts";
+import { THIS_MACHINE, useMeshTree } from "./useMeshTree.ts";
 import styles from "./MeshOverview.module.css";
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -71,7 +72,100 @@ const useOpenProject = () => {
 };
 
 /** A machine: whether it's online, when it last published, and what it has of each repo. */
-const MachineOverview: FC<{ machine: string; projectId: string }> = ({ machine, projectId }) => {
+const MachineOverview: FC<{ machine: string; projectId: string }> = (props) =>
+	// The hosted page has no account listing; its tree is the server's own data, and cheap.
+	window.lite.hosted === true ? (
+		<MachineOverviewFromTree {...props} />
+	) : (
+		<MachineOverviewFromAccount {...props} />
+	);
+
+/** From the account listing and the project list, both cached, without building the tree. */
+const MachineOverviewFromAccount: FC<{ machine: string; projectId: string }> = ({
+	machine,
+	projectId,
+}) => {
+	const { data: projects = [] } = useQuery(listProjectsQueryOptions);
+	const { data: account = [] } = useQuery(hostedAccountQueryOptions);
+	const { data: online = [] } = useQuery(hostedPresenceQueryOptions(projectId));
+	const openProject = useOpenProject();
+	const header = (detail: ReactNode) => (
+		<header className={styles.header}>
+			<h2 className={classes("text-15", "text-semibold")}>{machine}</h2>
+			<span className={classes("text-12", styles.muted)}>{detail}</span>
+		</header>
+	);
+
+	if (machine === THIS_MACHINE) {
+		return (
+			<>
+				{header(count(projects.length, "repository", "repositories"))}
+				<Section heading="Repositories">
+					{projects.map((project) => (
+						<Item
+							key={project.id}
+							title={
+								<>
+									{project.title}
+									{project.id === projectId && <Badge variant="lightGray">Open</Badge>}
+								</>
+							}
+							detail={project.path}
+							action={
+								project.id !== projectId && (
+									<Button size="small" onClick={() => openProject(project.id)}>
+										Open
+									</Button>
+								)
+							}
+						/>
+					))}
+				</Section>
+			</>
+		);
+	}
+
+	const published = account.flatMap((entry) =>
+		entry.machines
+			.filter((candidate) => candidate.name === machine)
+			.map((summary) => ({ entry, summary })),
+	);
+	const last = Math.max(0, ...published.map(({ summary }) => summary.publishedAt));
+	return (
+		<>
+			{header(
+				<>
+					{online.includes(machine) ? "Online" : "Offline"}
+					{last > 0 && (
+						<>
+							{" · last published "}
+							<RelativeTime timestamp={last} />
+						</>
+					)}
+				</>,
+			)}
+			<Section heading="Published">
+				{published.length === 0 && <Item title="Nothing published yet" />}
+				{published.map(({ entry, summary }) => (
+					<Item
+						key={entry.root}
+						title={entry.title}
+						detail={
+							(entry.projectIds ?? []).length === 0
+								? `${count(summary.branches, "branch", "branches")} · not on this machine`
+								: count(summary.branches, "branch", "branches")
+						}
+					/>
+				))}
+			</Section>
+		</>
+	);
+};
+
+const MachineOverviewFromTree: FC<{ machine: string; projectId: string }> = ({
+	machine,
+	projectId,
+}) => {
 	const grouping = useAppSelector(interfaceSlice.selectors.selectMeshGrouping);
 	const unfolded = useAppSelector(interfaceSlice.selectors.selectMeshUnfolded);
 	const { machines } = useMeshTree({ grouping, unfolded });

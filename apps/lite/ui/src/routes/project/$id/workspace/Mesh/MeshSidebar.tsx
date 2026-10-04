@@ -595,8 +595,55 @@ const MeshWorktreeItem: FC<{
 	);
 };
 
-/** A branch, and for one another machine sent here, pulling or dismissing it. */
+/** A branch: this machine's to publish or send, another machine's to pull. */
 const MeshBranchItem: FC<{
+	row: MeshRow;
+	checkout: MeshCheckout;
+	branch: MeshBranch;
+	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
+	onSelect: () => void;
+}> = (props) =>
+	// Apart, so a row only holds the queries and mutations its own menu uses.
+	props.checkout.isThisMachine ? <LocalBranchItem {...props} /> : <RemoteBranchItem {...props} />;
+
+const branchSummary = (branch: MeshBranch) => {
+	const commits = pluralize(branch.commits.length, "commit");
+	return branch.uncommitted !== null ? `${commits}, uncommitted` : commits;
+};
+
+const LocalBranchItem: FC<{
+	row: MeshRow;
+	checkout: MeshCheckout;
+	branch: MeshBranch;
+	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
+	onSelect: () => void;
+}> = ({ checkout, branch, ...shared }) => {
+	const publishItems = usePublishMenu({
+		projectId: checkout.projectId,
+		branch: branch.name,
+		local: true,
+		inWorktree: branch.worktree !== undefined,
+		state: branch.publishState,
+	});
+	return (
+		<MeshItem
+			{...shared}
+			name={branch.name}
+			icon={<Icon name="branch" size={14} />}
+			marks={
+				<>
+					<span className="text-12">{branchSummary(branch)}</span>
+					<PublishMark state={branch.publishState} />
+				</>
+			}
+			menuLabel="Branch menu"
+			menuItems={[...publishItems, copyItem("Copy Branch Name", branch.name)]}
+		/>
+	);
+};
+
+/** Another machine's branch, to pull here, or, if it was sent here, to dismiss. */
+const RemoteBranchItem: FC<{
 	row: MeshRow;
 	checkout: MeshCheckout;
 	branch: MeshBranch;
@@ -607,13 +654,6 @@ const MeshBranchItem: FC<{
 	const { mutate: pull, isPending: isPullPending } = useHostedBranchPull(projectId);
 	const { mutate: dismiss, isPending: isDismissPending } = useHostedBranchDismiss(projectId);
 	const settle = useHostedSync();
-	const publishItems = usePublishMenu({
-		projectId,
-		branch: branch.name,
-		local: checkout.isThisMachine,
-		inWorktree: branch.worktree !== undefined,
-		state: branch.publishState,
-	});
 	const pullInto = (intoWorkspace: boolean, overwrite = false) =>
 		pull(
 			{
@@ -632,24 +672,18 @@ const MeshBranchItem: FC<{
 					}),
 			},
 		);
-	const commits = pluralize(branch.commits.length, "commit");
-	const summary = branch.uncommitted !== null ? `${commits}, uncommitted` : commits;
+	// The hosted page only reads; pulling is for machines.
+	const canPull = window.lite.hosted !== true && !checkout.remoteOnly;
 
 	return (
 		<MeshItem
 			{...shared}
 			name={branch.name}
 			icon={<Icon name="branch" size={14} />}
-			marks={
-				<>
-					<span className="text-12">{summary}</span>
-					<PublishMark state={branch.publishState} />
-				</>
-			}
+			marks={<span className="text-12">{branchSummary(branch)}</span>}
 			menuLabel="Branch menu"
 			menuItems={[
-				...publishItems,
-				...(branch.sent
+				...(canPull
 					? [
 							nativeMenuItem({
 								label: "Pull into Worktree",
@@ -661,11 +695,15 @@ const MeshBranchItem: FC<{
 								enabled: !isPullPending,
 								onSelect: () => pullInto(true),
 							}),
-							nativeMenuItem({
-								label: "Dismiss",
-								enabled: !isDismissPending,
-								onSelect: () => dismiss({ projectId, machine, branch: branch.name }),
-							}),
+							...(branch.sent
+								? [
+										nativeMenuItem({
+											label: "Dismiss",
+											enabled: !isDismissPending,
+											onSelect: () => dismiss({ projectId, machine, branch: branch.name }),
+										}),
+									]
+								: []),
 							nativeMenuSeparator,
 						]
 					: []),
