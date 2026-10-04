@@ -384,6 +384,8 @@ async fn git_http(
             git(&store, &["init", "--bare", "-q"])?;
             // Published worktrees have their branches checked out but no files to keep in step.
             git(&store, &["config", "receive.denyCurrentBranch", "ignore"])?;
+            // Bare repositories keep no reflogs by default; these record every machine's pushes.
+            git(&store, &["config", "core.logAllRefUpdates", "always"])?;
         }
         let pushing = rest == "git-receive-pack";
         let _writing = pushing.then_some(writing);
@@ -422,9 +424,10 @@ async fn git_http(
             && git(&store, &["rev-parse", "-q", "--verify", &snapshot_ref]).ok() != snapshot_before
         {
             // The refs landed but can't be shown, so the push mustn't look like it worked.
-            let tip = register_worktree(&dir, &project, &store, &worktree).with_context(|| {
-                format!("the push landed, but {worktree} couldn't be published")
-            })?;
+            let tip =
+                register_worktree(user, &dir, &project, &store, &worktree).with_context(|| {
+                    format!("the push landed, but {worktree} couldn't be published")
+                })?;
             events::announce_publish(&events, user, &project, tip);
         }
 
@@ -462,11 +465,14 @@ struct Snapshot {
     head: String,
     /// The remote-tracking branch its work is based on, e.g. `refs/remotes/origin/main`.
     target: Option<String>,
+    /// The machine it was published from, by host name.
+    machine: Option<String>,
 }
 
 /// Make the pushed snapshot `worktree`, a linked worktree of the project, checked out on its
 /// branch with the snapshot as its uncommitted changes. Returns the branch's tip.
 fn register_worktree(
+    user: UserId,
     dir: &Path,
     project: &str,
     store: &Path,
@@ -504,6 +510,12 @@ fn register_worktree(
         format!("{}\n", checkout.join(".git").display()),
     )?;
     std::fs::write(admin.join("HEAD"), format!("ref: {}\n", snapshot.head))?;
+    // What each machine last sent, apart from the shared branch, which the latest push wins.
+    // Qualified by user, so the record stays unambiguous once stores are shared.
+    if let Some(machine) = snapshot.machine.filter(|machine| is_name(machine)) {
+        let sent = format!("refs/gitbutler/machines/{}/{machine}/{worktree}", user.0);
+        git(store, &["update-ref", &sent, &pushed])?;
+    }
 
     // The project's name and target come from its first publish; later ones from branches
     // based elsewhere would otherwise move every branch's base.

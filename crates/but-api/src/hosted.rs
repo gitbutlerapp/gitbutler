@@ -37,6 +37,14 @@ fn hosted_project(dir: &Path) -> Result<String> {
         .to_owned())
 }
 
+/// This machine as the hosted server knows it: its host name, as a path segment.
+fn machine_name() -> Option<String> {
+    let out = std::process::Command::new("hostname").output().ok()?;
+    let name = String::from_utf8_lossy(&out.stdout);
+    let name = published_name(name.trim().trim_end_matches(".local"));
+    (!name.is_empty()).then_some(name)
+}
+
 /// The name a branch is published under: its short name with `/` and other characters a URL
 /// path segment can't hold replaced.
 fn published_name(branch: &str) -> String {
@@ -408,8 +416,13 @@ pub fn hosted_branch_publish(
     let target = but_core::ref_metadata::ProjectMeta::resolve(&main)?
         .target_ref
         .map(|name| name.to_string());
-    let message =
-        serde_json::json!({ "version": 1, "title": title, "head": full, "target": target });
+    let message = serde_json::json!({
+        "version": 1,
+        "title": title,
+        "head": full,
+        "target": target,
+        "machine": machine_name(),
+    });
 
     // The snapshot's tree: the worktree's files, or the branch's own.
     let tree = match snapshot_dir {
