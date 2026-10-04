@@ -1,0 +1,169 @@
+.avatar {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-1);
+}
+
+.small {
+	width: 28px;
+	height: 28px;
+
+	.glyph {
+		width: 18px;
+	}
+
+	.emoji {
+		/* stylelint-disable-next-line declaration-property-value-allowed-list -- An emoji here is a picture, sized as the avatar it stands in for, not text on the type scale. */
+		font-size: 20px;
+	}
+}
+
+.regular {
+	width: 38px;
+	height: 38px;
+
+	.glyph {
+		width: 26px;
+	}
+
+	.emoji {
+		/* stylelint-disable-next-line declaration-property-value-allowed-list -- An emoji here is a picture, sized as the avatar it stands in for, not text on the type scale. */
+		font-size: 32px;
+	}
+}
+
+.large {
+	width: 64px;
+	height: 64px;
+
+	.glyph {
+		width: 44px;
+	}
+
+	.emoji {
+		/* stylelint-disable-next-line declaration-property-value-allowed-list -- An emoji here is a picture, sized as the avatar it stands in for, not text on the type scale. */
+		font-size: 52px;
+	}
+}
+
+.glyph {
+	height: auto;
+}
+
+.emoji {
+	line-height: 1;
+}
+
+/* A machine's picture fills its box; the drawings carry their own margin. */
+.picture {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+/* Each fill runs from the hue's 70 step down to its 60, the same in light and dark: a picture
+   keeps its colours whatever the theme. */
+.pop {
+	--avatar-top: var(--clr-pop-70);
+	--avatar-bottom: var(--clr-pop-60);
+}
+
+.safe {
+	--avatar-top: var(--clr-safe-70);
+	--avatar-bottom: var(--clr-safe-60);
+}
+
+.purple {
+	--avatar-top: var(--clr-purple-70);
+	--avatar-bottom: var(--clr-purple-60);
+}
+
+.danger {
+	--avatar-top: var(--clr-danger-70);
+	--avatar-bottom: var(--clr-danger-60);
+}
+
+.warn {
+	--avatar-top: var(--clr-warn-70);
+	--avatar-bottom: var(--clr-warn-60);
+}
+
+.gray {
+	--avatar-top: var(--clr-gray-60);
+	--avatar-bottom: var(--clr-gray-20);
+}
+
+.top {
+	stop-color: var(--avatar-top);
+}
+
+.bottom {
+	stop-color: var(--avatar-bottom);
+}
+
+.trigger,
+.option {
+	display: flex;
+	padding: 0;
+	border: none;
+	background: none;
+	cursor: var(--control-cursor);
+	transition: var(--transition-button);
+
+	&:hover {
+		background-color: var(--bg-hover);
+	}
+
+	/* The current choice keeps an edge, so it still reads as picked under the pointer. */
+	&[aria-pressed="true"] {
+		box-shadow: inset 0 0 0 1px var(--border-2);
+	}
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: -1px;
+	}
+}
+
+.trigger {
+	border-radius: var(--radius-md);
+
+	&[data-popup-open] {
+		background-color: var(--bg-hover);
+	}
+}
+
+.option {
+	border-radius: var(--radius-sm);
+}
+
+.smallOptions,
+.largeOptions {
+	display: grid;
+	min-inline-size: 0;
+	margin: 0;
+	padding: 0;
+	border: none;
+}
+
+.smallOptions {
+	grid-template-columns: repeat(7, 28px);
+	gap: 2px;
+}
+
+.largeOptions {
+	grid-template-columns: repeat(4, 64px);
+	gap: 4px;
+
+	.option {
+		border-radius: var(--radius-md);
+	}
+}
+
+/* Five rows show, the rest scroll: enough to choose from without the picker outgrowing the
+   avatar it opened from. */
+.smallArea {
+	max-height: calc(5 * 28px + 4 * 2px);
+}

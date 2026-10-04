@@ -1,0 +1,26 @@
+.id {
+	display: flex;
+	align-items: center;
+	padding: 0;
+	gap: 4px;
+	border: none;
+	background: none;
+	color: var(--text-3);
+	font: inherit;
+	cursor: var(--control-cursor);
+
+	> span {
+		text-decoration: underline dotted;
+		text-underline-offset: 2px;
+	}
+
+	&:hover {
+		color: var(--text-2);
+	}
+
+	&:focus-visible {
+		border-radius: var(--radius-xs);
+		outline: var(--focus-ring);
+		outline-offset: 2px;
+	}
+}

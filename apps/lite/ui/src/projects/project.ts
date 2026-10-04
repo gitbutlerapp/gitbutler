@@ -63,6 +63,17 @@ export type CheckableAddress = Extract<Address, { _tag: "Commit" | "File" | "Hun
 
 export type BranchTab = "diff" | "pr";
 
+const allCommits: BranchCommitFilter = { _tag: "All" };
+
+/**
+ * Which of a branch's commits its diff shows: all of them, the ones not pushed yet, or an unbroken
+ * run picked from its commit list, named by the ids of its oldest and newest commit.
+ */
+export type BranchCommitFilter =
+	| { _tag: "All" }
+	| { _tag: "Unpushed" }
+	| { _tag: "Range"; oldest: string; newest: string };
+
 /**
  * A conflict checked for a batch resolution. Ids survive the rewrites that
  * compact hunk positions, so checks carry across; the commit id is remapped.
@@ -97,6 +108,7 @@ type WorkspaceState = {
 	 */
 	notice: string | null;
 	selectedBranchTabs: Record<string, BranchTab>;
+	branchCommitFilters: Record<string, BranchCommitFilter>;
 	/**
 	 * The diff cursor. Its five siblings live in the URL (use-cursor.ts); this
 	 * one holds an exact visual line range in Redux instead of a URL query param.
@@ -138,6 +150,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	pendingOperation: noPendingOperation,
 	notice: null,
 	selectedBranchTabs: {},
+	branchCommitFilters: {},
 	diffCursor: null,
 	uncommittedFilesFilter: null,
 	filesFilter: null,
@@ -561,6 +574,13 @@ export const projectReducers = {
 
 		state.workspace.selectedBranchTabs[branchName] = tab;
 	},
+	setBranchCommitFilter: (
+		state: ProjectState,
+		{ branchName, filter }: { branchName: string; filter: BranchCommitFilter },
+	) => {
+		if (filter._tag === "All") delete state.workspace.branchCommitFilters[branchName];
+		else state.workspace.branchCommitFilters[branchName] = filter;
+	},
 
 	toggleSegmentFolded: (state: ProjectState, { branchRef }: { branchRef: string }) => {
 		if (state.workspace.foldedSegments[branchRef]) delete state.workspace.foldedSegments[branchRef];
@@ -766,6 +786,8 @@ export const projectSelectors = {
 	 */
 	selectBranchTab: (state: ProjectState, branchName: string): BranchTab | undefined =>
 		state.workspace.selectedBranchTabs[branchName],
+	selectBranchCommitFilter: (state: ProjectState, branchName: string): BranchCommitFilter =>
+		state.workspace.branchCommitFilters[branchName] ?? allCommits,
 
 	selectUncommittedFilesFilter: (state: ProjectState) => state.workspace.uncommittedFilesFilter,
 	selectUncommittedFilesRecentFirst: (state: ProjectState) =>

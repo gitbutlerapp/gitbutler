@@ -13,6 +13,7 @@ export declare const apiProvides: {
 	readonly commentsList: readonly ["Comments"];
 	readonly commitConflicts: readonly [];
 	readonly commitDetailsWithLineStats: readonly ["Commits"];
+	readonly commitRangeDiff: readonly ["Commits"];
 	readonly currentForgeLogin: readonly ["ForgeLogin"];
 	readonly editChangesFromInitial: readonly ["WorktreeChanges"];
 	readonly editInitialIndexState: readonly ["OperatingMode"];

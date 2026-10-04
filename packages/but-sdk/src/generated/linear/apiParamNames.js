@@ -40,6 +40,7 @@ export const apiParamNames = {
 	commitInsertBlank: ["projectId", "relativeTo", "side", "dryRun"],
 	commitMove: ["projectId", "subjectCommitIds", "relativeTo", "side", "dryRun"],
 	commitMoveChangesBetween: ["projectId", "sourceCommitId", "destinationCommitId", "changes", "dryRun"],
+	commitRangeDiff: ["projectId", "oldest", "newest"],
 	commitReword: ["projectId", "commitId", "message", "dryRun"],
 	commitSquash: ["projectId", "subjectCommitIds", "targetCommitId", "howToCombineMessages", "dryRun"],
 	commitUncommit: ["projectId", "subjectCommitIds", "assignTo", "dryRun"],

@@ -3,8 +3,15 @@ import { forgeAuthFailure, forgeDestination, isCloudForge } from "#ui/forge.ts";
 import { ForgeAuthPrompt } from "./ForgeAuthPrompt.tsx";
 import { ResizeHandle } from "@gitbutler/ui-react/ResizeHandle.tsx";
 import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
-import { startAbsorb, setCursor, useCanShowFiles, useSelection } from "#ui/use-cursor.ts";
+import {
+	sidebarFocusScopeOf,
+	startAbsorb,
+	setCursor,
+	useCanShowFiles,
+	useSelection,
+} from "#ui/use-cursor.ts";
 import { FileList } from "@gitbutler/ui-react/FileList.tsx";
+import type { AggregateCIChecks } from "#ui/ci.ts";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	type PushBeforePublish,
@@ -23,6 +30,7 @@ import {
 	blobFileQueryOptions,
 	branchDiffQueryOptions,
 	branchListQueryOptions,
+	commitRangeDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commentsQueryOptions,
 	commitConflictsQueryOptions,
@@ -32,6 +40,7 @@ import {
 	getReviewQueryOptions,
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
+	listCIChecksQueryOptions,
 	listEditorsQueryOptions,
 	listReviewsQueryOptions,
 	newReviewTargetQueryOptions,
@@ -73,10 +82,11 @@ import type { BranchTab, CheckableAddress } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { Badge } from "@gitbutler/ui-react/Badge.tsx";
-import { Button, getButtonClassName } from "@gitbutler/ui-react/Button.tsx";
+import { DiffStats } from "@gitbutler/ui-react/DiffStats.tsx";
+import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
-import { useCopied } from "#ui/components/useCopied.ts";
 import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { PullRequestComments } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
@@ -95,10 +105,12 @@ import { classes } from "@gitbutler/ui-react/classes.ts";
 import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import { Toggle, ToggleGroup, Toolbar } from "@base-ui/react";
 import type {
+	Commit,
 	CommitDetails as CommitDetailsData,
 	ConflictedFile,
 	ManualConflict,
 	TreeChange,
+	TreeChanges,
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
 import {
@@ -124,7 +136,6 @@ import {
 	type ReactNode,
 	type RefObject,
 	Suspense,
-	useId,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -146,12 +157,15 @@ import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
 import { DiffFileHeader as UIDiffFileHeader } from "@gitbutler/ui-react/DiffFileHeader.tsx";
 import { useChangesMenuItems } from "#ui/routes/project/$id/workspace/useChangesMenuItems.ts";
 import {
+	describeLineStats,
 	getLineStats,
 	patchLineStats,
 	type LineStats,
 } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
+import { ViewHeader, ViewHeaderDivider } from "@gitbutler/ui-react/ViewHeader.tsx";
+import { CopyableId } from "@gitbutler/ui-react/CopyableId.tsx";
 import {
 	changeFileRowItem,
 	conflictFileRowItem,
@@ -178,13 +192,22 @@ import {
 	type HunkLineSelection,
 	wholeHunkSelectionByLine,
 } from "#ui/hunk.ts";
-import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import {
+	nativeMenuItem,
+	nativeMenuItemsFromGroups,
+	showNativeContextMenu,
+	showNativeMenuFromTrigger,
+} from "#ui/native-menu.ts";
+import {
+	filterSpan,
+	toggleCommit,
+	unpushedCount,
+} from "#ui/routes/project/$id/workspace/commitFilter.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { ScrollArea, ScrollBars } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { combineHashes, hash } from "#ui/hash.ts";
 import { compareFilePaths } from "#ui/file-order.ts";
@@ -226,17 +249,10 @@ import {
 	resolveDiffSelection,
 	withoutFoldedHunks,
 } from "./diff-view.ts";
-import { DiffMinimap } from "./DiffMinimap.tsx";
 import { ImageDiff } from "./ImageDiff.tsx";
 import { DiffSearchBar } from "./DiffSearchBar.tsx";
 import type { DiffSearchMatch } from "./diff-search.ts";
 import { diffSearchMarksUnsafeCSS, useDiffSearchMarks } from "./diff-search-marks.ts";
-import {
-	getMinimapFiles,
-	measureWrapColumns,
-	type MinimapFile,
-	type MinimapSelection,
-} from "./diff-minimap.ts";
 import {
 	type ReviewedFileVersions,
 	reviewedFilesQueryOptions,
@@ -253,6 +269,7 @@ export type DiffViewerHandle = CodeViewHandle<Annotation>;
 // stored in local storage.
 type PanelId = "files-panel" | "diff-panel";
 
+const EMPTY_COMMITS: ReadonlyArray<Commit> = [];
 const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
 const EMPTY_THREADS_BY_PATH: ThreadsByPath = new Map();
 const EMPTY_CONFLICTS: Array<ConflictedFile> = [];
@@ -461,7 +478,6 @@ const DiffContents: FC<{
 	didScrollToViaFileRef: RefObject<boolean>;
 	pendingFileRef: RefObject<FileAddress | null>;
 	renderAllFiles: boolean;
-	minimapFiles: Array<MinimapFile> | null;
 }> = ({
 	activeFileItemId,
 	diffContextKey,
@@ -485,7 +501,6 @@ const DiffContents: FC<{
 	didScrollToViaFileRef,
 	pendingFileRef,
 	renderAllFiles,
-	minimapFiles,
 }) => {
 	const dispatch = useAppDispatch();
 	const newFocusableAnnotationIdRef = useRef<string | null>(null);
@@ -586,18 +601,6 @@ const DiffContents: FC<{
 		: null;
 	const selectedLines = storedSelectionHunk ? storedSelectedLines : cursorSelectedRange;
 
-	const minimapSelection = useMemo((): MinimapSelection | null => {
-		if (!selectedLines) return null;
-
-		const { start, end, side, endSide } = selectedLines.range;
-		return {
-			itemId: selectedLines.id,
-			side: side ?? "additions",
-			start,
-			endSide: endSide ?? side ?? "additions",
-			end,
-		};
-	}, [selectedLines]);
 	const selectedLinesHunk = storedSelectionHunk ?? diffSelection;
 	// Primitives, so the item list and header closures below only pick up new
 	// identities when the selection crosses into another file — not on every
@@ -1593,7 +1596,6 @@ const DiffContents: FC<{
 		onPostRender: handleMarkedDiffPostRender,
 		setSearchMatches,
 		getSearchSource,
-		searchMarks,
 	} = useDiffSearchMarks(handleDiffPostRender, items);
 
 	const handOffCollapsedSelection = (itemId: string): void => {
@@ -1872,7 +1874,7 @@ const DiffContents: FC<{
              The sides and bottom of the file's card; the header draws its top.
              See .fileHeader in Details.module.css. */
           [data-diff] {
-            border: 1px solid var(--border-section);
+            border: 1px solid var(--border-2);
             border-top: none;
             border-radius: 0 0 calc(var(--radius-card) * var(--diff-file-roundness)) calc(var(--radius-card) * var(--diff-file-roundness));
           }
@@ -1919,7 +1921,7 @@ const DiffContents: FC<{
             z-index: 2;
             height: calc(var(--radius-card) * var(--diff-file-roundness));
             inset: auto 0 0;
-            border: 1px solid var(--border-section);
+            border: 1px solid var(--border-2);
             border-top: none;
             border-radius: 0 0 calc(var(--radius-card) * var(--diff-file-roundness)) calc(var(--radius-card) * var(--diff-file-roundness));
             content: "";
@@ -1990,18 +1992,6 @@ const DiffContents: FC<{
 				onNavigate={navigateToSearchMatch}
 				onMatchesChange={setSearchMatches}
 			/>
-
-			{minimapFiles && (
-				<DiffMinimap
-					viewerRef={viewerRef}
-					files={minimapFiles}
-					diffStyle={effectiveDiffStyle}
-					annotationsByPath={annotationsByPath}
-					threadsByPath={threadsByPath}
-					selection={minimapSelection}
-					searchMarks={searchMarks}
-				/>
-			)}
 		</>
 	);
 };
@@ -2069,11 +2059,24 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	);
 };
 
-const FilesToggle: FC<{ projectId: string }> = ({ projectId }) => {
+/**
+ * Shows and hides the files panel. While the panel is hidden the button carries the change's file
+ * count and line totals, which the panel's header shows otherwise.
+ */
+const FilesToggle: FC<{ projectId: string; fileCount: number; lineStats: LineStats }> = ({
+	projectId,
+	fileCount,
+	lineStats,
+}) => {
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
 	);
+	const label = [
+		workspaceHotkeys.toggleFiles.meta.name,
+		`${fileCount} ${fileCount === 1 ? "file" : "files"} changed`,
+		...describeLineStats(lineStats),
+	].join(", ");
 
 	return (
 		<Tooltip
@@ -2081,15 +2084,61 @@ const FilesToggle: FC<{ projectId: string }> = ({ projectId }) => {
 			kbd={workspaceHotkeys.toggleFiles.hotkey}
 		>
 			<Button
-				iconOnly
-				variant="ghost"
-				aria-label={workspaceHotkeys.toggleFiles.meta.name}
+				aria-label={label}
 				aria-pressed={filesVisible}
 				onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
 			>
 				{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-narrow" />}
+				Files
+				{!filesVisible && (
+					<>
+						<Badge variant="lightGray">{fileCount}</Badge>
+						<DiffStats
+							added={lineStats.linesAdded}
+							removed={lineStats.linesRemoved}
+							className="text-12"
+						/>
+					</>
+				)}
 			</Button>
 		</Tooltip>
+	);
+};
+
+/**
+ * Review hides the sidebar so the change has the whole window, the same mode the sidebar
+ * shortcut toggles; its menu marks every file reviewed at once.
+ */
+const ReviewButton: FC<{
+	allFilesReviewed: boolean;
+	canMarkAll: boolean;
+	onToggleAllReviewed: () => void;
+}> = ({ allFilesReviewed, canMarkAll, onToggleAllReviewed }) => {
+	const dispatch = useAppDispatch();
+	const fullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+
+	const toggle = () => {
+		dispatch(interfaceSlice.actions.setDetailsFullWindow({ fullWindow: !fullWindow }));
+		const sidebarFocusScope = sidebarFocusScopeOf();
+		requestAnimationFrame(() => focusScope(fullWindow ? sidebarFocusScope : "diff"));
+	};
+
+	return (
+		<DropdownButton
+			menuLabel="Review options"
+			onClick={toggle}
+			onMenuTrigger={(trigger) => {
+				void showNativeMenuFromTrigger(trigger, [
+					nativeMenuItem({
+						label: allFilesReviewed ? "Mark all unreviewed" : "Mark all reviewed",
+						enabled: canMarkAll,
+						onSelect: onToggleAllReviewed,
+					}),
+				]);
+			}}
+		>
+			{fullWindow ? "Exit review" : "Review"}
+		</DropdownButton>
 	);
 };
 
@@ -2275,10 +2324,10 @@ const Diff: FC<{
 
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
-	// Change stats live in the files panel, or — in the uncommitted scope, which has no files
-	// panel — in the sidebar's "Uncommitted" row. Surface them in the toolbar below whenever
-	// whichever of those owns them is hidden, so they never disappear entirely.
-	const statsShownElsewhere = canShowFiles ? filesVisible : !detailsFullWindow;
+	// Where there is a files panel its toggle carries the change stats. The uncommitted scope has
+	// none: its stats live in the sidebar's "Uncommitted" row, so the toolbar shows them once the
+	// sidebar is hidden.
+	const statsShownElsewhere = canShowFiles || !detailsFullWindow;
 
 	const filesFilter = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesFilter(state, projectId),
@@ -2366,8 +2415,7 @@ const Diff: FC<{
 		enabled: threadReview != null,
 	});
 	// Grouped here rather than in `select`, which re-runs per render and would
-	// hand the minimap a new map every time — its paint loop compares by
-	// identity, so that would repaint the canvas on every scroll frame.
+	// hand the memos below, which compare by identity, a new map every time.
 	const threadsByPath = useMemo(
 		() =>
 			threads === undefined ? EMPTY_THREADS_BY_PATH : threadsByPathForScope(threads, fileParent),
@@ -2407,8 +2455,8 @@ const Diff: FC<{
 	// amend or rebase it has not seen moves the code underneath. A thread
 	// whose quoted line no longer matches is dropped rather than hung on
 	// whatever now occupies that number — filtered once here, so every
-	// surface reading the map (the annotations, their cards, the minimap's
-	// pins) agrees on which threads exist.
+	// surface reading the map (the annotations and their cards) agrees on
+	// which threads exist.
 	const anchoredThreadsByPath = useMemo((): ThreadsByPath => {
 		if (threadsByPath.size === 0) return threadsByPath;
 		const anchored = new Map<string, Array<AnchoredThread>>();
@@ -2461,9 +2509,7 @@ const Diff: FC<{
 			diffBackground: cfg.diffBackground,
 			diffOverflow: cfg.diffOverflow,
 			diffStyle: cfg.diffStyle,
-			diffTabSize: cfg.diffTabSize,
 			filesPanelRight: cfg.filesPanelRight,
-			minimap: cfg.minimap,
 		}),
 	});
 
@@ -2471,14 +2517,7 @@ const Diff: FC<{
 
 	const diffContentsEl = useRef<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
-	const [wrapColumns, setWrapColumns] = useState<number | null>(null);
 
-	// Wrapping stretches a long line over several rows, which the minimap has to
-	// model or its marks drift down the file it is mapping.
-	const wraps = (diffSettings?.diffOverflow ?? defaultSettings.diffOverflow) === "wrap";
-
-	// Split and unified lay hunks out differently, so the minimap has to model
-	// whichever style the viewer is actually rendering.
 	const diffStyle = canUseSplitDiff
 		? (diffSettings?.diffStyle ?? defaultSettings.diffStyle)
 		: "unified";
@@ -2509,27 +2548,6 @@ const Diff: FC<{
 	});
 	const changesMenuItems = useChangesMenuItems({ projectId, fileParent, changes });
 
-	const tabSize = diffSettings?.diffTabSize ?? defaultSettings.diffTabSize;
-
-	const minimapShown = diffSettings?.minimap ?? defaultSettings.minimap;
-	// Modelling the map reads every line of the diff, so a ruler nobody asked for
-	// shouldn't be parsed for either.
-	const minimapFiles = useMemo(
-		() =>
-			minimapShown
-				? getMinimapFiles({
-						files:
-							shownFileIndex === null || shownFileIndex < 0
-								? preparedDiffFiles
-								: preparedDiffFiles.slice(shownFileIndex, shownFileIndex + 1),
-						diffStyle,
-						tabSize,
-						wrapColumns,
-					})
-				: [],
-		[minimapShown, shownFileIndex, preparedDiffFiles, diffStyle, tabSize, wrapColumns],
-	);
-
 	useHotkeys([
 		{
 			hotkey: diffHotkeys.toggleDiffStyle.hotkey,
@@ -2548,26 +2566,13 @@ const Diff: FC<{
 		},
 	]);
 
-	// Both of these are facts about the rendered pane rather than about the diff,
-	// so they are measured on the same resize rather than derived.
+	// A fact about the rendered pane rather than about the diff, so it is
+	// measured on resize rather than derived.
 	useLayoutEffect(() => {
 		const el = diffContentsEl.current;
 		if (!el) return;
 
-		const measure = () => {
-			setCanUseSplitDiff(el.getBoundingClientRect().width >= 700);
-
-			if (!wraps) {
-				setWrapColumns(null);
-				return;
-			}
-
-			// Held only once it can be read: a resize that lands between renders would
-			// otherwise drop the count and unwrap the whole model for a frame.
-			const viewer = viewerRef.current?.getInstance();
-			const columns = viewer ? measureWrapColumns(viewer) : null;
-			if (columns !== null) setWrapColumns(columns);
-		};
+		const measure = () => setCanUseSplitDiff(el.getBoundingClientRect().width >= 700);
 
 		measure();
 
@@ -2575,7 +2580,7 @@ const Diff: FC<{
 		resizeObserver.observe(el);
 
 		return () => resizeObserver.disconnect();
-	}, [diffContentsEl, viewerRef, wraps, diffViewSansAnno]);
+	}, [diffContentsEl]);
 
 	const layoutId = `project=${projectId}:details`;
 	const panelIds: Array<PanelId> = filesVisible ? ["files-panel", "diff-panel"] : ["diff-panel"];
@@ -2692,24 +2697,17 @@ const Diff: FC<{
 
 				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
 					<div className={styles.actions}>
-						{canShowFiles && <FilesToggle projectId={projectId} />}
-
 						{headerSlot}
 
 						{!statsShownElsewhere && (
 							<ChangeStats fileCount={changes.length} lineStats={lineStats} />
 						)}
 
+						{canShowFiles && (
+							<FilesToggle projectId={projectId} fileCount={changes.length} lineStats={lineStats} />
+						)}
+
 						<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
-							<Toolbar.Button
-								className={getButtonClassName({ variant: "outline" })}
-								disabled={
-									preparedDiffFiles.length === 0 || preparedDiffFiles.length !== changes.length
-								}
-								onClick={toggleAllFilesReviewed}
-							>
-								{allFilesReviewed ? "Mark all unreviewed" : "Mark all reviewed"}
-							</Toolbar.Button>
 							<ToggleGroupStyles>
 								<Toolbar.Button
 									render={
@@ -2743,6 +2741,14 @@ const Diff: FC<{
 								</DiffStyleToggleGroup>
 							)}
 						</Toolbar.Root>
+
+						<ReviewButton
+							allFilesReviewed={allFilesReviewed}
+							canMarkAll={
+								preparedDiffFiles.length > 0 && preparedDiffFiles.length === changes.length
+							}
+							onToggleAllReviewed={toggleAllFilesReviewed}
+						/>
 					</div>
 
 					{/* One panel child, so `.panel`'s two-row grid still sizes the
@@ -2792,7 +2798,6 @@ const Diff: FC<{
 								didScrollToViaFileRef={didScrollToViaFileRef}
 								pendingFileRef={pendingFileRef}
 								renderAllFiles={renderAllFiles}
-								minimapFiles={minimapShown ? minimapFiles : null}
 							/>
 						</div>
 					</div>
@@ -2809,44 +2814,18 @@ const Diff: FC<{
 	);
 };
 
-const CopyableId: FC<{
-	label: string;
-	icon: IconName;
-	displayValue: string;
-	copyValue: string;
-}> = ({ label, icon, displayValue, copyValue }) => {
-	const { copied, copy } = useCopied(copyValue);
-
-	return (
-		<Tooltip content={label}>
-			<button
-				type="button"
-				aria-label={label}
-				className={styles.commitDetailsMetaSha}
-				onClick={copy}
-			>
-				<Icon size={14} name={copied ? "tick" : icon} />
-				<span>{copied ? "Copied!" : displayValue}</span>
-			</button>
-		</Tooltip>
-	);
-};
+const copyToClipboard = (value: string) => void window.lite.clipboardWriteText(value);
 
 const CommitDetailsSkeleton: FC = () => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
 	return (
 		<div className={styles.container}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
-
-					<div className={styles.title}>
-						<Icon name="commit" />
-						<h3 className={classes("text-15", "text-semibold")}>Loading…</h3>
-					</div>
-				</div>
-			</div>
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls />}
+				icon="commit"
+				title="Loading…"
+			/>
 		</div>
 	);
 };
@@ -2875,8 +2854,6 @@ const CommitDetails: FC<{
 	);
 	const canShowFiles = useCanShowFiles();
 	const filesVisible = canShowFiles && filesVisibleState;
-	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
-	const commitBodyId = useId();
 
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId: selection.commitId }),
@@ -2938,86 +2915,50 @@ const CommitDetails: FC<{
 
 	return (
 		<div className={styles.container} ref={ref}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
-
-					<div className={styles.title}>
-						<Icon name="commit" />
-						<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
-							<span className={styles.titleContent}>
-								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
-							</span>
-							{commitDetails.commit.hasConflicts && (
-								<Badge variant="danger" className={styles.commitConflictBadge}>
-									Conflicted
-								</Badge>
-							)}
-
-							{commitBody(commitDetails.commit.message) !== undefined && (
-								<Tooltip
-									content={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-								>
-									<Button
-										variant={commitBodyCollapsed ? "outline" : "gray"}
-										iconOnly
-										size="small"
-										aria-controls={commitBodyId}
-										aria-expanded={!commitBodyCollapsed}
-										aria-label={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-										aria-pressed={!commitBodyCollapsed}
-										className={styles.commitBodyToggle}
-										onClick={() => setCommitBodyCollapsed(!commitBodyCollapsed)}
-									>
-										<Icon name="kebab" />
-									</Button>
-								</Tooltip>
-							)}
-						</h3>
-					</div>
-				</div>
-
-				{body !== undefined && !commitBodyCollapsed && (
-					<p
-						id={commitBodyId}
-						className={classes("text-monospace", "text-body", styles.commitMessageBody)}
-					>
-						{body}
-					</p>
-				)}
-				<div className={classes("text-13", styles.commitDetailsMeta)}>
-					{review && (
-						<BranchTabToggle
-							branchTab={tab}
-							setBranchTab={setTab}
-							className={styles.commitDetailsMetaTabs}
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls />}
+				icon="commit"
+				title={
+					<>
+						<span>{commitTitle(commitDetails.commit.message) ?? "(no message)"}</span>
+						{commitDetails.commit.hasConflicts && <Badge variant="danger">Conflicted</Badge>}
+					</>
+				}
+				metaTabs={review && <BranchTabToggle branchTab={tab} setBranchTab={setTab} />}
+				meta={
+					<>
+						<Avatar
+							src={commitDetails.commit.author.gravatarUrl}
+							seed={commitDetails.commit.author.email}
+							alt="Commit author avatar"
 						/>
-					)}
-					<Avatar
-						src={commitDetails.commit.author.gravatarUrl}
-						seed={commitDetails.commit.author.email}
-						alt="Commit author avatar"
-					/>
-					<span>
-						<span title={commitDetails.commit.author.email}>
-							{commitDetails.commit.author.name}
-						</span>{" "}
-						at {fmtDate}
-					</span>
-					<CopyableId
-						label="Copy change ID"
-						icon="finger-print"
-						displayValue={shortCommitId(commitDetails.commit.changeId)}
-						copyValue={commitDetails.commit.changeId}
-					/>
-					<CopyableId
-						label="Copy commit ID"
-						icon="hash"
-						displayValue={shortCommitId(commitDetails.commit.id)}
-						copyValue={commitDetails.commit.id}
-					/>
-				</div>
-			</div>
+						<span>
+							<span title={commitDetails.commit.author.email}>
+								{commitDetails.commit.author.name}
+							</span>{" "}
+							at {fmtDate}
+						</span>
+						<CopyableId
+							label="Copy change ID"
+							icon="finger-print"
+							value={commitDetails.commit.changeId}
+							display={shortCommitId(commitDetails.commit.changeId)}
+							onCopy={copyToClipboard}
+						/>
+						<CopyableId
+							label="Copy commit ID"
+							icon="hash"
+							value={commitDetails.commit.id}
+							display={shortCommitId(commitDetails.commit.id)}
+							onCopy={copyToClipboard}
+						/>
+					</>
+				}
+			>
+				{body !== undefined && (
+					<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>{body}</p>
+				)}
+			</ViewHeader>
 
 			{review && tab === "pr" ? (
 				<ScrollArea className={styles.prTabScroll}>
@@ -3099,13 +3040,19 @@ const LandedReviewView: FC<{ projectId: string; reviewId: number; branchName?: s
 };
 
 /** A branch's own changes, whatever the branch's standing. */
-const BranchDiff: FC<BranchDetailsProps> = ({
+const BranchDiff: FC<
+	BranchDetailsProps & {
+		/** Part of the branch to show, oldest and newest commit included; the whole of it if `null`. */
+		range?: { oldest: string; newest: string } | null;
+	}
+> = ({
 	branch,
 	projectId,
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
 	pendingFileRef,
+	range = null,
 }) => {
 	const filesVisibleState = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
@@ -3117,48 +3064,101 @@ const BranchDiff: FC<BranchDetailsProps> = ({
 		setCursor("files", selection);
 	};
 
-	return (
+	const renderDiff = ({ data: branchDiff }: { data: TreeChanges }) => (
+		<Diff
+			changes={branchDiff.changes}
+			filesVisible={filesVisible}
+			canShowFiles={canShowFiles}
+			filesItems={branchDiff.changes.map((change) =>
+				changeFileRowItem({
+					change,
+					path: change.path,
+					dependencyCommitIds: [],
+				}),
+			)}
+			onPassiveFileSelection={selectFile}
+			selection={branchAddress(branch)}
+			projectId={projectId}
+			onActiveFileSelection={onActiveFileSelection}
+			viewerRef={viewerRef}
+			didScrollToViaFileRef={didScrollToViaFileRef}
+			pendingFileRef={pendingFileRef}
+		/>
+	);
+
+	return range === null ? (
 		<SuspenseQuery
 			{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branch.branchRef) })}
 		>
-			{({ data: branchDiff }) => (
-				<Diff
-					changes={branchDiff.changes}
-					filesVisible={filesVisible}
-					canShowFiles={canShowFiles}
-					filesItems={branchDiff.changes.map((change) =>
-						changeFileRowItem({
-							change,
-							path: change.path,
-							dependencyCommitIds: [],
-						}),
-					)}
-					onPassiveFileSelection={selectFile}
-					selection={branchAddress(branch)}
-					projectId={projectId}
-					onActiveFileSelection={onActiveFileSelection}
-					viewerRef={viewerRef}
-					didScrollToViaFileRef={didScrollToViaFileRef}
-					pendingFileRef={pendingFileRef}
-				/>
-			)}
+			{renderDiff}
+		</SuspenseQuery>
+	) : (
+		<SuspenseQuery {...commitRangeDiffQueryOptions({ projectId, ...range })}>
+			{renderDiff}
 		</SuspenseQuery>
 	);
 };
 
-const BranchTitleRow: FC<{ branchName: string }> = ({ branchName }) => {
-	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+const checksPhrase = (aggregate: AggregateCIChecks | null): string | null => {
+	if (aggregate === null) return null;
+	switch (aggregate.status) {
+		case "failure":
+			return `${aggregate.failure.length + aggregate.timedOut.length} of ${aggregate.total} checks failing`;
+		case "in_progress":
+			return `${aggregate.inProgress.length + aggregate.queued.length} of ${aggregate.total} checks running`;
+		case "success":
+			return `${aggregate.total} ${aggregate.total === 1 ? "check" : "checks"} passed`;
+		default:
+			return null;
+	}
+};
 
-	return (
-		<div className={styles.titleRow}>
-			{detailsFullWindow && <TopLeftControls />}
+/**
+ * Where the branch stands, in one line under its name: how far it is ahead of the target, how far
+ * the workspace has fallen behind it, and its review. Each part shows only once it is known.
+ */
+const useBranchMeta = ({
+	projectId,
+	branchName,
+	review,
+	applied,
+}: {
+	projectId: string;
+	branchName: string;
+	review: ForgeReview | null | undefined;
+	/** Only an applied branch sits on the workspace's base, so only it is behind with it. */
+	applied: boolean;
+}): string | null => {
+	const { data: target } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: (headInfo) => headInfo.target,
+	});
+	const { data: ahead } = useQuery({
+		...branchListQueryOptions(projectId),
+		select: (stacks) =>
+			stacks
+				.values()
+				.flatMap((stack) => stack.branches)
+				.find((listed) => listed.displayName === branchName)?.commitsAheadOfTarget ?? null,
+	});
+	const { data: checks } = useQuery({
+		...listCIChecksQueryOptions({ projectId, reference: branchName, polling: "passive" }),
+		enabled: !!review,
+		select: ({ aggregate }) => checksPhrase(aggregate),
+	});
 
-			<div className={styles.title}>
-				<Icon name="branch" />
-				<h3 className={classes(styles.titleContent, "text-15", "text-semibold")}>{branchName}</h3>
-			</div>
-		</div>
-	);
+	const targetName = target
+		? `${target.remoteTrackingRef.remoteName}/${target.remoteTrackingRef.displayName}`
+		: null;
+	const parts = [
+		ahead != null &&
+			`${ahead} ${ahead === 1 ? "commit" : "commits"} ahead${targetName !== null ? ` of ${targetName}` : ""}`,
+		applied && target && target.commitsAhead > 0 && `${target.commitsAhead} behind`,
+		review && `${review.draft ? "draft " : ""}#${review.number}`,
+		review ? checks : null,
+	].filter((part): part is string => typeof part === "string");
+
+	return parts.length === 0 ? null : parts.join(" · ");
 };
 
 /**
@@ -3192,6 +3192,79 @@ const BranchTabToggle: FC<{
 		</Toggle>
 	</ToggleGroup>
 );
+
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+
+/**
+ * Narrows the branch's diff to some of its commits: all of them, the ones not pushed yet, or a
+ * run ticked in the list. Its menu is native, so the run is kept unbroken by `toggleCommit`
+ * rather than by the menu.
+ */
+const CommitFilterButton: FC<{
+	projectId: string;
+	branchName: string;
+	/** The branch's own commits, newest first. */
+	commits: ReadonlyArray<Commit>;
+}> = ({ projectId, branchName, commits }) => {
+	const dispatch = useAppDispatch();
+	const filter = useAppSelector((state) =>
+		projectSlice.selectors.selectBranchCommitFilter(state, projectId, branchName),
+	);
+	const span = filterSpan(filter, commits);
+	const unpushed = unpushedCount(commits);
+	const setFilter = (next: typeof filter): void => {
+		dispatch(projectSlice.actions.setBranchCommitFilter({ projectId, branchName, filter: next }));
+	};
+
+	const label =
+		span === null
+			? commits.length === 1
+				? "1 commit"
+				: `All ${commits.length} commits`
+			: filter._tag === "Unpushed"
+				? plural(span[1] - span[0] + 1, "unpushed commit")
+				: plural(span[1] - span[0] + 1, "commit");
+
+	const openMenu = (trigger: HTMLElement) => {
+		void showNativeMenuFromTrigger(
+			trigger,
+			nativeMenuItemsFromGroups([
+				[
+					nativeMenuItem({ label: "Show changes from", enabled: false }),
+					nativeMenuItem({
+						label: `All ${plural(commits.length, "commit")}`,
+						checked: span === null,
+						onSelect: () => setFilter({ _tag: "All" }),
+					}),
+					nativeMenuItem({
+						label: unpushed === 0 ? "No unpushed commits" : plural(unpushed, "unpushed commit"),
+						checked: span !== null && filter._tag === "Unpushed",
+						enabled: unpushed > 0 && unpushed < commits.length,
+						onSelect: () => setFilter({ _tag: "Unpushed" }),
+					}),
+				],
+				[
+					nativeMenuItem({ label: "Specific commits", enabled: false }),
+					...commits.map((commit, index) =>
+						nativeMenuItem({
+							label: commitTitle(commit.message) ?? "(no message)",
+							checked:
+								span !== null && filter._tag === "Range" && index >= span[0] && index <= span[1],
+							onSelect: () => setFilter(toggleCommit(filter, commits, commit.id)),
+						}),
+					),
+				],
+			]),
+		);
+	};
+
+	return (
+		<Button aria-haspopup="menu" onClick={(event) => openMenu(event.currentTarget)}>
+			<Icon name="commit" />
+			{label}
+		</Button>
+	);
+};
 
 /** `[` and `]` step between a branch's tabs; with two of them, either key toggles. */
 const useBranchTabHotkeys = ({
@@ -3452,6 +3525,8 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref, enabled: reviewTab !== null });
 
 	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+	const branchMeta = useBranchMeta({ projectId, branchName, review, applied: false });
 	// A branch checked out in a linked worktree cannot be applied while it is; its
 	// commits show up in the worktree's lane instead.
 	const { data: worktreeName } = useQuery({
@@ -3466,34 +3541,35 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 
 	return (
 		<div className={styles.container} ref={ref}>
-			<div className={styles.headerWrap}>
-				<BranchTitleRow branchName={branchName} />
-
-				<div className={styles.tabsRow}>
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls />}
+				icon="branch"
+				title={branchName}
+				meta={branchMeta}
+				toolbar={
 					<BranchTabToggle
 						branchTab={branchTab}
 						setBranchTab={setBranchTab}
 						prDisabled={reviewTab === null}
 					/>
-
-					<div className={styles.tabsRowRight}>
-						{worktreeName === undefined ? (
-							<Button
-								variant="gray"
-								disabled={isApplyPending}
-								onClick={() => apply(decodeBytes(branch.branchRef))}
-							>
-								{isApplyPending && <Icon name="spinner" />}
-								Apply to workspace
-							</Button>
-						) : (
-							<span className={classes("text-12", rowStyles.fadedText)}>
-								Checked out in worktree {worktreeName}
-							</span>
-						)}
-					</div>
-				</div>
-			</div>
+				}
+				actions={
+					worktreeName === undefined ? (
+						<Button
+							variant="gray"
+							disabled={isApplyPending}
+							onClick={() => apply(decodeBytes(branch.branchRef))}
+						>
+							{isApplyPending && <Icon name="spinner" />}
+							Apply to workspace
+						</Button>
+					) : (
+						<span className={classes("text-12", rowStyles.fadedText)}>
+							Checked out in worktree {worktreeName}
+						</span>
+					)
+				}
+			/>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{reviewTab !== null && branchTab === "pr" ? (
@@ -3568,8 +3644,6 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 	);
 	const defaultTab = supportsPullRequests && hasReview ? "pr" : "diff";
 	const branchTab = chosenTab ?? defaultTab;
-	const showCreatePullRequest =
-		branchTab === "diff" && supportsPullRequests && reviewsLoaded && !hasReview;
 
 	const setBranchTab = (tab: BranchTab) => {
 		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
@@ -3587,6 +3661,9 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 	const ref = useRef<HTMLDivElement>(null);
 	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref });
 
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+	const branchMeta = useBranchMeta({ projectId, branchName, review: openReview, applied: true });
+
 	// A forge only opens a review on a branch it has, so a new PR pushes the
 	// branch and its ancestors first when any of them still has something to
 	// push. Conflicted commits cannot be pushed, and so cannot be reviewed yet.
@@ -3596,24 +3673,43 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 		: null;
 	const canSubmit = pushFirst === null || !downstack?.anyHasConflicts;
 
+	const commits = laneBranch?.segment.commits ?? EMPTY_COMMITS;
+	const commitFilter = useAppSelector((state) =>
+		projectSlice.selectors.selectBranchCommitFilter(state, projectId, branchName),
+	);
+	const span = filterSpan(commitFilter, commits);
+	const range =
+		span === null
+			? null
+			: { newest: assert(commits[span[0]]).id, oldest: assert(commits[span[1]]).id };
+
 	return (
 		<div className={styles.container} ref={ref}>
-			<div className={styles.headerWrap}>
-				<BranchTitleRow branchName={branchName} />
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls />}
+				icon="branch"
+				title={branchName}
+				meta={branchMeta}
+				toolbar={
+					<>
+						<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
 
-				<div className={styles.tabsRow}>
-					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
-
-					{showCreatePullRequest && (
-						<div className={styles.tabsRowRight}>
-							<Button variant="gray" onClick={() => setBranchTab("pr")}>
-								<Icon name="pr" />
-								Create pull request
-							</Button>
-						</div>
-					)}
-
-					{branchTab === "pr" && supportsPullRequests && canUseForge && (
+						{branchTab === "diff" && commits.length > 1 && (
+							<>
+								<ViewHeaderDivider />
+								<CommitFilterButton
+									projectId={projectId}
+									branchName={branchName}
+									commits={commits}
+								/>
+							</>
+						)}
+					</>
+				}
+				actions={
+					branchTab === "pr" &&
+					supportsPullRequests &&
+					canUseForge && (
 						<Suspense>
 							<SuspenseQuery
 								{...listReviewsQueryOptions({
@@ -3626,21 +3722,19 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 									if (!review) return null;
 
 									return (
-										<div className={styles.tabsRowRight}>
-											<PullRequestPrimaryAction
-												projectId={projectId}
-												review={review}
-												isEditing={prEditing}
-												onStartEdit={startPrEdit}
-											/>
-										</div>
+										<PullRequestPrimaryAction
+											projectId={projectId}
+											review={review}
+											isEditing={prEditing}
+											onStartEdit={startPrEdit}
+										/>
 									);
 								}}
 							</SuspenseQuery>
 						</Suspense>
-					)}
-				</div>
-			</div>
+					)
+				}
+			/>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{branchTab === "pr" ? (
@@ -3709,6 +3803,7 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 						viewerRef={viewerRef}
 						didScrollToViaFileRef={didScrollToViaFileRef}
 						pendingFileRef={pendingFileRef}
+						range={range}
 					/>
 				)}
 			</Suspense>
@@ -3721,16 +3816,11 @@ const FileDetailsSkeleton: FC = () => {
 
 	return (
 		<div className={styles.container}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
-
-					<div className={styles.title}>
-						<Icon name="file" />
-						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
-					</div>
-				</div>
-			</div>
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls />}
+				icon="file"
+				title="Uncommitted"
+			/>
 
 			<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>
 		</div>
@@ -3782,15 +3872,16 @@ const FileDetails: FC<{
 		else setCursor("applied", fileAddress({ parent, path: selection }));
 	};
 
+	const titleText =
+		parent.worktree === undefined ? "Uncommitted" : `Uncommitted in ${parent.worktree}`;
+	// With changes, the diff's bar is the view's only header, so the title rides in it.
 	const title = (
 		<>
 			{detailsFullWindow && <TopLeftControls />}
 
 			<div className={styles.title}>
 				<Icon name="file-diff" />
-				<h3 className={classes("text-15", "text-semibold")}>
-					{parent.worktree === undefined ? "Uncommitted" : `Uncommitted in ${parent.worktree}`}
-				</h3>
+				<h2 className={classes("text-15", "text-semibold")}>{titleText}</h2>
 			</div>
 		</>
 	);
@@ -3813,9 +3904,11 @@ const FileDetails: FC<{
 					headerSlot={title}
 				/>
 			) : (
-				<div className={styles.headerWrap}>
-					<div className={styles.titleRow}>{title}</div>
-				</div>
+				<ViewHeader
+					leading={detailsFullWindow && <TopLeftControls />}
+					icon="file-diff"
+					title={titleText}
+				/>
 			)}
 		</div>
 	);

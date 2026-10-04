@@ -39,21 +39,10 @@ const keysOf = (match: DiffSearchMatch): Array<string> => {
 	return keys;
 };
 
-/** What matched, and which of those the search is standing on. */
-export type SearchMarks = {
-	matches: Array<DiffSearchMatch>;
-	current: DiffSearchMatch | null;
-};
-
-const NO_MARKS: SearchMarks = { matches: [], current: null };
-
 type SearchMarkStore<T> = {
 	onPostRender: OnPostRender<T>;
 	setCurrentItems: (items: ReadonlyArray<{ id: string }>) => void;
 	setMatches: (matches: Array<DiffSearchMatch>, current: DiffSearchMatch | null) => void;
-	/** For React consumers painting their own view of the matches — the minimap. */
-	subscribe: (listener: () => void) => () => void;
-	getSnapshot: () => SearchMarks;
 	getSearchSource: (item: CodeViewDiffItem<unknown>) => DiffSearchSource | undefined;
 	cleanUp: () => void;
 };
@@ -71,10 +60,8 @@ const createSearchMarkStore = <T>(getOnPostRender: () => OnPostRender<T>): Searc
 		string,
 		{ version: CodeViewDiffItem<unknown>["version"]; instance: FileDiff<T> }
 	>();
-	const listeners = new Set<() => void>();
 	let keys: ReadonlySet<string> = new Set();
 	let currentKeys: ReadonlySet<string> = new Set();
-	let snapshot: SearchMarks = NO_MARKS;
 
 	const markHost = (host: HTMLElement, itemId: string): void => {
 		const shadowRoot = host.shadowRoot;
@@ -118,17 +105,7 @@ const createSearchMarkStore = <T>(getOnPostRender: () => OnPostRender<T>): Searc
 			keys = new Set(matches.flatMap(keysOf));
 			currentKeys = new Set(current === null ? [] : keysOf(current));
 			for (const [host, itemId] of itemIdsByHost) markHost(host, itemId);
-
-			// A fresh identity only when there is something to draw, so a closed
-			// search doesn't wake subscribers on every diff refresh.
-			snapshot = matches.length === 0 ? NO_MARKS : { matches, current };
-			for (const listener of listeners) listener();
 		},
-		subscribe: (listener) => {
-			listeners.add(listener);
-			return () => listeners.delete(listener);
-		},
-		getSnapshot: () => snapshot,
 		getSearchSource: (item) => {
 			const registered = instancesByItemId.get(item.id);
 			if (!registered || registered.version !== item.version) return;
@@ -145,8 +122,6 @@ const createSearchMarkStore = <T>(getOnPostRender: () => OnPostRender<T>): Searc
 			for (const [host, itemId] of itemIdsByHost) markHost(host, itemId);
 			itemIdsByHost.clear();
 			instancesByItemId.clear();
-			snapshot = NO_MARKS;
-			listeners.clear();
 		},
 	};
 };
@@ -158,8 +133,6 @@ export const useDiffSearchMarks = <T>(
 	onPostRender: OnPostRender<T>;
 	setSearchMatches: SearchMarkStore<T>["setMatches"];
 	getSearchSource: SearchMarkStore<T>["getSearchSource"];
-	/** Hand to the minimap, which draws the same matches at its own scale. */
-	searchMarks: Pick<SearchMarkStore<T>, "subscribe" | "getSnapshot">;
 } => {
 	const onPostRenderRef = useRef(onPostRender);
 	onPostRenderRef.current = onPostRender;
@@ -175,6 +148,5 @@ export const useDiffSearchMarks = <T>(
 		onPostRender: store.onPostRender,
 		setSearchMatches: store.setMatches,
 		getSearchSource: store.getSearchSource,
-		searchMarks: store,
 	};
 };
