@@ -19,9 +19,11 @@ import {
 	useHostedBranchDismiss,
 	useHostedBranchPull,
 } from "#ui/api/mutations.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { useHostedSync } from "#ui/HostedSync.tsx";
 import {
+	type NativeMenuContext,
 	type NativeMenuItem,
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -609,6 +611,9 @@ const MeshCommitItem: FC<{
 			name={title ?? "(no message)"}
 			icon={<Icon name="commit" size={14} />}
 			menuLabel="Commit menu"
+			menuContext={
+				checkout.isThisMachine ? { changeId: commit.changeId, commitId: commit.id } : undefined
+			}
 			menuItems={[
 				nativeMenuItem({
 					label: "Copy",
@@ -737,6 +742,7 @@ const LocalBranchItem: FC<{
 			}
 			menuLabel="Branch menu"
 			menuItems={[...publishItems, copyItem("Copy Branch Name", branch.name)]}
+			menuContext={{ branchRef: decodeBytes(branch.ref) }}
 		/>
 	);
 };
@@ -823,6 +829,8 @@ const MeshItem: FC<{
 	className?: string;
 	menuLabel?: string;
 	menuItems?: Array<NativeMenuItem>;
+	/** What the menu is for, which a browser's menu offers to open in the app. */
+	menuContext?: NativeMenuContext;
 	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
 	onSelect: () => void;
 }> = ({
@@ -834,6 +842,7 @@ const MeshItem: FC<{
 	className,
 	menuLabel,
 	menuItems,
+	menuContext,
 	tooltipHandle,
 	onSelect,
 }) => {
@@ -869,7 +878,9 @@ const MeshItem: FC<{
 					<Toolbar.Root aria-label={menuLabel}>
 						<Toolbar.Button
 							aria-label={menuLabel}
-							onClick={(event) => void showNativeMenuFromTrigger(event.currentTarget, menuItems)}
+							onClick={(event) =>
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems, menuContext)
+							}
 							className={getRowButtonClassName({ iconOnly: true })}
 						>
 							<Icon name="kebab" />
@@ -877,7 +888,9 @@ const MeshItem: FC<{
 					</Toolbar.Root>
 				)
 			}
-			onContextMenu={menuItems && ((event) => void showNativeContextMenu(event, menuItems))}
+			onContextMenu={
+				menuItems && ((event) => void showNativeContextMenu(event, menuItems, menuContext))
+			}
 		/>
 	);
 };

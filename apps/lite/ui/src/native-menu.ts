@@ -62,9 +62,12 @@ const serializeNativeMenuItems = (
 		};
 	});
 
-/** Optional context the caller wants the host to know about (e.g. the file path). */
-type NativeMenuContext = {
+/** Optional context the caller wants the host to know about: what the menu is for. */
+export type NativeMenuContext = {
 	path?: string;
+	branchRef?: string;
+	changeId?: string;
+	commitId?: string;
 };
 
 const showNativeMenu = async (

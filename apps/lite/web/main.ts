@@ -4,6 +4,7 @@
  */
 import { createLiteApi } from "#electron/lite-api.ts";
 import { createHttpTransport } from "./http-transport.ts";
+import { mountMenuHost } from "./menu.tsx";
 
 // Served by a but-server in production, so the same origin by default.
 const serverUrl =
@@ -12,3 +13,4 @@ const serverUrl =
 window.lite = createLiteApi(createHttpTransport(serverUrl));
 
 await import("#ui/main.tsx");
+mountMenuHost();

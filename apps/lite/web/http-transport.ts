@@ -4,8 +4,10 @@
  * desktop host answers itself get browser stand-ins here.
  */
 import { apiParamNames } from "@gitbutler/but-sdk/api-param-names";
+import type { ShowNativeMenuParams } from "#electron/ipc.ts";
 import type { LiteApiTransport } from "#electron/lite-api.ts";
 import type { GUISettings } from "#electron/settings.ts";
+import { showMenu } from "./menu.tsx";
 
 type ServerResponse = { type: "success"; subject: unknown } | { type: "error"; subject: unknown };
 
@@ -239,8 +241,7 @@ export const createHttpTransport = (serverUrl: string): LiteApiTransport => {
 		isPackaged: () => false,
 		isFullScreen: () => false,
 		pathJoin: (...paths) => paths.map(String).join("/").replace(/\/+/g, "/"),
-		// No popup host yet: menus stay closed.
-		showNativeMenu: () => null,
+		showNativeMenu: (params) => showMenu(params as ShowNativeMenuParams),
 		pickDirectory: async () => {
 			const { path } = (await post(`${serverUrl}/pick_directory`, {})) as { path: string | null };
 			return path;
