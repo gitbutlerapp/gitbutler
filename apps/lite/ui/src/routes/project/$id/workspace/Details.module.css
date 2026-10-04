@@ -22,11 +22,6 @@
 	row-gap: 0;
 }
 
-.commitBodyToggle {
-	width: 24px;
-	height: 14px;
-}
-
 .title {
 	display: grid;
 	/* Match regular button height. */
@@ -228,8 +223,10 @@
 	gap: 6px;
 }
 
+/* Commit messages are wrapped by hand, at 72 to 78 characters, so the
+   measure leaves room for that rather than breaking each line again. */
 .commitMessageBody {
-	max-width: 70ch;
+	max-width: 80ch;
 	font-size: 12px;
 	line-height: 160%;
 	white-space: pre-wrap;
@@ -355,32 +352,6 @@
 
 .emptyFileHunks {
 	margin: 8px;
-}
-
-/* The toggle leads the meta row, so it keeps the row's own rhythm but sits a
-   touch further from the author than the meta items sit from each other. */
-.commitDetailsMetaTabs {
-	margin-inline-end: 4px;
-}
-
-.commitDetailsMetaSha {
-	display: flex;
-	align-items: center;
-	padding: 0;
-	gap: 4px;
-	border: none;
-	background: none;
-	color: var(--text-3);
-	font: inherit;
-
-	> span {
-		text-decoration: underline dotted;
-		text-underline-offset: 2px;
-	}
-
-	&:hover {
-		color: var(--text-2);
-	}
 }
 
 /* Holds the conflict bar above the diff as one child of `.panel`, whose grid

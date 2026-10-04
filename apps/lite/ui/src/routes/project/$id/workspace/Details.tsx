@@ -87,7 +87,6 @@ import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
-import { useCopied } from "#ui/components/useCopied.ts";
 import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { PullRequestComments } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
@@ -137,7 +136,6 @@ import {
 	type ReactNode,
 	type RefObject,
 	Suspense,
-	useId,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -167,6 +165,7 @@ import {
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 import { ViewHeader, ViewHeaderDivider } from "@gitbutler/ui-react/ViewHeader.tsx";
+import { CopyableId } from "@gitbutler/ui-react/CopyableId.tsx";
 import {
 	changeFileRowItem,
 	conflictFileRowItem,
@@ -209,7 +208,6 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { ScrollArea, ScrollBars } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { combineHashes, hash } from "#ui/hash.ts";
 import { compareFilePaths } from "#ui/file-order.ts";
@@ -2816,28 +2814,7 @@ const Diff: FC<{
 	);
 };
 
-const CopyableId: FC<{
-	label: string;
-	icon: IconName;
-	displayValue: string;
-	copyValue: string;
-}> = ({ label, icon, displayValue, copyValue }) => {
-	const { copied, copy } = useCopied(copyValue);
-
-	return (
-		<Tooltip content={label}>
-			<button
-				type="button"
-				aria-label={label}
-				className={styles.commitDetailsMetaSha}
-				onClick={copy}
-			>
-				<Icon size={14} name={copied ? "tick" : icon} />
-				<span>{copied ? "Copied!" : displayValue}</span>
-			</button>
-		</Tooltip>
-	);
-};
+const copyToClipboard = (value: string) => void window.lite.clipboardWriteText(value);
 
 const CommitDetailsSkeleton: FC = () => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
@@ -2877,8 +2854,6 @@ const CommitDetails: FC<{
 	);
 	const canShowFiles = useCanShowFiles();
 	const filesVisible = canShowFiles && filesVisibleState;
-	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
-	const commitBodyId = useId();
 
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId: selection.commitId }),
@@ -2947,37 +2922,11 @@ const CommitDetails: FC<{
 					<>
 						<span>{commitTitle(commitDetails.commit.message) ?? "(no message)"}</span>
 						{commitDetails.commit.hasConflicts && <Badge variant="danger">Conflicted</Badge>}
-
-						{body !== undefined && (
-							<Tooltip
-								content={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-							>
-								<Button
-									variant={commitBodyCollapsed ? "outline" : "gray"}
-									iconOnly
-									size="small"
-									aria-controls={commitBodyId}
-									aria-expanded={!commitBodyCollapsed}
-									aria-label={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-									aria-pressed={!commitBodyCollapsed}
-									className={styles.commitBodyToggle}
-									onClick={() => setCommitBodyCollapsed(!commitBodyCollapsed)}
-								>
-									<Icon name="kebab" />
-								</Button>
-							</Tooltip>
-						)}
 					</>
 				}
+				metaTabs={review && <BranchTabToggle branchTab={tab} setBranchTab={setTab} />}
 				meta={
 					<>
-						{review && (
-							<BranchTabToggle
-								branchTab={tab}
-								setBranchTab={setTab}
-								className={styles.commitDetailsMetaTabs}
-							/>
-						)}
 						<Avatar
 							src={commitDetails.commit.author.gravatarUrl}
 							seed={commitDetails.commit.author.email}
@@ -2992,25 +2941,22 @@ const CommitDetails: FC<{
 						<CopyableId
 							label="Copy change ID"
 							icon="finger-print"
-							displayValue={shortCommitId(commitDetails.commit.changeId)}
-							copyValue={commitDetails.commit.changeId}
+							value={commitDetails.commit.changeId}
+							display={shortCommitId(commitDetails.commit.changeId)}
+							onCopy={copyToClipboard}
 						/>
 						<CopyableId
 							label="Copy commit ID"
 							icon="hash"
-							displayValue={shortCommitId(commitDetails.commit.id)}
-							copyValue={commitDetails.commit.id}
+							value={commitDetails.commit.id}
+							display={shortCommitId(commitDetails.commit.id)}
+							onCopy={copyToClipboard}
 						/>
 					</>
 				}
 			>
-				{body !== undefined && !commitBodyCollapsed && (
-					<p
-						id={commitBodyId}
-						className={classes("text-monospace", "text-body", styles.commitMessageBody)}
-					>
-						{body}
-					</p>
+				{body !== undefined && (
+					<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>{body}</p>
 				)}
 			</ViewHeader>
 
