@@ -6,6 +6,7 @@
  * the pages — each a list — beside Details, and wires the app-level
  * hotkeys and operation controls.
  */
+import { hostedBranchRef } from "#ui/branch.ts";
 import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
@@ -78,6 +79,7 @@ import { OperationsLogPicker } from "./OperationsLogPicker.tsx";
 import { DetailsPlaceholder } from "./DetailsPlaceholder.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 import { MeshSidebar } from "./Mesh/MeshSidebar.tsx";
+import { MeshOverview } from "./Mesh/MeshOverview.tsx";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { ErrorBoundary } from "@gitbutler/ui-react/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
@@ -457,13 +459,17 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
 	);
 
-	const remoteCommits = (showRemoteMachines ? (remoteMachines ?? []) : [])
-		.filter((machine) => folds[machineFoldKey(machine.name)] !== true)
-		.flatMap((machine) =>
-			machine.branches.flatMap((branch) =>
-				branch.uncommitted ? [branch.uncommitted, ...branch.commits] : branch.commits,
-			),
-		);
+	const shownMachines = (showRemoteMachines ? (remoteMachines ?? []) : []).filter(
+		(machine) => folds[machineFoldKey(machine.name)] !== true,
+	);
+	const remoteBranchRefs = shownMachines.flatMap((machine) =>
+		machine.branches.map((branch) => hostedBranchRef(machine.name, branch.branch)),
+	);
+	const remoteCommits = shownMachines.flatMap((machine) =>
+		machine.branches.flatMap((branch) =>
+			branch.uncommitted ? [branch.uncommitted, ...branch.commits] : branch.commits,
+		),
+	);
 
 	const appliedAddressSpace = buildAppliedAddressSpace({
 		stacks: graph.stacks,
@@ -473,6 +479,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		absorptionTargetCommitIds,
 		foldedSegments: folds,
 		remoteCommits,
+		remoteBranchRefs,
 	});
 
 	const page = usePage();
@@ -528,6 +535,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		appliedSelection?._tag === "Commit"
 			? targetCommitReview(graph.listing, appliedSelection.commitId, graph.plan.history)
 			: null;
+	const meshOverview = useAppSelector(interfaceSlice.selectors.selectMeshOverview);
 	const details = useMemo(() => {
 		const viewProps = {
 			projectId,
@@ -557,6 +565,10 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 			[activeList, ...activeLists.filter((list) => list !== activeList)].find(
 				(list) => detailsFor[list] !== null,
 			) ?? activeList;
+
+		// A machine or repo picked in the mesh has no diff; its overview stands in until a row that does.
+		if (page === "workspace" && meshSidebar === true && meshOverview !== null)
+			return <MeshOverview overview={meshOverview} projectId={projectId} />;
 
 		return Match.value(page).pipe(
 			Match.when(
@@ -590,6 +602,8 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		page,
 		uncommittedFilesSelection,
 		activeList,
+		meshSidebar,
+		meshOverview,
 	]);
 
 	const deferredDetails = useDeferredValue(details);

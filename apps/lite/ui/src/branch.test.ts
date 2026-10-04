@@ -231,6 +231,13 @@ describe("branchDetailsParams", () => {
 		});
 	});
 
+	it("names another machine's published branch as that machine has it", () => {
+		expect(branchDetailsParams("refs/gitbutler/hosted/heads/studio/feature/login")).toEqual({
+			branchName: "feature/login",
+			remote: null,
+		});
+	});
+
 	it("leaves a bare name untouched", () => {
 		expect(branchDetailsParams("feature/login")).toEqual({
 			branchName: "feature/login",

@@ -14,6 +14,12 @@ type Dialog =
 
 export type MeshGrouping = "machines" | "repos";
 
+/** What the details pane gives an overview of, when a mesh row has no diff of its own. */
+export type MeshOverview =
+	| { _tag: "Machine"; machine: string }
+	/** With `machine`, the repo as that machine has it. */
+	| { _tag: "Repo"; projectId: string; machine?: string };
+
 type InterfaceState = {
 	detailsFullWindow: boolean;
 	diffFooterView: "feedback" | "dadJokes";
@@ -27,6 +33,7 @@ type InterfaceState = {
 		/** Every row starts folded, and loads what it shows only once unfolded. */
 		unfolded: Record<string, true>;
 		selection: string | null;
+		overview: MeshOverview | null;
 	};
 };
 
@@ -34,7 +41,7 @@ const initialState: InterfaceState = {
 	detailsFullWindow: false,
 	diffFooterView: "feedback",
 	dialog: { _tag: "None" },
-	mesh: { grouping: "machines", unfolded: {}, selection: null },
+	mesh: { grouping: "machines", unfolded: {}, selection: null, overview: null },
 };
 
 export const interfaceSlice = createSlice({
@@ -69,8 +76,12 @@ export const interfaceSlice = createSlice({
 			if (state.mesh.unfolded[key]) delete state.mesh.unfolded[key];
 			else state.mesh.unfolded[key] = true;
 		},
-		selectMeshRow: (state, { payload: { key } }: PayloadAction<{ key: string }>) => {
+		selectMeshRow: (
+			state,
+			{ payload: { key, overview } }: PayloadAction<{ key: string; overview: MeshOverview | null }>,
+		) => {
 			state.mesh.selection = key;
+			state.mesh.overview = overview;
 		},
 	},
 	selectors: {
@@ -80,6 +91,7 @@ export const interfaceSlice = createSlice({
 		selectMeshGrouping: (state) => state.mesh.grouping,
 		selectMeshUnfolded: (state) => state.mesh.unfolded,
 		selectMeshSelection: (state) => state.mesh.selection,
+		selectMeshOverview: (state) => state.mesh.overview,
 		selectIsMeshRowSelected: (state, key: string) => state.mesh.selection === key,
 	},
 });

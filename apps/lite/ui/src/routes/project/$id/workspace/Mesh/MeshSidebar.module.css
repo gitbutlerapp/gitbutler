@@ -55,9 +55,19 @@
 	align-items: center;
 }
 
+.machineIcon {
+	display: inline-flex;
+	position: relative;
+}
+
+/* On the icon's corner, ringed in the row's background so it reads apart from the glyph. */
 .light {
-	width: 8px;
-	height: 8px;
+	position: absolute;
+	right: -2px;
+	bottom: -2px;
+	width: 7px;
+	height: 7px;
+	border: 1.5px solid var(--bg-1);
 	border-radius: var(--radius-full);
 	background-color: var(--text-3);
 }
@@ -75,4 +85,11 @@
 	overflow: hidden;
 	white-space: nowrap;
 	clip-path: inset(50%);
+}
+
+/* A badge's own dark text would vanish on the inverted selection. */
+:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
+	[data-selected]
+	.badge {
+	color: var(--text-1-invert);
 }

@@ -37,6 +37,7 @@ export const buildAppliedAddressSpace = ({
 	absorptionTargetCommitIds,
 	foldedSegments,
 	remoteCommits = [],
+	remoteBranchRefs = [],
 }: {
 	/** The cards in the graph's order, as `usePlan` gives them. */
 	stacks: ReadonlyArray<Stack>;
@@ -48,6 +49,8 @@ export const buildAppliedAddressSpace = ({
 	foldedSegments: Record<string, true>;
 	/** Commits other machines published, drawn below the workspace, of the machines unfolded. */
 	remoteCommits?: ReadonlyArray<Pick<Commit, "id" | "changeId">>;
+	/** Their branches, by the refs they were fetched to, so each one's diff can be shown. */
+	remoteBranchRefs?: ReadonlyArray<Array<number>>;
 }): AddressSpace<Address> => {
 	// Operations take a card's rows, a worktree's uncommitted files, and a
 	// worktree's branches; not the section's rows or a worktree's own commits.
@@ -112,6 +115,7 @@ export const buildAppliedAddressSpace = ({
 		const seen = new Set(local.map((row) => addressIdentityKey(row.address)));
 		return [
 			...local,
+			...remoteBranchRefs.map((branchRef) => foreign(branchAddress({ branchRef }))),
 			...remoteCommits.flatMap(({ id, changeId }) => {
 				const address = commitAddress({ commitId: id, changeId });
 				const key = addressIdentityKey(address);

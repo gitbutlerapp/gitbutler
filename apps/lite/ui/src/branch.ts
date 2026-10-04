@@ -1,6 +1,11 @@
 import type { PayloadFor } from "#electron/ipc.ts";
 import type { ListedBranch, ListedStack, RemoteTrackingReference } from "@gitbutler/but-sdk";
 import Fuse from "fuse.js";
+import { encodeBytes } from "#ui/api/bytes.ts";
+
+/** Another machine's published branch as fetched here, the ref its diff is read from. */
+export const hostedBranchRef = (machine: string, branch: string): Array<number> =>
+	encodeBytes(`refs/gitbutler/hosted/heads/${machine}/${branch}`);
 
 /**
  * Whether the branch holds no commits of its own — it was just created, or
@@ -120,6 +125,9 @@ export const searchStacks = (stacks: Array<ListedStack>, query: string): Array<L
 export const branchDetailsParams = (
 	refName: string,
 ): Pick<PayloadFor<"branchDetails">, "branchName" | "remote"> => {
+	// Another machine's published branch, named as that machine has it.
+	const hostedMatch = /^refs\/gitbutler\/hosted\/heads\/[^/]+\/(.+)$/.exec(refName);
+	if (hostedMatch?.[1] !== undefined) return { branchName: hostedMatch[1], remote: null };
 	const remoteMatch = /^refs\/remotes\/([^/]+)\/(.+)$/.exec(refName);
 	const remote = remoteMatch?.[1];
 	const branchName = remoteMatch?.[2];

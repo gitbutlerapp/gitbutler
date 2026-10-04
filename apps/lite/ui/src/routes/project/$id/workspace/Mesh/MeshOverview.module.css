@@ -1,0 +1,67 @@
+.host {
+	height: 100%;
+}
+
+.page {
+	display: flex;
+	flex-direction: column;
+	max-width: 720px;
+	padding: 20px 24px;
+	gap: 20px;
+}
+
+.header {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.titleRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.heading {
+	margin-block-end: 6px;
+	color: var(--text-2);
+}
+
+.item {
+	display: flex;
+	align-items: center;
+	padding: 8px 0;
+	gap: 8px;
+	border-bottom: 1px solid var(--border-3);
+}
+
+.item:last-child {
+	border-bottom: none;
+}
+
+.itemText {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	gap: 2px;
+	overflow-wrap: anywhere;
+}
+
+.muted {
+	color: var(--text-2);
+}
+
+.itemTitle {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+}
