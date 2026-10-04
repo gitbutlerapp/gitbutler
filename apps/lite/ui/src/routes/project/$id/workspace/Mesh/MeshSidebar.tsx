@@ -137,9 +137,15 @@ const MeshTree: FC<{ projectId: string; grouping: MeshGrouping }> = ({ projectId
 	 * Opening one is left to a click or Enter, so walking the tree never leaves the project.
 	 */
 	const activate = (row: MeshRow, canLeave: boolean) => {
-		if (row._tag !== "Checkout" && row._tag !== "Commit" && row._tag !== "Uncommitted") return;
+		if (
+			row._tag !== "Checkout" &&
+			row._tag !== "Commit" &&
+			row._tag !== "Snapshot" &&
+			row._tag !== "Uncommitted"
+		)
+			return;
 		const address =
-			row._tag === "Commit"
+			row._tag === "Commit" || row._tag === "Snapshot"
 				? commitAddress({ commitId: row.commit.id, changeId: row.commit.changeId })
 				: undefined;
 
@@ -352,7 +358,7 @@ const MeshRowItem: FC<{
 					icon={<Icon name="branch" size={14} />}
 					marks={
 						<span className="text-12">
-							{row.branch.uncommitted ? `${commits}, uncommitted` : commits}
+							{row.branch.snapshot === null ? commits : `${commits}, uncommitted`}
 						</span>
 					}
 					menuLabel="Branch menu"
@@ -360,6 +366,14 @@ const MeshRowItem: FC<{
 				/>
 			);
 		}
+		case "Snapshot":
+			return (
+				<MeshItem
+					{...shared}
+					name="Uncommitted changes"
+					icon={<Icon name="file-diff" size={14} />}
+				/>
+			);
 		case "Commit": {
 			const title = commitTitle(row.commit.message);
 			const body = commitBody(row.commit.message);

@@ -21,6 +21,7 @@ export type MeshRow = RowBase &
 		| { _tag: "Uncommitted"; checkout: MeshCheckout }
 		| { _tag: "Branch"; checkout: MeshCheckout; branch: MeshBranch }
 		| { _tag: "Commit"; checkout: MeshCheckout; commit: Commit }
+		| { _tag: "Snapshot"; checkout: MeshCheckout; commit: Commit }
 	);
 
 /**
@@ -91,14 +92,28 @@ export const buildMeshRows = ({
 					branch,
 				});
 				if (branchFolded) return;
+				const { snapshot } = branch;
+				const commitsSetSize = branch.commits.length + (snapshot === null ? 0 : 1);
+				if (snapshot !== null) {
+					rows.push({
+						_tag: "Snapshot",
+						key: `${branchKey}:snapshot`,
+						parentKey: branchKey,
+						depth: 3,
+						positionInSet: 1,
+						setSize: commitsSetSize,
+						checkout,
+						commit: snapshot,
+					});
+				}
 				branch.commits.forEach((commit, commitIndex) => {
 					rows.push({
 						_tag: "Commit",
 						key: `${branchKey}:commit:${commit.id}`,
 						parentKey: branchKey,
 						depth: 3,
-						positionInSet: commitIndex + 1,
-						setSize: branch.commits.length,
+						positionInSet: commitIndex + 1 + (snapshot === null ? 0 : 1),
+						setSize: commitsSetSize,
 						checkout,
 						commit,
 					});
