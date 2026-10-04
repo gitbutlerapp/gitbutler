@@ -166,6 +166,7 @@ import {
 } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
+import { ViewHeader, ViewHeaderDivider } from "@gitbutler/ui-react/ViewHeader.tsx";
 import {
 	changeFileRowItem,
 	conflictFileRowItem,
@@ -2843,16 +2844,11 @@ const CommitDetailsSkeleton: FC = () => {
 
 	return (
 		<div className={styles.container}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
-
-					<div className={styles.title}>
-						<Icon name="commit" />
-						<h3 className={classes("text-15", "text-semibold")}>Loading…</h3>
-					</div>
-				</div>
-			</div>
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls />}
+				icon="commit"
+				title="Loading…"
+			/>
 		</div>
 	);
 };
@@ -2944,45 +2940,70 @@ const CommitDetails: FC<{
 
 	return (
 		<div className={styles.container} ref={ref}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls />}
+				icon="commit"
+				title={
+					<>
+						<span>{commitTitle(commitDetails.commit.message) ?? "(no message)"}</span>
+						{commitDetails.commit.hasConflicts && <Badge variant="danger">Conflicted</Badge>}
 
-					<div className={styles.title}>
-						<Icon name="commit" />
-						<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
-							<span className={styles.titleContent}>
-								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
-							</span>
-							{commitDetails.commit.hasConflicts && (
-								<Badge variant="danger" className={styles.commitConflictBadge}>
-									Conflicted
-								</Badge>
-							)}
-
-							{commitBody(commitDetails.commit.message) !== undefined && (
-								<Tooltip
-									content={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+						{body !== undefined && (
+							<Tooltip
+								content={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+							>
+								<Button
+									variant={commitBodyCollapsed ? "outline" : "gray"}
+									iconOnly
+									size="small"
+									aria-controls={commitBodyId}
+									aria-expanded={!commitBodyCollapsed}
+									aria-label={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+									aria-pressed={!commitBodyCollapsed}
+									className={styles.commitBodyToggle}
+									onClick={() => setCommitBodyCollapsed(!commitBodyCollapsed)}
 								>
-									<Button
-										variant={commitBodyCollapsed ? "outline" : "gray"}
-										iconOnly
-										size="small"
-										aria-controls={commitBodyId}
-										aria-expanded={!commitBodyCollapsed}
-										aria-label={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-										aria-pressed={!commitBodyCollapsed}
-										className={styles.commitBodyToggle}
-										onClick={() => setCommitBodyCollapsed(!commitBodyCollapsed)}
-									>
-										<Icon name="kebab" />
-									</Button>
-								</Tooltip>
-							)}
-						</h3>
-					</div>
-				</div>
-
+									<Icon name="kebab" />
+								</Button>
+							</Tooltip>
+						)}
+					</>
+				}
+				meta={
+					<>
+						{review && (
+							<BranchTabToggle
+								branchTab={tab}
+								setBranchTab={setTab}
+								className={styles.commitDetailsMetaTabs}
+							/>
+						)}
+						<Avatar
+							src={commitDetails.commit.author.gravatarUrl}
+							seed={commitDetails.commit.author.email}
+							alt="Commit author avatar"
+						/>
+						<span>
+							<span title={commitDetails.commit.author.email}>
+								{commitDetails.commit.author.name}
+							</span>{" "}
+							at {fmtDate}
+						</span>
+						<CopyableId
+							label="Copy change ID"
+							icon="finger-print"
+							displayValue={shortCommitId(commitDetails.commit.changeId)}
+							copyValue={commitDetails.commit.changeId}
+						/>
+						<CopyableId
+							label="Copy commit ID"
+							icon="hash"
+							displayValue={shortCommitId(commitDetails.commit.id)}
+							copyValue={commitDetails.commit.id}
+						/>
+					</>
+				}
+			>
 				{body !== undefined && !commitBodyCollapsed && (
 					<p
 						id={commitBodyId}
@@ -2991,39 +3012,7 @@ const CommitDetails: FC<{
 						{body}
 					</p>
 				)}
-				<div className={classes("text-13", styles.commitDetailsMeta)}>
-					{review && (
-						<BranchTabToggle
-							branchTab={tab}
-							setBranchTab={setTab}
-							className={styles.commitDetailsMetaTabs}
-						/>
-					)}
-					<Avatar
-						src={commitDetails.commit.author.gravatarUrl}
-						seed={commitDetails.commit.author.email}
-						alt="Commit author avatar"
-					/>
-					<span>
-						<span title={commitDetails.commit.author.email}>
-							{commitDetails.commit.author.name}
-						</span>{" "}
-						at {fmtDate}
-					</span>
-					<CopyableId
-						label="Copy change ID"
-						icon="finger-print"
-						displayValue={shortCommitId(commitDetails.commit.changeId)}
-						copyValue={commitDetails.commit.changeId}
-					/>
-					<CopyableId
-						label="Copy commit ID"
-						icon="hash"
-						displayValue={shortCommitId(commitDetails.commit.id)}
-						copyValue={commitDetails.commit.id}
-					/>
-				</div>
-			</div>
+			</ViewHeader>
 
 			{review && tab === "pr" ? (
 				<ScrollArea className={styles.prTabScroll}>
@@ -3164,23 +3153,6 @@ const BranchDiff: FC<
 	);
 };
 
-const BranchTitleRow: FC<{ branchName: string; end?: ReactNode }> = ({ branchName, end }) => {
-	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
-
-	return (
-		<div className={styles.titleRow}>
-			{detailsFullWindow && <TopLeftControls />}
-
-			<div className={styles.title}>
-				<Icon name="branch" />
-				<h3 className={classes(styles.titleContent, "text-15", "text-semibold")}>{branchName}</h3>
-			</div>
-
-			{end !== undefined && <div className={styles.titleRowEnd}>{end}</div>}
-		</div>
-	);
-};
-
 const checksPhrase = (aggregate: AggregateCIChecks | null): string | null => {
 	if (aggregate === null) return null;
 	switch (aggregate.status) {
@@ -3199,13 +3171,18 @@ const checksPhrase = (aggregate: AggregateCIChecks | null): string | null => {
  * Where the branch stands, in one line under its name: how far it is ahead of the target, how far
  * the workspace has fallen behind it, and its review. Each part shows only once it is known.
  */
-const BranchMeta: FC<{
+const useBranchMeta = ({
+	projectId,
+	branchName,
+	review,
+	applied,
+}: {
 	projectId: string;
 	branchName: string;
 	review: ForgeReview | null | undefined;
 	/** Only an applied branch sits on the workspace's base, so only it is behind with it. */
 	applied: boolean;
-}> = ({ projectId, branchName, review, applied }) => {
+}): string | null => {
 	const { data: target } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: (headInfo) => headInfo.target,
@@ -3235,8 +3212,7 @@ const BranchMeta: FC<{
 		review ? checks : null,
 	].filter((part): part is string => typeof part === "string");
 
-	if (parts.length === 0) return null;
-	return <p className={classes("text-13", styles.branchMeta)}>{parts.join(" · ")}</p>;
+	return parts.length === 0 ? null : parts.join(" · ");
 };
 
 /**
@@ -3603,6 +3579,8 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref, enabled: reviewTab !== null });
 
 	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+	const branchMeta = useBranchMeta({ projectId, branchName, review, applied: false });
 	// A branch checked out in a linked worktree cannot be applied while it is; its
 	// commits show up in the worktree's lane instead.
 	const { data: worktreeName } = useQuery({
@@ -3617,36 +3595,35 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 
 	return (
 		<div className={styles.container} ref={ref}>
-			<div className={styles.headerWrap}>
-				<BranchTitleRow
-					branchName={branchName}
-					end={
-						worktreeName === undefined ? (
-							<Button
-								variant="gray"
-								disabled={isApplyPending}
-								onClick={() => apply(decodeBytes(branch.branchRef))}
-							>
-								{isApplyPending && <Icon name="spinner" />}
-								Apply to workspace
-							</Button>
-						) : (
-							<span className={classes("text-12", rowStyles.fadedText)}>
-								Checked out in worktree {worktreeName}
-							</span>
-						)
-					}
-				/>
-				<BranchMeta projectId={projectId} branchName={branchName} review={review} applied={false} />
-
-				<div className={styles.tabsRow}>
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls />}
+				icon="branch"
+				title={branchName}
+				meta={branchMeta}
+				toolbar={
 					<BranchTabToggle
 						branchTab={branchTab}
 						setBranchTab={setBranchTab}
 						prDisabled={reviewTab === null}
 					/>
-				</div>
-			</div>
+				}
+				actions={
+					worktreeName === undefined ? (
+						<Button
+							variant="gray"
+							disabled={isApplyPending}
+							onClick={() => apply(decodeBytes(branch.branchRef))}
+						>
+							{isApplyPending && <Icon name="spinner" />}
+							Apply to workspace
+						</Button>
+					) : (
+						<span className={classes("text-12", rowStyles.fadedText)}>
+							Checked out in worktree {worktreeName}
+						</span>
+					)
+				}
+			/>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{reviewTab !== null && branchTab === "pr" ? (
@@ -3738,6 +3715,9 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 	const ref = useRef<HTMLDivElement>(null);
 	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref });
 
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+	const branchMeta = useBranchMeta({ projectId, branchName, review: openReview, applied: true });
+
 	// A forge only opens a review on a branch it has, so a new PR pushes the
 	// branch and its ancestors first when any of them still has something to
 	// push. Conflicted commits cannot be pushed, and so cannot be reviewed yet.
@@ -3759,21 +3739,31 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 
 	return (
 		<div className={styles.container} ref={ref}>
-			<div className={styles.headerWrap}>
-				<BranchTitleRow branchName={branchName} />
-				<BranchMeta projectId={projectId} branchName={branchName} review={openReview} applied />
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls />}
+				icon="branch"
+				title={branchName}
+				meta={branchMeta}
+				toolbar={
+					<>
+						<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
 
-				<div className={styles.tabsRow}>
-					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
-
-					{branchTab === "diff" && commits.length > 1 && (
-						<>
-							<div aria-hidden className={styles.toolbarSeparator} />
-							<CommitFilterButton projectId={projectId} branchName={branchName} commits={commits} />
-						</>
-					)}
-
-					{branchTab === "pr" && supportsPullRequests && canUseForge && (
+						{branchTab === "diff" && commits.length > 1 && (
+							<>
+								<ViewHeaderDivider />
+								<CommitFilterButton
+									projectId={projectId}
+									branchName={branchName}
+									commits={commits}
+								/>
+							</>
+						)}
+					</>
+				}
+				actions={
+					branchTab === "pr" &&
+					supportsPullRequests &&
+					canUseForge && (
 						<Suspense>
 							<SuspenseQuery
 								{...listReviewsQueryOptions({
@@ -3786,21 +3776,19 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 									if (!review) return null;
 
 									return (
-										<div className={styles.tabsRowRight}>
-											<PullRequestPrimaryAction
-												projectId={projectId}
-												review={review}
-												isEditing={prEditing}
-												onStartEdit={startPrEdit}
-											/>
-										</div>
+										<PullRequestPrimaryAction
+											projectId={projectId}
+											review={review}
+											isEditing={prEditing}
+											onStartEdit={startPrEdit}
+										/>
 									);
 								}}
 							</SuspenseQuery>
 						</Suspense>
-					)}
-				</div>
-			</div>
+					)
+				}
+			/>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{branchTab === "pr" ? (
@@ -3882,16 +3870,11 @@ const FileDetailsSkeleton: FC = () => {
 
 	return (
 		<div className={styles.container}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
-
-					<div className={styles.title}>
-						<Icon name="file" />
-						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
-					</div>
-				</div>
-			</div>
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls />}
+				icon="file"
+				title="Uncommitted"
+			/>
 
 			<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>
 		</div>
@@ -3943,15 +3926,16 @@ const FileDetails: FC<{
 		else setCursor("applied", fileAddress({ parent, path: selection }));
 	};
 
+	const titleText =
+		parent.worktree === undefined ? "Uncommitted" : `Uncommitted in ${parent.worktree}`;
+	// With changes, the diff's bar is the view's only header, so the title rides in it.
 	const title = (
 		<>
 			{detailsFullWindow && <TopLeftControls />}
 
 			<div className={styles.title}>
 				<Icon name="file-diff" />
-				<h3 className={classes("text-15", "text-semibold")}>
-					{parent.worktree === undefined ? "Uncommitted" : `Uncommitted in ${parent.worktree}`}
-				</h3>
+				<h2 className={classes("text-15", "text-semibold")}>{titleText}</h2>
 			</div>
 		</>
 	);
@@ -3974,9 +3958,11 @@ const FileDetails: FC<{
 					headerSlot={title}
 				/>
 			) : (
-				<div className={styles.headerWrap}>
-					<div className={styles.titleRow}>{title}</div>
-				</div>
+				<ViewHeader
+					leading={detailsFullWindow && <TopLeftControls />}
+					icon="file-diff"
+					title={titleText}
+				/>
 			)}
 		</div>
 	);

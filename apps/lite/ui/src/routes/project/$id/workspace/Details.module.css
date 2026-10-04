@@ -22,25 +22,6 @@
 	row-gap: 0;
 }
 
-.headerWrap {
-	display: flex;
-	row-gap: 10px;
-	flex-direction: column;
-	/* Symmetric so the header actions share a right edge with the content
-	   columns below, which all inset by the same token. */
-	padding-inline: var(--panel-padding-inline);
-	padding-block: var(--panel-padding-block) 12px;
-	/* The header draws its own bottom edge, so the tab row reads as a strip
-	   spanning the pane rather than a control floating in empty space. Every
-	   view below it — diff, PR, loading — starts flush under this line. */
-	border-bottom: 1px solid var(--border-section);
-}
-
-.titleRow {
-	display: flex;
-	column-gap: 12px;
-}
-
 .commitBodyToggle {
 	width: 24px;
 	height: 14px;
@@ -55,20 +36,6 @@
 	align-items: center;
 	/* Long names ellipsize rather than shove the row's actions off the edge. */
 	min-width: 0;
-}
-
-.titleContentWrapper {
-	display: flex;
-	align-items: center;
-	min-width: 0;
-	gap: 8px;
-}
-
-.titleContent {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 /* The diff's controls, over the diff column. The inline inset and the space
@@ -98,15 +65,6 @@
 	align-items: center;
 	margin-inline-start: auto;
 	gap: 8px;
-}
-
-/* Between the tab toggle and the commit filter: the toggle picks what the pane
-   shows, the filter narrows the diff it shows. */
-.toolbarSeparator {
-	align-self: center;
-	width: 1px;
-	height: 18px;
-	background-color: var(--border-2);
 }
 
 .panel {
@@ -278,30 +236,6 @@
 	user-select: text;
 }
 
-.tabsRow {
-	display: flex;
-	column-gap: 12px;
-	align-items: center;
-}
-
-/* Under the branch name, close to it, and further from the toolbar below. */
-.branchMeta {
-	margin-block: -4px 4px;
-	overflow: hidden;
-	color: var(--text-3);
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.titleRowEnd {
-	flex-shrink: 0;
-	margin-inline-start: auto;
-}
-
-.tabsRowRight {
-	margin-inline-start: auto;
-}
-
 /* The tab owns its scrolling, the way the diff tab does. Without this the
    content overflows all the way up to the page pane, which carries the
    details header out of view with it. */
@@ -423,17 +357,6 @@
 	margin: 8px;
 }
 
-.commitDetailsMeta {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	/* Match the branch header's tabs row (regular button height) so both
-	   header variants end at the same line. */
-	min-height: 28px;
-	gap: 8px;
-	color: var(--text-3);
-}
-
 /* The toggle leads the meta row, so it keeps the row's own rhythm but sits a
    touch further from the author than the meta items sit from each other. */
 .commitDetailsMetaTabs {
@@ -458,10 +381,6 @@
 	&:hover {
 		color: var(--text-2);
 	}
-}
-
-.commitConflictBadge {
-	flex-shrink: 0;
 }
 
 /* Holds the conflict bar above the diff as one child of `.panel`, whose grid
