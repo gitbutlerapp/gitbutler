@@ -3477,7 +3477,8 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 					/>
 
 					<div className={styles.tabsRowRight}>
-						{worktreeName === undefined ? (
+						{/* A hub only shows what was published; applying happens on a machine. */}
+						{window.lite.hosted === true ? null : worktreeName === undefined ? (
 							<Button
 								variant="gray"
 								disabled={isApplyPending}

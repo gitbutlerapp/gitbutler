@@ -22,11 +22,10 @@ test("adds a local repository without changing its branch", async ({
 	await appWindow.getByRole("button", { name: "Add local repository" }).click();
 
 	await expect(appWindow.getByTestId(/project=.*:workspace/)).toBeVisible();
-	const projectPicker = appWindow.getByRole("combobox", { name: /Select project/ });
-	await expect(projectPicker).toBeVisible();
-
-	await projectPicker.click();
-	await expect(appWindow.getByRole("option", { name: /onboarding-repository/i })).toBeVisible();
+	await appWindow.getByRole("button", { name: "Repos", exact: true }).click();
+	await expect(
+		appWindow.getByRole("treeitem", { name: /onboarding-repository.*Open/ }),
+	).toBeVisible();
 	await expect(appWindow.getByRole("button", { name: "Add local repository" })).toBeVisible();
 
 	assertHeadBranch(repositoryPath, initialBranch);

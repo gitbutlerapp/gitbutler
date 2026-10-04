@@ -1,10 +1,9 @@
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
-import { ProjectPicker } from "#ui/routes/project/$id/workspace/ProjectPicker.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
-import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { Match } from "effect";
 import type { FC, ReactNode } from "react";
@@ -35,18 +34,42 @@ const ActivitySpinner: FC<{
 	);
 };
 
+/** An icon button with its name as a tooltip, as each of the header's actions is. */
+const HeaderButton: FC<{
+	name: string;
+	icon: IconName;
+	kbd?: string;
+	disabled?: boolean;
+	onClick: () => void;
+}> = (p) => (
+	<Tooltip content={p.name} kbd={p.kbd}>
+		<Button
+			iconOnly
+			variant="ghost"
+			focusableWhenDisabled
+			disabled={p.disabled}
+			aria-label={p.name}
+			onClick={p.onClick}
+		>
+			<Icon name={p.icon} />
+		</Button>
+	</Tooltip>
+);
+
 /**
- * The app chrome at the top of the sidebar: window controls, the project
- * picker, activity, the operations log and settings. Purely presentational.
+ * The app chrome at the top of the sidebar: window controls, activity, and the actions that apply
+ * where it runs; each is left out without its handler. Purely presentational.
  */
 export const SidebarHeader: FC<{
-	project: ProjectForFrontend;
 	/** A fetch in flight shows its own spinner on the target's row, so the ambient one stands down. */
 	isFetchPending: boolean;
+	onAddRepository?: () => void;
+	isAddingRepository?: boolean;
 	canOpenOperationsLog: boolean;
-	onOpenOperationsLog: () => void;
+	onOpenOperationsLog?: () => void;
 	canOpenSettings: boolean;
-	onOpenSettings: () => void;
+	onOpenSettings?: () => void;
+	onSignOut?: () => void;
 	/** The notification bell, which decides its own visibility. */
 	bell?: ReactNode;
 }> = (p) => (
@@ -54,39 +77,37 @@ export const SidebarHeader: FC<{
 		<TopLeftControls />
 
 		<div className={styles.workspaceControlsLeft}>
-			<ProjectPicker project={p.project} />
 			<ActivitySpinner suppressed={p.isFetchPending} />
 		</div>
 
 		<div className={styles.workspaceControlsActions}>
-			<Tooltip
-				content={globalHotkeys.operationsLog.meta.name}
-				kbd={globalHotkeys.operationsLog.hotkey}
-			>
-				<Button
-					iconOnly
-					variant="ghost"
-					focusableWhenDisabled
+			{p.onAddRepository && (
+				<HeaderButton
+					name="Add local repository"
+					icon="plus"
+					disabled={p.isAddingRepository}
+					onClick={p.onAddRepository}
+				/>
+			)}
+			{p.onOpenOperationsLog && (
+				<HeaderButton
+					name={globalHotkeys.operationsLog.meta.name}
+					icon="history"
+					kbd={globalHotkeys.operationsLog.hotkey}
 					disabled={!p.canOpenOperationsLog}
-					aria-label={globalHotkeys.operationsLog.meta.name}
 					onClick={p.onOpenOperationsLog}
-				>
-					<Icon name="history" />
-				</Button>
-			</Tooltip>
-
-			<Tooltip content={workspaceHotkeys.settings.meta.name} kbd={workspaceHotkeys.settings.hotkey}>
-				<Button
-					iconOnly
-					variant="ghost"
-					focusableWhenDisabled
+				/>
+			)}
+			{p.onOpenSettings && (
+				<HeaderButton
+					name={workspaceHotkeys.settings.meta.name}
+					icon="settings"
+					kbd={workspaceHotkeys.settings.hotkey}
 					disabled={!p.canOpenSettings}
-					aria-label={workspaceHotkeys.settings.meta.name}
 					onClick={p.onOpenSettings}
-				>
-					<Icon name="settings" />
-				</Button>
-			</Tooltip>
+				/>
+			)}
+			{p.onSignOut && <HeaderButton name="Sign out" icon="logout" onClick={p.onSignOut} />}
 			{p.bell}
 		</div>
 	</header>

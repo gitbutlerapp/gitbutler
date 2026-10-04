@@ -1,14 +1,15 @@
+import { signOut } from "#ui/hosted-session.ts";
 import type { FC } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { listProjectsQueryOptions } from "#ui/api/queries.ts";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { AddProjectButton } from "#ui/components/AddProjectButton.tsx";
 import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { LiteTestId } from "#ui/testIds.ts";
 import styles from "./IndexPage.module.css";
 
 export const IndexPage: FC = () =>
-	window.lite.hosted === true ? <PublishedProjects /> : <Onboarding />;
+	window.lite.hosted === true ? <NothingPublished /> : <Onboarding />;
 
 const Onboarding: FC = () => {
 	const { addLocalRepository, isPending } = useAddLocalRepository();
@@ -22,30 +23,18 @@ const Onboarding: FC = () => {
 	);
 };
 
-/** What a hosted server holds for the signed-in account: the projects it published. */
-const PublishedProjects: FC = () => {
-	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
-
-	return (
-		<section className={styles.page}>
-			<h1>Your published projects</h1>
-			{projects.length === 0 ? (
-				<p>Nothing yet. Publish a branch from GitButler on your machine to see it here.</p>
-			) : (
-				<ul className={styles.projects}>
-					{projects.map((project) => (
-						<li key={project.id}>
-							<Link
-								to="/project/$id/workspace"
-								params={{ id: project.id }}
-								className={styles.project}
-							>
-								{project.title}
-							</Link>
-						</li>
-					))}
-				</ul>
-			)}
-		</section>
-	);
-};
+/** A hub opens its projects straight away, so this is only reached with nothing published. */
+const NothingPublished: FC = () => (
+	<section className={styles.page}>
+		<EmptyState
+			illustration="waving"
+			title="Nothing published yet"
+			description="Publish a branch from GitButler on any of your machines to see it here."
+		>
+			<Button variant="ghost" onClick={signOut}>
+				Sign out
+				<Icon name="logout" />
+			</Button>
+		</EmptyState>
+	</section>
+);

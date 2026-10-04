@@ -3,7 +3,7 @@ import { expect, test } from "../test.ts";
 
 test.use({ scenario: "project-with-additional-repository.sh" });
 
-test("navigates to a project added from the project picker", async ({
+test("navigates to a project added from the sidebar header", async ({
 	appWindow,
 	electronApp,
 	testEnvironment,
@@ -15,11 +15,13 @@ test("navigates to a project added from the project picker", async ({
 	}, repositoryPath);
 
 	await expect(appWindow.getByTestId(/project=.*:workspace/)).toBeVisible();
-	const projectPicker = appWindow.getByRole("combobox", { name: /Select project/ });
-	await expect(projectPicker).toContainText("local-clone");
+	// Grouped by repo, the open project is badged as such.
+	await appWindow.getByRole("button", { name: "Repos", exact: true }).click();
+	await expect(appWindow.getByRole("treeitem", { name: /local-clone.*Open/ })).toBeVisible();
 
-	await projectPicker.click();
 	await appWindow.getByRole("button", { name: "Add local repository" }).click();
 
-	await expect(projectPicker).toContainText("additional-repository");
+	await expect(
+		appWindow.getByRole("treeitem", { name: /additional-repository.*Open/ }),
+	).toBeVisible();
 });

@@ -99,7 +99,7 @@ test.describe("branches", () => {
 	test.use({ scenario: "project-with-remote-branches.sh" });
 
 	test("applies a remote branch to the workspace", async ({ appWindow }) => {
-		await expect(appWindow.getByRole("combobox", { name: /select project/i })).toBeVisible();
+		await expect(appWindow.getByRole("button", { name: "Add local repository" })).toBeVisible();
 
 		const branch = appWindow.getByRole("treeitem", { name: "branch1", exact: true });
 		const secondCommit = appWindow.getByRole("treeitem", { name: "branch1: second commit" });

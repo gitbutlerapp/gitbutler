@@ -123,12 +123,6 @@ test.describe("screenshots", () => {
 			await goToTab(appWindow, "branches");
 			await shoot(appWindow, "branches-tab", "#sidebar-panel");
 		});
-
-		test("project picker", async ({ appWindow }) => {
-			await openProject(appWindow);
-			await appWindow.getByRole("combobox", { name: /select project/i }).click();
-			await shoot(appWindow, "project-picker", '[class*="ProjectPicker-module_popup"]');
-		});
 	});
 
 	test.describe("uncommitted changes", () => {

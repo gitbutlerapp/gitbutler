@@ -195,6 +195,9 @@ const MachineOverviewFromTree: FC<{ machine: string; projectId: string }> = ({
 				</span>
 			</header>
 			<Section heading={found.isThisMachine ? "Repositories" : "Published"}>
+				{found.checkouts.length === 0 && (
+					<Item title={found.isThisMachine ? "No repositories yet" : "Nothing published yet"} />
+				)}
 				{found.checkouts.map((checkout) => {
 					const branches =
 						checkout.branches.length + checkout.worktrees.length || (checkout.branchCount ?? 0);

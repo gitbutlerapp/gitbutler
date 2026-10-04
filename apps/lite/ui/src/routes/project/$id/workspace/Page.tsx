@@ -371,10 +371,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		else dispatch(interfaceSlice.actions.closeDialog());
 	};
 
-	const openProjectPicker = () => {
-		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "ProjectPicker" } }));
-	};
-
 	const toggleDetailsFullWindow = () => {
 		if (
 			!detailsFullWindow &&
@@ -621,11 +617,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		{ enabled: canOpenTerminal, meta: workspaceHotkeys.openInTerminal.meta },
 	);
 
-	useHotkey(globalHotkeys.selectProject.hotkey, openProjectPicker, {
-		enabled: projects.length > 0,
-		meta: globalHotkeys.selectProject.meta,
-	});
-
 	const layoutId = `project=${projectId}:workspace`;
 	const panelIds: Array<PanelId> = detailsFullWindow
 		? ["details-panel"]
@@ -668,7 +659,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 						{/* No reset key: the child is built inline, so its identity changes
 						    every render. Recovery here is the fallback's Retry button. */}
 						<ErrorBoundary>
-							<MeshSidebar projectId={projectId} project={selectedProject} />
+							<MeshSidebar projectId={projectId} />
 						</ErrorBoundary>
 					</Panel>
 					<ResizeHandle gap />
@@ -720,9 +711,6 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 							onOpenChange={setOperationsLogPickerOpen}
 						/>
 					),
-					// The picker is an anchored dropdown living with the project name in the header, so
-					// this state only tells it to open — there is nothing for the switch to render.
-					ProjectPicker: () => null,
 					Settings: ({ page }) => (
 						<Settings
 							page={page}

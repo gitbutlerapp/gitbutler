@@ -75,10 +75,6 @@ export const globalHotkeys = {
 		hotkey: "Mod+Shift+Z",
 		meta: { group: "Operations log", name: "Redo" },
 	},
-	selectProject: {
-		hotkey: "Mod+Shift+P",
-		meta: { group: "Global", name: "Select project" },
-	},
 	undo: {
 		hotkey: "Mod+Z",
 		meta: { group: "Operations log", name: "Undo" },

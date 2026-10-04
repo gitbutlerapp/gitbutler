@@ -7,7 +7,6 @@ type Dialog =
 	| { _tag: "BranchPicker" }
 	| { _tag: "CommandPalette" }
 	| { _tag: "OperationsLogPicker" }
-	| { _tag: "ProjectPicker" }
 	| { _tag: "Settings"; page?: SettingsPageKey }
 	/** The update-from-remote flow, for the applied branch named by full ref. */
 	| { _tag: "UpdateFromRemote"; branchRef: string };
@@ -71,6 +70,18 @@ export const interfaceSlice = createSlice({
 			{ payload: { grouping } }: PayloadAction<{ grouping: MeshGrouping }>,
 		) => {
 			state.mesh.grouping = grouping;
+			// An overview of what the new grouping doesn't list would stay up with no row behind it:
+			// repos list no machines, and machines list repos only as one machine has them.
+			const overview = state.mesh.overview;
+			const unlisted =
+				overview !== null &&
+				(grouping === "repos"
+					? overview._tag === "Machine"
+					: overview._tag === "Repo" && overview.machine === undefined);
+			if (unlisted) {
+				state.mesh.overview = null;
+				state.mesh.selection = null;
+			}
 		},
 		toggleMeshRow: (state, { payload: { key } }: PayloadAction<{ key: string }>) => {
 			if (state.mesh.unfolded[key]) delete state.mesh.unfolded[key];

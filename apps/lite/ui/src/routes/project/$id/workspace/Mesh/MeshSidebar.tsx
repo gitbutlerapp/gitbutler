@@ -1,3 +1,4 @@
+import { signOut } from "#ui/hosted-session.ts";
 import {
 	branchAddress,
 	commitAddress,
@@ -37,7 +38,7 @@ import { setActiveList, setCursor, useActiveList } from "#ui/use-cursor.ts";
 import { buildIndexByKey } from "#ui/workspace/address-space.ts";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import type { Commit, ProjectForFrontend, PublishState } from "@gitbutler/but-sdk";
+import type { Commit, PublishState } from "@gitbutler/but-sdk";
 import { Badge } from "@gitbutler/ui-react/Badge.tsx";
 import { Tooltip as HintTooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
@@ -54,6 +55,7 @@ import { FileRowTooltipRoot, type FileRowTooltipPayload } from "../FileRowToolti
 import { getRowButtonClassName, rowPointerProps } from "../Row-utils.ts";
 import { SidebarHeader } from "../SidebarHeader.tsx";
 import { useFetchFromRemotes } from "../useFetchFromRemotes.ts";
+import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { buildMeshRows, type MeshRow } from "./mesh-rows.ts";
 import {
 	isRemoteOnlyId,
@@ -71,33 +73,45 @@ import styles from "./MeshSidebar.module.css";
  * The sidebar as a mesh, like but.dev's navigator: every local project and every machine that
  * published one, grouped by machine or by repo.
  */
-export const MeshSidebar: FC<{ project: ProjectForFrontend; projectId: string }> = ({
-	project,
-	projectId,
-}) => {
+export const MeshSidebar: FC<{ projectId: string }> = ({ projectId }) => {
 	const dispatch = useAppDispatch();
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
 	const fetchFromRemotes = useFetchFromRemotes(projectId);
 	const grouping = useAppSelector(interfaceSlice.selectors.selectMeshGrouping);
+	const { addLocalRepository, isPending: isAddingRepository } = useAddLocalRepository();
+	const hosted = window.lite.hosted === true;
 
 	return (
 		<div className={styles.container}>
 			<div className={styles.top}>
-				<SidebarHeader
-					bell={<NotificationBell projectId={projectId} />}
-					project={project}
-					isFetchPending={fetchFromRemotes.isPending}
-					canOpenOperationsLog={noOperationPending}
-					onOpenOperationsLog={() =>
-						dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "OperationsLogPicker" } }))
-					}
-					canOpenSettings={noOperationPending}
-					onOpenSettings={() =>
-						dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "Settings" } }))
-					}
-				/>
+				{/* A hub has no local workspace: nothing to add, undo or set, only an account. */}
+				{hosted ? (
+					<SidebarHeader
+						isFetchPending={false}
+						canOpenOperationsLog={false}
+						canOpenSettings={false}
+						onSignOut={signOut}
+					/>
+				) : (
+					<SidebarHeader
+						bell={<NotificationBell projectId={projectId} />}
+						isFetchPending={fetchFromRemotes.isPending}
+						onAddRepository={() => void addLocalRepository()}
+						isAddingRepository={isAddingRepository}
+						canOpenOperationsLog={noOperationPending}
+						onOpenOperationsLog={() =>
+							dispatch(
+								interfaceSlice.actions.openDialog({ dialog: { _tag: "OperationsLogPicker" } }),
+							)
+						}
+						canOpenSettings={noOperationPending}
+						onOpenSettings={() =>
+							dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "Settings" } }))
+						}
+					/>
+				)}
 				<ToggleGroup
 					render={<ToggleGroupStyles />}
 					aria-label="Group by"

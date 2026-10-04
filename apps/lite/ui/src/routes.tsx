@@ -52,8 +52,6 @@ const indexRoute = createRoute({
 	path: "/",
 	loader: async ({ context }) => {
 		const projects = await context.queryClient.fetchQuery(listProjectsQueryOptions);
-		// A hosted server's projects are what was published, so its landing page lists them.
-		if (window.lite.hosted === true) return null;
 		const persistedId = readLastOpenedProject();
 		const projectId = projects.some((project) => project.id === persistedId)
 			? persistedId
