@@ -37,11 +37,16 @@ pub fn listen(
     dir: &Path,
     on_event: impl Fn(HostedEvent) + Send + 'static,
 ) -> Result<HostedListener> {
+    // Only so that a directory that isn't a project fails here, not in the background.
+    super::hosted_project(dir)?;
+    listen_account(on_event)
+}
+
+/// Connect to the hosted server for the whole account, outside any project, as `but mesh` does.
+pub fn listen_account(on_event: impl Fn(HostedEvent) + Send + 'static) -> Result<HostedListener> {
     // `http://` becomes `ws://`, and `https://` `wss://`.
     let url = format!("{}/events", super::hosted_server()).replacen("http", "ws", 1);
     let this = super::machine_name();
-    // Only so that a directory that isn't a project fails here, not in the background.
-    super::hosted_project(dir)?;
     let (stop, stopped) = watch::channel(());
     std::thread::Builder::new()
         .name("hosted-listener".into())

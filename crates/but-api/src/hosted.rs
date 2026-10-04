@@ -22,13 +22,13 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 mod listen;
-pub use listen::{HostedEvent, HostedListener, listen};
+pub use listen::{HostedEvent, HostedListener, listen, listen_account};
 
 /// Where fetched branches and snapshots of published branches are kept.
 const HOSTED_REFS: &str = "refs/gitbutler/hosted";
 
-/// The hosted server's URL.
-fn hosted_server() -> String {
+/// The hosted server's URL: `BUT_HOSTED_URL`, or https://mesh.but.dev.
+pub fn hosted_server() -> String {
     let url = std::env::var("BUT_HOSTED_URL").unwrap_or_else(|_| "https://mesh.but.dev".into());
     url.trim_end_matches('/').to_owned()
 }
@@ -45,7 +45,7 @@ fn hosted_project(dir: &Path) -> Result<String> {
 
 /// This machine as the hosted server knows it: its host name, as a path segment, or
 /// `BUT_MACHINE`, so that one computer can stand in for several.
-fn machine_name() -> Option<String> {
+pub fn machine_name() -> Option<String> {
     let name = match std::env::var("BUT_MACHINE") {
         Ok(name) => name,
         Err(_) => {
@@ -958,7 +958,9 @@ mod tests {
         };
         let published = commit("published")?;
         let ahead = commit("one more")?;
-        git_at_dir(dir).args(["reset", "-q", "--hard", &published]).run();
+        git_at_dir(dir)
+            .args(["reset", "-q", "--hard", &published])
+            .run();
         let diverged = commit("instead")?;
 
         assert_eq!(

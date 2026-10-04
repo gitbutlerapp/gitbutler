@@ -670,6 +670,13 @@ async fn dispatch_subcommand(
                 .map(|()| DispatchOutcome::Return)
                 .map_err(CliError::from);
         }
+        // Outside any repository: it shows them all.
+        #[cfg(all(feature = "nightly", feature = "legacy"))]
+        Subcommands::Mesh(mesh_args) => {
+            return command::legacy::mesh::run(mesh_args)
+                .map(|()| DispatchOutcome::Return)
+                .map_err(CliError::from);
+        }
         Subcommands::Update(update_args::Platform { cmd }) => {
             return command::update::handle(cmd, out, &app_settings)
                 .map(|()| DispatchOutcome::Return)
@@ -971,6 +978,10 @@ async fn dispatch_subcommand(
         | Subcommands::Edit { .. }
         | Subcommands::AgentLog { .. }
         | Subcommands::External(..) => {
+            unreachable!("handled above")
+        }
+        #[cfg(all(feature = "nightly", feature = "legacy"))]
+        Subcommands::Mesh(..) => {
             unreachable!("handled above")
         }
         #[cfg(feature = "legacy")]

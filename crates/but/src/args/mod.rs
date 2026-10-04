@@ -403,6 +403,11 @@ pub enum Subcommands {
     #[clap(hide = true, name = "_pull")]
     _Pull(publish::PullPlatform),
 
+    #[cfg(all(feature = "nightly", feature = "legacy"))]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, name = "mesh")]
+    Mesh(mesh::Platform),
+
     /// Resolve conflicts in a commit or in uncommitted files.
     ///
     /// When a commit is in a conflicted state (marked with conflicts during rebase),
@@ -1040,6 +1045,8 @@ pub mod diff;
 #[cfg(feature = "legacy")]
 pub mod discard;
 pub mod mcp;
+#[cfg(all(feature = "nightly", feature = "legacy"))]
+pub mod mesh;
 #[cfg(feature = "legacy")]
 pub mod r#move;
 #[cfg(feature = "legacy")]

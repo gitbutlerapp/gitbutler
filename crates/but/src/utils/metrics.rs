@@ -53,7 +53,10 @@ impl Subcommands {
             return None;
         }
         #[cfg(all(feature = "nightly", feature = "legacy"))]
-        if matches!(self, Subcommands::_Publish(_) | Subcommands::_Pull(_)) {
+        if matches!(
+            self,
+            Subcommands::_Publish(_) | Subcommands::_Pull(_) | Subcommands::Mesh(_)
+        ) {
             return None;
         }
         let cmd = self.to_metrics_command();
@@ -73,7 +76,7 @@ impl Subcommands {
         match self {
             Subcommands::_Comment(_) => Comment,
             #[cfg(all(feature = "nightly", feature = "legacy"))]
-            Subcommands::_Publish(_) | Subcommands::_Pull(_) => Publish,
+            Subcommands::_Publish(_) | Subcommands::_Pull(_) | Subcommands::Mesh(_) => Publish,
             Subcommands::Completions { .. } => Completions,
             Subcommands::Mcp(_) => Mcp,
             Subcommands::Metrics { .. } => Metrics,

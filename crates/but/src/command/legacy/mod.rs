@@ -17,6 +17,8 @@ pub mod diff;
 pub mod discard;
 pub mod forge;
 pub mod merge;
+#[cfg(all(feature = "nightly", feature = "legacy"))]
+pub mod mesh;
 pub mod r#move;
 pub mod open;
 pub mod oplog;
