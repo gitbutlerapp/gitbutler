@@ -1,0 +1,23 @@
+[Unit]
+Description=mesh.but.dev (but-server in hosted mode)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=mesh
+Group=mesh
+# Hosted mode keeps its own settings apart from any developer's, under this directory.
+Environment=E2E_TEST_APP_DATA_DIR=/var/lib/mesh/app
+# Sign-ins are checked against the production GitButler API.
+Environment=GITBUTLER_API_URL=https://app.gitbutler.com
+ExecStart=/opt/mesh/but-server --hosted-dir /var/lib/mesh/data --web-dir /opt/mesh/web --port 6980
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/mesh
+
+[Install]
+WantedBy=multi-user.target

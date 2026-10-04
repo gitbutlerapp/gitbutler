@@ -1,0 +1,6 @@
+# Caddy gets and renews a Let's Encrypt certificate once DNS points here. It proxies the
+# hub's /events WebSocket without extra configuration.
+mesh.but.dev {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:6980
+}
