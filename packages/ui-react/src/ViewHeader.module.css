@@ -1,0 +1,109 @@
+/* The header draws its own bottom edge, so the toolbar reads as a strip
+   spanning the pane rather than a control floating in empty space. Whatever
+   the view shows below starts flush under this line. */
+.header {
+	display: flex;
+	row-gap: 14px;
+	flex-direction: column;
+	padding: 12px;
+	border-bottom: 1px solid var(--border-section);
+}
+
+.top {
+	display: flex;
+	column-gap: 12px;
+	min-width: 0;
+}
+
+.leading {
+	display: flex;
+	flex-shrink: 0;
+	align-self: flex-start;
+}
+
+.avatar {
+	display: flex;
+	flex-shrink: 0;
+	align-self: center;
+}
+
+.main {
+	display: flex;
+	row-gap: 6px;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.titleLine {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+	/* A regular button's height, so a title beside actions shares their line. */
+	min-height: 28px;
+}
+
+.title {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+	min-width: 0;
+
+	/* Long names ellipsize rather than shove the actions off the edge. */
+	> :first-child {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+}
+
+.meta {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--text-3);
+	white-space: nowrap;
+
+	> * {
+		flex-shrink: 0;
+	}
+
+	> :last-child {
+		flex-shrink: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+}
+
+.toolbar {
+	display: flex;
+	column-gap: 12px;
+	align-items: center;
+	min-width: 0;
+}
+
+.divider {
+	align-self: center;
+	width: 1px;
+	height: 18px;
+	background-color: var(--border-2);
+}
+
+/* The end of whichever line is last: the toolbar's, or the title block's,
+   level with its bottom line. */
+.actions {
+	display: flex;
+	column-gap: 8px;
+	flex-shrink: 0;
+	align-items: center;
+	align-self: flex-end;
+	margin-inline-start: auto;
+}
+
+.toolbar > .actions {
+	align-self: center;
+}
