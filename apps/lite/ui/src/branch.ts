@@ -1,11 +1,6 @@
 import type { PayloadFor } from "#electron/ipc.ts";
 import type { ListedBranch, ListedStack, RemoteTrackingReference } from "@gitbutler/but-sdk";
 import Fuse from "fuse.js";
-import { encodeBytes } from "#ui/api/bytes.ts";
-
-/** Another machine's published branch as fetched here, the ref its diff is read from. */
-export const hostedBranchRef = (machine: string, branch: string): Array<number> =>
-	encodeBytes(`refs/gitbutler/hosted/heads/${machine}/${branch}`);
 
 /**
  * Whether the branch holds no commits of its own — it was just created, or

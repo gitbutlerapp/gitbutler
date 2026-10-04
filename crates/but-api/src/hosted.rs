@@ -465,6 +465,9 @@ but_schemars::register_sdk_type!(HostedMachine);
 pub struct MachineBranch {
     /// The branch's short name, e.g. `agent/search`.
     pub branch: String,
+    /// The full name of the ref its commits are read from here: the fetched copy locally, the
+    /// published branch itself on the hosted server.
+    pub ref_name: String,
     /// The snapshot holding its uncommitted changes, if it was sent with any: a commit on top
     /// of the branch, whose diff is those changes.
     pub uncommitted: Option<but_workspace::ui::Commit>,
@@ -567,7 +570,13 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
         } else {
             None
         };
+        let heads = if on_hub {
+            "refs/heads".to_owned()
+        } else {
+            format!("{HOSTED_REFS}/heads")
+        };
         entry.branches.push(MachineBranch {
+            ref_name: format!("{heads}/{machine}/{branch}"),
             commits,
             uncommitted,
             sent: !on_hub && rev(&dir, &format!("{HOSTED_REFS}/inbox/{machine}/{name}")).is_some(),

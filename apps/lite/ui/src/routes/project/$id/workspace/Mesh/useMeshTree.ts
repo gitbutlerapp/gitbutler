@@ -1,4 +1,4 @@
-import { hostedBranchRef } from "#ui/branch.ts";
+import { encodeBytes } from "#ui/api/bytes.ts";
 import {
 	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
@@ -213,7 +213,7 @@ const buildTree = (
 				remoteOnly: false,
 				branches: machine.branches.map((branch) => ({
 					name: branch.branch,
-					ref: hostedBranchRef(machine.name, branch.branch),
+					ref: encodeBytes(branch.refName),
 					commits: branch.commits,
 					at: machine.publishedAt,
 					uncommitted: branch.uncommitted,

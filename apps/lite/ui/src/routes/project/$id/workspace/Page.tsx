@@ -1,3 +1,4 @@
+import { encodeBytes } from "#ui/api/bytes.ts";
 /**
  * The workspace route's page — the app's hub, and the place to start
  * reading. Everything above (main → App → routes.tsx) is bootstrap,
@@ -6,7 +7,6 @@
  * the pages — each a list — beside Details, and wires the app-level
  * hotkeys and operation controls.
  */
-import { hostedBranchRef } from "#ui/branch.ts";
 import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
@@ -449,7 +449,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 
 	const shownMachines = showRemoteMachines ? (remoteMachines ?? []) : [];
 	const remoteBranchRefs = shownMachines.flatMap((machine) =>
-		machine.branches.map((branch) => hostedBranchRef(machine.name, branch.branch)),
+		machine.branches.map((branch) => encodeBytes(branch.refName)),
 	);
 	const remoteCommits = shownMachines.flatMap((machine) =>
 		machine.branches.flatMap((branch) =>

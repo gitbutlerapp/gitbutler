@@ -956,7 +956,7 @@ export declare function hostedAccount(): Promise<Array<HostedAccountProject>>
 /**
  * Take what `machine` sent of `branch` out of this machine's inbox, without pulling it.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:621}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:630}
  */
 export declare function hostedBranchDismiss(projectId: string, machine: string, branch: string): Promise<void>
 
@@ -969,7 +969,7 @@ export declare function hostedBranchDismiss(projectId: string, machine: string, 
  * is checked out in; in the workspace, uncommitted changes don't belong to one branch, so
  * they stay local. Nothing another machine published is replaced, so it never asks.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:594}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:603}
  */
 export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean): Promise<string>
 
@@ -987,7 +987,7 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * with itself; one it never published stays unpublished. Pulling also clears anything
  * `machine` sent of it to this machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:729}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:738}
  */
 export declare function hostedBranchPull(projectId: string, machine: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
@@ -995,7 +995,7 @@ export declare function hostedBranchPull(projectId: string, machine: string, bra
  * Publish `branch` as [`hosted_branch_publish()`] does, and send it to the machine named `to`:
  * it shows up there as sent, to pull or dismiss, and if `to` is online, it's told right away.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:606}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:615}
  */
 export declare function hostedBranchSend(projectId: string, branch: string, to: string, includeUncommitted: boolean): Promise<string>
 
@@ -1006,7 +1006,7 @@ export declare function hostedBranchSend(projectId: string, branch: string, to: 
  * branches are here already. On the hosted server, which has no files, it's the server's own
  * record of every machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:486}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:489}
  */
 export declare function hostedMachines(projectId: string): Promise<HostedProject>
 
@@ -3948,6 +3948,11 @@ export type LoginToken = {
 export type MachineBranch = {
   /** The branch's short name, e.g. `agent/search`. */
   branch: string;
+  /**
+   * The full name of the ref its commits are read from here: the fetched copy locally, the
+   * published branch itself on the hosted server.
+   */
+  refName: string;
   /**
    * The snapshot holding its uncommitted changes, if it was sent with any: a commit on top
    * of the branch, whose diff is those changes.
