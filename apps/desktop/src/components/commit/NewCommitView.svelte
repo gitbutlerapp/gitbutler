@@ -44,6 +44,9 @@
 	const topBranchName = $derived(topBranchQuery?.response?.at(0)?.refName?.displayName);
 
 	const draftBranchName = $derived(uiState.global.draftBranchName.current);
+	// Same resolution `createCommit` uses below, so `%{branch_name}` in an AI prompt
+	// names the branch the commit will actually land on.
+	const promptBranchName = $derived(commitAction?.branchName || draftBranchName || topBranchName);
 	const canCommit = $derived(selectedLines.current.length > 0);
 
 	let input = $state<ReturnType<typeof CommitMessageEditor>>();
@@ -225,6 +228,7 @@
 		{projectId}
 		{stackId}
 		actionLabel="Create commit"
+		branchName={promptBranchName}
 		action={({ title, description }) => handleCommitCreation(title, description)}
 		onChange={({ title, description }) => handleMessageUpdate(title, description)}
 		onCancel={cancel}
