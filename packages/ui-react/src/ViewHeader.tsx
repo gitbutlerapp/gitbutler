@@ -13,8 +13,8 @@ type Props = {
 	/** The glyph for what it is: `branch`, `commit`, `folder`. */
 	icon?: IconName;
 	/**
-	 * An avatar ahead of the title and meta, for an entity rather than a view of code: a machine's
-	 * emoji, a cloud session. Never the repository; the location already names it.
+	 * An `EntityAvatar` (or its picker) ahead of the title and meta, for an entity rather than a view
+	 * of code: a machine, a cloud session. A branch or a commit takes an `icon` instead.
 	 */
 	avatar?: ReactNode;
 	/**

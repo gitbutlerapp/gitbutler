@@ -4,6 +4,8 @@ import { Avatar } from "./Avatar.tsx";
 import { Badge } from "./Badge.tsx";
 import { Button } from "./Button.tsx";
 import { DropdownButton } from "./DropdownButton.tsx";
+import { EntityAvatar } from "./EntityAvatar.tsx";
+import { machinePictures } from "./story-assets/machines.ts";
 import { Icon } from "./Icon.tsx";
 import { SwitchButton } from "./SwitchButton.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
@@ -222,10 +224,10 @@ export const Worktree = meta.story({
 	},
 });
 
-/** but.dev's machine: an entity, so it takes the emoji it was given as its avatar. */
+/** but.dev's machine: an entity, so it wears the picture of its kind as its avatar. */
 export const Machine = meta.story({
 	args: {
-		avatar: <span style={{ fontSize: 32, lineHeight: 1 }}>💻</span>,
+		avatar: <EntityAvatar value={{ _tag: "Picture", src: machinePictures[0].src }} />,
 		title: "pave--macbook-pro",
 		meta: "macOS · but 0.19 · connected since 3 Sep",
 		actions: <SendAndMenu />,
@@ -235,7 +237,7 @@ export const Machine = meta.story({
 /** but.dev's cloud session: an avatar, the branch's tabs, and Send to… as the surface's pop. */
 export const CloudSession = meta.story({
 	args: {
-		avatar: <span style={{ fontSize: 32, lineHeight: 1 }}>☁️</span>,
+		avatar: <EntityAvatar value={{ _tag: "Emoji", emoji: "☁️" }} />,
 		title: "Panel incoming commits count",
 		meta: "Claude Code · started from your phone · works on feature/JIRA-404-search-filters · 4 commits · 3 uncommitted",
 		toolbar: (
