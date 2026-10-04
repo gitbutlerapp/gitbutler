@@ -945,29 +945,20 @@ export declare function gitTestPush(projectId: string, remoteName: string, branc
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
 /**
- * Fetch from the hosted server and list the branches published for this project.
- *
- * {@link ../../../../../crates/but-api/src/hosted.rs:343}
- */
-export declare function hostedBranches(projectId: string): Promise<Array<HostedBranch>>
-
-/**
  * Publish `branch` (a short name) to the hosted server, from wherever it lives locally.
  *
- * It's one atomic push of the branch, the target branch it's based on, and a snapshot commit
- * on top of the branch whose message describes it. With `include_uncommitted`, the snapshot
- * holds the uncommitted changes of the worktree the branch is checked out in; in the
- * workspace, uncommitted changes don't belong to one branch, so they stay local.
+ * It's one atomic push, into this machine's own namespace, of the branch, the target branch
+ * it's based on, and a snapshot commit on top of the branch whose message describes it. With
+ * `include_uncommitted`, the snapshot holds the uncommitted changes of the worktree the branch
+ * is checked out in; in the workspace, uncommitted changes don't belong to one branch, so
+ * they stay local. Nothing another machine published is replaced, so it never asks.
  *
- * If the server's branch has commits this one doesn't, publishing would replace them: without
- * `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
- *
- * {@link ../../../../../crates/but-api/src/hosted.rs:486}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:461}
  */
-export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
+export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean): Promise<string>
 
 /**
- * Pull the published `branch` (a short name) down.
+ * Pull `branch` (a short name) down as `machine` last published it.
  *
  * Where the branch already lives locally, it's updated there. Otherwise it goes into a new
  * worktree next to the main one, with the published uncommitted changes restored, or, with
@@ -976,15 +967,18 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * If the local branch has commits of its own, or its worktree has uncommitted changes,
  * pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:592}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:548}
  */
-export declare function hostedBranchPull(projectId: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
+export declare function hostedBranchPull(projectId: string, machine: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
 /**
- * Fetch from the hosted server and list the other machines that published to this project,
- * most recent first, with what each last sent.
+ * The machines that published to this project, most recent first, with what each last sent.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:405}
+ * Locally that's after a fetch from the hosted server, and leaves this machine out, whose
+ * branches are here already. On the hosted server, which has no files, it's the server's own
+ * record of every machine.
+ *
+ * {@link ../../../../../crates/but-api/src/hosted.rs:363}
  */
 export declare function hostedMachines(projectId: string): Promise<Array<HostedMachine>>
 
@@ -3457,17 +3451,7 @@ export type HeadSha = {
  */
 export type HexHashString = string;
 
-/** A branch published to the hosted server, as of the last fetch. */
-export type HostedBranch = {
-  /** The branch's short name, e.g. `agent/search`. */
-  branch: string;
-  /** Whether it was published with uncommitted changes. */
-  uncommitted: boolean;
-  /** Where a local branch of that name lives. */
-  local: LocalHome;
-};
-
-/** Another machine that published to the hosted server, as of the last fetch. */
+/** A machine that published to the hosted server, as of the last fetch. */
 export type HostedMachine = {
   /** Its host name. */
   name: string;
@@ -3900,13 +3884,11 @@ export type LoginToken = {
 export type MachineBranch = {
   /** The branch's short name, e.g. `agent/search`. */
   branch: string;
-  /** Whether it was sent with uncommitted changes. */
-  uncommitted: boolean;
   /**
-   * Whether it's still the published branch: a later publish from elsewhere replaces it,
-   * and pulling brings down the published one.
+   * The snapshot holding its uncommitted changes, if it was sent with any: a commit on top
+   * of the branch, whose diff is those changes.
    */
-  current: boolean;
+  uncommitted: Commit | null;
   /** Where a local branch of that name lives. */
   local: LocalHome;
   /** Its commits that the target doesn't have, newest first. */

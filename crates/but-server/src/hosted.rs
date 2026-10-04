@@ -1,11 +1,10 @@
-//! A hosted, read-only but-server: machines publish worktrees over git, and the web UI reads them.
+//! A hosted, read-only but-server: machines publish branches over git, and the web UI reads them.
 //!
-//! Every request is made as a GitButler user, and sees only what that user published. Layout
-//! under the data directory, per user:
-//! * `users/<id>/store/<project>.git` - one bare repository per project (its root commit). It
-//!   is the project the API opens, and every published worktree is one of its linked worktrees.
-//! * `users/<id>/worktrees/<project>/<worktree>/` - the empty directory git requires each
-//!   linked worktree to have. Its uncommitted changes come from the published snapshot instead.
+//! Every request is made as a GitButler user, and sees only what that user published, in
+//! `users/<id>/store/<project>.git` under the data directory: one bare repository per project
+//! (its root commit), which is the project the API opens. Each machine publishes into its own
+//! namespace, `refs/heads/<machine>/<branch>` with its snapshot at
+//! `refs/gitbutler/snapshots/<machine>/<name>`.
 //!
 //! Browsers follow publishes over the `/events` WebSocket, see [`events`].
 
@@ -27,7 +26,6 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     routing::{any, get, post},
 };
-use but_core::diff::PUBLISHED_WORKTREE_REF;
 use tokio::{io::AsyncWriteExt as _, sync::broadcast};
 use tower_http::{
     services::{ServeDir, ServeFile},
@@ -103,19 +101,10 @@ impl FromRef<HostedState> for broadcast::Sender<ProjectEvent> {
 
 /// Run the hosted server until interrupted.
 pub async fn run(config: HostedConfig) -> anyhow::Result<()> {
-    // Published worktrees are linked worktrees, which the API only shows with this flag on.
-    // It is turned on in the server's own settings, never a developer's.
+    // The server's settings are its own, never a developer's.
     if std::env::var_os("E2E_TEST_APP_DATA_DIR").is_none() {
         bail!("hosted mode keeps its settings apart: set E2E_TEST_APP_DATA_DIR");
     }
-    but_settings::AppSettingsWithDiskSync::new_with_customization(
-        but_path::app_config_dir()?,
-        None,
-    )?
-    .update_feature_flags(but_settings::api::FeatureFlagsUpdate {
-        worktree_manipulation: Some(true),
-        ..Default::default()
-    })?;
 
     let url = format!("{}:{}", config.bind_addr, config.port);
     let app = router(config);
@@ -141,7 +130,7 @@ pub fn router(config: HostedConfig) -> Router {
     };
     let api = Router::new()
         .route(
-            "/git/{project}/{worktree}/{*rest}",
+            "/git/{project}/{*rest}",
             any(git_http).layer(DefaultBodyLimit::disable()),
         )
         .route("/sdk/{endpoint}", post(sdk_endpoint))
@@ -365,7 +354,7 @@ fn git(dir: &Path, args: &[&str]) -> anyhow::Result<String> {
     Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
 }
 
-/// Git's smart HTTP protocol through `git http-backend`; a successful push publishes a worktree.
+/// Git's smart HTTP protocol through `git http-backend`; a push that moves a snapshot publishes its branch.
 async fn git_http(
     State(HostedState {
         config,
@@ -374,7 +363,7 @@ async fn git_http(
         ..
     }): State<HostedState>,
     Extension(user): Extension<UserId>,
-    UrlPath((project, worktree, rest)): UrlPath<(String, String, String)>,
+    UrlPath((project, rest)): UrlPath<(String, String)>,
     method: Method,
     RawQuery(query): RawQuery,
     headers: HeaderMap,
@@ -383,15 +372,10 @@ async fn git_http(
     let result = async {
         let dir = user.dir(&config);
         let store = store(&dir, &project)?;
-        if !is_name(&worktree) {
-            bail!("invalid worktree name: {worktree}");
-        }
         let writing = writing.lock().await;
         if !store.join("HEAD").exists() {
             std::fs::create_dir_all(&store)?;
             git(&store, &["init", "--bare", "-q"])?;
-            // Published worktrees have their branches checked out but no files to keep in step.
-            git(&store, &["config", "receive.denyCurrentBranch", "ignore"])?;
             // Bare repositories keep no reflogs by default; these record every machine's pushes.
             git(&store, &["config", "core.logAllRefUpdates", "always"])?;
         }
@@ -399,8 +383,7 @@ async fn git_http(
         let _writing = pushing.then_some(writing);
         // A push git rejects, e.g. one planned against refs another push has since moved,
         // still ends well for `http-backend`; only a moved snapshot means a publish.
-        let snapshot_ref = format!("refs/gitbutler/snapshots/{worktree}");
-        let snapshot_before = git(&store, &["rev-parse", "-q", "--verify", &snapshot_ref]).ok();
+        let snapshots_before = snapshots(&store)?;
 
         let header = |name: &str| {
             headers
@@ -427,16 +410,17 @@ async fn git_http(
         let writer = tokio::spawn(async move { stdin.write_all(&body).await });
         let out = child.wait_with_output().await?;
         writer.await??;
-        if pushing
-            && out.status.success()
-            && git(&store, &["rev-parse", "-q", "--verify", &snapshot_ref]).ok() != snapshot_before
-        {
-            // The refs landed but can't be shown, so the push mustn't look like it worked.
-            let tip =
-                register_worktree(user, &dir, &project, &store, &worktree).with_context(|| {
-                    format!("the push landed, but {worktree} couldn't be published")
-                })?;
-            events::announce_publish(&events, user, &project, tip);
+        if pushing && out.status.success() {
+            let after = snapshots(&store)?;
+            for (snapshot, id) in &after {
+                if snapshots_before.get(snapshot) == Some(id) {
+                    continue;
+                }
+                // The refs landed but can't be shown, so the push mustn't look like it worked.
+                let tip = record_publish(&store, snapshot)
+                    .with_context(|| format!("the push landed, but {snapshot} isn't valid"))?;
+                events::announce_publish(&events, user, &project, tip);
+            }
         }
 
         // CGI output: headers, a blank line, then the body.
@@ -462,34 +446,42 @@ async fn git_http(
         .unwrap_or_else(|err| (StatusCode::BAD_REQUEST, format!("{err:#}")).into_response())
 }
 
-/// What a worktree's snapshot commit says about it, as its message.
+/// Every machine's snapshots in `store`, `refs/gitbutler/snapshots/<machine>/<name>`, with
+/// the commit each points at.
+fn snapshots(store: &Path) -> anyhow::Result<std::collections::BTreeMap<String, String>> {
+    let refs = git(
+        store,
+        &[
+            "for-each-ref",
+            "--format=%(refname) %(objectname)",
+            "refs/gitbutler/snapshots",
+        ],
+    )?;
+    Ok(refs
+        .lines()
+        .filter_map(|line| line.split_once(' '))
+        .map(|(name, id)| (name.to_owned(), id.to_owned()))
+        .collect())
+}
+
+/// What a snapshot commit says about its branch, as its message.
 #[derive(serde::Deserialize)]
 struct Snapshot {
     /// The format of this message; only 1 exists.
     version: u32,
     /// The project's name, e.g. its directory.
     title: String,
-    /// The branch the worktree has checked out, e.g. `refs/heads/feature`.
+    /// The branch it was taken of, e.g. `refs/heads/feature`.
     head: String,
     /// The remote-tracking branch its work is based on, e.g. `refs/remotes/origin/main`.
     target: Option<String>,
-    /// The machine it was published from, by host name.
-    machine: Option<String>,
 }
 
-/// Make the pushed snapshot `worktree`, a linked worktree of the project, checked out on its
-/// branch with the snapshot as its uncommitted changes. Returns the branch's tip.
-fn register_worktree(
-    user: UserId,
-    dir: &Path,
-    project: &str,
-    store: &Path,
-    worktree: &str,
-) -> anyhow::Result<String> {
-    // Kept as pushed too, so others can fetch the worktree.
-    let pushed = format!("refs/gitbutler/snapshots/{worktree}");
+/// Check a pushed snapshot, and on a project's first publish take its name and target from it.
+/// Returns the branch's tip, the snapshot's parent.
+fn record_publish(store: &Path, snapshot_ref: &str) -> anyhow::Result<String> {
     let snapshot: Snapshot =
-        serde_json::from_str(&git(store, &["log", "-1", "--format=%B", &pushed])?)?;
+        serde_json::from_str(&git(store, &["log", "-1", "--format=%B", snapshot_ref])?)?;
     if snapshot.version != 1 {
         bail!("unsupported snapshot version {}", snapshot.version);
     }
@@ -497,32 +489,6 @@ fn register_worktree(
         || snapshot.head == "refs/heads/gitbutler/workspace"
     {
         bail!("only branches can be published: {}", snapshot.head);
-    }
-
-    let admin = store.join("worktrees").join(worktree);
-    let checkout = dir.join("worktrees").join(project).join(worktree);
-    std::fs::create_dir_all(&admin)?;
-    std::fs::create_dir_all(&checkout)?;
-    std::fs::write(admin.join("commondir"), "../..\n")?;
-    // Locked: git would otherwise prune a worktree whose files it can't find.
-    std::fs::write(admin.join("locked"), "published\n")?;
-    // The snapshot first: a worktree without one would show its empty directory's files as deleted.
-    let snapshot_ref = format!("worktrees/{worktree}/{PUBLISHED_WORKTREE_REF}");
-    git(store, &["update-ref", &snapshot_ref, &pushed])?;
-    std::fs::write(
-        checkout.join(".git"),
-        format!("gitdir: {}\n", admin.display()),
-    )?;
-    std::fs::write(
-        admin.join("gitdir"),
-        format!("{}\n", checkout.join(".git").display()),
-    )?;
-    std::fs::write(admin.join("HEAD"), format!("ref: {}\n", snapshot.head))?;
-    // What each machine last sent, apart from the shared branch, which the latest push wins.
-    // Qualified by user, so the record stays unambiguous once stores are shared.
-    if let Some(machine) = snapshot.machine.filter(|machine| is_name(machine)) {
-        let sent = format!("refs/gitbutler/machines/{}/{machine}/{worktree}", user.0);
-        git(store, &["update-ref", &sent, &pushed])?;
     }
 
     // The project's name and target come from its first publish; later ones from branches
@@ -549,18 +515,13 @@ fn register_worktree(
             push_remote: Some(remote.to_owned()),
         }
         .persist(&gix::open(store)?)?;
-        // The project's own HEAD sits on the target, so the published worktrees are its work.
+        // The project's own HEAD sits on the target, which every machine's branches build on.
         git(store, &["update-ref", "--no-deref", "HEAD", &target])?;
     }
-
-    // Worktrees that exist when GitButler first looks are archived; a published one is shown.
-    let mut ctx =
-        but_ctx::Context::new_from_project_handle(but_ctx::ProjectHandle::from_path(store)?)?;
-    but_api::worktrees::worktree_set_archived(&mut ctx, worktree.to_owned(), false)?;
-    git(store, &["rev-parse", &snapshot.head])
+    git(store, &["rev-parse", &format!("{snapshot_ref}^")])
 }
 
-/// The server's own settings, with worktrees turned on.
+/// The server's own settings.
 async fn app_settings() -> Json<serde_json::Value> {
     cmd_result_to_json((|| {
         let settings = but_settings::AppSettingsWithDiskSync::new_with_customization(

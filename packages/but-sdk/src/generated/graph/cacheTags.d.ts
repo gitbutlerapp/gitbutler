@@ -26,7 +26,6 @@ export declare const apiProvides: {
 	readonly getWorkspaceFile: readonly [];
 	readonly getWorkspaceFileFromSource: readonly [];
 	readonly headInfo: readonly ["Workspace"];
-	readonly hostedBranches: readonly ["Hosted"];
 	readonly hostedMachines: readonly ["Hosted"];
 	readonly listCiChecks: readonly ["Checks"];
 	readonly listCommentReactions: readonly ["CommentReactions"];

@@ -24,7 +24,6 @@ export const apiProvides = {
 	getWorkspaceFile: [],
 	getWorkspaceFileFromSource: [],
 	headInfo: ["Workspace"],
-	hostedBranches: ["Hosted"],
 	hostedMachines: ["Hosted"],
 	listCiChecks: ["Checks"],
 	listCommentReactions: ["CommentReactions"],

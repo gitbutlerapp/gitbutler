@@ -220,19 +220,11 @@ export const worktreesListQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.worktreesList(projectId),
 	});
 
-/** Branches published for the project on the hosted server, fetched fresh on each read. */
 /**
  * Other machines publish without this app knowing, so hosted data is kept fresh
  * the way forge data is: a gentle poll, and a refresh on focus once stale.
  */
 const hostedPoll = { staleTime: 30_000, refetchInterval: 60_000 };
-
-export const hostedBranchesQueryOptions = (projectId: string) =>
-	queryOptions({
-		queryKey: [projectId, "hostedBranches"],
-		queryFn: () => window.lite.hostedBranches(projectId),
-		...hostedPoll,
-	});
 
 export const hostedMachinesQueryOptions = (projectId: string) =>
 	queryOptions({

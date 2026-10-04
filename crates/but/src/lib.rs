@@ -1485,14 +1485,8 @@ async fn dispatch_subcommand(
         }
         #[cfg(all(feature = "nightly", feature = "legacy"))]
         Subcommands::_Publish(publish_args) => {
-            use crate::utils::IntermediateChannel;
-
-            let outcome = command::legacy::publish::publish(
-                &mut ctx,
-                IntermediateChannel::new(out),
-                publish_args,
-                &args.current_dir,
-            )?;
+            let outcome =
+                command::legacy::publish::publish(&mut ctx, publish_args, &args.current_dir)?;
             out.print_cli_output(outcome)?;
             None
         }

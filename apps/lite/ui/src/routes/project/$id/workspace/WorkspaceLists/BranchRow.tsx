@@ -15,7 +15,6 @@ import {
 	useHostedBranchPublish,
 	useWorkspaceBranchAndAncestorsPush,
 } from "#ui/api/mutations.ts";
-import { useHostedSync } from "#ui/HostedSync.tsx";
 import { defaultSettings } from "#ui/settings.ts";
 import {
 	forgeInfoOptions,
@@ -25,7 +24,7 @@ import {
 	listReviewsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { Button, Toolbar } from "@base-ui/react";
+import { Button, Toast, Toolbar } from "@base-ui/react";
 import type {
 	BranchReference,
 	InsertSide,
@@ -262,23 +261,11 @@ export const BranchRow: FC<
 		select: (cfg) => cfg.hostedBranches ?? defaultSettings.hostedBranches,
 	});
 	const { isPending: isPublishPending, mutate: publish } = useHostedBranchPublish(projectId);
-	const settle = useHostedSync();
-	const publishBranch = (includeUncommitted: boolean, overwrite: boolean) =>
+	const toastManager = Toast.useToastManager();
+	const publishBranch = (includeUncommitted: boolean) =>
 		publish(
-			{
-				projectId,
-				branch: refName.displayName,
-				includeUncommitted,
-				onConflict: overwrite ? "overwrite" : null,
-			},
-			{
-				onSuccess: (outcome) =>
-					settle(outcome, {
-						title: "Overwrite the published branch?",
-						keepLabel: "Keep published",
-						overwrite: () => publishBranch(includeUncommitted, true),
-					}),
-			},
+			{ projectId, branch: refName.displayName, includeUncommitted },
+			{ onSuccess: (done) => toastManager.add({ title: done }) },
 		);
 	const { mutate: branchCreate } = useBranchCreate();
 
@@ -438,7 +425,7 @@ export const BranchRow: FC<
 					nativeMenuItem({
 						label: "Publish Branch",
 						enabled: !isPublishPending,
-						onSelect: () => publishBranch(false, false),
+						onSelect: () => publishBranch(false),
 					}),
 					// Uncommitted changes belong to a branch only in its own worktree.
 					...(lane.type === "worktree"
@@ -446,7 +433,7 @@ export const BranchRow: FC<
 								nativeMenuItem({
 									label: "Publish Branch With Uncommitted Changes",
 									enabled: !isPublishPending,
-									onSelect: () => publishBranch(true, false),
+									onSelect: () => publishBranch(true),
 								}),
 							]
 						: []),

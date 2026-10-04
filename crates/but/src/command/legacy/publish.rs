@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use but_api::hosted::{HostedBranch, LocalHome, OnConflict, SyncOutcome};
+use but_api::hosted::{HostedMachine, LocalHome, MachineBranch, OnConflict, SyncOutcome};
 use but_ctx::Context;
 
 use crate::{
@@ -15,16 +15,10 @@ use crate::{
     },
 };
 
-pub fn publish(
-    ctx: &mut Context,
-    out: IntermediateChannel<'_>,
-    args: Platform,
-    current_dir: &Path,
-) -> CliResult<Outcome> {
+pub fn publish(ctx: &mut Context, args: Platform, current_dir: &Path) -> CliResult<Outcome> {
     let Platform {
         branch,
         include_uncommitted,
-        conflict,
     } = args;
     let branch = match branch {
         Some(branch) => branch,
@@ -38,9 +32,11 @@ pub fn publish(
             }
         },
     };
-    resolve_choice(out, conflict, |choice| {
-        but_api::hosted::hosted_branch_publish(ctx, branch.clone(), include_uncommitted, choice)
-    })
+    Ok(Outcome::Done(but_api::hosted::hosted_branch_publish(
+        ctx,
+        branch,
+        include_uncommitted,
+    )?))
 }
 
 pub fn pull(
@@ -50,14 +46,41 @@ pub fn pull(
 ) -> CliResult<Outcome> {
     let PullPlatform {
         branch,
+        from,
         into_workspace,
         conflict,
     } = args;
-    Ok(match branch {
-        None => Outcome::Listed(but_api::hosted::hosted_branches(ctx)?),
-        Some(branch) => resolve_choice(out, conflict, |choice| {
-            but_api::hosted::hosted_branch_pull(ctx, branch.clone(), into_workspace, choice)
-        })?,
+    let machines = but_api::hosted::hosted_machines(ctx)?;
+    let Some(branch) = branch else {
+        return Ok(Outcome::Listed(machines));
+    };
+    let mut publishers = machines
+        .iter()
+        .filter(|machine| from.as_ref().is_none_or(|from| *from == machine.name))
+        .filter(|machine| machine.branches.iter().any(|b| b.branch == branch))
+        .map(|machine| machine.name.clone());
+    let machine = match (publishers.next(), publishers.next()) {
+        (Some(machine), None) => machine,
+        (None, _) => match from {
+            Some(from) => return Err(bad_input(format!("{from} hasn't published {branch}")).into()),
+            None => return Err(bad_input(format!("No other machine published {branch}")).into()),
+        },
+        (Some(_), Some(_)) => {
+            return Err(
+                bad_input(format!("More than one machine published {branch}"))
+                    .hint("Pass --from with the machine to pull it from")
+                    .into(),
+            );
+        }
+    };
+    resolve_choice(out, conflict, |choice| {
+        but_api::hosted::hosted_branch_pull(
+            ctx,
+            machine.clone(),
+            branch.clone(),
+            into_workspace,
+            choice,
+        )
     })
 }
 
@@ -88,10 +111,10 @@ fn resolve_choice(
     }
 }
 
-/// The published branches, or what publishing or pulling did, in a sentence.
+/// The other machines and what they published, or what publishing or pulling did, in a sentence.
 #[must_use]
 pub enum Outcome {
-    Listed(Vec<HostedBranch>),
+    Listed(Vec<HostedMachine>),
     Done(String),
 }
 
@@ -103,28 +126,32 @@ impl CliOutputHuman for Outcome {
         _theme: &'static Theme,
     ) -> anyhow::Result<()> {
         match self {
-            Outcome::Listed(branches) if branches.is_empty() => {
-                writeln!(out, "Nothing is published for this project")?;
+            Outcome::Listed(machines) if machines.is_empty() => {
+                writeln!(out, "No other machine published to this project")?;
             }
-            Outcome::Listed(branches) => {
-                for HostedBranch {
-                    branch,
-                    uncommitted,
-                    local,
-                } in branches
-                {
-                    let uncommitted = if uncommitted {
-                        ", with uncommitted changes"
-                    } else {
-                        ""
-                    };
-                    let local = match local {
-                        LocalHome::None => "",
-                        LocalHome::Worktree(_) => " (local: in a worktree)",
-                        LocalHome::Workspace => " (local: in the workspace)",
-                        LocalHome::Branch => " (local: a branch)",
-                    };
-                    writeln!(out, "{branch}{uncommitted}{local}")?;
+            Outcome::Listed(machines) => {
+                for HostedMachine { name, branches, .. } in machines {
+                    writeln!(out, "{name}")?;
+                    for MachineBranch {
+                        branch,
+                        uncommitted,
+                        local,
+                        ..
+                    } in branches
+                    {
+                        let uncommitted = if uncommitted.is_some() {
+                            ", with uncommitted changes"
+                        } else {
+                            ""
+                        };
+                        let local = match local {
+                            LocalHome::None => "",
+                            LocalHome::Worktree(_) => " (local: in a worktree)",
+                            LocalHome::Workspace => " (local: in the workspace)",
+                            LocalHome::Branch => " (local: a branch)",
+                        };
+                        writeln!(out, "  {branch}{uncommitted}{local}")?;
+                    }
                 }
             }
             Outcome::Done(done) => writeln!(out, "{done}")?,
@@ -136,7 +163,7 @@ impl CliOutputHuman for Outcome {
 impl CliOutput for Outcome {
     fn on_json(self) -> impl serde::Serialize {
         match self {
-            Outcome::Listed(branches) => serde_json::json!({ "branches": branches }),
+            Outcome::Listed(machines) => serde_json::json!({ "machines": machines }),
             Outcome::Done(done) => serde_json::json!({ "done": done }),
         }
     }

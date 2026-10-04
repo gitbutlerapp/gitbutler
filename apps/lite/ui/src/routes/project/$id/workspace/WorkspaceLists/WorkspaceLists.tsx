@@ -1370,7 +1370,7 @@ export const WorkspaceLists: FC<
 	const { data: showRemoteMachines = false } = useQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) =>
-			window.lite.hosted !== true && (cfg.hostedBranches ?? defaultSettings.hostedBranches),
+			window.lite.hosted === true || (cfg.hostedBranches ?? defaultSettings.hostedBranches),
 	});
 	const appliedSelection = useSelection("applied", addressSpace);
 	// After the hook on purpose: a hook call between the index and the commit

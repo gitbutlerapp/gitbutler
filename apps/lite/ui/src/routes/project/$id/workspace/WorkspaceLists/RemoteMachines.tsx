@@ -128,7 +128,12 @@ const Machine: FC<{ projectId: string; machine: HostedMachine; online: boolean }
 					</Row>
 				) : (
 					machine.branches.map((branch) => (
-						<RemoteBranch key={branch.branch} projectId={projectId} branch={branch} />
+						<RemoteBranch
+							key={branch.branch}
+							projectId={projectId}
+							machine={machine.name}
+							branch={branch}
+						/>
 					))
 				))}
 		</>
@@ -136,7 +141,11 @@ const Machine: FC<{ projectId: string; machine: HostedMachine; online: boolean }
 };
 
 /** A branch as another machine last sent it, drawn as a stack is, with only pulling to do. */
-const RemoteBranch: FC<{ projectId: string; branch: MachineBranch }> = ({ projectId, branch }) => {
+const RemoteBranch: FC<{ projectId: string; machine: string; branch: MachineBranch }> = ({
+	projectId,
+	machine,
+	branch,
+}) => {
 	const { mutate, isPending } = useHostedBranchPull(projectId);
 	const settle = useHostedSync();
 	const { local } = branch;
@@ -145,6 +154,7 @@ const RemoteBranch: FC<{ projectId: string; branch: MachineBranch }> = ({ projec
 		mutate(
 			{
 				projectId,
+				machine,
 				branch: branch.branch,
 				intoWorkspace: into === "workspace",
 				onConflict: overwrite ? "overwrite" : null,
@@ -159,9 +169,9 @@ const RemoteBranch: FC<{ projectId: string; branch: MachineBranch }> = ({ projec
 			},
 		);
 
-	// Pulling brings down the published branch, so only while this machine's is it. Where a
-	// branch already lives, a pull updates it there.
-	const canPull = branch.current && !isPending;
+	// The hosted page only reads; pulling is for machines. Where a branch already lives, a
+	// pull updates it there.
+	const canPull = window.lite.hosted !== true;
 	const into = local.type === "workspace" ? "workspace" : "worktree";
 	const pullHint =
 		local.type === "worktree"
@@ -169,23 +179,29 @@ const RemoteBranch: FC<{ projectId: string; branch: MachineBranch }> = ({ projec
 			: local.type === "workspace"
 				? "Pull into the workspace"
 				: "Pull into a new worktree";
-	const menuItems: Array<NativeMenuItem> = [
+	const pullItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Pull into Worktree",
-			enabled: canPull && local.type !== "workspace",
+			enabled: !isPending && local.type !== "workspace",
 			onSelect: () => pull("worktree"),
 		}),
 		nativeMenuItem({
 			label: "Pull into Workspace",
-			enabled: canPull && local.type !== "worktree",
+			enabled: !isPending && local.type !== "worktree",
 			onSelect: () => pull("workspace"),
 		}),
 		nativeMenuSeparator,
+	];
+	const menuItems: Array<NativeMenuItem> = [
+		...(canPull ? pullItems : []),
 		nativeMenuItem({
 			label: "Copy Branch Name",
 			onSelect: () => window.lite.clipboardWriteText(branch.branch),
 		}),
 	];
+
+	// The snapshot commit holds the uncommitted changes, on top of the branch's own.
+	const rows = branch.uncommitted ? [branch.uncommitted, ...branch.commits] : branch.commits;
 
 	return (
 		// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A stack is an ARIA group of tree items.
@@ -198,45 +214,46 @@ const RemoteBranch: FC<{ projectId: string; branch: MachineBranch }> = ({ projec
 				<RowLabelGroup>
 					<BranchRowHeadline title={branch.branch} />
 					<RowMeta>
-						{branch.current
-							? branch.uncommitted
-								? "With uncommitted changes"
-								: "Committed changes only"
-							: "Published again since, from elsewhere"}
+						{branch.uncommitted ? "With uncommitted changes" : "Committed changes only"}
 					</RowMeta>
 				</RowLabelGroup>
-				{branch.current && (
+				{canPull && (
 					<Tooltip content={pullHint}>
-						<Button size="small" disabled={!canPull} onClick={() => pull(into)}>
+						<Button size="small" disabled={isPending} onClick={() => pull(into)}>
 							Pull
 						</Button>
 					</Tooltip>
 				)}
 				<RowMenuButton label="Branch menu" items={menuItems} />
 			</Row>
-			{branch.commits.map((commit, index) => (
+			{rows.map((commit, index) => (
 				<RemoteCommit
 					key={commit.id}
 					commit={commit}
+					uncommitted={commit === branch.uncommitted}
 					positionInSet={index + 1}
-					setSize={branch.commits.length}
+					setSize={rows.length}
 				/>
 			))}
 		</StackCard>
 	);
 };
 
-/** A commit another machine published: selectable like the workspace's, with nothing to change. */
-const RemoteCommit: FC<{ commit: Commit; positionInSet: number; setSize: number }> = ({
-	commit,
-	positionInSet,
-	setSize,
-}) => {
+/**
+ * A commit another machine published: selectable like the workspace's, with nothing to change.
+ * Its uncommitted changes are a commit too, shown as what they are.
+ */
+const RemoteCommit: FC<{
+	commit: Commit;
+	uncommitted: boolean;
+	positionInSet: number;
+	setSize: number;
+}> = ({ commit, uncommitted, positionInSet, setSize }) => {
 	const address = commitAddress({ commitId: commit.id, changeId: commit.changeId });
 	const isSelected = useIsSelected(address, "applied");
 	const descriptionId = useId();
-	const title = commitTitle(commit.message);
-	const body = commitBody(commit.message);
+	const title = uncommitted ? undefined : commitTitle(commit.message);
+	const body = uncommitted ? undefined : commitBody(commit.message);
 	// What a commit outside the workspace offers: reading it, never changing it.
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
@@ -268,8 +285,8 @@ const RemoteCommit: FC<{ commit: Commit; positionInSet: number; setSize: number 
 	return (
 		<TreeItem
 			address={address}
-			aria-label={title ?? "(no message)"}
-			aria-describedby={descriptionId}
+			aria-label={uncommitted ? "Uncommitted changes" : (title ?? "(no message)")}
+			aria-describedby={uncommitted ? undefined : descriptionId}
 			aria-level={2}
 			aria-posinset={positionInSet}
 			aria-setsize={setSize}
@@ -277,15 +294,28 @@ const RemoteCommit: FC<{ commit: Commit; positionInSet: number; setSize: number 
 			<Row
 				isSelected={isSelected}
 				onSelect={() => setCursor("applied", address)}
-				onContextMenu={(event) => void showNativeContextMenu(event, menuItems)}
+				onContextMenu={
+					uncommitted ? undefined : (event) => void showNativeContextMenu(event, menuItems)
+				}
 			>
-				<GraphSegment glyph="commit" status={commit.state.type} />
-				<CommitRowContent
-					commit={commit}
-					hasConflicts={commit.hasConflicts}
-					descriptionId={descriptionId}
-				/>
-				<RowMenuButton label="Commit menu" items={menuItems} />
+				{uncommitted ? (
+					<>
+						<GraphSegment glyph="parent" status={commit.state.type} />
+						<RowLabelContainer>
+							<RowLabel className={rowStyles.fadedText}>Uncommitted changes</RowLabel>
+						</RowLabelContainer>
+					</>
+				) : (
+					<>
+						<GraphSegment glyph="commit" status={commit.state.type} />
+						<CommitRowContent
+							commit={commit}
+							hasConflicts={commit.hasConflicts}
+							descriptionId={descriptionId}
+						/>
+						<RowMenuButton label="Commit menu" items={menuItems} />
+					</>
+				)}
 			</Row>
 		</TreeItem>
 	);

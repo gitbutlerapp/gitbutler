@@ -2,9 +2,9 @@
 //! and pulling them down.
 //!
 //! The unit is a branch with, optionally, its uncommitted changes. Locally a branch lives in a
-//! worktree or is applied in the workspace; the server shows each published branch as a
-//! worktree lane either way. Branches are keyed by name: publishing or pulling a branch that
-//! already exists elsewhere replaces it, after asking whenever work would be lost.
+//! worktree or is applied in the workspace. Each machine publishes into its own namespace,
+//! named by its host name, so machines never replace each other's branches: pulling names the
+//! machine to pull from, and asks before replacing local work.
 //!
 //! The server is fixed rather than a git remote: `BUT_HOSTED_URL`, defaulting to a local demo
 //! server. Requests to it are made as the signed-in GitButler user, and see only that user's
@@ -181,10 +181,9 @@ fn workdir(ctx: &but_ctx::Context) -> Result<PathBuf> {
 
 /// Fetch the project's published branches and snapshots from the hosted server.
 fn fetch(dir: &Path) -> Result<()> {
-    let url = format!("{}/git/{}/fetch", hosted_server(), hosted_project(dir)?);
+    let url = format!("{}/git/{}", hosted_server(), hosted_project(dir)?);
     let heads = format!("+refs/heads/*:{HOSTED_REFS}/heads/*");
     let snapshots = format!("+refs/gitbutler/snapshots/*:{HOSTED_REFS}/snapshots/*");
-    let machines = format!("+refs/gitbutler/machines/*:{HOSTED_REFS}/machines/*");
     git_as_user(
         dir,
         &[
@@ -195,7 +194,6 @@ fn fetch(dir: &Path) -> Result<()> {
             &url,
             &heads,
             &snapshots,
-            &machines,
         ],
     )?;
     Ok(())
@@ -324,48 +322,7 @@ pub enum SyncOutcome {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(SyncOutcome);
 
-/// A branch published to the hosted server, as of the last fetch.
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
-pub struct HostedBranch {
-    /// The branch's short name, e.g. `agent/search`.
-    pub branch: String,
-    /// Whether it was published with uncommitted changes.
-    pub uncommitted: bool,
-    /// Where a local branch of that name lives.
-    pub local: LocalHome,
-}
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(HostedBranch);
-
-/// Fetch from the hosted server and list the branches published for this project.
-#[but_api(napi, provides = [Hosted])]
-#[instrument(err(Debug))]
-pub fn hosted_branches(ctx: &but_ctx::Context) -> Result<Vec<HostedBranch>> {
-    let dir = workdir(ctx)?;
-    fetch(&dir)?;
-    let snapshots = format!("{HOSTED_REFS}/snapshots");
-    let refs = git(
-        &dir,
-        &[],
-        &["for-each-ref", "--format=%(refname)", &snapshots],
-    )?;
-    refs.lines()
-        .map(|snapshot| {
-            let branch = snapshot_head(&dir, snapshot)?
-                .trim_start_matches("refs/heads/")
-                .to_owned();
-            Ok(HostedBranch {
-                uncommitted: has_uncommitted(&dir, snapshot),
-                local: local_home(ctx, &dir, &branch)?,
-                branch,
-            })
-        })
-        .collect()
-}
-
-/// Another machine that published to the hosted server, as of the last fetch.
+/// A machine that published to the hosted server, as of the last fetch.
 #[derive(Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
@@ -387,11 +344,9 @@ but_schemars::register_sdk_type!(HostedMachine);
 pub struct MachineBranch {
     /// The branch's short name, e.g. `agent/search`.
     pub branch: String,
-    /// Whether it was sent with uncommitted changes.
-    pub uncommitted: bool,
-    /// Whether it's still the published branch: a later publish from elsewhere replaces it,
-    /// and pulling brings down the published one.
-    pub current: bool,
+    /// The snapshot holding its uncommitted changes, if it was sent with any: a commit on top
+    /// of the branch, whose diff is those changes.
+    pub uncommitted: Option<but_workspace::ui::Commit>,
     /// Where a local branch of that name lives.
     pub local: LocalHome,
     /// Its commits that the target doesn't have, newest first.
@@ -400,22 +355,43 @@ pub struct MachineBranch {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(MachineBranch);
 
-/// Fetch from the hosted server and list the other machines that published to this project,
-/// most recent first, with what each last sent.
+/// The machines that published to this project, most recent first, with what each last sent.
+///
+/// Locally that's after a fetch from the hosted server, and leaves this machine out, whose
+/// branches are here already. On the hosted server, which has no files, it's the server's own
+/// record of every machine.
 #[but_api(napi, provides = [Hosted])]
 #[instrument(err(Debug))]
 pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<Vec<HostedMachine>> {
-    let dir = workdir(ctx)?;
-    fetch(&dir)?;
-    let this = machine_name();
+    use gix::prelude::ObjectIdExt as _;
+
     let repo = ctx.repo.get()?;
+    let (dir, prefix, this) = match repo.workdir() {
+        Some(workdir) => {
+            fetch(workdir)?;
+            let prefix = format!("{HOSTED_REFS}/snapshots/");
+            (workdir.to_owned(), prefix, machine_name())
+        }
+        None => (
+            repo.git_dir().to_owned(),
+            "refs/gitbutler/snapshots/".to_owned(),
+            None,
+        ),
+    };
+    let on_hub = repo.workdir().is_none();
     // Commits are listed up to the target, as a branch's own are in the workspace.
     let target = but_core::ref_metadata::ProjectMeta::resolve(&repo)?
         .target_ref
         .and_then(|name| rev(&dir, name.as_bstr().to_string().as_str()))
         .map(|id| gix::ObjectId::from_hex(id.as_bytes()))
         .transpose()?;
-    let prefix = format!("{HOSTED_REFS}/machines/");
+    let oid = |spec: &str| -> Result<gix::ObjectId> {
+        Ok(gix::ObjectId::from_hex(
+            rev(&dir, spec)
+                .with_context(|| format!("no {spec}"))?
+                .as_bytes(),
+        )?)
+    };
     let refs = git(
         &dir,
         &[],
@@ -429,10 +405,8 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<Vec<HostedMachine>> {
     let mut machines = BTreeMap::<String, HostedMachine>::new();
     for line in refs.lines() {
         let (sent, time) = line.split_once(' ').context("a ref and its date")?;
-        // <user>/<machine>/<published name>
-        let mut parts = sent.trim_start_matches(&prefix).splitn(3, '/');
-        let (Some(_user), Some(machine), Some(name)) = (parts.next(), parts.next(), parts.next())
-        else {
+        // <machine>/<published name>
+        let Some((machine, _name)) = sent.trim_start_matches(&prefix).split_once('/') else {
             continue;
         };
         if this.as_deref() == Some(machine) {
@@ -449,23 +423,26 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<Vec<HostedMachine>> {
                 branches: Vec::new(),
             });
         // The snapshot sits on top of the branch, so the branch's commits start at its parent.
-        let tip = gix::ObjectId::from_hex(
-            rev(&dir, &format!("{sent}^"))
-                .context("a snapshot has its branch as parent")?
-                .as_bytes(),
-        )?;
+        let tip = oid(&format!("{sent}^"))?;
         let commits = match target {
-            Some(target) => {
-                use gix::prelude::ObjectIdExt as _;
-                but_workspace::local_commits_for_branch(tip.attach(&repo), target)?
-            }
+            Some(target) => but_workspace::local_commits_for_branch(tip.attach(&repo), target)?,
             None => Vec::new(),
+        };
+        let uncommitted = if has_uncommitted(&dir, sent) {
+            but_workspace::local_commits_for_branch(oid(sent)?.attach(&repo), tip)?
+                .into_iter()
+                .next()
+        } else {
+            None
         };
         entry.branches.push(MachineBranch {
             commits,
-            uncommitted: has_uncommitted(&dir, sent),
-            current: rev(&dir, sent) == rev(&dir, &format!("{HOSTED_REFS}/snapshots/{name}")),
-            local: local_home(ctx, &dir, &branch)?,
+            uncommitted,
+            local: if on_hub {
+                LocalHome::None
+            } else {
+                local_home(ctx, &dir, &branch)?
+            },
             branch,
         });
     }
@@ -476,21 +453,18 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<Vec<HostedMachine>> {
 
 /// Publish `branch` (a short name) to the hosted server, from wherever it lives locally.
 ///
-/// It's one atomic push of the branch, the target branch it's based on, and a snapshot commit
-/// on top of the branch whose message describes it. With `include_uncommitted`, the snapshot
-/// holds the uncommitted changes of the worktree the branch is checked out in; in the
-/// workspace, uncommitted changes don't belong to one branch, so they stay local.
-///
-/// If the server's branch has commits this one doesn't, publishing would replace them: without
-/// `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
+/// It's one atomic push, into this machine's own namespace, of the branch, the target branch
+/// it's based on, and a snapshot commit on top of the branch whose message describes it. With
+/// `include_uncommitted`, the snapshot holds the uncommitted changes of the worktree the branch
+/// is checked out in; in the workspace, uncommitted changes don't belong to one branch, so
+/// they stay local. Nothing another machine published is replaced, so it never asks.
 #[but_api(napi, invalidates = [Hosted])]
 #[instrument(err(Debug))]
 pub fn hosted_branch_publish(
     ctx: &but_ctx::Context,
     branch: String,
     include_uncommitted: bool,
-    on_conflict: Option<OnConflict>,
-) -> Result<SyncOutcome> {
+) -> Result<String> {
     let dir = workdir(ctx)?;
     let full = format!("refs/heads/{branch}");
     if full == but_core::WORKSPACE_REF_NAME {
@@ -506,34 +480,16 @@ pub fn hosted_branch_publish(
         (_, false) => None,
     };
 
+    let machine = machine_name()
+        .context("This machine has no name to publish under; set BUT_MACHINE to give it one")?;
     let main = ctx.repo.get()?.clone();
     fetch(&dir)?;
     let name = published_name(&branch);
-    let published_snapshot = format!("{HOSTED_REFS}/snapshots/{name}");
-    ensure_published_by(&dir, &published_snapshot, &full)?;
-    // Work on the server that publishing would replace: commits this branch lacks, or
-    // uncommitted changes published from elsewhere.
-    let missing_commits = match rev(&dir, &format!("{HOSTED_REFS}/heads/{branch}")) {
-        Some(server_tip) => !is_ancestor(&dir, &server_tip, &full)?,
-        None => false,
-    };
-    let others_uncommitted = has_uncommitted(&dir, &published_snapshot)
-        && rev(&dir, &published_snapshot) != rev(&dir, &synced_ref(&branch));
-    let what = match (missing_commits, others_uncommitted) {
-        (true, true) => "commits this one doesn't and uncommitted changes from elsewhere",
-        (true, false) => "commits this one doesn't",
-        (false, true) => "uncommitted changes from elsewhere",
-        (false, false) => "",
-    };
-    if !what.is_empty()
-        && let Some(outcome) = unless_overwrite(
-            on_conflict,
-            format!("The published {branch} has {what}. Publishing replaces them."),
-            format!("Kept the published {branch}"),
-        )
-    {
-        return Ok(outcome);
-    }
+    ensure_published_by(
+        &dir,
+        &format!("{HOSTED_REFS}/snapshots/{machine}/{name}"),
+        &full,
+    )?;
 
     let title = main
         .workdir()
@@ -549,7 +505,7 @@ pub fn hosted_branch_publish(
         "title": title,
         "head": full,
         "target": target,
-        "machine": machine_name(),
+        "machine": machine,
     });
 
     // The snapshot's tree: the worktree's files, or the branch's own.
@@ -568,20 +524,20 @@ pub fn hosted_branch_publish(
     let snapshot = git(&dir, &[], &commit)?;
 
     let mut refspecs = vec![
-        format!("+{full}:{full}"),
-        format!("+{snapshot}:refs/gitbutler/snapshots/{name}"),
+        format!("+{full}:refs/heads/{machine}/{branch}"),
+        format!("+{snapshot}:refs/gitbutler/snapshots/{machine}/{name}"),
     ];
     refspecs.extend(target.map(|target| format!("+{target}:{target}")));
-    let url = format!("{}/git/{}/{name}", hosted_server(), hosted_project(&dir)?);
+    let url = format!("{}/git/{}", hosted_server(), hosted_project(&dir)?);
     // No hooks: they'd run with the token in git's environment.
     let mut push = vec!["push", "--atomic", "--quiet", "--no-verify", &url];
     push.extend(refspecs.iter().map(String::as_str));
     git_as_user(&dir, &push)?;
     git(&dir, &[], &["update-ref", &synced_ref(&branch), &snapshot])?;
-    Ok(SyncOutcome::Done(format!("Published {branch}")))
+    Ok(format!("Published {branch} as {machine}"))
 }
 
-/// Pull the published `branch` (a short name) down.
+/// Pull `branch` (a short name) down as `machine` last published it.
 ///
 /// Where the branch already lives locally, it's updated there. Otherwise it goes into a new
 /// worktree next to the main one, with the published uncommitted changes restored, or, with
@@ -593,15 +549,19 @@ pub fn hosted_branch_publish(
 #[instrument(err(Debug))]
 pub fn hosted_branch_pull(
     ctx: &mut but_ctx::Context,
+    machine: String,
     branch: String,
     into_workspace: bool,
     on_conflict: Option<OnConflict>,
 ) -> Result<SyncOutcome> {
     let dir = workdir(ctx)?;
     fetch(&dir)?;
-    let snapshot = format!("{HOSTED_REFS}/snapshots/{}", published_name(&branch));
-    let tip =
-        rev(&dir, &format!("{snapshot}^")).with_context(|| format!("{branch} isn't published"))?;
+    let snapshot = format!(
+        "{HOSTED_REFS}/snapshots/{machine}/{}",
+        published_name(&branch)
+    );
+    let tip = rev(&dir, &format!("{snapshot}^"))
+        .with_context(|| format!("{machine} hasn't published {branch}"))?;
     let full = format!("refs/heads/{branch}");
     ensure_published_by(&dir, &snapshot, &full)?;
     let home = local_home(ctx, &dir, &branch)?;

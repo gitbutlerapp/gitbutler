@@ -6,10 +6,9 @@
 ///
 /// Pushes the branch, the target branch it's based on and a snapshot commit in
 /// one atomic push. The branch can be checked out in a worktree or applied in
-/// the workspace. Branches are keyed by name: if the published one has commits
-/// this one doesn't, it asks before replacing them in a terminal, and otherwise
-/// needs `--overwrite` or `--keep`. The server is `BUT_HOSTED_URL` with
-/// `BUT_HOSTED_TOKEN`, a local demo server by default.
+/// the workspace. It's published under this machine's host name, or
+/// `BUT_MACHINE`, so it never replaces what other machines published. The
+/// server is `BUT_HOSTED_URL`, a local demo server by default.
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct Platform {
@@ -19,15 +18,13 @@ pub struct Platform {
     /// Also publish the uncommitted changes of the branch's worktree.
     #[clap(long)]
     pub include_uncommitted: bool,
-
-    #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub conflict: Conflict,
 }
 
 /// List the branches published for this project, or pull one down.
 ///
-/// Without a branch, lists what the hosted server has. With one, updates the
+/// Without a branch, lists what each of your other machines published. With
+/// one, pulls it from the machine that published it (`--from` when several
+/// did): it updates the
 /// local branch where it lives, or else adds a worktree for it next to the main
 /// one, with its published uncommitted changes, or applies it in the workspace
 /// with `--into-workspace`. If the local branch has work that isn't published,
@@ -38,6 +35,10 @@ pub struct Platform {
 pub struct PullPlatform {
     /// The published branch to pull down.
     pub branch: Option<String>,
+
+    /// The machine to pull it from, needed when more than one published it.
+    #[clap(long)]
+    pub from: Option<String>,
 
     /// Apply it in the workspace instead of adding a worktree, if it's not local yet.
     #[clap(long)]

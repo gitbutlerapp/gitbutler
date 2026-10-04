@@ -1,16 +1,7 @@
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import type { FC, ReactNode } from "react";
-import {
-	appSettingsQueryOptions,
-	guiSettingsQueryOptions,
-	hostedBranchesQueryOptions,
-	worktreesListQueryOptions,
-} from "#ui/api/queries.ts";
-import {
-	useHostedBranchPull,
-	useWorktreeRemove,
-	useWorktreeSetArchived,
-} from "#ui/api/mutations.ts";
+import { appSettingsQueryOptions, worktreesListQueryOptions } from "#ui/api/queries.ts";
+import { useWorktreeRemove, useWorktreeSetArchived } from "#ui/api/mutations.ts";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
@@ -18,10 +9,8 @@ import { classes } from "@gitbutler/ui-react/classes.ts";
 import { branchDetailsParams } from "#ui/branch.ts";
 import { revealInFolderLabel } from "#ui/hotkeys.ts";
 import { nativeMenuItem, nativeMenuSeparator, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
-import type { HostedBranch, ListedWorktree } from "@gitbutler/but-sdk";
+import type { ListedWorktree } from "@gitbutler/but-sdk";
 import { IconButton } from "./IconButton.tsx";
-import { useHostedSync } from "#ui/HostedSync.tsx";
-import { defaultSettings } from "#ui/settings.ts";
 import styles from "./Worktrees.module.css";
 import { Section } from "./Section.tsx";
 
@@ -53,7 +42,6 @@ const worktreeLabel = (worktree: ListedWorktree) =>
 
 const WorktreeList: FC<{ projectId: string }> = ({ projectId }) => {
 	const { data: listing } = useSuspenseQuery(worktreesListQueryOptions(projectId));
-	const { data: guiSettings } = useSuspenseQuery(guiSettingsQueryOptions);
 	const { mutate: setArchived, isPending: isArchiving } = useWorktreeSetArchived(projectId);
 	const { mutate: remove, isPending: isRemoving } = useWorktreeRemove(projectId);
 	const busy = isArchiving || isRemoving;
@@ -116,78 +104,6 @@ const WorktreeList: FC<{ projectId: string }> = ({ projectId }) => {
 			{listing.archived.length > 0 && (
 				<Section heading="Archived">{rows(listing.archived, true)}</Section>
 			)}
-			{(guiSettings.hostedBranches ?? defaultSettings.hostedBranches) &&
-				window.lite.hosted !== true && <Published projectId={projectId} />}
 		</>
-	);
-};
-
-const whereLocal = (local: HostedBranch["local"]) => {
-	switch (local.type) {
-		case "worktree":
-			return ", local in a worktree";
-		case "workspace":
-			return ", local in the workspace";
-		case "branch":
-			return ", local branch";
-		case "none":
-			return "";
-	}
-};
-
-/** Branches published to the hosted server from anywhere, to pull down here. */
-const Published: FC<{ projectId: string }> = ({ projectId }) => {
-	// A server that can't be reached just has nothing to list.
-	const { data: published } = useQuery(hostedBranchesQueryOptions(projectId));
-	const { mutate, isPending } = useHostedBranchPull(projectId);
-	const settle = useHostedSync();
-	if (published === undefined || published.length === 0) return null;
-
-	const pull = (branch: string, intoWorkspace: boolean, overwrite: boolean) =>
-		mutate(
-			{ projectId, branch, intoWorkspace, onConflict: overwrite ? "overwrite" : null },
-			{
-				onSuccess: (outcome) =>
-					settle(outcome, {
-						title: "Overwrite local work?",
-						keepLabel: "Keep local",
-						overwrite: () => pull(branch, intoWorkspace, true),
-					}),
-			},
-		);
-
-	return (
-		<Section heading="Published">
-			{published.map(({ branch, uncommitted, local }) => (
-				<div key={branch} className={styles.row}>
-					<div className={styles.text}>
-						<span className={classes("text-15", "text-semibold", styles.name)}>
-							<Icon name="globe" className={styles.folder} />
-							{branch}
-						</span>
-						<span className={classes("text-12", "text-body", styles.path)}>
-							{uncommitted ? "With uncommitted changes" : "Committed changes only"}
-							{whereLocal(local)}
-						</span>
-					</div>
-					<div className={styles.actions}>
-						{local.type === "worktree" || local.type === "workspace" ? (
-							<Button disabled={isPending} onClick={() => pull(branch, false, false)}>
-								Update
-							</Button>
-						) : (
-							<>
-								<Button disabled={isPending} onClick={() => pull(branch, true, false)}>
-									Pull into workspace
-								</Button>
-								<Button disabled={isPending} onClick={() => pull(branch, false, false)}>
-									Pull
-								</Button>
-							</>
-						)}
-					</div>
-				</div>
-			))}
-		</Section>
 	);
 };

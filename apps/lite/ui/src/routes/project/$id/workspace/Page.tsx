@@ -418,7 +418,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	const { data: showRemoteMachines = false } = useQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) =>
-			window.lite.hosted !== true && (cfg.hostedBranches ?? defaultSettings.hostedBranches),
+			window.lite.hosted === true || (cfg.hostedBranches ?? defaultSettings.hostedBranches),
 	});
 	const { data: remoteMachines } = useQuery({
 		...hostedMachinesQueryOptions(projectId),
@@ -450,7 +450,11 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 
 	const remoteCommits = (showRemoteMachines ? (remoteMachines ?? []) : [])
 		.filter((machine) => foldedSegments[machineFoldKey(machine.name)] !== true)
-		.flatMap((machine) => machine.branches.flatMap((branch) => branch.commits));
+		.flatMap((machine) =>
+			machine.branches.flatMap((branch) =>
+				branch.uncommitted ? [branch.uncommitted, ...branch.commits] : branch.commits,
+			),
+		);
 
 	const appliedAddressSpace = buildAppliedAddressSpace({
 		stacks: graph.stacks,

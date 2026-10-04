@@ -65,6 +65,9 @@ const projectIdOf = (channel: string) => channel.slice(WATCHER_CHANNEL_PREFIX.le
 /** Says a user's set of projects may have changed; it needs no subscription. */
 const PROJECTS_CHANNEL = "projectsChanged";
 
+/** Which of the account's machines are online; it needs no subscription. */
+const PRESENCE_CHANNEL = "presence";
+
 /** The server's own messages; anything else on the socket is a `{ channel, payload }` event. */
 type EventsReply = { type: "subscribed" | "rejected"; projectId: string } | { type: "heartbeat" };
 
@@ -95,6 +98,18 @@ const createEventStream = (serverUrl: string) => {
 			payload: { type: "gitActivity", subject: { headSha: "" } },
 		};
 		for (const listener of listeners.get(watcherChannel(projectId)) ?? []) listener(activity);
+	};
+
+	// Sent once on connect, so kept for projects opened after.
+	let presence: { type: "hostedPresence"; subject: unknown } | undefined;
+
+	// Account-wide news reaches every open project as a desktop app's hosted listener tells it.
+	const toWatchers = (payload: { type: string; subject: unknown }) => {
+		for (const [channel, channelListeners] of listeners) {
+			if (!channel.startsWith(WATCHER_CHANNEL_PREFIX)) continue;
+			const event = { name: `project://${projectIdOf(channel)}/hosted`, payload };
+			for (const listener of channelListeners) listener(event);
+		}
 	};
 
 	const scheduleReconnect = () => {
@@ -159,8 +174,14 @@ const createEventStream = (serverUrl: string) => {
 				}
 				return;
 			}
-			if (data.channel === PROJECTS_CHANNEL)
+			if (data.channel === PROJECTS_CHANNEL) {
 				for (const channel of rejected) if (listeners.has(channel)) send("subscribe", channel);
+				toWatchers({ type: "externalInvalidation", subject: { tags: ["Hosted"] } });
+			}
+			if (data.channel === PRESENCE_CHANNEL) {
+				presence = { type: "hostedPresence", subject: data.payload };
+				toWatchers(presence);
+			}
 			for (const listener of listeners.get(data.channel) ?? []) listener(data.payload);
 		});
 		current.addEventListener("close", () => {
@@ -185,6 +206,12 @@ const createEventStream = (serverUrl: string) => {
 			send("subscribe", channel);
 		}
 		channelListeners.add(listener);
+		// After returning, so the caller is ready for events.
+		const known = presence;
+		if (known && channel.startsWith(WATCHER_CHANNEL_PREFIX)) {
+			const event = { name: `project://${projectIdOf(channel)}/hosted`, payload: known };
+			setTimeout(() => listener(event));
+		}
 		// Only a hosted server, which serves the page itself, has `/events`.
 		if (socket === null && reconnect === undefined && serverUrl === "") connect();
 

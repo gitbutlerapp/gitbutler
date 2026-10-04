@@ -49,34 +49,18 @@ enum RenameTracking {
     Disabled,
 }
 
-/// Where a checkout publishes its worktree and index, as a commit on top of `HEAD`.
-///
-/// A repository without a worktree reports this commit's changes as its worktree changes.
-pub const PUBLISHED_WORKTREE_REF: &str = "refs/worktree/gitbutler/snapshot";
-
-/// The changes a checkout published under [`PUBLISHED_WORKTREE_REF`], or none if it published none.
-fn published_worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
-    let mut changes = WorktreeChanges {
-        changes: Vec::new(),
-        ignored_changes: Vec::new(),
-        index_changes: Vec::new(),
-        index_conflicts: Vec::new(),
-    };
-    let Some(mut published) = repo.try_find_reference(PUBLISHED_WORKTREE_REF)? else {
-        return Ok(changes);
-    };
-    let published = published.peel_to_id()?.detach();
-    let head = repo.head_id()?.detach();
-    changes.changes = super::tree_changes(repo, Some(head), published)?;
-    Ok(changes)
-}
-
 fn worktree_changes_inner(
     repo: &gix::Repository,
     renames: RenameTracking,
 ) -> anyhow::Result<WorktreeChanges> {
-    if repo.workdir().is_none() || repo.try_find_reference(PUBLISHED_WORKTREE_REF)?.is_some() {
-        return published_worktree_changes(repo);
+    // A bare repository, like a hosted project, has nothing uncommitted.
+    if repo.workdir().is_none() {
+        return Ok(WorktreeChanges {
+            changes: Vec::new(),
+            ignored_changes: Vec::new(),
+            index_changes: Vec::new(),
+            index_conflicts: Vec::new(),
+        });
     }
     let (tree_index_rewrites, worktree_rewrites) = match renames {
         RenameTracking::Always => {
