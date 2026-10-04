@@ -1,0 +1,78 @@
+.container {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.top {
+	container-type: inline-size;
+	display: flex;
+	row-gap: 10px;
+	flex-direction: column;
+	padding-inline: var(--panel-padding-inline);
+	padding-block: var(--panel-padding-block);
+}
+
+/* When the panel is too narrow to fit the tab labels, show icons only. */
+@container (max-width: 340px) {
+	.tabLabel {
+		display: none;
+	}
+}
+
+.page {
+	border-top: 1px solid var(--border-section);
+}
+
+/* Spaced as a file list's rows are. */
+.tree {
+	display: flex;
+	row-gap: 1px;
+	flex-direction: column;
+	padding: var(--padding-list);
+
+	&:focus {
+		/* The focus state is displayed on the item row instead. */
+		outline: none;
+	}
+}
+
+/* Each machine, or repo, and everything under it reads as one group. */
+.groupStart {
+	margin-block-start: var(--padding-list);
+	padding-block-start: var(--padding-list);
+	border-block-start: 1px solid var(--border-section);
+}
+
+/* On the name itself, whose text class sets its own weight. */
+.groupItem :global(.text-13) {
+	font-weight: var(--font-weight-semibold);
+}
+
+.marks {
+	display: flex;
+	column-gap: var(--gap-icon-text);
+	align-items: center;
+}
+
+.light {
+	width: 8px;
+	height: 8px;
+	border-radius: var(--radius-full);
+	background-color: var(--text-3);
+}
+
+/* A faint halo, as a status LED has, so online reads at a glance. */
+.lightOn {
+	background-color: var(--fill-safe-bg);
+	box-shadow: 0 0 6px 1px color-mix(in srgb, var(--fill-safe-bg) 60%, transparent);
+}
+
+.hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	white-space: nowrap;
+	clip-path: inset(50%);
+}

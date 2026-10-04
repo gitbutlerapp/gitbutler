@@ -77,6 +77,7 @@ import { CommandPalette } from "./CommandPalette.tsx";
 import { OperationsLogPicker } from "./OperationsLogPicker.tsx";
 import { DetailsPlaceholder } from "./DetailsPlaceholder.tsx";
 import { Sidebar } from "./Sidebar.tsx";
+import { MeshSidebar } from "./Mesh/MeshSidebar.tsx";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { ErrorBoundary } from "@gitbutler/ui-react/ErrorBoundary.tsx";
 import { Settings } from "./Settings/Settings.tsx";
@@ -613,6 +614,10 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.terminalId ?? "",
 	});
+	const { data: meshSidebar } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.meshSidebar ?? defaultSettings.meshSidebar,
+	});
 
 	const canOpenTerminal = project !== undefined && terminalId !== undefined && terminalId !== "";
 	useHotkey(
@@ -671,18 +676,22 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 						{/* No reset key: the child is built inline, so its identity changes
 						    every render. Recovery here is the fallback's Retry button. */}
 						<ErrorBoundary>
-							<Sidebar
-								projectId={projectId}
-								project={selectedProject}
-								branches={branches}
-								branchesPending={branchesPending}
-								branchesError={branchesError}
-								graph={graph}
-								addressSpace={appliedAddressSpace}
-								uncommittedAddressSpace={uncommittedAddressSpace}
-								absorptionTargetCommitIds={absorptionTargetCommitIds}
-								onActiveFileSelection={onActiveUncommittedFileSelection}
-							/>
+							{meshSidebar === true ? (
+								<MeshSidebar projectId={projectId} project={selectedProject} />
+							) : (
+								<Sidebar
+									projectId={projectId}
+									project={selectedProject}
+									branches={branches}
+									branchesPending={branchesPending}
+									branchesError={branchesError}
+									graph={graph}
+									addressSpace={appliedAddressSpace}
+									uncommittedAddressSpace={uncommittedAddressSpace}
+									absorptionTargetCommitIds={absorptionTargetCommitIds}
+									onActiveFileSelection={onActiveUncommittedFileSelection}
+								/>
+							)}
 						</ErrorBoundary>
 					</Panel>
 					<ResizeHandle gap />
