@@ -78,7 +78,8 @@ pub enum WatchMode {
     /// Automatically pick a mode based on platform heuristics.
     ///
     #[default]
-    /// Currently, this enables `Modern` on WSL (Windows Subsystem for Linux.) and `Legacy` elsewhere.
+    /// Currently, this enables `Modern` on Linux, WSL included, where inotify needs a watch per
+    /// directory and ignored ones would use up the limit, and `Legacy` elsewhere.
     Auto,
 }
 
@@ -135,29 +136,6 @@ impl WatchMode {
                 WatchMode::Auto
             })
     }
-}
-
-#[cfg(target_os = "linux")]
-fn is_wsl() -> bool {
-    if std::env::var_os("WSL_DISTRO_NAME").is_some() || std::env::var_os("WSL_INTEROP").is_some() {
-        return true;
-    }
-
-    for path in ["/proc/sys/kernel/osrelease", "/proc/version"] {
-        let Ok(contents) = std::fs::read_to_string(path) else {
-            continue;
-        };
-        let lower = contents.to_ascii_lowercase();
-        if lower.contains("microsoft") || lower.contains("wsl") {
-            return true;
-        }
-    }
-    false
-}
-
-#[cfg(not(target_os = "linux"))]
-fn is_wsl() -> bool {
-    false
 }
 
 fn watch_backoff_policy() -> backoff::ExponentialBackoff {
@@ -311,7 +289,7 @@ pub fn spawn(
             }
         }
         WatchMode::Auto => {
-            if is_wsl() {
+            if cfg!(target_os = "linux") {
                 match setup_watch_plan(
                     &mut debouncer,
                     project_id.clone(),
