@@ -140,6 +140,9 @@ pub fn run(args: Platform) -> anyhow::Result<()> {
         return Ok(());
     }
     let server = but_api::hosted::hosted_server();
+    if args.headless {
+        return headless(&server);
+    }
     let mut terminal = CrosstermTerminalGuard::alt_screen(false)?;
     if but_api::legacy::users::get_user().ok().flatten().is_none()
         && !sign_in::run(&mut terminal, &server)?
@@ -147,6 +150,46 @@ pub fn run(args: Platform) -> anyhow::Result<()> {
         return Ok(());
     }
     App::new(server)?.run(&mut terminal)
+}
+
+/// Stay online for the account and say what happens, without drawing anything.
+fn headless(server: &str) -> anyhow::Result<()> {
+    if but_api::legacy::users::get_user().ok().flatten().is_none() {
+        anyhow::bail!("Not signed in to GitButler; run `but mesh` once to sign in");
+    }
+    let (tx, rx) = mpsc::channel();
+    let _listener = but_api::hosted::listen_account(move |event| {
+        tx.send(event).ok();
+    })?;
+    println!("Online at {server}; Ctrl-C to stop");
+    let mut online = BTreeSet::new();
+    for event in rx {
+        match event {
+            HostedEvent::Published(Some(root)) => {
+                println!(
+                    "published to the project rooted at {}",
+                    &root[..root.len().min(12)]
+                )
+            }
+            // A catch-up after (re)connecting, for listings to refresh; nothing to tell.
+            HostedEvent::Published(None) => {}
+            HostedEvent::Online(machines) => {
+                let now: BTreeSet<_> = machines.into_iter().collect();
+                for came in now.difference(&online) {
+                    println!("{came} is online");
+                }
+                for left in online.difference(&now) {
+                    println!("{left} went offline");
+                }
+                online = now;
+            }
+            HostedEvent::Sent(sent) => println!(
+                "{} sent {} of {}; pull it with `but mesh`",
+                sent.from, sent.branch, sent.title
+            ),
+        }
+    }
+    Ok(())
 }
 
 struct App {

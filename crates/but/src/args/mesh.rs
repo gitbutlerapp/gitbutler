@@ -14,4 +14,8 @@ pub struct Platform {
     /// Forget the signed-in GitButler account and exit.
     #[clap(long)]
     pub sign_out: bool,
+    /// Without a screen: keep this machine online and print what arrives, one line each,
+    /// until interrupted. Needs a signed-in account.
+    #[clap(long)]
+    pub headless: bool,
 }
