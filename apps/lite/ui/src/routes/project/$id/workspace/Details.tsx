@@ -3758,16 +3758,11 @@ const FileDetails: FC<{
 	pendingFileRef,
 }) => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
-	// This view is the uncommitted scope, and the sidebar's own "Uncommitted"
-	// list is already its files panel — a second one here would only repeat it,
-	// so the user's files-visible setting has nothing to apply to.
-	//
-	// A constant rather than `useCanShowFiles()`, which reads the URL's active
-	// list as a proxy for what drives the pane: the pane can be driven by the
-	// uncommitted list while the param still names the applied one, and the
-	// proxy then answers for the wrong scope.
-	const canShowFiles = false;
-	const filesVisible = false;
+	// The mesh sidebar lists no files, so this view brings its own list, as a commit's does.
+	const canShowFiles = true;
+	const filesVisible = useAppSelector((state) =>
+		projectSlice.selectors.selectFilesVisible(state, projectId),
+	);
 	const filesItems = getChangesFileRowItems(worktreeChanges).toArray();
 	const changes = filesItems
 		.values()
@@ -3778,6 +3773,7 @@ const FileDetails: FC<{
 	// The main worktree's files walk their own path-keyed list; a linked
 	// worktree's are rows of the applied list.
 	const selectFile = (selection: string) => {
+		setCursor("files", selection);
 		if (parent.worktree === undefined) setCursor("uncommitted", selection);
 		else setCursor("applied", fileAddress({ parent, path: selection }));
 	};

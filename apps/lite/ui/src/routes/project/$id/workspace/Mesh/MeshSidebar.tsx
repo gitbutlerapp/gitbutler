@@ -5,12 +5,21 @@ import {
 	worktreeChangesFileParent,
 } from "#ui/addresses.ts";
 import { Match } from "effect";
-import { commitBody, commitTitle } from "#ui/commit.ts";
+import { commitBody, commitForgeUrl, commitTitle } from "#ui/commit.ts";
 import { encodeCursorParam, type UrlQueryParams } from "#ui/cursor-url.ts";
 import { type FocusScope, useAddressSpaceHotkeys, useAutofocusScope } from "#ui/focus-scopes.ts";
 import { sidebarHotkeys } from "#ui/hotkeys.ts";
 import { interfaceSlice, type MeshGrouping, type MeshOverview } from "#ui/interface/state.ts";
-import { useHostedBranchDismiss, useHostedBranchPull } from "#ui/api/mutations.ts";
+import {
+	useBranchCreate,
+	useCommitDiscard,
+	useCommitInsertBlank,
+	useCommitUncommit,
+	useEnterEditMode,
+	useHostedBranchDismiss,
+	useHostedBranchPull,
+} from "#ui/api/mutations.ts";
+import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { useHostedSync } from "#ui/HostedSync.tsx";
 import {
 	type NativeMenuItem,
@@ -26,7 +35,7 @@ import { setActiveList, setCursor, useActiveList } from "#ui/use-cursor.ts";
 import { buildIndexByKey } from "#ui/workspace/address-space.ts";
 import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import type { ProjectForFrontend, PublishState } from "@gitbutler/but-sdk";
+import type { Commit, ProjectForFrontend, PublishState } from "@gitbutler/but-sdk";
 import { Badge } from "@gitbutler/ui-react/Badge.tsx";
 import { Tooltip as HintTooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
@@ -36,6 +45,7 @@ import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { useHotkeys } from "@tanstack/react-hotkeys";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { type FC, type ReactNode, useRef, useState } from "react";
 import { FileRowTooltipRoot, type FileRowTooltipPayload } from "../FileRowTooltip.tsx";
@@ -52,6 +62,7 @@ import {
 } from "./useMeshTree.ts";
 import { usePublishMenu } from "./usePublishMenu.ts";
 import { MeshWatchers } from "./MeshWatchers.tsx";
+import { insertBlankCommitMenuItem } from "../WorkspaceLists/insertBlankCommitMenuItem.ts";
 import styles from "./MeshSidebar.module.css";
 
 /**
@@ -508,41 +519,129 @@ const MeshRowItem: FC<{
 					/>
 				);
 			}
-			const title = commitTitle(row.commit.message);
-			const body = commitBody(row.commit.message);
-			return (
-				<MeshItem
-					{...shared}
-					name={title ?? "(no message)"}
-					icon={<Icon name="commit" size={14} />}
-					menuLabel="Commit menu"
-					menuItems={[
-						nativeMenuItem({
-							label: "Copy",
-							submenu: [
-								nativeMenuItem({
-									label: "Change ID",
-									enabled: row.commit.changeId !== "",
-									onSelect: () => window.lite.clipboardWriteText(row.commit.changeId),
-								}),
-								copyItem("Commit ID", row.commit.id),
-								nativeMenuItem({
-									label: "Commit Title",
-									enabled: title !== undefined,
-									onSelect: () => window.lite.clipboardWriteText(title ?? ""),
-								}),
-								nativeMenuItem({
-									label: "Commit Body",
-									enabled: body !== undefined,
-									onSelect: () => window.lite.clipboardWriteText(body ?? ""),
-								}),
-							],
-						}),
-					]}
-				/>
-			);
+			return <MeshCommitItem {...shared} checkout={row.checkout} commit={row.commit} />;
 		}
 	}
+};
+
+const MeshCommitItem: FC<{
+	row: MeshRow;
+	checkout: MeshCheckout;
+	commit: Commit;
+	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
+	onSelect: () => void;
+}> = ({ checkout, commit, ...shared }) => {
+	const { data: forgeInfo } = useQuery({
+		...forgeInfoOptions(checkout.projectId),
+		enabled: !checkout.remoteOnly,
+	});
+	const forgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
+	const title = commitTitle(commit.message);
+	const body = commitBody(commit.message);
+	const projectId = checkout.projectId;
+	// This machine's branches outside a linked worktree are the workspace's.
+	const inWorkspace =
+		checkout.isThisMachine && shared.row._tag === "Commit" && shared.row.worktree === undefined;
+	const { data: stackId } = useQuery({
+		...headInfoQueryOptions(projectId),
+		enabled: inWorkspace,
+		select: (headInfo) =>
+			headInfo.stacks.find((stack) =>
+				stack.segments.some((segment) => segment.commits.some(({ id }) => id === commit.id)),
+			)?.id ?? null,
+	});
+	const { mutate: commitInsertBlank } = useCommitInsertBlank();
+	const { isPending: isDiscardPending, mutate: commitDiscard } = useCommitDiscard();
+	const { isPending: isUncommitPending, mutate: commitUncommit } = useCommitUncommit();
+	const { mutate: enterEditMode } = useEnterEditMode(projectId);
+	const { mutate: branchCreate } = useBranchCreate();
+	const relativeTo = { type: "commit", subject: commit.id } as const;
+	const createBranch = (side: "above" | "below") =>
+		branchCreate({
+			projectId,
+			newRef: null,
+			placement: { type: "dependent", subject: { relativeTo, side } },
+		});
+	const workspaceItems: Array<NativeMenuItem> = inWorkspace
+		? [
+				nativeMenuItem({
+					label: "Edit Commit",
+					enabled: stackId != null,
+					onSelect: () => {
+						if (stackId != null) enterEditMode({ projectId, commitId: commit.id, stackId });
+					},
+				}),
+				insertBlankCommitMenuItem(
+					(side) => commitInsertBlank({ projectId, relativeTo, side, dryRun: false }),
+					"above",
+				),
+				nativeMenuSeparator,
+				nativeMenuItem({
+					label: "Create Branch",
+					submenu: [
+						nativeMenuItem({ label: "Above", onSelect: () => createBranch("above") }),
+						nativeMenuItem({ label: "Below", onSelect: () => createBranch("below") }),
+					],
+				}),
+				nativeMenuSeparator,
+				nativeMenuItem({
+					label: "Delete Commit",
+					enabled: !isDiscardPending,
+					onSelect: () =>
+						commitDiscard({ projectId, subjectCommitIds: [commit.id], dryRun: false }),
+				}),
+				nativeMenuItem({
+					label: "Uncommit",
+					enabled: !isUncommitPending,
+					onSelect: () =>
+						commitUncommit({
+							projectId,
+							assignTo: null,
+							subjectCommitIds: [commit.id],
+							dryRun: false,
+						}),
+				}),
+			]
+		: [];
+	return (
+		<MeshItem
+			{...shared}
+			name={title ?? "(no message)"}
+			icon={<Icon name="commit" size={14} />}
+			menuLabel="Commit menu"
+			menuItems={[
+				nativeMenuItem({
+					label: "Copy",
+					submenu: [
+						nativeMenuItem({
+							label: "Change ID",
+							enabled: commit.changeId !== "",
+							onSelect: () => window.lite.clipboardWriteText(commit.changeId),
+						}),
+						copyItem("Commit ID", commit.id),
+						nativeMenuItem({
+							label: "Commit Title",
+							enabled: title !== undefined,
+							onSelect: () => window.lite.clipboardWriteText(title ?? ""),
+						}),
+						nativeMenuItem({
+							label: "Commit Body",
+							enabled: body !== undefined,
+							onSelect: () => window.lite.clipboardWriteText(body ?? ""),
+						}),
+					],
+				}),
+				nativeMenuItem({
+					label: forgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
+					enabled: forgeUrl != null,
+					onSelect: () => {
+						if (forgeUrl) void window.lite.openInWebBrowser(forgeUrl.url);
+					},
+				}),
+				...(workspaceItems.length > 0 ? [nativeMenuSeparator, ...workspaceItems] : []),
+			]}
+		/>
+	);
 };
 
 /** A linked worktree, named as a directory so it never reads as a branch. */
