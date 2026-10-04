@@ -90,6 +90,15 @@ fn git_command(dir: &Path) -> std::process::Command {
         .env_remove("GIT_DIR")
         .env_remove("GIT_WORK_TREE")
         .env_remove("GIT_INDEX_FILE");
+    // Tracing would print requests, and with them the account's token.
+    for (name, _) in std::env::vars_os() {
+        if name
+            .to_str()
+            .is_some_and(|name| name.starts_with("GIT_TRACE") || name == "GIT_CURL_VERBOSE")
+        {
+            git.env_remove(name);
+        }
+    }
     git
 }
 
@@ -111,21 +120,39 @@ fn git(dir: &Path, env: &[(&str, &std::ffi::OsStr)], args: &[&str]) -> Result<St
 }
 
 /// Run git in `dir` against the hosted server, as the signed-in GitButler user. The token goes in
-/// through git's environment, which other processes can't read as they can its arguments.
+/// through git's environment rather than its arguments, which every user on the machine can see.
+/// Redirects aren't followed, as the token would go along to wherever they lead.
 fn git_as_user(dir: &Path, args: &[&str]) -> Result<String> {
     let header = std::ffi::OsString::from(format!("X-Auth-Token: {}", access_token()?));
     let env = [
-        ("GIT_CONFIG_COUNT", "1".as_ref()),
+        ("GIT_CONFIG_COUNT", "2".as_ref()),
         ("GIT_CONFIG_KEY_0", "http.extraHeader".as_ref()),
         ("GIT_CONFIG_VALUE_0", header.as_os_str()),
+        ("GIT_CONFIG_KEY_1", "http.followRedirects".as_ref()),
+        ("GIT_CONFIG_VALUE_1", "false".as_ref()),
         // A refused token fails rather than asking for a password.
         ("GIT_TERMINAL_PROMPT", "0".as_ref()),
     ];
     git(dir, &env, args)
 }
 
-/// The signed-in GitButler account's access token, which the hosted server knows it by.
+/// The signed-in GitButler account's access token, which the hosted server knows it by. Only
+/// handed out for an https server, or plain http on this machine, so it never crosses a network
+/// in the clear.
 fn access_token() -> Result<String> {
+    let server = hosted_server();
+    let local = ["http://localhost", "http://127.0.0.1", "http://[::1]"]
+        .iter()
+        .any(|local| {
+            server
+                .strip_prefix(local)
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with([':', '/']))
+        });
+    if !server.starts_with("https://") && !local {
+        bail!(
+            "BUT_HOSTED_URL must be https, or http on localhost, to send it your account: {server}"
+        );
+    }
     let user = gitbutler_user::get_user()?.context(
         "Sign in to GitButler first: the hosted server shows each account its own branches",
     )?;
@@ -505,9 +532,12 @@ pub fn hosted_account() -> Result<Vec<HostedAccountProject>> {
             .enable_all()
             .build()?
             .block_on(async move {
-                let mut request = reqwest::Client::new()
-                    .get(&url)
-                    .header("x-auth-token", token);
+                // The token is a custom header, which reqwest would keep on any redirect.
+                let client = reqwest::Client::builder()
+                    .redirect(reqwest::redirect::Policy::none())
+                    .timeout(std::time::Duration::from_secs(30))
+                    .build()?;
+                let mut request = client.get(&url).header("x-auth-token", token);
                 // So the server counts what was sent to this machine.
                 if let Some(this) = machine_name() {
                     request = request.header("x-but-machine", this);
@@ -831,9 +861,18 @@ fn publish(
         format!("+{full}:refs/heads/{machine}/{branch}"),
         format!("+{snapshot}:refs/gitbutler/snapshots/{machine}/{name}"),
     ];
-    refspecs.extend(target.map(|target| format!("+{target}:{target}")));
     refspecs.extend(to.map(|to| format!("+{snapshot}:{}", inbox_ref(to, &machine, &name))));
     let url = format!("{}/git/{}", hosted_server(), hosted_project(&dir)?);
+    // The target is shared by every machine, so it only moves forward, and on its own: one this
+    // machine has older than the server's is turned down without failing the publish. First,
+    // as a project's first publish takes its target from the store.
+    if let Some(target) = target {
+        let refspec = format!("{target}:{target}");
+        let push = ["push", "--quiet", "--no-verify", &url, &refspec];
+        if let Err(err) = git_as_user(&dir, &push) {
+            tracing::debug!("kept the server's {target}: {err:#}");
+        }
+    }
     // No hooks: they'd run with the token in git's environment.
     let mut push = vec!["push", "--atomic", "--quiet", "--no-verify", &url];
     push.extend(refspecs.iter().map(String::as_str));
@@ -925,6 +964,37 @@ pub fn hosted_branch_pull(
         ""
     };
 
+    // What pulling replaces, so it can be had back: a commit of the worktree's files on top of
+    // the local tip, or the tip alone in the workspace, whose files the oplog snapshot keeps.
+    let kept = if what.is_empty() {
+        None
+    } else {
+        let tree = match &home {
+            LocalHome::Worktree(path) => worktree_tree(&*ctx.repo.get()?, Path::new(path))?,
+            _ => rev(&dir, &format!("{full}^{{tree}}")).context("the branch has no tree")?,
+        };
+        let message = format!("{branch} as it was before pulling from {machine}");
+        let commit = git(
+            &dir,
+            &[],
+            &["commit-tree", &tree, "-p", &full, "-m", &message],
+        )?;
+        let kept = format!("{HOSTED_REFS}/replaced/{}", published_name(&branch));
+        git(
+            &dir,
+            &[],
+            &[
+                "update-ref",
+                "--create-reflog",
+                "-m",
+                &message,
+                &kept,
+                &commit,
+            ],
+        )?;
+        Some(kept)
+    };
+
     let in_workspace = home == LocalHome::Workspace;
     let done = match home {
         LocalHome::Worktree(path) => {
@@ -935,14 +1005,34 @@ pub fn hosted_branch_pull(
             format!("Updated {branch} in {}", path.display())
         }
         _ if in_workspace || into_workspace => {
-            if in_workspace {
+            let stack = if in_workspace {
                 let stack = applied_stack(ctx, &full)?
                     .and_then(|(id, _)| id)
                     .context("the branch's stack has no id")?;
-                crate::legacy::virtual_branches::unapply_stack(ctx, stack)?;
+                Some(stack)
+            } else {
+                None
+            };
+            let mut guard = ctx.exclusive_worktree_access();
+            let perm = guard.write_permission();
+            // One undo step for the whole pull, taken before unapplying commits local changes.
+            let oplog = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+                ctx,
+                but_oplog::legacy::SnapshotDetails::new(
+                    but_oplog::legacy::OperationKind::GenericBranchUpdate,
+                )
+                .with_trailers([but_oplog::legacy::Trailer::Name(full.clone())]),
+                perm.read_permission(),
+                but_core::DryRun::No,
+            );
+            if let Some(stack) = stack {
+                crate::legacy::virtual_branches::unapply_stack_with_perm(ctx, stack, perm)?;
             }
             git(&dir, &[], &["branch", "--force", &branch, &tip])?;
-            crate::branch::apply(ctx, full.as_str().try_into()?)?;
+            crate::branch::apply_with_perm(ctx, full.as_str().try_into()?, perm)?;
+            if let Some(oplog) = oplog {
+                oplog.commit(ctx, perm).ok();
+            }
             let done = if in_workspace { "Updated" } else { "Applied" };
             format!("{done} {branch} in the workspace{stays_on_server}")
         }
@@ -965,6 +1055,10 @@ pub fn hosted_branch_pull(
             ctx.set_worktree_archived(name.as_str().into(), false)?;
             format!("Pulled {branch} into {path_str}")
         }
+    };
+    let done = match kept {
+        Some(kept) => format!("{done}; what it replaced is kept at {kept}"),
+        None => done,
     };
     git(&dir, &[], &["update-ref", &synced_ref(&branch), &snapshot])?;
     // Pulled is handled; the branch itself is here either way.
