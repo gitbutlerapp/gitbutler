@@ -24,6 +24,8 @@ export const defaultSettings = {
 	// Desktop apps keep the arrow over controls; the hand is a web convention (ui-react's design/foundations/cursors.md).
 	handCursor: false,
 	hostedBranches: false,
+	// Experimental; opt in from the Experimental settings.
+	meshSidebar: false,
 	// Pierre's own default, named here so the setting has somewhere to fall back to.
 	lineDiffType: "word-alt",
 	// Experimental; opt in from the Experimental settings.

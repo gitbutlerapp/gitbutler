@@ -55,6 +55,19 @@ export const Experimental: FC = () => {
 			</Row>
 
 			<Row
+				label="Mesh sidebar"
+				labelId="mesh-sidebar"
+				hint="Shows every project and machine in the sidebar, grouped by machine or by repo."
+			>
+				<Switch
+					size="large"
+					aria-labelledby="mesh-sidebar"
+					checked={settings.meshSidebar ?? defaultSettings.meshSidebar}
+					onCheckedChange={(meshSidebar) => saveGUISettings({ meshSidebar })}
+				/>
+			</Row>
+
+			<Row
 				label="Linked worktrees"
 				labelId="worktree-manipulation"
 				hint="Shows the repository's other worktrees in the workspace. Existing ones start out archived; bring them back under Project → Worktrees."

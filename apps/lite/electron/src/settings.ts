@@ -31,6 +31,7 @@ const guiSettingsV1 = type({
 	"graphTrunk?": "boolean",
 	"handCursor?": "boolean",
 	"hostedBranches?": "boolean",
+	"meshSidebar?": "boolean",
 	"lineDiffType?": "'word-alt' | 'word' | 'char' | 'none'",
 	"minimap?": "boolean",
 	"pathFirst?": "boolean",
