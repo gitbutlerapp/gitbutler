@@ -1036,6 +1036,7 @@ dependencies = [
  "objc2-app-kit",
  "objc2-foundation",
  "open",
+ "rustls",
  "schemars 1.2.1",
  "serde",
  "serde-error",
@@ -1044,6 +1045,7 @@ dependencies = [
  "tauri",
  "tempfile",
  "tokio",
+ "tokio-tungstenite",
  "tracing",
  "url",
  "uuid",
@@ -10642,7 +10644,11 @@ checksum = "8f72a05e828585856dacd553fba484c242c46e391fb0e58917c942ee9202915c"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
+ "rustls-native-certs",
+ "rustls-pki-types",
  "tokio",
+ "tokio-rustls",
  "tungstenite",
 ]
 
@@ -11031,6 +11037,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.9.4",
+ "rustls",
+ "rustls-pki-types",
  "sha1",
  "thiserror 2.0.18",
 ]

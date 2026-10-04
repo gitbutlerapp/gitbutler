@@ -1,7 +1,11 @@
 //! The `/events` WebSocket: browsers follow publishes with the same watcher events a desktop
 //! host gets from its file watcher.
 
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Arc, Mutex, PoisonError},
+    time::Duration,
+};
 
 use axum::{
     extract::{
@@ -14,7 +18,7 @@ use axum::{
 use but_api::watcher::{WatcherGitActivityPayload, WatcherPayload};
 use tokio::sync::broadcast;
 
-use super::{HostedConfig, UserId, existing_store};
+use super::{HostedConfig, UserId, existing_store, is_name};
 
 /// What reaches every `/events` socket, for each to pick out its own.
 #[derive(Clone)]
@@ -33,6 +37,98 @@ pub(super) enum ProjectEvent {
 
 /// The channel of the event saying a user's set of projects may have changed.
 const PROJECTS_CHANNEL: &str = "projectsChanged";
+
+/// The channel of the event listing a user's connected machines.
+const PRESENCE_CHANNEL: &str = "presence";
+
+/// Each user's connected machines, by host name, with how many sockets each holds. In memory:
+/// after a restart, machines are online again as soon as they reconnect.
+pub(super) type Presence = Arc<Mutex<HashMap<UserId, HashMap<String, usize>>>>;
+
+/// The `presence` event for `user`: their connected machines, sorted.
+fn presence_message(presence: &Presence, user: UserId) -> String {
+    let presence = presence.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut online: Vec<&String> = presence
+        .get(&user)
+        .into_iter()
+        .flatten()
+        .map(|(m, _)| m)
+        .collect();
+    online.sort();
+    serde_json::json!({ "channel": PRESENCE_CHANNEL, "payload": { "online": online } }).to_string()
+}
+
+/// A machine's socket, counted online until it's dropped. Every socket of the user hears when
+/// a machine comes or goes.
+struct Online {
+    presence: Presence,
+    events: broadcast::Sender<ProjectEvent>,
+    user: UserId,
+    machine: String,
+}
+
+impl Online {
+    fn join(
+        presence: Presence,
+        events: broadcast::Sender<ProjectEvent>,
+        user: UserId,
+        machine: String,
+    ) -> Self {
+        let came = {
+            let mut all = presence.lock().unwrap_or_else(PoisonError::into_inner);
+            let count = all
+                .entry(user)
+                .or_default()
+                .entry(machine.clone())
+                .or_default();
+            *count += 1;
+            *count == 1
+        };
+        let online = Online {
+            presence,
+            events,
+            user,
+            machine,
+        };
+        if came {
+            online.announce();
+        }
+        online
+    }
+
+    fn announce(&self) {
+        let message = presence_message(&self.presence, self.user);
+        self.events
+            .send(ProjectEvent::Changed {
+                user: self.user,
+                project_id: None,
+                message,
+            })
+            .ok();
+    }
+}
+
+impl Drop for Online {
+    fn drop(&mut self) {
+        let went = {
+            let mut all = self.presence.lock().unwrap_or_else(PoisonError::into_inner);
+            let machines = all.entry(self.user).or_default();
+            let count = machines.entry(self.machine.clone()).or_default();
+            *count = count.saturating_sub(1);
+            let went = *count == 0;
+            if went {
+                machines.remove(&self.machine);
+            }
+            if machines.is_empty() {
+                all.remove(&self.user);
+            }
+            went
+        };
+        if went {
+            self.announce();
+        }
+    }
+}
 
 /// An event on the `/events` socket: the watcher event Lite's desktop host emits, on the channel
 /// the web transport listens to.
@@ -111,6 +207,7 @@ pub(super) fn same_origin(headers: &HeaderMap) -> bool {
 pub(super) async fn events(
     State(config): State<Arc<HostedConfig>>,
     State(events): State<broadcast::Sender<ProjectEvent>>,
+    State(presence): State<Presence>,
     Extension(user): Extension<UserId>,
     headers: HeaderMap,
     ws: WebSocketUpgrade,
@@ -121,9 +218,19 @@ pub(super) async fn events(
         return StatusCode::FORBIDDEN.into_response();
     }
     let session = super::session_id(&headers).map(ToOwned::to_owned);
+    // Machines name themselves, as on git requests; browsers don't, and only watch.
+    let machine = headers
+        .get("x-but-machine")
+        .and_then(|value| value.to_str().ok())
+        .filter(|machine| is_name(machine))
+        .map(ToOwned::to_owned);
     let receiver = events.subscribe();
     ws.max_message_size(MAX_EVENTS_MESSAGE_SIZE)
-        .on_upgrade(move |socket| forward_events(socket, receiver, config, user, session))
+        .on_upgrade(move |socket| async move {
+            let _online =
+                machine.map(|machine| Online::join(presence.clone(), events, user, machine));
+            forward_events(socket, receiver, config, user, session, presence).await;
+        })
 }
 
 /// Subscriptions belong to the socket, so they end with it, as a desktop window's do. A socket
@@ -135,7 +242,16 @@ async fn forward_events(
     user: UserId,
     // The browser session it was opened in, whose end closes it; clients with a token have none.
     session: Option<String>,
+    presence: Presence,
 ) {
+    // Who's online now; changes arrive as events.
+    if socket
+        .send(Message::Text(presence_message(&presence, user).into()))
+        .await
+        .is_err()
+    {
+        return;
+    }
     let mut subscriptions = HashSet::new();
     let mut heartbeat = tokio::time::interval(EVENTS_HEARTBEAT_INTERVAL);
     // An interval ticks at once; the first heartbeat is due one interval after connecting.

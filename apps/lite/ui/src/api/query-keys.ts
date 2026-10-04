@@ -34,6 +34,7 @@ type LocalQueryKey =
 	| "branchChecklist"
 	| "branchIntegration"
 	| "commitMessageDraft"
+	| "hostedPresence"
 	| "prMergeMethod"
 	| "prDraft"
 	| "projectAiSettings"

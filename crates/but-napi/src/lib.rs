@@ -26,8 +26,8 @@ use but_api::{
     self as _,
     watcher::{
         WatcherExternalInvalidationPayload, WatcherGitActivityPayload, WatcherGitFetchPayload,
-        WatcherGitHeadPayload, WatcherPayload, WatcherWorkspaceActivityPayload,
-        WatcherWorktreeChangesPayload,
+        WatcherGitHeadPayload, WatcherHostedPresencePayload, WatcherPayload,
+        WatcherWorkspaceActivityPayload, WatcherWorktreeChangesPayload,
     },
 };
 
@@ -389,6 +389,58 @@ fn start_project_watcher(
         app_settings,
         watch_mode,
     )
+}
+
+/// A live connection to the hosted server, held while this is.
+#[napi]
+pub struct HostedListenerHandle {
+    listener: Option<but_api::hosted::HostedListener>,
+}
+
+#[napi]
+impl HostedListenerHandle {
+    /// Disconnect, if still connected.
+    #[napi]
+    pub fn stop(&mut self) -> bool {
+        self.listener.take().is_some()
+    }
+}
+
+/// Connect to the hosted server for `project_id`, and forward what it says to `callback` as
+/// watcher events: an `externalInvalidation` of hosted data when something was published,
+/// and `hostedPresence` when the account's other machines come or go. Holding the
+/// connection is what makes this machine online.
+#[napi]
+pub fn hosted_listen(
+    project_id: String,
+    callback: ThreadsafeFunction<WatcherEvent>,
+) -> napi::Result<HostedListenerHandle> {
+    let parsed: ProjectHandleOrLegacyProjectId = project_id
+        .parse()
+        .map_err(|err| napi::Error::from_reason(format!("invalid project id: {err}")))?;
+    let ctx = open_prepared_context(&parsed).map_err(to_napi_err)?;
+    let dir = ctx.workdir_or_fail().map_err(to_napi_err)?;
+    let listener = but_api::hosted::listen(&dir, move |event| {
+        let payload = match event {
+            but_api::hosted::HostedEvent::Published => {
+                WatcherPayload::ExternalInvalidation(WatcherExternalInvalidationPayload {
+                    tags: vec![but_api::tags::CacheTag::Hosted.name().to_owned()],
+                })
+            }
+            but_api::hosted::HostedEvent::Online(online) => {
+                WatcherPayload::HostedPresence(WatcherHostedPresencePayload { online })
+            }
+        };
+        let event = WatcherEvent {
+            name: format!("project://{project_id}/hosted"),
+            payload: serde_json::json!(payload),
+        };
+        callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
+    })
+    .map_err(to_napi_err)?;
+    Ok(HostedListenerHandle {
+        listener: Some(listener),
+    })
 }
 
 /// Start a project watcher and forward events to `callback`.

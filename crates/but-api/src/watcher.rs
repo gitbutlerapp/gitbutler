@@ -26,6 +26,8 @@ pub enum WatcherPayload {
     /// Another process's mutation declared cache tags stale — see
     /// [`crate::tags::signal_invalidation`].
     ExternalInvalidation(WatcherExternalInvalidationPayload),
+    /// Which of the account's other machines are connected to the hosted server.
+    HostedPresence(WatcherHostedPresencePayload),
 }
 
 #[cfg(feature = "export-schema")]
@@ -49,6 +51,8 @@ pub enum WatcherEventKind {
     WorkspaceActivity,
     /// See [`WatcherPayload::ExternalInvalidation`].
     ExternalInvalidation,
+    /// See [`WatcherPayload::HostedPresence`].
+    HostedPresence,
 }
 
 impl WatcherEventKind {
@@ -60,6 +64,7 @@ impl WatcherEventKind {
         WatcherEventKind::WorktreeChanges,
         WatcherEventKind::WorkspaceActivity,
         WatcherEventKind::ExternalInvalidation,
+        WatcherEventKind::HostedPresence,
     ];
 
     /// The event's name as clients see it, matching the payload's serde tag.
@@ -71,6 +76,7 @@ impl WatcherEventKind {
             WatcherEventKind::WorktreeChanges => "worktreeChanges",
             WatcherEventKind::WorkspaceActivity => "workspaceActivity",
             WatcherEventKind::ExternalInvalidation => "externalInvalidation",
+            WatcherEventKind::HostedPresence => "hostedPresence",
         }
     }
 
@@ -103,6 +109,8 @@ impl WatcherEventKind {
             }
             // The tags ride in the payload; the table cannot know them.
             WatcherEventKind::ExternalInvalidation => &[],
+            // The payload is the whole answer; nothing is re-read.
+            WatcherEventKind::HostedPresence => &[],
         }
     }
 }
@@ -162,6 +170,18 @@ pub struct WatcherExternalInvalidationPayload {
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WatcherExternalInvalidationPayload);
+
+/// Which of the account's other machines are connected to the hosted server.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherHostedPresencePayload {
+    /// Their host names, this machine left out.
+    pub online: Vec<String>,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(WatcherHostedPresencePayload);
 
 /// Worktree files changes.
 #[derive(Debug, Clone, Serialize)]

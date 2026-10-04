@@ -21,6 +21,9 @@ use but_api_macros::but_api;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+mod listen;
+pub use listen::{HostedEvent, HostedListener, listen};
+
 /// Where fetched branches and snapshots of published branches are kept.
 const HOSTED_REFS: &str = "refs/gitbutler/hosted";
 
@@ -99,13 +102,7 @@ fn git(dir: &Path, env: &[(&str, &std::ffi::OsStr)], args: &[&str]) -> Result<St
 /// Run git in `dir` against the hosted server, as the signed-in GitButler user. The token goes in
 /// through git's environment, which other processes can't read as they can its arguments.
 fn git_as_user(dir: &Path, args: &[&str]) -> Result<String> {
-    let user = gitbutler_user::get_user()?.context(
-        "Sign in to GitButler first: the hosted server shows each account its own branches",
-    )?;
-    let token = user
-        .access_token()
-        .context("Sign in to GitButler again: this account's access token is missing")?;
-    let header = std::ffi::OsString::from(format!("X-Auth-Token: {}", *token));
+    let header = std::ffi::OsString::from(format!("X-Auth-Token: {}", access_token()?));
     let env = [
         ("GIT_CONFIG_COUNT", "1".as_ref()),
         ("GIT_CONFIG_KEY_0", "http.extraHeader".as_ref()),
@@ -114,6 +111,17 @@ fn git_as_user(dir: &Path, args: &[&str]) -> Result<String> {
         ("GIT_TERMINAL_PROMPT", "0".as_ref()),
     ];
     git(dir, &env, args)
+}
+
+/// The signed-in GitButler account's access token, which the hosted server knows it by.
+fn access_token() -> Result<String> {
+    let user = gitbutler_user::get_user()?.context(
+        "Sign in to GitButler first: the hosted server shows each account its own branches",
+    )?;
+    let token = user
+        .access_token()
+        .context("Sign in to GitButler again: this account's access token is missing")?;
+    Ok(token.0)
 }
 
 /// Whether `ancestor` is reachable from `descendant`, including being the same commit.

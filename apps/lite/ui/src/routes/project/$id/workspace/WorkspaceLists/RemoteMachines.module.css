@@ -14,3 +14,27 @@
 .card {
 	padding-inline-end: 8px;
 }
+
+.presence {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	margin-inline-end: 6px;
+	border-radius: 50%;
+	background-color: var(--text-3);
+	vertical-align: middle;
+}
+
+.online {
+	background-color: var(--fill-safe-bg);
+}
+
+/* Read out, as the dot is only seen. */
+.hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}

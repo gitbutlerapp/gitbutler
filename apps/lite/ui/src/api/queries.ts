@@ -241,6 +241,16 @@ export const hostedMachinesQueryOptions = (projectId: string) =>
 		...hostedPoll,
 	});
 
+/**
+ * The account's other machines connected to the hosted server. Only events write it, as
+ * they come and go; until the first one, nobody is known to be online.
+ */
+export const hostedPresenceQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: [projectId, "hostedPresence"],
+		queryFn: (): Array<string> => [],
+	});
+
 export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "workspaceTargetCommits"],

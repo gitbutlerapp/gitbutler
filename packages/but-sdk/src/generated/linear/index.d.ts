@@ -947,7 +947,7 @@ export declare function headInfo(projectId: string): Promise<RefInfo>
 /**
  * Fetch from the hosted server and list the branches published for this project.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:335}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:343}
  */
 export declare function hostedBranches(projectId: string): Promise<Array<HostedBranch>>
 
@@ -962,7 +962,7 @@ export declare function hostedBranches(projectId: string): Promise<Array<HostedB
  * If the server's branch has commits this one doesn't, publishing would replace them: without
  * `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:478}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:486}
  */
 export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
@@ -976,7 +976,7 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * If the local branch has commits of its own, or its worktree has uncommitted changes,
  * pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:584}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:592}
  */
 export declare function hostedBranchPull(projectId: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
@@ -984,7 +984,7 @@ export declare function hostedBranchPull(projectId: string, branch: string, into
  * Fetch from the hosted server and list the other machines that published to this project,
  * most recent first, with what each last sent.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:397}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:405}
  */
 export declare function hostedMachines(projectId: string): Promise<Array<HostedMachine>>
 
@@ -1823,6 +1823,12 @@ export declare function worktreeSetArchived(projectId: string, name: string, arc
  * {@link ../../../../../crates/but-api/src/worktrees.rs:126}
  */
 export declare function worktreesList(projectId: string): Promise<WorktreeListing>
+/** A live connection to the hosted server, held while this is. */
+export declare class HostedListenerHandle {
+  /** Disconnect, if still connected. */
+  stop(): boolean
+}
+
 export declare class WatcherHandle {
   /** Stop the underlying watcher if it is still active. */
   stop(): boolean
@@ -1876,6 +1882,14 @@ export const HORIZ_PARENT: number
 
 /** Any horizontal link line. */
 export const HORIZONTAL: number
+
+/**
+ * Connect to the hosted server for `project_id`, and forward what it says to `callback` as
+ * watcher events: an `externalInvalidation` of hosted data when something was published,
+ * and `hostedPresence` when the account's other machines come or go. Holding the
+ * connection is what makes this machine online.
+ */
+export declare function hostedListen(projectId: string, callback: ((err: Error | null, arg: WatcherEvent) => any)): HostedListenerHandle
 
 /**
  * Initialize tracing for the process, writing daily-rotated `GitButler.<date>.log`
@@ -4883,6 +4897,12 @@ export type WatcherGitHeadPayload = {
   operatingMode: OperatingMode;
 };
 
+/** Which of the account's other machines are connected to the hosted server. */
+export type WatcherHostedPresencePayload = {
+  /** Their host names, this machine left out. */
+  online: Array<string>;
+};
+
 /** The type of payloads a watcher event can have */
 export type WatcherPayload = {
   type: "gitFetch";
@@ -4902,6 +4922,9 @@ export type WatcherPayload = {
 } | {
   type: "externalInvalidation";
   subject: WatcherExternalInvalidationPayload;
+} | {
+  type: "hostedPresence";
+  subject: WatcherHostedPresencePayload;
 };
 
 /** Workspace activity that requires the UI to re-read branch/stack state. */

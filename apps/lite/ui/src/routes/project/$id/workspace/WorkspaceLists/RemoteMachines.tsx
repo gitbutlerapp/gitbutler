@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type FC, useId } from "react";
 import type { Commit, HostedMachine, MachineBranch } from "@gitbutler/but-sdk";
 import { commitAddress } from "#ui/addresses.ts";
-import { hostedMachinesQueryOptions } from "#ui/api/queries.ts";
+import { hostedMachinesQueryOptions, hostedPresenceQueryOptions } from "#ui/api/queries.ts";
 import { useHostedBranchPull } from "#ui/api/mutations.ts";
 import { commitBody, commitTitle } from "#ui/commit.ts";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
@@ -19,12 +19,22 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { setCursor } from "#ui/use-cursor.ts";
 import { Toolbar } from "@base-ui/react";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import { BranchRowHeadline } from "../BranchRowHeadline.tsx";
 import { CommitRowContent } from "../CommitRowContent.tsx";
-import { Row, RowLabelGroup, RowMeta, RowToolbar, SectionHeaderRow } from "../Row.tsx";
+import {
+	Row,
+	RowLabel,
+	RowLabelContainer,
+	RowLabelGroup,
+	RowMeta,
+	RowToolbar,
+	SectionHeaderRow,
+} from "../Row.tsx";
+import rowStyles from "../Row.module.css";
 import { getRowButtonClassName, useIsSelected } from "../Row-utils.ts";
 import { StackCard } from "../StackCard.tsx";
 import { machineFoldKey } from "./fold.ts";
@@ -33,19 +43,36 @@ import styles from "./RemoteMachines.module.css";
 
 /** Your other machines that published to the hosted server, below this machine's workspace. */
 export const RemoteMachines: FC<{ projectId: string }> = ({ projectId }) => {
-	const { data: machines } = useQuery(hostedMachinesQueryOptions(projectId));
-	if (machines === undefined || machines.length === 0) return null;
+	const { data: published = [] } = useQuery(hostedMachinesQueryOptions(projectId));
+	const { data: online = [] } = useQuery(hostedPresenceQueryOptions(projectId));
+	// A machine that's online is listed whether or not it published anything yet.
+	const machines: Array<HostedMachine> = [
+		...published,
+		...online
+			.filter((name) => !published.some((machine) => machine.name === name))
+			.map((name) => ({ name, publishedAt: 0, branches: [] })),
+	];
+	if (machines.length === 0) return null;
 
 	return (
 		<div className={styles.machines}>
 			{machines.map((machine) => (
-				<Machine key={machine.name} projectId={projectId} machine={machine} />
+				<Machine
+					key={machine.name}
+					projectId={projectId}
+					machine={machine}
+					online={online.includes(machine.name)}
+				/>
 			))}
 		</div>
 	);
 };
 
-const Machine: FC<{ projectId: string; machine: HostedMachine }> = ({ projectId, machine }) => {
+const Machine: FC<{ projectId: string; machine: HostedMachine; online: boolean }> = ({
+	projectId,
+	machine,
+	online,
+}) => {
 	const dispatch = useAppDispatch();
 	// Beside the workspace's folds, so the address space leaves a folded machine's commits out.
 	const folded = useAppSelector(
@@ -58,7 +85,13 @@ const Machine: FC<{ projectId: string; machine: HostedMachine }> = ({ projectId,
 	return (
 		<>
 			<SectionHeaderRow
-				label={machine.name}
+				label={
+					<>
+						<span aria-hidden className={classes(styles.presence, online && styles.online)} />
+						{machine.name}
+						<span className={styles.hidden}>{online ? ", online" : ", offline"}</span>
+					</>
+				}
 				className={styles.header}
 				leading={
 					<button
@@ -79,14 +112,24 @@ const Machine: FC<{ projectId: string; machine: HostedMachine }> = ({ projectId,
 					</button>
 				}
 				actions={
-					<span className={styles.when}>
-						<RelativeTime timestamp={machine.publishedAt} compact />
-					</span>
+					machine.publishedAt > 0 && (
+						<span className={styles.when}>
+							<RelativeTime timestamp={machine.publishedAt} compact />
+						</span>
+					)
 				}
 			/>
 			{!folded &&
-				machine.branches.map((branch) => (
-					<RemoteBranch key={branch.branch} projectId={projectId} branch={branch} />
+				(machine.branches.length === 0 ? (
+					<Row interactive={false}>
+						<RowLabelContainer>
+							<RowLabel className={rowStyles.fadedText}>Nothing published yet</RowLabel>
+						</RowLabelContainer>
+					</Row>
+				) : (
+					machine.branches.map((branch) => (
+						<RemoteBranch key={branch.branch} projectId={projectId} branch={branch} />
+					))
 				))}
 		</>
 	);

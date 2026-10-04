@@ -37,7 +37,7 @@ use tower_http::{
 use crate::cmd_result_to_json;
 
 mod events;
-use events::{EVENTS_BUFFER, ProjectEvent};
+use events::{EVENTS_BUFFER, Presence, ProjectEvent};
 
 /// Configuration for the hosted server.
 #[derive(Debug)]
@@ -56,7 +56,7 @@ pub struct HostedConfig {
 }
 
 /// The GitButler account a request is made as.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct UserId(u64);
 
 impl UserId {
@@ -75,6 +75,7 @@ const SESSION_COOKIE: &str = "but_hosted_session";
 struct HostedState {
     config: Arc<HostedConfig>,
     events: broadcast::Sender<ProjectEvent>,
+    presence: Presence,
     sessions: Sessions,
     /// Held while a store is created, and for a push and its registration: pushes share their
     /// target ref and the store's config, so concurrent ones would reject each other.
@@ -85,6 +86,12 @@ struct HostedState {
 impl FromRef<HostedState> for Arc<HostedConfig> {
     fn from_ref(state: &HostedState) -> Self {
         state.config.clone()
+    }
+}
+
+impl FromRef<HostedState> for Presence {
+    fn from_ref(state: &HostedState) -> Self {
+        state.presence.clone()
     }
 }
 
@@ -127,6 +134,7 @@ pub fn router(config: HostedConfig) -> Router {
     let state = HostedState {
         config: config.clone(),
         events: broadcast::channel(EVENTS_BUFFER).0,
+        presence: Presence::default(),
         sessions: Sessions::default(),
         writing: Arc::default(),
         http: reqwest::Client::new(),

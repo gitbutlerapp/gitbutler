@@ -79,6 +79,8 @@ legacy = [
     "dep:gitbutler-oplog",
     "dep:but-action",
     "dep:but-gerrit",
+    "dep:tokio-tungstenite",
+    "dep:rustls",
 ]
 
 [dependencies]
@@ -140,6 +142,10 @@ bstr = { workspace = true }
 schemars.workspace = true
 serde.workspace = true
 futures.workspace = true
+# The hosted server's live connection, see `hosted::listen`.
+tokio-tungstenite = { version = "0.29.0", features = ["rustls-tls-native-roots"], optional = true }
+# Only to pick its crypto provider: the build has two, and rustls won't guess.
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"], optional = true }
 tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
 chrono.workspace = true

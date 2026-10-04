@@ -9,7 +9,7 @@
  */
 
 import { projectQueryKeys, type ProjectQueryKey } from "#ui/api/query-keys.ts";
-import { getReviewQueryOptions } from "#ui/api/queries.ts";
+import { getReviewQueryOptions, hostedPresenceQueryOptions } from "#ui/api/queries.ts";
 import { recordedPullRequest } from "#ui/api/ref-info.ts";
 import { invalidateTags, providedTag } from "#ui/api/tags.ts";
 import type { ForgeReview, WatcherEvent } from "@gitbutler/but-sdk";
@@ -123,6 +123,9 @@ export const handleProjectEvent = (
 
 	if (payload.type === "gitHead")
 		client.setQueryData([projectId, "operatingMode"], () => payload.subject);
+
+	if (payload.type === "hostedPresence")
+		client.setQueryData(hostedPresenceQueryOptions(projectId).queryKey, payload.subject.online);
 
 	for (const query of invalidateOn.get(payload.type) ?? []) {
 		void client.invalidateQueries({
