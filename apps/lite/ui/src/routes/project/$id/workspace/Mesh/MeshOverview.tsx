@@ -102,7 +102,8 @@ const MachineOverview: FC<{ machine: string; projectId: string }> = ({ machine, 
 			</header>
 			<Section heading={found.isThisMachine ? "Repositories" : "Published"}>
 				{found.checkouts.map((checkout) => {
-					const branches = checkout.branches.length + checkout.worktrees.length;
+					const branches =
+						checkout.branches.length + checkout.worktrees.length || (checkout.branchCount ?? 0);
 					return (
 						<Item
 							key={checkout.projectId}

@@ -81,6 +81,7 @@ legacy = [
     "dep:but-gerrit",
     "dep:tokio-tungstenite",
     "dep:rustls",
+    "dep:reqwest",
 ]
 
 [dependencies]
@@ -144,6 +145,7 @@ serde.workspace = true
 futures.workspace = true
 # The hosted server's live connection, see `hosted::listen`.
 tokio-tungstenite = { version = "0.29.0", features = ["rustls-tls-native-roots"], optional = true }
+reqwest = { workspace = true, optional = true }
 # Only to pick its crypto provider: the build has two, and rustls won't guess.
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"], optional = true }
 tokio = { workspace = true, features = ["full"] }

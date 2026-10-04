@@ -137,6 +137,7 @@ pub fn router(config: HostedConfig) -> Router {
         .route("/get_app_settings", post(app_settings))
         .route("/events", get(events::events))
         .route("/session", get(|| async { StatusCode::NO_CONTENT }))
+        .route("/machines", get(machines))
         .route_layer(middleware::from_fn_with_state(state.clone(), require_user))
         .route("/sign-in", get(sign_in_page).post(sign_in))
         .route("/sign-in/gitbutler", get(gitbutler_sign_in))
@@ -594,6 +595,75 @@ async fn app_settings() -> Json<serde_json::Value> {
     })())
 }
 
+/// What a user's machines published, across all of their projects: what a client needs to list
+/// machines and repos without fetching each project.
+async fn machines(
+    State(config): State<Arc<HostedConfig>>,
+    Extension(user): Extension<UserId>,
+) -> Response {
+    match published_machines(&user.dir(&config)) {
+        Ok(projects) => Json(projects).into_response(),
+        Err(err) => {
+            tracing::warn!("listing machines failed: {err:#}");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+/// Per project with publishes in `dir`: its root commit, name, and each machine's latest publish
+/// and branch count, most recent first.
+fn published_machines(dir: &Path) -> anyhow::Result<serde_json::Value> {
+    let mut projects = Vec::new();
+    for entry in std::fs::read_dir(dir.join("store"))
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        let store = entry.path();
+        let Ok(title) = git(&store, &["config", "gitbutler.title"]) else {
+            continue;
+        };
+        let root = entry
+            .file_name()
+            .to_string_lossy()
+            .trim_end_matches(".git")
+            .to_owned();
+        let refs = git(
+            &store,
+            &[
+                "for-each-ref",
+                "--format=%(refname) %(committerdate:unix)",
+                SNAPSHOTS,
+            ],
+        )?;
+        // Machine name to its latest publish, in seconds, and how many branches it published.
+        let mut machines = std::collections::BTreeMap::<String, (i64, usize)>::new();
+        for line in refs.lines() {
+            let Some((name, time)) = line.split_once(' ') else {
+                continue;
+            };
+            let Some((machine, _)) = name.trim_start_matches(SNAPSHOTS).split_once('/') else {
+                continue;
+            };
+            let entry = machines.entry(machine.to_owned()).or_default();
+            entry.0 = entry.0.max(time.parse().unwrap_or_default());
+            entry.1 += 1;
+        }
+        let mut machines: Vec<_> = machines.into_iter().collect();
+        machines.sort_by_key(|(_, (at, _))| std::cmp::Reverse(*at));
+        projects.push(serde_json::json!({
+            "root": root,
+            "title": title,
+            "machines": machines.into_iter().map(|(name, (at, branches))| serde_json::json!({
+                "name": name,
+                "publishedAt": at * 1000,
+                "branches": branches,
+            })).collect::<Vec<_>>(),
+        }));
+    }
+    Ok(projects.into())
+}
+
 /// Every project published to a user's `dir`, as the project list Lite shows.
 fn published_projects(dir: &Path) -> anyhow::Result<serde_json::Value> {
     let mut projects = Vec::new();
@@ -645,7 +715,8 @@ async fn sdk_endpoint(
     // rather than a user's.
     let not_for_users = matches!(
         endpoint.as_str(),
-        "workspaceFetchFromRemotes" | "getAiConfiguration"
+        // `hostedAccount` asks a hub; this is one.
+        "workspaceFetchFromRemotes" | "getAiConfiguration" | "hostedAccount"
     );
     let is_read = undeclared_read
         || !not_for_users

@@ -7,10 +7,12 @@ import {
 	hostedPresenceQueryOptions,
 	listProjectsQueryOptions,
 	worktreeChangesQueryOptions,
+	hostedAccountQueryOptions,
 } from "#ui/api/queries.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import type {
 	Commit,
+	HostedAccountProject,
 	HostedMachine,
 	ProjectForFrontend,
 	RefInfo,
@@ -47,6 +49,10 @@ export type MeshCheckout = {
 	online: boolean;
 	/** Files changed in this machine's checkout; another machine's aren't known. */
 	uncommittedFiles: number;
+	/** How many branches another machine published, known before they're loaded. */
+	branchCount: number | null;
+	/** Published by another machine to a repo this machine has no checkout of. */
+	remoteOnly: boolean;
 	/** In the workspace, or published by another machine. */
 	branches: Array<MeshBranch>;
 	/** This machine's linked worktrees, each with its own branch and files. */
@@ -116,6 +122,11 @@ const localBranches = (segments: Array<Segment>, worktree?: string): Array<MeshB
 				],
 	);
 
+/** Stands in for a project id where this machine has no checkout, so the repo has no project. */
+const remoteOnlyId = (root: string) => `hub:${root}`;
+
+export const isRemoteOnlyId = (projectId: string) => projectId.startsWith("hub:");
+
 /** Where `worktreeFiles` keeps a worktree's files. */
 const filesKey = (projectId: string, worktree: string) => `${projectId}\0${worktree}`;
 
@@ -126,12 +137,18 @@ const buildTree = (
 	hosted: Array<UseQueryResult<Array<HostedMachine>>>,
 	presence: Array<UseQueryResult<Array<string>>>,
 	worktreeFiles: ReadonlyMap<string, Array<string>>,
+	account: Array<HostedAccountProject>,
 ): MeshTree => {
 	// A hosted page runs on no machine: its projects are the server's copies of what machines sent.
 	const onServer = window.lite.hosted === true;
 	// Presence is the account's, so any project's listener tells it.
 	const online = new Set(presence.flatMap((result) => result.data ?? []));
 	const checkouts: Array<MeshCheckout> = [];
+	const accountByProject = new Map(
+		account.flatMap((entry) =>
+			(entry.projectIds ?? []).map((projectId) => [projectId, entry] as const),
+		),
+	);
 	// Repos of the same name read by their parent directory too, e.g. `work/api` and `forks/api`.
 	const titleCount = Map.groupBy(projects, (project) => project.title);
 	const repoName = (project: ProjectForFrontend) =>
@@ -155,6 +172,8 @@ const buildTree = (
 				isThisMachine: true,
 				online: true,
 				uncommittedFiles: changes[i]?.data?.changes.length ?? 0,
+				branchCount: null,
+				remoteOnly: false,
 				branches,
 				worktrees,
 				at: newest(
@@ -164,7 +183,25 @@ const buildTree = (
 				),
 			});
 		}
-		for (const machine of hosted[i]?.data ?? []) {
+		// Branches once loaded; until then, what the account listing says each machine published.
+		const loaded = hosted[i]?.data;
+		const listed = accountByProject.get(project.id)?.machines ?? [];
+		for (const summary of loaded === undefined ? listed : []) {
+			checkouts.push({
+				projectId: project.id,
+				repo: repoName(project),
+				machine: summary.name,
+				isThisMachine: false,
+				online: online.has(summary.name),
+				uncommittedFiles: 0,
+				branchCount: summary.branches,
+				remoteOnly: false,
+				branches: [],
+				worktrees: [],
+				at: summary.publishedAt,
+			});
+		}
+		for (const machine of loaded ?? []) {
 			checkouts.push({
 				projectId: project.id,
 				repo: repoName(project),
@@ -172,6 +209,8 @@ const buildTree = (
 				isThisMachine: false,
 				online: online.has(machine.name),
 				uncommittedFiles: 0,
+				branchCount: machine.branches.length,
+				remoteOnly: false,
 				branches: machine.branches.map((branch) => ({
 					name: branch.branch,
 					ref: hostedBranchRef(machine.name, branch.branch),
@@ -185,6 +224,25 @@ const buildTree = (
 			});
 		}
 	});
+
+	for (const entry of account) {
+		if ((entry.projectIds ?? []).length > 0) continue;
+		for (const summary of entry.machines) {
+			checkouts.push({
+				projectId: remoteOnlyId(entry.root),
+				repo: entry.title,
+				machine: summary.name,
+				isThisMachine: false,
+				online: online.has(summary.name),
+				uncommittedFiles: 0,
+				branchCount: summary.branches,
+				remoteOnly: true,
+				branches: [],
+				worktrees: [],
+				at: summary.publishedAt,
+			});
+		}
+	}
 
 	const byMachine = Map.groupBy(checkouts, (checkout) => checkout.machine);
 	// A machine that's online is listed whether or not it published anything yet.
@@ -228,18 +286,31 @@ export const useMeshTree = ({
 	unfolded: Record<string, true>;
 }): MeshTree => {
 	const { data: projects = [] } = useQuery(listProjectsQueryOptions);
+	const local = window.lite.hosted !== true;
 	const { data: hostedEnabled } = useQuery({
 		...guiSettingsQueryOptions,
 		// As the workspace's remote machines: the hosted page shows them whatever the setting says.
 		select: (settings) =>
 			window.lite.hosted === true || (settings.hostedBranches ?? defaultSettings.hostedBranches),
 	});
-	const local = window.lite.hosted !== true;
 	// Grouped by repo, an unfolded repo may show this machine's branches without a row of its own.
 	const localUnfolded = (projectId: string) =>
 		unfolded[checkoutKey(THIS_MACHINE, projectId)] === true ||
 		(grouping === "repos" && unfolded[repoKey(projectId)] === true);
 
+	// The hosted page's projects are the server's own, where each listing is cheap; a machine asks
+	// the server once for everything, and a project only for a repo unfolded under a machine.
+	const { data: account = [] } = useQuery({
+		...hostedAccountQueryOptions,
+		enabled: hostedEnabled === true && local,
+	});
+	const remoteUnfolded = (projectId: string) =>
+		Object.keys(unfolded).some(
+			(key) =>
+				key.startsWith("checkout:") &&
+				key.endsWith(`:${projectId}`) &&
+				!key.startsWith(checkoutKey(THIS_MACHINE, "")),
+		);
 	// An unfolded worktree's files; its key names the project and worktree, so no head is needed.
 	const worktreesUnfolded = projects.flatMap((project) => {
 		const prefix = worktreeKey(checkoutKey(THIS_MACHINE, project.id), "");
@@ -262,7 +333,9 @@ export const useMeshTree = ({
 				...hostedMachinesQueryOptions(project.id),
 				enabled:
 					hostedEnabled === true &&
-					(grouping === "machines" || unfolded[repoKey(project.id)] === true),
+					(local
+						? unfolded[repoKey(project.id)] === true || remoteUnfolded(project.id)
+						: grouping === "machines" || unfolded[repoKey(project.id)] === true),
 			})),
 			...projects.map((project) => hostedPresenceQueryOptions(project.id)),
 			...worktreesUnfolded.map(({ projectId, worktree }) => ({
@@ -286,6 +359,7 @@ export const useMeshTree = ({
 						) ?? [],
 					]),
 				),
+				account,
 			);
 		},
 	});

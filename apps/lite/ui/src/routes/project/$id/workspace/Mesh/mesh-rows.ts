@@ -220,7 +220,8 @@ export const buildMeshRows = ({
 		const shown = inOrder(checkouts, keyOf);
 		shown.forEach((checkout, index) => {
 			const key = keyOf(checkout);
-			const folded = isFolded(key);
+			// A repo with no checkout here has nothing to load, so nothing to unfold.
+			const folded = checkout.remoteOnly ? undefined : isFolded(key);
 			rows.push({
 				_tag: "Checkout",
 				key,
@@ -232,7 +233,7 @@ export const buildMeshRows = ({
 				checkout,
 				name: name(checkout),
 			});
-			if (!folded) pushContents(checkout, key, 2);
+			if (folded === false) pushContents(checkout, key, 2);
 		});
 	};
 

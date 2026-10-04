@@ -84,6 +84,7 @@ export const apiParamNames = {
 	gitTestFetch: ["projectId", "remoteName", "action"],
 	gitTestPush: ["projectId", "remoteName", "branchName"],
 	headInfo: ["projectId"],
+	hostedAccount: [],
 	hostedBranchDismiss: ["projectId", "machine", "branch"],
 	hostedBranchPublish: ["projectId", "branch", "includeUncommitted"],
 	hostedBranchPull: ["projectId", "machine", "branch", "intoWorkspace", "onConflict"],

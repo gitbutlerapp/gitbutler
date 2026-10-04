@@ -945,9 +945,18 @@ export declare function gitTestPush(projectId: string, remoteName: string, branc
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
 /**
+ * Everything the account's other machines published, across all projects, in one request to
+ * the hosted server; no project is fetched. Local projects are matched to what was published by
+ * root commit, and one whose directory is gone is left out rather than failing the call.
+ *
+ * {@link ../../../../../crates/but-api/src/hosted.rs:398}
+ */
+export declare function hostedAccount(): Promise<Array<HostedAccountProject>>
+
+/**
  * Take what `machine` sent of `branch` out of this machine's inbox, without pulling it.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:536}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:621}
  */
 export declare function hostedBranchDismiss(projectId: string, machine: string, branch: string): Promise<void>
 
@@ -960,7 +969,7 @@ export declare function hostedBranchDismiss(projectId: string, machine: string, 
  * is checked out in; in the workspace, uncommitted changes don't belong to one branch, so
  * they stay local. Nothing another machine published is replaced, so it never asks.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:509}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:594}
  */
 export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean): Promise<string>
 
@@ -974,7 +983,11 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * If the local branch has commits of its own, or its worktree has uncommitted changes,
  * pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:640}
+ * A branch this machine had published is published again as pulled, so it doesn't disagree
+ * with itself; one it never published stays unpublished. Pulling also clears anything
+ * `machine` sent of it to this machine.
+ *
+ * {@link ../../../../../crates/but-api/src/hosted.rs:729}
  */
 export declare function hostedBranchPull(projectId: string, machine: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
@@ -982,7 +995,7 @@ export declare function hostedBranchPull(projectId: string, machine: string, bra
  * Publish `branch` as [`hosted_branch_publish()`] does, and send it to the machine named `to`:
  * it shows up there as sent, to pull or dismiss, and if `to` is online, it's told right away.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:521}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:606}
  */
 export declare function hostedBranchSend(projectId: string, branch: string, to: string, includeUncommitted: boolean): Promise<string>
 
@@ -993,7 +1006,7 @@ export declare function hostedBranchSend(projectId: string, branch: string, to: 
  * branches are here already. On the hosted server, which has no files, it's the server's own
  * record of every machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:401}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:486}
  */
 export declare function hostedMachines(projectId: string): Promise<HostedProject>
 
@@ -3466,6 +3479,21 @@ export type HeadSha = {
  */
 export type HexHashString = string;
 
+/**
+ * What the account's machines published to one project, as the hosted server lists it for the
+ * whole account at once, with the local projects that are checkouts of it.
+ */
+export type HostedAccountProject = {
+  /** The project's root commit, which the server knows it by. */
+  root: string;
+  /** The project's name, as its first publish gave it. */
+  title: string;
+  /** The local projects checked out from it; none if this machine has no checkout. */
+  projectIds?: Array<string>;
+  /** The other machines that published to it, most recent first. */
+  machines: Array<HostedMachineSummary>;
+};
+
 /** A machine that published to the hosted server, as of the last fetch. */
 export type HostedMachine = {
   /** Its host name. */
@@ -3474,6 +3502,16 @@ export type HostedMachine = {
   publishedAt: number;
   /** What it last sent of each branch, most recent first. */
   branches: Array<MachineBranch>;
+};
+
+/** A machine's publishes to one project, without their branches. */
+export type HostedMachineSummary = {
+  /** Its host name. */
+  name: string;
+  /** When it last published, in milliseconds since the Unix epoch. */
+  publishedAt: number;
+  /** How many branches it published. */
+  branches: number;
 };
 
 /**

@@ -140,9 +140,11 @@ export const handleProjectEvent = (
 	// Any project may show another machine's publish, so the root picks which, not `projectId`.
 	if (payload.type === "hostedPublished") {
 		const { root } = payload.subject;
+		void client.invalidateQueries({ queryKey: ["hostedAccount"] });
 		void client.invalidateQueries({
 			predicate: ({ queryKey, state }) => {
-				if (queryKey[1] !== "hostedMachines") return false;
+				// One that failed, such as a project whose directory is gone, would only fail again.
+				if (queryKey[1] !== "hostedMachines" || state.status === "error") return false;
 				// Not loaded yet, its root is unknown.
 				const loaded = state.data as HostedProject | undefined;
 				return root === null || loaded === undefined || loaded.root === root;

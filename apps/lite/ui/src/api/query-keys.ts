@@ -22,6 +22,7 @@ export type GlobalQueryKey =
 	| "userProfile"
 	| "projects"
 	| "guiSettings"
+	| "hostedAccount"
 	| "isPackaged"
 	| "markdownTokens"
 	| "version";

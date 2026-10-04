@@ -42,7 +42,14 @@ import { getRowButtonClassName, rowPointerProps } from "../Row-utils.ts";
 import { SidebarHeader } from "../SidebarHeader.tsx";
 import { useFetchFromRemotes } from "../useFetchFromRemotes.ts";
 import { buildMeshRows, type MeshRow } from "./mesh-rows.ts";
-import { type MeshBranch, type MeshCheckout, useMeshTree } from "./useMeshTree.ts";
+import {
+	isRemoteOnlyId,
+	type MeshBranch,
+	type MeshCheckout,
+	type MeshWorktree,
+	useMeshTree,
+} from "./useMeshTree.ts";
+import { usePublishMenu } from "./usePublishMenu.ts";
 import { MeshWatchers } from "./MeshWatchers.tsx";
 import styles from "./MeshSidebar.module.css";
 
@@ -200,12 +207,16 @@ const MeshTree: FC<{ projectId: string; grouping: MeshGrouping }> = ({ projectId
 		const overview = Match.value(row).pipe(
 			Match.tags({
 				Machine: ({ machine }): MeshOverview => ({ _tag: "Machine", machine: machine.name }),
-				Repo: ({ repo }): MeshOverview => ({ _tag: "Repo", projectId: repo.projectId }),
-				Checkout: ({ checkout }): MeshOverview => ({
-					_tag: "Repo",
-					projectId: checkout.projectId,
-					machine: checkout.machine,
-				}),
+				Repo: ({ repo }): MeshOverview | null =>
+					isRemoteOnlyId(repo.projectId) ? null : { _tag: "Repo", projectId: repo.projectId },
+				Checkout: ({ checkout }): MeshOverview | null =>
+					checkout.remoteOnly
+						? null
+						: {
+								_tag: "Repo",
+								projectId: checkout.projectId,
+								machine: checkout.machine,
+							},
 			}),
 			Match.orElse(() => null),
 		);
@@ -328,8 +339,8 @@ const When: FC<{ at: number | null }> = ({ at }) =>
 		</span>
 	);
 
-const pluralize = (count: number, noun: string): string =>
-	count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
+const pluralize = (count: number, noun: string, nouns = `${noun}s`): string =>
+	count === 1 ? `1 ${noun}` : `${count} ${nouns}`;
 
 const copyItem = (label: string, text: string): NativeMenuItem =>
 	nativeMenuItem({ label, onSelect: () => window.lite.clipboardWriteText(text) });
@@ -404,11 +415,23 @@ const MeshRowItem: FC<{
 										Open
 									</Badge>
 								)}
+							{row.checkout.remoteOnly ? (
+								<span className="text-12">Not on this machine</span>
+							) : (
+								row.checkout.branches.length === 0 &&
+								row.checkout.branchCount !== null && (
+									<span className="text-12">
+										{pluralize(row.checkout.branchCount, "branch", "branches")}
+									</span>
+								)
+							)}
 							<When at={row.checkout.at} />
 						</>
 					}
 					menuLabel="Repository menu"
-					menuItems={[openProjectItem(row.checkout.projectId)]}
+					menuItems={
+						row.checkout.remoteOnly ? undefined : [openProjectItem(row.checkout.projectId)]
+					}
 				/>
 			);
 		case "Uncommitted":
@@ -424,25 +447,15 @@ const MeshRowItem: FC<{
 					}
 				/>
 			);
-		case "Worktree": {
-			const { worktree, branch } = row;
-			// Named as a directory, so it never reads as a branch; its branch only when it differs.
-			const summary = [
-				branch !== undefined && branch.name !== worktree.name ? branch.name : null,
-				branch !== undefined ? pluralize(branch.commits.length, "commit") : null,
-				worktree.files.length > 0 ? pluralize(worktree.files.length, "file") : null,
-			].filter((part) => part !== null);
+		case "Worktree":
 			return (
-				<MeshItem
+				<MeshWorktreeItem
 					{...shared}
-					name={`${worktree.name}/`}
-					icon={<Icon name="folder-tree" size={14} />}
-					marks={summary.length > 0 && <span className="text-12">{summary.join(", ")}</span>}
-					menuLabel="Worktree menu"
-					menuItems={branch === undefined ? undefined : [copyItem("Copy Branch Name", branch.name)]}
+					checkout={row.checkout}
+					worktree={row.worktree}
+					branch={row.branch}
 				/>
 			);
-		}
 		case "Branch":
 			return <MeshBranchItem {...shared} checkout={row.checkout} branch={row.branch} />;
 		case "Commit": {
@@ -492,6 +505,44 @@ const MeshRowItem: FC<{
 	}
 };
 
+/** A linked worktree, named as a directory so it never reads as a branch. */
+const MeshWorktreeItem: FC<{
+	row: MeshRow;
+	checkout: MeshCheckout;
+	worktree: MeshWorktree;
+	/** Its only branch, shown on this row. */
+	branch?: MeshBranch;
+	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
+	onSelect: () => void;
+}> = ({ checkout, worktree, branch, ...shared }) => {
+	const publishItems = usePublishMenu({
+		projectId: checkout.projectId,
+		branch: branch?.name ?? "",
+		local: checkout.isThisMachine && branch !== undefined,
+		inWorktree: true,
+	});
+	// Its branch only when it differs from the directory's name.
+	const summary = [
+		branch !== undefined && branch.name !== worktree.name ? branch.name : null,
+		branch !== undefined ? pluralize(branch.commits.length, "commit") : null,
+		worktree.files.length > 0 ? pluralize(worktree.files.length, "file") : null,
+	].filter((part) => part !== null);
+	return (
+		<MeshItem
+			{...shared}
+			name={`${worktree.name}/`}
+			icon={<Icon name="folder-tree" size={14} />}
+			marks={summary.length > 0 && <span className="text-12">{summary.join(", ")}</span>}
+			menuLabel="Worktree menu"
+			menuItems={
+				branch === undefined
+					? undefined
+					: [...publishItems, copyItem("Copy Branch Name", branch.name)]
+			}
+		/>
+	);
+};
+
 /** A branch, and for one another machine sent here, pulling or dismissing it. */
 const MeshBranchItem: FC<{
 	row: MeshRow;
@@ -504,6 +555,12 @@ const MeshBranchItem: FC<{
 	const { mutate: pull, isPending: isPullPending } = useHostedBranchPull(projectId);
 	const { mutate: dismiss, isPending: isDismissPending } = useHostedBranchDismiss(projectId);
 	const settle = useHostedSync();
+	const publishItems = usePublishMenu({
+		projectId,
+		branch: branch.name,
+		local: checkout.isThisMachine,
+		inWorktree: branch.worktree !== undefined,
+	});
 	const pullInto = (intoWorkspace: boolean, overwrite = false) =>
 		pull(
 			{
@@ -533,6 +590,7 @@ const MeshBranchItem: FC<{
 			marks={<span className="text-12">{summary}</span>}
 			menuLabel="Branch menu"
 			menuItems={[
+				...publishItems,
 				...(branch.sent
 					? [
 							nativeMenuItem({

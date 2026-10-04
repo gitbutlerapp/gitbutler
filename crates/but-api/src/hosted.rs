@@ -358,6 +358,91 @@ pub struct HostedProject {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HostedProject);
 
+/// What the account's machines published to one project, as the hosted server lists it for the
+/// whole account at once, with the local projects that are checkouts of it.
+#[derive(Clone, Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct HostedAccountProject {
+    /// The project's root commit, which the server knows it by.
+    pub root: String,
+    /// The project's name, as its first publish gave it.
+    pub title: String,
+    /// The local projects checked out from it; none if this machine has no checkout.
+    #[serde(default)]
+    pub project_ids: Vec<String>,
+    /// The other machines that published to it, most recent first.
+    pub machines: Vec<HostedMachineSummary>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HostedAccountProject);
+
+/// A machine's publishes to one project, without their branches.
+#[derive(Clone, Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct HostedMachineSummary {
+    /// Its host name.
+    pub name: String,
+    /// When it last published, in milliseconds since the Unix epoch.
+    pub published_at: i64,
+    /// How many branches it published.
+    pub branches: u32,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HostedMachineSummary);
+
+/// Everything the account's other machines published, across all projects, in one request to
+/// the hosted server; no project is fetched. Local projects are matched to what was published by
+/// root commit, and one whose directory is gone is left out rather than failing the call.
+#[but_api(napi, provides = [Hosted])]
+#[instrument(err(Debug))]
+pub fn hosted_account() -> Result<Vec<HostedAccountProject>> {
+    let token = access_token()?;
+    let url = format!("{}/machines", hosted_server());
+    let mut projects: Vec<HostedAccountProject> = std::thread::spawn(move || {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?
+            .block_on(async move {
+                let response = reqwest::Client::new()
+                    .get(&url)
+                    .header("x-auth-token", token)
+                    .send()
+                    .await
+                    .context("the hosted server can't be reached")?
+                    .error_for_status()?;
+                Ok::<_, anyhow::Error>(response.json().await?)
+            })
+    })
+    .join()
+    .map_err(|_| anyhow::anyhow!("the request to the hosted server panicked"))??;
+
+    let this = machine_name();
+    let mut by_root = std::collections::HashMap::<String, Vec<String>>::new();
+    // As the frontend lists them, which is how it knows them: by `id`, at `path`.
+    for project in serde_json::to_value(crate::legacy::projects::list_projects_stateless()?)?
+        .as_array()
+        .into_iter()
+        .flatten()
+    {
+        let (Some(id), Some(path)) = (project["id"].as_str(), project["path"].as_str()) else {
+            continue;
+        };
+        if let Ok(root) = hosted_project(Path::new(path)) {
+            by_root.entry(root).or_default().push(id.to_owned());
+        }
+    }
+    for project in &mut projects {
+        project
+            .machines
+            .retain(|machine| Some(&machine.name) != this.as_ref());
+        project.project_ids = by_root.remove(&project.root).unwrap_or_default();
+    }
+    projects.retain(|project| !project.machines.is_empty());
+    Ok(projects)
+}
+
 /// A machine that published to the hosted server, as of the last fetch.
 #[derive(Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]

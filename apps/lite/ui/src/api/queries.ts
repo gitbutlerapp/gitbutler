@@ -220,12 +220,23 @@ export const worktreesListQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.worktreesList(projectId),
 	});
 
+/** What the account's other machines published, across all projects, in one request. */
+export const hostedAccountQueryOptions = queryOptions({
+	queryKey: ["hostedAccount"],
+	queryFn: () => window.lite.hostedAccount(),
+	// Publishes are announced, so focus brings nothing new.
+	refetchOnWindowFocus: false,
+});
+
 export const hostedMachinesQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "hostedMachines"],
 		queryFn: () => window.lite.hostedMachines(projectId),
 		// The root stays in the cache, where a publish's event finds the project by it.
 		select: (project) => project.machines,
+		// Publishes are announced, so focus brings nothing new; and a failed one, such as a project
+		// whose directory is gone, would only fail again.
+		refetchOnWindowFocus: false,
 	});
 
 /**
