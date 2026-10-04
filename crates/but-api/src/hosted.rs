@@ -436,6 +436,9 @@ pub struct HostedMachineSummary {
     pub published_at: i64,
     /// How many branches it published.
     pub branches: u32,
+    /// How many of them it sent this machine, waiting to be pulled or dismissed.
+    #[serde(default)]
+    pub sent: u32,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HostedMachineSummary);
@@ -453,9 +456,14 @@ pub fn hosted_account() -> Result<Vec<HostedAccountProject>> {
             .enable_all()
             .build()?
             .block_on(async move {
-                let response = reqwest::Client::new()
+                let mut request = reqwest::Client::new()
                     .get(&url)
-                    .header("x-auth-token", token)
+                    .header("x-auth-token", token);
+                // So the server counts what was sent to this machine.
+                if let Some(this) = machine_name() {
+                    request = request.header("x-but-machine", this);
+                }
+                let response = request
                     .send()
                     .await
                     .context("the hosted server can't be reached")?

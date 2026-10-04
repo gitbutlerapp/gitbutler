@@ -600,8 +600,14 @@ async fn app_settings() -> Json<serde_json::Value> {
 async fn machines(
     State(config): State<Arc<HostedConfig>>,
     Extension(user): Extension<UserId>,
+    headers: HeaderMap,
 ) -> Response {
-    match published_machines(&user.dir(&config)) {
+    // The asking machine, as it names itself on `/events`, to count what was sent to it.
+    let asking = headers
+        .get("x-but-machine")
+        .and_then(|value| value.to_str().ok())
+        .filter(|name| is_name(name));
+    match published_machines(&user.dir(&config), asking) {
         Ok(projects) => Json(projects).into_response(),
         Err(err) => {
             tracing::warn!("listing machines failed: {err:#}");
@@ -611,8 +617,8 @@ async fn machines(
 }
 
 /// Per project with publishes in `dir`: its root commit, name, and each machine's latest publish
-/// and branch count, most recent first.
-fn published_machines(dir: &Path) -> anyhow::Result<serde_json::Value> {
+/// and branch count, most recent first, with how many of its branches wait in `asking`'s inbox.
+fn published_machines(dir: &Path, asking: Option<&str>) -> anyhow::Result<serde_json::Value> {
     let mut projects = Vec::new();
     for entry in std::fs::read_dir(dir.join("store"))
         .into_iter()
@@ -649,12 +655,23 @@ fn published_machines(dir: &Path) -> anyhow::Result<serde_json::Value> {
             entry.0 = entry.0.max(time.parse().unwrap_or_default());
             entry.1 += 1;
         }
+        // Sender to how many of its branches wait for the asking machine.
+        let mut sent = std::collections::BTreeMap::<String, usize>::new();
+        if let Some(asking) = asking {
+            let inbox = format!("{INBOX}{asking}/");
+            for name in git(&store, &["for-each-ref", "--format=%(refname)", &inbox])?.lines() {
+                if let Some((from, _)) = name.trim_start_matches(&inbox).split_once('/') {
+                    *sent.entry(from.to_owned()).or_default() += 1;
+                }
+            }
+        }
         let mut machines: Vec<_> = machines.into_iter().collect();
         machines.sort_by_key(|(_, (at, _))| std::cmp::Reverse(*at));
         projects.push(serde_json::json!({
             "root": root,
             "title": title,
             "machines": machines.into_iter().map(|(name, (at, branches))| serde_json::json!({
+                "sent": sent.get(&name).copied().unwrap_or_default(),
                 "name": name,
                 "publishedAt": at * 1000,
                 "branches": branches,

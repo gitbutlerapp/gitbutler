@@ -57,6 +57,8 @@ pub(super) enum RowKind {
         this: bool,
         online: bool,
         published_at: Option<i64>,
+        /// Its branches waiting in this machine's inbox.
+        sent: usize,
     },
     Repo {
         title: String,
@@ -147,6 +149,7 @@ impl Mesh {
                         this: true,
                         online: true,
                         published_at: None,
+                        sent: 0,
                     },
                 });
                 if !folded {
@@ -169,10 +172,17 @@ impl Mesh {
                         folded: Some(folded),
                         kind: RowKind::Repo {
                             title: repo.title.clone(),
-                            detail: match machines {
-                                Some(n) if n > 0 => format!("here and on {}", plural(n, "machine")),
-                                _ => String::new(),
-                            },
+                            detail: with_sent(
+                                match machines {
+                                    Some(n) if n > 0 => {
+                                        format!("here and on {}", plural(n, "machine"))
+                                    }
+                                    _ => String::new(),
+                                },
+                                self.entry_for(&repo.id).map_or(0, |entry| {
+                                    entry.machines.iter().map(|m| m.sent as usize).sum()
+                                }),
+                            ),
                             path: Some(repo.path.clone()),
                         },
                     });
@@ -193,6 +203,7 @@ impl Mesh {
                                     this: false,
                                     online: self.online.contains(&machine.name),
                                     published_at: Some(machine.published_at),
+                                    sent: machine.sent as usize,
                                 },
                             });
                             if !folded {
@@ -242,6 +253,12 @@ impl Mesh {
             .filter(|machine| machine.name == name)
             .map(|machine| machine.published_at)
             .max();
+        let sent = published
+            .iter()
+            .flat_map(|entry| entry.machines.iter())
+            .filter(|machine| machine.name == name)
+            .map(|machine| machine.sent as usize)
+            .sum();
         rows.push(Row {
             key,
             depth: 0,
@@ -251,6 +268,7 @@ impl Mesh {
                 this: false,
                 online: self.online.contains(name),
                 published_at,
+                sent,
             },
         });
         if folded {
@@ -260,11 +278,9 @@ impl Mesh {
             rows.push(note(1, "Nothing published yet"));
         }
         for entry in published {
-            let count = entry
-                .machines
-                .iter()
-                .find(|machine| machine.name == name)
-                .map_or(0, |machine| machine.branches as usize);
+            let summary = entry.machines.iter().find(|machine| machine.name == name);
+            let count = summary.map_or(0, |machine| machine.branches as usize);
+            let sent = summary.map_or(0, |machine| machine.sent as usize);
             let Some(project) = entry.project_ids.first() else {
                 rows.push(Row {
                     key: format!("hub:{name}:{}", entry.root),
@@ -286,7 +302,7 @@ impl Mesh {
                 folded: Some(folded),
                 kind: RowKind::Repo {
                     title: entry.title.clone(),
-                    detail: plural(count, "branch"),
+                    detail: with_sent(plural(count, "branch"), sent),
                     path: self.path_of(project),
                 },
             });
@@ -440,6 +456,15 @@ fn note(depth: usize, text: &str) -> Row {
         depth,
         folded: None,
         kind: RowKind::Note(text.to_owned()),
+    }
+}
+
+/// `detail`, followed by how many branches wait to be pulled here, if any.
+fn with_sent(detail: String, sent: usize) -> String {
+    match (sent, detail.is_empty()) {
+        (0, _) => detail,
+        (_, true) => format!("✉ {sent} sent to you"),
+        (_, false) => format!("{detail} · ✉ {sent} sent to you"),
     }
 }
 

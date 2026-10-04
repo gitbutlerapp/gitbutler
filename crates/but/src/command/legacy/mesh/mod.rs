@@ -745,6 +745,7 @@ fn row_line(row: &Row) -> Line<'static> {
             this,
             online,
             published_at,
+            sent,
         } => {
             spans.push(if *this {
                 Span::raw("⌂ ")
@@ -757,6 +758,12 @@ fn row_line(row: &Row) -> Line<'static> {
                 name.clone(),
                 Style::default().add_modifier(Modifier::BOLD),
             ));
+            if *sent > 0 {
+                spans.push(Span::styled(
+                    format!("  ✉ {sent}"),
+                    Style::default().fg(Color::Cyan),
+                ));
+            }
             if let Some(at) = published_at {
                 spans.push(Span::styled(format!("  published {}", ago(*at)), dim));
             }
