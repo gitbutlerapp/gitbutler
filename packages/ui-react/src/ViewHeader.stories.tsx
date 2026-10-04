@@ -3,6 +3,7 @@ import { Toggle, ToggleGroup } from "@base-ui/react";
 import { Avatar } from "./Avatar.tsx";
 import { Badge } from "./Badge.tsx";
 import { Button } from "./Button.tsx";
+import { CopyableId } from "./CopyableId.tsx";
 import { DropdownButton } from "./DropdownButton.tsx";
 import { EntityAvatar } from "./EntityAvatar.tsx";
 import { machinePictures } from "./story-assets/machines.ts";
@@ -51,20 +52,37 @@ const CommitFilter: FC = () => (
 	</Button>
 );
 
-/** The author line every commit view shares: who, when, and the two IDs. */
+const copyToClipboard = (value: string) => void navigator.clipboard.writeText(value);
+
+/** The author line every commit view shares: who, when, and the two IDs, each copied on click. */
 const CommitAuthorLine: FC = () => (
 	<>
 		<Avatar src={null} seed="pavel@gitbutler.com" alt="Commit author avatar" />
 		<span>Pavel Laptev at 12.09.2026, 18:34</span>
-		<span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-			<Icon name="finger-print" size={14} />
-			kzqtpwo
-		</span>
-		<span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-			<Icon name="hash" size={14} />
-			1cd28ec
-		</span>
+		<CopyableId
+			label="Copy change ID"
+			icon="finger-print"
+			value="kzqtpwoylnsrkrkmxqzvwtuoyrpslmnk"
+			display="kzqtpwo"
+			onCopy={copyToClipboard}
+		/>
+		<CopyableId
+			label="Copy commit ID"
+			icon="hash"
+			value="1cd28ec4f0a9b3e1d2c7a6f5e4b3a2918d7c6b5a"
+			display="1cd28ec"
+			onCopy={copyToClipboard}
+		/>
 	</>
+);
+
+/** A commit's message body, as the toggle after its title unfolds it. */
+const CommitBody: FC = () => (
+	<p className="text-monospace text-body" style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>
+		{`Search took the query as typed, so a stray quote or a backslash broke the
+index lookup. The query is now escaped before it reaches the index, and an
+empty one returns nothing instead of every document.`}
+	</p>
 );
 
 const SendAndMenu: FC = () => (
@@ -152,6 +170,7 @@ export const Commit = meta.story({
 		icon: "commit",
 		title: "fix: sanitize user input in search query",
 		meta: <CommitAuthorLine />,
+		children: <CommitBody />,
 	},
 });
 
@@ -160,12 +179,9 @@ export const CommitLandedReview = meta.story({
 	args: {
 		icon: "commit",
 		title: "Add test file 18 to collection",
-		meta: (
-			<>
-				<BranchTabs tab="pr" />
-				<CommitAuthorLine />
-			</>
-		),
+		metaTabs: <BranchTabs tab="pr" />,
+		meta: <CommitAuthorLine />,
+		children: <CommitBody />,
 	},
 });
 
@@ -180,6 +196,7 @@ export const CommitConflicted = meta.story({
 			</>
 		),
 		meta: <CommitAuthorLine />,
+		children: <CommitBody />,
 	},
 });
 
@@ -192,6 +209,7 @@ export const CommitWithPicker = meta.story({
 		icon: "commit",
 		title: "fix: sanitize user input in search query",
 		meta: <CommitAuthorLine />,
+		children: <CommitBody />,
 		actions: (
 			<>
 				<Button iconOnly aria-label="Previous commit">

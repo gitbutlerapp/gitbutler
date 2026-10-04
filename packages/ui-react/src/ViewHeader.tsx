@@ -1,8 +1,10 @@
 import styles from "./ViewHeader.module.css";
+import { Button } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";
-import type { ComponentProps, FC, ReactNode } from "react";
+import { Tooltip } from "./Tooltip.tsx";
+import { useId, useState, type ComponentProps, type FC, type ReactNode } from "react";
 
 type Props = {
 	/**
@@ -24,10 +26,18 @@ type Props = {
 	leading?: ReactNode;
 	/**
 	 * One line under the title, cut short with an ellipsis rather than wrapped. Parts are joined
-	 * with " · ". A landed review's tabs lead it; its last part is the one that gives way.
+	 * with " · "; the last part is the one that gives way.
 	 */
 	meta?: ReactNode;
-	/** Under the title, above the meta: a commit's message body. */
+	/**
+	 * Tabs that lead the meta line rather than take a toolbar of their own: a landed review's
+	 * Diff / Pull Request, on a commit whose header has no other row for them.
+	 */
+	metaTabs?: ReactNode;
+	/**
+	 * The rest of what the title begins, as a commit's message body. It stays folded behind a
+	 * toggle after the title, and opens under it, above the meta line.
+	 */
 	children?: ReactNode;
 	/**
 	 * The row under the title block: the view's tabs, a divider, the commit filter. Omit it when
@@ -58,12 +68,17 @@ export const ViewHeader: FC<Props> = ({
 	avatar,
 	leading,
 	meta,
+	metaTabs,
 	children,
 	toolbar,
 	actions,
 	...props
 }) => {
 	const actionsNode = present(actions) && <div className={styles.actions}>{actions}</div>;
+	const [bodyOpen, setBodyOpen] = useState(false);
+	const bodyId = useId();
+	const hasBody = present(children);
+	const bodyLabel = bodyOpen ? "Hide the full message" : "Show the full message";
 
 	return (
 		<header {...props} className={classes(props.className, styles.header)}>
@@ -77,12 +92,40 @@ export const ViewHeader: FC<Props> = ({
 						<h2 className={classes("text-15", "text-semibold", styles.title)}>
 							{typeof title === "string" ? <span>{title}</span> : title}
 						</h2>
+						{hasBody && (
+							<Tooltip content={bodyLabel}>
+								<Button
+									variant={bodyOpen ? "gray" : "outline"}
+									iconOnly
+									size="small"
+									aria-controls={bodyId}
+									aria-expanded={bodyOpen}
+									aria-label={bodyLabel}
+									className={styles.bodyToggle}
+									onClick={() => setBodyOpen(!bodyOpen)}
+								>
+									<Icon name="kebab" />
+								</Button>
+							</Tooltip>
+						)}
 					</div>
 
-					{children}
+					{/* Always there once there is a body, so it can slide open: what is under the header moves
+					    down with it rather than jumping a whole message in one frame. */}
+					{hasBody && (
+						<div
+							id={bodyId}
+							className={styles.body}
+							data-open={bodyOpen || undefined}
+							inert={!bodyOpen}
+						>
+							<div>{children}</div>
+						</div>
+					)}
 
-					{present(meta) && (
+					{(present(meta) || present(metaTabs)) && (
 						<div className={classes("text-13", styles.meta)}>
+							{present(metaTabs) && <div className={styles.metaTabs}>{metaTabs}</div>}
 							{typeof meta === "string" ? <span>{meta}</span> : meta}
 						</div>
 					)}
