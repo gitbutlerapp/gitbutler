@@ -37,15 +37,22 @@ pub struct ApiHttpError {
 /// 2. `PUBLIC_API_BASE_URL` env var at runtime (shared with the desktop frontend)
 /// 3. Compile-time [`AppChannel`]:
 ///    - `Release` / `Nightly` → `https://app.gitbutler.com`
-///    - `Dev` → `https://app.staging.gitbutler.com`, unless [`use_production_api()`] was called
+///    - `Dev` → `https://app.staging.gitbutler.com`
+///
+///    The channel is the one credentials are kept for, when a client set it: a dev build that
+///    keeps its account where the released app does was signed in by production's API, so that's
+///    the one that knows its token.
 pub fn default_api_url() -> String {
     if let Some(url) = api_url_override_from_env(|key| std::env::var(key).ok()) {
         return url;
     }
-    if USE_PRODUCTION.get().is_some() {
-        return PRODUCTION_API_URL.to_owned();
-    }
-    match AppChannel::new() {
+    let channel = match but_secret::secret::application_namespace().as_str() {
+        "" => AppChannel::new(),
+        "com.gitbutler.app" => AppChannel::Release,
+        "com.gitbutler.app.nightly" => AppChannel::Nightly,
+        _ => AppChannel::Dev,
+    };
+    match channel {
         AppChannel::Release | AppChannel::Nightly => PRODUCTION_API_URL,
         AppChannel::Dev => "https://app.staging.gitbutler.com",
     }
@@ -53,14 +60,6 @@ pub fn default_api_url() -> String {
 }
 
 const PRODUCTION_API_URL: &str = "https://app.gitbutler.com";
-static USE_PRODUCTION: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-
-/// Use production's API for the rest of the process even in a dev build, for callers that talk
-/// to services which only know production accounts. The environment variables still win.
-pub fn use_production_api() {
-    USE_PRODUCTION.set(()).ok();
-}
-
 fn normalize_api_url(url: String) -> String {
     url.trim_end_matches('/').to_string()
 }

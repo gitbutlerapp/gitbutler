@@ -172,6 +172,11 @@ pub fn set_application_namespace(identifier: impl Into<String>) {
     }
 }
 
+/// The namespace set with [`set_application_namespace()`], empty if none was.
+pub fn application_namespace() -> String {
+    NAMESPACE.lock().unwrap().clone()
+}
+
 fn entry_for(handle: &str, namespace: Namespace) -> Result<keyring::Entry> {
     let ns = match namespace {
         Namespace::BuildKind => NAMESPACE.lock().unwrap().clone(),
