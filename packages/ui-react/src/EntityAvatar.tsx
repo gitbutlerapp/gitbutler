@@ -58,15 +58,15 @@ const Glyph: FC<{ colour: EntityAvatarColour }> = ({ colour }) => {
 /**
  * What an entity — a project, a machine, a cloud session — wears in place of a photo: the
  * repository glyph in one of seven colours, an emoji, or a picture the host supplies (a machine's
- * kind). An avatar is 38px wherever it stands, the avatar slot of `ViewHeader` or a page of its own;
- * leave `size` at `regular`. `small` and `large` are the picker's choices: emoji and colours at
- * 28px, a machine's pictures at 64px.
+ * kind). An avatar is 38px wherever it stands, the avatar slot of `ViewHeader`, a page of its own
+ * or the picker's choice of a machine's pictures; leave `size` at `regular`. `small` is the picker's
+ * emoji and colours, at 28px.
  *
  * A picture of the thing, not a control: to let someone change it, use `EntityAvatarPicker`.
  * @import import { EntityAvatar } from "@gitbutler/ui-react/EntityAvatar.tsx";
  */
 export const EntityAvatar: FC<
-	{ value: EntityAvatarValue; size?: "small" | "regular" | "large" } & ComponentProps<"span">
+	{ value: EntityAvatarValue; size?: "small" | "regular" } & ComponentProps<"span">
 > = ({ value, size = "regular", ...props }) => (
 	<span {...props} className={classes(props.className, styles.avatar, styles[size])}>
 		{value._tag === "Emoji" ? (
@@ -142,10 +142,7 @@ export const EntityAvatarPicker: FC<{
 											openChange(false);
 										}}
 									>
-										<EntityAvatar
-											value={option.value}
-											size={optionSize === "large" ? "large" : "small"}
-										/>
+										<EntityAvatar value={option.value} size={optionSize} />
 									</button>
 								))}
 							</fieldset>

@@ -34,20 +34,6 @@
 	}
 }
 
-.large {
-	width: 64px;
-	height: 64px;
-
-	.glyph {
-		width: 44px;
-	}
-
-	.emoji {
-		/* stylelint-disable-next-line declaration-property-value-allowed-list -- An emoji here is a picture, sized as the avatar it stands in for, not text on the type scale. */
-		font-size: 52px;
-	}
-}
-
 .glyph {
 	height: auto;
 }
@@ -140,7 +126,7 @@
 }
 
 .smallOptions,
-.largeOptions {
+.regularOptions {
 	display: grid;
 	min-inline-size: 0;
 	margin: 0;
@@ -153,8 +139,8 @@
 	gap: 2px;
 }
 
-.largeOptions {
-	grid-template-columns: repeat(4, 64px);
+.regularOptions {
+	grid-template-columns: repeat(6, 38px);
 	gap: 4px;
 
 	.option {

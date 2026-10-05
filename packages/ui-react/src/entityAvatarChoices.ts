@@ -22,12 +22,12 @@ export type EntityAvatarOption = { value: EntityAvatarValue; name: string; keywo
 
 /**
  * A row of choices in the picker. `small` lays them out seven to a row and scrolls past five rows,
- * for long sets such as emoji; `large` four to a row, for a few pictures worth seeing whole.
+ * for long sets such as emoji; `regular` six to a row at the avatar's own size, for a few pictures.
  */
 export type EntityAvatarSection = {
 	name: string;
 	options: ReadonlyArray<EntityAvatarOption>;
-	size?: "small" | "large";
+	size?: "small" | "regular";
 };
 
 export const sameEntityAvatar = (a: EntityAvatarValue, b: EntityAvatarValue): boolean => {
