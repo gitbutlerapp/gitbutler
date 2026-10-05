@@ -12,7 +12,7 @@ wrapper. Preparing this brief does not mean that W00 or W01 has been executed.
 
 Read current root and applicable ancestor/nested instructions, required skills,
 the plan's Approved Product Policy and Execution Protocol, and the ledger's W00
-evidence. Read [the graph guidance](crates/WORKSPACE_MODEL.md) for relationship
+evidence. Read [the graph guidance](../../../crates/WORKSPACE_MODEL.md) for relationship
 and mutation questions. Follow scoped frontend instructions when tracing callers;
 this is a data-contract audit, not permission to redesign their UI.
 
@@ -51,18 +51,18 @@ Stop if attribution cannot be established without unauthorized workspace changes
 Begin at these verified-or-to-be-reverified anchors and follow deciding code,
 not every forwarding layer. If renamed, record the current location.
 
-- [Planner and executor](crates/but-api/src/legacy/absorb.rs):
+- [Planner and executor](../../../crates/but-api/src/legacy/absorb.rs):
   `absorption_plan_with_perm`, `ensure_target_commit`, `absorb_with_perm`, `absorb`.
-- [CLI orchestration](crates/but/src/command/legacy/absorb.rs): planning,
+- [CLI orchestration](../../../crates/but/src/command/legacy/absorb.rs): planning,
   dry-run return, landed-target filtering, snapshot timing, and outcome reporting.
-- [Amend API](crates/but-api/src/commit/amend.rs): `commit_amend_only_impl`.
-- [Lower-level amendment](crates/but-workspace/src/commit/commit_amend.rs).
-- [Workspace publication](crates/but-api/src/workspace_state.rs):
+- [Amend API](../../../crates/but-api/src/commit/amend.rs): `commit_amend_only_impl`.
+- [Lower-level amendment](../../../crates/but-workspace/src/commit/commit_amend.rs).
+- [Workspace publication](../../../crates/but-api/src/workspace_state.rs):
   `from_successful_rebase` and its materialization callees.
-- [Transaction implementation](crates/but-transaction/src/lib.rs):
+- [Transaction implementation](../../../crates/but-transaction/src/lib.rs):
   `with_transaction_with_perm`, callback outcomes, staged state and finalization.
-- [Selector interpretation](crates/but-core/src/tree/mod.rs) and
-  [mapping/conversion](crates/but-hunk-assignment/src/lib.rs).
+- [Selector interpretation](../../../crates/but-core/src/tree/mod.rs) and
+  [mapping/conversion](../../../crates/but-hunk-assignment/src/lib.rs).
 
 Write a short observed sequence in the ledger: selection -> planning -> target
 creation/eligibility -> amendment -> rebase -> publication -> reporting/undo.

@@ -38,11 +38,11 @@ stop and name the prerequisite rather than executing it silently.
 
 Start with these existing entry points, confirming their current signatures:
 
-- [Absorb API tests and executor](crates/but-api/src/legacy/absorb.rs).
-- [Existing rejection scenario](crates/but-api/tests/fixtures/scenario/absorb-rejected-hunks.sh).
-- [Selection interpretation contract](crates/but-core/src/tree/mod.rs).
-- [Existing selector tests](crates/but-core/src/tree/tests.rs).
-- [Absorb input types and conversion](crates/but-hunk-assignment/src/lib.rs).
+- [Absorb API tests and executor](../../../crates/but-api/src/legacy/absorb.rs).
+- [Existing rejection scenario](../../../crates/but-api/tests/fixtures/scenario/absorb-rejected-hunks.sh).
+- [Selection interpretation contract](../../../crates/but-core/src/tree/mod.rs).
+- [Existing selector tests](../../../crates/but-core/src/tree/tests.rs).
+- [Absorb input types and conversion](../../../crates/but-hunk-assignment/src/lib.rs).
 
 Use public operation boundaries or the existing permission-taking absorb API.
 A hand-constructed plan isolates executor behavior; a separate planner-plus-apply

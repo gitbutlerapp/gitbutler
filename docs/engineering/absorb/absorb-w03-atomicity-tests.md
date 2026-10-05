@@ -39,10 +39,10 @@ If the audit is missing, stop with that prerequisite; do not silently perform W0
 
 Start at W01's identified owning boundaries, typically:
 
-- [Absorb planning and execution](crates/but-api/src/legacy/absorb.rs).
-- [CLI orchestration](crates/but/src/command/legacy/absorb.rs).
-- [Existing CLI absorb tests](crates/but/tests/but/command/absorb.rs).
-- [Transaction behavior](crates/but-transaction/src/lib.rs).
+- [Absorb planning and execution](../../../crates/but-api/src/legacy/absorb.rs).
+- [CLI orchestration](../../../crates/but/src/command/legacy/absorb.rs).
+- [Existing CLI absorb tests](../../../crates/but/tests/but/command/absorb.rs).
+- [Transaction behavior](../../../crates/but-transaction/src/lib.rs).
 
 State one testable hypothesis before the first edit: an earlier applicable change
 is published despite a later rejection. A before/after ref and blob comparison

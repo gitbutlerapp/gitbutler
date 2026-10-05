@@ -74,11 +74,11 @@ If the intended implementation cannot be distinguished, mark blocked and stop.
 
 Verify these entry points still exist; follow a rename locally if necessary:
 
-- [Absorb API and unit tests](crates/but-api/src/legacy/absorb.rs)
-- [Absorb rejection fixture](crates/but-api/tests/fixtures/scenario/absorb-rejected-hunks.sh)
-- [Selector contract tests](crates/but-core/src/tree/tests.rs)
-- [CLI absorb tests](crates/but/tests/but/command/absorb.rs)
-- [CLI ordering fixture](crates/but/tests/fixtures/scenario/absorb-parent-before-child.sh)
+- [Absorb API and unit tests](../../../crates/but-api/src/legacy/absorb.rs)
+- [Absorb rejection fixture](../../../crates/but-api/tests/fixtures/scenario/absorb-rejected-hunks.sh)
+- [Selector contract tests](../../../crates/but-core/src/tree/tests.rs)
+- [CLI absorb tests](../../../crates/but/tests/but/command/absorb.rs)
+- [CLI ordering fixture](../../../crates/but/tests/fixtures/scenario/absorb-parent-before-child.sh)
 
 Read applicable ancestor/nested AGENTS.md files, not just these entry points.
 Record test names, owning crate/target, fixture helper, and what each protects.

@@ -228,15 +228,15 @@ evidence and put lasting behavior documentation beside the owning feature.
 
 ## Implementation Anchors
 
-- [Absorb planner and executor](crates/but-api/src/legacy/absorb.rs)
-- [Selector conversion and application](crates/but-core/src/tree/mod.rs)
-- [Existing selection contract tests](crates/but-core/src/tree/tests.rs)
-- [DiffSpec conversion and commit mapping](crates/but-hunk-assignment/src/lib.rs)
-- [Commit amendment](crates/but-workspace/src/commit/commit_amend.rs)
-- [Materialization](crates/but-api/src/workspace_state.rs)
-- [Dependency ranges](crates/but-hunk-dependency/src/ranges/mod.rs)
-- [Rejection explanations](crates/but/src/utils/rejection.rs)
-- [Graph and workspace guidance](crates/WORKSPACE_MODEL.md)
+- [Absorb planner and executor](../../../crates/but-api/src/legacy/absorb.rs)
+- [Selector conversion and application](../../../crates/but-core/src/tree/mod.rs)
+- [Existing selection contract tests](../../../crates/but-core/src/tree/tests.rs)
+- [DiffSpec conversion and commit mapping](../../../crates/but-hunk-assignment/src/lib.rs)
+- [Commit amendment](../../../crates/but-workspace/src/commit/commit_amend.rs)
+- [Materialization](../../../crates/but-api/src/workspace_state.rs)
+- [Dependency ranges](../../../crates/but-hunk-dependency/src/ranges/mod.rs)
+- [Rejection explanations](../../../crates/but/src/utils/rejection.rs)
+- [Graph and workspace guidance](../../../crates/WORKSPACE_MODEL.md)
 
 ## Agent Work Packets
 
@@ -300,7 +300,7 @@ remains in the ledger; preparing the brief does not satisfy W00.
 
 Start at `absorption_plan_with_perm`, `ensure_target_commit`, `absorb_with_perm`,
 `commit_amend_only_impl`, and
-[transaction entry points](crates/but-transaction/src/lib.rs). Trace the CLI
+[transaction entry points](../../../crates/but-transaction/src/lib.rs). Trace the CLI
 planner, landed-target filtering, and snapshot timing too.
 
 - Record a side-effect table in the ledger: operation/symbol, state read or
