@@ -23,8 +23,6 @@ pub mod r#move;
 pub mod open;
 pub mod oplog;
 pub mod pick;
-#[cfg(all(feature = "nightly", feature = "legacy"))]
-pub mod publish;
 pub mod pull;
 pub mod push;
 pub mod refresh;

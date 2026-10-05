@@ -72,7 +72,7 @@ pub enum CommandName {
     Expand,
     Comment,
     #[cfg(all(feature = "nightly", feature = "legacy"))]
-    Publish,
+    Mesh,
     Completions,
     Mcp,
     Metrics,

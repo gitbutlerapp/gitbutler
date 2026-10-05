@@ -672,7 +672,7 @@ async fn dispatch_subcommand(
         }
         // Outside any repository: it shows them all.
         #[cfg(all(feature = "nightly", feature = "legacy"))]
-        Subcommands::Mesh(mesh_args) => {
+        Subcommands::Mesh(mesh_args) if mesh_args.cmd.is_none() => {
             return command::legacy::mesh::run(mesh_args)
                 .map(|()| DispatchOutcome::Return)
                 .map_err(CliError::from);
@@ -884,9 +884,7 @@ async fn dispatch_subcommand(
             setup::init_ctx(&args, InitCtxOptions::default(), out)
         }
         #[cfg(all(feature = "nightly", feature = "legacy"))]
-        Subcommands::_Publish(..) | Subcommands::_Pull(..) => {
-            setup::init_ctx(&args, InitCtxOptions::default(), out)
-        }
+        Subcommands::Mesh(..) => setup::init_ctx(&args, InitCtxOptions::default(), out),
         #[cfg(feature = "legacy")]
         Subcommands::Actions { .. }
         | Subcommands::Pull { .. }
@@ -978,10 +976,6 @@ async fn dispatch_subcommand(
         | Subcommands::Edit { .. }
         | Subcommands::AgentLog { .. }
         | Subcommands::External(..) => {
-            unreachable!("handled above")
-        }
-        #[cfg(all(feature = "nightly", feature = "legacy"))]
-        Subcommands::Mesh(..) => {
             unreachable!("handled above")
         }
         #[cfg(feature = "legacy")]
@@ -1495,18 +1489,19 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(all(feature = "nightly", feature = "legacy"))]
-        Subcommands::_Publish(publish_args) => {
-            let outcome =
-                command::legacy::publish::publish(&mut ctx, publish_args, &args.current_dir)?;
-            out.print_cli_output(outcome)?;
-            None
-        }
-        #[cfg(all(feature = "nightly", feature = "legacy"))]
-        Subcommands::_Pull(pull_args) => {
+        Subcommands::Mesh(args::mesh::Platform { cmd, .. }) => {
             use crate::utils::IntermediateChannel;
+            use command::legacy::mesh::publish;
 
-            let outcome =
-                command::legacy::publish::pull(&mut ctx, IntermediateChannel::new(out), pull_args)?;
+            let outcome = match cmd {
+                Some(args::mesh::Subcommands::Publish(publish_args)) => {
+                    publish::publish(&mut ctx, publish_args, &args.current_dir)?
+                }
+                Some(args::mesh::Subcommands::Pull(pull_args)) => {
+                    publish::pull(&mut ctx, IntermediateChannel::new(out), pull_args)?
+                }
+                None => unreachable!("handled above"),
+            };
             out.print_cli_output(outcome)?;
             None
         }

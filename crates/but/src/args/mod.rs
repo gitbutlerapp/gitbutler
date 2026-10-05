@@ -392,17 +392,7 @@ pub enum Subcommands {
     #[clap(hide = true, name = "_comment")]
     _Comment(comment::Platform),
 
-    // Hidden and underscore-prefixed: publishing to a hosted server is an experiment.
-    #[cfg(all(feature = "nightly", feature = "legacy"))]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    #[clap(hide = true, name = "_publish")]
-    _Publish(publish::Platform),
-
-    #[cfg(all(feature = "nightly", feature = "legacy"))]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    #[clap(hide = true, name = "_pull")]
-    _Pull(publish::PullPlatform),
-
+    // Hidden: the mesh is an experiment.
     #[cfg(all(feature = "nightly", feature = "legacy"))]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(hide = true, name = "mesh")]
@@ -1053,8 +1043,6 @@ pub mod r#move;
 pub mod open;
 #[cfg(feature = "legacy")]
 pub mod pick;
-#[cfg(all(feature = "nightly", feature = "legacy"))]
-pub mod publish;
 #[cfg(feature = "legacy")]
 pub mod redo;
 #[cfg(feature = "legacy")]

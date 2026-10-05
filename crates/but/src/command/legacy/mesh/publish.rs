@@ -1,4 +1,4 @@
-//! Implementation of the `but _publish` and `but _pull` commands.
+//! Implementation of `but mesh publish` and `but mesh pull`.
 
 use std::path::Path;
 
@@ -7,7 +7,7 @@ use but_ctx::Context;
 
 use crate::{
     CliResult,
-    args::publish::{Conflict, Platform, PullPlatform},
+    args::mesh::{Conflict, PublishPlatform, PullPlatform},
     error::bad_input,
     theme::Theme,
     utils::{
@@ -15,8 +15,8 @@ use crate::{
     },
 };
 
-pub fn publish(ctx: &mut Context, args: Platform, current_dir: &Path) -> CliResult<Outcome> {
-    let Platform {
+pub fn publish(ctx: &mut Context, args: PublishPlatform, current_dir: &Path) -> CliResult<Outcome> {
+    let PublishPlatform {
         branch,
         include_uncommitted,
         to,

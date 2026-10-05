@@ -5,6 +5,7 @@
 //! online, and loads what it shows in the background: the account's listing once, a repository's
 //! branches as it's unfolded.
 
+pub mod publish;
 mod sign_in;
 mod tree;
 
