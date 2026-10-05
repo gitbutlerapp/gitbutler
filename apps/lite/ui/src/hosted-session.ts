@@ -16,14 +16,11 @@ export const sendFromHub = async (send: {
 	from: string;
 	branch: string;
 	to: string;
-}): Promise<string | null> => {
+}): Promise<void> => {
 	const response = await fetch("/send", {
 		method: "POST",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify(send),
 	});
 	if (!response.ok) throw new Error((await response.text()) || response.statusText);
-	// Why the receiver may not get it after all, when the hub can tell.
-	const { warning } = (await response.json()) as { warning: string | null };
-	return warning;
 };

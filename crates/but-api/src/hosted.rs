@@ -1150,8 +1150,8 @@ pub fn hosted_branch_pull(
 /// its target branch. It goes where most projects here are, named as the sender names it.
 /// Returns where it went, and the branch's short name.
 ///
-/// The snapshot says where the project is cloned from; that's fetched with this machine's own
-/// credentials, and only over https or ssh.
+/// It starts from the target branch the hub has, as every publish pushes it; the project's own
+/// remote, when the snapshot names one over https or ssh, is added and fetched too.
 pub(crate) fn clone_sent(root: &str, from: &str, name: &str) -> Result<(PathBuf, String)> {
     let parent = clone_parent()?;
     // A repository of its own first, to read the snapshot from: it says what the project is
@@ -1161,6 +1161,9 @@ pub(crate) fn clone_sent(root: &str, from: &str, name: &str) -> Result<(PathBuf,
         std::fs::remove_dir_all(&scratch)?;
     }
     std::fs::create_dir_all(&scratch)?;
+    // What's been made so far, undone if a later step fails.
+    let mut moved_to = None;
+    let mut added = None;
     let cloned = (|| -> Result<(PathBuf, String)> {
         git(&scratch, &[], &["init", "--quiet"])?;
         git(&scratch, &[], &["config", "gitbutler.hostedRoot", root])?;
@@ -1174,10 +1177,6 @@ pub(crate) fn clone_sent(root: &str, from: &str, name: &str) -> Result<(PathBuf,
             &[],
             &["log", "-1", "--format=%B", &snapshot],
         )?)?;
-        let url = message["remote"]
-            .as_str()
-            .filter(|url| is_cloneable(url))
-            .context("its snapshot doesn't say where it's cloned from")?;
         let (remote, target) = message["target"]
             .as_str()
             .and_then(|target| target.strip_prefix("refs/remotes/"))
@@ -1189,11 +1188,36 @@ pub(crate) fn clone_sent(root: &str, from: &str, name: &str) -> Result<(PathBuf,
                 !title.is_empty() && !title.starts_with('.') && !title.contains(['/', '\\'])
             })
             .unwrap_or("project");
-        git(&scratch, &[], &["remote", "add", remote, url])?;
-        // The person's own credentials, but never a prompt: nobody is there to answer it.
-        let no_prompt = [("GIT_TERMINAL_PROMPT", "0".as_ref())];
-        git(&scratch, &no_prompt, &["fetch", "--quiet", remote])
-            .with_context(|| format!("couldn't fetch {url}"))?;
+        // Every publish pushes its target branch, so the hub has it, history and all: what the
+        // clone starts from, fetched as this account like everything else from the hub.
+        let target_ref = format!("refs/remotes/{remote}/{target}");
+        let hub = format!("{}/git/{root}", hosted_server());
+        git_as_user(
+            &scratch,
+            &[
+                "fetch",
+                "--quiet",
+                &hub,
+                &format!("+{target_ref}:{target_ref}"),
+            ],
+        )
+        .context("the hosted server doesn't have its target branch")?;
+        // The project's own remote, so it's fetched and pushed as anywhere else, when it's one
+        // another machine can reach; its fetch uses the person's own credentials, never a prompt,
+        // and only adds to what the hub gave. Otherwise, such as a path on the sending machine,
+        // the remote is the hub.
+        match message["remote"].as_str().filter(|url| is_cloneable(url)) {
+            Some(url) => {
+                git(&scratch, &[], &["remote", "add", remote, url])?;
+                let no_prompt = [("GIT_TERMINAL_PROMPT", "0".as_ref())];
+                if let Err(err) = git(&scratch, &no_prompt, &["fetch", "--quiet", remote]) {
+                    tracing::debug!("cloned from the hosted server only; {url}: {err:#}");
+                }
+            }
+            None => {
+                git(&scratch, &[], &["remote", "add", remote, &hub])?;
+            }
+        }
         git(
             &scratch,
             &[],
@@ -1213,10 +1237,10 @@ pub(crate) fn clone_sent(root: &str, from: &str, name: &str) -> Result<(PathBuf,
             .find(|dest| !dest.exists())
             .context("no free directory to clone into")?;
         std::fs::rename(&scratch, &dest)?;
+        moved_to = Some(dest.clone());
         let path = dest.to_str().context("the path is UTF-8")?.to_owned();
         match crate::legacy::projects::add_project(path)? {
-            gitbutler_project::AddProjectOutcome::Added(_)
-            | gitbutler_project::AddProjectOutcome::AlreadyExists(_) => {}
+            gitbutler_project::AddProjectOutcome::Added(project) => added = Some(project.id),
             other => bail!("couldn't add {} as a project: {other:?}", dest.display()),
         }
         let mut ctx = but_ctx::Context::discover(&dest)?;
@@ -1228,7 +1252,10 @@ pub(crate) fn clone_sent(root: &str, from: &str, name: &str) -> Result<(PathBuf,
         Ok((dest, branch))
     })();
     if cloned.is_err() {
-        std::fs::remove_dir_all(&scratch).ok();
+        if let Some(project) = added {
+            gitbutler_project::delete(project).ok();
+        }
+        std::fs::remove_dir_all(moved_to.unwrap_or(scratch)).ok();
     }
     cloned
 }

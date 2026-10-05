@@ -24,12 +24,7 @@ export const useHubSendMenu = ({
 	const { data: online = [] } = useQuery({ ...hostedPresenceQueryOptions, enabled });
 	const { isPending, mutate: send } = useMutation({
 		mutationFn: sendFromHub,
-		onSuccess: (warning, { to }) =>
-			toastManager.add({
-				title: `Sent ${branch} to ${to}`,
-				description: warning ?? undefined,
-				type: warning === null ? undefined : "warning",
-			}),
+		onSuccess: (_, { to }) => toastManager.add({ title: `Sent ${branch} to ${to}` }),
 		meta: { failureTitle: "Failed to send the branch" },
 	});
 	if (!enabled) return [];

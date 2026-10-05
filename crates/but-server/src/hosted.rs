@@ -485,27 +485,11 @@ async fn send_branch(
         git(&store, &["update-ref", &inbox, &snapshot])?;
         let sent = record_send(&store, &inbox)?;
         events::announce_send(&state.events, user, &project, sent);
-        // A machine that never published here may not have the project, and then clones it from
-        // where the snapshot says; one from before snapshots said can't be.
-        let has_project = !git(
-            &store,
-            &["for-each-ref", "--count=1", "--format=%(refname)", &format!("{SNAPSHOTS}{to}/")],
-        )?
-        .is_empty();
-        let says_remote = serde_json::from_str::<serde_json::Value>(&git(
-            &store,
-            &["log", "-1", "--format=%B", &snapshot],
-        )?)
-        .is_ok_and(|message| message["remote"].is_string());
-        anyhow::Ok((!has_project && !says_remote).then(|| {
-            format!(
-                "If {to} doesn't have this project, it can't clone it: this {branch} was published before snapshots said where to clone from. Publish it again from {from}, then send."
-            )
-        }))
+        anyhow::Ok(())
     }
     .await;
     match result {
-        Ok(warning) => Json(serde_json::json!({ "warning": warning })).into_response(),
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(err) => (StatusCode::BAD_REQUEST, format!("{err:#}")).into_response(),
     }
 }
