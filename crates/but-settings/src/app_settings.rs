@@ -97,6 +97,22 @@ pub struct Reviews {
 }
 but_schemars::register_sdk_type!(Reviews);
 
+/// Following branches between machines through the hosted server. Which branches are followed is
+/// kept per repository; these switch it all on or off and pace it.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Mesh {
+    /// Whether followed branches of this machine are published as they change.
+    pub auto_publish: bool,
+    /// How often followed branches are checked for changes to publish, in seconds.
+    pub publish_interval_sec: u64,
+    /// Whether followed branches of other machines are pulled as they publish.
+    pub auto_pull: bool,
+    /// The shortest time between two pulls of the same branch, in seconds.
+    pub pull_interval_sec: u64,
+}
+but_schemars::register_sdk_type!(Mesh);
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UiSettings {

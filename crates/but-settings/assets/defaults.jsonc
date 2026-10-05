@@ -63,6 +63,17 @@
 		// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
 		"autoFillPrDescriptionFromCommit": true
 	},
+	// Following branches between machines through the hosted server.
+	"mesh": {
+		// Whether followed branches of this machine are published as they change.
+		"autoPublish": true,
+		// How often followed branches are checked for changes to publish, in seconds.
+		"publishIntervalSec": 10,
+		// Whether followed branches of other machines are pulled as they publish.
+		"autoPull": true,
+		// The shortest time between two pulls of the same branch, in seconds.
+		"pullIntervalSec": 30
+	},
 	// UI settings.
 	"ui": {
 		// Whether to use the native system title bar.

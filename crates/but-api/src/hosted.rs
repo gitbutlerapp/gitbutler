@@ -21,7 +21,9 @@ use but_api_macros::but_api;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+mod follow;
 mod listen;
+pub use follow::{FollowEvent, FollowKind, Follower, follow};
 pub use listen::{HostedEvent, HostedListener, listen, listen_account};
 
 /// Where fetched branches and snapshots of published branches are kept.
@@ -478,6 +480,10 @@ pub struct HostedProject {
     pub machines: Vec<HostedMachine>,
     /// This machine's own published branches that are still local, and how each compares.
     pub published_here: Vec<PublishedBranch>,
+    /// This machine's branches published as they change.
+    pub auto_publish: Vec<String>,
+    /// Other machines' branches pulled as they're published, as `<machine>/<branch>`.
+    pub auto_pull: Vec<String>,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HostedProject);
@@ -555,17 +561,9 @@ pub fn hosted_account() -> Result<Vec<HostedAccountProject>> {
 
     let this = machine_name();
     let mut by_root = std::collections::HashMap::<String, Vec<String>>::new();
-    // As the frontend lists them, which is how it knows them: by `id`, at `path`.
-    for project in serde_json::to_value(crate::legacy::projects::list_projects_stateless()?)?
-        .as_array()
-        .into_iter()
-        .flatten()
-    {
-        let (Some(id), Some(path)) = (project["id"].as_str(), project["path"].as_str()) else {
-            continue;
-        };
-        if let Ok(root) = hosted_project(Path::new(path)) {
-            by_root.entry(root).or_default().push(id.to_owned());
+    for (id, path) in local_projects()? {
+        if let Ok(root) = hosted_project(&path) {
+            by_root.entry(root).or_default().push(id);
         }
     }
     for project in &mut projects {
@@ -576,6 +574,23 @@ pub fn hosted_account() -> Result<Vec<HostedAccountProject>> {
     }
     projects.retain(|project| !project.machines.is_empty());
     Ok(projects)
+}
+
+/// This machine's projects, by id and directory, as the frontend lists them.
+fn local_projects() -> Result<Vec<(String, PathBuf)>> {
+    Ok(
+        serde_json::to_value(crate::legacy::projects::list_projects_stateless()?)?
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|project| {
+                Some((
+                    project["id"].as_str()?.to_owned(),
+                    PathBuf::from(project["path"].as_str()?),
+                ))
+            })
+            .collect(),
+    )
 }
 
 /// A machine that published to the hosted server, as of the last fetch.
@@ -738,11 +753,61 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
     }
     let mut machines: Vec<_> = machines.into_values().collect();
     machines.sort_by_key(|machine| std::cmp::Reverse(machine.published_at));
+    let (auto_publish, auto_pull) = if on_hub {
+        Default::default()
+    } else {
+        (
+            follow_rules(&dir, AUTO_PUBLISH),
+            follow_rules(&dir, AUTO_PULL),
+        )
+    };
     Ok(HostedProject {
         root,
         machines,
         published_here,
+        auto_publish,
+        auto_pull,
     })
+}
+
+/// Branches of this machine to publish as they change, by short name.
+const AUTO_PUBLISH: &str = "gitbutler.hosted.autoPublish";
+/// Branches of other machines to pull as they're published, as `<machine>/<branch>`.
+const AUTO_PULL: &str = "gitbutler.hosted.autoPull";
+
+/// What `key` follows in the repository at `dir`, kept in its git config so every client sees it.
+fn follow_rules(dir: &Path, key: &str) -> Vec<String> {
+    git(dir, &[], &["config", "--get-all", key])
+        .map(|rules| rules.lines().map(ToOwned::to_owned).collect())
+        .unwrap_or_default()
+}
+
+/// Follow `branch`, or stop: this machine's own (`machine` unset) is published whenever it
+/// changes, another machine's pulled whenever it publishes it, as the mesh settings allow.
+#[but_api(napi, invalidates = [Hosted])]
+#[instrument(err(Debug))]
+pub fn hosted_follow(
+    ctx: &but_ctx::Context,
+    machine: Option<String>,
+    branch: String,
+    on: bool,
+) -> Result<()> {
+    let dir = workdir(ctx)?;
+    let (key, rule) = match machine {
+        None => (AUTO_PUBLISH, branch),
+        Some(machine) => (AUTO_PULL, format!("{machine}/{branch}")),
+    };
+    // Dropped first either way, so following twice keeps one rule.
+    git(
+        &dir,
+        &[],
+        &["config", "--unset-all", "--fixed-value", key, &rule],
+    )
+    .ok();
+    if on {
+        git(&dir, &[], &["config", "--add", key, &rule])?;
+    }
+    Ok(())
 }
 
 /// Publish `branch` (a short name) to the hosted server, from wherever it lives locally.

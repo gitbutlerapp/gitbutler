@@ -73,6 +73,19 @@ pub fn update_reviews(
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UpdateMeshParams {
+    pub update: but_settings::api::MeshUpdate,
+}
+
+pub fn update_mesh(
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateMeshParams,
+) -> Result<()> {
+    app_settings_sync.update_mesh(params.update)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateFetchParams {
     pub update: FetchUpdate,
 }

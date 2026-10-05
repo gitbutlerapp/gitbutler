@@ -15,7 +15,9 @@ use std::{
     time::Duration,
 };
 
-use but_api::hosted::{HostedAccountProject, HostedEvent, HostedProject, OnConflict, SyncOutcome};
+use but_api::hosted::{
+    FollowEvent, HostedAccountProject, HostedEvent, HostedProject, OnConflict, SyncOutcome,
+};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::{
     Frame,
@@ -38,6 +40,7 @@ enum Update {
     Hosted(String, Load<HostedProject>),
     Server(HostedEvent),
     Acted(Action, anyhow::Result<SyncOutcome>),
+    Followed(FollowEvent),
 }
 
 /// Something done to a branch, in the background as it talks to the hosted server. `path` is
@@ -66,6 +69,13 @@ enum Action {
         branch: String,
         to: String,
     },
+    /// Follow `branch` of `machine`, or of this machine without one, or stop.
+    Follow {
+        path: String,
+        machine: Option<String>,
+        branch: String,
+        on: bool,
+    },
 }
 
 impl Action {
@@ -74,7 +84,8 @@ impl Action {
             Action::Pull { path, .. }
             | Action::Dismiss { path, .. }
             | Action::Publish { path, .. }
-            | Action::Send { path, .. } => path,
+            | Action::Send { path, .. }
+            | Action::Follow { path, .. } => path,
         }
     }
 
@@ -112,6 +123,24 @@ impl Action {
             Action::Send { branch, to, .. } => SyncOutcome::Done(
                 but_api::hosted::hosted_branch_send(&ctx, branch, to, false)?,
             ),
+            Action::Follow {
+                machine,
+                branch,
+                on,
+                ..
+            } => {
+                let what = if machine.is_some() {
+                    "pulled"
+                } else {
+                    "published"
+                };
+                but_api::hosted::hosted_follow(&ctx, machine, branch.clone(), on)?;
+                SyncOutcome::Done(if on {
+                    format!("{branch} is {what} as it changes · , for settings")
+                } else {
+                    format!("{branch} is no longer {what} as it changes")
+                })
+            }
         })
     }
 }
@@ -124,6 +153,8 @@ enum Prompt {
         yes: Action,
         no: Option<Action>,
     },
+    /// The mesh settings, with one of them chosen.
+    Settings { selected: usize },
     /// Which machine to send `branch` to.
     SendTo {
         path: String,
@@ -160,10 +191,11 @@ fn headless(server: &str) -> anyhow::Result<()> {
         anyhow::bail!("Not signed in to GitButler; run `but mesh` once to sign in");
     }
     let (tx, rx) = mpsc::channel();
+    let _follower = but_api::hosted::follow(|event| println!("{}", event.message))?;
     let _listener = but_api::hosted::listen_account(move |event| {
         tx.send(event).ok();
     })?;
-    println!("Online at {server}; Ctrl-C to stop");
+    println!("Online at {server}, following what's followed; Ctrl-C to stop");
     let mut online = BTreeSet::new();
     for event in rx {
         match event {
@@ -244,6 +276,10 @@ impl App {
         let _listener = but_api::hosted::listen_account(move |event| {
             tx.send(Update::Server(event)).ok();
         })?;
+        let tx = self.tx.clone();
+        let _follower = but_api::hosted::follow(move |event| {
+            tx.send(Update::Followed(event)).ok();
+        })?;
         loop {
             for update in self.rx.try_iter().collect::<Vec<_>>() {
                 self.apply(update);
@@ -277,6 +313,7 @@ impl App {
                 KeyCode::Esc if self.toast.is_some() => self.toast = None,
                 KeyCode::Esc => return Ok(()),
                 KeyCode::Char('?') => self.help = true,
+                KeyCode::Char(',') => self.prompt = Some(Prompt::Settings { selected: 0 }),
                 KeyCode::Up | KeyCode::Char('k') => self.select(&rows, index, -1),
                 KeyCode::Down | KeyCode::Char('j') => self.select(&rows, index, 1),
                 KeyCode::Left | KeyCode::Char('h') => {
@@ -343,6 +380,10 @@ impl App {
                 }
                 self.reload_path(action.path());
             }
+            Update::Followed(event) => {
+                self.toast = Some(event.message);
+                self.reload(None);
+            }
             Update::Server(HostedEvent::Online(online)) => {
                 self.mesh.online = online.into_iter().collect();
             }
@@ -387,6 +428,21 @@ impl App {
     /// What a key does to `row`, if anything.
     fn act(&mut self, row: &Row, key: char) {
         match (&row.kind, key) {
+            (
+                RowKind::Branch {
+                    name,
+                    machine,
+                    path,
+                    followed,
+                    ..
+                },
+                'a',
+            ) => self.perform(Action::Follow {
+                path: path.clone(),
+                machine: machine.clone(),
+                branch: name.clone(),
+                on: !followed,
+            }),
             (
                 RowKind::Branch {
                     name,
@@ -482,6 +538,29 @@ impl App {
 
     fn answer(&mut self, prompt: Prompt, key: KeyCode) {
         match prompt {
+            Prompt::Settings { selected } => {
+                let selected = match key {
+                    KeyCode::Up | KeyCode::Char('k') => selected.saturating_sub(1),
+                    KeyCode::Down | KeyCode::Char('j') => (selected + 1).min(SETTINGS.len() - 1),
+                    KeyCode::Esc | KeyCode::Char(',') | KeyCode::Char('q') => return,
+                    KeyCode::Enter
+                    | KeyCode::Char(' ')
+                    | KeyCode::Left
+                    | KeyCode::Right
+                    | KeyCode::Char('h' | 'l' | '-' | '+') => {
+                        let later = matches!(
+                            key,
+                            KeyCode::Right | KeyCode::Char('l' | '+' | ' ') | KeyCode::Enter
+                        );
+                        if let Err(err) = change_setting(selected, later) {
+                            self.toast = Some(format!("Failed: {err:#}"));
+                        }
+                        selected
+                    }
+                    _ => selected,
+                };
+                self.prompt = Some(Prompt::Settings { selected });
+            }
             Prompt::Confirm { yes, no, question } => match key {
                 KeyCode::Char('y') => self.perform(yes),
                 KeyCode::Char('n') => {
@@ -677,6 +756,9 @@ impl App {
                 ),
                 bold,
             ),
+            (Some(Prompt::Settings { .. }), _, _) => {
+                Line::styled(" ↑↓ choose · space toggle · ←→ change · esc close", bold)
+            }
             (Some(Prompt::SendTo { branch, .. }), _, _) => Line::styled(
                 format!(" Send {branch} to…  ↑↓ choose · enter send · esc cancel"),
                 bold,
@@ -720,6 +802,27 @@ impl App {
             );
         }
 
+        if let Some(Prompt::Settings { selected }) = &self.prompt {
+            let lines = settings_lines();
+            let height = lines.len() as u16 + 2;
+            let area = ratatui::layout::Rect {
+                x: list.x + 4,
+                y: list.y + 1,
+                width: 46.min(list.width.saturating_sub(4)),
+                height: height.min(list.height),
+            };
+            let items: Vec<ListItem> = lines.into_iter().map(ListItem::new).collect();
+            let mut state = ListState::default().with_selected(Some(*selected));
+            frame.render_widget(ratatui::widgets::Clear, area);
+            frame.render_stateful_widget(
+                List::new(items)
+                    .block(ratatui::widgets::Block::bordered().title(" Mesh settings "))
+                    .highlight_style(Style::default().add_modifier(Modifier::REVERSED)),
+                area,
+                &mut state,
+            );
+        }
+
         if self.help {
             let help = [
                 "↑ ↓ / j k     move",
@@ -727,6 +830,8 @@ impl App {
                 "enter, space  fold or unfold",
                 "tab           group by machines or repos",
                 "r             refresh from the hosted server",
+                "a             follow a branch, or stop: publish yours, or pull another's, as it changes",
+                ",             settings: following on or off, and how often",
                 "",
                 "On another machine's branch:",
                 "p / w         pull into a worktree / into the workspace",
@@ -740,7 +845,7 @@ impl App {
                 "esc           dismiss a notice",
                 "q             quit",
                 "",
-                "● online  ○ offline  ◍ published here (↑ ahead, ↓ behind, ! diverged)  ✉ sent to you",
+                "● online  ○ offline  ◍ published here (↑ ahead, ↓ behind, ! diverged)  ✉ sent to you  ⟳ followed",
                 "",
                 "Any key closes this.",
             ];
@@ -762,15 +867,15 @@ fn hints(row: Option<&Row>) -> String {
             machine: Some(_),
             sent: true,
             ..
-        }) => "p pull · w pull into workspace · x dismiss · ",
+        }) => "p pull · w pull into workspace · x dismiss · a follow · ",
         Some(RowKind::Branch {
             machine: Some(_), ..
-        }) => "p pull · w pull into workspace · ",
-        Some(RowKind::Branch { machine: None, .. }) => "P publish · s send to · ",
+        }) => "p pull · w pull into workspace · a follow · ",
+        Some(RowKind::Branch { machine: None, .. }) => "P publish · s send to · a follow · ",
         Some(RowKind::Repo { path: Some(_), .. }) => "c copy path · ",
         _ => "",
     };
-    format!("{what}↑↓ move · ←→ fold · tab group · ? help · q quit")
+    format!("{what}↑↓ move · ←→ fold · tab group · , settings · ? help · q quit")
 }
 
 fn row_line(row: &Row) -> Line<'static> {
@@ -825,6 +930,7 @@ fn row_line(row: &Row) -> Line<'static> {
             worktree,
             publish,
             sent,
+            followed,
             ..
         } => {
             spans.push(Span::raw(match worktree {
@@ -846,6 +952,9 @@ fn row_line(row: &Row) -> Line<'static> {
                     P::Behind(n) => Span::styled(format!("  ◍ ↓{n}"), dim),
                     P::Diverged => Span::styled("  ◍ !", Style::default().fg(Color::Yellow)),
                 });
+            }
+            if *followed {
+                spans.push(Span::styled("  ⟳", Style::default().fg(Color::Green)));
             }
             if *sent {
                 spans.push(Span::styled(
@@ -933,4 +1042,70 @@ fn local_branches(path: &str) -> anyhow::Result<Vec<LocalBranch>> {
         );
     }
     Ok(branches)
+}
+
+/// The mesh settings, in the order the settings overlay lists them.
+const SETTINGS: [&str; 4] = [
+    "Publish followed branches",
+    "  check every",
+    "Pull followed branches",
+    "  at most every",
+];
+/// The intervals an interval setting steps through, in seconds.
+const INTERVALS: [u64; 7] = [5, 10, 30, 60, 120, 300, 600];
+
+fn mesh_settings() -> but_settings::app_settings::Mesh {
+    but_settings::AppSettings::load_from_default_path_creating_without_customization()
+        .map(|settings| settings.mesh)
+        .unwrap_or_else(|_| but_settings::AppSettings::default().mesh)
+}
+
+fn settings_lines() -> Vec<String> {
+    let mesh = mesh_settings();
+    let on = |on: bool| if on { "on" } else { "off" };
+    let every = |sec: u64| {
+        if sec.is_multiple_of(60) && sec > 0 {
+            format!("{} min", sec / 60)
+        } else {
+            format!("{sec} s")
+        }
+    };
+    let values = [
+        on(mesh.auto_publish).to_owned(),
+        every(mesh.publish_interval_sec),
+        on(mesh.auto_pull).to_owned(),
+        every(mesh.pull_interval_sec),
+    ];
+    SETTINGS
+        .iter()
+        .zip(values)
+        .map(|(name, value)| format!(" {name:<28}{value:>8}"))
+        .collect()
+}
+
+/// Turn the setting at `index` on or off, or its interval up (`later`) or down.
+fn change_setting(index: usize, later: bool) -> anyhow::Result<()> {
+    let mesh = mesh_settings();
+    let step = |sec: u64| -> u64 {
+        let position = INTERVALS
+            .iter()
+            .position(|&i| i >= sec)
+            .unwrap_or(INTERVALS.len() - 1);
+        let position = if later {
+            (position + 1).min(INTERVALS.len() - 1)
+        } else {
+            position.saturating_sub(1)
+        };
+        INTERVALS[position]
+    };
+    let mut update = but_settings::api::MeshUpdate::default();
+    match index {
+        0 => update.auto_publish = Some(!mesh.auto_publish),
+        1 => update.publish_interval_sec = Some(step(mesh.publish_interval_sec)),
+        2 => update.auto_pull = Some(!mesh.auto_pull),
+        _ => update.pull_interval_sec = Some(step(mesh.pull_interval_sec)),
+    }
+    let config_dir = but_path::app_config_dir()?;
+    but_settings::AppSettingsWithDiskSync::new_with_customization(config_dir, None)?
+        .update_mesh(update)
 }

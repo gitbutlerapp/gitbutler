@@ -72,6 +72,8 @@ pub(super) enum RowKind {
         worktree: Option<String>,
         publish: Option<PublishState>,
         sent: bool,
+        /// Published as it changes if it's this machine's, pulled as it's published otherwise.
+        followed: bool,
         /// Whose it is: `None` for this machine's.
         machine: Option<String>,
         /// The local repository it's acted on from.
@@ -351,14 +353,15 @@ impl Mesh {
         if branches.is_empty() {
             rows.push(note(depth, "No branches"));
         }
-        let published: HashMap<&str, &PublishState> = match self.hosted.get(&repo.id) {
-            Some(Load::Loaded(hosted)) => hosted
-                .published_here
-                .iter()
-                .map(|published| (published.branch.as_str(), &published.state))
-                .collect(),
-            _ => HashMap::new(),
+        let hosted = match self.hosted.get(&repo.id) {
+            Some(Load::Loaded(hosted)) => Some(hosted),
+            _ => None,
         };
+        let published: HashMap<&str, &PublishState> = hosted
+            .iter()
+            .flat_map(|hosted| &hosted.published_here)
+            .map(|published| (published.branch.as_str(), &published.state))
+            .collect();
         for branch in branches {
             let key = format!("branch:{}:{}", repo.id, branch.name);
             let folded = !unfolded.contains(&key);
@@ -374,6 +377,8 @@ impl Mesh {
                         .get(branch.name.as_str())
                         .map(|state| (*state).clone()),
                     sent: false,
+                    followed: hosted
+                        .is_some_and(|hosted| hosted.auto_publish.contains(&branch.name)),
                     machine: None,
                     path: repo.path.clone(),
                 },
@@ -417,6 +422,9 @@ impl Mesh {
                     worktree: None,
                     publish: None,
                     sent: branch.sent,
+                    followed: hosted
+                        .auto_pull
+                        .contains(&format!("{machine}/{}", branch.branch)),
                     machine: Some(machine.to_owned()),
                     path: self.path_of(project).unwrap_or_default(),
                 },

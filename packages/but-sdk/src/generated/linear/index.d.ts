@@ -949,14 +949,14 @@ export declare function headInfo(projectId: string): Promise<RefInfo>
  * the hosted server; no project is fetched. Local projects are matched to what was published by
  * root commit, and one whose directory is gone is left out rather than failing the call.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:449}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:531}
  */
 export declare function hostedAccount(): Promise<Array<HostedAccountProject>>
 
 /**
  * Take what `machine` sent of `branch` out of this machine's inbox, without pulling it.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:699}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:847}
  */
 export declare function hostedBranchDismiss(projectId: string, machine: string, branch: string): Promise<void>
 
@@ -969,7 +969,7 @@ export declare function hostedBranchDismiss(projectId: string, machine: string, 
  * is checked out in; in the workspace, uncommitted changes don't belong to one branch, so
  * they stay local. Nothing another machine published is replaced, so it never asks.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:672}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:820}
  */
 export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean): Promise<string>
 
@@ -987,7 +987,7 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * with itself; one it never published stays unpublished. Pulling also clears anything
  * `machine` sent of it to this machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:807}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:964}
  */
 export declare function hostedBranchPull(projectId: string, machine: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
@@ -995,9 +995,17 @@ export declare function hostedBranchPull(projectId: string, machine: string, bra
  * Publish `branch` as [`hosted_branch_publish()`] does, and send it to the machine named `to`:
  * it shows up there as sent, to pull or dismiss, and if `to` is online, it's told right away.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:684}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:832}
  */
 export declare function hostedBranchSend(projectId: string, branch: string, to: string, includeUncommitted: boolean): Promise<string>
+
+/**
+ * Follow `branch`, or stop: this machine's own (`machine` unset) is published whenever it
+ * changes, another machine's pulled whenever it publishes it, as the mesh settings allow.
+ *
+ * {@link ../../../../../crates/but-api/src/hosted.rs:787}
+ */
+export declare function hostedFollow(projectId: string, machine: string | null, branch: string, on: boolean): Promise<void>
 
 /**
  * The machines that published to this project, most recent first, with what each last sent.
@@ -1006,7 +1014,7 @@ export declare function hostedBranchSend(projectId: string, branch: string, to: 
  * branches are here already. On the hosted server, which has no files, it's the server's own
  * record of every machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:545}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:639}
  */
 export declare function hostedMachines(projectId: string): Promise<HostedProject>
 
@@ -1845,6 +1853,12 @@ export declare function worktreeSetArchived(projectId: string, name: string, arc
  * {@link ../../../../../crates/but-api/src/worktrees.rs:126}
  */
 export declare function worktreesList(projectId: string): Promise<WorktreeListing>
+/** Branches followed in the background, while this is held. */
+export declare class HostedFollowerHandle {
+  /** Stop following, if still following. */
+  stop(): boolean
+}
+
 /** A live connection to the hosted server, held while this is. */
 export declare class HostedListenerHandle {
   /** Disconnect, if still connected. */
@@ -1904,6 +1918,20 @@ export const HORIZ_PARENT: number
 
 /** Any horizontal link line. */
 export const HORIZONTAL: number
+
+/** What the follower did, for the app to tell the person. */
+export interface HostedFollowEvent {
+  /** `published`, `pulled`, `skipped` or `failed`. */
+  kind: string
+  /** What happened, in a sentence. */
+  message: string
+}
+
+/**
+ * Follow branches between machines, as each repository's rules and the mesh settings say,
+ * telling `callback` what was done.
+ */
+export declare function hostedFollowStart(callback: ((err: Error | null, arg: HostedFollowEvent) => any)): HostedFollowerHandle
 
 /**
  * Connect to the hosted server for `project_id`, and forward what it says to `callback` as
@@ -1984,6 +2012,9 @@ export declare function updateFeatureFlags(update: FeatureFlagsUpdate): Promise<
 
 /** Update fetch settings; unset fields are left unchanged. */
 export declare function updateFetch(update: FetchUpdate): Promise<void>
+
+/** Update mesh settings; unset fields are left unchanged. */
+export declare function updateMesh(update: MeshUpdate): Promise<void>
 
 /** Set whether onboarding has been completed. */
 export declare function updateOnboardingComplete(update: boolean): Promise<void>
@@ -2125,6 +2156,8 @@ export type AppSettings = {
   claude: Claude;
   /** Settings related to code reviews and pull requests. */
   reviews: Reviews;
+  /** Following branches between machines through the hosted server. */
+  mesh: Mesh;
   /** UI settings. */
   ui: UiSettings;
   /**
@@ -3012,6 +3045,17 @@ export type FileInfo = {
   mimeType: string | null;
 };
 
+/** Something the follower did, or chose not to, for the person to hear about. */
+export type FollowEvent = {
+  /** What kind of thing it was. */
+  kind: FollowKind;
+  /** What happened, in a sentence that names the repository and branch. */
+  message: string;
+};
+
+/** The kinds of [`FollowEvent`]. */
+export type FollowKind = "published" | "pulled" | "skipped" | "failed";
+
 export type ForgeCapabilities = {
   checks: boolean;
   repoInfo: boolean;
@@ -3527,6 +3571,10 @@ export type HostedProject = {
   machines: Array<HostedMachine>;
   /** This machine's own published branches that are still local, and how each compares. */
   publishedHere: Array<PublishedBranch>;
+  /** This machine's branches published as they change. */
+  autoPublish: Array<string>;
+  /** Other machines' branches pulled as they're published, as `<machine>/<branch>`. */
+  autoPull: Array<string>;
 };
 
 export type HunkAssignment = {
@@ -3990,6 +4038,29 @@ export type ManualConflict = {
  * that can't be represented in Unicode can't be passed through this type.
  */
 export type MaybeLossyFullNameRef = string | null;
+
+/**
+ * Following branches between machines through the hosted server. Which branches are followed is
+ * kept per repository; these switch it all on or off and pace it.
+ */
+export type Mesh = {
+  /** Whether followed branches of this machine are published as they change. */
+  autoPublish: boolean;
+  /** How often followed branches are checked for changes to publish, in seconds. */
+  publishIntervalSec: number;
+  /** Whether followed branches of other machines are pulled as they publish. */
+  autoPull: boolean;
+  /** The shortest time between two pulls of the same branch, in seconds. */
+  pullIntervalSec: number;
+};
+
+/** Update request for [`crate::app_settings::Mesh`]. */
+export type MeshUpdate = {
+  autoPublish?: boolean | null;
+  publishIntervalSec?: number | null;
+  autoPull?: boolean | null;
+  pullIntervalSec?: number | null;
+};
 
 /** How to combine messages of commits being squashed. */
 export type MessageCombinationStrategy = "KeepBoth" | "KeepSubject" | "KeepTarget";

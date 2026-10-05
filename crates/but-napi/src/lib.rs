@@ -442,6 +442,54 @@ pub fn hosted_listen(
     })
 }
 
+/// What the follower did, for the app to tell the person.
+#[derive(Clone)]
+#[napi(object)]
+pub struct HostedFollowEvent {
+    /// `published`, `pulled`, `skipped` or `failed`.
+    pub kind: String,
+    /// What happened, in a sentence.
+    pub message: String,
+}
+
+/// Branches followed in the background, while this is held.
+#[napi]
+pub struct HostedFollowerHandle {
+    follower: Option<but_api::hosted::Follower>,
+}
+
+#[napi]
+impl HostedFollowerHandle {
+    /// Stop following, if still following.
+    #[napi]
+    pub fn stop(&mut self) -> bool {
+        self.follower.take().is_some()
+    }
+}
+
+/// Follow branches between machines, as each repository's rules and the mesh settings say,
+/// telling `callback` what was done.
+#[napi]
+pub fn hosted_follow_start(
+    callback: ThreadsafeFunction<HostedFollowEvent>,
+) -> napi::Result<HostedFollowerHandle> {
+    let follower = but_api::hosted::follow(move |event| {
+        let kind = serde_json::to_value(event.kind)
+            .ok()
+            .and_then(|kind| kind.as_str().map(ToOwned::to_owned))
+            .unwrap_or_default();
+        let event = HostedFollowEvent {
+            kind,
+            message: event.message,
+        };
+        callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
+    })
+    .map_err(to_napi_err)?;
+    Ok(HostedFollowerHandle {
+        follower: Some(follower),
+    })
+}
+
 /// Start a project watcher and forward events to `callback`.
 ///
 /// `project_id` can be a project handle or legacy project id.

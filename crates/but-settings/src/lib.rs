@@ -23,6 +23,8 @@ pub struct AppSettings {
     pub claude: app_settings::Claude,
     /// Settings related to code reviews and pull requests.
     pub reviews: app_settings::Reviews,
+    /// Following branches between machines through the hosted server.
+    pub mesh: app_settings::Mesh,
     /// UI settings.
     pub ui: app_settings::UiSettings,
     /// The duration between application update checks in seconds. If `0`, no update checks will be performed.

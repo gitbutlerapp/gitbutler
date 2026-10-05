@@ -81,6 +81,14 @@ pub async fn update_reviews(
     apply_update(update, AppSettingsWithDiskSync::update_reviews)
 }
 
+/// Update mesh settings; unset fields are left unchanged.
+#[napi]
+pub async fn update_mesh(
+    #[napi(ts_arg_type = "MeshUpdate")] update: serde_json::Value,
+) -> napi::Result<()> {
+    apply_update(update, AppSettingsWithDiskSync::update_mesh)
+}
+
 /// Update fetch settings; unset fields are left unchanged.
 #[napi]
 pub async fn update_fetch(

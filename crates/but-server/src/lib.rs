@@ -994,6 +994,9 @@ async fn handle_command(
         "update_reviews" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
         }),
+        "update_mesh" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_mesh(&app_settings_sync, params).map(|r| json!(r))
+        }),
         // Project management (need extra or app)
         "list_projects" => projects::list_projects(&extra).await,
         "set_project_active" => {

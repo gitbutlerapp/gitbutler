@@ -43,6 +43,20 @@ but_schemars::register_sdk_type!(ReviewsUpdate);
 )]
 #[serde(rename_all = "camelCase", default)]
 #[schemars(extend("x-input" = true))]
+/// Update request for [`crate::app_settings::Mesh`].
+pub struct MeshUpdate {
+    pub auto_publish: Option<bool>,
+    pub publish_interval_sec: Option<u64>,
+    pub auto_pull: Option<bool>,
+    pub pull_interval_sec: Option<u64>,
+}
+but_schemars::register_sdk_type!(MeshUpdate);
+
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema,
+)]
+#[serde(rename_all = "camelCase", default)]
+#[schemars(extend("x-input" = true))]
 /// Update request for [`crate::app_settings::Fetch`].
 pub struct FetchUpdate {
     pub auto_fetch_interval_minutes: Option<isize>,
@@ -111,6 +125,30 @@ impl AppSettingsWithDiskSync {
         {
             settings.reviews.auto_fill_pr_description_from_commit =
                 auto_fill_pr_description_from_commit;
+        }
+        settings.save()
+    }
+
+    pub fn update_mesh(&self, update: MeshUpdate) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        let MeshUpdate {
+            auto_publish,
+            publish_interval_sec,
+            auto_pull,
+            pull_interval_sec,
+        } = update;
+        let mesh = &mut settings.mesh;
+        if let Some(value) = auto_publish {
+            mesh.auto_publish = value;
+        }
+        if let Some(value) = publish_interval_sec {
+            mesh.publish_interval_sec = value.max(1);
+        }
+        if let Some(value) = auto_pull {
+            mesh.auto_pull = value;
+        }
+        if let Some(value) = pull_interval_sec {
+            mesh.pull_interval_sec = value;
         }
         settings.save()
     }

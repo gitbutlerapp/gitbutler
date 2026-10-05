@@ -89,6 +89,7 @@ export const apiParamNames = {
 	hostedBranchPublish: ["projectId", "branch", "includeUncommitted"],
 	hostedBranchPull: ["projectId", "machine", "branch", "intoWorkspace", "onConflict"],
 	hostedBranchSend: ["projectId", "branch", "to", "includeUncommitted"],
+	hostedFollow: ["projectId", "machine", "branch", "on"],
 	hostedMachines: ["projectId"],
 	initApplicationNamespace: ["identifier"],
 	initGithubDeviceOauth: [],
