@@ -165,10 +165,12 @@ fn headless(server: &str) -> anyhow::Result<()> {
         anyhow::bail!("Not signed in to GitButler; run `but mesh` once to sign in");
     }
     let (tx, rx) = mpsc::channel();
-    let _follower = but_api::hosted::follow(|event| println!("{}", event.message))?;
-    let _listener = but_api::hosted::listen_account(move |event| {
-        tx.send(event).ok();
-    })?;
+    let _follower = but_api::hosted::follow(
+        |event| println!("{}", event.message),
+        move |event| {
+            tx.send(event).ok();
+        },
+    )?;
     println!("Online at {server}, keeping branches in step; Ctrl-C to stop");
     let mut online = BTreeSet::new();
     for event in rx {
@@ -245,15 +247,16 @@ impl App {
     }
 
     fn run(mut self, terminal: &mut CrosstermTerminalGuard) -> anyhow::Result<()> {
-        let tx = self.tx.clone();
-        // Held for as long as the mesh is open, which is what shows this machine as online.
-        let _listener = but_api::hosted::listen_account(move |event| {
-            tx.send(Update::Server(event)).ok();
-        })?;
-        let tx = self.tx.clone();
-        let _follower = but_api::hosted::follow(move |event| {
-            tx.send(Update::Followed(event)).ok();
-        })?;
+        // Held for as long as the mesh is open: its connection is what shows this machine online.
+        let (followed, hosted) = (self.tx.clone(), self.tx.clone());
+        let _follower = but_api::hosted::follow(
+            move |event| {
+                followed.send(Update::Followed(event)).ok();
+            },
+            move |event| {
+                hosted.send(Update::Server(event)).ok();
+            },
+        )?;
         loop {
             for update in self.rx.try_iter().collect::<Vec<_>>() {
                 self.apply(update);

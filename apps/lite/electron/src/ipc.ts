@@ -6,6 +6,7 @@ import type {
 	HostedFollowEvent,
 	MeshUpdate,
 	WatcherEvent,
+	WatcherPayload,
 	AskpassPromptEvent,
 } from "@gitbutler/but-sdk";
 import type * as sdk from "@gitbutler/but-sdk";
@@ -52,6 +53,8 @@ export type LiteElectronApi = SDK & {
 	onProjectsChanged: (callback: () => void) => () => void;
 	/** What following branches between machines did in the background. */
 	onHostedFollowed: (callback: (event: HostedFollowEvent) => void) => () => void;
+	/** What the hosted server says over the app's one connection to it. */
+	onHostedEvent: (callback: (payload: WatcherPayload) => void) => () => void;
 	openInWebBrowser: (url: string) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	pickDirectory: () => Promise<string | null>;
@@ -114,6 +117,7 @@ export const localEndpoints = [
 	"notificationClick",
 	"projectsChanged",
 	"hostedFollowed",
+	"hostedEvent",
 	"openInWebBrowser",
 	"pathJoin",
 	"pickDirectory",

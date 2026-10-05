@@ -83,11 +83,17 @@ impl Drop for Follower {
     }
 }
 
-/// Start following, telling `on_event` what was done.
-pub fn follow(on_event: impl Fn(FollowEvent) + Send + 'static) -> Result<Follower> {
+/// Start following, telling `on_event` what was done, and `on_hosted` everything the hosted
+/// server says: the follower's connection is the client's only one, which is also what makes
+/// this machine online.
+pub fn follow(
+    on_event: impl Fn(FollowEvent) + Send + 'static,
+    on_hosted: impl Fn(HostedEvent) + Send + 'static,
+) -> Result<Follower> {
     let (signals, received) = mpsc::channel();
     let hosted = signals.clone();
     let listener = super::listen_account(move |event| {
+        on_hosted(event.clone());
         let signal = match event {
             HostedEvent::Sent(sent) => Signal::Sent(sent),
             HostedEvent::Published(None) => Signal::Reconnected,

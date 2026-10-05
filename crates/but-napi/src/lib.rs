@@ -391,57 +391,6 @@ fn start_project_watcher(
     )
 }
 
-/// A live connection to the hosted server, held while this is.
-#[napi]
-pub struct HostedListenerHandle {
-    listener: Option<but_api::hosted::HostedListener>,
-}
-
-#[napi]
-impl HostedListenerHandle {
-    /// Disconnect, if still connected.
-    #[napi]
-    pub fn stop(&mut self) -> bool {
-        self.listener.take().is_some()
-    }
-}
-
-/// Connect to the hosted server for `project_id`, and forward what it says to `callback` as
-/// watcher events: an `externalInvalidation` of hosted data when something was published,
-/// and `hostedPresence` when the account's other machines come or go. Holding the
-/// connection is what makes this machine online.
-#[napi]
-pub fn hosted_listen(
-    project_id: String,
-    callback: ThreadsafeFunction<WatcherEvent>,
-) -> napi::Result<HostedListenerHandle> {
-    let parsed: ProjectHandleOrLegacyProjectId = project_id
-        .parse()
-        .map_err(|err| napi::Error::from_reason(format!("invalid project id: {err}")))?;
-    let ctx = open_prepared_context(&parsed).map_err(to_napi_err)?;
-    let dir = ctx.workdir_or_fail().map_err(to_napi_err)?;
-    let listener = but_api::hosted::listen(&dir, move |event| {
-        let payload = match event {
-            but_api::hosted::HostedEvent::Published(root) => {
-                WatcherPayload::HostedPublished(WatcherHostedPublishedPayload { root })
-            }
-            but_api::hosted::HostedEvent::Sent(sent) => WatcherPayload::HostedSent(sent),
-            but_api::hosted::HostedEvent::Online(online) => {
-                WatcherPayload::HostedPresence(WatcherHostedPresencePayload { online })
-            }
-        };
-        let event = WatcherEvent {
-            name: format!("project://{project_id}/hosted"),
-            payload: serde_json::json!(payload),
-        };
-        callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
-    })
-    .map_err(to_napi_err)?;
-    Ok(HostedListenerHandle {
-        listener: Some(listener),
-    })
-}
-
 /// What the follower did, for the app to tell the person.
 #[derive(Clone)]
 #[napi(object)]
@@ -467,23 +416,44 @@ impl HostedFollowerHandle {
     }
 }
 
-/// Follow branches between machines, as each repository's rules and the mesh settings say,
-/// telling `callback` what was done.
+/// Connect to the hosted server and keep branches in step, as the mesh settings say: `callback`
+/// hears what was done, `on_hosted` what the server says, as watcher events (`hostedPublished`,
+/// `hostedSent`, `hostedPresence`). The app's only connection, which also makes it online.
 #[napi]
 pub fn hosted_follow_start(
     callback: ThreadsafeFunction<HostedFollowEvent>,
+    on_hosted: ThreadsafeFunction<WatcherEvent>,
 ) -> napi::Result<HostedFollowerHandle> {
-    let follower = but_api::hosted::follow(move |event| {
-        let kind = serde_json::to_value(event.kind)
-            .ok()
-            .and_then(|kind| kind.as_str().map(ToOwned::to_owned))
-            .unwrap_or_default();
-        let event = HostedFollowEvent {
-            kind,
-            message: event.message,
+    let on_hosted = move |event| {
+        let payload = match event {
+            but_api::hosted::HostedEvent::Published(root) => {
+                WatcherPayload::HostedPublished(WatcherHostedPublishedPayload { root })
+            }
+            but_api::hosted::HostedEvent::Sent(sent) => WatcherPayload::HostedSent(sent),
+            but_api::hosted::HostedEvent::Online(online) => {
+                WatcherPayload::HostedPresence(WatcherHostedPresencePayload { online })
+            }
         };
-        callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
-    })
+        let event = WatcherEvent {
+            name: "hosted".to_owned(),
+            payload: serde_json::json!(payload),
+        };
+        on_hosted.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
+    };
+    let follower = but_api::hosted::follow(
+        move |event| {
+            let kind = serde_json::to_value(event.kind)
+                .ok()
+                .and_then(|kind| kind.as_str().map(ToOwned::to_owned))
+                .unwrap_or_default();
+            let event = HostedFollowEvent {
+                kind,
+                message: event.message,
+            };
+            callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
+        },
+        on_hosted,
+    )
     .map_err(to_napi_err)?;
     Ok(HostedFollowerHandle {
         follower: Some(follower),

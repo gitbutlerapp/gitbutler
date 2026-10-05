@@ -1,3 +1,4 @@
+import { handleHostedEvent } from "#ui/project-events.ts";
 import { initErrorReporting, reportError } from "#ui/error-reporting.ts";
 import { MutationCache, QueryCache, QueryClient, focusManager } from "@tanstack/react-query";
 import { App } from "#ui/App.tsx";
@@ -79,6 +80,9 @@ const router = createAppRouter(queryClient, createRouteTree({ workspace: Page })
 window.lite.onDeepLink((path) => {
 	void router.navigate({ href: path });
 });
+
+// The app's one connection to the hosted server: account-wide, so handled once, not per project.
+window.lite.onHostedEvent((payload) => handleHostedEvent(payload, queryClient));
 
 // Following branches between machines happens in the background, so it tells what it did. A pull
 // changes the workspace and worktrees as well as what's published, so everything is reread.

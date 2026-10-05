@@ -359,6 +359,7 @@ const electronHandlerOverrides = {
 	writeGUISettings: async (settings) => {
 		applyGUISettings(settings);
 		await writeSettings(settings);
+		await syncHosted();
 	},
 	getUpdateStatus,
 	checkForUpdates,
@@ -542,24 +543,43 @@ const openDeepLink = async (link: string): Promise<void> => {
 };
 
 let follower: sdk.HostedFollowerHandle | undefined;
+/** The latest presence. It's only sent as machines come or go, so a window that loads later gets this. */
+let presence: sdk.WatcherEvent | undefined;
+
+const toWindows = (channel: string, payload: unknown) => {
+	for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, payload);
+};
 
 /**
- * Publish and pull followed branches in the background while the app runs, telling every window.
- * Read at launch, as the hosted listeners are, so turning hosted branches on takes a restart.
+ * The app's one connection to the hosted server, held while hosted branches are on: what the
+ * server says goes to every window, and branches are kept in step as the mesh settings say.
+ * Called again when the setting changes, so it takes effect at once.
  */
-const startFollowing = async (): Promise<void> => {
-	if ((await readSettings()).hostedBranches !== true) return;
+const syncHosted = async (): Promise<void> => {
+	if ((await readSettings()).hostedBranches !== true) {
+		follower?.stop();
+		follower = undefined;
+		presence = undefined;
+		return;
+	}
+	if (follower) return;
 	try {
-		follower = sdk.hostedFollowStart((err, event) => {
-			if (err) {
-				reportError(err, "Hosted follower callback failed");
-				return;
-			}
-			for (const window of BrowserWindow.getAllWindows())
-				window.webContents.send("hostedFollowed", event);
-		});
+		follower = sdk.hostedFollowStart(
+			(err, event) => {
+				if (err) reportError(err, "Hosted follower callback failed");
+				else toWindows("hostedFollowed", event);
+			},
+			(err, event) => {
+				if (err) {
+					reportError(err, "Hosted connection callback failed");
+					return;
+				}
+				if (event.payload.type === "hostedPresence") presence = event;
+				toWindows("hostedEvent", event.payload);
+			},
+		);
 	} catch (error) {
-		reportError(error, "Failed to start following branches");
+		reportError(error, "Failed to connect to the hosted server");
 	}
 };
 
@@ -591,6 +611,9 @@ const createMainWindow = async (initialUrl?: string): Promise<void> => {
 		},
 	});
 	registerEditingContextMenu(mainWindow);
+	mainWindow.webContents.on("did-finish-load", () => {
+		if (presence) mainWindow.webContents.send("hostedEvent", presence.payload);
+	});
 
 	const notifyFullScreenChange = () => {
 		mainWindow.webContents.send("fullScreenChange", mainWindow.isFullScreen());
@@ -765,7 +788,7 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 		launchLink === undefined ? undefined : (deepLinkTarget(launchLink)?.url ?? undefined),
 	);
 
-	await startFollowing();
+	await syncHosted();
 
 	app.on("activate", () => {
 		const [existing] = BrowserWindow.getAllWindows();

@@ -24,7 +24,7 @@ use tracing::instrument;
 mod follow;
 mod listen;
 pub use follow::{FollowEvent, FollowKind, Follower, follow};
-pub use listen::{HostedEvent, HostedListener, listen, listen_account};
+pub use listen::{HostedEvent, HostedListener, listen_account};
 
 /// Where fetched branches and snapshots of published branches are kept.
 const HOSTED_REFS: &str = "refs/gitbutler/hosted";

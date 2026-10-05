@@ -4,7 +4,7 @@
 //! Holding the connection is what makes a machine online. It names itself by host name, as on
 //! git requests, and signs in with the account's token, which never leaves Rust.
 
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 
 use anyhow::{Context as _, Result, bail};
 use futures::StreamExt as _;
@@ -31,16 +31,6 @@ pub struct HostedListener {
 /// The server sends a heartbeat every 25s, so this much silence means the connection is dead.
 const IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_RETRY_DELAY: Duration = Duration::from_secs(30);
-
-/// Connect to the hosted server for the project at `dir`, and hand `on_event` what it says.
-pub fn listen(
-    dir: &Path,
-    on_event: impl Fn(HostedEvent) + Send + 'static,
-) -> Result<HostedListener> {
-    // Only so that a directory that isn't a project fails here, not in the background.
-    super::hosted_project(dir)?;
-    listen_account(on_event)
-}
 
 /// Connect to the hosted server for the whole account, outside any project, as `but mesh` does.
 pub fn listen_account(on_event: impl Fn(HostedEvent) + Send + 'static) -> Result<HostedListener> {

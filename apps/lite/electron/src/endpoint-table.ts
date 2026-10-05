@@ -18,6 +18,7 @@ type RendererOnlyKey =
 	| "onNotificationClick"
 	| "onProjectsChanged"
 	| "onHostedFollowed"
+	| "onHostedEvent"
 	| "platform"
 	| "hosted";
 

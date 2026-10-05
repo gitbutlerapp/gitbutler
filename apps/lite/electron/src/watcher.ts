@@ -1,12 +1,5 @@
 import { reportError } from "./metrics.js";
-import {
-	type HostedListenerHandle,
-	hostedListen,
-	type WatcherEvent,
-	type WatcherHandle,
-	watcherStart,
-} from "@gitbutler/but-sdk";
-import { readSettings } from "./settings.js";
+import { type WatcherEvent, type WatcherHandle, watcherStart } from "@gitbutler/but-sdk";
 import { randomUUID } from "node:crypto";
 
 type ProjectWatcherState = {
@@ -16,16 +9,6 @@ type ProjectWatcherState = {
 	 * As long as this is held in memory, the watcher lives.
 	 */
 	handle: WatcherHandle;
-	/**
-	 * The hosted server's connection, beside the watcher while hosted branches are on. Its
-	 * events arrive as watcher events.
-	 */
-	hosted: HostedListenerHandle | undefined;
-	/**
-	 * The latest presence the hosted server sent. It's only sent when machines come or go,
-	 * so a window that subscribes later, or reloads, is given this instead.
-	 */
-	presence: WatcherEvent | undefined;
 	/**
 	 * A set of different subscriptions to this watcher.
 	 *
@@ -120,15 +103,6 @@ export default class WatcherManager {
 		projectWatcher.subscriptionIds.add(subscriptionId);
 		this.addSenderSubscription(event.sender.id, subscriptionId);
 
-		// After this call's reply, which the window waits for before it listens on the channel;
-		// messages to a window arrive in order.
-		const { presence } = projectWatcher;
-		if (presence) {
-			setTimeout(() => {
-				if (!event.sender.isDestroyed()) event.sender.send(eventChannel, presence);
-			}, 0);
-		}
-
 		return { subscriptionId, eventChannel };
 	}
 
@@ -160,7 +134,6 @@ export default class WatcherManager {
 			if (projectWatcher.subscriptionIds.size === 0) {
 				try {
 					projectWatcher.handle.stop();
-					projectWatcher.hosted?.stop();
 				} catch (error) {
 					reportError(error, "Failed to stop project watcher");
 				}
@@ -191,7 +164,6 @@ export default class WatcherManager {
 	private forwardWatcherEvent(projectId: string, event: WatcherEvent): void {
 		const projectWatcher = this.projectWatchers.get(projectId);
 		if (!projectWatcher) return;
-		if (event.payload.type === "hostedPresence") projectWatcher.presence = event;
 
 		const deadSubscriptions: Array<string> = [];
 		for (const subscriptionId of projectWatcher.subscriptionIds) {
@@ -241,11 +213,9 @@ export default class WatcherManager {
 			}
 			this.forwardWatcherEvent(projectId, event);
 		})
-			.then(async (handle) => {
+			.then((handle) => {
 				const watcherState: ProjectWatcherState = {
 					handle,
-					hosted: await this.startHostedListener(projectId),
-					presence: undefined,
 					subscriptionIds: new Set(),
 				};
 				// Once the watcher has been started, store the handle in the state.
@@ -263,33 +233,12 @@ export default class WatcherManager {
 		return creation;
 	}
 
-	/**
-	 * Connect to the hosted server for the project, if hosted branches are on. Read when the
-	 * watcher starts, so turning them on takes effect the next time the project is opened.
-	 */
-	private async startHostedListener(projectId: string): Promise<HostedListenerHandle | undefined> {
-		if ((await readSettings()).hostedBranches !== true) return undefined;
-		try {
-			return hostedListen(projectId, (err, event) => {
-				if (err) {
-					reportError(err, "Hosted listener callback failed");
-					return;
-				}
-				this.forwardWatcherEvent(projectId, event);
-			});
-		} catch (error) {
-			reportError(error, "Failed to connect to the hosted server");
-			return undefined;
-		}
-	}
-
 	stopAllWatchersForShutdown(): number {
 		const stopped = this.watcherSubscriptions.size;
 
 		for (const projectWatcher of this.projectWatchers.values()) {
 			try {
 				projectWatcher.handle.stop();
-				projectWatcher.hosted?.stop();
 			} catch (error) {
 				reportError(error, "Failed to stop project watcher during shutdown");
 			}

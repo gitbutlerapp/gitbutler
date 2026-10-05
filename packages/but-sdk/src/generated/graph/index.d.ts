@@ -949,14 +949,14 @@ export declare function headInfo(projectId: string): Promise<RefInfo>
  * the hosted server; no project is fetched. Local projects are matched to what was published by
  * root commit, and one whose directory is gone is left out rather than failing the call.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:527}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:559}
  */
 export declare function hostedAccount(): Promise<Array<HostedAccountProject>>
 
 /**
  * Take what `machine` sent of `branch` out of this machine's inbox, without pulling it.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:793}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:825}
  */
 export declare function hostedBranchDismiss(projectId: string, machine: string, branch: string): Promise<void>
 
@@ -969,7 +969,7 @@ export declare function hostedBranchDismiss(projectId: string, machine: string, 
  * is checked out in; in the workspace, uncommitted changes don't belong to one branch, so
  * they stay local. Nothing another machine published is replaced, so it never asks.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:766}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:798}
  */
 export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean): Promise<string>
 
@@ -987,7 +987,7 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * with itself; one it never published stays unpublished. Pulling also clears anything
  * `machine` sent of it to this machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:920}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:960}
  */
 export declare function hostedBranchPull(projectId: string, machine: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
@@ -995,7 +995,7 @@ export declare function hostedBranchPull(projectId: string, machine: string, bra
  * Publish `branch` as [`hosted_branch_publish()`] does, and send it to the machine named `to`:
  * it shows up there as sent, to pull or dismiss, and if `to` is online, it's told right away.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:778}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:810}
  */
 export declare function hostedBranchSend(projectId: string, branch: string, to: string, includeUncommitted: boolean): Promise<string>
 
@@ -1006,7 +1006,7 @@ export declare function hostedBranchSend(projectId: string, branch: string, to: 
  * branches are here already. On the hosted server, which has no files, it's the server's own
  * record of every machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:635}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:667}
  */
 export declare function hostedMachines(projectId: string): Promise<HostedProject>
 
@@ -1851,12 +1851,6 @@ export declare class HostedFollowerHandle {
   stop(): boolean
 }
 
-/** A live connection to the hosted server, held while this is. */
-export declare class HostedListenerHandle {
-  /** Disconnect, if still connected. */
-  stop(): boolean
-}
-
 export declare class WatcherHandle {
   /** Stop the underlying watcher if it is still active. */
   stop(): boolean
@@ -1920,18 +1914,11 @@ export interface HostedFollowEvent {
 }
 
 /**
- * Follow branches between machines, as each repository's rules and the mesh settings say,
- * telling `callback` what was done.
+ * Connect to the hosted server and keep branches in step, as the mesh settings say: `callback`
+ * hears what was done, `on_hosted` what the server says, as watcher events (`hostedPublished`,
+ * `hostedSent`, `hostedPresence`). The app's only connection, which also makes it online.
  */
-export declare function hostedFollowStart(callback: ((err: Error | null, arg: HostedFollowEvent) => any)): HostedFollowerHandle
-
-/**
- * Connect to the hosted server for `project_id`, and forward what it says to `callback` as
- * watcher events: an `externalInvalidation` of hosted data when something was published,
- * and `hostedPresence` when the account's other machines come or go. Holding the
- * connection is what makes this machine online.
- */
-export declare function hostedListen(projectId: string, callback: ((err: Error | null, arg: WatcherEvent) => any)): HostedListenerHandle
+export declare function hostedFollowStart(callback: ((err: Error | null, arg: HostedFollowEvent) => any), onHosted: ((err: Error | null, arg: WatcherEvent) => any)): HostedFollowerHandle
 
 /**
  * Initialize tracing for the process, writing daily-rotated `GitButler.<date>.log`
