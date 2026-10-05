@@ -238,12 +238,22 @@ pub(super) async fn events(
         .and_then(|value| value.to_str().ok())
         .filter(|machine| is_name(machine))
         .map(ToOwned::to_owned);
+    let client = headers
+        .get("x-but-client")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("browser")
+        .chars()
+        .take(120)
+        .collect::<String>();
     let receiver = events.subscribe();
     ws.max_message_size(MAX_EVENTS_MESSAGE_SIZE)
         .on_upgrade(move |socket| async move {
-            let _online =
-                machine.map(|machine| Online::join(presence.clone(), events, user, machine));
+            tracing::info!(user = user.0, machine, client, "events connected");
+            let _online = machine
+                .clone()
+                .map(|machine| Online::join(presence.clone(), events, user, machine));
             forward_events(socket, receiver, config, user, session, presence).await;
+            tracing::info!(user = user.0, machine, client, "events disconnected");
         })
 }
 

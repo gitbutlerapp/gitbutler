@@ -230,6 +230,7 @@ pub fn router(config: HostedConfig) -> Router {
         .route("/session", get(|| async { StatusCode::NO_CONTENT }))
         .route("/machines", get(machines))
         .route("/send", post(send_branch))
+        .route("/activity", post(record_activity))
         .route_layer(middleware::from_fn_with_state(state.clone(), require_user))
         .route("/sign-in", get(sign_in_page).post(sign_in))
         .route("/sign-in/gitbutler", get(gitbutler_sign_in))
@@ -266,6 +267,11 @@ async fn require_user(
     mut request: Request,
     next: Next,
 ) -> Response {
+    // One line per request, for whoever debugs a live problem from the server's log.
+    let started = std::time::Instant::now();
+    let method = request.method().clone();
+    let path = request.uri().path().to_owned();
+    let (machine, client) = who_asks(request.headers());
     let user = match session_user(&state, request.headers()) {
         Some(user) => Some(user),
         None => match request
@@ -281,10 +287,102 @@ async fn require_user(
         },
     };
     let Some(user) = user else {
+        tracing::info!(%method, %path, machine, client, status = 401, "hub request refused");
         return StatusCode::UNAUTHORIZED.into_response();
     };
     request.extensions_mut().insert(user);
-    next.run(request).await
+    let response = next.run(request).await;
+    tracing::info!(
+        user = user.0,
+        %method,
+        %path,
+        machine,
+        client,
+        status = response.status().as_u16(),
+        ms = started.elapsed().as_millis() as u64,
+        "hub request"
+    );
+    response
+}
+
+/// The machine and client a request names, as the app and CLI send them; a browser names neither.
+fn who_asks(headers: &HeaderMap) -> (String, String) {
+    let header = |name: &str| {
+        headers
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or("")
+            .chars()
+            .take(120)
+            .collect::<String>()
+    };
+    // git sends what it's given as one header, `<client>; machine=<name>`.
+    let client = header("x-but-client");
+    match client.split_once("; machine=") {
+        Some((client, machine)) => (machine.to_owned(), client.to_owned()),
+        None => (header("x-but-machine"), client),
+    }
+}
+
+/// What a machine's follower did, as it reports it.
+#[derive(serde::Deserialize)]
+struct Activity {
+    kind: String,
+    message: String,
+}
+
+/// The longest activity log kept per account; past it, the older half goes.
+const ACTIVITY_LOG_MAX: u64 = 512 * 1024;
+
+/// Add what a machine's follower did to the account's activity log, `activity.jsonl` in its
+/// directory, which is what someone helping debug a live problem reads.
+async fn record_activity(
+    State(config): State<Arc<HostedConfig>>,
+    Extension(user): Extension<UserId>,
+    headers: HeaderMap,
+    Json(activity): Json<Activity>,
+) -> StatusCode {
+    let (machine, client) = who_asks(&headers);
+    let entry = serde_json::json!({
+        "at": now_secs(),
+        "machine": machine,
+        "client": client,
+        "kind": activity.kind.chars().take(20).collect::<String>(),
+        "message": activity.message.chars().take(2000).collect::<String>(),
+    });
+    tracing::info!(
+        user = user.0,
+        machine,
+        kind = activity.kind,
+        message = activity.message,
+        "follower activity"
+    );
+    let path = user.dir(&config).join("activity.jsonl");
+    let result = (|| -> anyhow::Result<()> {
+        std::fs::create_dir_all(user.dir(&config))?;
+        if std::fs::metadata(&path).is_ok_and(|meta| meta.len() > ACTIVITY_LOG_MAX) {
+            let log = std::fs::read_to_string(&path)?;
+            let newer = log
+                .lines()
+                .skip(log.lines().count() / 2)
+                .collect::<Vec<_>>()
+                .join("\n");
+            std::fs::write(&path, newer + "\n")?;
+        }
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)?;
+        std::io::Write::write_all(&mut file, format!("{entry}\n").as_bytes())?;
+        Ok(())
+    })();
+    match result {
+        Ok(()) => StatusCode::NO_CONTENT,
+        Err(err) => {
+            tracing::warn!("couldn't record activity: {err:#}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
 }
 
 /// Who `token` belongs to, as GitButler says. Asked on every request: nothing about a token is

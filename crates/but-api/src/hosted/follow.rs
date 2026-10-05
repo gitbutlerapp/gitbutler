@@ -56,7 +56,15 @@ pub enum FollowKind {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(FollowKind);
 
+/// What the follower did, also told to the hosted server for its activity log.
 fn event(kind: FollowKind, message: String) -> FollowEvent {
+    let name = match kind {
+        FollowKind::Published => "published",
+        FollowKind::Pulled => "pulled",
+        FollowKind::Skipped => "skipped",
+        FollowKind::Failed => "failed",
+    };
+    super::report_activity(name, &message);
     FollowEvent { kind, message }
 }
 

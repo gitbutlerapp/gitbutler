@@ -99,6 +99,7 @@ async fn connect(
     let mut request = url.into_client_request()?;
     let headers = request.headers_mut();
     headers.insert("x-auth-token", super::access_token()?.parse()?);
+    headers.insert("x-but-client", super::client_name().parse()?);
     if let Some(this) = this {
         headers.insert("x-but-machine", this.parse()?);
     }

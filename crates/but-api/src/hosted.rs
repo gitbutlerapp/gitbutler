@@ -126,12 +126,20 @@ fn git(dir: &Path, env: &[(&str, &std::ffi::OsStr)], args: &[&str]) -> Result<St
 /// Redirects aren't followed, as the token would go along to wherever they lead.
 fn git_as_user(dir: &Path, args: &[&str]) -> Result<String> {
     let header = std::ffi::OsString::from(format!("X-Auth-Token: {}", access_token()?));
+    // Who's asking, for the server's log.
+    let client = std::ffi::OsString::from(format!(
+        "X-But-Client: {}; machine={}",
+        client_name(),
+        machine_name().unwrap_or_default()
+    ));
     let env = [
-        ("GIT_CONFIG_COUNT", "2".as_ref()),
+        ("GIT_CONFIG_COUNT", "3".as_ref()),
         ("GIT_CONFIG_KEY_0", "http.extraHeader".as_ref()),
         ("GIT_CONFIG_VALUE_0", header.as_os_str()),
         ("GIT_CONFIG_KEY_1", "http.followRedirects".as_ref()),
         ("GIT_CONFIG_VALUE_1", "false".as_ref()),
+        ("GIT_CONFIG_KEY_2", "http.extraHeader".as_ref()),
+        ("GIT_CONFIG_VALUE_2", client.as_os_str()),
         // A refused token fails rather than asking for a password.
         ("GIT_TERMINAL_PROMPT", "0".as_ref()),
     ];
@@ -559,33 +567,9 @@ but_schemars::register_sdk_type!(HostedMachineSummary);
 #[but_api(napi, provides = [Hosted])]
 #[instrument(err(Debug))]
 pub fn hosted_account() -> Result<Vec<HostedAccountProject>> {
-    let token = access_token()?;
-    let url = format!("{}/machines", hosted_server());
-    let mut projects: Vec<HostedAccountProject> = std::thread::spawn(move || {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?
-            .block_on(async move {
-                // The token is a custom header, which reqwest would keep on any redirect.
-                let client = reqwest::Client::builder()
-                    .redirect(reqwest::redirect::Policy::none())
-                    .timeout(std::time::Duration::from_secs(30))
-                    .build()?;
-                let mut request = client.get(&url).header("x-auth-token", token);
-                // So the server counts what was sent to this machine.
-                if let Some(this) = machine_name() {
-                    request = request.header("x-but-machine", this);
-                }
-                let response = request
-                    .send()
-                    .await
-                    .context("the hosted server can't be reached")?
-                    .error_for_status()?;
-                Ok::<_, anyhow::Error>(response.json().await?)
-            })
-    })
-    .join()
-    .map_err(|_| anyhow::anyhow!("the request to the hosted server panicked"))??;
+    // The machine it names is the one the server counts sends for.
+    let mut projects: Vec<HostedAccountProject> =
+        serde_json::from_value(hub_request(reqwest::Method::GET, "/machines", None)?)?;
 
     let this = machine_name();
     let mut by_root = std::collections::HashMap::<String, Vec<String>>::new();
@@ -602,6 +586,77 @@ pub fn hosted_account() -> Result<Vec<HostedAccountProject>> {
     }
     projects.retain(|project| !project.machines.is_empty());
     Ok(projects)
+}
+
+/// The mesh client's revision, as it tells the hosted server, so its log says who runs what.
+/// Bumped when what the client does changes.
+const CLIENT_REVISION: u32 = 14;
+
+/// Which client this is, for the hosted server's log: the program and the mesh client's revision.
+pub fn client_name() -> String {
+    let program = std::env::current_exe()
+        .ok()
+        .and_then(|exe| Some(exe.file_stem()?.to_string_lossy().into_owned()))
+        .unwrap_or_else(|| "unknown".into());
+    format!("{program} mesh/{CLIENT_REVISION}")
+}
+
+/// One request to the hosted server's API at `path`, as the signed-in account, this machine and
+/// this client, on a thread of its own. Returns the JSON it answers with, `null` for none.
+fn hub_request(
+    method: reqwest::Method,
+    path: &str,
+    body: Option<serde_json::Value>,
+) -> Result<serde_json::Value> {
+    let token = access_token()?;
+    let url = format!("{}{path}", hosted_server());
+    std::thread::spawn(move || {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?
+            .block_on(async move {
+                // The token is a custom header, which reqwest would keep on any redirect.
+                let client = reqwest::Client::builder()
+                    .redirect(reqwest::redirect::Policy::none())
+                    .timeout(std::time::Duration::from_secs(30))
+                    .build()?;
+                let mut request = client
+                    .request(method, &url)
+                    .header("x-auth-token", token)
+                    .header("x-but-client", client_name());
+                if let Some(this) = machine_name() {
+                    request = request.header("x-but-machine", this);
+                }
+                if let Some(body) = body {
+                    request = request.json(&body);
+                }
+                let response = request
+                    .send()
+                    .await
+                    .context("the hosted server can't be reached")?
+                    .error_for_status()?;
+                let bytes = response.bytes().await?;
+                Ok::<_, anyhow::Error>(if bytes.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::from_slice(&bytes)?
+                })
+            })
+    })
+    .join()
+    .map_err(|_| anyhow::anyhow!("the request to the hosted server panicked"))?
+}
+
+/// Tell the hosted server what this machine's follower did, for its per-account activity log,
+/// which is what someone helping debug a live problem reads. In the background; failing to
+/// tell it changes nothing.
+pub(crate) fn report_activity(kind: &str, message: &str) {
+    let body = serde_json::json!({ "kind": kind, "message": message });
+    std::thread::spawn(move || {
+        if let Err(err) = hub_request(reqwest::Method::POST, "/activity", Some(body)) {
+            tracing::debug!("couldn't report activity to the hosted server: {err:#}");
+        }
+    });
 }
 
 /// Whether `err` is the hosted server turning the signed-in account's token away, so signing in
