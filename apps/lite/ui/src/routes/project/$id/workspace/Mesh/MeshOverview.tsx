@@ -87,7 +87,7 @@ const MachineOverviewFromAccount: FC<{ machine: string; projectId: string }> = (
 }) => {
 	const { data: projects = [] } = useQuery(listProjectsQueryOptions);
 	const { data: account = [] } = useQuery(hostedAccountQueryOptions);
-	const { data: online = [] } = useQuery(hostedPresenceQueryOptions(projectId));
+	const { data: online = [] } = useQuery(hostedPresenceQueryOptions);
 	const openProject = useOpenProject();
 	const header = (detail: ReactNode) => (
 		<header className={styles.header}>
@@ -256,7 +256,7 @@ const RepoOverview: FC<{ repoProjectId: string; machine?: string; projectId: str
 		...hostedMachinesQueryOptions(repoProjectId),
 		enabled: hostedEnabled,
 	});
-	const { data: online = [] } = useQuery(hostedPresenceQueryOptions(repoProjectId));
+	const { data: online = [] } = useQuery(hostedPresenceQueryOptions);
 	const { data: headInfo } = useQuery({ ...headInfoQueryOptions(repoProjectId), enabled: local });
 	const { isPending: isUpdating, mutate: integrate } = useWorkspaceIntegrateUpstream();
 	const openProject = useOpenProject();

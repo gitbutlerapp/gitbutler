@@ -40,7 +40,7 @@ export const usePublishMenu = ({
 	const { isPending: isSendPending, mutate: send } = useHostedBranchSend(projectId);
 	// Every machine known to have this project or to be online; one offline gets it on return.
 	const { data: published = [] } = useQuery({ ...hostedMachinesQueryOptions(projectId), enabled });
-	const { data: online = [] } = useQuery(hostedPresenceQueryOptions(projectId));
+	const { data: online = [] } = useQuery(hostedPresenceQueryOptions);
 	if (!enabled) return [];
 
 	const recipients = [

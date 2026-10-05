@@ -247,13 +247,13 @@ export const hostedMachinesQueryOptions = (projectId: string) =>
 
 /**
  * The account's other machines connected to the hosted server. Only events write it, as
- * they come and go; until the first one, nobody is known to be online.
+ * they come and go; until the first one, nobody is known to be online. The account's, not a
+ * project's: any project's listener tells it, and every page reads the same.
  */
-export const hostedPresenceQueryOptions = (projectId: string) =>
-	queryOptions({
-		queryKey: [projectId, "hostedPresence"],
-		queryFn: (): Array<string> => [],
-	});
+export const hostedPresenceQueryOptions = queryOptions({
+	queryKey: ["hostedPresence"],
+	queryFn: (): Array<string> => [],
+});
 
 export const workspaceTargetCommitsQueryOptions = (projectId: string) =>
 	queryOptions({

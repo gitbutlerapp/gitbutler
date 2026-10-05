@@ -23,6 +23,7 @@ export type GlobalQueryKey =
 	| "projects"
 	| "guiSettings"
 	| "hostedAccount"
+	| "hostedPresence"
 	| "isPackaged"
 	| "markdownTokens"
 	| "version";
@@ -35,7 +36,6 @@ type LocalQueryKey =
 	| "branchChecklist"
 	| "branchIntegration"
 	| "commitMessageDraft"
-	| "hostedPresence"
 	| "prMergeMethod"
 	| "prDraft"
 	| "projectAiSettings"

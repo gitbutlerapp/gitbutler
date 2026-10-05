@@ -44,7 +44,7 @@ import styles from "./RemoteMachines.module.css";
 /** Your other machines that published to the hosted server, below this machine's workspace. */
 export const RemoteMachines: FC<{ projectId: string }> = ({ projectId }) => {
 	const { data: published = [] } = useQuery(hostedMachinesQueryOptions(projectId));
-	const { data: online = [] } = useQuery(hostedPresenceQueryOptions(projectId));
+	const { data: online = [] } = useQuery(hostedPresenceQueryOptions);
 	// A machine that's online is listed whether or not it published anything yet.
 	const machines: Array<HostedMachine> = [
 		...published,

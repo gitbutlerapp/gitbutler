@@ -160,7 +160,6 @@ const buildTree = (
 ): MeshTree => {
 	// A hosted page runs on no machine: its projects are the server's copies of what machines sent.
 	const onServer = window.lite.hosted === true;
-	// Presence is the account's, so any project's listener tells it.
 	const online = new Set(presence.flatMap((result) => result.data ?? []));
 	const checkouts: Array<MeshCheckout> = [];
 	const accountByProject = new Map(
@@ -367,7 +366,7 @@ export const useMeshTree = ({
 							remoteUnfolded(project.id)
 						: grouping === "machines" || unfolded[repoKey(project.id)] === true),
 			})),
-			...projects.map((project) => hostedPresenceQueryOptions(project.id)),
+			hostedPresenceQueryOptions,
 			...worktreesUnfolded.map(({ projectId, worktree }) => ({
 				...worktreeChangesQueryOptions(projectId, worktree),
 				enabled: local,
@@ -380,11 +379,11 @@ export const useMeshTree = ({
 				results.slice(0, count) as Array<UseQueryResult<RefInfo>>,
 				results.slice(count, 2 * count) as Array<UseQueryResult<WorktreeChanges>>,
 				results.slice(2 * count, 3 * count) as Array<UseQueryResult<HostedProject>>,
-				results.slice(3 * count, 4 * count) as Array<UseQueryResult<Array<string>>>,
+				results.slice(3 * count, 3 * count + 1) as Array<UseQueryResult<Array<string>>>,
 				new Map(
 					worktreesUnfolded.map(({ projectId, worktree }, i) => [
 						filesKey(projectId, worktree),
-						(results[4 * count + i]?.data as WorktreeChanges | undefined)?.changes.map(
+						(results[3 * count + 1 + i]?.data as WorktreeChanges | undefined)?.changes.map(
 							(change) => change.path,
 						) ?? [],
 					]),

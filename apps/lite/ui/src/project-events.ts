@@ -125,7 +125,7 @@ export const handleProjectEvent = (
 		client.setQueryData([projectId, "operatingMode"], () => payload.subject);
 
 	if (payload.type === "hostedPresence")
-		client.setQueryData(hostedPresenceQueryOptions(projectId).queryKey, payload.subject.online);
+		client.setQueryData(hostedPresenceQueryOptions.queryKey, payload.subject.online);
 
 	// Only shown while the window is in the background; in front, the sidebar and bell show it.
 	if (payload.type === "hostedSent") {

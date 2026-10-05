@@ -21,7 +21,7 @@ export const useHubSendMenu = ({
 	const enabled = window.lite.hosted === true;
 	const toastManager = Toast.useToastManager();
 	const { data: published = [] } = useQuery({ ...hostedMachinesQueryOptions(projectId), enabled });
-	const { data: online = [] } = useQuery({ ...hostedPresenceQueryOptions(projectId), enabled });
+	const { data: online = [] } = useQuery({ ...hostedPresenceQueryOptions, enabled });
 	const { isPending, mutate: send } = useMutation({
 		mutationFn: sendFromHub,
 		onSuccess: (_, { to }) => toastManager.add({ title: `Sent ${branch} to ${to}` }),

@@ -276,7 +276,7 @@ export const BranchRow: FC<
 		...hostedMachinesQueryOptions(projectId),
 		enabled: hostedBranches && window.lite.hosted !== true,
 	});
-	const { data: online = [] } = useQuery(hostedPresenceQueryOptions(projectId));
+	const { data: online = [] } = useQuery(hostedPresenceQueryOptions);
 	const recipients = [
 		...new Set([...published.map((machine) => machine.name), ...online]),
 	].toSorted();
