@@ -17,6 +17,7 @@ type RendererOnlyKey =
 	| "onFullScreenChange"
 	| "onNotificationClick"
 	| "onProjectsChanged"
+	| "onHostedFollowed"
 	| "platform"
 	| "hosted";
 

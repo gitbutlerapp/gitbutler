@@ -80,6 +80,23 @@ window.lite.onDeepLink((path) => {
 	void router.navigate({ href: path });
 });
 
+// Following branches between machines happens in the background, so it tells what it did. A pull
+// changes the workspace and worktrees as well as what's published, so everything is reread.
+window.lite.onHostedFollowed((event) => {
+	toastManager.add({
+		type: event.kind === "failed" ? "error" : undefined,
+		title: event.message,
+	});
+	void queryClient.invalidateQueries(
+		event.kind === "pulled"
+			? undefined
+			: {
+					predicate: (query) =>
+						query.queryKey.includes("hostedMachines") || query.queryKey.includes("hostedAccount"),
+				},
+	);
+});
+
 // A hosted server publishes projects from other machines; no project's own events can say so.
 window.lite.onProjectsChanged(() => {
 	void queryClient.invalidateQueries({ queryKey: listProjectsQueryOptions.queryKey });

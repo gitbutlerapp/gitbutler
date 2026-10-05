@@ -39,6 +39,8 @@ export type MeshBranch = {
 	sent: boolean;
 	/** How this machine's branch compares with what it last published; null if never published. */
 	publishState: PublishState | null;
+	/** Published as it changes if it's this machine's; pulled as it's published otherwise. */
+	followed: boolean;
 };
 
 /** One repository as one machine has it: a local project here, or what another machine published. */
@@ -122,6 +124,7 @@ const thisMachineFirst =
 const localBranches = (
 	segments: Array<Segment>,
 	published: ReadonlyMap<string, PublishState>,
+	followed: ReadonlyArray<string>,
 	worktree?: string,
 ): Array<MeshBranch> =>
 	segments.flatMap((segment) =>
@@ -137,6 +140,7 @@ const localBranches = (
 						uncommitted: null,
 						sent: false,
 						publishState: published.get(segment.refName.displayName) ?? null,
+						followed: followed.includes(segment.refName.displayName),
 					},
 				],
 	);
@@ -180,13 +184,15 @@ const buildTree = (
 			const published = new Map(
 				(hosted[i]?.data?.publishedHere ?? []).map(({ branch, state }) => [branch, state]),
 			);
+			const autoPublish = hosted[i]?.data?.autoPublish ?? [];
 			const branches = localBranches(
 				head?.stacks.flatMap((stack) => stack.segments) ?? [],
 				published,
+				autoPublish,
 			);
 			const worktrees = (head?.worktrees ?? []).map((worktree) => ({
 				name: worktree.name,
-				branches: localBranches(worktree.segments, published, worktree.name),
+				branches: localBranches(worktree.segments, published, autoPublish, worktree.name),
 				files: worktreeFiles.get(filesKey(project.id, worktree.name)) ?? [],
 			}));
 			checkouts.push({
@@ -244,6 +250,7 @@ const buildTree = (
 					uncommitted: branch.uncommitted,
 					sent: branch.sent,
 					publishState: null,
+					followed: (hosted[i]?.data?.autoPull ?? []).includes(`${machine.name}/${branch.branch}`),
 				})),
 				worktrees: [],
 				at: machine.publishedAt,

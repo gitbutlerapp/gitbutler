@@ -27,6 +27,7 @@ export const settingsPages = [
 	{ key: "global:ai", label: "AI", icon: "ai" },
 	{ key: "global:git", label: "Git", icon: "pr" },
 	{ key: "global:integrations", label: "Integrations", icon: "plug" },
+	{ key: "global:mesh", label: "Mesh", icon: "globe" },
 	{ key: "global:experimental", label: "Experimental", icon: "lab" },
 	{ key: "project:project", label: "Project", icon: "mixer" },
 	{ key: "project:ai", label: "AI", icon: "ai" },

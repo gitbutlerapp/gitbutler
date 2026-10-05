@@ -3,6 +3,8 @@ import type {
 	AiConfigurationUpdate,
 	AppSettings,
 	FeatureFlagsUpdate,
+	HostedFollowEvent,
+	MeshUpdate,
 	WatcherEvent,
 	AskpassPromptEvent,
 } from "@gitbutler/but-sdk";
@@ -48,6 +50,8 @@ export type LiteElectronApi = SDK & {
 	onNotificationClick: (callback: (id: string) => void) => () => void;
 	/** The set of projects may have changed; only a hosted server says so. */
 	onProjectsChanged: (callback: () => void) => () => void;
+	/** What following branches between machines did in the background. */
+	onHostedFollowed: (callback: (event: HostedFollowEvent) => void) => () => void;
 	openInWebBrowser: (url: string) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	pickDirectory: () => Promise<string | null>;
@@ -68,6 +72,8 @@ export type LiteElectronApi = SDK & {
 	updateAiConfiguration: (update: AiConfigurationUpdate) => Promise<AiConfiguration>;
 	/** Feature flags shared with the other surfaces; unset fields are left unchanged. */
 	updateFeatureFlags: (update: FeatureFlagsUpdate) => Promise<void>;
+	/** Mesh settings shared with the other surfaces; unset fields are left unchanged. */
+	updateMesh: (update: MeshUpdate) => Promise<void>;
 	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
 	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
 	watcherStopAll: () => Promise<number>;
@@ -107,6 +113,7 @@ export const localEndpoints = [
 	"installCli",
 	"notificationClick",
 	"projectsChanged",
+	"hostedFollowed",
 	"openInWebBrowser",
 	"pathJoin",
 	"pickDirectory",
@@ -116,6 +123,7 @@ export const localEndpoints = [
 	"showNotification",
 	"streamAiResponse",
 	"updateFeatureFlags",
+	"updateMesh",
 	"watcherStopAll",
 	"watcherSubscribe",
 	"watcherUnsubscribe",

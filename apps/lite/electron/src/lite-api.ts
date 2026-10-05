@@ -1,4 +1,4 @@
-import type { AskpassPromptEvent, WatcherEvent } from "@gitbutler/but-sdk";
+import type { AskpassPromptEvent, HostedFollowEvent, WatcherEvent } from "@gitbutler/but-sdk";
 import { exposedEndpoints, localEndpoints } from "./ipc.js";
 import type { LiteElectronApi, StreamAiResponseToken, WatcherSubscribeResult } from "./ipc.js";
 import type { InstallationStatus } from "./updater-state.js";
@@ -25,6 +25,7 @@ type SpecialKey =
 	| "onFullScreenChange"
 	| "onNotificationClick"
 	| "onProjectsChanged"
+	| "onHostedFollowed"
 	| "platform"
 	| "hosted"
 	| "streamAiResponse"
@@ -40,6 +41,7 @@ const specialNames = [
 	"fullScreenChange",
 	"notificationClick",
 	"projectsChanged",
+	"hostedFollowed",
 	"streamAiResponse",
 	"watcherSubscribe",
 	"watcherUnsubscribe",
@@ -107,6 +109,10 @@ export const createLiteApi = ({
 		onProjectsChanged: (callback) =>
 			subscribe("projectsChanged", () => {
 				callback();
+			}),
+		onHostedFollowed: (callback) =>
+			subscribe("hostedFollowed", (payload) => {
+				callback(payload as HostedFollowEvent);
 			}),
 		streamAiResponse: async (systemMessage, prompt, onToken) => {
 			const requestId = crypto.randomUUID();

@@ -237,6 +237,7 @@ export const createHttpTransport = (serverUrl: string): LiteApiTransport => {
 		},
 		getAppSettings: () => post(`${serverUrl}/get_app_settings`, {}),
 		updateFeatureFlags: (update) => post(`${serverUrl}/update_feature_flags`, { update }),
+		updateMesh: (update) => post(`${serverUrl}/update_mesh`, { update }),
 		getVersion: () => "web",
 		isPackaged: () => false,
 		isFullScreen: () => false,

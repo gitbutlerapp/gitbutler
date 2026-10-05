@@ -56,6 +56,7 @@ import type {
 	ForgeReviewReaction,
 	ForgeReviewUser,
 	FeatureFlagsUpdate,
+	MeshUpdate,
 	Snapshot,
 	TreeChange,
 } from "@gitbutler/but-sdk";
@@ -1481,6 +1482,17 @@ export const useUpdateFeatureFlags = () =>
 		meta: { failureTitle: "Failed to save the feature flag" },
 	});
 
+/** The follower reads these as it goes, so they take effect without a restart. */
+export const useUpdateMesh = () =>
+	useMutation({
+		scope: { id: "appSettings" },
+		mutationFn: async (update: MeshUpdate, ctx) => {
+			await window.lite.updateMesh(update);
+			await ctx.client.invalidateQueries({ queryKey: appSettingsQueryOptions.queryKey });
+		},
+		meta: { failureTitle: "Failed to save the mesh setting" },
+	});
+
 export const useWorktreeSetArchived = (projectId: string) =>
 	useMutation({
 		mutationKey: [projectId, "worktreeSetArchived"],
@@ -1500,6 +1512,13 @@ export const useHostedBranchSend = (projectId: string) =>
 		mutationKey: [projectId, "hostedBranchSend"],
 		mutationFn: window.lite.hostedBranchSend,
 		meta: { failureTitle: "Failed to send the branch" },
+	});
+
+export const useHostedFollow = (projectId: string) =>
+	useMutation({
+		mutationKey: [projectId, "hostedFollow"],
+		mutationFn: window.lite.hostedFollow,
+		meta: { failureTitle: "Failed to change what's followed" },
 	});
 
 export const useHostedBranchDismiss = (projectId: string) =>

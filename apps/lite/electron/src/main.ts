@@ -355,6 +355,7 @@ const electronHandlerOverrides = {
 	watcherStopAll: () => WatcherManager.getInstance().stopAllWatchersForShutdown(),
 	readGUISettings: () => readSettings(),
 	updateFeatureFlags: (update) => sdk.updateFeatureFlags(update),
+	updateMesh: (update) => sdk.updateMesh(update),
 	writeGUISettings: async (settings) => {
 		applyGUISettings(settings);
 		await writeSettings(settings);
@@ -538,6 +539,28 @@ const openDeepLink = async (link: string): Promise<void> => {
 	}
 
 	existing.webContents.send("deepLink", target.path);
+};
+
+let follower: sdk.HostedFollowerHandle | undefined;
+
+/**
+ * Publish and pull followed branches in the background while the app runs, telling every window.
+ * Read at launch, as the hosted listeners are, so turning hosted branches on takes a restart.
+ */
+const startFollowing = async (): Promise<void> => {
+	if ((await readSettings()).hostedBranches !== true) return;
+	try {
+		follower = sdk.hostedFollowStart((err, event) => {
+			if (err) {
+				reportError(err, "Hosted follower callback failed");
+				return;
+			}
+			for (const window of BrowserWindow.getAllWindows())
+				window.webContents.send("hostedFollowed", event);
+		});
+	} catch (error) {
+		reportError(error, "Failed to start following branches");
+	}
 };
 
 /** The `but://` link in a launch argv, if the OS started us with one. */
@@ -742,6 +765,8 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 		launchLink === undefined ? undefined : (deepLinkTarget(launchLink)?.url ?? undefined),
 	);
 
+	await startFollowing();
+
 	app.on("activate", () => {
 		const [existing] = BrowserWindow.getAllWindows();
 		if (existing) showAndFocusWindow(existing);
@@ -751,6 +776,7 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 
 app.on("before-quit", (event) => {
 	WatcherManager.destroyInstance();
+	follower?.stop();
 
 	// The metrics queue lives in memory, so hold the quit until it has
 	// flushed; the re-issued quit finds nothing to flush and goes through.

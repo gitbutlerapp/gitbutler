@@ -1,6 +1,6 @@
 import { Toast } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { useHostedBranchPublish, useHostedBranchSend } from "#ui/api/mutations.ts";
+import { useHostedBranchPublish, useHostedBranchSend, useHostedFollow } from "#ui/api/mutations.ts";
 import {
 	guiSettingsQueryOptions,
 	hostedMachinesQueryOptions,
@@ -21,6 +21,7 @@ export const usePublishMenu = ({
 	local,
 	inWorktree,
 	state,
+	followed,
 }: {
 	projectId: string;
 	branch: string;
@@ -29,6 +30,8 @@ export const usePublishMenu = ({
 	inWorktree: boolean;
 	/** How it compares with what this machine last published; null if it never did. */
 	state: PublishState | null;
+	/** Whether it's published as it changes. */
+	followed: boolean;
 }): Array<NativeMenuItem> => {
 	const { data: hostedBranches = false } = useQuery({
 		...guiSettingsQueryOptions,
@@ -38,6 +41,7 @@ export const usePublishMenu = ({
 	const toastManager = Toast.useToastManager();
 	const { isPending: isPublishPending, mutate: publish } = useHostedBranchPublish(projectId);
 	const { isPending: isSendPending, mutate: send } = useHostedBranchSend(projectId);
+	const { isPending: isFollowPending, mutate: follow } = useHostedFollow(projectId);
 	// Every machine known to have this project or to be online; one offline gets it on return.
 	const { data: published = [] } = useQuery({ ...hostedMachinesQueryOptions(projectId), enabled });
 	const { data: online = [] } = useQuery(hostedPresenceQueryOptions(projectId));
@@ -82,6 +86,12 @@ export const usePublishMenu = ({
 					sendItem("Send Branch With Uncommitted Changes To", true),
 				]
 			: []),
+		nativeMenuItem({
+			label: inWorktree ? "Auto-Publish With Uncommitted Changes" : "Auto-Publish",
+			checked: followed,
+			enabled: !isFollowPending,
+			onSelect: () => follow({ projectId, machine: null, branch, on: !followed }),
+		}),
 		nativeMenuSeparator,
 	];
 };
