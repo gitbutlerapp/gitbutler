@@ -394,8 +394,10 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
-    let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
-    editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
+    editor.replace_reference(
+        editor.select_reference("refs/heads/main".try_into()?)?,
+        replacement_ref.clone(),
+    )?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -454,8 +456,10 @@ fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
-    let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
-    editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
+    editor.replace_reference(
+        editor.select_reference("refs/heads/main".try_into()?)?,
+        replacement_ref.clone(),
+    )?;
 
     let outcome = editor.rebase()?;
     outcome.materialize_without_checkout()?;
@@ -959,10 +963,9 @@ fn an_attached_worktree_follows_its_branch_being_replaced_by_another() -> Result
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
-    let selector = editor.select_reference("refs/heads/middle".try_into()?)?;
-    editor.replace(
-        selector,
-        Step::new_reference("refs/heads/renamed".try_into()?),
+    editor.replace_reference(
+        editor.select_reference("refs/heads/middle".try_into()?)?,
+        "refs/heads/renamed".try_into()?,
     )?;
     editor.rebase()?.materialize(Default::default())?;
 
@@ -1049,8 +1052,7 @@ fn replace_reference_in_worktree_fixture(
     let graph = graph_with_worktrees(repo, &*meta, db)?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, meta, repo, db)?;
-    let selector = editor.select_reference(from.try_into()?)?;
-    editor.replace(selector, Step::new_reference(to.try_into()?))?;
+    editor.replace_reference(editor.select_reference(from.try_into()?)?, to.try_into()?)?;
     editor.rebase()?.materialize(Default::default())?;
     Ok(())
 }

@@ -333,6 +333,19 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(references)
     }
 
+    /// Replaces the step described by `target` with a new mutable [Step::Reference] step.
+    pub fn replace_reference(
+        &mut self,
+        target: impl ToReferenceSelector,
+        refname: gix::refs::FullName,
+    ) -> Result<()> {
+        let target = self
+            .history
+            .normalize_selector(target.to_reference_selector(self)?)?;
+        self.graph[target.id] = Step::new_reference(refname);
+        Ok(())
+    }
+
     /// Replaces the node that the function was pointing to.
     ///
     /// If a commit step has been replaced with another commit step, the commit
