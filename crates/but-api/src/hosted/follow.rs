@@ -258,6 +258,7 @@ impl Run {
         };
         let mut watched = HashMap::new();
         for (id, dir) in projects {
+            super::repair_hub_remote(&dir);
             let published = published_here(&dir, &this);
             if published.is_empty() || !self.acts_for(&dir) {
                 continue;

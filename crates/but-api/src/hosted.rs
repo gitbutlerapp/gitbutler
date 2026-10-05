@@ -1271,8 +1271,10 @@ pub(crate) fn clone_sent(root: &str, from: &str, name: &str) -> Result<(PathBuf,
         // The project's own remote, so it's fetched and pushed as anywhere else, when it's one
         // another machine can reach; its fetch uses the person's own credentials, never a prompt,
         // and only adds to what the hub gave. Otherwise, such as a path on the sending machine,
-        // the remote is the hub.
-        match message["remote"].as_str().filter(|url| is_cloneable(url)) {
+        // the remote is the repository itself, as GitButler does for one without a remote: the
+        // hub can't be, as plain git fetching it would ask for credentials it doesn't have.
+        let reachable = message["remote"].as_str().filter(|url| is_cloneable(url));
+        match reachable {
             Some(url) => {
                 git(&scratch, &[], &["remote", "add", remote, url])?;
                 let no_prompt = [("GIT_TERMINAL_PROMPT", "0".as_ref())];
@@ -1281,7 +1283,7 @@ pub(crate) fn clone_sent(root: &str, from: &str, name: &str) -> Result<(PathBuf,
                 }
             }
             None => {
-                git(&scratch, &[], &["remote", "add", remote, &hub])?;
+                git(&scratch, &[], &["remote", "add", remote, "."])?;
             }
         }
         git(
@@ -1304,6 +1306,10 @@ pub(crate) fn clone_sent(root: &str, from: &str, name: &str) -> Result<(PathBuf,
             .context("no free directory to clone into")?;
         std::fs::rename(&scratch, &dest)?;
         moved_to = Some(dest.clone());
+        if reachable.is_none() {
+            let path = dest.to_str().context("the path is UTF-8")?;
+            git(&dest, &[], &["remote", "set-url", remote, path])?;
+        }
         let path = dest.to_str().context("the path is UTF-8")?.to_owned();
         match crate::legacy::projects::add_project(path)? {
             gitbutler_project::AddProjectOutcome::Added(project) => added = Some(project.id),
@@ -1340,6 +1346,28 @@ pub(crate) fn sent_here(root: &str) -> Result<Vec<(String, String)>> {
         .filter_map(|(_, name)| name.strip_prefix(&prefix)?.split_once('/'))
         .map(|(from, name)| (from.to_owned(), name.to_owned()))
         .collect())
+}
+
+/// Point a remote that an earlier clone for a send set at the hosted server at the repository
+/// itself: plain git fetching the hub asks for credentials, which the app shows as a prompt.
+pub(crate) fn repair_hub_remote(dir: &Path) {
+    let hub = format!("{}/git/", hosted_server());
+    let Ok(urls) = git(dir, &[], &["config", "--get-regexp", r"^remote\..*\.url$"]) else {
+        return;
+    };
+    let Some(path) = dir.to_str() else {
+        return;
+    };
+    for line in urls.lines() {
+        if let Some((key, url)) = line.split_once(' ')
+            && url.starts_with(&hub)
+            && let Some(remote) = key
+                .strip_prefix("remote.")
+                .and_then(|key| key.strip_suffix(".url"))
+        {
+            git(dir, &[], &["remote", "set-url", remote, path]).ok();
+        }
+    }
 }
 
 /// Where a project cloned for a send goes: where most projects here are, or the home directory.
