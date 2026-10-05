@@ -1035,6 +1035,7 @@ dependencies = [
  "objc2-app-kit",
  "objc2-foundation",
  "open",
+ "rusqlite",
  "schemars 1.2.1",
  "serde",
  "serde-error",

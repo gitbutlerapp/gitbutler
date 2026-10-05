@@ -143,7 +143,8 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
         ctx,
         SnapshotDetails::new(OperationKind::Absorb),
         guard.read_permission(),
-    )?;
+    )
+    .context("Failed to prepare absorb rollback checkpoint")?;
     let outcome = absorb_with_checkpoint_with_perm(
         ctx,
         absorption_plan,
@@ -202,6 +203,16 @@ pub fn absorb_with_checkpoint_with_perm(
             );
         }
     }
+    let record_checkpoint = checkpoint.is_some();
+    let checkpoint = match checkpoint {
+        Some(checkpoint) => checkpoint,
+        None => but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
+            ctx,
+            SnapshotDetails::new(OperationKind::Absorb),
+            perm.read_permission(),
+        )
+        .context("Failed to prepare absorb rollback checkpoint")?,
+    };
     let mut meta = ctx.meta()?;
     let (repo, mut workspace, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let source_hunks = but_core::worktree_hunks(&repo, context_lines)?;
@@ -301,10 +312,19 @@ pub fn absorb_with_checkpoint_with_perm(
         context_lines,
     )?;
     let rebase = editor.rebase()?;
-    let materialized = rebase.materialize(Default::default())?;
-    drop(materialized);
-    drop((repo, workspace, db));
-    if let Some(checkpoint) = checkpoint {
+    let materialization = rebase.materialize(Default::default()).map(drop);
+    drop((repo, workspace, db, meta));
+    if let Err(error) = materialization {
+        return match checkpoint.rollback(ctx, perm) {
+            Ok(()) => Err(error
+                .context("Absorb materialization failed; the pre-invocation state was restored")),
+            Err(rollback_error) => Err(rollback_error.context(format!(
+                "Absorb materialization failed ({error:#}) and checkpoint rollback failed. \
+                 State may be partially changed; inspect the workspace before retrying"
+            ))),
+        };
+    }
+    if record_checkpoint {
         checkpoint
             .commit(ctx, perm)
             .map_err(AbsorbCheckpointError)?;
@@ -1297,6 +1317,358 @@ mod tests {
             std::fs::read_to_string(tmp.path().join("shared.txt"))?,
             expected_worktree_content,
             "the worktree retains its exact user-visible bytes"
+        );
+        Ok(())
+    }
+
+    fn applicable_hunk_plan(ctx: &mut Context) -> anyhow::Result<Vec<CommitAbsorption>> {
+        absorption_plan(
+            ctx,
+            AbsorptionTarget::Hunks {
+                hunks: vec![but_core::SingleHunk {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: 10,
+                        old_lines: 1,
+                        new_start: 10,
+                        new_lines: 1,
+                    }),
+                    path: "shared.txt".into(),
+                    diff: None,
+                }],
+            },
+        )
+    }
+
+    fn absorb_recovery_fixture(
+        persist_assignments: bool,
+    ) -> anyhow::Result<(
+        Context,
+        tempfile::TempDir,
+        Vec<CommitAbsorption>,
+        AbsorbInvocationState,
+    )> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-rejected-hunks");
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        if persist_assignments {
+            let changes = crate::diff::changes_in_worktree(&ctx, ChangesSource::Head, true)?;
+            assert!(
+                changes.assignments_error.is_none() && changes.assignments.len() == 2,
+                "the recovery fixture persists both real worktree assignments before planning"
+            );
+        }
+        let plan = applicable_hunk_plan(&mut ctx)?;
+        let mut before = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+        if persist_assignments {
+            for assignment in &mut before.assignments {
+                assignment.id = None;
+            }
+        }
+        Ok((ctx, tmp, plan, before))
+    }
+
+    #[test]
+    fn index_lock_failure_before_publication_leaves_invocation_unchanged() -> anyhow::Result<()> {
+        let (mut ctx, tmp, plan, before) = absorb_recovery_fixture(false)?;
+        let index_path = ctx.repo.get()?.index_path();
+        let external_lock = gix::lock::File::acquire_to_update_resource(
+            &index_path,
+            gix::lock::acquire::Fail::Immediately,
+            None,
+        )?;
+
+        let error = absorb(&mut ctx, plan).expect_err("the external index lock must fail checkout");
+
+        assert!(
+            format!("{error:#}").contains("lock"),
+            "the materialization failure identifies the index lock: {error:#}"
+        );
+        assert!(
+            external_lock.lock_path().exists(),
+            "absorb must not disturb the external index lock"
+        );
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+        assert_eq!(
+            after, before,
+            "materialization failure before publication leaves all observed state unchanged"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn checkpoint_preparation_failure_leaves_invocation_unchanged() -> anyhow::Result<()> {
+        let (mut ctx, tmp, plan, before) = absorb_recovery_fixture(false)?;
+        let metadata_path = ctx.project_data_dir().join("virtual_branches.toml");
+        let metadata_backup = ctx
+            .project_data_dir()
+            .join("virtual_branches.toml.absorb-test-backup");
+        let had_metadata = metadata_path.exists();
+        if had_metadata {
+            std::fs::rename(&metadata_path, &metadata_backup)?;
+        }
+        std::fs::create_dir(&metadata_path)?;
+
+        let result = absorb(&mut ctx, plan);
+
+        std::fs::remove_dir(&metadata_path)?;
+        if had_metadata {
+            std::fs::rename(&metadata_backup, &metadata_path)?;
+        }
+        let error = result.expect_err("unreadable metadata must prevent checkpoint preparation");
+        assert!(
+            format!("{error:#}").contains("Failed to prepare absorb rollback checkpoint"),
+            "checkpoint preparation identifies its operation boundary: {error:#}"
+        );
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+        assert_eq!(
+            after, before,
+            "failed checkpoint preparation must leave the invocation unchanged"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn ref_lock_failure_during_publication_leaves_invocation_unchanged() -> anyhow::Result<()> {
+        for record_checkpoint in [false, true] {
+            let (mut ctx, tmp, plan, before) = absorb_recovery_fixture(false)?;
+            let reference_path = ctx.repo.get()?.git_dir().join("refs/heads/feature");
+            let external_lock = gix::lock::File::acquire_to_update_resource(
+                &reference_path,
+                gix::lock::acquire::Fail::Immediately,
+                None,
+            )?;
+
+            let result = if record_checkpoint {
+                absorb(&mut ctx, plan).map(|_| ())
+            } else {
+                let mut guard = ctx.exclusive_worktree_access();
+                absorb_with_perm(&mut ctx, plan, guard.write_permission()).map(|_| ())
+            };
+            let error = result.expect_err("the external ref lock must fail publication");
+
+            assert!(
+                format!("{error:#}").contains("lock"),
+                "the materialization failure identifies the target ref lock: {error:#}"
+            );
+            assert!(
+                external_lock.lock_path().exists(),
+                "absorb must not disturb the external target ref lock"
+            );
+            let after = absorb_invocation_state(
+                &mut ctx,
+                tmp.path(),
+                &["shared.txt"],
+                &[
+                    "refs/heads/main",
+                    "refs/heads/feature",
+                    "refs/remotes/origin/main",
+                    "refs/heads/gitbutler/workspace",
+                ],
+                &[("refs/heads/feature", &["shared.txt"])],
+            )?;
+            assert_eq!(
+                after, before,
+                "a returned publication failure must leave refs, index, worktree, and metadata unchanged"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn checkpoint_failure_reports_published_without_automatic_undo() -> anyhow::Result<()> {
+        let (mut ctx, tmp, plan, before) = absorb_recovery_fixture(false)?;
+        let mut guard = ctx.exclusive_worktree_access();
+        let checkpoint = but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
+            &ctx,
+            SnapshotDetails::new(OperationKind::Absorb),
+            guard.read_permission(),
+        )?;
+        let oplog_path = ctx.project_data_dir().join("operations-log.toml");
+        let backup_path = ctx.project_data_dir().join("operations-log.w07-backup");
+        let had_oplog = oplog_path.exists();
+        if had_oplog {
+            std::fs::rename(&oplog_path, &backup_path)?;
+        }
+        std::fs::create_dir(&oplog_path)?;
+
+        let result = absorb_with_checkpoint_with_perm(
+            &mut ctx,
+            plan,
+            guard.write_permission(),
+            Some(checkpoint),
+        );
+
+        std::fs::remove_dir(&oplog_path)?;
+        if had_oplog {
+            std::fs::rename(&backup_path, &oplog_path)?;
+        }
+        let error = result.expect_err("the obstructed oplog path must fail checkpoint commit");
+        assert!(
+            error.downcast_ref::<AbsorbCheckpointError>().is_some(),
+            "checkpoint failure has its post-publication classification: {error:#}"
+        );
+        assert!(
+            error.to_string().contains("Automatic undo is unavailable"),
+            "checkpoint failure gives accurate recovery guidance: {error:#}"
+        );
+        drop(guard);
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+        assert_ne!(
+            after.refs, before.refs,
+            "graph publication precedes checkpoint commit"
+        );
+        assert_eq!(
+            after.worktree_files, before.worktree_files,
+            "published absorb preserves user-visible worktree bytes"
+        );
+        assert_eq!(
+            after.oplog_head, before.oplog_head,
+            "failed checkpoint commit does not advertise an undo snapshot"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn finalization_failure_can_be_undone_to_pre_absorb_state() -> anyhow::Result<()> {
+        let (mut ctx, tmp, plan, before) = absorb_recovery_fixture(true)?;
+        let mut guard = ctx.exclusive_worktree_access();
+        let checkpoint = but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
+            &ctx,
+            SnapshotDetails::new(OperationKind::Absorb),
+            guard.read_permission(),
+        )?;
+        let database_path = but_db::DbHandle::db_file_path(ctx.project_data_dir());
+        let fault_connection = rusqlite::Connection::open(database_path)?;
+        fault_connection.execute_batch(
+            "CREATE TRIGGER fail_absorb_assignment_delete
+             BEFORE DELETE ON hunk_assignments
+             BEGIN
+                 SELECT RAISE(ABORT, 'injected assignment reconciliation failure');
+             END;",
+        )?;
+
+        let error = absorb_with_checkpoint_with_perm(
+            &mut ctx,
+            plan,
+            guard.write_permission(),
+            Some(checkpoint),
+        )
+        .expect_err("the assignment trigger must fail finalization");
+
+        assert!(
+            error.downcast_ref::<AbsorbFinalizationError>().is_some(),
+            "assignment failure has its post-checkpoint classification: {error:#}"
+        );
+        assert!(
+            error.to_string().contains("Run `but undo` before retrying"),
+            "finalization failure identifies the available recovery: {error:#}"
+        );
+        let checkpoint_id = ctx
+            .oplog_head()?
+            .expect("checkpoint commit succeeded before assignment finalization");
+        assert_ne!(
+            Some(checkpoint_id),
+            before.oplog_head,
+            "finalization failure leaves the absorb checkpoint available"
+        );
+
+        fault_connection.execute_batch("DROP TRIGGER fail_absorb_assignment_delete;")?;
+        drop(fault_connection);
+        crate::legacy::oplog::restore_snapshot_with_kind_with_perm(
+            &mut ctx,
+            crate::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+            checkpoint_id,
+            guard.write_permission(),
+        )?;
+        drop(guard);
+        let reconciled = crate::diff::changes_in_worktree(&ctx, ChangesSource::Head, true)?;
+        assert!(
+            reconciled.assignments_error.is_none(),
+            "undo assignment reconciliation must succeed"
+        );
+        assert_eq!(
+            reconciled
+                .assignments
+                .iter()
+                .map(|assignment| assignment.path.as_str())
+                .collect::<Vec<_>>(),
+            ["shared.txt", "shared.txt"],
+            "reconciled assignments cover both restored worktree hunks"
+        );
+        let mut restored = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+        assert_ne!(
+            restored.oplog_head,
+            Some(checkpoint_id),
+            "undo records a new oplog entry instead of leaving the absorb checkpoint as head"
+        );
+        restored.oplog_head = before.oplog_head;
+        for assignment in &mut restored.assignments {
+            assignment.id = None;
+        }
+        assert_eq!(
+            restored, before,
+            "undo restores refs, commits, index, worktree, metadata, and reconciled assignments"
         );
         Ok(())
     }
@@ -2453,6 +2825,125 @@ mod tests {
             expected_target_content.as_bytes(),
             "routing must not lose the pair's selection meaning before execution"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn generated_paired_replacements_match_independent_line_oracle() -> anyhow::Result<()> {
+        const SEEDS: [u16; 6] = [
+            0b0000000001,
+            0b1000000000,
+            0b0000000011,
+            0b1100000000,
+            0b0101010101,
+            0b1000001100,
+        ];
+
+        for seed in SEEDS {
+            let (repo, tmp) = but_testsupport::writable_scenario("absorb-paired-selection");
+            but_core::ref_metadata::ProjectMeta {
+                target_ref: Some("refs/remotes/origin/main".try_into()?),
+                target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+                push_remote: None,
+            }
+            .persist(&repo)?;
+            let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+            ctx.settings.context_lines = 0;
+            let selected_hunks = (1..=10)
+                .filter(|line| seed & (1 << (line - 1)) != 0)
+                .flat_map(|line| {
+                    [
+                        but_core::SingleHunk {
+                            hunk_header: Some(but_core::HunkHeader {
+                                old_start: line,
+                                old_lines: 1,
+                                new_start: 0,
+                                new_lines: 0,
+                            }),
+                            path: "selected.txt".into(),
+                            diff: None,
+                        },
+                        but_core::SingleHunk {
+                            hunk_header: Some(but_core::HunkHeader {
+                                old_start: 0,
+                                old_lines: 0,
+                                new_start: line,
+                                new_lines: 1,
+                            }),
+                            path: "selected.txt".into(),
+                            diff: None,
+                        },
+                    ]
+                })
+                .collect();
+
+            let plan = absorption_plan(
+                &mut ctx,
+                AbsorptionTarget::Hunks {
+                    hunks: selected_hunks,
+                },
+            )?;
+            let rejected = absorb(&mut ctx, plan)?;
+
+            assert_eq!(rejected, 0, "seed={seed:#05x} must be fully accepted");
+            let expected_target_content = (1..=10)
+                .map(|line| {
+                    if seed & (1 << (line - 1)) != 0 {
+                        format!("new-{line:02}\n")
+                    } else {
+                        format!("old-{line:02}\n")
+                    }
+                })
+                .collect::<String>();
+            let expected_worktree_content = (1..=10)
+                .map(|line| format!("new-{line:02}\n"))
+                .collect::<String>();
+            let mut expected_residual_hunks = Vec::new();
+            let mut line = 1;
+            while line <= 10 {
+                if seed & (1 << (line - 1)) != 0 {
+                    line += 1;
+                    continue;
+                }
+                let start = line;
+                while line <= 10 && seed & (1 << (line - 1)) == 0 {
+                    line += 1;
+                }
+                expected_residual_hunks.push(but_core::HunkHeader {
+                    old_start: start,
+                    old_lines: line - start,
+                    new_start: start,
+                    new_lines: line - start,
+                });
+            }
+
+            let repo = ctx.repo.get()?;
+            let blob = repo
+                .head_commit()?
+                .tree()?
+                .lookup_entry_by_path("selected.txt")?
+                .expect("committed file")
+                .object()?
+                .into_blob();
+            assert_eq!(
+                blob.data,
+                expected_target_content.as_bytes(),
+                "seed={seed:#05x} target content must match the line oracle"
+            );
+            assert_eq!(
+                std::fs::read_to_string(tmp.path().join("selected.txt"))?,
+                expected_worktree_content,
+                "seed={seed:#05x} must preserve worktree bytes"
+            );
+            assert_eq!(
+                but_core::worktree_hunks(&repo, 0)?
+                    .into_iter()
+                    .map(|hunk| hunk.hunk_header.expect("text hunk"))
+                    .collect::<Vec<_>>(),
+                expected_residual_hunks,
+                "seed={seed:#05x} residual hunks must cover exactly unselected runs"
+            );
+        }
         Ok(())
     }
 

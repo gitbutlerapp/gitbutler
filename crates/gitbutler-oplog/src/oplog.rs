@@ -1350,6 +1350,13 @@ fn restore_snapshot_tree(
         }
     }
     for reference in restored_references {
+        if repo
+            .try_find_reference(reference.ref_name.as_ref())?
+            .and_then(|current| current.target().try_id().map(ToOwned::to_owned))
+            == reference.target
+        {
+            continue;
+        }
         match reference.target {
             Some(target) => {
                 repo.reference(
@@ -1378,7 +1385,12 @@ fn restore_snapshot_tree(
     reset_index_to_tree(ctx, index_tree_entry.id().detach(), index_conflicts_tree_id)?;
 
     if let Some(checkout) = restored_checkout {
-        if checkout.ref_name != workspace_ref {
+        if checkout.ref_name != workspace_ref
+            && repo
+                .try_find_reference(checkout.ref_name.as_ref())?
+                .and_then(|current| current.target().try_id().map(ToOwned::to_owned))
+                != Some(checkout.commit_id)
+        {
             repo.reference(
                 checkout.ref_name.as_ref(),
                 checkout.commit_id,

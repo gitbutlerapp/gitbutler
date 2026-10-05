@@ -1,7 +1,7 @@
 # Absorb Decisions And Verification Ledger
 
 Companion to the [design and phased plan](absorb-implementation-plan.md).
-Updated: 2026-10-04. This is evidence tracking, not an automatic approval gate.
+Updated: 2026-10-05. This is evidence tracking, not an automatic approval gate.
 
 ## Resume Here
 
@@ -15,8 +15,10 @@ Later direction briefs: [W04 design](absorb-w04-design-approval.md),
 [W06 callers](absorb-w06-callers-diagnostics.md),
 [W07 verification](absorb-w07-verification-cost.md), and
 [W08 release readiness](absorb-w08-review-release.md).
-Current blocker to completion: recovery/fault-boundary evidence and a concrete
-performance acceptance decision remain open.
+Recovery and generated-case evidence is now green, including rollback after a
+target-ref publication failure. Current blockers to completion are a concrete
+performance acceptance decision and explicit disposition of the unsupported or
+unproven input domains recorded below.
 
 The old chat task list about committing skills and updating review threads belongs
 to earlier completed publication work; it is not this implementation queue.
@@ -36,7 +38,7 @@ it does not complete its implementation fix or permit release.
 | W04 design approval       | W01-W03       | done    | Original scope and blank-target amendment approved by the Author             |
 | W05 implementation        | W04 approved  | done    | Atomic path, preconditions, finalization and focused validation recorded     |
 | W06 diagnostics/callers   | W05           | done    | Caller inventory, diagnostics, and non-success contracts recorded below      |
-| W07 verification/cost     | W05-W06       | active  | Recovery, generated tests, performance decision                              |
+| W07 verification/cost     | W05-W06       | active  | Recovery and measurements recorded; acceptance/domain gates remain           |
 | W08 review/release        | W07           | pending | Independent review; publication separately authorized                        |
 
 Recommended serial order is W00-W08. Dependencies permit W02 before W01 is
@@ -63,15 +65,15 @@ running process identified. The next agent verifies state before repeating write
 
 ### Side-Effect Table
 
-| Operation / symbol                                                                                                                                                                                     | State affected                                                                                                                                                                                                                  | Persistence point                                                                                                                                                     | Transaction coverage                                                                                                    | Test / unresolved question                                                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| [Planner](crates/but-api/src/legacy/absorb.rs) `absorption_plan_with_perm` -> [worktree diff](crates/but-api/src/diff.rs) `changes_in_worktree_with_perm`                                              | Reads HEAD worktree and index view; reconciles hunk assignments and dependencies                                                                                                                                                | Opens `db.immediate_transaction()`, calls `assignments_with_fallback`, which persists reconciled rows, then commits before routing completes                          | None. Project-database rows are explicitly outside `but-transaction`                                                    | W03 must compare assignment rows before planning and after planner error, dry-run, and later invocation failure           |
-| [Planner target selection](crates/but-api/src/legacy/absorb.rs) `ensure_target_commit` -> [blank insert](crates/but-api/src/commit/insert_blank.rs)                                                    | May create a reachable blank commit and rewrite refs/worktree before the plan is returned                                                                                                                                       | Called with `DryRun::No`, then immediately materializes via `WorkspaceState::from_successful_rebase`                                                                  | None. Later routing failure, landed filtering, or dry-run return cannot roll it back                                    | W03 must cover planning-created blank commits followed by a blocker and dry-run                                           |
-| [Executor](crates/but-api/src/legacy/absorb.rs) `absorb_with_perm`                                                                                                                                     | In-memory commit map, then target/descendant history and residual worktree state                                                                                                                                                | Singleton hunk steps each call `commit_amend_only_impl`, which materializes before the loop continues. Rejected specs are counted; an `Err` exits after earlier steps | None. It is not a transaction and does not defer publication                                                            | W03 must test late rejection and cross-branch failure from state captured before planning                                 |
-| [Amend and materialization](crates/but-api/src/commit/amend.rs), [workspace amend](crates/but-workspace/src/commit/commit_amend.rs), [materializer](crates/but-rebase/src/graph_rebase/materialize.rs) | Objects, checkout/index/worktree, refs/HEAD, and refreshed workspace projection                                                                                                                                                 | Objects are persisted, then checkout runs, refs/HEAD are edited, then workspace refresh runs. Direct absorb has no restoration wrapper around these stages            | No outer transaction in current absorb                                                                                  | W07 needs fault-boundary evidence; a returned error cannot prove unchanged state after a publish stage                    |
-| [Legacy snapshot](crates/but-api/src/legacy/absorb.rs), [CLI handler](crates/but/src/command/legacy/absorb.rs), [oplog](crates/gitbutler-oplog/src/oplog.rs)                                           | User-visible oplog commit, operations-log head, and reflog tracking                                                                                                                                                             | `create_snapshot` prepares and commits before execution; callers ignore snapshot errors with `.ok()`                                                                  | Not coupled to executor. Direct `absorb_with_perm` callers bypass it                                                    | W03 must compare oplog state on expected rejection; W04 must define truthful recovery after snapshot/finalization failure |
-| [Transaction candidate](crates/but-transaction/src/lib.rs) `with_transaction_with_perm` / `Transaction::amend_commit`                                                                                  | In-memory rebase, mapped IDs, deferred metadata/ref/checkout work, one final materialization and oplog entry                                                                                                                    | Callback work remains staged; eager refs roll back on callback/finalization error                                                                                     | Candidate only; current absorb does not use it. It excludes project DB rows                                             | W04 must decide reuse only after a repeated-source-consumption composition test                                           |
-| Metadata, caches, and notifications                                                                                                                                                                    | The direct normal amend path borrows metadata but has no explicit metadata setter. `Workspace::refresh_from_head` rebuilds from repo/meta/db. Watcher activity invalidates workspace, worktree, and `AbsorptionPlan` cache tags | No direct invalidation or watcher emission appears in audited absorb/amend sources                                                                                    | Transaction can stage metadata updates, but direct-path metadata behavior beyond inspected functions remains unverified | W03 compares relevant metadata; W06 verifies clients do not show success or stale plan after failure                      |
+| Operation / symbol                                                                                                                                                                                     | State affected                                                                                                                                                                                                                  | Persistence point                                                                                                                                                                       | Transaction coverage                                                                                                    | Test / unresolved question                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [Planner](crates/but-api/src/legacy/absorb.rs) `absorption_plan_with_perm` -> [worktree diff](crates/but-api/src/diff.rs) `changes_in_worktree_with_perm`                                              | Reads HEAD worktree and index view; reconciles hunk assignments and dependencies                                                                                                                                                | Opens `db.immediate_transaction()`, calls `assignments_with_fallback`, which persists reconciled rows, then commits before routing completes                                            | None. Project-database rows are explicitly outside `but-transaction`                                                    | W03 must compare assignment rows before planning and after planner error, dry-run, and later invocation failure           |
+| [Planner target selection](crates/but-api/src/legacy/absorb.rs) `ensure_target_commit` -> [blank insert](crates/but-api/src/commit/insert_blank.rs)                                                    | May create a reachable blank commit and rewrite refs/worktree before the plan is returned                                                                                                                                       | Called with `DryRun::No`, then immediately materializes via `WorkspaceState::from_successful_rebase`                                                                                    | None. Later routing failure, landed filtering, or dry-run return cannot roll it back                                    | W03 must cover planning-created blank commits followed by a blocker and dry-run                                           |
+| [Executor](crates/but-api/src/legacy/absorb.rs) `absorb_with_perm`                                                                                                                                     | In-memory commit map, then target/descendant history and residual worktree state                                                                                                                                                | Singleton hunk steps each call `commit_amend_only_impl`, which materializes before the loop continues. Rejected specs are counted; an `Err` exits after earlier steps                   | None. It is not a transaction and does not defer publication                                                            | W03 must test late rejection and cross-branch failure from state captured before planning                                 |
+| [Amend and materialization](crates/but-api/src/commit/amend.rs), [workspace amend](crates/but-workspace/src/commit/commit_amend.rs), [materializer](crates/but-rebase/src/graph_rebase/materialize.rs) | Objects, checkout/index/worktree, refs/HEAD, and refreshed workspace projection                                                                                                                                                 | Objects are persisted, then checkout runs, refs/HEAD are edited, then workspace refresh runs. Absorb prepares a required checkpoint and restores it on a returned materialization error | Operational rollback around absorb materialization; object writes remain harmless unreachable objects                   | W07 locked-target-ref test proves refs, index, worktree, metadata, assignments, and oplog head are restored               |
+| [Legacy snapshot](crates/but-api/src/legacy/absorb.rs), [CLI handler](crates/but/src/command/legacy/absorb.rs), [oplog](crates/gitbutler-oplog/src/oplog.rs)                                           | User-visible oplog commit, operations-log head, and reflog tracking                                                                                                                                                             | `create_snapshot` prepares and commits before execution; callers ignore snapshot errors with `.ok()`                                                                                    | Not coupled to executor. Direct `absorb_with_perm` callers bypass it                                                    | W03 must compare oplog state on expected rejection; W04 must define truthful recovery after snapshot/finalization failure |
+| [Transaction candidate](crates/but-transaction/src/lib.rs) `with_transaction_with_perm` / `Transaction::amend_commit`                                                                                  | In-memory rebase, mapped IDs, deferred metadata/ref/checkout work, one final materialization and oplog entry                                                                                                                    | Callback work remains staged; eager refs roll back on callback/finalization error                                                                                                       | Candidate only; current absorb does not use it. It excludes project DB rows                                             | W04 must decide reuse only after a repeated-source-consumption composition test                                           |
+| Metadata, caches, and notifications                                                                                                                                                                    | The direct normal amend path borrows metadata but has no explicit metadata setter. `Workspace::refresh_from_head` rebuilds from repo/meta/db. Watcher activity invalidates workspace, worktree, and `AbsorptionPlan` cache tags | No direct invalidation or watcher emission appears in audited absorb/amend sources                                                                                                      | Transaction can stage metadata updates, but direct-path metadata behavior beyond inspected functions remains unverified | W03 compares relevant metadata; W06 verifies clients do not show success or stale plan after failure                      |
 
 ### Caller Table
 
@@ -193,8 +195,9 @@ approved policies constrain their answers. D1 still needs design review.
       but no reachable fallback-descendant fixture was established. This remains
       an unconfirmed risk in the generic commit/amend rejection reporter, outside
       absorb planning/execution; a focused fixture is deferred from W06.
-- [ ] F4: quantify repeated rebase/materialization cost per selector.
-      Prior evidence: inspected call path; no benchmark or acceptance budget yet.
+- [x] F4: quantify repeated rebase/materialization cost per selector.
+      W07 records a comparable 32-hunk benchmark and source-backed materialization
+      counts below. Performance acceptance remains pending.
 
 ## Test Matrix
 
@@ -210,10 +213,10 @@ For each checked row, add test names and evidence below. Reuse fixture harnesses
 - [ ] Original deletion-boundary case and nonmatching same-sized substitution.
 - [ ] Partial rejections around successful rewrites; stable count units and mappings.
 - [x] No unselected content committed; correct residual diff and preserved worktree.
-- [ ] Ref/index/metadata preservation on failure; agreed partial-state behavior.
+- [x] Ref/index/metadata preservation on failure; agreed partial-state behavior.
 - [ ] Undo, dry-run, stale input, and unsupported-domain handling.
 - [ ] Precise and fallback amend hints with ancestor, descendant, and independent refs.
-- [ ] Deterministic generated cases with independent oracle and recorded seeds.
+- [x] Deterministic generated cases with independent oracle and recorded seeds.
 - [ ] Resolution continue/abort/cancel/restart and repeated conflict, if implemented.
 
 ## Prior Evidence: Baseline Only
@@ -790,6 +793,106 @@ legacy::absorb::tests::paired_old_and_new_hunk_selections_preserve_their_shared_
 - Remaining uncertainty: no fault hook has yet demonstrated checkpoint commit or
   post-checkpoint assignment failure, and no approved performance budget exists.
   These are the first W07 actions.
+
+## W07 Recovery, Generated Cases, And Cost Evidence
+
+- Packet / owner / status / date: W07 / GitHub Copilot / active / 2026-10-05.
+  W05 commit `kwn` (`5503f25e05824afca995c5b5ddceb1e6cdc81ef5`) and W06 commit
+  `qwy` (`7ef8e8c09fe99a189e8d20e0347ec5ff80a6af08`) are prerequisites. The
+  W07 scope comprises the focused test, benchmark, rollback, dependency, and
+  ledger changes recorded here; unrelated applied branches remain preserved.
+- Approvals: the Author approved `rusqlite.workspace = true` as a test-only
+  `but-api` dev-dependency for deterministic assignment-finalization failure.
+  After the locked-target-ref regression reproduced index mutation, the Author
+  approved a bounded W04 amendment: restore the prepared checkpoint on returned
+  materialization errors and avoid writing refs already at the checkpoint target.
+  A failed rollback reports potentially partial state rather than claiming
+  unchanged behavior.
+- Checkpoint lifecycle: successful public absorb still commits its prepared
+  checkpoint to the oplog, proven by `command::undo::can_undo_but_absorb`.
+  Permissioned/action-only execution prepares the same snapshot for rollback but
+  does not add a timeline entry. Retaining successful checkpoints for future
+  comparison is compatible with this design; a general checkpoint-diff feature
+  is a separate oplog proposal.
+- Fault boundaries: `checkpoint_preparation_failure_leaves_invocation_unchanged`
+  replaces `virtual_branches.toml` with a directory and verifies required
+  checkpoint preparation fails before mutation. `index_lock_failure_before_publication_leaves_invocation_unchanged`
+  holds the real index lock. `ref_lock_failure_during_publication_leaves_invocation_unchanged`
+  holds `refs/heads/feature.lock`, originally reproduced an ` M` to `MM` index
+  mutation with unchanged refs, and now passes the complete state oracle for both
+  public/timeline and permissioned/action-only execution after rollback.
+- Post-publication recovery: `checkpoint_failure_reports_published_without_automatic_undo`
+  obstructs `operations-log.toml` after checkpoint preparation and proves the
+  graph changed while no oplog head was published. `finalization_failure_can_be_undone_to_pre_absorb_state`
+  installs a real SQLite DELETE trigger on persisted assignment rows, proves the
+  typed post-checkpoint error, runs the production undo API, reconciles
+  assignments, and compares refs, commit content/parents, index, worktree,
+  metadata, and assignment semantics. Assignment UUIDs and the expected new undo
+  oplog entry are excluded from identity comparison.
+- Generated selector cases: `generated_paired_replacements_match_independent_line_oracle`
+  passed six fixed `u16` masks (`0b0000000001`, `0b1000000000`,
+  `0b0000000011`, `0b1100000000`, `0b0101010101`, `0b1000001100`). The
+  independent line oracle verifies exact target content, unchanged all-new
+  worktree bytes, no rejection, and residual contiguous unselected ranges.
+- Validation: `cargo test -p but-api legacy::absorb::tests --no-default-features`
+  passed 23 tests; `cargo test -p but --test but command::absorb` passed 18;
+  `cargo test -p but --test but command::undo::can_undo_but_absorb` passed one;
+  and `cargo test -p gitbutler-oplog --test oplog` passed 37. Strict
+  `cargo clippy -p but-api -p gitbutler-oplog -p but --all-targets --no-deps -- -D warnings`
+  passed after one test-only mutability correction. Focused recovery and rollback
+  tests were rerun after each repair.
+- Test dependency review: `rusqlite 0.39.0` was already pinned in the workspace;
+  the lockfile only adds it to `but-api`'s dependency list. An OSV package query
+  returned no advisory IDs. `cargo-machete`, `cargo-audit`, and ShellCheck were
+  unavailable; no claim is made for those checks.
+
+### W07 Supported-Domain Matrix
+
+| Domain                                                            | W07 disposition and evidence                                                                                                                    |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ordinary text replacements/deletions                              | Supported by exact planner/executor cases, six generated masks, beginning/end selections, multiple hunks, and exact residual-content assertions |
+| Multiple files and targets                                        | Supported by independent-branch API success and the 8-file/8-target benchmark setup; CLI concurrent independent-file case passes                |
+| Ambiguous routing                                                 | Safely rejected by API and CLI ambiguity tests; no arbitrary workspace-order selection                                                          |
+| Landed targets                                                    | Safely rejected atomically in human, JSON, and dry-run CLI tests unless explicit `--allow-merged` policy is selected                            |
+| Linked worktrees                                                  | Safely rejected by `absorbing_a_linked_worktrees_changes_is_refused`                                                                            |
+| Stale source, routing, assignment, or context                     | Safely rejected before editor creation by stamped-plan tests                                                                                    |
+| Returned index/ref publication errors                             | Operationally rolled back to the complete pre-invocation oracle; rollback failure explicitly reports uncertain partial state                    |
+| Rename/copy, binary or large files, mode changes, non-UTF-8 paths | Not claimed supported: no absorb-specific passing or safe-rejection proof yet                                                                   |
+| Merge histories and descendant rewrite conflicts                  | Not claimed supported: lower-level rejection exists, but comprehensive absorb-specific abort-unchanged evidence is still missing                |
+
+### W07 Performance Measurement
+
+- Scenario `absorb-32-hunks-8-commits` uses fixture
+  `cf9f4aad6fe7511d5aeb9fd7c83fc62e18a9e1b6`, eight 200-line files, eight
+  sequential target commits, and four replacements per file. Setup validates
+  eight files, eight commit groups, 32 hunks, and eight modified paths outside
+  the timed region. The timed POSIX script executes only `but absorb`; `sh -n`
+  and a one-sample smoke run passed.
+- Environment/profile: Cargo `bench` profile (optimized with debug info), Hyperfine
+  1.20.0, one warmup and five output-suppressed measured fresh processes on
+  `990pro`, x86_64, Linux `6.18.40.1-microsoft-standard-WSL2`.
+- Pre-W05 source `64436487e7c57bdfde3da4785f1e9d6e52c38d50`: mean
+  78.647 s, standard deviation 0.658 s, median 78.705 s, range 77.630-79.465 s.
+  Results: `target/performance-results/absorb-pre-w05-w07`.
+- Current preserved binary: mean 36.679 s, standard deviation 0.219 s, median
+  36.703 s, range 36.340-36.945 s. Results:
+  `target/performance-results/absorb-current-w07`. This is about 53.4% lower
+  latency and 2.14 times the throughput on this workload.
+- Counts are source-backed, not dynamically instrumented: setup confirms 32
+  amendment groups; inspected pre-W05 code materialized once per group while the
+  current implementation materializes once after composition. No existing
+  invocation-count hook was found, so exact dynamic amend/rebase counts are not
+  claimed.
+- Provenance limitation: the baseline is an exact archived revision built with
+  its tracked lockfile. The current preserved binary was built from integrated
+  workspace HEAD `1119311498105fa5e2da50340affe7d82e4a2ab4` with unrelated
+  applied branches and dirty W07 test-only state. Its metadata labels binary SHA
+  `7ef8e8c09fe99a189e8d20e0347ec5ff80a6af08`, which is the absorb branch tip,
+  not the exact integrated build HEAD. The measurement is useful but is not an
+  isolated exact-revision comparison.
+- Acceptance: the Author selected measurement only; no budget or acceptance was
+  approved. Performance acceptance therefore remains pending and W07 cannot be
+  marked done from these favorable measurements alone.
 
 ## Release Checklist
 
