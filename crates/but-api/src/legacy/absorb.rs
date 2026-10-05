@@ -471,6 +471,8 @@ pub fn absorption_plan_with_perm(
         }
     };
 
+    ensure_supported_candidate_paths(ctx, &candidates)?;
+
     // Group all changes by their target commit
     let changes_by_commit =
         group_changes_by_target_commit(ctx, &candidates, dependencies.as_ref())?;
@@ -491,6 +493,41 @@ pub fn absorption_plan_with_perm(
     }
 
     Ok(commit_absorptions)
+}
+
+fn ensure_supported_candidate_paths(
+    ctx: &Context,
+    candidates: &[AbsorbCandidate],
+) -> anyhow::Result<()> {
+    let non_utf8_paths = candidates
+        .iter()
+        .filter(|candidate| candidate.hunk.path.to_str().is_err())
+        .map(|candidate| format!("{:?}", candidate.hunk.path))
+        .collect::<Vec<_>>();
+    anyhow::ensure!(
+        non_utf8_paths.is_empty(),
+        "Absorb does not yet support non-UTF-8 paths: {}. Commit or revert those changes before retrying.",
+        non_utf8_paths.iter().join(", ")
+    );
+
+    let repo = ctx.repo.get()?;
+    let renamed_paths = but_core::diff::worktree_changes(&repo)?
+        .changes
+        .into_iter()
+        .filter(|change| {
+            matches!(change.status, but_core::TreeStatus::Rename { .. })
+                && candidates
+                    .iter()
+                    .any(|candidate| candidate.hunk.path == change.path)
+        })
+        .map(|change| change.path.to_str_lossy().into_owned())
+        .collect::<Vec<_>>();
+    anyhow::ensure!(
+        renamed_paths.is_empty(),
+        "Absorb does not yet support renamed paths: {}. Commit or revert the rename before retrying.",
+        renamed_paths.iter().join(", ")
+    );
+    Ok(())
 }
 
 /// Group changes by their target commit based on dependencies and assignments
@@ -1317,6 +1354,505 @@ mod tests {
             std::fs::read_to_string(tmp.path().join("shared.txt"))?,
             expected_worktree_content,
             "the worktree retains its exact user-visible bytes"
+        );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    fn absorb_file_types_fixture() -> anyhow::Result<(Context, tempfile::TempDir)> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-file-types");
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        Ok((ctx, tmp))
+    }
+
+    #[cfg(unix)]
+    fn reset_absorb_file_types_fixture(tmp: &tempfile::TempDir) -> anyhow::Result<()> {
+        use std::os::unix::{ffi::OsStrExt as _, fs::PermissionsExt as _};
+
+        std::fs::rename(
+            tmp.path().join("renamed-new.txt"),
+            tmp.path().join("renamed-old.txt"),
+        )?;
+        std::fs::write(tmp.path().join("binary.dat"), b"\0\x01old\xff")?;
+        let mode_path = tmp.path().join("mode.sh");
+        let mut permissions = std::fs::metadata(&mode_path)?.permissions();
+        permissions.set_mode(0o644);
+        std::fs::set_permissions(mode_path, permissions)?;
+        let non_utf8_path = std::path::Path::new(std::ffi::OsStr::from_bytes(b"invalid-\xff.txt"));
+        std::fs::write(tmp.path().join(non_utf8_path), b"old non-utf8 path\n")?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn renamed_path_is_rejected_without_changing_the_invocation() -> anyhow::Result<()> {
+        use std::os::unix::ffi::OsStrExt as _;
+
+        let (mut ctx, tmp) = absorb_file_types_fixture()?;
+        let non_utf8_path = std::path::Path::new(std::ffi::OsStr::from_bytes(b"invalid-\xff.txt"));
+        std::fs::write(tmp.path().join(non_utf8_path), b"old non-utf8 path\n")?;
+        let before = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &[
+                "renamed-old.txt",
+                "renamed-new.txt",
+                "binary.dat",
+                "mode.sh",
+            ],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[(
+                "refs/heads/feature",
+                &[
+                    "renamed-old.txt",
+                    "renamed-new.txt",
+                    "binary.dat",
+                    "mode.sh",
+                ],
+            )],
+        )?;
+
+        let error = absorption_plan(&mut ctx, AbsorptionTarget::All)
+            .expect_err("rename planning must fail before previous_path is discarded");
+
+        assert!(
+            error
+                .to_string()
+                .contains("does not yet support renamed paths: renamed-new.txt"),
+            "rename rejection identifies the affected path: {error:#}"
+        );
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &[
+                "renamed-old.txt",
+                "renamed-new.txt",
+                "binary.dat",
+                "mode.sh",
+            ],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[(
+                "refs/heads/feature",
+                &[
+                    "renamed-old.txt",
+                    "renamed-new.txt",
+                    "binary.dat",
+                    "mode.sh",
+                ],
+            )],
+        )?;
+        assert_eq!(
+            after, before,
+            "rename rejection preserves refs, commits, index, worktree, metadata, assignments, and oplog"
+        );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn non_utf8_path_is_rejected_without_changing_the_invocation() -> anyhow::Result<()> {
+        let (mut ctx, tmp) = absorb_file_types_fixture()?;
+        std::fs::rename(
+            tmp.path().join("renamed-new.txt"),
+            tmp.path().join("renamed-old.txt"),
+        )?;
+        let before = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &[
+                "renamed-old.txt",
+                "renamed-new.txt",
+                "binary.dat",
+                "mode.sh",
+            ],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[(
+                "refs/heads/feature",
+                &[
+                    "renamed-old.txt",
+                    "renamed-new.txt",
+                    "binary.dat",
+                    "mode.sh",
+                ],
+            )],
+        )?;
+
+        let error = absorption_plan(&mut ctx, AbsorptionTarget::All)
+            .expect_err("non-UTF-8 planning must fail before path bytes are lost");
+
+        assert!(
+            error
+                .to_string()
+                .contains("does not yet support non-UTF-8 paths"),
+            "non-UTF-8 rejection identifies the unsupported path class: {error:#}"
+        );
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &[
+                "renamed-old.txt",
+                "renamed-new.txt",
+                "binary.dat",
+                "mode.sh",
+            ],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[(
+                "refs/heads/feature",
+                &[
+                    "renamed-old.txt",
+                    "renamed-new.txt",
+                    "binary.dat",
+                    "mode.sh",
+                ],
+            )],
+        )?;
+        assert_eq!(
+            after, before,
+            "non-UTF-8 rejection preserves refs, commits, index, worktree, metadata, assignments, and oplog"
+        );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn binary_and_mode_changes_preserve_bytes_and_modes() -> anyhow::Result<()> {
+        use std::os::unix::{ffi::OsStrExt as _, fs::PermissionsExt as _};
+
+        let (mut ctx, tmp) = absorb_file_types_fixture()?;
+        std::fs::rename(
+            tmp.path().join("renamed-new.txt"),
+            tmp.path().join("renamed-old.txt"),
+        )?;
+        let non_utf8_path = std::path::Path::new(std::ffi::OsStr::from_bytes(b"invalid-\xff.txt"));
+        std::fs::write(tmp.path().join(non_utf8_path), b"old non-utf8 path\n")?;
+
+        let plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
+        assert_eq!(
+            plan.len(),
+            1,
+            "binary and mode changes route to the feature commit"
+        );
+        assert_eq!(
+            absorb(&mut ctx, plan)?,
+            0,
+            "binary and mode changes are accepted"
+        );
+
+        let repo = ctx.repo.get()?;
+        let tree = repo
+            .find_commit(repo.rev_parse_single("refs/heads/feature")?)?
+            .tree()?;
+        assert_eq!(
+            tree.lookup_entry_by_path("binary.dat")?
+                .expect("binary file exists")
+                .object()?
+                .into_blob()
+                .data,
+            b"\0\x02new\xfe",
+            "binary bytes are absorbed without text conversion"
+        );
+        assert_eq!(
+            tree.lookup_entry_by_path("mode.sh")?
+                .expect("mode-only file exists")
+                .mode()
+                .kind(),
+            gix::object::tree::EntryKind::BlobExecutable,
+            "the executable bit is absorbed"
+        );
+        assert_eq!(
+            tree.lookup_entry_by_path(non_utf8_path)?
+                .expect("unchanged non-UTF-8 path exists")
+                .object()?
+                .into_blob()
+                .data,
+            b"old non-utf8 path\n",
+            "absorbing other paths preserves the non-UTF-8 tree entry"
+        );
+        assert_eq!(
+            std::fs::read(tmp.path().join("binary.dat"))?,
+            b"\0\x02new\xfe",
+            "successful absorb preserves binary worktree bytes"
+        );
+        assert_ne!(
+            std::fs::metadata(tmp.path().join("mode.sh"))?
+                .permissions()
+                .mode()
+                & 0o111,
+            0,
+            "successful absorb preserves the executable worktree mode"
+        );
+        let non_utf8_worktree_path = tmp.path().join(non_utf8_path);
+        assert_eq!(
+            std::fs::read(non_utf8_worktree_path)?,
+            b"old non-utf8 path\n",
+            "successful absorb preserves an unchanged non-UTF-8 worktree path"
+        );
+        assert!(
+            but_core::worktree_hunks(&repo, 0)?.is_empty(),
+            "all file-type changes are absent from the residual worktree diff"
+        );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn copied_file_is_absorbed_as_addition_without_changing_source() -> anyhow::Result<()> {
+        let (mut ctx, tmp) = absorb_file_types_fixture()?;
+        reset_absorb_file_types_fixture(&tmp)?;
+        std::fs::copy(
+            tmp.path().join("renamed-old.txt"),
+            tmp.path().join("copied.txt"),
+        )?;
+
+        let plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
+        assert_eq!(plan.len(), 1, "the copied file has one addition target");
+        assert_eq!(
+            absorb(&mut ctx, plan)?,
+            0,
+            "the copy-like addition is accepted"
+        );
+
+        let repo = ctx.repo.get()?;
+        let tree = repo
+            .find_commit(repo.rev_parse_single("refs/heads/feature")?)?
+            .tree()?;
+        for path in ["renamed-old.txt", "copied.txt"] {
+            assert_eq!(
+                tree.lookup_entry_by_path(path)?
+                    .unwrap_or_else(|| panic!("{path} exists"))
+                    .object()?
+                    .into_blob()
+                    .data,
+                b"base\n",
+                "copy-like addition preserves both source and destination bytes"
+            );
+        }
+        assert!(
+            but_core::worktree_hunks(&repo, 0)?.is_empty(),
+            "the accepted addition leaves no residual diff"
+        );
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn large_binary_addition_preserves_exact_bytes() -> anyhow::Result<()> {
+        let (mut ctx, tmp) = absorb_file_types_fixture()?;
+        reset_absorb_file_types_fixture(&tmp)?;
+        let large_bytes = (0..2 * 1024 * 1024)
+            .map(|offset| (offset % 251) as u8)
+            .collect::<Vec<_>>();
+        std::fs::write(tmp.path().join("large.dat"), &large_bytes)?;
+
+        let plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
+        assert_eq!(plan.len(), 1, "the large binary has one addition target");
+        assert_eq!(absorb(&mut ctx, plan)?, 0, "the large binary is accepted");
+
+        let repo = ctx.repo.get()?;
+        let tree = repo
+            .find_commit(repo.rev_parse_single("refs/heads/feature")?)?
+            .tree()?;
+        assert_eq!(
+            tree.lookup_entry_by_path("large.dat")?
+                .expect("large binary exists")
+                .object()?
+                .into_blob()
+                .data,
+            large_bytes,
+            "the target tree contains every large-file byte"
+        );
+        assert_eq!(
+            std::fs::read(tmp.path().join("large.dat"))?,
+            large_bytes,
+            "successful absorb preserves every worktree byte"
+        );
+        assert!(
+            but_core::worktree_hunks(&repo, 0)?.is_empty(),
+            "the accepted large binary leaves no residual diff"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn merge_descendant_is_rewritten_without_losing_parents() -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-merge-history");
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let (merge_before_id, parents_before) = {
+            let merge_before = repo.head_commit()?;
+            (
+                merge_before.id,
+                merge_before
+                    .parent_ids()
+                    .map(|parent| parent.detach())
+                    .collect::<Vec<_>>(),
+            )
+        };
+        assert_eq!(
+            parents_before.len(),
+            2,
+            "the fixture head is a merge commit"
+        );
+        let feature_before = parents_before[0];
+        let side_before = parents_before[1];
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+
+        let plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
+        assert_eq!(plan.len(), 1, "the feature edit has one dependency target");
+        assert_eq!(
+            plan[0].commit_id, feature_before,
+            "the edit routes to the pre-merge feature commit"
+        );
+        assert_eq!(absorb(&mut ctx, plan)?, 0, "the merge history is accepted");
+
+        let repo = ctx.repo.get()?;
+        let merge_after = repo.find_commit(repo.rev_parse_single("refs/heads/feature")?)?;
+        assert_ne!(
+            merge_after.id, merge_before_id,
+            "the feature ref advances to the rewritten merge descendant"
+        );
+        let parents_after = merge_after.parent_ids().collect::<Vec<_>>();
+        assert_eq!(
+            parents_after.len(),
+            2,
+            "the rewritten descendant remains a merge commit"
+        );
+        assert_ne!(
+            parents_after[0], feature_before,
+            "the amended feature parent receives the selected content"
+        );
+        assert_eq!(
+            parents_after[1], side_before,
+            "the independent side parent remains unchanged"
+        );
+        let tree = merge_after.tree()?;
+        assert_eq!(
+            tree.lookup_entry_by_path("feature.txt")?
+                .expect("feature file exists")
+                .object()?
+                .into_blob()
+                .data,
+            b"feature new\n",
+            "the selected feature bytes reach the rewritten merge"
+        );
+        assert_eq!(
+            tree.lookup_entry_by_path("side.txt")?
+                .expect("side file exists")
+                .object()?
+                .into_blob()
+                .data,
+            b"side content\n",
+            "the merge retains independent side content"
+        );
+        assert_eq!(
+            std::fs::read(tmp.path().join("feature.txt"))?,
+            b"feature new\n",
+            "successful absorb preserves worktree bytes"
+        );
+        assert!(
+            but_core::worktree_hunks(&repo, 0)?.is_empty(),
+            "the accepted merge-history edit leaves no residual diff"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn resolved_merge_descendant_conflict_aborts_unchanged() -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-resolved-merge-history");
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let feature_before = repo
+            .head_commit()?
+            .parent_ids()
+            .next()
+            .expect("first parent")
+            .detach();
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
+        assert_eq!(plan.len(), 1, "the resolved-merge edit has one target");
+        assert_eq!(
+            plan[0].commit_id, feature_before,
+            "the edit routes to the pre-merge feature parent"
+        );
+        let before = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/heads/side",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[
+                ("refs/heads/feature", &["shared.txt"]),
+                ("refs/heads/side", &["shared.txt"]),
+            ],
+        )?;
+
+        let error = absorb(&mut ctx, plan)
+            .expect_err("a conflicting resolved-merge replay must abort rather than publish");
+        assert!(
+            error.to_string().contains("conflict"),
+            "the graph rewrite identifies the descendant merge conflict: {error:#}"
+        );
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/heads/side",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[
+                ("refs/heads/feature", &["shared.txt"]),
+                ("refs/heads/side", &["shared.txt"]),
+            ],
+        )?;
+        assert_eq!(
+            after, before,
+            "a descendant rewrite conflict preserves the complete invocation state"
         );
         Ok(())
     }

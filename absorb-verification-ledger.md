@@ -5,20 +5,18 @@ Updated: 2026-10-05. This is evidence tracking, not an automatic approval gate.
 
 ## Resume Here
 
-Active packet: **W07 - Recovery, Generated Cases, And Cost**. W06 completed the
-cross-caller outcome contract: unchanged rejection is an error, post-publication
-failures disclose publication and undo availability, and UI callers surface the
-backend's actionable detail. W07 must now fault-test those boundaries, close the
-supported-domain matrix, add bounded generated cases, and measure cost.
+Active packet: **W08 - Independent Review And Release Readiness**. W07 completed
+the recovery boundaries, deterministic generated cases, supported-domain matrix,
+and representative performance measurement. The Author accepted the performance
+result with its recorded provenance caveat and selected case-by-case proof of the
+broader input domain; unsupported changed paths now fail unchanged.
 Later direction briefs: [W04 design](absorb-w04-design-approval.md),
 [W05 implementation](absorb-w05-implementation.md),
 [W06 callers](absorb-w06-callers-diagnostics.md),
 [W07 verification](absorb-w07-verification-cost.md), and
 [W08 release readiness](absorb-w08-review-release.md).
-Recovery and generated-case evidence is now green, including rollback after a
-target-ref publication failure. Current blockers to completion are a concrete
-performance acceptance decision and explicit disposition of the unsupported or
-unproven input domains recorded below.
+W08 must independently review the complete diff and release evidence before any
+publication. No push, PR update, branch switch, or publication is authorized.
 
 The old chat task list about committing skills and updating review threads belongs
 to earlier completed publication work; it is not this implementation queue.
@@ -796,7 +794,7 @@ legacy::absorb::tests::paired_old_and_new_hunk_selections_preserve_their_shared_
 
 ## W07 Recovery, Generated Cases, And Cost Evidence
 
-- Packet / owner / status / date: W07 / GitHub Copilot / active / 2026-10-05.
+- Packet / owner / status / date: W07 / GitHub Copilot / complete / 2026-10-05.
   W05 commit `kwn` (`5503f25e05824afca995c5b5ddceb1e6cdc81ef5`) and W06 commit
   `qwy` (`7ef8e8c09fe99a189e8d20e0347ec5ff80a6af08`) are prerequisites. The
   W07 scope comprises the focused test, benchmark, rollback, dependency, and
@@ -807,7 +805,9 @@ legacy::absorb::tests::paired_old_and_new_hunk_selections_preserve_their_shared_
   approved a bounded W04 amendment: restore the prepared checkpoint on returned
   materialization errors and avoid writing refs already at the checkpoint target.
   A failed rollback reports potentially partial state rather than claiming
-  unchanged behavior.
+  unchanged behavior. The Author later selected broader-domain proof rather than
+  a narrow first-release domain and accepted the measured performance result with
+  the exact-revision provenance caveat retained below.
 - Checkpoint lifecycle: successful public absorb still commits its prepared
   checkpoint to the oplog, proven by `command::undo::can_undo_but_absorb`.
   Permissioned/action-only execution prepares the same snapshot for rollback but
@@ -835,7 +835,7 @@ legacy::absorb::tests::paired_old_and_new_hunk_selections_preserve_their_shared_
   independent line oracle verifies exact target content, unchanged all-new
   worktree bytes, no rejection, and residual contiguous unselected ranges.
 - Validation: `cargo test -p but-api legacy::absorb::tests --no-default-features`
-  passed 23 tests; `cargo test -p but --test but command::absorb` passed 18;
+  passed 30 tests; `cargo test -p but --test but command::absorb` passed 18;
   `cargo test -p but --test but command::undo::can_undo_but_absorb` passed one;
   and `cargo test -p gitbutler-oplog --test oplog` passed 37. Strict
   `cargo clippy -p but-api -p gitbutler-oplog -p but --all-targets --no-deps -- -D warnings`
@@ -848,17 +848,22 @@ legacy::absorb::tests::paired_old_and_new_hunk_selections_preserve_their_shared_
 
 ### W07 Supported-Domain Matrix
 
-| Domain                                                            | W07 disposition and evidence                                                                                                                    |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ordinary text replacements/deletions                              | Supported by exact planner/executor cases, six generated masks, beginning/end selections, multiple hunks, and exact residual-content assertions |
-| Multiple files and targets                                        | Supported by independent-branch API success and the 8-file/8-target benchmark setup; CLI concurrent independent-file case passes                |
-| Ambiguous routing                                                 | Safely rejected by API and CLI ambiguity tests; no arbitrary workspace-order selection                                                          |
-| Landed targets                                                    | Safely rejected atomically in human, JSON, and dry-run CLI tests unless explicit `--allow-merged` policy is selected                            |
-| Linked worktrees                                                  | Safely rejected by `absorbing_a_linked_worktrees_changes_is_refused`                                                                            |
-| Stale source, routing, assignment, or context                     | Safely rejected before editor creation by stamped-plan tests                                                                                    |
-| Returned index/ref publication errors                             | Operationally rolled back to the complete pre-invocation oracle; rollback failure explicitly reports uncertain partial state                    |
-| Rename/copy, binary or large files, mode changes, non-UTF-8 paths | Not claimed supported: no absorb-specific passing or safe-rejection proof yet                                                                   |
-| Merge histories and descendant rewrite conflicts                  | Not claimed supported: lower-level rejection exists, but comprehensive absorb-specific abort-unchanged evidence is still missing                |
+| Domain                                        | W07 disposition and evidence                                                                                                                                                                        |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ordinary text replacements/deletions          | Supported by exact planner/executor cases, six generated masks, beginning/end selections, multiple hunks, and exact residual-content assertions                                                     |
+| Multiple files and targets                    | Supported by independent-branch API success and the 8-file/8-target benchmark setup; CLI concurrent independent-file case passes                                                                    |
+| Ambiguous routing                             | Safely rejected by API and CLI ambiguity tests; no arbitrary workspace-order selection                                                                                                              |
+| Landed targets                                | Safely rejected atomically in human, JSON, and dry-run CLI tests unless explicit `--allow-merged` policy is selected                                                                                |
+| Linked worktrees                              | Safely rejected by `absorbing_a_linked_worktrees_changes_is_refused`                                                                                                                                |
+| Stale source, routing, assignment, or context | Safely rejected before editor creation by stamped-plan tests                                                                                                                                        |
+| Returned index/ref publication errors         | Operationally rolled back to the complete pre-invocation oracle; rollback failure explicitly reports uncertain partial state                                                                        |
+| Renamed paths                                 | Safely rejected during planning by `renamed_path_is_rejected_without_changing_the_invocation`; the test first reproduced rename-to-copy corruption and now compares the complete state oracle       |
+| Copy-like additions                           | Supported as additions (copy tracking is disabled in the diff model); `copied_file_is_absorbed_as_addition_without_changing_source` preserves exact source and destination bytes                    |
+| Binary and large files                        | Supported by exact binary-replacement coverage and a deterministic 2 MiB binary-addition test; target tree and worktree bytes match and no residual diff remains                                    |
+| Executable mode changes                       | Supported by `binary_and_mode_changes_preserve_bytes_and_modes`, including exact `BlobExecutable` tree mode and worktree executable bit                                                             |
+| Changed non-UTF-8 paths                       | Safely rejected during planning by `non_utf8_path_is_rejected_without_changing_the_invocation`; the test first reproduced deletion from the amended tree and now compares the complete state oracle |
+| Merge histories                               | Supported when replay is clean: `merge_descendant_is_rewritten_without_losing_parents` rewrites a pre-merge target while preserving both ordered parents and independent side content               |
+| Descendant rewrite conflicts                  | Safely rejected before materialization: `resolved_merge_descendant_conflict_aborts_unchanged` detects conflicting old/new merge bases and compares the complete state oracle                        |
 
 ### W07 Performance Measurement
 
@@ -890,9 +895,9 @@ legacy::absorb::tests::paired_old_and_new_hunk_selections_preserve_their_shared_
   `7ef8e8c09fe99a189e8d20e0347ec5ff80a6af08`, which is the absorb branch tip,
   not the exact integrated build HEAD. The measurement is useful but is not an
   isolated exact-revision comparison.
-- Acceptance: the Author selected measurement only; no budget or acceptance was
-  approved. Performance acceptance therefore remains pending and W07 cannot be
-  marked done from these favorable measurements alone.
+- Acceptance: after reviewing the measurements, the Author explicitly accepted
+  the result with the provenance caveat above. The favorable result is therefore
+  accepted for W07 without being restated as an isolated exact-revision comparison.
 
 ## Release Checklist
 
