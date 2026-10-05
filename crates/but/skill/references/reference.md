@@ -560,12 +560,16 @@ The entire operation is a single oplog entry — use `but undo` to restore all d
 Manage linked git worktrees (experimental worktree flag). `but wt` is a default alias.
 
 ```bash
+but worktree new [name]           # New branch and checkout at the workspace base
+but worktree new [name] -A <commit> # Start at a commit SHA or CLI ID (--above)
 but worktree list                 # Active worktrees with IDs, plus the 3 most recent archived ones
 but worktree list --archived      # All archived worktrees (`--active` for all active ones)
 but worktree archive <id|name>    # Hide a worktree from the workspace
 but worktree unarchive <name>     # Show it again; archived worktrees have no ID
 but worktree remove [-f] <id|name> # Like `git worktree remove`; `-f` for uncommitted changes
 ```
+
+`new` generates a branch name when omitted. `--above <COMMIT>` (`-A`) starts the new branch at that commit instead of the workspace base; branch targets and conflicted commits are refused. Checkouts live under `~/.gitbutler-worktrees/<repo-dir-basename>/`.
 
 Worktrees are listed most recently updated first, as `id name (refs/heads/branch) - path`, with the branch shown only when it differs from the worktree name. Archiving is a GitButler-only state; none of these take part in `but undo`.
 

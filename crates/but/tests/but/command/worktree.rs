@@ -549,6 +549,100 @@ Error: '[..]/home/.gitbutler-worktrees/[..]/feature-one' already exists
 }
 
 #[test]
+fn new_above_a_commit_cli_id() {
+    let env = flag_on_sandbox();
+    env.but("worktree new feature --above tpm")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created worktree feature on 'feature' from [..] at [..]/home/.gitbutler-worktrees/[..]/feature
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("rev-parse feature"),
+        env.invoke_git("rev-parse A"),
+        "the new branch starts at the selected commit, not the workspace base"
+    );
+    let checkout = env
+        .home_dir()
+        .join(".gitbutler-worktrees")
+        .join(env.projects_root().file_name().unwrap())
+        .join("feature");
+    assert_eq!(
+        std::fs::read(checkout.join("A")).unwrap(),
+        std::fs::read(env.projects_root().join("A")).unwrap(),
+        "the checkout includes the selected commit's content"
+    );
+}
+
+#[test]
+fn new_above_a_commit_sha_with_a_generated_name() {
+    let env = flag_on_sandbox();
+    let commit = env.invoke_git("rev-parse B");
+    env.but(format!("worktree new -A {}", commit.trim()))
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created worktree a-branch-1 on 'a-branch-1' from [..] at [..]/home/.gitbutler-worktrees/[..]/a-branch-1
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("rev-parse a-branch-1"),
+        commit,
+        "the short flag accepts a full commit SHA with no branch name"
+    );
+}
+
+#[test]
+fn new_above_rejects_a_branch() {
+    let env = flag_on_sandbox();
+    env.but("worktree new feature --above A")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find commit: 'A'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+}
+
+#[test]
+fn new_above_rejects_an_unknown_commit() {
+    let env = flag_on_sandbox();
+    env.but("worktree new feature --above nonexistent")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find commit: 'nonexistent'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+}
+
+#[test]
+fn new_above_rejects_a_conflicted_commit() {
+    let env = crate::command::util::sandbox_with_conflicted_commit();
+    enable_worktree_manipulation(&env);
+    let commit = env.invoke_git("rev-parse A");
+    env.but(format!("worktree new feature --above {}", commit.trim()))
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input '[..]' for '--above'
+
+Cannot create a worktree from a conflicted commit
+
+"#]]);
+}
+
+#[test]
 fn new_from_a_linked_worktree_uses_the_main_repository_basename() {
     let env = flag_on_sandbox();
     let root = env
