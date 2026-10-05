@@ -9,7 +9,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { OPEN_IN_GITBUTLER_ID, openInGitButler } from "./open-in-gitbutler.ts";
 
 export type OpenMenu = ShowNativeMenuParams & {
 	resolve: (itemId: string | null) => void;
@@ -158,8 +157,6 @@ export const NativeMenu: FC<{ menu: OpenMenu }> = ({ menu }) => {
 			const isDeepest = depth === openPath.length - 1;
 			const choose = () => {
 				if (!enabled || item.itemId === undefined) return;
-				// The page's own item: the app has no handler for its id, so it does its work here.
-				if (item.itemId === OPEN_IN_GITBUTLER_ID) openInGitButler(menu.context);
 				menu.resolve(item.itemId);
 				menu.close();
 			};

@@ -7,7 +7,6 @@ import type { ShowNativeMenuParams } from "#electron/ipc.ts";
 import { type FC, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { NativeMenu, type OpenMenu } from "./NativeMenu.tsx";
-import { withOpenInGitButler } from "./open-in-gitbutler.ts";
 
 let openMenu: OpenMenu | null = null;
 const listeners = new Set<() => void>();
@@ -27,7 +26,6 @@ export const showMenu = (params: ShowNativeMenuParams): Promise<string | null> =
 		openMenu?.close();
 		setMenu({
 			...params,
-			items: withOpenInGitButler(params.items, params.context),
 			resolve,
 			close: () => {
 				setMenu(null);
