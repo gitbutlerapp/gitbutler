@@ -37,11 +37,19 @@
 	}
 }
 
-/* Each machine, or repo, and everything under it reads as one group. */
+/* Each machine, or repo, and everything under it reads as one group. The line sits in the margin
+   above the row, so the row keeps the same box, and centring, as every other row. */
 .groupStart {
-	margin-block-start: var(--padding-list);
-	padding-block-start: var(--padding-list);
-	border-block-start: 1px solid var(--border-section);
+	position: relative;
+	margin-block-start: calc(var(--padding-list) * 2 + 1px);
+
+	&::before {
+		position: absolute;
+		inset-block-start: calc(-1 * var(--padding-list) - 1px);
+		inset-inline: 0;
+		border-block-start: 1px solid var(--border-section);
+		content: "";
+	}
 }
 
 /* On the name itself, whose text class sets its own weight. */
