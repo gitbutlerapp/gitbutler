@@ -64,6 +64,7 @@ import {
 	type MeshWorktree,
 	useMeshTree,
 } from "./useMeshTree.ts";
+import { useHubSendMenu } from "./useHubSendMenu.ts";
 import { usePublishMenu } from "./usePublishMenu.ts";
 import { MeshWatchers } from "./MeshWatchers.tsx";
 import { insertBlankCommitMenuItem } from "../WorkspaceLists/insertBlankCommitMenuItem.ts";
@@ -793,6 +794,7 @@ const RemoteBranchItem: FC<{
 		);
 	// The hosted page only reads; pulling is for machines.
 	const canPull = window.lite.hosted !== true && !checkout.remoteOnly;
+	const sendItems = useHubSendMenu({ projectId, from: machine, branch: branch.name });
 
 	return (
 		<MeshItem
@@ -802,6 +804,7 @@ const RemoteBranchItem: FC<{
 			marks={<span className="text-12">{branchSummary(branch)}</span>}
 			menuLabel="Branch menu"
 			menuItems={[
+				...sendItems,
 				...(canPull
 					? [
 							nativeMenuItem({

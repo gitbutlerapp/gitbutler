@@ -145,6 +145,7 @@ pub fn router(config: HostedConfig) -> Router {
         .route("/events", get(events::events))
         .route("/session", get(|| async { StatusCode::NO_CONTENT }))
         .route("/machines", get(machines))
+        .route("/send", post(send_branch))
         .route_layer(middleware::from_fn_with_state(state.clone(), require_user))
         .route("/sign-in", get(sign_in_page).post(sign_in))
         .route("/sign-in/gitbutler", get(gitbutler_sign_in))
@@ -348,6 +349,78 @@ fn store(dir: &Path, project: &str) -> anyhow::Result<PathBuf> {
         bail!("not a published project: {project}");
     }
     Ok(dir.join("store").join(format!("{project}.git")))
+}
+
+/// A branch another machine published, to send to one more of the account's machines.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SendRequest {
+    /// The project's root commit.
+    project: String,
+    /// The machine that published it.
+    from: String,
+    /// Its short name, e.g. `agent/search`.
+    branch: String,
+    to: String,
+}
+
+/// Send what `from` last published of a branch to `to`, as if `from` had sent it: the same inbox
+/// ref a push would write, checked and announced the same way. For the hosted page, which has no
+/// machine of its own to send from.
+async fn send_branch(
+    State(state): State<HostedState>,
+    Extension(user): Extension<UserId>,
+    headers: HeaderMap,
+    Json(request): Json<SendRequest>,
+) -> Response {
+    // Another site can't make a signed-in browser send.
+    if !events::same_origin(&headers) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let result = async {
+        let SendRequest {
+            project,
+            from,
+            branch,
+            to,
+        } = request;
+        let store = store(&user.dir(&state.config), &project)?;
+        if !store.join("HEAD").exists() {
+            bail!("nothing was published to {project}");
+        }
+        // As the client names it in refs: anything but a few characters becomes a dash.
+        let name = branch.replace(
+            |c: char| !c.is_ascii_alphanumeric() && !"._-".contains(c),
+            "-",
+        );
+        if !is_name(&from) || !is_name(&to) || !is_name(&name) {
+            bail!("not a machine or branch name");
+        }
+        if from == to {
+            bail!("{branch} is already on {to}");
+        }
+        let _writing = state.writing.lock().await;
+        let snapshot = git(
+            &store,
+            &[
+                "rev-parse",
+                "--verify",
+                "--quiet",
+                &format!("{SNAPSHOTS}{from}/{name}"),
+            ],
+        )
+        .with_context(|| format!("{from} hasn't published {branch}"))?;
+        let inbox = format!("{INBOX}{to}/{from}/{name}");
+        git(&store, &["update-ref", &inbox, &snapshot])?;
+        let sent = record_send(&store, &inbox)?;
+        events::announce_send(&state.events, user, &project, sent);
+        anyhow::Ok(())
+    }
+    .await;
+    match result {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(err) => (StatusCode::BAD_REQUEST, format!("{err:#}")).into_response(),
+    }
 }
 
 fn is_name(name: &str) -> bool {
