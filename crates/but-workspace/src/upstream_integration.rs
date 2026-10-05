@@ -447,7 +447,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     {
                         continue;
                     }
-                    editor.replace(*selector, Step::None)?;
+                    editor.replace_with_none(*selector)?;
                 }
             }
         }
@@ -552,7 +552,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     continue;
                 };
                 if attrs.content_integrated || attrs.review_integrated {
-                    editor.replace(*node, Step::None)?;
+                    editor.replace_with_none(*node)?;
                 }
 
                 for (parent, _) in editor.direct_parents(*node)? {
@@ -1215,7 +1215,7 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
             // advances it to the target tip in the same rebase that switches the checkout,
             // so previews and materialization agree without an early Git ref mutation.
             let existing_selector = editor.select_reference(preferred_ref)?;
-            editor.replace(existing_selector, Step::None)?;
+            editor.replace_with_none(existing_selector)?;
             reusable_ref = Some(preferred_ref.to_owned());
         }
     }

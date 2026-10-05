@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, Step, mutate};
+use but_rebase::graph_rebase::{Editor, mutate};
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
 use gix::prelude::ObjectIdExt;
 
@@ -53,7 +53,7 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
         mutate::SelectorSet::All,
         false,
     )?;
-    editor.replace(b_selector, Step::None)?;
+    editor.replace_with_none(b_selector)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -132,8 +132,8 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
         mutate::SelectorSet::All,
         false,
     )?;
-    editor.replace(b_selector, Step::None)?;
-    editor.replace(a_selector, Step::None)?;
+    editor.replace_with_none(b_selector)?;
+    editor.replace_with_none(a_selector)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -210,7 +210,7 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         mutate::SelectorSet::All,
         false,
     )?;
-    editor.replace(a_selector, Step::None)?;
+    editor.replace_with_none(a_selector)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -306,7 +306,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         mutate::SelectorSet::All,
         false,
     )?;
-    editor.replace(merge_selector, Step::None)?;
+    editor.replace_with_none(merge_selector)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();

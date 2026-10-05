@@ -97,7 +97,7 @@ fn commits_are_signed_by_default() -> Result<()> {
     // Remove the "b" commit so "c" gets cherry-picked
     let b = repo.rev_parse_single("b")?;
     let b_sel = editor.select_commit(b.detach())?;
-    editor.replace(b_sel, Step::None)?;
+    editor.replace_with_none(b_sel)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -195,7 +195,7 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     // Remove the "b" commit so "c" gets cherry-picked
     let b = repo.rev_parse_single("b")?;
     let b_sel = editor.select_commit(b.detach())?;
-    editor.replace(b_sel, Step::None)?;
+    editor.replace_with_none(b_sel)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -574,7 +574,7 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
     // Delete the mid commit so the top commit gets picked. The top commit should _NOT_ get signed
     // as signing config is not enabled, and there is a sign guard in place on the pick.
     let mid_sel = editor.select_commit(mid_commit_id)?;
-    editor.replace(mid_sel, Step::None)?;
+    editor.replace_with_none(mid_sel)?;
 
     let outcome = editor.rebase()?;
     let materialize_outcome = outcome.materialize(Default::default())?;

@@ -346,6 +346,14 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(())
     }
 
+    /// Replaces the step with [Step::None].
+    pub fn replace_with_none(&mut self, target: impl ToSelector) -> Result<Step> {
+        let target = self.history.normalize_selector(target.to_selector(self)?)?;
+        let mut step = Step::None;
+        std::mem::swap(&mut self.graph[target.id], &mut step);
+        Ok(step)
+    }
+
     /// Replaces the node that the function was pointing to.
     ///
     /// If a commit step has been replaced with another commit step, the commit

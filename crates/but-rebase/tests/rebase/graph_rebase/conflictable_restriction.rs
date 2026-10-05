@@ -41,7 +41,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     // Replacing b with none will cause c to conflict
     let b = repo.rev_parse_single("b")?;
     let b_sel = editor.select_commit(b.detach())?;
-    editor.replace(b_sel, Step::None)?;
+    editor.replace_with_none(b_sel)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -121,7 +121,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
     // Replacing b with none will cause c to conflict
     let b = repo.rev_parse_single("b")?;
     let b_sel = editor.select_commit(b.detach())?;
-    editor.replace(b_sel, Step::None)?;
+    editor.replace_with_none(b_sel)?;
 
     // Set c to disallow conflicts
     let c = repo.rev_parse_single("c")?;

@@ -98,7 +98,7 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
     let c_sel = editor.select_commit(c.detach())?;
-    editor.replace(c_sel, Step::None)?;
+    editor.replace_with_none(c_sel)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -172,9 +172,9 @@ fn materialize_checkout_allows_current_head_to_be_replaced_with_none() -> Result
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
     let c_sel = editor.select_commit(c.detach())?;
-    editor.replace(c_sel, Step::None)?;
+    editor.replace_with_none(c_sel)?;
     let head_ref_sel = editor.select_reference("refs/heads/main".try_into()?)?;
-    editor.replace(head_ref_sel, Step::None)?;
+    editor.replace_with_none(head_ref_sel)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -248,7 +248,7 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
     let c_sel = editor.select_commit(c.detach())?;
-    editor.replace(c_sel, Step::None)?;
+    editor.replace_with_none(c_sel)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -313,7 +313,7 @@ fn both_methods_update_references_identically() -> Result<()> {
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
-        editor.replace(c_sel, Step::None)?;
+        editor.replace_with_none(c_sel)?;
 
         let outcome = editor.rebase()?;
         let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -340,7 +340,7 @@ fn both_methods_update_references_identically() -> Result<()> {
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
-        editor.replace(c_sel, Step::None)?;
+        editor.replace_with_none(c_sel)?;
 
         let outcome = editor.rebase()?;
         let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -519,7 +519,7 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
 
     let stack_tip = repo.rev_parse_single("stack-2")?.detach();
     let stack_tip_sel = editor.select_commit(stack_tip)?;
-    editor.replace(stack_tip_sel, Step::None)?;
+    editor.replace_with_none(stack_tip_sel)?;
 
     let outcome = editor.rebase()?;
     outcome.materialize(Default::default())?;
@@ -567,7 +567,7 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
 
     let main_sel = editor.select_reference(main_ref.as_ref())?;
-    editor.replace(main_sel, Step::None)?;
+    editor.replace_with_none(main_sel)?;
 
     let outcome = editor.rebase()?;
     outcome.materialize(Default::default())?;
@@ -691,7 +691,7 @@ fn references_checked_out_in_linked_worktrees_are_not_deleted() -> Result<()> {
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     for refname in ["refs/heads/middle", "refs/heads/doomed"] {
         let selector = editor.select_reference(refname.try_into()?)?;
-        editor.replace(selector, Step::None)?;
+        editor.replace_with_none(selector)?;
     }
     editor.rebase()?.materialize(Default::default())?;
 

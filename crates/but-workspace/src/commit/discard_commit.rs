@@ -3,7 +3,7 @@
 use anyhow::bail;
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{
-    Editor, Step, SuccessfulRebase,
+    Editor, SuccessfulRebase,
     mutate::{SegmentDelimiter, SelectorSet},
 };
 
@@ -31,7 +31,7 @@ pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
         };
 
         editor.disconnect_segment_from(delimiter, SelectorSet::All, SelectorSet::All, false)?;
-        editor.replace(selector, Step::None)?;
+        editor.replace_with_none(selector)?;
     }
 
     if count == 0 {
