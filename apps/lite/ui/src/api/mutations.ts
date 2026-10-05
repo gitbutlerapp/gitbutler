@@ -1514,13 +1514,6 @@ export const useHostedBranchSend = (projectId: string) =>
 		meta: { failureTitle: "Failed to send the branch" },
 	});
 
-export const useHostedFollow = (projectId: string) =>
-	useMutation({
-		mutationKey: [projectId, "hostedFollow"],
-		mutationFn: window.lite.hostedFollow,
-		meta: { failureTitle: "Failed to change what's followed" },
-	});
-
 export const useHostedBranchDismiss = (projectId: string) =>
 	useMutation({
 		mutationKey: [projectId, "hostedBranchDismiss"],

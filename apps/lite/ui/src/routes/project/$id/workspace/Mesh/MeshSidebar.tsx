@@ -19,7 +19,6 @@ import {
 	useEnterEditMode,
 	useHostedBranchDismiss,
 	useHostedBranchPull,
-	useHostedFollow,
 } from "#ui/api/mutations.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
@@ -400,20 +399,6 @@ const PublishMark: FC<{ state: PublishState | null }> = ({ state }) => {
 	);
 };
 
-/** Marks a branch that's followed: published as it changes, or pulled as it's published. */
-const FollowMark: FC<{ followed: boolean; own: boolean }> = ({ followed, own }) => {
-	if (!followed) return null;
-	const label = own ? "Auto-published as it changes" : "Auto-pulled as it's published";
-	return (
-		<HintTooltip content={label}>
-			<span className={styles.publish}>
-				<Icon name="refresh" size={12} />
-				<span className={styles.hidden}>{label}</span>
-			</span>
-		</HintTooltip>
-	);
-};
-
 const When: FC<{ at: number | null }> = ({ at }) =>
 	at === null ? null : (
 		<span className="text-12">
@@ -694,7 +679,6 @@ const MeshWorktreeItem: FC<{
 		local: checkout.isThisMachine && branch !== undefined,
 		inWorktree: true,
 		state: branch?.publishState ?? null,
-		followed: branch?.followed ?? false,
 	});
 	// Its branch only when it differs from the directory's name.
 	const summary = [
@@ -717,7 +701,6 @@ const MeshWorktreeItem: FC<{
 				<>
 					{summary.length > 0 && <span className="text-12">{summary.join(", ")}</span>}
 					<PublishMark state={branch?.publishState ?? null} />
-					<FollowMark followed={branch?.followed ?? false} own />
 				</>
 			}
 			menuLabel="Worktree menu"
@@ -759,7 +742,6 @@ const LocalBranchItem: FC<{
 		local: true,
 		inWorktree: branch.worktree !== undefined,
 		state: branch.publishState,
-		followed: branch.followed,
 	});
 	return (
 		<MeshItem
@@ -770,7 +752,6 @@ const LocalBranchItem: FC<{
 				<>
 					<span className="text-12">{branchSummary(branch)}</span>
 					<PublishMark state={branch.publishState} />
-					<FollowMark followed={branch.followed} own />
 				</>
 			}
 			menuLabel="Branch menu"
@@ -791,7 +772,6 @@ const RemoteBranchItem: FC<{
 	const { projectId, machine } = checkout;
 	const { mutate: pull, isPending: isPullPending } = useHostedBranchPull(projectId);
 	const { mutate: dismiss, isPending: isDismissPending } = useHostedBranchDismiss(projectId);
-	const { mutate: follow, isPending: isFollowPending } = useHostedFollow(projectId);
 	const settle = useHostedSync();
 	const pullInto = (intoWorkspace: boolean, overwrite = false) =>
 		pull(
@@ -819,12 +799,7 @@ const RemoteBranchItem: FC<{
 			{...shared}
 			name={branch.name}
 			icon={<Icon name="branch" size={14} />}
-			marks={
-				<>
-					<span className="text-12">{branchSummary(branch)}</span>
-					<FollowMark followed={branch.followed} own={false} />
-				</>
-			}
+			marks={<span className="text-12">{branchSummary(branch)}</span>}
 			menuLabel="Branch menu"
 			menuItems={[
 				...(canPull
@@ -838,13 +813,6 @@ const RemoteBranchItem: FC<{
 								label: "Pull into Workspace",
 								enabled: !isPullPending,
 								onSelect: () => pullInto(true),
-							}),
-							nativeMenuItem({
-								label: "Auto-Pull",
-								checked: branch.followed,
-								enabled: !isFollowPending,
-								onSelect: () =>
-									follow({ projectId, machine, branch: branch.name, on: !branch.followed }),
 							}),
 							...(branch.sent
 								? [

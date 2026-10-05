@@ -7,18 +7,17 @@ import { Switch } from "@gitbutler/ui-react/Switch.tsx";
 import styles from "./General.module.css";
 import { Row, Section } from "./Section.tsx";
 
-const intervals = [5, 10, 30, 60, 120, 300, 600].map((seconds) => ({
-	value: String(seconds),
-	label:
-		seconds < 60
-			? `${seconds} seconds`
-			: `${seconds / 60} ${seconds === 60 ? "minute" : "minutes"}`,
-}));
+const durations = (seconds: Array<number>) =>
+	seconds.map((s) => ({
+		value: String(s),
+		label:
+			s < 60
+				? `${s} ${s === 1 ? "second" : "seconds"}`
+				: `${s / 60} ${s === 60 ? "minute" : "minutes"}`,
+	}));
+const settleTimes = durations([1, 2, 3, 5, 10, 30, 60]);
 
-/**
- * Following branches between machines, shared with `but mesh`. Which branches are followed is
- * chosen on each branch; these turn it on or off and pace it.
- */
+/** Keeping branches in step between machines, shared with `but mesh`. */
 export const Mesh: FC = () => {
 	const { data: settings } = useSuspenseQuery(appSettingsQueryOptions);
 	const { mutate: updateMesh } = useUpdateMesh();
@@ -28,9 +27,9 @@ export const Mesh: FC = () => {
 		<>
 			<Section>
 				<Row
-					label="Auto-publish"
+					label="Keep published branches up to date"
 					labelId="mesh-auto-publish"
-					hint="Publish the branches you follow whenever they change, with a worktree's uncommitted changes."
+					hint="Once you've published a branch, publish it again when its files or commits change. If you published a worktree's uncommitted changes, they're included."
 				>
 					<Switch
 						size="large"
@@ -39,42 +38,30 @@ export const Mesh: FC = () => {
 						onCheckedChange={(autoPublish) => updateMesh({ autoPublish })}
 					/>
 				</Row>
-				<Row label="Check for changes every" labelId="mesh-publish-interval">
+				<Row label="Once changes settle for" labelId="mesh-publish-after">
 					<Select
-						aria-labelledby="mesh-publish-interval"
+						aria-labelledby="mesh-publish-after"
 						className={styles.select}
 						disabled={!mesh.autoPublish}
-						items={intervals}
-						value={String(mesh.publishIntervalSec)}
+						items={settleTimes}
+						value={String(mesh.publishAfterSec)}
 						onValueChange={(value) =>
-							value !== null && updateMesh({ publishIntervalSec: Number(value) })
+							value !== null && updateMesh({ publishAfterSec: Number(value) })
 						}
 					/>
 				</Row>
 			</Section>
 			<Section>
 				<Row
-					label="Auto-pull"
+					label="Pull branches sent to you"
 					labelId="mesh-auto-pull"
-					hint="Pull the branches you follow from other machines as they publish them. Local work that isn't published is never replaced."
+					hint="When another machine sends you a branch, pull it into a worktree right away. Local work that isn't published is never replaced."
 				>
 					<Switch
 						size="large"
 						aria-labelledby="mesh-auto-pull"
 						checked={mesh.autoPull}
 						onCheckedChange={(autoPull) => updateMesh({ autoPull })}
-					/>
-				</Row>
-				<Row label="Pull a branch at most every" labelId="mesh-pull-interval">
-					<Select
-						aria-labelledby="mesh-pull-interval"
-						className={styles.select}
-						disabled={!mesh.autoPull}
-						items={intervals}
-						value={String(mesh.pullIntervalSec)}
-						onValueChange={(value) =>
-							value !== null && updateMesh({ pullIntervalSec: Number(value) })
-						}
 					/>
 				</Row>
 			</Section>

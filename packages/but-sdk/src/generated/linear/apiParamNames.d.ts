@@ -89,7 +89,6 @@ export declare const apiParamNames: {
 	readonly hostedBranchPublish: readonly ["projectId", "branch", "includeUncommitted"];
 	readonly hostedBranchPull: readonly ["projectId", "machine", "branch", "intoWorkspace", "onConflict"];
 	readonly hostedBranchSend: readonly ["projectId", "branch", "to", "includeUncommitted"];
-	readonly hostedFollow: readonly ["projectId", "machine", "branch", "on"];
 	readonly hostedMachines: readonly ["projectId"];
 	readonly initApplicationNamespace: readonly ["identifier"];
 	readonly initGithubDeviceOauth: readonly [];

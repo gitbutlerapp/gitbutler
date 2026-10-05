@@ -46,9 +46,8 @@ but_schemars::register_sdk_type!(ReviewsUpdate);
 /// Update request for [`crate::app_settings::Mesh`].
 pub struct MeshUpdate {
     pub auto_publish: Option<bool>,
-    pub publish_interval_sec: Option<u64>,
+    pub publish_after_sec: Option<u64>,
     pub auto_pull: Option<bool>,
-    pub pull_interval_sec: Option<u64>,
 }
 but_schemars::register_sdk_type!(MeshUpdate);
 
@@ -133,22 +132,18 @@ impl AppSettingsWithDiskSync {
         let mut settings = self.get_mut_enforce_save()?;
         let MeshUpdate {
             auto_publish,
-            publish_interval_sec,
+            publish_after_sec,
             auto_pull,
-            pull_interval_sec,
         } = update;
         let mesh = &mut settings.mesh;
         if let Some(value) = auto_publish {
             mesh.auto_publish = value;
         }
-        if let Some(value) = publish_interval_sec {
-            mesh.publish_interval_sec = value.max(1);
+        if let Some(value) = publish_after_sec {
+            mesh.publish_after_sec = value;
         }
         if let Some(value) = auto_pull {
             mesh.auto_pull = value;
-        }
-        if let Some(value) = pull_interval_sec {
-            mesh.pull_interval_sec = value;
         }
         settings.save()
     }

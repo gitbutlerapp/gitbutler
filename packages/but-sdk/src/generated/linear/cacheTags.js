@@ -69,7 +69,6 @@ export const apiInvalidates = {
 	hostedBranchPublish: ["Hosted"],
 	hostedBranchPull: ["Hosted", "Worktrees", "Workspace", "Branches"],
 	hostedBranchSend: ["Hosted"],
-	hostedFollow: ["Hosted"],
 	mergeReview: ["Reviews", "MergeStatus", "Checks", "Branches"],
 	publishReview: ["Reviews", "Branches", "Workspace"],
 	removeCommentReaction: ["CommentReactions", "ReviewComments"],

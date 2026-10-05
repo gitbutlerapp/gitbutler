@@ -72,8 +72,6 @@ pub(super) enum RowKind {
         worktree: Option<String>,
         publish: Option<PublishState>,
         sent: bool,
-        /// Published as it changes if it's this machine's, pulled as it's published otherwise.
-        followed: bool,
         /// Whose it is: `None` for this machine's.
         machine: Option<String>,
         /// The local repository it's acted on from.
@@ -377,8 +375,6 @@ impl Mesh {
                         .get(branch.name.as_str())
                         .map(|state| (*state).clone()),
                     sent: false,
-                    followed: hosted
-                        .is_some_and(|hosted| hosted.auto_publish.contains(&branch.name)),
                     machine: None,
                     path: repo.path.clone(),
                 },
@@ -422,9 +418,6 @@ impl Mesh {
                     worktree: None,
                     publish: None,
                     sent: branch.sent,
-                    followed: hosted
-                        .auto_pull
-                        .contains(&format!("{machine}/{}", branch.branch)),
                     machine: Some(machine.to_owned()),
                     path: self.path_of(project).unwrap_or_default(),
                 },

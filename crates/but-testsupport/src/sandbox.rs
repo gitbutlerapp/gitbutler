@@ -529,12 +529,11 @@ impl Sandbox {
             reviews: Reviews {
                 auto_fill_pr_description_from_commit: false,
             },
-            // Tests follow nothing unless they ask to.
+            // Tests keep nothing in step unless they ask to.
             mesh: but_settings::app_settings::Mesh {
                 auto_publish: false,
-                publish_interval_sec: 10,
+                publish_after_sec: 3,
                 auto_pull: false,
-                pull_interval_sec: 30,
             },
             ui: UiSettings {
                 use_native_title_bar: false,

@@ -82,6 +82,7 @@ legacy = [
     "dep:tokio-tungstenite",
     "dep:rustls",
     "dep:reqwest",
+    "dep:gitbutler-filemonitor",
 ]
 
 [dependencies]
@@ -129,6 +130,7 @@ gitbutler-repo = { workspace = true, optional = true }
 gitbutler-edit-mode = { workspace = true, optional = true }
 gitbutler-operating-modes = { workspace = true, optional = true }
 gitbutler-oplog = { workspace = true, optional = true }
+gitbutler-filemonitor = { workspace = true, optional = true }
 gitbutler-git.workspace = true
 tauri = { version = "^2.10.3", features = [
     "unstable",

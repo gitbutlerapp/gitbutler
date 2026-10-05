@@ -69,13 +69,6 @@ enum Action {
         branch: String,
         to: String,
     },
-    /// Follow `branch` of `machine`, or of this machine without one, or stop.
-    Follow {
-        path: String,
-        machine: Option<String>,
-        branch: String,
-        on: bool,
-    },
 }
 
 impl Action {
@@ -84,8 +77,7 @@ impl Action {
             Action::Pull { path, .. }
             | Action::Dismiss { path, .. }
             | Action::Publish { path, .. }
-            | Action::Send { path, .. }
-            | Action::Follow { path, .. } => path,
+            | Action::Send { path, .. } => path,
         }
     }
 
@@ -123,24 +115,6 @@ impl Action {
             Action::Send { branch, to, .. } => SyncOutcome::Done(
                 but_api::hosted::hosted_branch_send(&ctx, branch, to, false)?,
             ),
-            Action::Follow {
-                machine,
-                branch,
-                on,
-                ..
-            } => {
-                let what = if machine.is_some() {
-                    "pulled"
-                } else {
-                    "published"
-                };
-                but_api::hosted::hosted_follow(&ctx, machine, branch.clone(), on)?;
-                SyncOutcome::Done(if on {
-                    format!("{branch} is {what} as it changes · , for settings")
-                } else {
-                    format!("{branch} is no longer {what} as it changes")
-                })
-            }
         })
     }
 }
@@ -195,7 +169,7 @@ fn headless(server: &str) -> anyhow::Result<()> {
     let _listener = but_api::hosted::listen_account(move |event| {
         tx.send(event).ok();
     })?;
-    println!("Online at {server}, following what's followed; Ctrl-C to stop");
+    println!("Online at {server}, keeping branches in step; Ctrl-C to stop");
     let mut online = BTreeSet::new();
     for event in rx {
         match event {
@@ -217,10 +191,10 @@ fn headless(server: &str) -> anyhow::Result<()> {
                 }
                 online = now;
             }
-            HostedEvent::Sent(sent) => println!(
-                "{} sent {} of {}; pull it with `but mesh`",
-                sent.from, sent.branch, sent.title
-            ),
+            // The follower says what came of it, pulled or not.
+            HostedEvent::Sent(sent) => {
+                println!("{} sent {} of {}", sent.from, sent.branch, sent.title)
+            }
         }
     }
     Ok(())
@@ -428,21 +402,6 @@ impl App {
     /// What a key does to `row`, if anything.
     fn act(&mut self, row: &Row, key: char) {
         match (&row.kind, key) {
-            (
-                RowKind::Branch {
-                    name,
-                    machine,
-                    path,
-                    followed,
-                    ..
-                },
-                'a',
-            ) => self.perform(Action::Follow {
-                path: path.clone(),
-                machine: machine.clone(),
-                branch: name.clone(),
-                on: !followed,
-            }),
             (
                 RowKind::Branch {
                     name,
@@ -808,7 +767,7 @@ impl App {
             let area = ratatui::layout::Rect {
                 x: list.x + 4,
                 y: list.y + 1,
-                width: 46.min(list.width.saturating_sub(4)),
+                width: 54.min(list.width.saturating_sub(4)),
                 height: height.min(list.height),
             };
             let items: Vec<ListItem> = lines.into_iter().map(ListItem::new).collect();
@@ -830,8 +789,7 @@ impl App {
                 "enter, space  fold or unfold",
                 "tab           group by machines or repos",
                 "r             refresh from the hosted server",
-                "a             follow a branch, or stop: publish yours, or pull another's, as it changes",
-                ",             settings: following on or off, and how often",
+                ",             settings: keep published branches up to date, pull what's sent",
                 "",
                 "On another machine's branch:",
                 "p / w         pull into a worktree / into the workspace",
@@ -845,7 +803,7 @@ impl App {
                 "esc           dismiss a notice",
                 "q             quit",
                 "",
-                "● online  ○ offline  ◍ published here (↑ ahead, ↓ behind, ! diverged)  ✉ sent to you  ⟳ followed",
+                "● online  ○ offline  ◍ published here (↑ ahead, ↓ behind, ! diverged)  ✉ sent to you",
                 "",
                 "Any key closes this.",
             ];
@@ -867,11 +825,11 @@ fn hints(row: Option<&Row>) -> String {
             machine: Some(_),
             sent: true,
             ..
-        }) => "p pull · w pull into workspace · x dismiss · a follow · ",
+        }) => "p pull · w pull into workspace · x dismiss · ",
         Some(RowKind::Branch {
             machine: Some(_), ..
-        }) => "p pull · w pull into workspace · a follow · ",
-        Some(RowKind::Branch { machine: None, .. }) => "P publish · s send to · a follow · ",
+        }) => "p pull · w pull into workspace · ",
+        Some(RowKind::Branch { machine: None, .. }) => "P publish · s send to · ",
         Some(RowKind::Repo { path: Some(_), .. }) => "c copy path · ",
         _ => "",
     };
@@ -930,7 +888,6 @@ fn row_line(row: &Row) -> Line<'static> {
             worktree,
             publish,
             sent,
-            followed,
             ..
         } => {
             spans.push(Span::raw(match worktree {
@@ -952,9 +909,6 @@ fn row_line(row: &Row) -> Line<'static> {
                     P::Behind(n) => Span::styled(format!("  ◍ ↓{n}"), dim),
                     P::Diverged => Span::styled("  ◍ !", Style::default().fg(Color::Yellow)),
                 });
-            }
-            if *followed {
-                spans.push(Span::styled("  ⟳", Style::default().fg(Color::Green)));
             }
             if *sent {
                 spans.push(Span::styled(
@@ -1045,14 +999,13 @@ fn local_branches(path: &str) -> anyhow::Result<Vec<LocalBranch>> {
 }
 
 /// The mesh settings, in the order the settings overlay lists them.
-const SETTINGS: [&str; 4] = [
-    "Publish followed branches",
-    "  check every",
-    "Pull followed branches",
-    "  at most every",
+const SETTINGS: [&str; 3] = [
+    "Keep published branches up to date",
+    "  once changes settle for",
+    "Pull branches sent here",
 ];
-/// The intervals an interval setting steps through, in seconds.
-const INTERVALS: [u64; 7] = [5, 10, 30, 60, 120, 300, 600];
+/// The waits a publish setting steps through, in seconds.
+const SETTLE: [u64; 7] = [1, 2, 3, 5, 10, 30, 60];
 
 fn mesh_settings() -> but_settings::app_settings::Mesh {
     but_settings::AppSettings::load_from_default_path_creating_without_customization()
@@ -1072,38 +1025,36 @@ fn settings_lines() -> Vec<String> {
     };
     let values = [
         on(mesh.auto_publish).to_owned(),
-        every(mesh.publish_interval_sec),
+        every(mesh.publish_after_sec),
         on(mesh.auto_pull).to_owned(),
-        every(mesh.pull_interval_sec),
     ];
     SETTINGS
         .iter()
         .zip(values)
-        .map(|(name, value)| format!(" {name:<28}{value:>8}"))
+        .map(|(name, value)| format!(" {name:<36}{value:>8}"))
         .collect()
 }
 
 /// Turn the setting at `index` on or off, or its interval up (`later`) or down.
 fn change_setting(index: usize, later: bool) -> anyhow::Result<()> {
     let mesh = mesh_settings();
-    let step = |sec: u64| -> u64 {
-        let position = INTERVALS
+    let step = |steps: &[u64], sec: u64| -> u64 {
+        let position = steps
             .iter()
             .position(|&i| i >= sec)
-            .unwrap_or(INTERVALS.len() - 1);
+            .unwrap_or(steps.len() - 1);
         let position = if later {
-            (position + 1).min(INTERVALS.len() - 1)
+            (position + 1).min(steps.len() - 1)
         } else {
             position.saturating_sub(1)
         };
-        INTERVALS[position]
+        steps[position]
     };
     let mut update = but_settings::api::MeshUpdate::default();
     match index {
         0 => update.auto_publish = Some(!mesh.auto_publish),
-        1 => update.publish_interval_sec = Some(step(mesh.publish_interval_sec)),
-        2 => update.auto_pull = Some(!mesh.auto_pull),
-        _ => update.pull_interval_sec = Some(step(mesh.pull_interval_sec)),
+        1 => update.publish_after_sec = Some(step(&SETTLE, mesh.publish_after_sec)),
+        _ => update.auto_pull = Some(!mesh.auto_pull),
     }
     let config_dir = but_path::app_config_dir()?;
     but_settings::AppSettingsWithDiskSync::new_with_customization(config_dir, None)?

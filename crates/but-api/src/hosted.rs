@@ -480,10 +480,6 @@ pub struct HostedProject {
     pub machines: Vec<HostedMachine>,
     /// This machine's own published branches that are still local, and how each compares.
     pub published_here: Vec<PublishedBranch>,
-    /// This machine's branches published as they change.
-    pub auto_publish: Vec<String>,
-    /// Other machines' branches pulled as they're published, as `<machine>/<branch>`.
-    pub auto_pull: Vec<String>,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HostedProject);
@@ -753,61 +749,11 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
     }
     let mut machines: Vec<_> = machines.into_values().collect();
     machines.sort_by_key(|machine| std::cmp::Reverse(machine.published_at));
-    let (auto_publish, auto_pull) = if on_hub {
-        Default::default()
-    } else {
-        (
-            follow_rules(&dir, AUTO_PUBLISH),
-            follow_rules(&dir, AUTO_PULL),
-        )
-    };
     Ok(HostedProject {
         root,
         machines,
         published_here,
-        auto_publish,
-        auto_pull,
     })
-}
-
-/// Branches of this machine to publish as they change, by short name.
-const AUTO_PUBLISH: &str = "gitbutler.hosted.autoPublish";
-/// Branches of other machines to pull as they're published, as `<machine>/<branch>`.
-const AUTO_PULL: &str = "gitbutler.hosted.autoPull";
-
-/// What `key` follows in the repository at `dir`, kept in its git config so every client sees it.
-fn follow_rules(dir: &Path, key: &str) -> Vec<String> {
-    git(dir, &[], &["config", "--get-all", key])
-        .map(|rules| rules.lines().map(ToOwned::to_owned).collect())
-        .unwrap_or_default()
-}
-
-/// Follow `branch`, or stop: this machine's own (`machine` unset) is published whenever it
-/// changes, another machine's pulled whenever it publishes it, as the mesh settings allow.
-#[but_api(napi, invalidates = [Hosted])]
-#[instrument(err(Debug))]
-pub fn hosted_follow(
-    ctx: &but_ctx::Context,
-    machine: Option<String>,
-    branch: String,
-    on: bool,
-) -> Result<()> {
-    let dir = workdir(ctx)?;
-    let (key, rule) = match machine {
-        None => (AUTO_PUBLISH, branch),
-        Some(machine) => (AUTO_PULL, format!("{machine}/{branch}")),
-    };
-    // Dropped first either way, so following twice keeps one rule.
-    git(
-        &dir,
-        &[],
-        &["config", "--unset-all", "--fixed-value", key, &rule],
-    )
-    .ok();
-    if on {
-        git(&dir, &[], &["config", "--add", key, &rule])?;
-    }
-    Ok(())
 }
 
 /// Publish `branch` (a short name) to the hosted server, from wherever it lives locally.
@@ -943,6 +889,16 @@ fn publish(
     push.extend(refspecs.iter().map(String::as_str));
     git_as_user(&dir, &push)?;
     git(&dir, &[], &["update-ref", &synced_ref(&branch), &snapshot])?;
+    // As a fetch would mirror it, so what this machine published is known before the next one.
+    git(
+        &dir,
+        &[],
+        &[
+            "update-ref",
+            &format!("{HOSTED_REFS}/snapshots/{machine}/{name}"),
+            &snapshot,
+        ],
+    )?;
     Ok(match to {
         Some(to) => format!("Sent {branch} to {to}"),
         None => format!("Published {branch} as {machine}"),

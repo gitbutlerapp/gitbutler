@@ -71,7 +71,6 @@ export declare const apiInvalidates: {
 	readonly hostedBranchPublish: readonly ["Hosted"];
 	readonly hostedBranchPull: readonly ["Hosted", "Worktrees", "Workspace", "Branches"];
 	readonly hostedBranchSend: readonly ["Hosted"];
-	readonly hostedFollow: readonly ["Hosted"];
 	readonly mergeReview: readonly ["Reviews", "MergeStatus", "Checks", "Branches"];
 	readonly publishReview: readonly ["Reviews", "Branches", "Workspace"];
 	readonly removeCommentReaction: readonly ["CommentReactions", "ReviewComments"];
