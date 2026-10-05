@@ -34,22 +34,34 @@ pub struct AbsorbExecutionOutcome {
 }
 
 #[derive(Debug)]
-pub struct AbsorbFinalizationError(anyhow::Error);
+pub struct AbsorbFinalizationError {
+    source: anyhow::Error,
+    undo_available: bool,
+}
 
 impl std::fmt::Display for AbsorbFinalizationError {
     fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            out,
-            "Absorb changes were published and an undo checkpoint was created, but finalization \
-             failed. Run `but undo` before retrying: {}",
-            self.0
-        )
+        if self.undo_available {
+            write!(
+                out,
+                "Absorb changes were published and an undo checkpoint was created, but finalization \
+                 failed. Run `but undo` before retrying: {}",
+                self.source
+            )
+        } else {
+            write!(
+                out,
+                "Absorb changes were published, but finalization failed. Automatic undo is \
+                 unavailable; inspect the workspace before retrying: {}",
+                self.source
+            )
+        }
     }
 }
 
 impl std::error::Error for AbsorbFinalizationError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.0.source()
+        self.source.source()
     }
 }
 
@@ -335,7 +347,10 @@ pub fn absorb_with_checkpoint_with_perm(
         true,
         perm.read_permission(),
     )
-    .map_err(AbsorbFinalizationError)?;
+    .map_err(|source| AbsorbFinalizationError {
+        source,
+        undo_available: record_checkpoint,
+    })?;
     Ok(AbsorbExecutionOutcome::default())
 }
 
@@ -1727,7 +1742,7 @@ mod tests {
         let feature_before = parents_before[0];
         let side_before = parents_before[1];
         let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        ctx.settings.context_lines = 0;
+        ctx.settings.context_lines = 3;
 
         let plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?;
         assert_eq!(plan.len(), 1, "the feature edit has one dependency target");
@@ -2205,6 +2220,62 @@ mod tests {
         assert_eq!(
             restored, before,
             "undo restores refs, commits, index, worktree, metadata, and reconciled assignments"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn action_only_finalization_failure_does_not_claim_undo() -> anyhow::Result<()> {
+        let (mut ctx, tmp, plan, before) = absorb_recovery_fixture(true)?;
+        let mut guard = ctx.exclusive_worktree_access();
+        let database_path = but_db::DbHandle::db_file_path(ctx.project_data_dir());
+        let fault_connection = rusqlite::Connection::open(database_path)?;
+        fault_connection.execute_batch(
+            "CREATE TRIGGER fail_absorb_assignment_delete
+             BEFORE DELETE ON hunk_assignments
+             BEGIN
+                 SELECT RAISE(ABORT, 'injected assignment reconciliation failure');
+             END;",
+        )?;
+
+        let error = absorb_with_perm(&mut ctx, plan, guard.write_permission())
+            .expect_err("the assignment trigger must fail action-only finalization");
+
+        assert!(
+            error.downcast_ref::<AbsorbFinalizationError>().is_some(),
+            "assignment failure retains its post-publication classification: {error:#}"
+        );
+        assert!(
+            !error.to_string().contains("Run `but undo`"),
+            "action-only finalization must not claim an unpublished checkpoint: {error:#}"
+        );
+        assert!(
+            error.to_string().contains("Automatic undo is unavailable"),
+            "action-only finalization gives truthful recovery guidance: {error:#}"
+        );
+        fault_connection.execute_batch("DROP TRIGGER fail_absorb_assignment_delete;")?;
+        drop(fault_connection);
+        drop(guard);
+        let after = absorb_invocation_state(
+            &mut ctx,
+            tmp.path(),
+            &["shared.txt"],
+            &[
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+                "refs/heads/gitbutler/workspace",
+            ],
+            &[("refs/heads/feature", &["shared.txt"])],
+        )?;
+        assert_ne!(after.refs, before.refs, "action-only absorb was published");
+        assert_eq!(
+            after.oplog_head, before.oplog_head,
+            "action-only absorb does not publish its rollback checkpoint"
+        );
+        assert_eq!(
+            after.worktree_files, before.worktree_files,
+            "published action-only absorb preserves worktree bytes"
         );
         Ok(())
     }

@@ -400,10 +400,13 @@ state do not overlap.
 The source snapshot includes the relevant target commit trees, worktree/index
 view, hunk headers, dependency/assignment rows, project/workspace metadata, and
 an operation revision. Hunk coordinates remain addresses in that snapshot, not
-live coordinates after an earlier amendment. Planning validates every selected
-target, including landed/immutable eligibility, before publication. A plan sent
-across the API boundary carries the source revision and relevant preconditions;
-apply revalidates them and aborts stale plans without publishing.
+live coordinates after an earlier amendment. Shared planning validates routing
+and target identity; staged application validates amend eligibility before
+publication. Surface policy remains explicit: the CLI rejects selected landed
+targets unless `--allow-merged` is set, while the shared planner does not itself
+classify landed status. A plan sent across the API boundary carries the source
+revision and relevant preconditions; apply revalidates them and aborts stale
+plans without publishing.
 
 Staged execution builds one graph/editor state and a source-consumption map. It
 produces replacement commit mappings for descendants and workspace refs, stages
