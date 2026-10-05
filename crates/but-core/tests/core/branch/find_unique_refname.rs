@@ -133,3 +133,24 @@ fn returns_original_if_unique() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn names_claimed_by_the_caller_are_skipped() -> anyhow::Result<()> {
+    let repo = but_testsupport::read_only_in_memory_scenario("unborn-empty")?;
+    let template: gix::refs::FullName = "refs/heads/feature".try_into()?;
+    let reserved: [gix::refs::FullName; 2] = [
+        "refs/heads/feature".try_into()?,
+        "refs/heads/feature-1".try_into()?,
+    ];
+
+    let unique =
+        but_core::branch::find_unique_refname_excluding(&repo, template.as_ref(), |name| {
+            reserved.iter().any(|taken| taken.as_ref() == name)
+        })?;
+    assert_eq!(
+        unique.shorten(),
+        "feature-2",
+        "names the caller reserved count as taken even though the repository lacks them"
+    );
+    Ok(())
+}

@@ -32,6 +32,16 @@ pub fn find_unique_refname(
     repo: &gix::Repository,
     template: &gix::refs::FullNameRef,
 ) -> anyhow::Result<gix::refs::FullName> {
+    find_unique_refname_excluding(repo, template, |_| false)
+}
+
+/// Like [`find_unique_refname`], but also skips every name that `is_taken` claims, for names that
+/// are reserved without existing in `repo` yet.
+pub fn find_unique_refname_excluding(
+    repo: &gix::Repository,
+    template: &gix::refs::FullNameRef,
+    is_taken: impl Fn(&gix::refs::FullNameRef) -> bool,
+) -> anyhow::Result<gix::refs::FullName> {
     // TODO(perf): ideally we remove that special case of auto-associating local branches with seemingly matching
     //             RTBs, and avoid this lookup and reference traversal.
     let remote_names = repo.remote_names();
@@ -47,7 +57,10 @@ pub fn find_unique_refname(
 
     // Check if the original name is available
     let short_name = template.shorten();
-    if !rtb_lut.contains(short_name) && repo.try_find_reference(template)?.is_none() {
+    if !rtb_lut.contains(short_name)
+        && !is_taken(template)
+        && repo.try_find_reference(template)?.is_none()
+    {
         return Ok(template.to_owned());
     }
 
@@ -77,7 +90,8 @@ pub fn find_unique_refname(
         }
         let candidate_full = category.to_full_name(candidate_short.as_bstr())?;
 
-        if repo.try_find_reference(&candidate_full)?.is_none() {
+        if !is_taken(candidate_full.as_ref()) && repo.try_find_reference(&candidate_full)?.is_none()
+        {
             return Ok(candidate_full);
         }
     }
