@@ -103,14 +103,21 @@ const newest = (times: Array<number | null>): number | null =>
 		null,
 	);
 
-// By name, which is known before anything loads: by activity, a repo moved once unfolding loaded
-// its branches.
 const byName = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "base" });
 
-const thisMachineFirst =
-	<T extends { isThisMachine: boolean }>(name: (item: T) => string) =>
+/**
+ * Newest activity first, so the mesh reads as a feed; by name where neither has any. Rows that
+ * move as unfolding loads their activity stay put while the pointer is over the tree.
+ */
+const byActivity =
+	<T extends { at: number | null }>(name: (item: T) => string) =>
 	(a: T, b: T) =>
-		a.isThisMachine === b.isThisMachine ? byName(name(a), name(b)) : a.isThisMachine ? -1 : 1;
+		(b.at ?? -Infinity) - (a.at ?? -Infinity) || byName(name(a), name(b));
+
+const thisMachineFirst =
+	<T extends { isThisMachine: boolean; at: number | null }>(name: (item: T) => string) =>
+	(a: T, b: T) =>
+		a.isThisMachine === b.isThisMachine ? byActivity(name)(a, b) : a.isThisMachine ? -1 : 1;
 
 const localBranches = (
 	segments: Array<Segment>,
@@ -272,7 +279,7 @@ const buildTree = (
 		isThisMachine: name === THIS_MACHINE,
 		online: name === THIS_MACHINE || online.has(name),
 		at: newest(list.map((c) => c.at)),
-		checkouts: list.toSorted((a, b) => byName(a.repo, b.repo)),
+		checkouts: list.toSorted(byActivity((checkout) => checkout.repo)),
 	}));
 	machines.sort(thisMachineFirst((machine) => machine.name));
 
@@ -285,7 +292,7 @@ const buildTree = (
 			checkouts: list.toSorted(thisMachineFirst((checkout) => checkout.machine)),
 		}),
 	);
-	repos.sort((a, b) => byName(a.name, b.name));
+	repos.sort(byActivity((repo) => repo.name));
 
 	return { machines, repos };
 };

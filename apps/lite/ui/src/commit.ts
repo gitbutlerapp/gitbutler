@@ -32,7 +32,24 @@ export const authorTooltip = (author: { name: string }, timestamp: number): stri
 	return author.name === "" ? when : `${author.name} · ${when}`;
 };
 
+/**
+ * The branch a published snapshot was taken of, if `message` is one: the hosted snapshot commit's
+ * message is JSON describing it, which reads as noise where a title belongs.
+ */
+const snapshotBranch = (message: string): string | null => {
+	if (!message.startsWith("{")) return null;
+	try {
+		const parsed: unknown = JSON.parse(message);
+		const head = (parsed as { head?: unknown } | null)?.head;
+		return typeof head === "string" ? head.replace(/^refs\/heads\//, "") : null;
+	} catch {
+		return null;
+	}
+};
+
 export const commitTitle = (input: string): string | undefined => {
+	const branch = snapshotBranch(input.trim());
+	if (branch !== null) return `Uncommitted changes on ${branch}`;
 	const trimmed = input.trim();
 	const _title = trimmed.split("\n")[0];
 	const title = _title === "" ? undefined : _title;
@@ -40,6 +57,7 @@ export const commitTitle = (input: string): string | undefined => {
 };
 
 export const commitBody = (input: string): string | undefined => {
+	if (snapshotBranch(input.trim()) !== null) return undefined;
 	const trimmed = input.trim();
 	const _body = trimmed.includes("\n") ? trimmed.slice(trimmed.indexOf("\n") + 1).trim() : "";
 	const body = _body === "" ? undefined : _body;

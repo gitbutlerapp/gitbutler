@@ -621,8 +621,9 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 	const panelIds: Array<PanelId> = detailsFullWindow
 		? ["details-panel"]
 		: ["sidebar-panel", "details-panel"];
+	// One width for every project: the mesh sidebar is the same whichever one is open.
 	const workspaceLayout = useDefaultLayout({
-		id: layoutId,
+		id: "workspace",
 		panelIds,
 	});
 	const selectionFocus = useCommittedSelectionFocus((scope) => {
