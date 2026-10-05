@@ -2060,8 +2060,8 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 };
 
 /**
- * Shows and hides the files panel. While the panel is hidden the button carries the change's file
- * count and line totals, which the panel's header shows otherwise.
+ * Shows and hides the files panel, as an icon. While the panel is hidden the button carries the
+ * change's file count and line totals, which the panel's header shows otherwise.
  */
 const FilesToggle: FC<{ projectId: string; fileCount: number; lineStats: LineStats }> = ({
 	projectId,
@@ -2084,12 +2084,13 @@ const FilesToggle: FC<{ projectId: string; fileCount: number; lineStats: LineSta
 			kbd={workspaceHotkeys.toggleFiles.hotkey}
 		>
 			<Button
+				variant="ghost"
+				iconOnly={filesVisible}
 				aria-label={label}
 				aria-pressed={filesVisible}
 				onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
 			>
 				{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-narrow" />}
-				Files
 				{!filesVisible && (
 					<>
 						<Badge variant="lightGray">{fileCount}</Badge>
@@ -2822,7 +2823,7 @@ const CommitDetailsSkeleton: FC = () => {
 	return (
 		<div className={styles.container}>
 			<ViewHeader
-				leading={detailsFullWindow && <TopLeftControls />}
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 				icon="commit"
 				title="Loading…"
 			/>
@@ -2916,7 +2917,7 @@ const CommitDetails: FC<{
 	return (
 		<div className={styles.container} ref={ref}>
 			<ViewHeader
-				leading={detailsFullWindow && <TopLeftControls />}
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 				icon="commit"
 				title={
 					<>
@@ -3542,7 +3543,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	return (
 		<div className={styles.container} ref={ref}>
 			<ViewHeader
-				leading={detailsFullWindow && <TopLeftControls />}
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 				icon="branch"
 				title={branchName}
 				meta={branchMeta}
@@ -3686,7 +3687,7 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 	return (
 		<div className={styles.container} ref={ref}>
 			<ViewHeader
-				leading={detailsFullWindow && <TopLeftControls />}
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 				icon="branch"
 				title={branchName}
 				meta={branchMeta}
@@ -3817,7 +3818,7 @@ const FileDetailsSkeleton: FC = () => {
 	return (
 		<div className={styles.container}>
 			<ViewHeader
-				leading={detailsFullWindow && <TopLeftControls />}
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 				icon="file"
 				title="Uncommitted"
 			/>
@@ -3877,7 +3878,7 @@ const FileDetails: FC<{
 	// With changes, the diff's bar is the view's only header, so the title rides in it.
 	const title = (
 		<>
-			{detailsFullWindow && <TopLeftControls />}
+			{detailsFullWindow && <TopLeftControls placement="diffBar" />}
 
 			<div className={styles.title}>
 				<Icon name="file-diff" />
@@ -3905,7 +3906,7 @@ const FileDetails: FC<{
 				/>
 			) : (
 				<ViewHeader
-					leading={detailsFullWindow && <TopLeftControls />}
+					leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 					icon="file-diff"
 					title={titleText}
 				/>

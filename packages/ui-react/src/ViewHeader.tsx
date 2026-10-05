@@ -21,7 +21,8 @@ type Props = {
 	avatar?: ReactNode;
 	/**
 	 * Ahead of the title on its line, for the app's own window controls: Lite's sidebar toggle
-	 * and the room it leaves for the traffic lights in full-window mode.
+	 * and the room it leaves for the traffic lights in full-window mode. Only the title's line
+	 * makes room for it; the meta line under it starts at the header's edge.
 	 */
 	leading?: ReactNode;
 	/**
@@ -83,11 +84,11 @@ export const ViewHeader: FC<Props> = ({
 	return (
 		<header {...props} className={classes(props.className, styles.header)}>
 			<div className={styles.top}>
-				{present(leading) && <div className={styles.leading}>{leading}</div>}
 				{present(avatar) && <div className={styles.avatar}>{avatar}</div>}
 
 				<div className={styles.main}>
 					<div className={styles.titleLine}>
+						{present(leading) && <div className={styles.leading}>{leading}</div>}
 						{icon !== undefined && <Icon name={icon} />}
 						<h2 className={classes("text-15", "text-semibold", styles.title)}>
 							{typeof title === "string" ? <span>{title}</span> : title}

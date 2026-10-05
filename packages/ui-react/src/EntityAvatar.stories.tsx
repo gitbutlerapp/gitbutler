@@ -19,7 +19,7 @@ const meta = preview.meta({
 		},
 	},
 	argTypes: {
-		size: { control: "radio", options: ["regular", "small", "large"] },
+		size: { control: "radio", options: ["regular", "small"] },
 	},
 });
 
@@ -45,7 +45,7 @@ export const Choices = meta.story({
 
 const machineSection: EntityAvatarSection = {
 	name: "Machines",
-	size: "large",
+	size: "regular",
 	options: machinePictures.map(({ name, src }) => ({ value: { _tag: "Picture", src }, name })),
 };
 
@@ -82,7 +82,7 @@ const MachinePicker = () => {
 	);
 };
 
-/** A machine's picture: few enough kinds to show them large in the picker, with no search. */
+/** A machine's picture: few enough kinds to show them at full size in the picker, with no search. */
 export const PickingForAMachine = meta.story({
 	parameters: {
 		design: {

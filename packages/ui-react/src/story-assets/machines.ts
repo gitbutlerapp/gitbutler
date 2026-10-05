@@ -11,9 +11,9 @@ import tower from "./machines/tower.webp";
 import vm from "./machines/vm.webp";
 
 /**
- * The machine pictures, exported at 128px from the "Machine picture" set in the Client file, so the
- * stories show the picker as but.dev fills it. The pictures are but.dev's to own; the library only
- * lays them out.
+ * The machine pictures, exported at 76px (the 38px avatar at 2×) from the "Machine picture" set in
+ * the Client file, so the stories show the picker as but.dev fills it. The pictures are but.dev's to
+ * own; the library only lays them out.
  */
 export const machinePictures = [
 	{ name: "Laptop", src: laptop },
