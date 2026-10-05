@@ -35,9 +35,14 @@ use crate::{
 
 /// What arrives from the background.
 enum Update {
-    Account(Load<Vec<HostedAccountProject>>),
-    Branches(String, Load<Vec<LocalBranch>>),
-    Hosted(String, Load<HostedProject>),
+    /// `signed_out` when the server no longer knows the account's token.
+    Account {
+        account: Load<Vec<HostedAccountProject>>,
+        signed_out: bool,
+    },
+    /// With the generation of the load, so one that a newer load overtook is dropped.
+    Branches(String, u64, Load<Vec<LocalBranch>>),
+    Hosted(String, u64, Load<HostedProject>),
     Server(HostedEvent),
     Acted(Action, anyhow::Result<SyncOutcome>),
     Followed(FollowEvent),
@@ -207,6 +212,15 @@ struct App {
     unfolded: HashSet<String>,
     /// Data asked for, so a row needing it doesn't ask again every frame.
     requested: HashSet<String>,
+    /// Each load's latest generation, by what's loaded.
+    generations: HashMap<String, u64>,
+    next_generation: u64,
+    /// An account load in flight, and whether another was asked for meanwhile.
+    account_loading: bool,
+    account_wanted: bool,
+    signed_out: bool,
+    /// Where the cursor was, for when the row it was on goes away.
+    last_index: usize,
     selected: Option<String>,
     toast: Option<String>,
     help: bool,
@@ -232,6 +246,12 @@ impl App {
             grouping: Grouping::Machines,
             unfolded: HashSet::new(),
             requested: HashSet::new(),
+            generations: HashMap::new(),
+            next_generation: 0,
+            account_loading: false,
+            account_wanted: false,
+            signed_out: false,
+            last_index: 0,
             selected: None,
             toast: None,
             help: false,
@@ -262,6 +282,17 @@ impl App {
             self.load_wanted();
             let rows = self.mesh.rows(self.grouping, &self.unfolded);
             let index = self.index_of(&rows);
+            if let Some(index) = index {
+                self.last_index = index;
+            }
+            if self.signed_out {
+                self.signed_out = false;
+                if !sign_in::run(terminal, &self.server)? {
+                    return Ok(());
+                }
+                self.reload(None);
+                continue;
+            }
             terminal
                 .terminal_mut()
                 .draw(|frame| self.draw(frame, &rows, index))?;
@@ -285,8 +316,7 @@ impl App {
             let row = index.and_then(|index| rows.get(index));
             match key.code {
                 KeyCode::Char('q') => return Ok(()),
-                KeyCode::Esc if self.toast.is_some() => self.toast = None,
-                KeyCode::Esc => return Ok(()),
+                KeyCode::Esc => self.toast = None,
                 KeyCode::Char('?') => self.help = true,
                 KeyCode::Char(',') => self.prompt = Some(Prompt::Settings { selected: 0 }),
                 KeyCode::Up | KeyCode::Char('k') => self.select(&rows, index, -1),
@@ -327,11 +357,27 @@ impl App {
 
     fn apply(&mut self, update: Update) {
         match update {
-            Update::Account(account) => self.mesh.account = Some(account),
-            Update::Branches(project, branches) => {
+            Update::Account {
+                account,
+                signed_out,
+            } => {
+                self.mesh.account = Some(account);
+                self.signed_out |= signed_out;
+                self.account_loading = false;
+                if std::mem::take(&mut self.account_wanted) {
+                    self.load_account();
+                }
+            }
+            Update::Branches(project, generation, branches) => {
+                if self.generations.get(&format!("branches:{project}")) != Some(&generation) {
+                    return;
+                }
                 self.mesh.branches.insert(project, branches);
             }
-            Update::Hosted(project, hosted) => {
+            Update::Hosted(project, generation, hosted) => {
+                if self.generations.get(&format!("hosted:{project}")) != Some(&generation) {
+                    return;
+                }
                 self.mesh.hosted.insert(project, hosted);
             }
             Update::Acted(action, outcome) => {
@@ -576,14 +622,28 @@ impl App {
         self.load_account();
     }
 
+    /// Load the account's listing, once at a time: asked for while one is in flight, it's loaded
+    /// again when that one is done.
     fn load_account(&mut self) {
+        if self.account_loading {
+            self.account_wanted = true;
+            return;
+        }
+        self.account_loading = true;
         let tx = self.tx.clone();
         std::thread::spawn(move || {
-            let account = match but_api::hosted::hosted_account() {
-                Ok(account) => Load::Loaded(account),
-                Err(err) => Load::Failed(format!("{err:#}")),
+            let (account, signed_out) = match but_api::hosted::hosted_account() {
+                Ok(account) => (Load::Loaded(account), false),
+                Err(err) => (
+                    Load::Failed(format!("{err:#}")),
+                    but_api::hosted::is_signed_out(&err),
+                ),
             };
-            tx.send(Update::Account(account)).ok();
+            tx.send(Update::Account {
+                account,
+                signed_out,
+            })
+            .ok();
         });
     }
 
@@ -613,14 +673,19 @@ impl App {
                     .entry(project.clone())
                     .or_insert(Load::Loading);
             }
+            self.next_generation += 1;
+            let generation = self.next_generation;
+            let what = if branches { "branches" } else { "hosted" };
+            self.generations
+                .insert(format!("{what}:{project}"), generation);
             let tx = self.tx.clone();
             std::thread::spawn(move || {
                 let update = if branches {
-                    Update::Branches(project, load(local_branches(&path)))
+                    Update::Branches(project, generation, load(local_branches(&path)))
                 } else {
                     let hosted = but_ctx::Context::discover(&path)
                         .and_then(|ctx| but_api::hosted::hosted_machines(&ctx));
-                    Update::Hosted(project, load(hosted))
+                    Update::Hosted(project, generation, load(hosted))
                 };
                 tx.send(update).ok();
             });
@@ -631,11 +696,12 @@ impl App {
         if rows.is_empty() {
             return None;
         }
+        // Where it was when its row went away, rather than back at the top.
         Some(
             self.selected
                 .as_ref()
                 .and_then(|key| rows.iter().position(|row| &row.key == key))
-                .unwrap_or(0),
+                .unwrap_or(self.last_index.min(rows.len() - 1)),
         )
     }
 

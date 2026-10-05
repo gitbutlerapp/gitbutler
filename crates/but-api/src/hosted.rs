@@ -604,6 +604,17 @@ pub fn hosted_account() -> Result<Vec<HostedAccountProject>> {
     Ok(projects)
 }
 
+/// Whether `err` is the hosted server turning the signed-in account's token away, so signing in
+/// again would help.
+pub fn is_signed_out(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        cause
+            .downcast_ref::<reqwest::Error>()
+            .and_then(reqwest::Error::status)
+            .is_some_and(|status| status == reqwest::StatusCode::UNAUTHORIZED)
+    })
+}
+
 /// This machine's projects, by id and directory, as the frontend lists them.
 fn local_projects() -> Result<Vec<(String, PathBuf)>> {
     Ok(

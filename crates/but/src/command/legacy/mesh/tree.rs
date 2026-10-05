@@ -275,7 +275,7 @@ impl Mesh {
             return;
         }
         if published.is_empty() {
-            rows.push(note(1, "Nothing published yet"));
+            rows.push(note(rows.len(), 1, "Nothing published yet"));
         }
         for entry in published {
             let summary = entry.machines.iter().find(|machine| machine.name == name);
@@ -344,12 +344,12 @@ impl Mesh {
         unfolded: &HashSet<String>,
     ) {
         let branches = match self.branches.get(&repo.id) {
-            None | Some(Load::Loading) => return rows.push(note(depth, "Loading…")),
-            Some(Load::Failed(err)) => return rows.push(note(depth, err)),
+            None | Some(Load::Loading) => return rows.push(note(rows.len(), depth, "Loading…")),
+            Some(Load::Failed(err)) => return rows.push(note(rows.len(), depth, err)),
             Some(Load::Loaded(branches)) => branches,
         };
         if branches.is_empty() {
-            rows.push(note(depth, "No branches"));
+            rows.push(note(rows.len(), depth, "No branches"));
         }
         let hosted = match self.hosted.get(&repo.id) {
             Some(Load::Loaded(hosted)) => Some(hosted),
@@ -394,8 +394,8 @@ impl Mesh {
         unfolded: &HashSet<String>,
     ) {
         let hosted = match self.hosted.get(project) {
-            None | Some(Load::Loading) => return rows.push(note(depth, "Loading…")),
-            Some(Load::Failed(err)) => return rows.push(note(depth, err)),
+            None | Some(Load::Loading) => return rows.push(note(rows.len(), depth, "Loading…")),
+            Some(Load::Failed(err)) => return rows.push(note(rows.len(), depth, err)),
             Some(Load::Loaded(hosted)) => hosted,
         };
         let Some(published) = hosted
@@ -403,7 +403,7 @@ impl Mesh {
             .iter()
             .find(|candidate| candidate.name == machine)
         else {
-            return rows.push(note(depth, "Nothing published"));
+            return rows.push(note(rows.len(), depth, "Nothing published"));
         };
         for branch in &published.branches {
             let key = format!("remote-branch:{machine}:{project}:{}", branch.branch);
@@ -451,9 +451,11 @@ fn push_commits(
     }
 }
 
-fn note(depth: usize, text: &str) -> Row {
+/// A line of text at `position` in the rows, which keeps its key unique: the same text, such as
+/// "Loading…", shows under many rows at once.
+fn note(position: usize, depth: usize, text: &str) -> Row {
     Row {
-        key: format!("note:{depth}:{text}"),
+        key: format!("note:{position}:{text}"),
         depth,
         folded: None,
         kind: RowKind::Note(text.to_owned()),
