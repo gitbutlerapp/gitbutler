@@ -390,11 +390,10 @@ impl App {
                 .map(|repo| repo.id.clone())
                 .collect(),
         };
+        // Its local branches too: what was published is often a branch here that just changed.
         for project in projects {
             self.requested.remove(&format!("hosted:{project}"));
-            if root.is_none() {
-                self.requested.remove(&format!("branches:{project}"));
-            }
+            self.requested.remove(&format!("branches:{project}"));
         }
         self.load_account();
     }
