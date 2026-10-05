@@ -3329,6 +3329,127 @@ mod tests {
     }
 
     #[test]
+    fn partial_selections_in_two_blocks_preserve_worktree() -> anyhow::Result<()> {
+        partial_first_selection_preserves_worktree(false)
+    }
+
+    #[test]
+    fn partial_first_full_last_selection_preserves_worktree() -> anyhow::Result<()> {
+        partial_first_selection_preserves_worktree(true)
+    }
+
+    fn partial_first_selection_preserves_worktree(
+        absorb_last_block_in_full: bool,
+    ) -> anyhow::Result<()> {
+        let (repo, tmp) = but_testsupport::writable_scenario("absorb-mixed-selection");
+        let worktree_content = std::fs::read(tmp.path().join("selected.txt"))?;
+        let commit_id = repo.head_id()?.detach();
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.settings.context_lines = 0;
+        let mut headers = vec![
+            but_core::HunkHeader {
+                old_start: 2,
+                old_lines: 1,
+                new_start: 0,
+                new_lines: 0,
+            },
+            but_core::HunkHeader {
+                old_start: 0,
+                old_lines: 0,
+                new_start: 2,
+                new_lines: 1,
+            },
+        ];
+        if absorb_last_block_in_full {
+            headers.push(but_core::HunkHeader {
+                old_start: 13,
+                old_lines: 10,
+                new_start: 13,
+                new_lines: 10,
+            });
+        } else {
+            headers.extend([
+                but_core::HunkHeader {
+                    old_start: 15,
+                    old_lines: 1,
+                    new_start: 0,
+                    new_lines: 0,
+                },
+                but_core::HunkHeader {
+                    old_start: 0,
+                    old_lines: 0,
+                    new_start: 15,
+                    new_lines: 1,
+                },
+            ]);
+            headers.rotate_left(2);
+        }
+        let mut plan = vec![CommitAbsorption {
+            stack_id: StackId::generate(),
+            commit_id,
+            blank_commit_ref: None,
+            source_snapshot_tree: None,
+            commit_summary: "add selected regions".into(),
+            hunks: headers
+                .into_iter()
+                .map(|header| but_core::SingleHunk {
+                    hunk_header: Some(header),
+                    path: "selected.txt".into(),
+                    diff: None,
+                })
+                .collect(),
+            reason: AbsorptionReason::HunkDependency,
+        }];
+        stamp_plan(&mut ctx, &mut plan)?;
+        let mut guard = ctx.exclusive_worktree_access();
+        let outcome = absorb_with_perm(&mut ctx, plan, guard.write_permission())?;
+        assert_eq!(
+            outcome.rejected_count(),
+            0,
+            "independent source-hunk groups must all be accepted"
+        );
+        assert_eq!(
+            std::fs::read(tmp.path().join("selected.txt"))?,
+            worktree_content,
+            "checkout cancellation must preserve unselected worktree content without conflict markers"
+        );
+        let expected_target_content = (1..=22)
+            .map(|line| {
+                if (5..=12).contains(&line) {
+                    format!("stable-{line:02}\n")
+                } else if line == 2
+                    || (absorb_last_block_in_full && line >= 13)
+                    || (!absorb_last_block_in_full && line == 15)
+                {
+                    format!("new-{line:02}\n")
+                } else {
+                    format!("old-{line:02}\n")
+                }
+            })
+            .collect::<String>();
+        let repo = ctx.repo.get()?;
+        let blob = repo
+            .head_commit()?
+            .tree()?
+            .lookup_entry_by_path("selected.txt")?
+            .expect("committed file")
+            .object()?
+            .into_blob();
+        assert_eq!(
+            blob.data,
+            expected_target_content.as_bytes(),
+            "all and only selected replacements must appear in the amended target"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn planner_and_executor_preserve_paired_hunk_selection_content() -> anyhow::Result<()> {
         let (repo, _tmp) = but_testsupport::writable_scenario("absorb-paired-selection");
         let expected_target_content = (1..=10)

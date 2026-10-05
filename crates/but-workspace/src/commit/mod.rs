@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_core::DiffSpec;
@@ -8,6 +10,8 @@ use crate::WorkspaceCommit;
 /// Build a merge-base override tree from `HEAD^{tree}` + `consumed` changes
 /// (additive-only). During checkout, the 3-way snapshot merge uses this as its
 /// base so consumed hunks cancel out and don't reappear as uncommitted changes.
+/// Selections are consolidated per path and stably ordered by source hunk,
+/// retaining paired-selector order within each original hunk.
 ///
 /// Two kinds of changes are excluded to keep the tree additive-only:
 ///
@@ -21,10 +25,55 @@ fn compute_merge_base_override(
     context_lines: u32,
 ) -> anyhow::Result<gix::ObjectId> {
     let head_tree = repo.head_tree_id_or_empty()?;
-    let mut specs: Vec<_> = consumed.into_iter().map(Ok).collect();
-    if specs.is_empty() {
+    let mut by_path = BTreeMap::<_, DiffSpec>::new();
+    for spec in consumed {
+        if let Some(combined) = by_path.get_mut(&spec.path) {
+            anyhow::ensure!(
+                combined.previous_path == spec.previous_path,
+                "Consumed selections disagree on the previous path for {:?}",
+                spec.path
+            );
+            if combined.hunk_headers.is_empty() || spec.hunk_headers.is_empty() {
+                combined.hunk_headers.clear();
+            } else {
+                combined.hunk_headers.extend(spec.hunk_headers);
+            }
+        } else {
+            by_path.insert(spec.path.clone(), spec);
+        }
+    }
+    if by_path.is_empty() {
         return Ok(head_tree.detach());
     }
+    let source_hunks = if by_path.values().any(|spec| spec.hunk_headers.len() > 1) {
+        but_core::worktree_hunks(repo, 0)?
+    } else {
+        Vec::new()
+    };
+    let mut specs: Vec<_> = by_path
+        .into_values()
+        .map(|mut spec| {
+            spec.hunk_headers.sort_by_key(|selected| {
+                source_hunks
+                    .iter()
+                    .position(|source| {
+                        source.path == spec.path
+                            && source.hunk_header.is_some_and(|source| {
+                                let within =
+                                    |selected: but_core::HunkRange, source: but_core::HunkRange| {
+                                        selected.is_null()
+                                            || source.contains(selected)
+                                            || selected.contains(source)
+                                    };
+                                within(selected.old_range(), source.old_range())
+                                    && within(selected.new_range(), source.new_range())
+                            })
+                    })
+                    .unwrap_or(usize::MAX)
+            });
+            Ok(spec)
+        })
+        .collect();
     let (committed_tree, _base) =
         but_core::tree::apply_worktree_changes(head_tree.into(), repo, &mut specs, context_lines)?;
     Ok(committed_tree.detach())
