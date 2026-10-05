@@ -673,6 +673,10 @@ export const start = async (shellEnvironment: Promise<Record<string, string>>): 
 	// Unpackaged, credentials sit where a CLI built without an identifier keeps them, so the
 	// two share an account.
 	await initApplicationNamespace(app.isPackaged ? null : "com.gitbutler.app");
+	// The account is kept where production keeps it, so production's API is the one that knows it,
+	// as the hosted server does; a dev build of the SDK would otherwise ask staging. Read by the
+	// Rust side on each call, so set before any.
+	process.env.GITBUTLER_API_URL ??= "https://app.gitbutler.com";
 	if (app.isPackaged) {
 		const channel = process.env.CHANNEL;
 		await initMetrics(
