@@ -64,9 +64,93 @@ impl UserId {
     }
 }
 
-/// Signed-in browsers, by the session ID in their cookie, with when they signed in. In memory: a
-/// restart signs them out.
-type Sessions = Arc<Mutex<std::collections::HashMap<String, (UserId, std::time::Instant)>>>;
+/// Signed-in browsers, by the session ID in their cookie. Kept in the data directory, so a
+/// restart doesn't sign them out; each by a hash of its ID, so the file can't sign anyone in.
+#[derive(Clone)]
+struct Sessions {
+    path: Arc<PathBuf>,
+    by_hash: Arc<Mutex<std::collections::HashMap<String, Session>>>,
+}
+
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
+struct Session {
+    user: u64,
+    /// When it signed in, in seconds since the Unix epoch.
+    since: u64,
+}
+
+impl Sessions {
+    /// The sessions saved at `path`; none if there's no such file or it can't be read.
+    fn load(path: PathBuf) -> Self {
+        let by_hash = std::fs::read(&path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default();
+        Sessions {
+            path: Arc::new(path),
+            by_hash: Arc::new(Mutex::new(by_hash)),
+        }
+    }
+
+    fn user(&self, id: &str) -> Option<UserId> {
+        let mut by_hash = self.by_hash.lock().unwrap_or_else(PoisonError::into_inner);
+        let expired =
+            |session: &Session| now_secs().saturating_sub(session.since) >= SESSION_TTL.as_secs();
+        if by_hash.values().any(expired) {
+            by_hash.retain(|_, session| !expired(session));
+            self.save(&by_hash);
+        }
+        by_hash
+            .get(&hash_session(id))
+            .map(|session| UserId(session.user))
+    }
+
+    fn insert(&self, id: &str, user: UserId) {
+        let mut by_hash = self.by_hash.lock().unwrap_or_else(PoisonError::into_inner);
+        by_hash.insert(
+            hash_session(id),
+            Session {
+                user: user.0,
+                since: now_secs(),
+            },
+        );
+        self.save(&by_hash);
+    }
+
+    fn remove(&self, id: &str) {
+        let mut by_hash = self.by_hash.lock().unwrap_or_else(PoisonError::into_inner);
+        by_hash.remove(&hash_session(id));
+        self.save(&by_hash);
+    }
+
+    /// Replace the file whole, readable by this user only; failing that, they're kept in memory.
+    fn save(&self, by_hash: &std::collections::HashMap<String, Session>) {
+        let result = (|| -> anyhow::Result<()> {
+            let partial = self.path.with_extension("json.partial");
+            let mut options = std::fs::OpenOptions::new();
+            options.write(true).create(true).truncate(true);
+            #[cfg(unix)]
+            std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+            std::io::Write::write_all(&mut options.open(&partial)?, &serde_json::to_vec(by_hash)?)?;
+            std::fs::rename(&partial, &*self.path)?;
+            Ok(())
+        })();
+        if let Err(err) = result {
+            tracing::warn!("couldn't save the hosted sessions: {err:#}");
+        }
+    }
+}
+
+fn hash_session(id: &str) -> String {
+    use sha2::Digest as _;
+    hex::encode(sha2::Sha256::digest(id.as_bytes()))
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_secs())
+}
 
 const SESSION_COOKIE: &str = "but_hosted_session";
 /// How long a browser stays signed in.
@@ -127,7 +211,7 @@ pub fn router(config: HostedConfig) -> Router {
         config: config.clone(),
         events: broadcast::channel(EVENTS_BUFFER).0,
         presence: Presence::default(),
-        sessions: Sessions::default(),
+        sessions: Sessions::load(config.data_dir.join("sessions.json")),
         writing: Arc::default(),
         // A stalled GitButler API would otherwise hold every request waiting on it.
         http: reqwest::Client::builder()
@@ -237,12 +321,7 @@ fn session_id(headers: &HeaderMap) -> Option<&str> {
 }
 
 fn session_user(state: &HostedState, headers: &HeaderMap) -> Option<UserId> {
-    let mut sessions = state
-        .sessions
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner);
-    sessions.retain(|_, (_, since)| since.elapsed() < SESSION_TTL);
-    sessions.get(session_id(headers)?).map(|(user, _)| *user)
+    state.sessions.user(session_id(headers)?)
 }
 
 /// Where a browser signs in, by pasting the access token GitButler shows after signing in there.
@@ -298,11 +377,7 @@ async fn sign_in(
         return Redirect::to("/sign-in?failed").into_response();
     };
     let session = uuid::Uuid::new_v4().to_string();
-    state
-        .sessions
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .insert(session.clone(), (user, std::time::Instant::now()));
+    state.sessions.insert(&session, user);
     // `Secure` behind the https proxy, which says so; plain HTTP on localhost goes without.
     let secure = headers
         .get("x-forwarded-proto")
@@ -317,11 +392,7 @@ async fn sign_in(
 
 async fn sign_out(State(state): State<HostedState>, headers: HeaderMap) -> Response {
     if let Some(session) = session_id(&headers) {
-        state
-            .sessions
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .remove(session);
+        state.sessions.remove(session);
         // Sockets opened while signed in would otherwise go on hearing this user's events.
         state
             .events
@@ -850,4 +921,38 @@ fn resolve_project(dir: &Path, params: &mut serde_json::Value) -> anyhow::Result
         .to_string()
         .into();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Sessions, UserId};
+
+    #[test]
+    fn sessions_survive_a_restart_without_saving_their_ids() {
+        let dir = std::env::temp_dir().join(format!("hosted-sessions-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("sessions.json");
+
+        Sessions::load(path.clone()).insert("the-session-id", UserId(7));
+        let restarted = Sessions::load(path.clone());
+        assert_eq!(
+            restarted.user("the-session-id"),
+            Some(UserId(7)),
+            "a session saved before the restart signs in after it"
+        );
+        assert!(
+            !std::fs::read_to_string(&path)
+                .unwrap()
+                .contains("the-session-id"),
+            "only a hash of the id is saved, so the file can't sign anyone in"
+        );
+
+        restarted.remove("the-session-id");
+        assert_eq!(
+            Sessions::load(path).user("the-session-id"),
+            None,
+            "signing out is saved too"
+        );
+        std::fs::remove_dir_all(dir).ok();
+    }
 }
