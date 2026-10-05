@@ -164,6 +164,38 @@ fn access_token() -> Result<String> {
     Ok(token.0)
 }
 
+/// `url` without any user name or password in it, as it's shown to the account's other machines.
+fn without_credentials(url: &str) -> String {
+    match url.split_once("://") {
+        Some((scheme, rest)) => {
+            let (authority, path) = rest.split_once('/').unwrap_or((rest, ""));
+            let host = authority
+                .rsplit_once('@')
+                .map_or(authority, |(_, host)| host);
+            if path.is_empty() {
+                format!("{scheme}://{host}")
+            } else {
+                format!("{scheme}://{host}/{path}")
+            }
+        }
+        // `git@host:path` names the user git connects as, not a secret.
+        None => url.to_owned(),
+    }
+}
+
+/// Whether `url` is a remote a sent project may be cloned from: over https or ssh, never a
+/// transport that runs commands or reads local paths.
+fn is_cloneable(url: &str) -> bool {
+    url.starts_with("https://")
+        || url.starts_with("ssh://")
+        || url.split_once(':').is_some_and(|(user_host, path)| {
+            user_host.contains('@')
+                && !user_host.contains('/')
+                && !path.starts_with("//")
+                && !url.starts_with('-')
+        })
+}
+
 /// Whether `ancestor` is reachable from `descendant`, including being the same commit.
 fn is_ancestor(dir: &Path, ancestor: &str, descendant: &str) -> Result<bool> {
     let status = git_command(dir)
@@ -845,11 +877,19 @@ fn publish(
     let target = but_core::ref_metadata::ProjectMeta::resolve(&main)?
         .target_ref
         .map(|name| name.to_string());
+    // Where the project is cloned from, so a machine without it can clone it when it's sent there.
+    let remote = target
+        .as_deref()
+        .and_then(|target| target.strip_prefix("refs/remotes/"))
+        .and_then(|target| target.split_once('/'))
+        .and_then(|(remote, _)| git(&dir, &[], &["remote", "get-url", remote]).ok())
+        .map(|url| without_credentials(&url));
     let message = serde_json::json!({
         "version": 1,
         "title": title,
         "head": full,
         "target": target,
+        "remote": remote,
         "machine": machine,
     });
 
@@ -1105,6 +1145,126 @@ pub fn hosted_branch_pull(
     Ok(SyncOutcome::Done(done))
 }
 
+/// Clone the project with root commit `root`, which this machine doesn't have, so the branch
+/// `from` sent, published as `name`, can be pulled into it; it's added as a project and set up on
+/// its target branch. It goes where most projects here are, named as the sender names it.
+/// Returns where it went, and the branch's short name.
+///
+/// The snapshot says where the project is cloned from; that's fetched with this machine's own
+/// credentials, and only over https or ssh.
+pub(crate) fn clone_sent(root: &str, from: &str, name: &str) -> Result<(PathBuf, String)> {
+    let parent = clone_parent()?;
+    // A repository of its own first, to read the snapshot from: it says what the project is
+    // called and where it's cloned from.
+    let scratch = parent.join(format!(".mesh-clone-{}", &root[..root.len().min(12)]));
+    if scratch.exists() {
+        std::fs::remove_dir_all(&scratch)?;
+    }
+    std::fs::create_dir_all(&scratch)?;
+    let cloned = (|| -> Result<(PathBuf, String)> {
+        git(&scratch, &[], &["init", "--quiet"])?;
+        git(&scratch, &[], &["config", "gitbutler.hostedRoot", root])?;
+        fetch(&scratch)?;
+        let snapshot = format!("{HOSTED_REFS}/snapshots/{from}/{name}");
+        let branch = snapshot_head(&scratch, &snapshot)?
+            .trim_start_matches("refs/heads/")
+            .to_owned();
+        let message: serde_json::Value = serde_json::from_str(&git(
+            &scratch,
+            &[],
+            &["log", "-1", "--format=%B", &snapshot],
+        )?)?;
+        let url = message["remote"]
+            .as_str()
+            .filter(|url| is_cloneable(url))
+            .context("its snapshot doesn't say where it's cloned from")?;
+        let (remote, target) = message["target"]
+            .as_str()
+            .and_then(|target| target.strip_prefix("refs/remotes/"))
+            .and_then(|target| target.split_once('/'))
+            .context("its snapshot names no target branch")?;
+        let title = message["title"]
+            .as_str()
+            .filter(|title| {
+                !title.is_empty() && !title.starts_with('.') && !title.contains(['/', '\\'])
+            })
+            .unwrap_or("project");
+        git(&scratch, &[], &["remote", "add", remote, url])?;
+        // The person's own credentials, but never a prompt: nobody is there to answer it.
+        let no_prompt = [("GIT_TERMINAL_PROMPT", "0".as_ref())];
+        git(&scratch, &no_prompt, &["fetch", "--quiet", remote])
+            .with_context(|| format!("couldn't fetch {url}"))?;
+        git(
+            &scratch,
+            &[],
+            &[
+                "checkout",
+                "--quiet",
+                "-B",
+                target,
+                &format!("{remote}/{target}"),
+            ],
+        )?;
+        let dest = (1..)
+            .map(|n| match n {
+                1 => parent.join(title),
+                n => parent.join(format!("{title}-{n}")),
+            })
+            .find(|dest| !dest.exists())
+            .context("no free directory to clone into")?;
+        std::fs::rename(&scratch, &dest)?;
+        let path = dest.to_str().context("the path is UTF-8")?.to_owned();
+        match crate::legacy::projects::add_project(path)? {
+            gitbutler_project::AddProjectOutcome::Added(_)
+            | gitbutler_project::AddProjectOutcome::AlreadyExists(_) => {}
+            other => bail!("couldn't add {} as a project: {other:?}", dest.display()),
+        }
+        let mut ctx = but_ctx::Context::discover(&dest)?;
+        crate::legacy::virtual_branches::set_base_branch(
+            &mut ctx,
+            format!("{remote}/{target}"),
+            None,
+        )?;
+        Ok((dest, branch))
+    })();
+    if cloned.is_err() {
+        std::fs::remove_dir_all(&scratch).ok();
+    }
+    cloned
+}
+
+/// What other machines sent this one of the project with root commit `root`, as the hosted
+/// server has it: the sender and the published name of each, read without a local repository.
+pub(crate) fn sent_here(root: &str) -> Result<Vec<(String, String)>> {
+    let this = machine_name().context("this machine has no name")?;
+    let url = format!("{}/git/{root}", hosted_server());
+    let pattern = format!("refs/gitbutler/inbox/{this}/*");
+    let listing = git_as_user(&std::env::temp_dir(), &["ls-remote", &url, &pattern])?;
+    let prefix = format!("refs/gitbutler/inbox/{this}/");
+    Ok(listing
+        .lines()
+        .filter_map(|line| line.split_once('\t'))
+        .filter_map(|(_, name)| name.strip_prefix(&prefix)?.split_once('/'))
+        .map(|(from, name)| (from.to_owned(), name.to_owned()))
+        .collect())
+}
+
+/// Where a project cloned for a send goes: where most projects here are, or the home directory.
+fn clone_parent() -> Result<PathBuf> {
+    let mut parents = HashMap::<PathBuf, usize>::new();
+    for (_, dir) in local_projects()? {
+        if let Some(parent) = dir.parent() {
+            *parents.entry(parent.to_owned()).or_default() += 1;
+        }
+    }
+    parents
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .map(|(parent, _)| parent)
+        .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
+        .context("nowhere to clone into")
+}
+
 /// Write the snapshot's tree over the checkout at `path` without committing it, so its
 /// uncommitted changes are uncommitted again.
 fn restore_snapshot(path: &Path, snapshot: &str) -> Result<()> {
@@ -1118,7 +1278,50 @@ fn restore_snapshot(path: &Path, snapshot: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{PublishState, git, publish_state};
+    use super::{PublishState, git, is_cloneable, publish_state, without_credentials};
+
+    #[test]
+    fn remote_urls_go_out_without_credentials() {
+        assert_eq!(
+            without_credentials("https://user:token@github.com/org/repo.git"),
+            "https://github.com/org/repo.git",
+            "a password in the URL never reaches the hub"
+        );
+        assert_eq!(
+            without_credentials("https://github.com/org/repo.git"),
+            "https://github.com/org/repo.git",
+            "a URL without credentials is unchanged"
+        );
+        assert_eq!(
+            without_credentials("git@github.com:org/repo.git"),
+            "git@github.com:org/repo.git",
+            "an scp-style user is who ssh connects as, not a secret"
+        );
+    }
+
+    #[test]
+    fn only_https_and_ssh_remotes_are_cloned() {
+        for url in [
+            "https://github.com/org/repo.git",
+            "ssh://git@github.com/org/repo.git",
+            "git@github.com:org/repo.git",
+        ] {
+            assert!(is_cloneable(url), "{url} is cloned");
+        }
+        for url in [
+            "ext::sh -c touch% /tmp/pwned",
+            "file:///etc",
+            "/Users/someone/repo",
+            "../repo",
+            "-uhelp@host:repo",
+            "http://example.com/repo.git",
+        ] {
+            assert!(
+                !is_cloneable(url),
+                "{url} is refused: it could run commands or read local files"
+            );
+        }
+    }
     use but_testsupport::{CommandExt, git_at_dir};
 
     #[test]

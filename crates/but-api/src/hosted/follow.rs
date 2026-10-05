@@ -339,7 +339,7 @@ impl Run {
             .filter(|dir| hosted_project(dir).is_ok_and(|candidate| candidate == root))
             .collect();
         match clones.as_slice() {
-            [] => {}
+            [] => self.clone_and_pull(root, from, &super::published_name(branch), on_event),
             [dir] => {
                 if self.acts_for(dir) {
                     self.pull(dir, from, branch, on_event);
@@ -356,11 +356,56 @@ impl Run {
         }
     }
 
+    /// Clone the project with root commit `root`, which isn't here, then pull what `from` sent
+    /// of it, published as `name`.
+    fn clone_and_pull(
+        &mut self,
+        root: &str,
+        from: &str,
+        name: &str,
+        on_event: &dyn Fn(FollowEvent),
+    ) {
+        match super::clone_sent(root, from, name) {
+            Ok((dir, branch)) => {
+                on_event(event(
+                    FollowKind::Pulled,
+                    format!("Cloned {} to pull {branch}, sent by {from}", dir.display()),
+                ));
+                if self.acts_for(&dir) {
+                    self.pull(&dir, from, &branch, on_event);
+                }
+            }
+            Err(err) => on_event(event(
+                FollowKind::Failed,
+                format!(
+                    "{from} sent {name} of a project that isn't here, and it couldn't be cloned: {err:#}"
+                ),
+            )),
+        }
+    }
+
     /// Pull everything waiting in this machine's inbox, as sent while nothing was listening.
     fn pull_inbox(&mut self, on_event: &dyn Fn(FollowEvent)) {
         let Ok(account) = super::hosted_account() else {
             return;
         };
+        // Sent of a project that isn't here at all: cloned first.
+        for project in &account {
+            let sent = project.machines.iter().any(|machine| machine.sent > 0);
+            if !sent || !project.project_ids.is_empty() {
+                continue;
+            }
+            match super::sent_here(&project.root) {
+                Ok(sends) => {
+                    for (from, name) in sends {
+                        self.clone_and_pull(&project.root, &from, &name, on_event);
+                    }
+                }
+                Err(err) => {
+                    tracing::debug!("couldn't list what was sent of {}: {err:#}", project.title)
+                }
+            }
+        }
         let Ok(projects) = super::local_projects() else {
             return;
         };
