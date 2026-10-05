@@ -5,7 +5,11 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{Context, Result, bail};
 use bstr::ByteSlice;
 
-use but_core::{RefMetadata, branch::unique_canned_refname, ref_metadata::ProjectMeta};
+use but_core::{
+    RefMetadata,
+    branch::{canned_refname, find_unique_refname_excluding},
+    ref_metadata::ProjectMeta,
+};
 use but_graph::workspace::commit::is_managed_workspace_by_message;
 use but_rebase::{
     commit::DateMode,
@@ -212,6 +216,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let head_commit_id = head_commit.id;
     let head_is_workspace_commit = is_managed_workspace_by_message(head_commit.message_raw()?);
     let workspace_ref_name = workspace.ref_name().map(ToOwned::to_owned);
+    let worktree_tips = workspace.graph.worktree_tips.clone();
     let direct_checkout_head_ref_name = if head_is_workspace_commit {
         None
     } else {
@@ -276,10 +281,19 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let mut from_target_sha = traverse_nodes(&editor, target_sha_selector)?;
     from_target_sha.extend(editor.step_references(target_sha_selector)?);
 
+    let worktree_heads = worktree_tips
+        .iter()
+        .map(|tip| match &tip.ref_name {
+            Some(ref_name) => ref_name.to_selector(&editor),
+            None => editor.select_commit(tip.id),
+        })
+        .collect::<Result<Vec<_>>>()?;
+
     let mut stacks = collect_stacks(
         head_commit,
         head_is_workspace_commit,
         direct_checkout_ref_selector,
+        worktree_heads.clone(),
         &editor,
         from_target_sha,
         from_target_ref,
@@ -398,6 +412,25 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         // Remove integrated refs from the workspace and from git.
         // TODO: allow to keep some references.
         for (selector, attrs) in &stack.nodes {
+            if worktree_heads.contains(selector) {
+                if let Some(ref_name) = attrs.reference_integrated.as_ref()
+                    && should_delete_integrated_local_branch(
+                        ref_name.as_ref(),
+                        target_ref.ref_name.as_ref(),
+                        local_target_ref.as_ref().map(|name| name.as_ref()),
+                    )
+                {
+                    replace_checkout_ref_with_fallback(
+                        &mut editor,
+                        repo,
+                        ref_name.as_ref(),
+                        target_ref_commit_selector,
+                        None,
+                    )?;
+                    deleted_refs.push(ref_name.clone());
+                }
+                continue;
+            }
             if let Some(ref_name) = attrs.reference_integrated.as_ref() {
                 if let Some(ws_meta) = ws_meta.as_mut() {
                     ws_meta.remove_segment(ref_name.as_ref());
@@ -593,6 +626,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     head_commit: gix::Commit<'_>,
     head_is_workspace_commit: bool,
     direct_checkout_ref_selector: Option<Selector>,
+    worktree_heads: Vec<Selector>,
     editor: &Editor<'ws, 'meta, M>,
     from_target_sha: HashSet<Selector>,
     from_target_ref: HashSet<Selector>,
@@ -602,29 +636,28 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     review_hints: &[ReviewIntegrationHint],
 ) -> Result<Vec<Stack>> {
     let direct_checkout_head_commit_id = head_commit.id;
-    let mut stacks = if head_is_workspace_commit {
+    let checkout_heads = if head_is_workspace_commit {
         editor
             .direct_parents(head_commit.id)?
             .into_iter()
-            .map(|(c, _)| Stack {
-                to_merge: false,
-                nodes: HashMap::from([(c, AnnotatedNode::new())]),
-                heads: HashSet::from([c]),
-                bottoms: HashSet::new(),
-            })
+            .map(|(c, _)| c)
             .collect()
     } else {
-        let c = match direct_checkout_ref_selector {
+        vec![match direct_checkout_ref_selector {
             Some(selector) => selector,
             None => editor.select_commit(head_commit.id)?,
-        };
-        vec![Stack {
-            to_merge: false,
-            nodes: HashMap::from([(c, AnnotatedNode::new())]),
-            heads: HashSet::from([c]),
-            bottoms: HashSet::new(),
         }]
     };
+    let mut stacks = checkout_heads
+        .into_iter()
+        .chain(worktree_heads)
+        .map(|head| Stack {
+            to_merge: false,
+            nodes: HashMap::from([(head, AnnotatedNode::new())]),
+            heads: HashSet::from([head]),
+            bottoms: HashSet::new(),
+        })
+        .collect::<Vec<_>>();
     for stack in &mut stacks {
         let mut tips = stack.nodes.keys().copied().collect::<Vec<_>>();
 
@@ -1188,7 +1221,9 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
     }
     let fallback_ref_name = match reusable_ref {
         Some(ref_name) => ref_name,
-        None => unique_canned_refname(repo)?,
+        None => find_unique_refname_excluding(repo, canned_refname(repo)?.as_ref(), |name| {
+            editor.try_select_reference(name).is_some()
+        })?,
     };
 
     editor.replace(
