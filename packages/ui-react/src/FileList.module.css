@@ -12,9 +12,10 @@
 	flex-shrink: 0;
 	align-items: center;
 	height: var(--size-header);
-	/* The last button sits as far from the end as from the top and bottom: a 28px button centred
+	/* The title lines up with the rows' file icons: the body's 8px inset plus the row's own 8px.
+	   The last button sits as far from the end as from the top and bottom: a 28px button centred
 	   in the 44px header. */
-	padding-inline: var(--padding-panel) var(--space-lg);
+	padding-inline: var(--space-3xl) var(--padding-list);
 }
 
 /* The header's two faces trade places when the filter opens: the title steps aside, the field
