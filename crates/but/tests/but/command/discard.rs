@@ -1814,3 +1814,94 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn discarding_top_commit_in_single_branch_mode_stack() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'one'").assert().success();
+    env.but("commit -b bottom -m 'two'").assert().success();
+    env.but("commit -b --above bottom -m 'three'")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD]
+┊●   mot three (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   mwt two (no changes)
+┊●   lsm one (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard mot").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   mwt two (no changes)
+┊●   lsm one (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard mwt").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm one (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard lsm").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
