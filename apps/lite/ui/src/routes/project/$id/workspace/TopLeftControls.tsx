@@ -1,4 +1,5 @@
 import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { sidebarFocusScopeOf } from "#ui/use-cursor.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
@@ -65,8 +66,21 @@ const MacSpacer: FC = () => {
 	return fullScreen ? null : <div className={styles.macSpacer} />;
 };
 
-export const TopLeftControls: FC = () => (
-	<div className={styles.container}>
+/**
+ * The window's controls, which stay put beside the traffic lights as the sidebar folds: the
+ * sidebar's header holds them, then the details header or, in the Uncommitted view, the diff's
+ * bar. `placement` names the container, so they undo its padding and land where the sidebar has them.
+ */
+export const TopLeftControls: FC<{ placement?: "sidebar" | "viewHeader" | "diffBar" }> = ({
+	placement = "sidebar",
+}) => (
+	<div
+		className={classes(
+			styles.container,
+			placement === "viewHeader" && styles.inViewHeader,
+			placement === "diffBar" && styles.inDiffBar,
+		)}
+	>
 		{isMac && <MacSpacer />}
 		<FullWindowButton />
 	</div>

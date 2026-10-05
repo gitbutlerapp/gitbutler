@@ -2823,7 +2823,7 @@ const CommitDetailsSkeleton: FC = () => {
 	return (
 		<div className={styles.container}>
 			<ViewHeader
-				leading={detailsFullWindow && <TopLeftControls />}
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 				icon="commit"
 				title="Loading…"
 			/>
@@ -2917,7 +2917,7 @@ const CommitDetails: FC<{
 	return (
 		<div className={styles.container} ref={ref}>
 			<ViewHeader
-				leading={detailsFullWindow && <TopLeftControls />}
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 				icon="commit"
 				title={
 					<>
@@ -3543,7 +3543,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	return (
 		<div className={styles.container} ref={ref}>
 			<ViewHeader
-				leading={detailsFullWindow && <TopLeftControls />}
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 				icon="branch"
 				title={branchName}
 				meta={branchMeta}
@@ -3687,7 +3687,7 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 	return (
 		<div className={styles.container} ref={ref}>
 			<ViewHeader
-				leading={detailsFullWindow && <TopLeftControls />}
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 				icon="branch"
 				title={branchName}
 				meta={branchMeta}
@@ -3818,7 +3818,7 @@ const FileDetailsSkeleton: FC = () => {
 	return (
 		<div className={styles.container}>
 			<ViewHeader
-				leading={detailsFullWindow && <TopLeftControls />}
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 				icon="file"
 				title="Uncommitted"
 			/>
@@ -3878,7 +3878,7 @@ const FileDetails: FC<{
 	// With changes, the diff's bar is the view's only header, so the title rides in it.
 	const title = (
 		<>
-			{detailsFullWindow && <TopLeftControls />}
+			{detailsFullWindow && <TopLeftControls placement="diffBar" />}
 
 			<div className={styles.title}>
 				<Icon name="file-diff" />
@@ -3906,7 +3906,7 @@ const FileDetails: FC<{
 				/>
 			) : (
 				<ViewHeader
-					leading={detailsFullWindow && <TopLeftControls />}
+					leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
 					icon="file-diff"
 					title={titleText}
 				/>
