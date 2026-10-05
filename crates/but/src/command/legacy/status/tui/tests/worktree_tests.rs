@@ -40,6 +40,38 @@ fn worktree_tui() -> (TestTui<App>, String) {
 }
 
 #[test]
+fn marking_a_worktree_commit_replaces_its_dot() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input([KeyCode::Down; 5])
+        .assert_current_line_eq(str!["┊┊●   nll add W"]);
+
+    // Keep both graph lanes intact and replace the commit dot, as in the main worktree.
+    tui.input(' ').assert_marks_count_eq(1);
+    // Marking advances the cursor to the next commit.
+    tui.input(KeyCode::Up)
+        .assert_current_line_eq(str!["┊┊✔︎   nll add W"]);
+
+    tui.input(' ')
+        .assert_marks_count_eq(0)
+        .assert_current_line_eq(str!["┊┊●   nll add W"]);
+}
+
+#[test]
+fn marking_a_worktree_branch_replaces_its_connector() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input([KeyCode::Down; 4])
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
+
+    // Preserve the graph lanes and replace the branch connector, as in the main worktree.
+    tui.input(' ').assert_marks_count_eq(1);
+    // Marking wraps to the main worktree's branch; move back to the linked branch.
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊┊✔︎  wt [wt-branch]"]);
+}
+
+#[test]
 fn linked_worktree_head_marker_survives_reload() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
@@ -151,7 +183,7 @@ fn branch_picker_excludes_worktrees_when_marking_files() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/branch_picker_excludes_worktrees_when_marking_files_001.svg"
         ])
-        .assert_current_line_eq(str!["┊✔︎┊   ok A wt-file.txt"]);
+        .assert_current_line_eq(str!["┊┊┊✔︎  ok A wt-file.txt"]);
 }
 
 /// Sibling worktrees nested below a dirty worktree's first commit keep a blank lane between them.
