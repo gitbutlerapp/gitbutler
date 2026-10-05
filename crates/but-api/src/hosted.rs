@@ -739,10 +739,15 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
         let Some((machine, name)) = sent.trim_start_matches(&prefix).split_once('/') else {
             continue;
         };
+        // One that can't be read is left out, rather than taking every machine's listing with it.
+        let branch = match snapshot_head(&dir, sent) {
+            Ok(head) => head.trim_start_matches("refs/heads/").to_owned(),
+            Err(err) => {
+                tracing::warn!("left out {sent}, which can't be read: {err:#}");
+                continue;
+            }
+        };
         if this.as_deref() == Some(machine) {
-            let branch = snapshot_head(&dir, sent)?
-                .trim_start_matches("refs/heads/")
-                .to_owned();
             if let Some(local) = rev(&dir, &format!("refs/heads/{branch}")) {
                 let published = rev(&dir, &format!("{sent}^")).context("a snapshot's branch")?;
                 let state = publish_state(&dir, &published, &local)?;
@@ -750,9 +755,6 @@ pub fn hosted_machines(ctx: &but_ctx::Context) -> Result<HostedProject> {
             }
             continue;
         }
-        let branch = snapshot_head(&dir, sent)?
-            .trim_start_matches("refs/heads/")
-            .to_owned();
         let entry = machines
             .entry(machine.to_owned())
             .or_insert_with(|| HostedMachine {
@@ -988,9 +990,7 @@ pub fn hosted_branch_pull(
     let full = format!("refs/heads/{branch}");
     ensure_published_by(&dir, &snapshot, &full)?;
     let home = local_home(ctx, &dir, &branch)?;
-    if home == LocalHome::Workspace
-        && applied_stack(ctx, &full)?.is_some_and(|(_, branches)| branches > 1)
-    {
+    if stacked_in_workspace(ctx, &dir, &branch)? {
         bail!(
             "{branch} is stacked with other branches in the workspace, which pulling would leave out; tear it off first"
         );
@@ -1301,6 +1301,18 @@ fn clone_parent() -> Result<PathBuf> {
         .map(|(parent, _)| parent)
         .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
         .context("nowhere to clone into")
+}
+
+/// Whether `branch` is applied in the workspace stacked with other branches, which a pull, which
+/// replaces the branch alone, would leave out.
+pub(crate) fn stacked_in_workspace(
+    ctx: &but_ctx::Context,
+    dir: &Path,
+    branch: &str,
+) -> Result<bool> {
+    Ok(local_home(ctx, dir, branch)? == LocalHome::Workspace
+        && applied_stack(ctx, &format!("refs/heads/{branch}"))?
+            .is_some_and(|(_, branches)| branches > 1))
 }
 
 /// Write the snapshot's tree over the checkout at `path` without committing it, so its

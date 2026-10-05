@@ -591,17 +591,30 @@ async fn git_http(
             let moved = after
                 .iter()
                 .filter(|(name, id)| published_before.get(*name) != Some(*id));
+            // Each is checked: valid ones are announced, an invalid one is put back as it was,
+            // and the push reports it rather than looking like it worked.
+            let mut invalid = Vec::new();
             for (name, _) in moved {
-                // The refs landed but can't be shown, so the push mustn't look like it worked.
-                if name.starts_with(SNAPSHOTS) {
-                    let tip = record_publish(&store, name)
-                        .with_context(|| format!("the push landed, but {name} isn't valid"))?;
-                    events::announce_publish(&events, user, &project, tip);
+                let checked = if name.starts_with(SNAPSHOTS) {
+                    record_publish(&store, name)
+                        .map(|tip| events::announce_publish(&events, user, &project, tip))
                 } else {
-                    let sent = record_send(&store, name)
-                        .with_context(|| format!("the push landed, but {name} isn't valid"))?;
-                    events::announce_send(&events, user, &project, sent);
+                    record_send(&store, name)
+                        .map(|sent| events::announce_send(&events, user, &project, sent))
+                };
+                if let Err(err) = checked {
+                    let undo = match published_before.get(name) {
+                        Some(before) => git(&store, &["update-ref", name, before]),
+                        None => git(&store, &["update-ref", "-d", name]),
+                    };
+                    if let Err(undo_err) = undo {
+                        tracing::warn!("couldn't put back {name}: {undo_err:#}");
+                    }
+                    invalid.push(format!("{name}: {err:#}"));
                 }
+            }
+            if !invalid.is_empty() {
+                bail!("the push landed, but was put back: {}", invalid.join("; "));
             }
             // Dismissed or pulled, so other windows of the receiving machine catch up.
             if published_before
@@ -714,16 +727,24 @@ fn record_publish(store: &Path, snapshot_ref: &str) -> anyhow::Result<String> {
     // The project's name and target come from its first publish; later ones from branches
     // based elsewhere would otherwise move every branch's base.
     let first_publish = git(store, &["config", "gitbutler.title"]).is_err();
+    // Checked before anything is written, so a bad first publish leaves no half-made project.
+    let target = match snapshot.target.filter(|_| first_publish) {
+        Some(target) => {
+            let remote = target
+                .strip_prefix("refs/remotes/")
+                .and_then(|rest| rest.split_once('/'))
+                .map(|(remote, _)| remote.to_owned())
+                .filter(|remote| is_name(remote))
+                .context("the target must be a remote-tracking branch")?;
+            Some((target, remote))
+        }
+        None => None,
+    };
     if first_publish {
         git(store, &["config", "gitbutler.title", &snapshot.title])?;
     }
-    if let Some(target) = snapshot.target.filter(|_| first_publish) {
-        let remote = target
-            .strip_prefix("refs/remotes/")
-            .and_then(|rest| rest.split_once('/'))
-            .map(|(remote, _)| remote)
-            .filter(|remote| is_name(remote))
-            .context("the target must be a remote-tracking branch")?;
+    if let Some((target, remote)) = target {
+        let remote = remote.as_str();
         let fetch = format!("+refs/heads/*:refs/remotes/{remote}/*");
         git(
             store,

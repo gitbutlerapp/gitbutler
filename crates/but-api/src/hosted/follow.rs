@@ -451,6 +451,24 @@ impl Run {
 
     fn pull(&mut self, dir: &Path, from: &str, branch: &str, on_event: &dyn Fn(FollowEvent)) {
         let project = title(dir);
+        // Left for a person to tear off first, said once as any other pull that's held back.
+        if but_ctx::Context::discover(dir)
+            .and_then(|ctx| super::stacked_in_workspace(&ctx, dir, branch))
+            .unwrap_or(false)
+        {
+            if self
+                .reported
+                .insert(format!("stacked:{}:{from}:{branch}", dir.display()))
+            {
+                on_event(event(
+                    FollowKind::Skipped,
+                    format!(
+                        "{project}: {from} sent {branch}, but it wasn't pulled: it's stacked with other branches in the workspace; tear it off first"
+                    ),
+                ));
+            }
+            return;
+        }
         let outcome = but_ctx::Context::discover(dir).and_then(|mut ctx| {
             // Into a new worktree when it isn't here yet, so the workspace isn't disturbed.
             super::hosted_branch_pull(&mut ctx, from.to_owned(), branch.to_owned(), false, None)
