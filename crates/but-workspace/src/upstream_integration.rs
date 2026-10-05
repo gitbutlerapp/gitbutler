@@ -1250,17 +1250,16 @@ fn preserve_pick_parents<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     selector: Selector,
 ) -> Result<()> {
-    let Step::Pick(mut pick) = editor.lookup_step(selector)? else {
-        bail!("Expected target tip selector to point to a pick");
-    };
-    let commit = editor.find_commit(pick.id)?;
-    // TODO: Teach but-rebase to treat immutable reference parents as object
-    // anchors. Until then, preserve the target tip's original parents here so
-    // graph-rebase materializes the fallback branch at the exact target ref
-    // object instead of replaying merge-based target history into an equivalent
-    // local rewrite.
-    pick.preserved_parents = Some(commit.inner.parents.iter().copied().collect());
-    editor.replace(selector, Step::Pick(pick))?;
+    editor.update_pick(selector, |editor, mut pick| {
+        let commit = editor.find_commit(pick.id)?;
+        // TODO: Teach but-rebase to treat immutable reference parents as object
+        // anchors. Until then, preserve the target tip's original parents here so
+        // graph-rebase materializes the fallback branch at the exact target ref
+        // object instead of replaying merge-based target history into an equivalent
+        // local rewrite.
+        pick.preserved_parents = Some(commit.inner.parents.iter().copied().collect());
+        Ok(pick)
+    })?;
     Ok(())
 }
 

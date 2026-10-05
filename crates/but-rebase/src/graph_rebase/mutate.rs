@@ -354,6 +354,34 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(step)
     }
 
+    /// Updates the pick to another pick and records a commit mapping.
+    ///
+    /// The function also receives a reference to self to work around borrow checker issues.
+    pub fn update_pick<F>(&mut self, target: impl ToCommitSelector, f: F) -> Result<()>
+    where
+        F: FnOnce(&Self, Pick) -> Result<Pick>,
+    {
+        let target = self
+            .history
+            .normalize_selector(target.to_commit_selector(self)?)?;
+        let Step::Pick(from) = self.graph[target.id].clone() else {
+            bail!("BUG: to_commit_selector should have asserted Step::Pick");
+        };
+        let from_id = if from.exclude_from_tracking {
+            None
+        } else {
+            Some(from.id)
+        };
+        let to = f(self, from)?;
+        if let Some(from_id) = from_id
+            && !to.exclude_from_tracking
+        {
+            self.history.update_mapping(from_id, to.id);
+        }
+        self.graph[target.id] = Step::Pick(to);
+        Ok(())
+    }
+
     /// Replaces the node that the function was pointing to.
     ///
     /// If a commit step has been replaced with another commit step, the commit

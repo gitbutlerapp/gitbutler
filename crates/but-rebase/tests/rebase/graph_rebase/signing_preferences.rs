@@ -3,7 +3,7 @@
 use anyhow::Result;
 use but_core::commit::SignCommit;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, GraphEditorOptions, Pick, Step, cherry_pick::PickMode};
+use but_rebase::graph_rebase::{Editor, GraphEditorOptions, cherry_pick::PickMode};
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable_with_signing, standard_options};
@@ -38,9 +38,10 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
-    let mut pick = Pick::new_pick(c.detach());
-    pick.sign_commit = SignCommit::No;
-    editor.replace(c_sel, Step::Pick(pick))?;
+    editor.update_pick(c_sel, |_editor, mut pick| {
+        pick.sign_commit = SignCommit::No;
+        Ok(pick)
+    })?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -188,9 +189,10 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
-    let mut pick = Pick::new_pick(c.detach());
-    pick.sign_commit = SignCommit::No;
-    editor.replace(c_sel, Step::Pick(pick))?;
+    editor.update_pick(c_sel, |_editor, mut pick| {
+        pick.sign_commit = SignCommit::No;
+        Ok(pick)
+    })?;
 
     // Remove the "b" commit so "c" gets cherry-picked
     let b = repo.rev_parse_single("b")?;
@@ -284,10 +286,11 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
     // Force sign the top commit
     let top_commit_id = repo.rev_parse_single("top")?.detach();
     let top_commit_sel = editor.select_commit(top_commit_id)?;
-    let mut pick = Pick::new_pick(top_commit_id);
-    pick.pick_mode = PickMode::Force;
-    pick.sign_commit = SignCommit::Yes;
-    editor.replace(top_commit_sel, Step::Pick(pick))?;
+    editor.update_pick(top_commit_sel, |_editor, mut pick| {
+        pick.pick_mode = PickMode::Force;
+        pick.sign_commit = SignCommit::Yes;
+        Ok(pick)
+    })?;
 
     let outcome = editor.rebase()?;
     let materialize_outcome = outcome.materialize(Default::default())?;
@@ -371,10 +374,11 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
     // We pick the mid commit with forced signing. This should cause it to be signed, but its
     // descendant top commit should _not_ get signed as it was picked with SignCommit::No
     let mid_sel = editor.select_commit(mid_commit_id)?;
-    let mut pick = Pick::new_pick(mid_commit_id);
-    pick.pick_mode = PickMode::Force;
-    pick.sign_commit = SignCommit::Yes;
-    editor.replace(mid_sel, Step::Pick(pick))?;
+    editor.update_pick(mid_sel, |_editor, mut pick| {
+        pick.pick_mode = PickMode::Force;
+        pick.sign_commit = SignCommit::Yes;
+        Ok(pick)
+    })?;
 
     let outcome = editor.rebase()?;
     let materialize_outcome = outcome.materialize(Default::default())?;
@@ -474,10 +478,11 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
     // We pick the mid commit with force. This should cause it to be signed, and its descendant
     // top commit should get signed through the cascading rewrites.
     let mid_sel = editor.select_commit(mid_commit_id)?;
-    let mut pick = Pick::new_pick(mid_commit_id);
-    pick.pick_mode = PickMode::Force;
-    pick.sign_commit = SignCommit::Yes;
-    editor.replace(mid_sel, Step::Pick(pick))?;
+    editor.update_pick(mid_sel, |_editor, mut pick| {
+        pick.pick_mode = PickMode::Force;
+        pick.sign_commit = SignCommit::Yes;
+        Ok(pick)
+    })?;
 
     let outcome = editor.rebase()?;
     let materialize_outcome = outcome.materialize(Default::default())?;
@@ -655,10 +660,11 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
 
     // We pick the base commit with force, which should cause it to get signed.
     let base_sel = editor.select_commit(base_commit_id)?;
-    let mut pick = Pick::new_pick(base_commit_id);
-    pick.pick_mode = PickMode::Force;
-    pick.sign_commit = SignCommit::Yes;
-    editor.replace(base_sel, Step::Pick(pick))?;
+    editor.update_pick(base_sel, |_editor, mut pick| {
+        pick.pick_mode = PickMode::Force;
+        pick.sign_commit = SignCommit::Yes;
+        Ok(pick)
+    })?;
 
     let outcome = editor.rebase()?;
     let materialize_outcome = outcome.materialize(Default::default())?;

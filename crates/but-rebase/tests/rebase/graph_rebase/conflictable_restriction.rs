@@ -1,10 +1,10 @@
 //! Exercises the step option for whether a step should be allowed to enter a conflicted state.
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{Editor, LookupStep, Step, mutate::InsertSide},
+    graph_rebase::{Editor, Step, mutate::InsertSide},
 };
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 use snapbox::prelude::*;
@@ -126,11 +126,10 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
     // Set c to disallow conflicts
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
-    let Step::Pick(mut c_pick) = editor.lookup_step(c_sel)? else {
-        bail!("c_sel should be a pick");
-    };
-    c_pick.conflictable = false;
-    editor.replace(c_sel, Step::Pick(c_pick))?;
+    editor.update_pick(c_sel, |_editor, mut c_pick| {
+        c_pick.conflictable = false;
+        Ok(c_pick)
+    })?;
 
     // We should see an error given saying C ended up being conflicted
     snapbox::assert_data_eq!(
@@ -185,11 +184,10 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     // Set c to disallow conflicts
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
-    let Step::Pick(mut c_pick) = editor.lookup_step(c_sel)? else {
-        bail!("c_sel should be a pick");
-    };
-    c_pick.conflictable = false;
-    editor.replace(c_sel, Step::Pick(c_pick))?;
+    editor.update_pick(c_sel, |_editor, mut c_pick| {
+        c_pick.conflictable = false;
+        Ok(c_pick)
+    })?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
