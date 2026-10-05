@@ -4001,3 +4001,201 @@ fn leaves_checked_out_local_target_branch_unchanged() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn worktree_heads_are_collected_as_stack_heads() -> Result<()> {
+    let (_tmp, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description("worktree-workspace")?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    db.worktree_meta_mut().mark_adopted()?;
+
+    let old_target = repo.rev_parse_single("main~1")?.detach();
+    let project_meta = target_project_meta("refs/remotes/origin/main", old_target)?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut db,
+        Options {
+            worktrees: true,
+            ..Options::limited()
+        },
+    )?;
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 3c0fa35 (disjoint) D1
+*   bae1d9b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 19f4fc0 (A) A2
+* | 5881e28 (B) B1
+| | * d175c00 (top) TOP1
+| | * b743926 (mid) MID2
+| | * 0bc05bf MID1
+| |/  
+| | * 53aafe9 (wt-below) U1
+| | | * 4fcfc93 (wt-outside) O1
+| |_|/  
+|/| |   
+| | | * 198b592 (wt-pushed) P2
+| | | * 88c9775 (origin/wt-pushed) P1
+| |_|/  
+|/| |   
+| | | * fc6f8f5 (wt-stacked) S1
+| | | * 6a13321 (wt-inside) W1
+| | |/  
+| |/|   
+| * | 0a62dfe A1
+|/ /  
+* / cad9051 (origin/main, main) M1
+|/  
+* d4d66e2 M0
+
+"#]]
+        .raw()
+    );
+
+    let mut workspace = graph.into_workspace()?;
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        &mut db,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("wt-below")?.detach()),
+        }],
+    )?;
+    rebase.materialize(Default::default())?;
+
+    // `wt-below` forked from the old target and is only reachable from its worktree's HEAD.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 3c0fa35 (disjoint) D1
+*   bae1d9b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 19f4fc0 (A) A2
+* | 5881e28 (B) B1
+| | * d175c00 (top) TOP1
+| | * b743926 (mid) MID2
+| | * 0bc05bf MID1
+| |/  
+| | * 684d673 (wt-below) U1
+| |/  
+|/|   
+| | * 4fcfc93 (wt-outside) O1
+| |/  
+|/|   
+| | * 198b592 (wt-pushed) P2
+| | * 88c9775 (origin/wt-pushed) P1
+| |/  
+|/|   
+| | * fc6f8f5 (wt-stacked) S1
+| | * 6a13321 (wt-inside) W1
+| |/  
+| * 0a62dfe A1
+|/  
+* cad9051 (origin/main, main) M1
+* d4d66e2 M0
+
+"#]]
+        .raw()
+    );
+    assert_eq!(
+        repo.rev_parse_single("wt-below~1")?,
+        repo.rev_parse_single("origin/main")?,
+        "a worktree head is a stack head, so its bottom can be rebased onto the target"
+    );
+    Ok(())
+}
+
+#[test]
+fn integrated_branch_checked_out_in_a_worktree_is_kept() -> Result<()> {
+    let (_tmp, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description("worktree-workspace")?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    db.worktree_meta_mut().mark_adopted()?;
+    git(&repo)
+        .args([
+            "update-ref",
+            "refs/remotes/origin/main",
+            "refs/heads/wt-inside",
+        ])
+        .run();
+    let project_meta = target_project_meta(
+        "refs/remotes/origin/main",
+        repo.rev_parse_single("main")?.detach(),
+    )?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut db,
+        Options {
+            worktrees: true,
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let but_workspace::IntegrateUpstreamOutcome {
+        rebase,
+        deleted_refs,
+        ..
+    } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        &mut db,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A~1")?.detach()),
+        }],
+    )?;
+    rebase.materialize(Default::default())?;
+
+    assert!(
+        deleted_refs.is_empty(),
+        "a worktree still has its integrated branch checked out"
+    );
+    // `wt-inside` rests on the target now, `wt-stacked` still sits on top of it.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 3c0fa35 (disjoint) D1
+*   1f9a1dc (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * df811dc (A) A2
+* | 5881e28 (B) B1
+| | * 5b90dd7 (top) TOP1
+| | * 27f53d7 (mid) MID2
+| | * 6a7f2d5 MID1
+| |/  
+| | * 53aafe9 (wt-below) U1
+| | | * 4fcfc93 (wt-outside) O1
+| |_|/  
+|/| |   
+| | | * 198b592 (wt-pushed) P2
+| | | * 88c9775 (origin/wt-pushed) P1
+| |_|/  
+|/| |   
+| | | * fc6f8f5 (wt-stacked) S1
+| | |/  
+| |/|   
+| * | 6a13321 (origin/main, wt-inside) W1
+| * | 0a62dfe A1
+|/ /  
+* / cad9051 (main) M1
+|/  
+* d4d66e2 M0
+
+"#]]
+        .raw()
+    );
+    Ok(())
+}
