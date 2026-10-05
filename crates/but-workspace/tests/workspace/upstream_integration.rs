@@ -4002,13 +4002,28 @@ fn leaves_checked_out_local_target_branch_unchanged() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn worktree_heads_are_collected_as_stack_heads() -> Result<()> {
-    let (_tmp, repo, mut meta, _description, mut db) =
-        named_writable_scenario_with_description("worktree-workspace")?;
+fn worktree_workspace() -> Result<(
+    tempfile::TempDir,
+    gix::Repository,
+    but_meta::VirtualBranchesTomlMetadata,
+    but_db::DbHandle,
+)> {
+    // Linked worktrees record absolute paths, so the fixture is executed rather than copied.
+    let (repo, tmp) = crate::utils::writable_scenario_slow("worktree-workspace");
+    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("virtual-branches.toml"),
+    )?;
+    crate::ref_info::with_workspace_commit::utils::add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let mut db = but_testsupport::in_memory_db();
     db.worktree_meta_mut().mark_adopted()?;
+    Ok((tmp, repo, meta, db))
+}
+
+#[test]
+fn worktree_heads_are_collected_as_stack_heads() -> Result<()> {
+    let (_tmp, repo, mut meta, mut db) = worktree_workspace()?;
 
     let old_target = repo.rev_parse_single("main~1")?.detach();
     let project_meta = target_project_meta("refs/remotes/origin/main", old_target)?;
@@ -4114,17 +4129,13 @@ fn worktree_heads_are_collected_as_stack_heads() -> Result<()> {
 }
 
 #[test]
-fn integrated_branch_checked_out_in_a_worktree_is_kept() -> Result<()> {
-    let (_tmp, repo, mut meta, _description, mut db) =
-        named_writable_scenario_with_description("worktree-workspace")?;
-    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    db.worktree_meta_mut().mark_adopted()?;
+fn integrated_worktree_branches_are_replaced_with_new_ones() -> Result<()> {
+    let (_tmp, repo, mut meta, mut db) = worktree_workspace()?;
     git(&repo)
         .args([
             "update-ref",
             "refs/remotes/origin/main",
-            "refs/heads/wt-inside",
+            "refs/heads/wt-stacked",
         ])
         .run();
     let project_meta = target_project_meta(
@@ -4159,38 +4170,53 @@ fn integrated_branch_checked_out_in_a_worktree_is_kept() -> Result<()> {
     )?;
     rebase.materialize(Default::default())?;
 
-    assert!(
-        deleted_refs.is_empty(),
-        "a worktree still has its integrated branch checked out"
+    assert_eq!(
+        deleted_refs
+            .iter()
+            .map(|name| name.shorten().to_string())
+            .collect::<std::collections::BTreeSet<_>>(),
+        ["wt-inside".to_string(), "wt-stacked".to_string()].into(),
+        "fully integrated worktree branches are gone"
     );
-    // `wt-inside` rests on the target now, `wt-stacked` still sits on top of it.
+    let worktree_head = |name: &str| -> Result<Option<gix::refs::FullName>> {
+        Ok(open_repo(&repo.workdir().expect("non-bare").join(name))?.head_name()?)
+    };
+    let inside = worktree_head("wt-inside")?.expect("still on a branch");
+    let stacked = worktree_head("wt-stacked")?.expect("still on a branch");
+    assert_ne!(inside, stacked, "each worktree gets a branch of its own");
+    for head in [inside, stacked] {
+        assert_eq!(
+            repo.find_reference(&head)?.id(),
+            repo.rev_parse_single("origin/main")?,
+            "the replacement branch starts at the target tip"
+        );
+    }
+    // `mid` forked from the integrated `A1`, so its worktree keeps its branch on the new target.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 * 3c0fa35 (disjoint) D1
-*   1f9a1dc (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   cb64a93 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * df811dc (A) A2
+| * d4becef (A) A2
 * | 5881e28 (B) B1
-| | * 5b90dd7 (top) TOP1
-| | * 27f53d7 (mid) MID2
-| | * 6a7f2d5 MID1
+| | * d74dbcc (top) TOP1
+| | * ccb6c1d (mid) MID2
+| | * 2c3c6a1 MID1
 | |/  
-| | * 53aafe9 (wt-below) U1
-| | | * 4fcfc93 (wt-outside) O1
-| |_|/  
-|/| |   
-| | | * 198b592 (wt-pushed) P2
-| | | * 88c9775 (origin/wt-pushed) P1
-| |_|/  
-|/| |   
-| | | * fc6f8f5 (wt-stacked) S1
-| | |/  
-| |/|   
-| * | 6a13321 (origin/main, wt-inside) W1
-| * | 0a62dfe A1
-|/ /  
-* / cad9051 (main) M1
+| * fc6f8f5 (origin/main, amo-branch-2, amo-branch-1) S1
+| * 6a13321 W1
+| * 0a62dfe A1
+|/  
+| * 53aafe9 (wt-below) U1
+| | * 4fcfc93 (wt-outside) O1
+| |/  
+|/|   
+| | * 198b592 (wt-pushed) P2
+| | * 88c9775 (origin/wt-pushed) P1
+| |/  
+|/|   
+* | cad9051 (main) M1
 |/  
 * d4d66e2 M0
 

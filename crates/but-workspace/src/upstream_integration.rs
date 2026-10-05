@@ -5,7 +5,11 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{Context, Result, bail};
 use bstr::ByteSlice;
 
-use but_core::{RefMetadata, branch::unique_canned_refname, ref_metadata::ProjectMeta};
+use but_core::{
+    RefMetadata,
+    branch::{canned_refname, find_unique_refname_excluding},
+    ref_metadata::ProjectMeta,
+};
 use but_graph::workspace::commit::is_managed_workspace_by_message;
 use but_rebase::{
     commit::DateMode,
@@ -409,6 +413,22 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         // TODO: allow to keep some references.
         for (selector, attrs) in &stack.nodes {
             if worktree_heads.contains(selector) {
+                if let Some(ref_name) = attrs.reference_integrated.as_ref()
+                    && should_delete_integrated_local_branch(
+                        ref_name.as_ref(),
+                        target_ref.ref_name.as_ref(),
+                        local_target_ref.as_ref().map(|name| name.as_ref()),
+                    )
+                {
+                    replace_checkout_ref_with_fallback(
+                        &mut editor,
+                        repo,
+                        ref_name.as_ref(),
+                        target_ref_commit_selector,
+                        None,
+                    )?;
+                    deleted_refs.push(ref_name.clone());
+                }
                 continue;
             }
             if let Some(ref_name) = attrs.reference_integrated.as_ref() {
@@ -1201,7 +1221,9 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
     }
     let fallback_ref_name = match reusable_ref {
         Some(ref_name) => ref_name,
-        None => unique_canned_refname(repo)?,
+        None => find_unique_refname_excluding(repo, canned_refname(repo)?.as_ref(), |name| {
+            editor.try_select_reference(name).is_some()
+        })?,
     };
 
     editor.replace(
