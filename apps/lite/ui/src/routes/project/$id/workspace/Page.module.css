@@ -22,4 +22,5 @@
 	border: 1px solid var(--border-section);
 	border-radius: var(--radius-xl);
 	background-color: var(--bg-1);
+	box-shadow: var(--shadow-sm);
 }
