@@ -345,13 +345,9 @@ fn next_available_order(
 pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     child: Selector,
-    step: &Step,
+    step: gix::ObjectId,
 ) -> Result<Option<Selector>> {
-    let Step::Pick(pick) = step else {
-        return Ok(None);
-    };
-
-    let Some(existing_pick) = editor.try_select_commit(pick.id) else {
+    let Some(existing_pick) = editor.try_select_commit(step) else {
         return Ok(None);
     };
 
@@ -378,18 +374,14 @@ pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
 pub(crate) fn connect_parent_step<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     child: Selector,
-    parent_step: Step,
+    parent_step: gix::ObjectId,
 ) -> Result<Selector> {
-    let parent = match parent_step {
-        Step::Pick(pick) => {
-            if let Some(existing_pick) = editor.try_select_commit(pick.id) {
-                existing_pick
-            } else {
-                editor.add_step(Step::Pick(pick))?
-            }
+    let parent = {
+        if let Some(existing_pick) = editor.try_select_commit(parent_step) {
+            existing_pick
+        } else {
+            editor.add_step(Step::new_pick(parent_step))?
         }
-        Step::Reference { ref refname, .. } => editor.select_reference(refname.as_ref())?,
-        Step::None => bail!("BUG: trying to connect to none"),
     };
 
     let used_orders = editor
