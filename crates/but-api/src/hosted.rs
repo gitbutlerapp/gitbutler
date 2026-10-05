@@ -1023,8 +1023,9 @@ fn publish(
 /// pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
 ///
 /// A branch this machine had published is published again as pulled, so it doesn't disagree
-/// with itself; one it never published stays unpublished. Pulling also clears anything
-/// `machine` sent of it to this machine.
+/// with itself. One `machine` sent here is published from here too while published branches
+/// are kept up to date, so it shows under this machine; otherwise one it never published stays
+/// unpublished. Pulling also clears anything `machine` sent of it to this machine.
 #[but_api(napi, invalidates = [Hosted, Worktrees, Workspace, Branches])]
 #[instrument(err(Debug))]
 pub fn hosted_branch_pull(
@@ -1188,25 +1189,32 @@ pub fn hosted_branch_pull(
         None => done,
     };
     git(&dir, &[], &["update-ref", &synced_ref(&branch), &snapshot])?;
+    // Read before the inbox is cleared, which is what makes it a send.
+    let was_sent = rev(
+        &dir,
+        &format!("{HOSTED_REFS}/inbox/{machine}/{}", published_name(&branch)),
+    )
+    .is_some();
     // Pulled is handled; the branch itself is here either way.
     if let Err(err) = clear_inbox(&dir, &machine, &branch) {
         tracing::warn!("{branch} was pulled, but stays in the inbox: {err:#}");
     }
     // What this machine published of the branch would now disagree with it, so it's published
-    // again as pulled. After the pull, so a pull that stops never leaves it claiming more.
-    let own = machine_name()
-        .map(|this| format!("{HOSTED_REFS}/snapshots/{this}/{}", published_name(&branch)));
-    let done = match own.filter(|own| rev(&dir, own).is_some()) {
-        None => done,
-        Some(_) => {
-            let with_uncommitted =
-                matches!(local_home(ctx, &dir, &branch)?, LocalHome::Worktree(_))
-                    && has_uncommitted(&dir, &snapshot);
-            match publish(ctx, &branch, with_uncommitted, None) {
-                Ok(_) => format!("{done}, and published it again from here"),
-                Err(err) => format!("{done}, but couldn't publish it again from here: {err:#}"),
-            }
+    // again as pulled; a send kept up to date is published from here too, so it shows under the
+    // machine that took it. After the pull, so a pull that stops never leaves it claiming more.
+    let had_published = machine_name()
+        .map(|this| format!("{HOSTED_REFS}/snapshots/{this}/{}", published_name(&branch)))
+        .is_some_and(|own| rev(&dir, &own).is_some());
+    let done = if had_published || (was_sent && ctx.settings.mesh.auto_publish) {
+        let with_uncommitted = matches!(local_home(ctx, &dir, &branch)?, LocalHome::Worktree(_))
+            && has_uncommitted(&dir, &snapshot);
+        let again = if had_published { " again" } else { "" };
+        match publish(ctx, &branch, with_uncommitted, None) {
+            Ok(_) => format!("{done}, and published it{again} from here"),
+            Err(err) => format!("{done}, but couldn't publish it{again} from here: {err:#}"),
         }
+    } else {
+        done
     };
     Ok(SyncOutcome::Done(done))
 }

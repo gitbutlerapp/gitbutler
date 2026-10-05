@@ -949,14 +949,14 @@ export declare function headInfo(projectId: string): Promise<RefInfo>
  * the hosted server; no project is fetched. Local projects are matched to what was published by
  * root commit, and one whose directory is gone is left out rather than failing the call.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:559}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:567}
  */
 export declare function hostedAccount(): Promise<Array<HostedAccountProject>>
 
 /**
  * Take what `machine` sent of `branch` out of this machine's inbox, without pulling it.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:825}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:893}
  */
 export declare function hostedBranchDismiss(projectId: string, machine: string, branch: string): Promise<void>
 
@@ -969,7 +969,7 @@ export declare function hostedBranchDismiss(projectId: string, machine: string, 
  * is checked out in; in the workspace, uncommitted changes don't belong to one branch, so
  * they stay local. Nothing another machine published is replaced, so it never asks.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:798}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:866}
  */
 export declare function hostedBranchPublish(projectId: string, branch: string, includeUncommitted: boolean): Promise<string>
 
@@ -984,10 +984,11 @@ export declare function hostedBranchPublish(projectId: string, branch: string, i
  * pulling would replace them: without `on_conflict` that's a [`SyncOutcome::NeedsChoice`].
  *
  * A branch this machine had published is published again as pulled, so it doesn't disagree
- * with itself; one it never published stays unpublished. Pulling also clears anything
- * `machine` sent of it to this machine.
+ * with itself. One `machine` sent here is published from here too while published branches
+ * are kept up to date, so it shows under this machine; otherwise one it never published stays
+ * unpublished. Pulling also clears anything `machine` sent of it to this machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:960}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:1029}
  */
 export declare function hostedBranchPull(projectId: string, machine: string, branch: string, intoWorkspace: boolean, onConflict: OnConflict | null): Promise<SyncOutcome>
 
@@ -995,7 +996,7 @@ export declare function hostedBranchPull(projectId: string, machine: string, bra
  * Publish `branch` as [`hosted_branch_publish()`] does, and send it to the machine named `to`:
  * it shows up there as sent, to pull or dismiss, and if `to` is online, it's told right away.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:810}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:878}
  */
 export declare function hostedBranchSend(projectId: string, branch: string, to: string, includeUncommitted: boolean): Promise<string>
 
@@ -1006,7 +1007,7 @@ export declare function hostedBranchSend(projectId: string, branch: string, to: 
  * branches are here already. On the hosted server, which has no files, it's the server's own
  * record of every machine.
  *
- * {@link ../../../../../crates/but-api/src/hosted.rs:667}
+ * {@link ../../../../../crates/but-api/src/hosted.rs:733}
  */
 export declare function hostedMachines(projectId: string): Promise<HostedProject>
 
