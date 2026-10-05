@@ -979,27 +979,3 @@ legacy::absorb::tests::paired_old_and_new_hunk_selections_preserve_their_shared_
   partial mode and interactive conflict resolution are deferred. No push, GitHub
   update, branch switch, or publication was performed. Remote CI must be checked
   against the actual published head after separate authorization.
-
-### Local PR-Text Draft
-
-Make absorb selection-faithful and operationally atomic.
-
-Absorb preserves coupled selectors and original source coordinates, validates
-stamped plans, composes rewrites and blank targets in one graph editor, and
-materializes only after all selected groups succeed. Rejections and replay
-conflicts publish nothing. Returned materialization failures restore the prepared
-checkpoint; failed restoration reports uncertainty rather than claiming success.
-
-Successful public operations retain an undo checkpoint. Post-publication errors
-distinguish whether undo is available, and callers report rejection as failure.
-Binary replacements, copy-like additions, 2 MiB binary additions, executable-mode
-changes, and clean merge descendants have exact preservation tests. Changed
-non-UTF-8 paths and renames are refused unchanged. The CLI also refuses selected
-landed targets unless `--allow-merged` is explicit.
-
-Local API, absorb/amend CLI, workspace-amend, undo, and oplog checks pass. The W07
-32-hunk measurement improved from 78.647 s to 36.679 s; the accepted comparison
-has an integrated-build provenance caveat and is not an isolated exact-revision
-or newly timed release-candidate result. Crash-proof ACID, optional partial mode,
-interactive resolution, and checkpoint-diff functionality are not implemented.
-Remote CI and publication remain pending separate authorization.
