@@ -94,6 +94,9 @@ export const interfaceSlice = createSlice({
 			state.mesh.selection = key;
 			state.mesh.overview = overview;
 		},
+		clearMeshOverview: (state) => {
+			state.mesh.overview = null;
+		},
 	},
 	selectors: {
 		selectDiffFooterView: (state) => state.diffFooterView,

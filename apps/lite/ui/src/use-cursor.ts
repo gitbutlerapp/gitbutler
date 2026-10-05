@@ -16,6 +16,7 @@ import {
 } from "#ui/operations/pending-operation.ts";
 import type { Address } from "#ui/addresses.ts";
 import type { PageId, ActiveList } from "#ui/projects/project.ts";
+import { interfaceSlice } from "#ui/interface/state.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { writeLastPlace } from "#ui/project.ts";
 import { router } from "#ui/router.ts";
@@ -247,6 +248,8 @@ export const setCursor = <L extends CursorName>(list: L, item: CursorItem[L] | n
 	// Selecting the same item is a no-op, side effects included; selecting
 	// null always lands (it may still have sub-cursors to clear).
 	if (item !== null && currentParams()[list] === encoded) return;
+	// Something else now says what the details show; a mesh overview would hide it.
+	store.dispatch(interfaceSlice.actions.clearMeshOverview());
 
 	navigateParams((prev) => ({
 		...prev,
@@ -272,6 +275,7 @@ export const setPage = (page: PageId): void => {
 /** Name the workspace list that drives the details pane. */
 export const setActiveList = (list: ActiveList): void => {
 	if (activeListOf() === list) return;
+	store.dispatch(interfaceSlice.actions.clearMeshOverview());
 
 	navigateParams((prev) => ({ ...prev, active: list === "applied" ? undefined : list }));
 };
