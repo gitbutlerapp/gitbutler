@@ -16,11 +16,12 @@
 }
 
 /* Window controls are a regular button's 28px; centred on the title's line, they hang off it
-   evenly above and below rather than pushing the title down. */
+   evenly above and below rather than pushing the title down. They stand as far off the title as
+   an avatar does. */
 .leading {
 	display: flex;
 	flex-shrink: 0;
-	align-self: flex-start;
+	margin-inline-end: 8px;
 	margin-block: calc((1lh - 28px) / 2);
 	line-height: 18px;
 }

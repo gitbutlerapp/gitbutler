@@ -125,6 +125,34 @@ export const Branch = meta.story({
 });
 
 /**
+ * Lite in full-window mode: the window's controls lead the title's line, after the room the
+ * traffic lights take. The meta line and the toolbar still start at the header's edge.
+ */
+export const BranchFullWindow = meta.story({
+	args: {
+		leading: (
+			<div style={{ display: "flex", columnGap: 12, alignItems: "center" }}>
+				<div style={{ width: 64 }} />
+				<Button iconOnly variant="ghost" aria-label="Show the sidebar">
+					<Icon name="sidebar-narrow" />
+				</Button>
+				<ViewHeaderDivider />
+			</div>
+		),
+		icon: "branch",
+		title: "feature/JIRA-404-search-filters",
+		meta: branchMeta,
+		toolbar: (
+			<>
+				<BranchTabs />
+				<ViewHeaderDivider />
+				<CommitFilter />
+			</>
+		),
+	},
+});
+
+/**
  * The Pull Request tab: the commit filter leaves with the diff, and the pull request's own
  * toolbar takes the end. Ghosts for Edit and the menu, an outline switch for Auto-merge since it
  * holds state, and Merge as the surface's one pop.
