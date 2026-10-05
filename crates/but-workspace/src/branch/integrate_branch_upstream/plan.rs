@@ -357,7 +357,7 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
 ) -> Result<SegmentDelimiter<Selector, Selector>> {
     // Step 1: We interpret the integration steps and transform them into graph steps disconnected from their parents.
     // We disconnect them in order to be able to allow for reordering.
-    let segment_steps = integration_steps_to_segment_steps_for_editor(editor, ref_name, steps)?;
+    let segment_steps = integration_steps_to_segment_steps_for_editor(editor, steps)?;
 
     // Step 2. We build the new local branch out of the steps.
     // We start by disconnecting all the parents of the local branch reference step, as we will connect it to the new
@@ -366,9 +366,8 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
     disconnect_selector_from_all_parents(editor, child_most)?;
     let mut parent_most = child_most;
 
-    for step in segment_steps.into_iter().skip(1) {
-        if let Some(existing_parent) =
-            already_connected_parent_for_step(editor, parent_most, &step)?
+    for step in segment_steps.into_iter() {
+        if let Some(existing_parent) = already_connected_parent_for_step(editor, parent_most, step)?
         {
             parent_most = existing_parent;
             continue;
@@ -389,23 +388,20 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
 /// synthetic merge steps, and detach reusable commits from their current parent
 /// edges.
 ///
-/// `ref_name` is the branch reference that anchors the rebuilt segment.
-///
 /// `steps` is the prepared integration plan in execution order.
 ///
-/// Returns the graph steps to insert, starting with a reference step and then
-/// the parent chain steps in insertion order.
+/// Returns the graph steps to insert in insertion order.
 fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
-    ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
-) -> Result<Vec<Step>> {
-    let mut out = vec![Step::new_reference(ref_name.to_owned())];
+) -> Result<Vec<gix::ObjectId>> {
+    let mut out: Vec<gix::ObjectId> = vec![];
 
     for step in steps.iter().rev() {
         match step {
             PreparedIntegrationStep::Pick { commit_id, .. } => {
-                out.push(existing_or_new_pick_step(editor, *commit_id)?);
+                disconnect_and_make_mutable_if_existing(editor, *commit_id)?;
+                out.push(*commit_id);
             }
             PreparedIntegrationStep::Merge { commit_id } => {
                 let mut merge_commit = editor.empty_commit()?;
@@ -427,9 +423,9 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
                 };
                 pick.preserved_parents = Some(preserved_parents);
                 let commit_to_merge = editor.add_step(commit_to_merge)?;
+                out.push(merge_commit);
                 let merge_commit = editor.add_step(Step::new_untracked_pick(merge_commit))?;
                 editor.add_edge(merge_commit, commit_to_merge, 1)?;
-                out.push(editor.lookup_step(merge_commit)?);
             }
         }
     }
@@ -437,21 +433,11 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
     Ok(out)
 }
 
-/// Produce a pick step for `commit_id`, detaching selected parent edges when needed.
-///
-/// `editor` is the mutable graph editor used to inspect or detach an existing
-/// selectable commit.
-///
-/// `commit_id` is the commit that should be represented as a pick step in the
-/// rebuilt integration segment.
-///
-/// Returns either the existing pick step for `commit_id` after detaching the
-/// selected parent edges, or a brand-new pick step when the commit is not yet
-/// selectable in the editor.
-fn existing_or_new_pick_step<M: RefMetadata>(
+/// Disconnects and makes mutable the step corresponding to `commit_id`, if it exists.
+fn disconnect_and_make_mutable_if_existing<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     commit_id: gix::ObjectId,
-) -> Result<Step> {
+) -> Result<()> {
     if let Some(existing) = editor.try_select_commit(commit_id) {
         let parents_to_disconnect = determine_parent_selector(editor, existing)?;
         editor.disconnect_segment_from(
@@ -472,10 +458,10 @@ fn existing_or_new_pick_step<M: RefMetadata>(
             && !pick.mutable
         {
             pick.mutable = true;
-            editor.replace(existing, step.clone())?;
+            editor.replace(existing, step)?;
         }
-        return Ok(step);
+        return Ok(());
     }
 
-    Ok(Step::new_pick(commit_id))
+    Ok(())
 }
