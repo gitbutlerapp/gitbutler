@@ -486,14 +486,16 @@ fn render_status_list_item(
         if let Some(mark_symbol) = mark_symbol {
             let mut mark_padding = 0;
             for (idx, span) in connector.iter().enumerate() {
-                if idx == 1 {
+                // Linked worktrees prepend graph lanes; the indicator and its spacing
+                // remain the final two spans regardless of nesting depth.
+                if idx + 2 == connector.len() {
                     let mark_span = mark_symbol.span();
                     mark_padding = span.width().saturating_sub(mark_span.width());
                     line.render(mark_span);
                     for _ in 0..mark_padding {
                         line.render(Span::raw(" ").style(app.theme.tui_mark));
                     }
-                } else if idx == 2 {
+                } else if idx + 1 == connector.len() {
                     // after the indicator is a bunch of spaces
                     for (c_idx, c) in span.content.chars().enumerate() {
                         line.render(if c_idx == 0 && mark_padding == 0 {
