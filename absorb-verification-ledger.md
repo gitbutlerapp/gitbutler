@@ -5,7 +5,7 @@ Updated: 2026-10-05. This is evidence tracking, not an automatic approval gate.
 
 ## Resume Here
 
-Active packet: **W08 - Independent Review And Release Readiness**. W07 completed
+Active packet: **None - W00-W08 local work complete**. W07 completed
 the recovery boundaries, deterministic generated cases, supported-domain matrix,
 and representative performance measurement. The Author accepted the performance
 result with its recorded provenance caveat and selected case-by-case proof of the
@@ -15,8 +15,10 @@ Later direction briefs: [W04 design](absorb-w04-design-approval.md),
 [W06 callers](absorb-w06-callers-diagnostics.md),
 [W07 verification](absorb-w07-verification-cost.md), and
 [W08 release readiness](absorb-w08-review-release.md).
-W08 must independently review the complete diff and release evidence before any
-publication. No push, PR update, branch switch, or publication is authorized.
+W08 obtained independent full-series review and follow-up acceptance, repaired
+the action-only recovery diagnostic, and validated the code candidate recorded
+below. Local readiness is complete; publication and remote CI are not claimed.
+No push, PR update, branch switch, or publication is authorized.
 
 The old chat task list about committing skills and updating review threads belongs
 to earlier completed publication work; it is not this implementation queue.
@@ -27,17 +29,17 @@ Use states `pending`, `active`, `blocked`, or `done`. Only mark done with linked
 evidence below. A failed reproduction test may complete a test-writing packet;
 it does not complete its implementation fix or permit release.
 
-| Packet                    | Prerequisites | State   | Evidence / next action                                                       |
-| ------------------------- | ------------- | ------- | ---------------------------------------------------------------------------- |
-| W00 baseline              | None          | done    | Baseline evidence recorded below; next action is W01 state/transaction audit |
-| W01 state/caller audit    | W00           | done    | Source-backed audit and W03/W04 inputs recorded below                        |
-| W02 selector regressions  | W00           | done    | Five expected-red fixture regressions recorded below; W03 is next            |
-| W03 atomicity regressions | W01           | done    | A1-A6 executable evidence recorded below; W04 design approval is next        |
-| W04 design approval       | W01-W03       | done    | Original scope and blank-target amendment approved by the Author             |
-| W05 implementation        | W04 approved  | done    | Atomic path, preconditions, finalization and focused validation recorded     |
-| W06 diagnostics/callers   | W05           | done    | Caller inventory, diagnostics, and non-success contracts recorded below      |
-| W07 verification/cost     | W05-W06       | active  | Recovery and measurements recorded; acceptance/domain gates remain           |
-| W08 review/release        | W07           | pending | Independent review; publication separately authorized                        |
+| Packet                    | Prerequisites | State | Evidence / next action                                                         |
+| ------------------------- | ------------- | ----- | ------------------------------------------------------------------------------ |
+| W00 baseline              | None          | done  | Baseline evidence recorded below; next action is W01 state/transaction audit   |
+| W01 state/caller audit    | W00           | done  | Source-backed audit and W03/W04 inputs recorded below                          |
+| W02 selector regressions  | W00           | done  | Five expected-red fixture regressions recorded below; W03 is next              |
+| W03 atomicity regressions | W01           | done  | A1-A6 executable evidence recorded below; W04 design approval is next          |
+| W04 design approval       | W01-W03       | done  | Original scope and blank-target amendment approved by the Author               |
+| W05 implementation        | W04 approved  | done  | Atomic path, preconditions, finalization and focused validation recorded       |
+| W06 diagnostics/callers   | W05           | done  | Caller inventory, diagnostics, and non-success contracts recorded below        |
+| W07 verification/cost     | W05-W06       | done  | Recovery/domain proofs complete; performance accepted with provenance caveat   |
+| W08 review/release        | W07           | done  | Independent review accepted; local checks complete; publication not authorized |
 
 Recommended serial order is W00-W08. Dependencies permit W02 before W01 is
 finished, but do not authorize concurrent edits. First-release scope excludes
@@ -102,23 +104,26 @@ approval. W07 records the performance workload, baseline, budget, and acceptance
 ## Phase Gates
 
 - [x] Draft plain-language explanation, proposed contract, and phased plan.
-      Evidence: the companion plan created 2026-10-04. Not yet approved.
-- [ ] P0: review explanation and decide D1-D5 before implementation design approval.
-- [ ] P1: demonstrate known selector regressions and investigate fallback hint.
-- [ ] P2: approve and implement contract-preserving scheduling and safe batching.
-- [ ] P3: complete risk-based verification and performance acceptance.
-- [ ] P4: implement conflict handoff, or explicitly approve a tracked deferral.
-- [ ] P5: complete cross-surface review, gates, accurate docs, and authorized release.
+      Evidence: the companion plan created 2026-10-04; W04 approval below.
+- [x] P0: review explanation and decide D1-D5 before implementation design approval.
+- [x] P1: demonstrate known selector regressions and investigate fallback hint.
+      F3's unconfirmed fallback case is explicitly deferred below.
+- [x] P2: approve and implement contract-preserving scheduling and safe batching.
+- [x] P3: complete risk-based verification and performance acceptance.
+- [x] P4: implement conflict handoff, or explicitly approve a tracked deferral.
+      D4 defers resolution integration; the first release aborts unchanged.
+- [ ] P5 publication: local cross-surface review, gates, and docs are complete;
+      release publication and remote CI await separate authorization.
 
 ## Decision Register
 
-| ID  | Decision needed                                                                    | Status   | Owner/reviewer and evidence                                                                  |
-| --- | ---------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
-| D1  | Selection grouping, coordinate snapshot, and stable application model              | Proposed | W04 recommendation: immutable source snapshot, grouped staged application; approval required |
-| D2  | Coupled selections with different proposed targets; ambiguity policy               | Proposed | Keep coupled groups intact; route or reject the complete group; approval required            |
-| D3  | Partial rejection, fatal error, atomicity, undo, and dry-run contracts             | Proposed | One publication boundary; staged rejection; operational crash limits; approval required      |
-| D4  | Conflict workflow reuse, automatic/opt-in handoff, continue/abort, unattended CLI  | Open     | Unassigned; requested direction is resolution support, mechanism unverified                  |
-| D5  | Supported input domain, cross-surface scope, staged release and performance budget | Proposed | W05 bounded slices; W06 callers; W07 cost/domain gate; approval required                     |
+| ID  | Decision needed                                                                    | Status   | Owner/reviewer and evidence                                                                    |
+| --- | ---------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| D1  | Selection grouping, coordinate snapshot, and stable application model              | Approved | Author's W04 design approval; W05 implementation and W08 independent acceptance                |
+| D2  | Coupled selections with different proposed targets; ambiguity policy               | Approved | Whole-group routing or atomic refusal; W02/W05 proofs                                          |
+| D3  | Partial rejection, fatal error, atomicity, undo, and dry-run contracts             | Approved | Operational atomicity, required checkpoints, truthful recovery; optional partial mode deferred |
+| D4  | Conflict workflow reuse, automatic/opt-in handoff, continue/abort, unattended CLI  | Deferred | Author approved first-release abort unchanged; resolution integration is a separate follow-up  |
+| D5  | Supported input domain, cross-surface scope, staged release and performance budget | Approved | W06 caller inventory; W07 case-by-case domain proofs and performance acceptance with caveat    |
 
 ## Approved Policy Decisions: 2026-10-04
 
@@ -138,8 +143,9 @@ approve requirements only; no implementation or verification gate is complete.
 - [x] D5 staging: atomic path can ship before optional partial/resolution modes.
       Supported domain, performance budget, and cross-surface compatibility remain open.
 
-The decision register above remains open for the technical questions; these
-approved policies constrain their answers. D1 still needs design review.
+These were the initial policy approvals. The decision register now includes the
+subsequent W04 design approval and W07 domain/performance acceptance; the historical
+open questions in this section are not remaining implementation blockers.
 
 ### W04 Design Recommendation - Approved Scope
 
@@ -195,7 +201,7 @@ approved policies constrain their answers. D1 still needs design review.
       absorb planning/execution; a focused fixture is deferred from W06.
 - [x] F4: quantify repeated rebase/materialization cost per selector.
       W07 records a comparable 32-hunk benchmark and source-backed materialization
-      counts below. Performance acceptance remains pending.
+      counts below. The Author accepted the measurements with the provenance caveat.
 
 ## Test Matrix
 
@@ -207,12 +213,14 @@ For each checked row, add test names and evidence below. Reuse fixture harnesses
 - [x] Planner plus executor preserve coupled selections across target decisions.
 - [ ] Insertions/deletions/replacements at beginning, middle, and end of file.
 - [ ] Zero/default/nondefault context; adjacency and diff-boundary recomputation.
-- [ ] Independent files and safe batching; exact intermediate target content.
+- [x] Independent files and safe batching; exact final target content.
+      W07 independent-branch and binary/copy/large-file contracts below.
 - [ ] Original deletion-boundary case and nonmatching same-sized substitution.
 - [ ] Partial rejections around successful rewrites; stable count units and mappings.
 - [x] No unselected content committed; correct residual diff and preserved worktree.
 - [x] Ref/index/metadata preservation on failure; agreed partial-state behavior.
-- [ ] Undo, dry-run, stale input, and unsupported-domain handling.
+- [x] Undo, dry-run, stale input, and unsupported-domain handling.
+      W05 stamped plans, CLI dry-run, and W07 recovery/domain matrix below.
 - [ ] Precise and fallback amend hints with ancestor, descendant, and independent refs.
 - [x] Deterministic generated cases with independent oracle and recorded seeds.
 - [ ] Resolution continue/abort/cancel/restart and repeated conflict, if implemented.
@@ -901,13 +909,97 @@ legacy::absorb::tests::paired_old_and_new_hunk_selections_preserve_their_shared_
 
 ## Release Checklist
 
-- [ ] Design explanation reviewed first; D1-D5 resolved or explicitly deferred.
-- [ ] Confirmed defects reproduced before fixes; existing regressions retained.
-- [ ] Full-diff review completed; no weakened assertions or duplicate patch engine.
-- [ ] Runtime and operation-count evidence meets agreed budget.
-- [ ] All affected callers and transport contracts accounted for.
-- [ ] Tests, lint, formatting, and applicable CI recorded for release revision.
-- [ ] Conflict behavior and remaining limitations described accurately.
-- [ ] PR description distinguishes implemented guarantees from follow-up proposals.
-- [ ] Only authorized files committed/pushed; unrelated changes preserved.
-- [ ] Review replies and resolutions match published fixes, not plans.
+- [x] Design explanation reviewed first; D1-D5 resolved or explicitly deferred.
+- [x] Confirmed defects reproduced before fixes; existing regressions retained.
+- [x] Full-series independent review completed; follow-up accepts review fixes.
+- [x] Runtime and source-backed count evidence accepted with provenance caveat.
+- [x] Affected callers and transport contracts accounted for in W06 and W08.
+- [x] Local tests, lint, and formatting recorded for the code candidate below.
+- [x] Conflict behavior and remaining limitations described accurately.
+- [x] Local PR-text draft distinguishes guarantees from deferred proposals.
+- [x] Only authorized files committed; unrelated applied branches preserved.
+- [ ] Remote CI and publication: not authorized or performed.
+- [ ] Published review replies/thread resolutions: not authorized or performed.
+
+## W08 Independent Review And Local Readiness
+
+- Packet / owner / status / date: W08 / GitHub Copilot / done locally / 2026-10-05.
+  W07 domain closure is `mmr`, `2dfec7ae2b60925562cf30bc55321a223c0eb81e`.
+  Review-fixed code candidate is `lvs`, `61e85ecd9e00e2e6b70243f4b82a621648d56c86`,
+  on `fix-absorb-deletion-boundary`. Integrated workspace HEAD after that commit
+  is `4047683acac2e2ca584c5ce5ffbf3f339bcd7e41`; the unrelated applied branches
+  `fix-github-account-selection` and `fix-cli-local-workspace-discovery` are retained.
+  Checks ran on the source subsequently committed as `lvs`; this final ledger
+  update is documentation-only. This is not an isolated checkout of the branch.
+- Review authorization/artifact: the Author explicitly authorized a read-only
+  independent review subagent. The Explore reviewer using Claude Opus 4.8 reviewed
+  the full W05-W07 series against `64436487e7c57bdfde3da4785f1e9d6e52c38d50`,
+  then reviewed the W08 fixes. Its reports are preserved in this session and
+  summarized here. It inspected implementation, tests, caller classification,
+  design, and evidence; it did not independently execute test/lint commands.
+- Initial findings: no High/Medium findings. One Low finding correctly identified
+  false undo guidance on action-only finalization. A second identified design
+  wording that incorrectly generalized CLI landed-target policy to shared planning.
+  Coarse whole-source staleness was accepted as conservative fail-closed behavior.
+- Reproduction/fix: `action_only_finalization_failure_does_not_claim_undo` first
+  failed with a false `Run but undo` instruction after a real SQLite-trigger
+  failure. `AbsorbFinalizationError` now records whether the checkpoint was
+  committed: timeline execution still advertises undo, action-only execution
+  reports automatic undo unavailable. The regression verifies graph publication
+  with unchanged oplog head and worktree bytes; the public counterpart still runs
+  production undo and compares restored state. No signatures or SDK DTOs changed.
+- Documentation/context repair: the plan now distinguishes shared amend eligibility
+  from CLI landed policy. Clean merge-descendant success now runs with three context
+  lines and retains its exact parent/content/worktree assertions.
+- Independent follow-up verdict: **Accept**. The initial issues are resolved or
+  explicitly nonblocking; no misleading recovery claim, weakened assertion,
+  hidden API change, or new policy contradiction was found. CLI JSON's hardcoded
+  `undoAvailable: true` remains correct because it always supplies a checkpoint;
+  switching it to action-only execution would require updating that classification.
+- Candidate validation: `cargo fmt -p but-api` passed;
+  `cargo test -p but-api legacy::absorb::tests --no-default-features` passed 31;
+  `cargo test -p but --test but command::absorb` passed 18;
+  `cargo test -p but --test but command::undo::can_undo_but_absorb` passed one;
+  `cargo test -p gitbutler-oplog --test oplog` passed 37;
+  `cargo test -p but-workspace --test workspace commit::commit_amend` passed nine;
+  `cargo test -p but --test but command::amend` passed 21.
+  `cargo clippy -p but-api -p gitbutler-oplog -p but --all-targets --no-deps -- -D warnings`
+  passed. Targeted Prettier, fixture `bash -n`, editor diagnostics, and
+  `git diff --check` passed. These are scoped suites, not the entire monorepo.
+- Known nonblocking limitations: crash recovery is not ACID; a returned rollback
+  failure explicitly reports uncertain partial state. Renames and changed non-UTF-8
+  paths remain unsupported and fail unchanged. Landed classification is CLI policy,
+  not a shared-planner guarantee. Explicit N-API/HTTP rejection tests, F3's
+  unconfirmed fallback hint, and unchecked detailed test-matrix combinations remain
+  follow-ups, not claims of coverage. W06 Desktop checking remains blocked by its
+  recorded unrelated errors; no new frontend edit was made in W07/W08. Performance
+  is the accepted W07 measurement, not a newly timed `lvs` exact-revision benchmark.
+- Handoff: locally ready within the approved scope. Successful public checkpoints
+  remain available for undo; checkpoint comparison is a future feature. Optional
+  partial mode and interactive conflict resolution are deferred. No push, GitHub
+  update, branch switch, or publication was performed. Remote CI must be checked
+  against the actual published head after separate authorization.
+
+### Local PR-Text Draft
+
+Make absorb selection-faithful and operationally atomic.
+
+Absorb preserves coupled selectors and original source coordinates, validates
+stamped plans, composes rewrites and blank targets in one graph editor, and
+materializes only after all selected groups succeed. Rejections and replay
+conflicts publish nothing. Returned materialization failures restore the prepared
+checkpoint; failed restoration reports uncertainty rather than claiming success.
+
+Successful public operations retain an undo checkpoint. Post-publication errors
+distinguish whether undo is available, and callers report rejection as failure.
+Binary replacements, copy-like additions, 2 MiB binary additions, executable-mode
+changes, and clean merge descendants have exact preservation tests. Changed
+non-UTF-8 paths and renames are refused unchanged. The CLI also refuses selected
+landed targets unless `--allow-merged` is explicit.
+
+Local API, absorb/amend CLI, workspace-amend, undo, and oplog checks pass. The W07
+32-hunk measurement improved from 78.647 s to 36.679 s; the accepted comparison
+has an integrated-build provenance caveat and is not an isolated exact-revision
+or newly timed release-candidate result. Crash-proof ACID, optional partial mode,
+interactive resolution, and checkpoint-diff functionality are not implemented.
+Remote CI and publication remain pending separate authorization.
