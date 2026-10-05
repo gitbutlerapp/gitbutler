@@ -2060,8 +2060,8 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 };
 
 /**
- * Shows and hides the files panel. While the panel is hidden the button carries the change's file
- * count and line totals, which the panel's header shows otherwise.
+ * Shows and hides the files panel, as an icon. While the panel is hidden the button carries the
+ * change's file count and line totals, which the panel's header shows otherwise.
  */
 const FilesToggle: FC<{ projectId: string; fileCount: number; lineStats: LineStats }> = ({
 	projectId,
@@ -2084,12 +2084,13 @@ const FilesToggle: FC<{ projectId: string; fileCount: number; lineStats: LineSta
 			kbd={workspaceHotkeys.toggleFiles.hotkey}
 		>
 			<Button
+				variant="ghost"
+				iconOnly={filesVisible}
 				aria-label={label}
 				aria-pressed={filesVisible}
 				onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
 			>
 				{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-narrow" />}
-				Files
 				{!filesVisible && (
 					<>
 						<Badge variant="lightGray">{fileCount}</Badge>
