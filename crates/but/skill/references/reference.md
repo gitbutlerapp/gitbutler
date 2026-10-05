@@ -236,7 +236,8 @@ but absorb --dry-run [SOURCE] # Preview without changing state
 
 The operation is atomic: if any selected group cannot be applied, no selected group is published.
 Likewise, if any selected target is merged upstream, the whole operation is refused unless
-`--allow-merged` is specified. A successful operation creates an undo checkpoint; use `but undo` to
+`--allow-merged` is specified. For an empty branch, creating a new commit above a landed parent is
+allowed when the branch itself is not landed. A successful operation creates an undo checkpoint; use `but undo` to
 restore it. On failure, follow the reported undo availability instead of assuming an undo checkpoint
 exists.
 

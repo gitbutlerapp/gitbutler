@@ -134,7 +134,12 @@ pub(crate) fn handle(
     // Display the plan (in JSON mode for non-dry-run, collect without writing — we'll
     // combine it with the result in absorb_assignments to avoid a double-write that
     // would overwrite the plan in the JSON buffer).
-    let plan_json = display_absorption_plan(&absorption_plan, &id_map, out, dry_run)?;
+    let plan_json = display_absorption_plan(
+        &absorption_plan,
+        &id_map,
+        out,
+        dry_run && skipped_merged.is_empty(),
+    )?;
 
     if !skipped_merged.is_empty() {
         if let Some(out) = out.for_json() {
@@ -305,7 +310,7 @@ fn get_hunk_ranges(hunk: &but_core::SingleHunk) -> Vec<String> {
 
 /// Display the absorption plan to the user.
 ///
-/// When `write_json` is true (dry-run), writes JSON directly. When false (non-dry-run),
+/// When `write_json` is true, writes JSON directly. When false,
 /// returns the plan data so the caller can combine it with the operation result
 /// in a single JSON write — avoiding a double-write that would overwrite the buffer.
 fn display_absorption_plan(
@@ -401,12 +406,12 @@ fn display_absorption_plan(
         }
     }
 
-    // When write_json is false (non-dry-run), return the plan so the caller can
+    // When write_json is false, return the plan so the caller can
     // combine it with the operation result in a single write_value call.
     Ok(if write_json { None } else { Some(plan_output) })
 }
 
-/// Drop plan entries that target commits already merged upstream, reporting
+/// Drop plan entries that amend landed commits or add to landed branches, reporting
 /// each skip. Returns the remaining plan and the skipped commit ids for the
 /// final JSON output, or `None` when nothing is left to absorb — the outcome
 /// has then been fully reported and the caller should stop before
@@ -417,9 +422,12 @@ fn drop_landed_absorptions(
     merged: &MergedUpstream,
     out: &mut OutputChannel,
 ) -> anyhow::Result<Option<(Vec<CommitAbsorption>, Vec<String>)>> {
-    let (skipped, plan): (Vec<_>, Vec<_>) = plan
-        .into_iter()
-        .partition(|absorption| merged.contains_commit(absorption.commit_id));
+    let (skipped, plan): (Vec<_>, Vec<_>) =
+        plan.into_iter()
+            .partition(|absorption| match &absorption.blank_commit_ref {
+                Some(reference) => merged.ensure_branch_not_merged(reference.as_ref()).is_err(),
+                None => merged.contains_commit(absorption.commit_id),
+            });
     let skipped_ids = || {
         skipped
             .iter()

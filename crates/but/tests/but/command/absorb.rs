@@ -825,6 +825,15 @@ Error: Cannot absorb selected changes because every target commit is merged upst
 
 #[test]
 fn absorb_json_reports_blocked_mixed_merged_upstream_commits() {
+    assert_json_reports_blocked_mixed_merged_upstream_commits("--json absorb");
+}
+
+#[test]
+fn absorb_json_dry_run_reports_blocked_mixed_merged_upstream_commits() {
+    assert_json_reports_blocked_mixed_merged_upstream_commits("--json absorb --dry-run");
+}
+
+fn assert_json_reports_blocked_mixed_merged_upstream_commits(command: &str) {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
     env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
@@ -833,7 +842,7 @@ fn absorb_json_reports_blocked_mixed_merged_upstream_commits() {
     env.file("file-a.txt", "change-A-modified\n");
     env.file("file-b.txt", "change-B-modified\n");
 
-    env.but("--json absorb")
+    env.but(command)
         .allow_json()
         .env("NO_BG_TASKS", "1")
         .assert()
@@ -951,6 +960,85 @@ Error: Cannot absorb selected changes because at least one target commit is merg
         util::status_json(&env),
         status_before,
         "blocked dry-run does not change worktree status"
+    );
+}
+
+#[test]
+fn deferred_blank_target_above_landed_commit() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+    env.but("branch new empty --above A").assert().success();
+    env.file("new.txt", "new empty-target content\n");
+
+    let repo = env.open_repo();
+    let refs_before = ["refs/heads/empty", "refs/heads/A", "refs/heads/B"].map(|reference| {
+        repo.rev_parse_single(reference.as_bytes())
+            .unwrap()
+            .detach()
+    });
+    let status_before = util::status_json(&env);
+    env.but("absorb --dry-run")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![""]);
+    let refs_after = ["refs/heads/empty", "refs/heads/A", "refs/heads/B"].map(|reference| {
+        repo.rev_parse_single(reference.as_bytes())
+            .unwrap()
+            .detach()
+    });
+    assert_eq!(
+        refs_after, refs_before,
+        "a deferred target above a landed anchor must remain read-only during dry-run"
+    );
+    assert_eq!(
+        util::status_json(&env),
+        status_before,
+        "deferred-target dry-run must preserve the worktree and plan state"
+    );
+
+    env.but("absorb")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![""]);
+    let empty_tip = repo
+        .rev_parse_single(b"refs/heads/empty")
+        .unwrap()
+        .object()
+        .unwrap()
+        .into_commit();
+    assert_eq!(
+        empty_tip
+            .parent_ids()
+            .map(|parent| parent.detach())
+            .collect::<Vec<_>>(),
+        [refs_before[0]],
+        "absorb must create a child commit instead of amending the landed anchor"
+    );
+    let blob = empty_tip
+        .tree()
+        .unwrap()
+        .lookup_entry_by_path("new.txt")
+        .unwrap()
+        .expect("absorbed file")
+        .object()
+        .unwrap()
+        .into_blob();
+    assert_eq!(
+        blob.data.as_slice(),
+        b"new empty-target content\n",
+        "the new deferred commit must contain the selected file bytes"
+    );
+    assert_eq!(
+        ["refs/heads/A", "refs/heads/B"].map(|reference| {
+            repo.rev_parse_single(reference.as_bytes())
+                .unwrap()
+                .detach()
+        }),
+        [refs_before[1], refs_before[2]],
+        "creating the deferred target must leave both existing branch tips unchanged"
     );
 }
 
