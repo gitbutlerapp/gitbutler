@@ -290,13 +290,15 @@ impl Run {
         self.watched = watched;
     }
 
-    /// Whether this follower acts for the repository at `dir`: the first to lock it does.
+    /// Whether this follower acts for the repository at `dir`: the first of this machine's
+    /// clients to lock it does. Per machine name, as one computer may stand in for several.
     fn acts_for(&mut self, dir: &Path) -> bool {
         let lock = self.locks.entry(dir.to_owned()).or_default();
         // Tried again until it's had: the one holding it may have quit.
         if lock.is_none() {
             *lock = (|| {
-                let path = dir.join(".git/gitbutler/mesh-follow.lock");
+                let machine = machine_name()?;
+                let path = dir.join(format!(".git/gitbutler/mesh-follow-{machine}.lock"));
                 std::fs::create_dir_all(path.parent()?).ok()?;
                 let file = File::create(path).ok()?;
                 file.try_lock().ok()?;
