@@ -245,7 +245,7 @@
 
 {#if useFloatingBox.current}
 	<FloatingCommitBox
-		title={floatingBoxHeader}
+		title={title || floatingBoxHeader}
 		onExitFloatingModeClick={() => {
 			useFloatingBox.set(false);
 		}}
