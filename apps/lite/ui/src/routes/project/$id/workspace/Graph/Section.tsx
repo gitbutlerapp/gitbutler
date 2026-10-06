@@ -18,12 +18,11 @@ import type { AddressSpace } from "#ui/workspace/address-space.ts";
 import type { TargetCommit } from "@gitbutler/but-sdk";
 import { useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { stackBottomRelativeTo } from "#ui/api/stack.ts";
+import { rebaseAllUpdates } from "#ui/api/stack.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { Button } from "@base-ui/react";
-import type { BottomUpdate } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type ReactNode, type RefObject, useRef, useState } from "react";
 import styles from "./Section.module.css";
@@ -225,7 +224,7 @@ const Fetch: FC<{ projectId: string }> = ({ projectId }) => {
 	);
 };
 
-/** Rebases every stack onto the target's fetched tip; this does not fetch. */
+/** Rebases every stack and worktree onto the target's fetched tip; this does not fetch. */
 const Pull: FC<{ target: string; enabled: boolean; isPending: boolean; onPull: () => void }> = ({
 	target,
 	enabled,
@@ -275,13 +274,11 @@ export const Section: FC<{
 	);
 	const { isPending: isPulling, mutate: integrate } = useWorkspaceIntegrateUpstream();
 	const pull = () => {
-		const updates = (headInfo?.stacks ?? [])
-			.values()
-			.map(stackBottomRelativeTo)
-			.filter((relativeTo) => relativeTo != null)
-			.map((relativeTo): BottomUpdate => ({ kind: "rebase", selector: relativeTo }))
-			.toArray();
-		integrate({ projectId, updates, dryRun: false });
+		integrate({
+			projectId,
+			updates: headInfo ? rebaseAllUpdates(headInfo) : [],
+			dryRun: false,
+		});
 	};
 	// Opening from docked: scroll to the bottom and hold it while the fold grows.
 	const incomingFold = useRef<HTMLDivElement>(null);

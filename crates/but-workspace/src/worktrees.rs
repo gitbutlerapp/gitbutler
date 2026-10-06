@@ -17,7 +17,7 @@ pub use but_graph::workspace::WorktreeBase;
 #[cfg(feature = "worktree-cow")]
 use gix::utils::AsBStr;
 
-use crate::ref_info::{LocalCommit, Segment};
+use crate::ref_info::{Lane, LocalCommit, Segment};
 
 /// A non-archived linked worktree along with the first-parent history it owns exclusively,
 /// i.e. the segments between its `HEAD` and the workspace, an earlier worktree, or the target.
