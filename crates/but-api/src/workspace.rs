@@ -922,9 +922,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
         let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
         if dry_run.into() {
-            let replaced_commits = rebase.history.commit_mappings();
-            let workspace_state =
-                WorkspaceState::from_rebase_preview(&mut rebase, replaced_commits)?;
+            let workspace_state = WorkspaceState::from_rebase_preview(&mut rebase)?;
             // The preview was projected against the new target; the cached workspace,
             // which the next caller of this context reuses, has not moved.
             rebase.project_meta_mut().target_commit_id = cached_target;
