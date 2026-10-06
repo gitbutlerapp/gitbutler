@@ -31,6 +31,8 @@ export type LoadablePatchStacks = Loadable<Branch[]> & { ownerSlug: string };
 export const USER_SERVICE = new InjectionToken<UserService>("UserService");
 
 export class UserService {
+	readonly loaded: Writable<boolean> = writable(false);
+
 	user: Writable<User | undefined> = writable<User | undefined>(undefined, (set) => {
 		this.fetchUser()
 			.then((data) => {
@@ -39,6 +41,9 @@ export class UserService {
 			})
 			.catch((err) => {
 				this.error.set(err);
+			})
+			.finally(() => {
+				this.loaded.set(true);
 			});
 	});
 
@@ -62,6 +67,9 @@ export class UserService {
 					})
 					.catch((err) => {
 						this.error.set(err);
+					})
+					.finally(() => {
+						this.loaded.set(true);
 					});
 			} else if (!available) {
 				// If authentication is no longer available, clear the user
