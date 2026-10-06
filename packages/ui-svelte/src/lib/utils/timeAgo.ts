@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
 import "dayjs/locale/zh-cn";
+import "dayjs/locale/zh-tw";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
 import timezone from "dayjs/plugin/timezone";
@@ -117,7 +118,9 @@ export function getAbsoluteTimestamp(input: Date | number | undefined, locale?: 
 		minute: "2-digit",
 	});
 
-	return dayjsLocaleTag(active).startsWith("zh") ? `${dateStr} ${timeStr}` : `${dateStr} at ${timeStr}`;
+	return dayjsLocaleTag(active).startsWith("zh")
+		? `${dateStr} ${timeStr}`
+		: `${dateStr} at ${timeStr}`;
 }
 
 /**

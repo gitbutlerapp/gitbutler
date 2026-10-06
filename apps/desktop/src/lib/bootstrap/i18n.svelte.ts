@@ -1,4 +1,4 @@
-import { locale, setLocale, type AppLocale } from "$lib/i18n";
+import { locale, localeForSystemLanguages, setLocale } from "$lib/i18n";
 import type { UiState } from "$lib/state/uiState.svelte";
 
 /**
@@ -7,12 +7,7 @@ import type { UiState } from "$lib/state/uiState.svelte";
  * first paint already matches the user's system language.
  */
 export function initI18n(uiState: UiState) {
-	const systemLocale: AppLocale = navigator.languages?.some((tag) =>
-		tag.toLowerCase().startsWith("zh"),
-	)
-		? "zh-CN"
-		: "en";
-	setLocale(systemLocale);
+	setLocale(localeForSystemLanguages());
 	// $effect.root is needed because initI18n runs outside a component context.
 	$effect.root(() => {
 		$effect(() => {
