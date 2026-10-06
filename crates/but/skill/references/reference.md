@@ -127,12 +127,13 @@ but apply feature-branch  # Activate branch in workspace
 
 Default human output reports whether the branch was applied, was already active, or conflicted. Conflicts are reported as non-zero CLI errors.
 
-### `but unapply <selector>`
+### `but unapply <selector>...`
 
 Deactivate a branch from the workspace.
 
 ```bash
-but unapply <selector> # Deactivate branch from workspace
+but unapply <selector>              # Deactivate branch from workspace
+but unapply <selector1> <selector2> # Deactivate several in one call
 ```
 
 The command also accepts a current CLI ID pointing to a stack or branch, but agents should use the full branch name. The entire stack containing that branch will be unapplied.

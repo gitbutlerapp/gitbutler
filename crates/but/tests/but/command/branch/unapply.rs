@@ -177,6 +177,35 @@ fn unapply_with_json_output() {
 }
 
 #[test]
+fn unapplies_multiple_branches_given_on_the_command_line() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    utils::create_local_branch_with_commit_with_message(&env, "feature-one", "Add one");
+    utils::create_local_branch_with_commit_with_message(&env, "feature-two", "Add two");
+    env.but("apply feature-one").assert().success();
+    env.but("apply feature-two").assert().success();
+
+    env.but("unapply feature-one feature-two feature-one")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Unapplied stack with 'feature-one' from workspace
+Unapplied stack with 'feature-two' from workspace
+
+"#]]);
+
+    snapbox::assert_data_eq!(env.git_log(), str![[r#"
+* 9477ae7 (HEAD -> A) add A
+| * e5c6d74 (feature-one) Add one
+|/  
+| * a707dbc (feature-two) Add two
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]].raw());
+}
+
+#[test]
 fn unapply_idempotent() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
