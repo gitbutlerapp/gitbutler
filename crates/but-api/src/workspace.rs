@@ -225,8 +225,14 @@ pub fn workspace_recreate_with_perm(
     }
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, Default::default(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        Default::default(),
+        Vec::new(),
+        &mut db,
+    )?;
     Ok(WorkspaceRecreateResult {
         workspace,
         conflicting_stacks,

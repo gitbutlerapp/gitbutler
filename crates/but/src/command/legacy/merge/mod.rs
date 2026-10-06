@@ -11,6 +11,7 @@ mod messaging;
 use std::fmt::Write;
 
 use anyhow::bail;
+use but_core::ChangeId;
 use but_ctx::Context;
 
 use crate::{
@@ -26,7 +27,7 @@ pub fn handle(
     yes: bool,
     no_ff: bool,
     whole_stack: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<(gix::ObjectId, ChangeId)>> {
     // Resolve the branch identifier and read the target configuration. The checkout guard runs here
     // so the user is never asked to confirm a land that can't happen; the API enforces it again,
     // along with the bottom-segment, conflicted-commit, and triangular-remote guards, before
@@ -118,5 +119,5 @@ pub fn handle(
             theme::get().local_branch.paint(head.shorten().to_string())
         )?;
     }
-    Ok(())
+    Ok(result.workspace.conflicted_commits)
 }

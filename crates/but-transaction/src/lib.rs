@@ -1433,6 +1433,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
             .reference_target(branch.as_ref())
             .or_else(|_| resolve_checkout_target(rebase.repo(), branch.as_ref()))?;
         let replaced_commits = rebase.history.commit_mappings();
+        let conflicted_commits = rebase.history.conflicted_commits.clone();
         let workspace = rebase
             .overlayed_graph_with_workspace_overrides(Some((target, branch)), None)?
             .into_workspace()?;
@@ -1443,6 +1444,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
             meta,
             repo,
             replaced_commits,
+            conflicted_commits,
             db,
         );
     }

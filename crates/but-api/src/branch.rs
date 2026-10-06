@@ -1060,8 +1060,14 @@ pub fn branch_create_with_perm(
 
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        Vec::new(),
+        &mut db,
+    )?;
     drop((ws, repo, db, meta));
     if checkout_after_create {
         let checkout = branch_checkout_with_perm_only(ctx, new_ref.clone(), perm)?;
@@ -1227,8 +1233,14 @@ pub fn branch_remove_with_perm(
     }
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        Vec::new(),
+        &mut db,
+    )?;
     Ok(BranchRemoveResult { workspace })
 }
 
@@ -1295,6 +1307,7 @@ pub fn branch_rename_with_perm(
             &mut meta,
             &repo,
             BTreeMap::new(),
+            Vec::new(),
             &mut db,
         )?;
         return Ok(BranchRenameResult { workspace, new_ref });
@@ -1344,8 +1357,14 @@ pub fn branch_rename_with_perm(
     }
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        Vec::new(),
+        &mut db,
+    )?;
     Ok(BranchRenameResult { workspace, new_ref })
 }
 
@@ -1549,8 +1568,14 @@ pub fn branch_checkout_with_perm_only(
     ctx.reload_repo_and_invalidate_workspace(perm)?;
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        Vec::new(),
+        &mut db,
+    )?;
     Ok(BranchCheckoutResult { workspace })
 }
 
@@ -1921,6 +1946,7 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
             })
             .transpose()?;
         let replaced_commits = rebase.history.commit_mappings();
+        let conflicted_commits = rebase.history.conflicted_commits.clone();
         let workspace = rebase
             .overlayed_graph_with_workspace_overrides(entrypoint, branch_stack_order)?
             .into_workspace()?;
@@ -1930,6 +1956,7 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
             meta,
             repo,
             replaced_commits,
+            conflicted_commits,
             db,
         );
     }

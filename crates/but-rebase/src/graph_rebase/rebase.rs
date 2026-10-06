@@ -72,12 +72,12 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     match outcome {
                         CherryPickOutcome::Commit {
                             id: new_id,
-                            change_id: _,
+                            change_id,
                             conflicted,
                         }
                         | CherryPickOutcome::Identity {
                             id: new_id,
-                            change_id: _,
+                            change_id,
                             conflicted,
                         } => {
                             if conflicted && !pick.conflictable {
@@ -93,6 +93,9 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                             graph_mapping.insert(step_idx, new_idx);
                             if !pick.exclude_from_tracking {
                                 history.update_mapping(pick.id, new_id);
+                            }
+                            if conflicted {
+                                history.conflicted_commits.push((new_id, change_id));
                             }
 
                             new_idx

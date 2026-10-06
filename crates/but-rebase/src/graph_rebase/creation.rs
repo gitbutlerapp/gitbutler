@@ -403,7 +403,8 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// This is the normalization path for callers that want to chain
     /// additional editor-based operations and need the editor graph plus
     /// in-memory repository to agree on ancestry.
-    pub fn into_editor(self) -> Editor<'ws, 'meta, M> {
+    pub fn into_editor(mut self) -> Editor<'ws, 'meta, M> {
+        self.history.conflicted_commits.clear();
         Editor {
             graph: self.graph,
             initial_references: self.initial_references,

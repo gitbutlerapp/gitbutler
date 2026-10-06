@@ -10,6 +10,7 @@ pub mod traverse;
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
+use but_core::ChangeId;
 use but_core::commit::CommitIdentifiers;
 use but_core::{RefMetadata, commit::SignCommit};
 use but_graph::init::Overlay;
@@ -608,6 +609,8 @@ pub struct RevisionHistory {
     /// Unintuatively, the values are the original values, and the keys are the
     /// _new_ values that they have been mapped to.
     commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
+    /// Conflicted commits that were created.
+    pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
 }
 
 impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
