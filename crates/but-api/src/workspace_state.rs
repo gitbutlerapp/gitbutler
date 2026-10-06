@@ -9,9 +9,8 @@ impl WorkspaceState {
     #[cfg(not(feature = "graph-workspace"))]
     pub fn conflicts_by_reference(&self) -> HashMap<Vec<u8>, bool> {
         self.head_info
-            .stacks
-            .iter()
-            .flat_map(|stack| &stack.segments)
+            .lanes()
+            .flat_map(|lane| lane.segments)
             .filter_map(|segment| {
                 let ref_info = segment.ref_info.as_ref()?;
                 Some((
