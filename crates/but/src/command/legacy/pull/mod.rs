@@ -411,7 +411,12 @@ async fn handle_pull(
     // Step 3: Actually perform the integration
     if let Some(statuses) = statuses_to_apply {
         let integration_result = {
-            let updates = but_api::workspace::rebase_stack_bottoms(&current_head_info);
+            let updates = but_api::workspace::rebase_lane_bottoms(
+                current_head_info
+                    .stacks
+                    .iter()
+                    .map(but_workspace::branch::Stack::lane),
+            );
             let mut ctx = ctx.to_sync().into_thread_local();
             let mut guard = ctx.exclusive_worktree_access();
             but_api::workspace::workspace_integrate_upstream_with_perm(

@@ -106,5 +106,10 @@ fn bottom_updates(
         },
     )?;
 
-    Ok(crate::workspace::rebase_stack_bottoms(&head_info))
+    Ok(crate::workspace::rebase_lane_bottoms(
+        head_info
+            .stacks
+            .iter()
+            .map(but_workspace::branch::Stack::lane),
+    ))
 }
