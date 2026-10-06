@@ -8,6 +8,8 @@
 # We only remove the symlink on a full uninstall; during an upgrade the
 # postinstall script of the new package will recreate/update it.
 
+set -eu
+
 # Skip removal during upgrades
 if [ "${1:-0}" -ge 1 ]; then
     exit 0
