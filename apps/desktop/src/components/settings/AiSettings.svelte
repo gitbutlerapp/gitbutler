@@ -3,6 +3,7 @@
 	import AiCredentialCheck from "$components/settings/AiCredentialCheck.svelte";
 	import AuthorizationBanner from "$components/settings/AuthorizationBanner.svelte";
 	import SettingsSection from "$components/shared/SettingsSection.svelte";
+	import { listOpenAIModels, OpenAIModelDiscoveryError } from "$lib/ai/openAIClient";
 	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from "$lib/ai/service";
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from "$lib/ai/types";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
@@ -10,6 +11,7 @@
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import {
+		Button,
 		CardGroup,
 		Icon,
 		InfoMessage,
@@ -35,7 +37,16 @@
 	let anthropicKeyOption: KeyOption | undefined = $state();
 	let openAIKey: string | undefined = $state();
 	let openAICustomEndpoint: string | undefined = $state();
-	let openAIModelName: OpenAIModelName | undefined = $state();
+	let openAIModelName: string | undefined = $state();
+	let discoveredOpenAIModelOptions: { label: string; value: string }[] = $state([]);
+	let openAIModelDiscoveryState:
+		| "idle"
+		| "empty"
+		| "authentication"
+		| "unsupported"
+		| "invalid-response"
+		| "unavailable" = $state("idle");
+	let loadingOpenAIModels = $state(false);
 	let anthropicKey: string | undefined = $state();
 	let anthropicModelName: AnthropicModelName | undefined = $state();
 	let diffLengthLimit: number | undefined = $state();
@@ -110,6 +121,66 @@
 			value: OpenAIModelName.GPT54Nano,
 		},
 	];
+	const hasCustomOpenAIEndpoint = $derived(Boolean(openAICustomEndpoint?.trim()));
+	const openAIModelDiscoveryMessage = $derived(
+		{
+			idle: undefined,
+			empty: "No models were returned. Enter a model ID manually.",
+			authentication: "Authentication failed. Check the API key or enter a model ID manually.",
+			unsupported: "This endpoint does not support model discovery. Enter a model ID manually.",
+			"invalid-response": "The endpoint returned an invalid model list. Enter a model ID manually.",
+			unavailable: "Models could not be loaded. Enter a model ID manually.",
+		}[openAIModelDiscoveryState],
+	);
+
+	function clearOpenAIModelDiscovery() {
+		discoveredOpenAIModelOptions = [];
+		openAIModelDiscoveryState = "idle";
+	}
+
+	function handleOpenAIEndpointInput(endpoint: string) {
+		clearOpenAIModelDiscovery();
+		if (
+			!endpoint.trim() &&
+			!Object.values(OpenAIModelName).includes(openAIModelName as OpenAIModelName)
+		) {
+			openAIModelName = OpenAIModelName.GPT54Nano;
+		}
+	}
+
+	async function discoverOpenAIModels() {
+		const openAIKeyValue = openAIKey?.trim();
+		const openAIEndpointValue = openAICustomEndpoint?.trim();
+		if (!openAIKeyValue || !openAIEndpointValue || loadingOpenAIModels) return;
+
+		loadingOpenAIModels = true;
+		clearOpenAIModelDiscovery();
+		try {
+			const modelIds = await listOpenAIModels(openAIKeyValue, openAIEndpointValue);
+			if (
+				openAIKeyValue !== openAIKey?.trim() ||
+				openAIEndpointValue !== openAICustomEndpoint?.trim()
+			) {
+				return;
+			}
+
+			discoveredOpenAIModelOptions = modelIds.map((modelId) => ({
+				label: modelId,
+				value: modelId,
+			}));
+			openAIModelDiscoveryState = modelIds.length > 0 ? "idle" : "empty";
+		} catch (error) {
+			if (
+				openAIKeyValue === openAIKey?.trim() &&
+				openAIEndpointValue === openAICustomEndpoint?.trim()
+			) {
+				openAIModelDiscoveryState =
+					error instanceof OpenAIModelDiscoveryError ? error.kind : "unavailable";
+			}
+		} finally {
+			loadingOpenAIModels = false;
+		}
+	}
 
 	const anthropicModelOptions = [
 		{
@@ -235,31 +306,79 @@
 						label="API key"
 						type="password"
 						bind:value={openAIKey}
+						oninput={clearOpenAIModelDiscovery}
 						required
 						placeholder="sk-..."
 					/>
 
-					<Select
-						value={openAIModelName}
-						options={openAIModelOptions}
-						label="Model version"
-						wide
-						onselect={(value) => {
-							openAIModelName = value as OpenAIModelName;
-						}}
-					>
-						{#snippet itemSnippet({ item, highlighted })}
-							<SelectItem selected={item.value === openAIModelName} {highlighted}>
-								{item.label}
-							</SelectItem>
-						{/snippet}
-					</Select>
-
 					<Textbox
 						label="Custom endpoint"
 						bind:value={openAICustomEndpoint}
+						oninput={handleOpenAIEndpointInput}
 						placeholder="https://api.openai.com/v1"
 					/>
+
+					{#if hasCustomOpenAIEndpoint}
+						<Textbox
+							label="Model ID"
+							bind:value={openAIModelName}
+							required
+							placeholder="model-id"
+						/>
+
+						<Button
+							kind="outline"
+							icon="refresh"
+							align="flex-end"
+							loading={loadingOpenAIModels}
+							disabled={!openAIKey?.trim()}
+							onclick={discoverOpenAIModels}
+						>
+							Load available models
+						</Button>
+
+						{#if discoveredOpenAIModelOptions.length > 0}
+							<Select
+								value={openAIModelName}
+								options={discoveredOpenAIModelOptions}
+								label="Available models"
+								placeholder="Select a discovered model..."
+								searchable
+								wide
+								onselect={(value) => {
+									openAIModelName = value;
+								}}
+							>
+								{#snippet itemSnippet({ item, highlighted })}
+									<SelectItem selected={item.value === openAIModelName} {highlighted}>
+										{item.label}
+									</SelectItem>
+								{/snippet}
+							</Select>
+						{:else if openAIModelDiscoveryMessage}
+							<InfoMessage style="warning" filled outlined={false}>
+								{#snippet content()}
+									{openAIModelDiscoveryMessage}
+								{/snippet}
+							</InfoMessage>
+						{/if}
+					{:else}
+						<Select
+							value={openAIModelName}
+							options={openAIModelOptions}
+							label="Model version"
+							wide
+							onselect={(value) => {
+								openAIModelName = value;
+							}}
+						>
+							{#snippet itemSnippet({ item, highlighted })}
+								<SelectItem selected={item.value === openAIModelName} {highlighted}>
+									{item.label}
+								</SelectItem>
+							{/snippet}
+						</Select>
+					{/if}
 				{/if}
 			</CardGroup.Item>
 		{/if}

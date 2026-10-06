@@ -4,15 +4,82 @@ import {
 	SHORT_DEFAULT_PR_TEMPLATE,
 } from "$lib/ai/prompts";
 import OpenAI from "openai";
-import type {
-	OpenAIModelName,
-	OpenRouterModelName,
-	Prompt,
-	AIClient,
-	AIEvalOptions,
-} from "$lib/ai/types";
+import type { Prompt, AIClient, AIEvalOptions } from "$lib/ai/types";
 
 const DEFAULT_MAX_TOKENS = 1024;
+
+export type OpenAIModelDiscoveryErrorKind =
+	| "authentication"
+	| "unsupported"
+	| "invalid-response"
+	| "unavailable";
+
+export class OpenAIModelDiscoveryError extends Error {
+	constructor(readonly kind: OpenAIModelDiscoveryErrorKind) {
+		super(`Model discovery failed: ${kind}`);
+		this.name = "OpenAIModelDiscoveryError";
+	}
+}
+
+function createOpenAIClient(openAIKey: string, baseURL: string | undefined) {
+	return new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true, baseURL });
+}
+
+function parseOpenAIModelIds(response: unknown): string[] {
+	if (!response || typeof response !== "object") {
+		throw new OpenAIModelDiscoveryError("invalid-response");
+	}
+
+	const { data } = response as { data?: unknown };
+	if (!Array.isArray(data)) {
+		throw new OpenAIModelDiscoveryError("invalid-response");
+	}
+
+	const modelIds = data.map((model) => {
+		if (!model || typeof model !== "object") {
+			throw new OpenAIModelDiscoveryError("invalid-response");
+		}
+
+		const { id } = model as { id?: unknown };
+		if (typeof id !== "string" || !id.trim()) {
+			throw new OpenAIModelDiscoveryError("invalid-response");
+		}
+
+		return id.trim();
+	});
+
+	return [...new Set(modelIds)].sort((a, b) => a.localeCompare(b));
+}
+
+function classifyOpenAIModelDiscoveryError(error: unknown): OpenAIModelDiscoveryError {
+	if (error instanceof OpenAIModelDiscoveryError) return error;
+
+	const status =
+		error && typeof error === "object" && "status" in error && typeof error.status === "number"
+			? error.status
+			: undefined;
+	if (status === 401 || status === 403) {
+		return new OpenAIModelDiscoveryError("authentication");
+	}
+	if (status === 404 || status === 405 || status === 501) {
+		return new OpenAIModelDiscoveryError("unsupported");
+	}
+	return new OpenAIModelDiscoveryError("unavailable");
+}
+
+export async function listOpenAIModels(openAIKey: string, baseURL: string): Promise<string[]> {
+	if (!openAIKey.trim() || !baseURL.trim()) {
+		throw new OpenAIModelDiscoveryError("unavailable");
+	}
+
+	const client = createOpenAIClient(openAIKey.trim(), baseURL.trim());
+	try {
+		const response: unknown = await client.models.list();
+		return parseOpenAIModelIds(response);
+	} catch (error) {
+		throw classifyOpenAIModelDiscoveryError(error);
+	}
+}
 
 export class OpenAIClient implements AIClient {
 	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
@@ -21,16 +88,12 @@ export class OpenAIClient implements AIClient {
 
 	private client: OpenAI;
 	private openAIKey: string;
-	private modelName: OpenAIModelName | OpenRouterModelName;
+	private modelName: string;
 
-	constructor(
-		openAIKey: string,
-		modelName: OpenAIModelName | OpenRouterModelName,
-		baseURL: string | undefined,
-	) {
+	constructor(openAIKey: string, modelName: string, baseURL: string | undefined) {
 		this.openAIKey = openAIKey;
 		this.modelName = modelName;
-		this.client = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true, baseURL });
+		this.client = createOpenAIClient(openAIKey, baseURL);
 	}
 
 	async evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<string> {
