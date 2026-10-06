@@ -126,12 +126,16 @@ fn undo_and_redo_restore_the_local_target_branch() {
 fn undo_leaves_a_local_target_checked_out_in_a_linked_worktree_unchanged() {
     let env = target_branch_pull_scenario(false);
     env.but("pull").assert().success();
+    // Free main for the linked worktree without adding an oplog entry: undo must target pull.
+    env.invoke_git("switch -c after-pull");
     let target = rev_parse(&env, "main");
-    let workspace_head = rev_parse(&env, "HEAD");
+    let checkout_head = rev_parse(&env, "HEAD");
     let worktree = env.app_data_dir().join("linked-main");
     env.invoke_git(&format!("worktree add -q \"{}\" main", worktree.display()));
 
-    env.but("undo").assert().failure();
+    env.but("undo").assert().failure().stderr_eq(str![[r#"
+Error: Cannot restore branch 'main' because it is checked out in worktrees: [..]
+"#]]);
 
     assert_eq!(
         rev_parse(&env, "main"),
@@ -140,8 +144,13 @@ fn undo_leaves_a_local_target_checked_out_in_a_linked_worktree_unchanged() {
     );
     assert_eq!(
         rev_parse(&env, "HEAD"),
-        workspace_head,
-        "a refused undo must not change the managed workspace"
+        checkout_head,
+        "a refused undo must not change the current checkout"
+    );
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "after-pull",
+        "a refused undo must not change the checked-out branch"
     );
 }
 
@@ -1147,7 +1156,7 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-fn pull_checks_out_canned_branch_after_all_stacks_integrate() {
+fn pull_checks_out_main_after_all_stacks_integrate() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("pull-two-integrated-stacks");
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
 
@@ -1172,16 +1181,17 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1] [HEAD] (no commits)
-├╯
-┊
-┴ 7e5d4e1 (common base, main, origin/main) 2000-01-02 add upstream
+┴ 7e5d4e1 (common base, main, origin/main, HEAD) 2000-01-02 add upstream
 
-Hint: run `but help` for all commands
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
-    assert_eq!(env.invoke_git("symbolic-ref --short HEAD"), "a-branch-1");
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "main",
+        "the local target should become the checkout after all stacks integrate"
+    );
     assert_eq!(rev_parse(&env, "HEAD"), rev_parse(&env, "origin/main"));
     assert!(
         env.open_repo()
@@ -1192,9 +1202,18 @@ Hint: run `but help` for all commands
     );
     assert_eq!(
         status_stack_count(&env),
-        1,
-        "the canned branch should become the ad-hoc checkout"
+        0,
+        "checking out the local target should leave no stacks"
     );
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 7e5d4e1 (common base, main, origin/main, HEAD) 2000-01-02 add upstream
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
 }
 
 #[test]

@@ -2409,13 +2409,12 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
 }
 
 #[test]
-fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<()> {
-    let (_tmp, mut repo, mut meta, _description, mut db) =
+fn fully_integrated_two_stacks_checkout_local_target_at_target_tip() -> Result<()> {
+    let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-two-stacks")?;
-    force_prefixless_canned_branch_name(&mut repo)?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
-    let fallback_ref: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
+    let local_target_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
@@ -2488,12 +2487,13 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
     let preview = out.rebase.overlayed_graph()?.into_workspace()?;
     assert_eq!(
         preview.ref_name(),
-        Some(fallback_ref.as_ref()),
-        "dry-run overlay should show the canned branch as the checkout"
+        Some(local_target_ref.as_ref()),
+        "dry-run overlay should show the local target as the checkout"
     );
-    assert!(
-        repo.try_find_reference(fallback_ref.as_ref())?.is_none(),
-        "dry-run preview should not create the canned branch on disk"
+    assert_eq!(
+        repo.head_name()?,
+        Some(but_core::WORKSPACE_REF_NAME.try_into()?),
+        "dry-run preview should not change the checkout on disk"
     );
     drop(preview);
 
@@ -2506,8 +2506,16 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_target_tip() -> Result<
             .is_none(),
         "the empty managed workspace reference should be removed"
     );
-    assert_eq!(repo.find_reference(fallback_ref.as_ref())?.id(), target_tip);
-    assert_eq!(repo.head_name()?, Some(fallback_ref));
+    assert_eq!(
+        repo.find_reference(local_target_ref.as_ref())?.id(),
+        target_tip,
+        "the local target should point at the latest target tip"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        Some(local_target_ref),
+        "HEAD should be attached to the local target"
+    );
 
     Ok(())
 }
@@ -3139,15 +3147,13 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
 }
 
 #[test]
-fn fully_integrated_two_stacks_checkout_canned_branch_at_merge_target() -> Result<()> {
-    let (_tmp, mut repo, mut meta, _description, mut db) =
-        named_writable_scenario_with_description(
-            "fully-integrated-two-stacks-merge-target-advanced",
-        )?;
-    force_prefixless_canned_branch_name(&mut repo)?;
+fn fully_integrated_two_stacks_checkout_local_target_at_merge_target() -> Result<()> {
+    let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
+        "fully-integrated-two-stacks-merge-target-advanced",
+    )?;
     let target_sha = repo.rev_parse_single("main~3")?.detach();
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
-    let fallback_ref: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
+    let local_target_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
 
     let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
@@ -3184,11 +3190,15 @@ fn fully_integrated_two_stacks_checkout_canned_branch_at_merge_target() -> Resul
     out.rebase.materialize(Default::default())?;
 
     assert_eq!(
-        repo.find_reference(fallback_ref.as_ref())?.id(),
+        repo.find_reference(local_target_ref.as_ref())?.id(),
         target_tip,
-        "canned branch should point at the exact merge target tip"
+        "the local target should point at the exact merge target tip"
     );
-    assert_eq!(repo.head_name()?, Some(fallback_ref));
+    assert_eq!(
+        repo.head_name()?,
+        Some(local_target_ref),
+        "HEAD should be attached to the local target"
+    );
 
     Ok(())
 }

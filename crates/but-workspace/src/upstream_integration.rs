@@ -483,9 +483,9 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 && stacks.len() > 1
                 && single_branch_mode =>
             {
-                // In single-branch mode a managed workspace must not become empty. Replace its
-                // checkout with a uniquely named canned branch at the latest target tip, just
-                // like a fully integrated direct checkout.
+                // In single-branch mode a managed workspace must not become empty. Prefer the
+                // local target for its checkout, falling back to a uniquely named canned branch,
+                // just like a fully integrated direct checkout.
                 let workspace_ref_name = workspace_ref_name
                     .as_ref()
                     .map(|name| name.as_ref())
@@ -495,7 +495,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     repo,
                     workspace_ref_name,
                     target_ref_commit_selector,
-                    None,
+                    local_target_ref.as_ref().map(|name| name.as_ref()),
                 )?;
             }
             [] if !fully_integrated_workspace_parents.is_empty() => {
