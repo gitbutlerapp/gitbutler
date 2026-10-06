@@ -69,19 +69,24 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                         pick.sign_commit,
                     )?;
 
-                    if matches!(outcome, CherryPickOutcome::ConflictedCommit(_))
-                        && !pick.conflictable
-                    {
-                        bail!(
-                            "Commit {} was marked as not conflictable, but resulted in a conflicted state",
-                            pick.id
-                        );
-                    }
-
                     match outcome {
-                        CherryPickOutcome::Commit(new_id)
-                        | CherryPickOutcome::ConflictedCommit(new_id)
-                        | CherryPickOutcome::Identity(new_id) => {
+                        CherryPickOutcome::Commit {
+                            id: new_id,
+                            change_id: _,
+                            conflicted,
+                        }
+                        | CherryPickOutcome::Identity {
+                            id: new_id,
+                            change_id: _,
+                            conflicted,
+                        } => {
+                            if conflicted && !pick.conflictable {
+                                bail!(
+                                    "Commit {} was marked as not conflictable, but resulted in a conflicted state",
+                                    pick.id
+                                );
+                            }
+
                             let mut new_pick = pick.clone();
                             new_pick.id = new_id;
                             let new_idx = output_graph.add_node(Step::Pick(new_pick));
