@@ -23,7 +23,7 @@ pub(crate) use debug_as_type::DebugAsType;
 pub mod metrics;
 pub use metrics::OneshotMetricsContext;
 
-use crate::id::CommitId;
+use crate::{CliError, CliResult, id::CommitId, print_and_exit_non_zero};
 
 pub mod detect_agent;
 pub mod time;
@@ -61,14 +61,41 @@ impl ResultErrorExt for anyhow::Result<()> {
         let code = if let Err(e) = &self {
             if full_error_chain {
                 writeln!(std::io::stderr(), "{e:#}").ok();
-            } else {
+            } else if e.chain().nth(1).is_some() {
                 writeln!(std::io::stderr(), "{} {}", e, e.root_cause()).ok();
+            } else {
+                writeln!(std::io::stderr(), "{e}").ok();
             }
             1
         } else {
             0
         };
         std::process::exit(code);
+    }
+}
+
+impl ResultErrorExt for CliResult<()> {
+    fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> ! {
+        match self {
+            Ok(_) => {
+                // Trigger the pager to be flushed before exiting early, or destructors aren't called.
+                drop(out);
+                std::process::exit(0)
+            }
+            Err(err) => match err {
+                CliError::BadInput(_)
+                | CliError::ExternalCommandNotFound(_)
+                | CliError::ExternalCommandFailed(_)
+                | CliError::CommandRejection => {
+                    // Trigger the pager to be flushed before exiting early, or destructors aren't called.
+                    drop(out);
+                    print_and_exit_non_zero(err)
+                }
+                CliError::Initialization(error) | CliError::Internal(error) => {
+                    Err(error).show_root_cause_error_then_exit_without_destructors(out)
+                }
+            },
+        }
     }
 }
 
