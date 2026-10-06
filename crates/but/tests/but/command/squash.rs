@@ -619,7 +619,7 @@ fn agent_squash_without_message_keeps_combined_message_instead_of_editor() {
 
     // Agents get no editor even if one is configured; a spawned editor would fail the test.
     env.but("squash a-branch-1")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .env("GIT_EDITOR", "false")
         .assert()
         .success();

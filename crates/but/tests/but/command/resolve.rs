@@ -190,11 +190,13 @@ fn agent_resolve_finish_json_includes_result_and_status() {
     env.file("file.txt", "resolved content\n");
     env.invoke_git("add file.txt");
 
-    let mut command = super::util::but_std_cmd(&env, "--json resolve finish --status-after");
-    command.env("AI_AGENT", "codex");
-    let output = command.output().unwrap();
-    assert!(output.status.success(), "resolve finish should succeed");
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let output = env
+        .but("--json resolve finish --status-after")
+        .as_agent()
+        .allow_json()
+        .assert()
+        .success();
+    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
     assert!(
         json["result"].is_object(),
         "agent output should retain the resolve result"
@@ -254,11 +256,13 @@ fn agent_resolve_finish_json_status_tracks_rebased_conflict_queue() {
     env.file("bottom.txt", "resolved bottom\n");
     env.invoke_git("add bottom.txt");
 
-    let mut command = super::util::but_std_cmd(&env, "--json resolve finish --status-after");
-    command.env("AI_AGENT", "codex");
-    let output = command.output().unwrap();
-    assert!(output.status.success(), "resolve finish should succeed");
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let output = env
+        .but("--json resolve finish --status-after")
+        .as_agent()
+        .allow_json()
+        .assert()
+        .success();
+    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
 
     let queue = json["result"]["resolution_queue"]
         .as_array()

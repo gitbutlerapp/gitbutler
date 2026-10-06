@@ -399,11 +399,7 @@ fn agent_mutation_omits_status_unless_requested() {
     env.setup_metadata(&["A"]);
     env.file("file.txt", "Some text");
 
-    let result = env
-        .but("commit --no-message")
-        .env("AI_AGENT", "codex")
-        .assert()
-        .success();
+    let result = env.but("commit --no-message").as_agent().assert().success();
     let stdout = String::from_utf8_lossy(&result.get_output().stdout);
 
     assert!(stdout.contains("Created commit"));
@@ -419,7 +415,7 @@ fn agent_mutation_omits_status_unless_requested() {
     env.file("other.txt", "Other text");
     let result = env
         .but("commit --no-message --status-after")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .assert()
         .success();
     let stdout = String::from_utf8_lossy(&result.get_output().stdout);
@@ -458,7 +454,7 @@ fn agent_commit_json_uses_native_result_without_status_by_default() {
     env.file("file.txt", "Some text");
 
     env.but("commit --no-message --json")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -567,7 +563,7 @@ fn agent_without_message_commits_with_empty_message_instead_of_editor() {
 
     // Agents get no editor even if one is configured; a spawned editor would fail the test.
     env.but("commit")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .env("GIT_EDITOR", "false")
         .assert()
         .success();

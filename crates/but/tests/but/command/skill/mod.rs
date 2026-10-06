@@ -141,7 +141,7 @@ fn agent_skill_notice_gating() {
     // JSON stdout remains machine-readable. Skill upkeep is silent when nothing needs attention.
     let json_run = env
         .but("--json alias list")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .allow_json()
         .output()
         .expect("status --json runs");
@@ -156,7 +156,7 @@ fn agent_skill_notice_gating() {
     let stdout_of = || {
         let out = env
             .but("alias list")
-            .env("AI_AGENT", "codex")
+            .as_agent()
             .output()
             .expect("alias list runs");
         assert!(out.status.success());
@@ -179,7 +179,7 @@ fn agent_skill_notice_gating() {
 
     let failed = env
         .but("alias add 'bad name' status")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .output()
         .expect("alias add runs");
     assert!(!failed.status.success());
@@ -199,7 +199,7 @@ fn agent_skill_notices_can_be_disabled_in_persisted_settings() {
 
     for _ in 0..2 {
         env.but("status")
-            .env("AI_AGENT", "codex")
+            .as_agent()
             .assert()
             .success()
             // Repeated status output remains normal while notices are disabled.
@@ -215,7 +215,7 @@ Hint: run `but branch new` to create a new branch to work on
     }
 
     env.but("alias list")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .assert()
         .success()
         // Other notice-worthy human commands also retain their normal output.
@@ -235,7 +235,7 @@ Default aliases (overridable):
 "#]]);
 
     env.but("--json alias list")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .allow_json()
         .assert()
         .success()
@@ -355,14 +355,11 @@ fn agent_skill_notice_reports_a_stale_local_skill_despite_a_current_global_copy(
         "---\nname: but\nversion: old\n---\n",
     )
     .unwrap();
-    env.but("skill install")
-        .env("AI_AGENT", "codex")
-        .assert()
-        .success();
+    env.but("skill install").as_agent().assert().success();
 
     let output = env
         .but("alias list")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .output()
         .expect("alias list runs");
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -393,14 +390,14 @@ fn skill_check_update_repairs_a_stale_local_skill() {
     // agent never passed when the repository was discovered from a relative
     // working directory).
     env.but("skill check --update")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .assert()
         .success();
 
     // The local copy is current again, so the notice stops.
     let output = env
         .but("alias list")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .output()
         .expect("alias list runs");
     assert!(
@@ -413,10 +410,7 @@ fn skill_check_update_repairs_a_stale_local_skill() {
 fn agent_skill_notice_repairs_another_agents_stale_global_skill() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
-    env.but("skill install")
-        .env("AI_AGENT", "codex")
-        .assert()
-        .success();
+    env.but("skill install").as_agent().assert().success();
     env.but("skill install")
         .env("AI_AGENT", "claude-code")
         .assert()
@@ -428,7 +422,7 @@ fn agent_skill_notice_repairs_another_agents_stale_global_skill() {
 
     let output = env
         .but("alias list")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .output()
         .expect("alias list runs");
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -450,10 +444,7 @@ fn agent_skill_notice_repairs_another_agents_stale_global_skill() {
 fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    env.but("skill install")
-        .env("AI_AGENT", "codex")
-        .assert()
-        .success();
+    env.but("skill install").as_agent().assert().success();
     env.but("skill install")
         .env("AI_AGENT", "claude-code")
         .assert()
@@ -467,7 +458,7 @@ fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() {
 
     let output = env
         .but("commit --no-message --json")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .allow_json()
         .output()
         .unwrap();
@@ -500,7 +491,7 @@ fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() {
 
     let output = env
         .but("commit --no-message --json --status-after")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .allow_json()
         .output()
         .unwrap();
@@ -522,7 +513,7 @@ fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() {
     env.file("third-file.txt", "Even more text");
     let output = env
         .but("commit --no-message --json")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .allow_json()
         .output()
         .unwrap();
@@ -569,7 +560,7 @@ fn unrelated_update_failure_does_not_hide_missing_skill_hint() {
 
     let output = env
         .but("alias list")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .output()
         .expect("alias list runs");
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -580,17 +571,14 @@ fn unrelated_update_failure_does_not_hide_missing_skill_hint() {
         "another agent's update failure must not hide the caller's missing skill hint, got: {stdout}"
     );
 
-    env.but("skill install")
-        .env("AI_AGENT", "codex")
-        .assert()
-        .success();
+    env.but("skill install").as_agent().assert().success();
     let codex_skill_path = env.home_dir().join(".codex/skills/gitbutler/SKILL.md");
     let expected = std::fs::read_to_string(&codex_skill_path).unwrap();
     std::fs::write(&codex_skill_path, "---\nname: but\nversion: old\n---\n").unwrap();
 
     let output = env
         .but("alias list")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .output()
         .expect("alias list runs");
     assert_eq!(
@@ -682,7 +670,7 @@ fn skill_install_explicit_path_does_not_claim_the_agent_will_load_it() {
         .args(["--global"])
         .arg("--path")
         .arg(&install_dir)
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .assert()
         .success()
         .stderr_eq(str![[]])

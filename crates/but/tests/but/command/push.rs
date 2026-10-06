@@ -259,7 +259,7 @@ fn push_dry_run_agent_reports_human_summary() {
 
     let output = env
         .but("push --dry-run branchB")
-        .env("PI_CODING_AGENT", "true")
+        .as_agent()
         .output()
         .unwrap();
     assert!(
