@@ -67,7 +67,7 @@ fn construct_new_squashed_commit<'ws, 'meta, M: RefMetadata>(
         editor.new_commit(squashed_commit, DateMode::CommitterUpdateAuthorKeep)?
     };
 
-    editor.replace(target_selector, Step::new_pick(new_commit))?;
+    editor.amend_pick(target_selector, new_commit)?;
 
     Ok((editor, target_selector))
 }

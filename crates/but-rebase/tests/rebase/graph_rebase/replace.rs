@@ -1,7 +1,7 @@
 //! These tests exercise the replace operation.
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, Step};
+use but_rebase::graph_rebase::Editor;
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all, visualize_tree};
 use snapbox::prelude::*;
 
@@ -55,7 +55,7 @@ fn reword_a_commit() -> Result<()> {
         .select_commit(a)
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.replace(a_selector, Step::new_pick(a_new))?;
+    editor.amend_pick(a_selector, a_new)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -178,7 +178,7 @@ f766d1f
         .select_commit(a.detach())
         .context("Failed to find commit a in editor graph")?;
     // replace it with the new one
-    editor.replace(a_selector, Step::new_pick(a_new))?;
+    editor.amend_pick(a_selector, a_new)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
