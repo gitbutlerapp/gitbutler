@@ -518,19 +518,22 @@ requests API when the repository is enrolled in GitHub's private preview; otherw
 description footers. `but config forge github-stacks disable` opts out. The setting is
 project-local and shared with Desktop.
 
-### `but merge <branch>`
+### `but merge <branch>...`
 
-Merge a branch directly onto the target (e.g. `origin/master`), skipping a pull request. Fast-forwards
-when possible, otherwise makes a signed merge commit; for a `gb-local` target it moves the refs
-locally. Then reconciles the remaining branches like `but pull`, and deletes each landed branch's
-copy on the push remote (only when fully contained in the landed target), reported as
-`Deleted <remote>/<branch> (landed)`. In single-branch mode, merging the checked-out branch then
-checks out the target branch, or a generated branch when the target can't be reused;
-`Checked out <branch>.` names the branch actually checked out.
+Merge one or more branches directly onto the target (e.g. `origin/master`), skipping a pull request.
+Fast-forwards when possible, otherwise makes a signed merge commit; for a `gb-local` target it moves
+the refs locally. Several branches are merged locally in the order given and published with a single
+push, so the target and its CI move once; a conflict in any of them publishes nothing. Then reconciles
+the remaining branches like `but pull`, and deletes each landed branch's copy on the push remote
+(only when fully contained in the landed target), reported as `Deleted <remote>/<branch> (landed)`.
+In single-branch mode, merging the checked-out branch then checks out the target branch, or a
+generated branch when the target can't be reused; `Checked out <branch>.` names the branch actually
+checked out.
 
 ```bash
 but merge <branch-selector> --yes                  # Merge onto the target (--yes required non-interactively)
 but merge <branch-selector> --no-ff --yes          # Force a merge commit instead of fast-forwarding
+but merge <branch-a> <branch-b> --yes              # Merge several branches with a single push
 but merge <top-branch> --whole-stack --yes   # Merge an entire stack by naming its top segment
 ```
 

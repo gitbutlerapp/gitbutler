@@ -18,7 +18,7 @@ export declare const apiParamNames: {
 	readonly branchCreate: readonly ["projectId", "newRef", "placement"];
 	readonly branchDetails: readonly ["projectId", "branchName", "remote"];
 	readonly branchDiff: readonly ["projectId", "branch"];
-	readonly branchLand: readonly ["projectId", "branch", "noFf", "wholeStack"];
+	readonly branchLand: readonly ["projectId", "branches", "noFf", "wholeStack"];
 	readonly branchList: readonly ["projectId"];
 	readonly branchRemove: readonly ["projectId", "refName"];
 	readonly branchRename: readonly ["projectId", "refName", "newName"];

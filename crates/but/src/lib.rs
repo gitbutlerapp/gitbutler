@@ -1668,14 +1668,14 @@ async fn dispatch_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Merge {
-            branch,
+            branches,
             yes,
             no_ff,
             whole_stack,
         } => {
             let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let result =
-                command::legacy::merge::handle(&mut ctx, out, &branch, yes, no_ff, whole_stack)
+                command::legacy::merge::handle(&mut ctx, out, &branches, yes, no_ff, whole_stack)
                     .context("Failed to merge branch.");
             if result.is_ok() {
                 command::legacy::conflict_notice::report_newly_conflicted(

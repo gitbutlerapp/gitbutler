@@ -191,12 +191,12 @@ Redo the last undo
 
 ## Server Interactions
 
-### but merge <BRANCH>
-Merge a branch directly onto the target branch, bypassing review
-- `<BRANCH>` Branch ID or name to merge onto the target branch
+### but merge <BRANCHES>...
+Merge branches directly onto the target branch, bypassing review
+- `<BRANCHES>...` Branch IDs or names to merge onto the target branch, in merge order
 - `--yes` Skip the confirmation prompt
 - `--no-ff` Always create a merge commit, even when the branch can be fast-forwarded
-- `--whole-stack` Merge the entire stack: BRANCH must be the top segment, and the segments below it are published to the target along with it
+- `--whole-stack` Merge the entire stack: each BRANCH must be the top segment of its stack, and the segments below it are published to the target along with it
 
 ### but push [BRANCH]
 Push changes in a branch to remote

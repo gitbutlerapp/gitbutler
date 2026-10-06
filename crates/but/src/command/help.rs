@@ -413,7 +413,7 @@ Operation History:
   redo         Redo the last undo
 
 Server Interactions:
-  merge        Merge a branch directly onto the target branch, bypassing review
+  merge        Merge branches directly onto the target branch, bypassing review
   push         Push changes in a branch to remote
   pull         Update all applied branches onto the latest target branch
   pr           Commands for creating and managing reviews on a forge, e.g. Git…
