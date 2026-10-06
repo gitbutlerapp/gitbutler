@@ -40,6 +40,17 @@ pub struct WorktreeInfo {
 }
 
 impl WorktreeInfo {
+    /// The worktree as a lane, which rests on another lane only when based inside the workspace.
+    pub fn lane(&self) -> Lane<'_> {
+        Lane {
+            segments: &self.segments,
+            rests_on: match self.base {
+                Some(WorktreeBase::InWorkspace(id)) => Some(id),
+                Some(WorktreeBase::Outside(_)) | None => None,
+            },
+        }
+    }
+
     /// The commits owned by this worktree alone, from its `HEAD` down to (excluding) its
     /// [base](Self::base), along the first parent.
     pub fn commits(&self) -> impl Iterator<Item = &LocalCommit> {

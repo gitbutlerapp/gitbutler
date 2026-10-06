@@ -696,19 +696,11 @@ impl RefInfo {
     /// A lane can only rest on a lane listed before it, so following [`Lane::rests_on`] always
     /// terminates.
     pub fn lanes(&self) -> impl Iterator<Item = Lane<'_>> {
-        self.stacks
-            .iter()
-            .map(|stack| Lane {
-                segments: &stack.segments,
-                rests_on: None,
-            })
-            .chain(self.worktrees.iter().map(|wt| Lane {
-                segments: &wt.segments,
-                rests_on: match wt.base {
-                    Some(crate::worktrees::WorktreeBase::InWorkspace(id)) => Some(id),
-                    Some(crate::worktrees::WorktreeBase::Outside(_)) | None => None,
-                },
-            }))
+        self.stacks.iter().map(branch::Stack::lane).chain(
+            self.worktrees
+                .iter()
+                .map(crate::worktrees::WorktreeInfo::lane),
+        )
     }
 
     /// The lane holding `branch` along with the index of the branch's segment, followed by each
