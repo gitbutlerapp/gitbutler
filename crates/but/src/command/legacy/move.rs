@@ -591,21 +591,6 @@ fn resolve(
                             .arg_value(branch.to_string())
                             .into());
                     }
-                    // Stacking targets live in the workspace; refusing beats a misleading
-                    // "not found".
-                    if ws
-                        .find_segment_and_stack_by_refname(target.as_ref())
-                        .is_none()
-                        && ws.refname_is_segment(target.as_ref())
-                    {
-                        return Err(bad_input(format!(
-                            "Cannot stack a branch onto worktree branch {}",
-                            theme::Branch(&*branch.0)
-                        ))
-                        .arg_name("--branch")
-                        .arg_value(branch.to_string())
-                        .into());
-                    }
                     Ok(MoveOperation::StackBranch(StackBranchOnOperation {
                         source_branch: source,
                         target_branch: target,

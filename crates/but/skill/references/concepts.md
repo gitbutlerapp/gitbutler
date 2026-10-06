@@ -95,7 +95,9 @@ at a time — a selection mixing worktrees is refused. A worktree's branches are
 `but commit`, `but move`, and `but pick` with `-b <branch>` place the commit on that branch's tip,
 and `--below <checked-out-branch-id>` on the tip of the branch the worktree has checked out
 (`--above` it is refused — that is its uncommitted area). A new branch can't be placed above or
-below a worktree's branch yet, as worktrees can't order branches. A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
+below a worktree's branch yet, as worktrees can't order branches. `but move <branch> --above <branch>`
+moves an existing branch between a worktree's lane and the workspace, in either direction, as long as
+neither is the branch the worktree has checked out. A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
 `squash`, and `pick` accept them, and the worktree's branch and checkout follow the rewrite.
 `but reword <branch> -m <name>` renames a worktree's branch, and a checkout on it follows the new name.
 Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names it by the

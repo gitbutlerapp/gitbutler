@@ -305,7 +305,10 @@ branch may be moved at a time. Source order does not matter. For a branch source
 `--unstack` apply; `--below` and `-b <name>` require commit or committed-change sources. `--branch`
 with no value is equivalent to `--unstack`. With the experimental worktree flag on, `-b` also
 accepts a branch in a worktree's lane, moving commit or committed-change sources onto that
-branch's tip (nothing is created); a branch source is refused there.
+branch's tip (nothing is created). A branch source stacks on top of it, leaving the workspace for
+the worktree — except onto the branch the worktree has checked out, which nothing sits above. A
+branch below a worktree's checkout is a branch source too, and stacking it on a workspace branch
+brings it into the workspace; the checked-out branch itself can't be moved.
 
 For commits or committed changes, add `-b <new-name>` to `--above <branch>`, `--below <branch>`,
 or `--unstack` to name the new branch; omit it for a generated name. This does not rename an
