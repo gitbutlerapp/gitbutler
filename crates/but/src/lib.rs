@@ -1160,7 +1160,9 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Pull { check } => command::legacy::pull::handle(&mut ctx, out, check).await?,
+        Subcommands::Pull { check, update } => {
+            command::legacy::pull::handle(&mut ctx, out, check, &update).await?
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Fetch => {
             use std::fmt::Write;
@@ -1172,7 +1174,13 @@ async fn dispatch_subcommand(
                     "Assuming you meant to check for upstream work, running `but pull --check`"
                 )
             )?;
-            command::legacy::pull::handle(&mut ctx, out, true).await?
+            command::legacy::pull::handle(
+                &mut ctx,
+                out,
+                true,
+                <args::PullUpdate as clap::ValueEnum>::value_variants(),
+            )
+            .await?
         }
         #[cfg(feature = "legacy")]
         Subcommands::Clean {
@@ -1185,7 +1193,13 @@ async fn dispatch_subcommand(
                 use std::fmt::Write;
                 let mut progress = out.progress_channel();
                 writeln!(progress, "Pulling latest...")?;
-                command::legacy::pull::handle(&mut ctx, out, false).await?;
+                command::legacy::pull::handle(
+                    &mut ctx,
+                    out,
+                    false,
+                    <args::PullUpdate as clap::ValueEnum>::value_variants(),
+                )
+                .await?;
                 writeln!(progress, "Pull complete.")?;
             }
             out.begin_status_after(status_after);
