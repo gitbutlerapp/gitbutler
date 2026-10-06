@@ -279,6 +279,8 @@ struct StatusContext<'a> {
     conflicted_paths: Vec<String>,
     common_merge_base_data: CommonMergeBase,
     target_tip_id: gix::ObjectId,
+    /// The workspace target ref, including local targets without legacy base-branch data.
+    target_ref: Option<gix::refs::FullName>,
     upstream_state: Option<UpstreamState>,
     last_fetched_ms: Option<u128>,
     review_map: std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
@@ -766,6 +768,7 @@ fn build_status_context<'a>(
         conflicted_paths,
         common_merge_base_data,
         target_tip_id,
+        target_ref: resolved_target.ref_name().map(ToOwned::to_owned),
         upstream_state,
         last_fetched_ms,
         review_map,
@@ -1068,7 +1071,8 @@ fn remote_tracking_ref_is_target_branch(
 fn target_remote_tracking_ref_name(
     base_branch: &gitbutler_branch_actions::BaseBranch,
 ) -> Option<String> {
-    if base_branch.remote_name.is_empty() {
+    let remote_name = base_branch.remote_name.as_ref()?;
+    if remote_name.is_empty() {
         return None;
     }
 
@@ -1076,15 +1080,12 @@ fn target_remote_tracking_ref_name(
         return Some(base_branch.branch_name.clone());
     }
 
-    let remote_prefix = format!("{}/", base_branch.remote_name);
+    let remote_prefix = format!("{remote_name}/");
     let branch_name = base_branch
         .branch_name
         .strip_prefix(&remote_prefix)
         .unwrap_or(&base_branch.branch_name);
-    Some(format!(
-        "refs/remotes/{remote}/{branch_name}",
-        remote = base_branch.remote_name
-    ))
+    Some(format!("refs/remotes/{remote_name}/{branch_name}",))
 }
 
 /// Display upstream state information when upstream has commits ahead of the workspace base.
@@ -1199,21 +1200,28 @@ fn print_common_merge_base_summary(
 ) -> anyhow::Result<()> {
     let mut label = String::from("common base");
     let mut is_head = false;
-    if let Some(base_branch) = &status_ctx.base_branch {
-        let repo = ctx.repo.get()?;
+    let base_refs: Vec<_> = if let Some(base_branch) = &status_ctx.base_branch {
         let local_ref = format!("refs/heads/{}", base_branch.short_name);
         let remote_ref = target_remote_tracking_ref_name(base_branch);
-        for ref_name in std::iter::once(local_ref).chain(remote_ref) {
-            if let Some(mut reference) = repo.try_find_reference(ref_name.as_str())?
-                && reference.peel_to_id()?.detach() == status_ctx.common_merge_base_data.commit_id
-            {
-                label.push_str(", ");
-                label.push_str(&reference.name().shorten().to_string());
-                is_head |= status_ctx
-                    .head_ref
-                    .as_ref()
-                    .is_some_and(|head_ref| head_ref.as_ref() == reference.name());
-            }
+        std::iter::once(local_ref).chain(remote_ref).collect()
+    } else {
+        status_ctx
+            .target_ref
+            .iter()
+            .map(ToString::to_string)
+            .collect()
+    };
+    let repo = ctx.repo.get()?;
+    for ref_name in base_refs {
+        if let Some(mut reference) = repo.try_find_reference(ref_name.as_str())?
+            && reference.peel_to_id()?.detach() == status_ctx.common_merge_base_data.commit_id
+        {
+            label.push_str(", ");
+            label.push_str(&reference.name().shorten().to_string());
+            is_head |= status_ctx
+                .head_ref
+                .as_ref()
+                .is_some_and(|head_ref| head_ref.as_ref() == reference.name());
         }
     }
     let first_line = status_ctx

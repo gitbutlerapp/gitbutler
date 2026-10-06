@@ -39,8 +39,8 @@ impl SingleBranchMode {
             .target_ref
             .context("BUG: target ref is missing")?;
 
-        let target_checked_out =
-            but_core::branch::resolve_tracking_branch_ref_name(head_reference.as_ref(), &repo)
+        let target_checked_out = head_reference == target_ref
+            || but_core::branch::resolve_tracking_branch_ref_name(head_reference.as_ref(), &repo)
                 .is_ok_and(|upstream| &*upstream == target_ref.as_ref());
 
         Ok(Self {

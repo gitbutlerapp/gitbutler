@@ -359,7 +359,10 @@ fn legacy_to_snapshot(
         out_stacks.push(VbStack {
             id: stack_id.to_string(),
             source_refname: source_refname.as_ref().map(ToString::to_string),
-            upstream_remote_name: upstream.as_ref().map(|up| up.remote().to_owned()),
+            upstream_remote_name: upstream
+                .as_ref()
+                .and_then(|up| up.remote())
+                .map(|remote| remote.to_owned()),
             upstream_branch_name: upstream.as_ref().map(|up| up.branch().to_owned()),
             sort_order: i64::try_from(*order).context("Stack order exceeds i64")?,
             in_workspace: *in_workspace,

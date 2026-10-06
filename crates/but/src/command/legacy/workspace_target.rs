@@ -89,13 +89,16 @@ impl ResolvedTarget {
 /// Build the display name `but status` should show for a legacy base branch.
 fn display_name_from_base_branch(base_branch: &gitbutler_branch_actions::BaseBranch) -> String {
     match (
-        base_branch.remote_name.is_empty(),
+        base_branch
+            .remote_name
+            .as_deref()
+            .filter(|name| !name.is_empty()),
         base_branch.short_name.is_empty(),
     ) {
-        (true, true) => base_branch.branch_name.clone(),
-        (true, false) => base_branch.short_name.clone(),
-        (false, true) => base_branch.remote_name.clone(),
-        (false, false) => format!("{}/{}", base_branch.remote_name, base_branch.short_name),
+        (None, true) => base_branch.branch_name.clone(),
+        (None, false) => base_branch.short_name.clone(),
+        (Some(remote), true) => remote.to_owned(),
+        (Some(remote), false) => format!("{remote}/{}", base_branch.short_name),
     }
 }
 
@@ -159,10 +162,10 @@ mod tests {
     fn base_branch(base_sha: gix::ObjectId) -> gitbutler_branch_actions::BaseBranch {
         gitbutler_branch_actions::BaseBranch {
             branch_name: "refs/remotes/origin/main".to_string(),
-            remote_name: "origin".to_string(),
-            remote_url: "https://example.com/origin".to_string(),
-            push_remote_name: "origin".to_string(),
-            push_remote_url: "https://example.com/origin".to_string(),
+            remote_name: Some("origin".to_string()),
+            remote_url: Some("https://example.com/origin".to_string()),
+            push_remote_name: Some("origin".to_string()),
+            push_remote_url: Some("https://example.com/origin".to_string()),
             base_sha,
             current_sha: base_sha,
             behind: 0,
@@ -207,7 +210,7 @@ mod tests {
     #[test]
     fn base_branch_display_name_avoids_empty_separator() {
         let mut base_branch = base_branch(oid("4444444444444444444444444444444444444444"));
-        base_branch.remote_name.clear();
+        base_branch.remote_name.as_mut().unwrap().clear();
 
         assert_eq!(display_name_from_base_branch(&base_branch), "main");
     }

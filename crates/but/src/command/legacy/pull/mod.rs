@@ -2,6 +2,8 @@ mod json;
 
 use std::fmt::Write;
 
+use anyhow::Context as _;
+
 use but_api::WorkspaceState;
 use but_core::{DryRun, RepositoryExt};
 use but_ctx::Context;
@@ -283,7 +285,11 @@ async fn handle_pull(
 
     let upstream_url = format!(
         "{}/{}",
-        base_branch.remote_url.trim_end_matches(".git"),
+        base_branch
+            .remote_url
+            .as_ref()
+            .context("Pulling without a remote isn't supported yet")?
+            .trim_end_matches(".git"),
         base_branch.branch_name
     );
     pull_result.upstream_url = Some(upstream_url.clone());

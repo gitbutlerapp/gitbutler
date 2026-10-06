@@ -22,10 +22,10 @@ use crate::remote::{RemoteCommit, commit_to_remote_commit};
 #[serde(rename_all = "camelCase")]
 pub struct BaseBranch {
     pub branch_name: String,
-    pub remote_name: String,
-    pub remote_url: String,
-    pub push_remote_name: String,
-    pub push_remote_url: String,
+    pub remote_name: Option<String>,
+    pub remote_url: Option<String>,
+    pub push_remote_name: Option<String>,
+    pub push_remote_url: Option<String>,
     #[serde(with = "but_serde::object_id")]
     #[cfg_attr(
         feature = "export-schema",
@@ -50,28 +50,26 @@ pub struct BaseBranch {
 but_schemars::register_sdk_type!(BaseBranch);
 
 impl BaseBranch {
-    pub fn compute_short_name(branch_name: &str, remote_name: &str) -> String {
-        if !remote_name.is_empty() && branch_name == remote_name {
-            return String::new();
-        }
+    pub fn compute_short_name(branch_name: &str, remote_name: Option<&str>) -> String {
+        if let Some(remote_name) = remote_name.filter(|name| !name.is_empty()) {
+            if branch_name == remote_name {
+                return String::new();
+            }
 
-        let prefixes: Vec<String> = if !remote_name.is_empty() {
-            vec![
+            for prefix in [
                 format!("refs/remotes/{remote_name}/"),
                 format!("{remote_name}/"),
-                "refs/heads/".to_string(),
-            ]
-        } else {
-            vec!["refs/heads/".to_string()]
-        };
-
-        for prefix in &prefixes {
-            if let Some(stripped) = branch_name.strip_prefix(prefix.as_str()) {
-                return stripped.to_string();
+            ] {
+                if let Some(stripped) = branch_name.strip_prefix(&prefix) {
+                    return stripped.to_string();
+                }
             }
         }
 
-        branch_name.to_string()
+        branch_name
+            .strip_prefix("refs/heads/")
+            .unwrap_or(branch_name)
+            .to_string()
     }
 }
 
@@ -208,7 +206,9 @@ pub(crate) fn set_base_branch(
         target_commit_id: Some(target_commit_oid),
         push_remote: None,
     };
-    project_meta.remote_url_with_fallback(&repo)?;
+    if target_branch_ref.remote().is_some() {
+        project_meta.remote_url_with_fallback(&repo)?;
+    }
 
     // TODO: make sure this is a real branch
     let head_ref_name = current_head
@@ -364,21 +364,18 @@ pub(crate) fn target_to_base_branch(
     // we assume that only local commits can be conflicted
     let conflicted = recent_commits.iter().any(|commit| commit.conflicted);
 
-    let push_remote_url = project_meta.push_remote_url(repo)?;
-    let remote_url = project_meta.remote_url_with_fallback(repo)?;
+    let push_remote_url = project_meta.push_remote_url(repo).ok();
+    let remote_url = project_meta.remote_url_with_fallback(repo).ok();
 
     let branch_name = target_ref_name.shorten().to_string();
     let remote_name = target_ref
         .remote_name(gix::remote::Direction::Push)
-        .context("Failed to get current remote name")?
-        .to_owned()
-        .as_bstr()
-        .to_string();
+        .map(|remote| remote.to_owned().as_bstr().to_string());
     let push_remote_name = project_meta
         .push_remote
         .clone()
-        .unwrap_or_else(|| remote_name.clone());
-    let short_name = BaseBranch::compute_short_name(&branch_name, &remote_name);
+        .or_else(|| remote_name.clone());
+    let short_name = BaseBranch::compute_short_name(&branch_name, remote_name.as_deref());
     let base = BaseBranch {
         branch_name,
         remote_name,
@@ -474,7 +471,7 @@ mod tests {
     #[test]
     fn short_name_strips_full_remote_ref() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/remotes/origin/feature/foo", "origin"),
+            BaseBranch::compute_short_name("refs/remotes/origin/feature/foo", Some("origin")),
             "feature/foo"
         );
     }
@@ -482,7 +479,7 @@ mod tests {
     #[test]
     fn short_name_strips_short_remote_ref() {
         assert_eq!(
-            BaseBranch::compute_short_name("origin/feature/foo", "origin"),
+            BaseBranch::compute_short_name("origin/feature/foo", Some("origin")),
             "feature/foo"
         );
     }
@@ -490,7 +487,7 @@ mod tests {
     #[test]
     fn short_name_strips_full_remote_ref_simple() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/remotes/origin/main", "origin"),
+            BaseBranch::compute_short_name("refs/remotes/origin/main", Some("origin")),
             "main"
         );
     }
@@ -498,7 +495,7 @@ mod tests {
     #[test]
     fn short_name_strips_short_remote_ref_simple() {
         assert_eq!(
-            BaseBranch::compute_short_name("origin/main", "origin"),
+            BaseBranch::compute_short_name("origin/main", Some("origin")),
             "main"
         );
     }
@@ -508,14 +505,14 @@ mod tests {
         assert_eq!(
             BaseBranch::compute_short_name(
                 "refs/remotes/another-remote/feat/complex-branch-name",
-                "another-remote"
+                Some("another-remote")
             ),
             "feat/complex-branch-name"
         );
         assert_eq!(
             BaseBranch::compute_short_name(
                 "another-remote/feat/complex-branch-name",
-                "another-remote"
+                Some("another-remote")
             ),
             "feat/complex-branch-name"
         );
@@ -524,11 +521,11 @@ mod tests {
     #[test]
     fn short_name_non_matching_remote() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/remotes/origin/feature/foo", "not-origin"),
+            BaseBranch::compute_short_name("refs/remotes/origin/feature/foo", Some("not-origin")),
             "refs/remotes/origin/feature/foo"
         );
         assert_eq!(
-            BaseBranch::compute_short_name("origin/feature/foo", "not-origin"),
+            BaseBranch::compute_short_name("origin/feature/foo", Some("not-origin")),
             "origin/feature/foo"
         );
     }
@@ -536,7 +533,7 @@ mod tests {
     #[test]
     fn short_name_heads_ref_with_remote() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/heads/feature/foo", "origin"),
+            BaseBranch::compute_short_name("refs/heads/feature/foo", Some("origin")),
             "feature/foo"
         );
     }
@@ -544,7 +541,7 @@ mod tests {
     #[test]
     fn short_name_local_name_with_remote() {
         assert_eq!(
-            BaseBranch::compute_short_name("feature/foo", "origin"),
+            BaseBranch::compute_short_name("feature/foo", Some("origin")),
             "feature/foo"
         );
     }
@@ -552,11 +549,11 @@ mod tests {
     #[test]
     fn short_name_heads_ref_no_remote() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/heads/feature/foo", ""),
+            BaseBranch::compute_short_name("refs/heads/feature/foo", None),
             "feature/foo"
         );
         assert_eq!(
-            BaseBranch::compute_short_name("refs/heads/main", ""),
+            BaseBranch::compute_short_name("refs/heads/main", None),
             "main"
         );
     }
@@ -564,28 +561,28 @@ mod tests {
     #[test]
     fn short_name_local_name_no_remote() {
         assert_eq!(
-            BaseBranch::compute_short_name("feature/foo", ""),
+            BaseBranch::compute_short_name("feature/foo", None),
             "feature/foo"
         );
-        assert_eq!(BaseBranch::compute_short_name("main", ""), "main");
+        assert_eq!(BaseBranch::compute_short_name("main", None), "main");
         assert_eq!(
-            BaseBranch::compute_short_name("dev/task/T-123", ""),
+            BaseBranch::compute_short_name("dev/task/T-123", None),
             "dev/task/T-123"
         );
     }
 
     #[test]
     fn short_name_branch_equals_remote() {
-        assert_eq!(BaseBranch::compute_short_name("origin", "origin"), "");
+        assert_eq!(BaseBranch::compute_short_name("origin", Some("origin")), "");
     }
 
     #[test]
     fn short_name_trailing_slash() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/remotes/origin/", "origin"),
+            BaseBranch::compute_short_name("refs/remotes/origin/", Some("origin")),
             ""
         );
-        assert_eq!(BaseBranch::compute_short_name("refs/heads/", ""), "");
+        assert_eq!(BaseBranch::compute_short_name("refs/heads/", None), "");
     }
 
     #[test]
@@ -593,7 +590,7 @@ mod tests {
         assert_eq!(
             BaseBranch::compute_short_name(
                 "refs/remotes/origin/feature/name-with-refs/heads/in-it",
-                "origin"
+                Some("origin")
             ),
             "feature/name-with-refs/heads/in-it"
         );
@@ -601,18 +598,27 @@ mod tests {
 
     #[test]
     fn short_name_empty_branch() {
-        assert_eq!(BaseBranch::compute_short_name("", "origin"), "");
-        assert_eq!(BaseBranch::compute_short_name("", ""), "");
+        assert_eq!(BaseBranch::compute_short_name("", Some("origin")), "");
+        assert_eq!(BaseBranch::compute_short_name("", None), "");
+    }
+
+    #[test]
+    fn short_name_heads_ref_empty_remote() {
+        assert_eq!(
+            BaseBranch::compute_short_name("refs/heads/main", Some("")),
+            "main",
+            "an empty remote is treated like no remote"
+        );
     }
 
     #[test]
     fn short_name_remote_with_slashes() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/remotes/dev/feature/branch", "dev/feature"),
+            BaseBranch::compute_short_name("refs/remotes/dev/feature/branch", Some("dev/feature")),
             "branch"
         );
         assert_eq!(
-            BaseBranch::compute_short_name("dev/feature/branch", "dev/feature"),
+            BaseBranch::compute_short_name("dev/feature/branch", Some("dev/feature")),
             "branch"
         );
     }

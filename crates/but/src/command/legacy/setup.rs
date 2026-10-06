@@ -46,7 +46,7 @@ struct TargetInfo {
     /// The target branch name (e.g., "origin/main")
     branch_name: String,
     /// The remote name (e.g., "origin" or "gb-local")
-    remote_name: String,
+    remote_name: Option<String>,
     /// Whether the target was newly set or already existed
     newly_set: bool,
 }
@@ -381,7 +381,7 @@ pub(crate) fn repo(
         // Track target info for JSON output
         target_info = Some(TargetInfo {
             branch_name: name.clone(),
-            remote_name: remote_name.clone(),
+            remote_name: Some(remote_name.clone()),
             newly_set: true,
         });
 

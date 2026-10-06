@@ -397,12 +397,17 @@ fn first_commit_no_workspace() {
 "#]]
     );
 
-    // TODO: make this work
+    // Local main is inferred as the target even without a remote or workspace commit.
     env.but("status --verbose")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 85efbe4 (common base, main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 }

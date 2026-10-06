@@ -34,7 +34,7 @@ mod reconcile;
 
 use std::path::Path;
 
-use anyhow::bail;
+use anyhow::{Context as _, bail};
 use but_api_macros::but_api;
 use but_ctx::Context;
 use gitbutler_git::GitContextExt as _;
@@ -196,11 +196,23 @@ pub fn branch_land(
     if target_branch_name.is_empty() {
         bail!("Configured target branch has no branch name");
     }
-    let fetch_remote_name = base_branch.remote_name.clone();
-    let push_remote_name = if base_branch.push_remote_name.is_empty() {
+    let fetch_remote_name = base_branch
+        .remote_name
+        .clone()
+        .context("Merging without a remote isn't supported yet")?;
+    let push_remote_name = if base_branch
+        .push_remote_name
+        .as_ref()
+        .context("Merging without a remote isn't supported yet")?
+        .is_empty()
+    {
         fetch_remote_name.clone()
     } else {
-        base_branch.push_remote_name.clone()
+        base_branch
+            .push_remote_name
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
+            .clone()
     };
     if push_remote_name.is_empty() {
         bail!("Configured target branch has no push remote");
@@ -218,10 +230,21 @@ pub fn branch_land(
     }
 
     let target_display = format!("{push_remote_name}/{target_branch_name}");
-    let push_remote_url = if base_branch.push_remote_url.is_empty() {
-        &base_branch.remote_url
+    let push_remote_url = if base_branch
+        .push_remote_url
+        .as_ref()
+        .context("Merging without a remote isn't supported yet")?
+        .is_empty()
+    {
+        base_branch
+            .remote_url
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
     } else {
-        &base_branch.push_remote_url
+        base_branch
+            .push_remote_url
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
     };
     let update_target_locally = {
         let repo = ctx.repo.get()?;
