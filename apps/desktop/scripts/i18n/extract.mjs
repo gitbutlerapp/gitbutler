@@ -14,12 +14,16 @@ import { createRequire } from "node:module";
 import { parse } from "svelte/compiler";
 
 const require_ = createRequire(import.meta.url);
-const { walk } = require_(
-	"/Users/lihaha/Documents/o-company/gitbutler/node_modules/.pnpm/estree-walker@3.0.3/node_modules/estree-walker/src/index.js",
-);
+// estree-walker is only present as a transitive pnpm dependency, so resolve
+// it through svelte (a direct dependency of apps/desktop). Both the 2.x and
+// 3.x `walk` APIs used here (enter/leave, this.skip) are identical.
+const requireSvelte = createRequire(require_.resolve("svelte/package.json"));
+const { walk } = require_(requireSvelte.resolve("estree-walker"));
 
 const ROOT = path.resolve(import.meta.dirname, "../../src");
-const OUT_EN = path.resolve(import.meta.dirname, "../lib/i18n/locales/en.json");
+const LOCALES_DIR = path.resolve(import.meta.dirname, "../../src/lib/i18n/locales");
+const OUT_EN = path.join(LOCALES_DIR, "en.json");
+const OUT_ZH = path.join(LOCALES_DIR, "zh-CN.json");
 const DRY = process.argv.includes("--dry");
 const VERBOSE = process.argv.includes("--verbose");
 
@@ -211,14 +215,38 @@ for (const file of files) {
 	}
 }
 
-const sorted = Object.fromEntries([...messages.entries()].sort((a, b) => a[0].localeCompare(b[0])));
-if (!DRY) {
-	fs.mkdirSync(path.dirname(OUT_EN), { recursive: true });
-	fs.writeFileSync(OUT_EN, JSON.stringify(sorted, null, "\t") + "\n");
+/** Read a locale dictionary, returning {} when the file does not exist yet. */
+function readJson(file) {
+	try {
+		return JSON.parse(fs.readFileSync(file, "utf8"));
+	} catch (e) {
+		if (e.code !== "ENOENT") throw e;
+		return {};
+	}
 }
 
+// Merge this run's extracted strings into the existing dictionaries so keys
+// extracted in earlier runs survive; new keys fall back to English in zh-CN
+// until a translator fills them in.
+const enExisting = readJson(OUT_EN);
+const zhExisting = readJson(OUT_ZH);
+const en = { ...enExisting };
+const zh = { ...zhExisting };
+for (const [key, text] of messages) {
+	if (!(key in en)) en[key] = text;
+	if (!(key in zh)) zh[key] = text;
+}
+if (!DRY) {
+	const sortEntries = (obj) =>
+		Object.fromEntries(Object.entries(obj).sort((a, b) => a[0].localeCompare(b[0])));
+	fs.mkdirSync(LOCALES_DIR, { recursive: true });
+	fs.writeFileSync(OUT_EN, JSON.stringify(sortEntries(en), null, "\t") + "\n");
+	fs.writeFileSync(OUT_ZH, JSON.stringify(sortEntries(zh), null, "\t") + "\n");
+}
 console.log(
-	`files with edits: ${perFile.length}, total edits: ${totalEdits}, messages: ${messages.size}`,
+	`files with edits: ${perFile.length}, total edits: ${totalEdits}, new keys: ${
+		messages.size - [...messages.keys()].filter((k) => k in enExisting).length
+	}, en total: ${Object.keys(en).length}`,
 );
 if (VERBOSE) {
 	for (const [f, n] of perFile) console.log(`  ${f}: ${n}`);
