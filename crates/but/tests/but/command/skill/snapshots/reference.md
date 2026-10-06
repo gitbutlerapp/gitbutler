@@ -100,9 +100,9 @@ Finalize conflict resolution and return to workspace mode
 Cancel conflict resolution and return to workspace mode
 - `-f, --force` Discard any changes made during resolution
 
-### but unapply <BRANCH_OR_STACK>
+### but unapply <BRANCH_OR_STACK>...
 Remove a branch from the workspace, keeping it to apply again later
-- `<BRANCH_OR_STACK>` The branch or stack to unapply
+- `<BRANCH_OR_STACK>...` The branches or stacks to unapply
 
 ### but apply <BRANCH>
 Apply a branch

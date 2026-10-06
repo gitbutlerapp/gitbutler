@@ -20,7 +20,8 @@ use crate::{
 };
 
 pub struct UnapplyOutcome {
-    pub branches_in_stack: Vec<FullName>,
+    /// The branches of each unapplied stack.
+    pub stacks: Vec<Vec<FullName>>,
 }
 
 impl CliOutputHuman for UnapplyOutcome {
@@ -30,14 +31,14 @@ impl CliOutputHuman for UnapplyOutcome {
         _agent: bool,
         _theme: &'static Theme,
     ) -> anyhow::Result<()> {
-        let Self { branches_in_stack } = self;
+        for branches_in_stack in self.stacks {
+            let branches_in_stack = branches_in_stack.iter().map(theme::Branch).join(", ");
 
-        let branches_in_stack = branches_in_stack.iter().map(theme::Branch).join(", ");
-
-        writeln!(
-            out,
-            "Unapplied stack with {branches_in_stack} from workspace"
-        )?;
+            writeln!(
+                out,
+                "Unapplied stack with {branches_in_stack} from workspace"
+            )?;
+        }
 
         Ok(())
     }
@@ -51,10 +52,10 @@ impl CliOutput for UnapplyOutcome {
             branches: Vec<String>,
         }
 
-        let Self { branches_in_stack } = self;
-
-        let branches = branches_in_stack
+        let branches = self
+            .stacks
             .iter()
+            .flatten()
             .map(|branch| branch.shorten().to_string())
             .collect();
 
@@ -71,22 +72,34 @@ pub fn unapply(
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
 
-    let operation = {
+    let operations = {
         let repo = ctx.repo.get()?;
-        resolve(args, &id_map, &repo, &head_info)?
+        let mut operations: Vec<UnapplyOperation> = Vec::new();
+        for target in &args.targets {
+            let operation = resolve(target, &id_map, &repo, &head_info)?;
+            if !operations
+                .iter()
+                .any(|op| op.stack_id == operation.stack_id)
+            {
+                operations.push(operation);
+            }
+        }
+        operations
     };
 
-    Ok(run(ctx, guard.write_permission(), &head_info, operation)?)
+    let mut stacks = Vec::new();
+    for operation in operations {
+        stacks.extend(run(ctx, guard.write_permission(), &head_info, operation)?.stacks);
+    }
+    Ok(UnapplyOutcome { stacks })
 }
 
 fn resolve(
-    args: Platform,
+    target: &CliIdArg,
     id_map: &IdMap,
     repo: &gix::Repository,
     head_info: &RefInfo,
 ) -> CliResult<UnapplyOperation> {
-    let Platform { target } = args;
-
     let stack = match target
         .resolve_in_workspace(repo, id_map, Purpose::Source, Some(Priority::Branch))?
         .into_branch_or_stack()?
@@ -178,7 +191,9 @@ pub fn run(
 
     but_api::legacy::virtual_branches::unapply_stack_with_perm(ctx, stack_id, perm)?;
 
-    Ok(UnapplyOutcome { branches_in_stack })
+    Ok(UnapplyOutcome {
+        stacks: vec![branches_in_stack],
+    })
 }
 
 pub struct UnapplyOperation {
