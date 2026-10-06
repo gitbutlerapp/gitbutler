@@ -64,7 +64,7 @@
 	</p>
 </div>
 <ModalFooter>
-	<Button kind="outline" onclick={rejectLogin}>Reject</Button>
+	<Button kind="outline" onclick={rejectLogin}>{t("reject")}</Button>
 	<Button style="pop" onclick={acceptLogin}>{t("accept-login")}</Button>
 </ModalFooter>
 
