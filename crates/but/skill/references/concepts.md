@@ -55,7 +55,7 @@ Committed hunks:  mzm:uvw:2e4         (<commit-id>:<file-id>:<hunk-id>, shown by
 Stacks:           m0, n0              (auto-generated, 2–3 chars)
 ```
 
-**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a three-character minimum; SHA prefixes and branch/worktree IDs can be shorter.
+**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a four-character minimum; SHA prefixes and branch/worktree IDs can be shorter.
 
 **Reading status output:** the first token on each line is that line's ID. Verbose commit lines append an informational `(sha …)` after the timestamp — it changes on every amend; do not pass it to commands.
 
