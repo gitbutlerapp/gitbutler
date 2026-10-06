@@ -10,7 +10,7 @@ use tracing::instrument;
 use crate::{
     CommitFlags, CommitIndex, Graph, Segment, SegmentIndex, Workspace,
     workspace::{
-        Stack, StackCommit, StackSegment, TargetRef, WorkspaceKind,
+        Lane, Stack, StackCommit, StackSegment, TargetRef, WorkspaceKind,
         workspace::find_segment_owner_indexes_by_refname,
     },
 };
@@ -222,13 +222,17 @@ impl Workspace {
             )
     }
 
-    /// Every segment of every lane, i.e. of each stack followed by each worktree.
-    pub fn segments(&self) -> impl Iterator<Item = &StackSegment> + '_ {
+    /// Every lane, i.e. each stack followed by each worktree.
+    pub fn lanes(&self) -> impl Iterator<Item = Lane<'_>> + '_ {
         self.stacks
             .iter()
-            .map(|stack| &stack.segments)
-            .chain(self.worktrees.iter().map(|worktree| &worktree.segments))
-            .flatten()
+            .map(Lane::Stack)
+            .chain(self.worktrees.iter().map(Lane::Worktree))
+    }
+
+    /// Every segment of every lane.
+    pub fn segments(&self) -> impl Iterator<Item = &StackSegment> + '_ {
+        self.lanes().flat_map(|lane| lane.segments())
     }
 
     /// Every commit of every lane. This doesn't include the workspace commit.
@@ -332,6 +336,19 @@ impl Workspace {
                 "Couldn't find any stack or worktree that contained the branch named '{}'",
                 name.shorten()
             )
+        })
+    }
+
+    /// Try to find `name` in any named [`StackSegment`] and return it along with the lane containing it.
+    pub fn find_segment_and_lane_by_refname(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> Option<(Lane<'_>, &StackSegment)> {
+        self.lanes().find_map(|lane| {
+            lane.segments()
+                .iter()
+                .find(|segment| segment.ref_name() == Some(name))
+                .map(|segment| (lane, segment))
         })
     }
 
