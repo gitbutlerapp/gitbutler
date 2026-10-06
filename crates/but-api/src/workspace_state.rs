@@ -170,15 +170,12 @@ impl WorkspaceState {
     /// Use this when the caller needs to report the post-rebase workspace layout before
     /// writing the rebase result back to the repository, such as dry-run flows or
     /// operations that intentionally preview the outcome first and materialize later.
-    ///
-    /// The `replaced_commits` map should describe the commit rewrites visible in the
-    /// preview graph, which typically comes from `rebase.history.commit_mappings()`.
     fn from_rebase_preview_with_prs<M: RefMetadata>(
         rebase: &mut SuccessfulRebase<'_, '_, M>,
-        replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
     ) -> anyhow::Result<WorkspaceState> {
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let replaced_commits = rebase.history.commit_mappings();
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         Self::from_workspace_with_prs(
             &workspace,
@@ -198,10 +195,9 @@ impl WorkspaceState {
     /// before projecting the preview state.
     pub(crate) fn from_rebase_preview<M: RefMetadata>(
         rebase: &mut SuccessfulRebase<'_, '_, M>,
-        replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = but_forge::review_associations_by_head(rebase.db())?;
-        Self::from_rebase_preview_with_prs(rebase, replaced_commits, &prs_by_head)
+        Self::from_rebase_preview_with_prs(rebase, &prs_by_head)
     }
 
     /// Build a [`WorkspaceState`] from a materialized rebase.
@@ -244,8 +240,7 @@ impl WorkspaceState {
         if dry_run.into() {
             let mut rebase = rebase;
             let prs_by_head = but_forge::review_associations_by_head(rebase.db())?;
-            let replaced_commits = rebase.history.commit_mappings();
-            return Self::from_rebase_preview_with_prs(&mut rebase, replaced_commits, &prs_by_head);
+            return Self::from_rebase_preview_with_prs(&mut rebase, &prs_by_head);
         }
 
         Self::from_materialized(rebase.materialize(Default::default())?, repo)
