@@ -2,10 +2,12 @@ use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
     sync::Arc,
+    time::{Duration, Instant},
 };
 
 use anyhow::{Context as _, bail};
 use parking_lot::{ArcRwLockReadGuard, ArcRwLockWriteGuard, RawRwLock};
+
 /// The scope of a lock. It can be either on the entire project or on specific operations.
 #[derive(Debug, Clone, Copy, Default)]
 pub enum LockScope {
@@ -311,6 +313,34 @@ impl LockFile {
             .or_else(|err| log_error_if_unsupported(err, &self.path))
     }
 
+    /// Spinlock variant of [`LockFile::try_lock`] that repeatedly tries to acquire the lock until
+    /// the `timeout` is reached, and panics if it fails to do so in time.
+    ///
+    /// Note that this lock is _extremely unfair_ and will not respect any sort of queuing order. If
+    /// there are processes competing for the lock, getting it is pure luck.
+    ///
+    /// It is also very slow if the lock is not acquired on the first attempt.
+    ///
+    /// # Panics
+    /// If the lock cannot be acquired within the timeout. This is obviuosly not how we want this to
+    /// function, it's just to demenstrate the general behavior that we want for the CLI.
+    pub fn try_lock_timeout(&mut self, timeout: Duration) -> Result<bool, fslock::Error> {
+        let start = Instant::now();
+
+        loop {
+            match self.try_lock() {
+                Ok(true) => return Ok(true),
+                Ok(false) if start.elapsed() >= timeout => {
+                    panic!("Timed out acquiring workspace lock")
+                }
+                Ok(false) => (),
+                Err(err) => return Err(err),
+            }
+
+            std::thread::sleep(Duration::from_millis(70));
+        }
+    }
+
     /// Drop the lock on this file, or do nothing if we don't own the lock.
     pub fn unlock(&mut self) -> Result<(), fslock::Error> {
         if !self.inner.owns_lock() {
@@ -356,13 +386,13 @@ fn best_effort_inter_process_lock(project_data_dir: &Path) -> Option<LockFile> {
 
     if current_process_looks_like_git_commit_hook() {
         match lock.try_lock() {
-            Ok(true) => {}
+            Ok(true) => Some(lock),
             Ok(false) => {
                 tracing::info!(
                     path = %inter_process_lock_path.display(),
                     "Inter-process lock already held while running from a Git commit hook; continuing without it to avoid deadlock"
                 );
-                return None;
+                None
             }
             Err(err) => {
                 tracing::warn!(
@@ -370,18 +400,28 @@ fn best_effort_inter_process_lock(project_data_dir: &Path) -> Option<LockFile> {
                     path = %inter_process_lock_path.display(),
                     "Failed to try acquiring inter-process lock from a Git commit hook; continuing with in-process lock only"
                 );
-                return None;
+                None
             }
         }
-    } else if let Err(err) = lock.lock() {
-        tracing::warn!(
-            ?err,
-            path = %inter_process_lock_path.display(),
-            "Failed to acquire inter-process lock; continuing with in-process lock only"
-        );
-        return None;
+    } else {
+        match lock.try_lock_timeout(Duration::from_secs(1)) {
+            Ok(locked) => {
+                if locked {
+                    Some(lock)
+                } else {
+                    None
+                }
+            }
+            Err(err) => {
+                tracing::warn!(
+                    ?err,
+                    path = %inter_process_lock_path.display(),
+                    "Failed to acquire inter-process lock; continuing with in-process lock only"
+                );
+                None
+            }
+        }
     }
-    Some(lock)
 }
 
 fn log_error_if_unsupported(err: std::io::Error, self_path: &Path) -> Result<bool, std::io::Error> {
