@@ -96,7 +96,7 @@
 					{/snippet}
 
 					{#snippet caption()}
-						Create a token at
+						{t("create-a-token-at")}
 						<Link href="https://gitee.com/profile/personal_access_tokens"
 							>gitee.com/profile/personal_access_tokens</Link
 						>
