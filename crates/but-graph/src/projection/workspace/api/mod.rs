@@ -352,6 +352,20 @@ impl Workspace {
         })
     }
 
+    /// Try to find the [`StackSegment`] owning the commit `oid` and return it along with the lane containing it.
+    pub fn find_segment_and_lane_by_commit_id(
+        &self,
+        oid: impl Into<gix::ObjectId>,
+    ) -> Option<(Lane<'_>, &StackSegment)> {
+        let oid = oid.into();
+        self.lanes().find_map(|lane| {
+            lane.segments()
+                .iter()
+                .find(|segment| segment.commits.iter().any(|commit| commit.id == oid))
+                .map(|segment| (lane, segment))
+        })
+    }
+
     /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.
     pub fn find_segment_and_stack_by_refname(
         &self,
