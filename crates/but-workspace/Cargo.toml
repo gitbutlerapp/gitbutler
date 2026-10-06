@@ -19,6 +19,8 @@ ignored = [
 doctest = false
 
 [features]
+## Enable COW worktrees on macOS (Linux provides a test-only mock).
+worktree-cow = ["dep:libc", "dep:git2"]
 legacy = [
     "dep:but-ctx",
     "dep:git2",
@@ -79,6 +81,9 @@ snapbox.workspace = true
 gitbutler-commit = { workspace = true, features = ["testing"] }
 gitbutler-reference.workspace = true
 chrono.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = { workspace = true, optional = true }
 
 [lints]
 workspace = true

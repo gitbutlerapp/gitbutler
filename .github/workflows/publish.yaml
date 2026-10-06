@@ -202,6 +202,7 @@ jobs:
             --dist                       "./release" \
             --version                    "${{ env.version }}"
         env:
+          EXTRA_CARGO_FEATURES: ${{ runner.os == 'macOS' && 'worktree-cow' || '' }}
           CARGO_PROFILE_RELEASE_LTO: fat
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
           CARGO_PROFILE_RELEASE_OPT_LEVEL: s

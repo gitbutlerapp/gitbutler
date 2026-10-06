@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_api::worktrees::NewWorktree;
+use but_api::worktrees::{NewWorktree, WorktreeCreationMode};
 use but_core::sync::{RepoExclusive, RepoShared};
 use but_ctx::Context;
 use gix::{ObjectId, prelude::ObjectIdExt as _, refs::FullName};
@@ -17,9 +17,10 @@ pub fn new(
     ctx: &mut Context,
     name: Option<&BranchArg>,
     above: Option<&CliIdArg>,
+    mode: WorktreeCreationMode,
 ) -> CliResult<NewOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
-    let op = NewOperation::resolve(ctx, guard.read_permission(), name, above)?;
+    let op = NewOperation::resolve(ctx, guard.read_permission(), name, above, mode)?;
     Ok(run(ctx, guard.write_permission(), op)?)
 }
 
@@ -27,6 +28,7 @@ pub(crate) struct NewOperation {
     /// The branch to create, or `None` for a canned name.
     pub ref_name: Option<FullName>,
     pub base: Option<ObjectId>,
+    pub mode: WorktreeCreationMode,
 }
 
 impl NewOperation {
@@ -35,6 +37,7 @@ impl NewOperation {
         perm: &RepoShared,
         name: Option<&BranchArg>,
         above: Option<&CliIdArg>,
+        mode: WorktreeCreationMode,
     ) -> CliResult<Self> {
         but_api::worktrees::ensure_worktree_manipulation_enabled(ctx)?;
         let ref_name = match name {
@@ -61,15 +64,19 @@ impl NewOperation {
             }
             None => None,
         };
-        Ok(NewOperation { ref_name, base })
+        Ok(Self {
+            ref_name,
+            base,
+            mode,
+        })
     }
 }
 
 pub fn run(ctx: &Context, perm: &mut RepoExclusive, op: NewOperation) -> Result<NewOutcome> {
     let created = if let Some(base) = op.base {
-        but_api::worktrees::worktree_new_at_base_with_perm(ctx, op.ref_name, base, perm)?
+        but_api::worktrees::worktree_new_at_base_with_perm(ctx, op.ref_name, base, op.mode, perm)?
     } else {
-        but_api::worktrees::worktree_new_with_perm(ctx, op.ref_name, perm)?
+        but_api::worktrees::worktree_new_with_perm(ctx, op.ref_name, op.mode, perm)?
     };
     Ok(NewOutcome { created })
 }
