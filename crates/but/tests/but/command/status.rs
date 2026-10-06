@@ -1455,7 +1455,7 @@ Hint: run `but help` for all commands
     // The first agent-detected invocation also delivers the skill-install
     // notice ahead of the graph (the sandbox home has no skill installed).
     env.but("status")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
