@@ -1,7 +1,10 @@
 use but_core::RefMetadata;
 use but_core::ref_metadata::StackKind;
 use but_graph::init::Options;
-use but_rebase::graph_rebase::Editor;
+use but_rebase::graph_rebase::{
+    Editor,
+    mutate::{InsertSide, RelativeTo},
+};
 use but_testsupport::{graph_workspace, invoke_bash, visualize_commit_graph_all};
 use snapbox::IntoData;
 
@@ -9,6 +12,19 @@ use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments, named_writable_scenario_with_description,
     named_writable_scenario_with_description_and_graph, project_meta,
 };
+
+fn move_branch_above<'ws, 'meta, M: RefMetadata>(
+    editor: Editor<'ws, 'meta, M>,
+    subject: &gix::refs::FullNameRef,
+    target: &gix::refs::FullNameRef,
+) -> anyhow::Result<but_workspace::branch::move_branch::Outcome<'ws, 'meta, M>> {
+    but_workspace::branch::move_branch(
+        editor,
+        subject,
+        RelativeTo::Reference(target.to_owned()),
+        InsertSide::Above,
+    )
+}
 
 #[test]
 fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
@@ -55,7 +71,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Put C on top of A
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/C".try_into()?,
         "refs/heads/A".try_into()?,
@@ -116,7 +132,7 @@ fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Resul
     let before = graph_workspace(&ws).to_string();
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
-    let err = but_workspace::branch::move_branch(
+    let err = move_branch_above(
         editor,
         "refs/heads/C".try_into()?,
         "refs/heads/C".try_into()?,
@@ -180,7 +196,7 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -271,7 +287,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Put A on top of C
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/C".try_into()?,
@@ -358,7 +374,7 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     // Put B on top of C
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/C".try_into()?,
@@ -449,7 +465,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     // Put A on top of B, and below C
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -528,7 +544,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
     // Put B on top of A
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -601,7 +617,7 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     // Put A on top of B
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -665,7 +681,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -720,7 +736,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -799,7 +815,7 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/C".try_into()?,
         "refs/heads/A".try_into()?,
@@ -911,7 +927,7 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -1002,7 +1018,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
     // Move B on top of A — the base segment at the old fork point has no ref name.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -1088,7 +1104,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
     // Put empty B on top of non-empty A.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -1169,7 +1185,7 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
     // Put non-empty A on top of empty B.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
-    } = but_workspace::branch::move_branch(
+    } = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -1259,6 +1275,7 @@ mod single_branch_mode {
     use but_testsupport::{graph_workspace, invoke_bash};
     use but_workspace::branch::create_reference::{Anchor, Position};
 
+    use super::move_branch_above;
     use crate::ref_info::with_workspace_commit::utils::named_writable_scenario;
     use crate::utils::r;
 
@@ -1329,7 +1346,7 @@ mod single_branch_mode {
             new_tip,
             branch_stack_order,
             ..
-        } = but_workspace::branch::move_branch(editor, subject, target)?;
+        } = move_branch_above(editor, subject, target)?;
         assert!(
             ws_meta.is_none(),
             "ad-hoc reorder lives in branch_order, not workspace metadata"
@@ -1473,7 +1490,7 @@ mod single_branch_mode {
             new_tip,
             branch_stack_order,
             ..
-        } = but_workspace::branch::move_branch(editor, r("refs/heads/empty-bottom"), main_ref)?;
+        } = move_branch_above(editor, r("refs/heads/empty-bottom"), main_ref)?;
         rebase.materialize(Default::default())?;
 
         // The subject is reported as the new tip so the caller can check it out.
@@ -1509,7 +1526,7 @@ mod single_branch_mode {
             new_tip,
             branch_stack_order,
             ..
-        } = but_workspace::branch::move_branch(
+        } = move_branch_above(
             editor,
             r("refs/heads/empty-bottom"),
             r("refs/heads/empty-top"),
@@ -1576,7 +1593,7 @@ mod single_branch_mode {
             ws_meta,
             branch_stack_order,
             ..
-        } = but_workspace::branch::move_branch(
+        } = move_branch_above(
             editor,
             r("refs/heads/empty-bottom"),
             r("refs/heads/empty-top"),
@@ -1863,11 +1880,7 @@ mod single_branch_mode {
             new_tip,
             branch_stack_order,
             ..
-        } = but_workspace::branch::move_branch(
-            editor,
-            r("refs/heads/empty-top"),
-            r("refs/heads/base"),
-        )?;
+        } = move_branch_above(editor, r("refs/heads/empty-top"), r("refs/heads/base"))?;
         rebase.materialize(Default::default())?;
 
         assert_eq!(new_tip, None, "base isn't the checked-out tip");
@@ -1923,11 +1936,7 @@ mod single_branch_mode {
 "#]]
         );
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let err = match but_workspace::branch::move_branch(
-            editor,
-            r("refs/heads/x"),
-            r("refs/heads/y"),
-        ) {
+        let err = match move_branch_above(editor, r("refs/heads/x"), r("refs/heads/y")) {
             Ok(_) => panic!("untracked refs must not be movable in single-branch mode"),
             Err(err) => err,
         };
@@ -1960,7 +1969,7 @@ mod single_branch_mode {
             rebase,
             branch_stack_order,
             ..
-        } = but_workspace::branch::move_branch(
+        } = move_branch_above(
             editor,
             r("refs/heads/empty-bottom"),
             r("refs/heads/empty-top"),
@@ -1983,6 +1992,278 @@ mod single_branch_mode {
             meta.branch_stack_order(main_ref)?,
             order_before,
             "move_branch must not persist branch order on its own"
+        );
+        Ok(())
+    }
+}
+
+mod worktree_lanes {
+    use but_graph::init::Options;
+    use but_rebase::graph_rebase::{
+        Editor,
+        mutate::{InsertSide, RelativeTo},
+    };
+    use but_testsupport::{
+        git_status_at_dir, graph_workspace, invoke_bash, visualize_commit_graph_all,
+    };
+
+    use snapbox::IntoData;
+
+    use super::set_workspace_metadata;
+    use crate::ref_info::with_workspace_commit::utils::{
+        StackState, add_stack_with_segments, named_writable_scenario_with_description, project_meta,
+    };
+
+    struct Fixture {
+        _tmp: but_testsupport::gix_testtools::tempfile::TempDir,
+        repo: gix::Repository,
+        meta: but_meta::VirtualBranchesTomlMetadata,
+        db: but_db::DbHandle,
+        ws: but_graph::Workspace,
+    }
+
+    /// Stacks `A` and `C` over `B`, with a linked worktree forked from `A` holding `wt` over
+    /// `wt-lower`, after running `setup` in the main checkout.
+    fn workspace_with_worktree(setup: &str) -> anyhow::Result<Fixture> {
+        let (tmp, repo, mut meta, _description, mut db) =
+            named_writable_scenario_with_description("ws-ref-ws-commit-single-stack-double-stack")?;
+        add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+        add_stack_with_segments(&mut meta, 2, "C", StackState::InWorkspace, &["B"]);
+        invoke_bash(
+            &format!(
+                r#"
+git worktree add -q -b wt wt-dir A
+(cd wt-dir
+  echo w1 >w1 && git add w1 && git commit -q -m W1 && git branch wt-lower
+  echo w2 >w2 && git add w2 && git commit -q -m W2
+)
+{setup}
+"#
+            ),
+            &repo,
+        );
+        db.worktree_meta_mut().mark_adopted()?;
+        let ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta(&repo)?,
+            &mut db,
+            Options {
+                worktrees: true,
+                ..Options::limited()
+            },
+        )?
+        .into_workspace()?;
+        Ok(Fixture {
+            _tmp: tmp,
+            repo,
+            meta,
+            db,
+            ws,
+        })
+    }
+
+    fn above(branch: &str) -> anyhow::Result<(RelativeTo, InsertSide)> {
+        Ok((
+            RelativeTo::Reference(format!("refs/heads/{branch}").try_into()?),
+            InsertSide::Above,
+        ))
+    }
+
+    impl Fixture {
+        fn below_commit(&self, spec: &str) -> anyhow::Result<(RelativeTo, InsertSide)> {
+            Ok((
+                RelativeTo::Commit(self.repo.rev_parse_single(spec)?.detach()),
+                InsertSide::Below,
+            ))
+        }
+
+        fn move_branch(
+            &mut self,
+            subject: &str,
+            (relative_to, side): (RelativeTo, InsertSide),
+        ) -> anyhow::Result<()> {
+            let editor = Editor::create(&mut self.ws, &mut self.meta, &self.repo, &mut self.db)?;
+            let but_workspace::branch::move_branch::Outcome {
+                rebase, ws_meta, ..
+            } = but_workspace::branch::move_branch(
+                editor,
+                format!("refs/heads/{subject}").as_str().try_into()?,
+                relative_to,
+                side,
+            )?;
+            rebase.materialize(Default::default())?;
+            set_workspace_metadata(&mut self.meta, &self.ws, ws_meta)?;
+            let project_meta = self.ws.graph.project_meta.clone();
+            self.ws
+                .refresh_from_head(&self.repo, &self.meta, project_meta, &mut self.db)
+        }
+
+        fn worktree_status(&self) -> anyhow::Result<String> {
+            Ok(git_status_at_dir(
+                self.repo.workdir().expect("non-bare").join("wt-dir"),
+            )?)
+        }
+    }
+
+    #[test]
+    fn stack_branch_moves_below_the_commits_a_worktree_has_checked_out() -> anyhow::Result<()> {
+        let mut fixture = workspace_with_worktree("git branch -D wt-lower")?;
+        // Without `wt-lower`, the worktree holds nothing but the branch it has checked out.
+        snapbox::assert_data_eq!(
+            graph_workspace(&fixture.ws).to_string(),
+            snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+├── ≡📙:C on 85efbe4 {2}
+│   ├── 📙:C
+│   │   └── ·09bc93e (🏘️)
+│   └── 📙:B
+│       └── ·c813d8d (🏘️)
+└── 📁wt-dir on 09d8e52 (🏘️)
+    └── :wt[📁wt-dir]
+        ├── ·7f04017
+        └── ·e9b62b2
+
+"#]]
+        );
+
+        let below_w1 = fixture.below_commit("wt~1")?;
+        fixture.move_branch("C", below_w1)?;
+
+        // `C` left its stack for the bottom of the worktree, underneath all `wt` has.
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&fixture.repo)?,
+            snapbox::str![[r#"
+*   c718ffa (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+* | c813d8d (B) B
+| | * e91ff9e (wt) W2
+| | * fe69d87 W1
+| | * f2cc60d (C) C
+| |/  
+| * 09d8e52 (A) A
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+            .raw()
+        );
+        snapbox::assert_data_eq!(
+            graph_workspace(&fixture.ws).to_string(),
+            snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+├── ≡📙:B on 85efbe4 {2}
+│   └── 📙:B
+│       └── ·c813d8d (🏘️)
+└── 📁wt-dir on 09d8e52 (🏘️)
+    ├── :wt[📁wt-dir]
+    │   ├── ·e91ff9e
+    │   └── ·fe69d87
+    └── :C
+        └── ·f2cc60d
+
+"#]]
+        );
+        assert_eq!(
+            fixture.worktree_status()?,
+            "",
+            "the worktree's checkout follows its rewritten branch"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn lower_worktree_branch_moves_below_a_stack_commit() -> anyhow::Result<()> {
+        let mut fixture = workspace_with_worktree("")?;
+
+        let below_c = fixture.below_commit("C")?;
+        fixture.move_branch("wt-lower", below_c)?;
+
+        // `wt-lower` left the worktree to sit between `C` and `B`.
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&fixture.repo)?,
+            snapbox::str![[r#"
+*   6599cf8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+* | b9b1c60 (C) C
+* | 3dcf20b (wt-lower) W1
+* | c813d8d (B) B
+| | * 8e94b9e (wt) W2
+| |/  
+| * 09d8e52 (A) A
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+            .raw()
+        );
+        snapbox::assert_data_eq!(
+            graph_workspace(&fixture.ws).to_string(),
+            snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+├── ≡📙:C on 85efbe4 {2}
+│   ├── 📙:C
+│   │   └── ·b9b1c60 (🏘️)
+│   ├── 📙:wt-lower
+│   │   └── ·3dcf20b (🏘️)
+│   └── 📙:B
+│       └── ·c813d8d (🏘️)
+└── 📁wt-dir on 09d8e52 (🏘️)
+    └── :wt[📁wt-dir]
+        └── ·8e94b9e
+
+"#]]
+        );
+        let recorded = fixture.ws.metadata.as_ref().expect("a managed workspace");
+        assert_eq!(
+            recorded.stacks[1]
+                .branches
+                .iter()
+                .map(|branch| branch.ref_name.shorten().to_string())
+                .collect::<Vec<_>>(),
+            ["C", "wt-lower", "B"],
+            "workspace metadata lists the branch below the one owning the commit"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_branch_cannot_move_above_what_builds_on_it() -> anyhow::Result<()> {
+        let mut fixture = workspace_with_worktree("")?;
+        let err = fixture.move_branch("A", above("wt-lower")?).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Cannot move 'A' above 'wt-lower', which builds on it"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn an_empty_branch_cannot_move_into_a_worktree() -> anyhow::Result<()> {
+        let mut fixture = workspace_with_worktree("git branch empty main")?;
+        add_stack_with_segments(&mut fixture.meta, 3, "empty", StackState::InWorkspace, &[]);
+        let project_meta = fixture.ws.graph.project_meta.clone();
+        fixture.ws.refresh_from_head(
+            &fixture.repo,
+            &fixture.meta,
+            project_meta,
+            &mut fixture.db,
+        )?;
+        let err = fixture
+            .move_branch("empty", above("wt-lower")?)
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Cannot place empty branch 'empty' in worktree 'wt-dir': branches can't be ordered in worktrees yet"
         );
         Ok(())
     }

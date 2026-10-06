@@ -443,7 +443,11 @@ pub struct StackBranchOnOperation {
 
 impl StackBranchOnOperation {
     fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
-        tx.stack_branch_on(self.source_branch.as_ref(), self.target_branch.as_ref())
+        tx.move_branch(
+            self.source_branch.as_ref(),
+            RelativeTo::Reference(self.target_branch),
+            Side::Above.into(),
+        )
     }
 }
 

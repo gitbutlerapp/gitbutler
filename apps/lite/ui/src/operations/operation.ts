@@ -68,7 +68,7 @@ type Operation =
 			commitId: string;
 			assignTo: string | null;
 	  }
-	| { _tag: "MoveBranch"; subjectBranch: string; targetBranch: string };
+	| { _tag: "MoveBranch"; subjectBranch: string; relativeTo: RelativeTo; side: InsertSide };
 
 type LabelledOperation = { operation: Operation; label: string };
 
@@ -193,7 +193,8 @@ const executeOperation = async ({
 				window.lite.moveBranch({
 					projectId,
 					subjectBranch: operation.subjectBranch,
-					targetBranch: operation.targetBranch,
+					relativeTo: operation.relativeTo,
+					side: operation.side,
 					dryRun: false,
 				}),
 		}),
@@ -475,7 +476,8 @@ const moveOperation = ({
 				operation: {
 					_tag: "MoveBranch",
 					subjectBranch: decodeBytes(source.branchRef),
-					targetBranch: decodeBytes(target.branchRef),
+					relativeTo: { type: "referenceBytes", subject: target.branchRef },
+					side: "above",
 				},
 				label: "Move above",
 			}),

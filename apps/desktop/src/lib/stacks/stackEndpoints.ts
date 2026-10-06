@@ -754,7 +754,8 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			query: ({ projectId, subjectBranch, targetBranch }) => ({
 				projectId,
 				subjectBranch,
-				targetBranch,
+				relativeTo: { type: "reference", subject: targetBranch },
+				side: "above",
 				dryRun: false,
 			}),
 			invalidatesTags: [

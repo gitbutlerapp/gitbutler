@@ -16,7 +16,10 @@ use but_core::{
 use but_ctx::Context;
 use but_error::bail_precondition;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::{Editor, GraphEditorOptions, SuccessfulRebase, mutate::InsertSide};
+use but_rebase::graph_rebase::{
+    Editor, GraphEditorOptions, SuccessfulRebase,
+    mutate::{InsertSide, RelativeTo},
+};
 use but_workspace::branch::{
     BranchIntegrationStrategy, InitialBranchIntegration, OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
@@ -1721,7 +1724,7 @@ pub fn apply_branch_integration_with_perm(
 /// Moves a branch using the behavior described by [`move_branch_with_perm()`].
 ///
 /// This acquires exclusive worktree access from `ctx`, moves `subject_branch`
-/// on top of `target_branch`, and records an oplog snapshot on success. When
+/// to `side` of `relative_to`, and records an oplog snapshot on success. When
 /// `dry_run` is enabled, the returned workspace previews the move and no oplog
 /// entry is persisted.
 #[but_api(napi, try_from = json::MoveBranchResult)]
@@ -1729,24 +1732,31 @@ pub fn apply_branch_integration_with_perm(
 pub fn move_branch(
     ctx: &mut but_ctx::Context,
     subject_branch: &gix::refs::FullNameRef,
-    target_branch: &gix::refs::FullNameRef,
+    #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
+    side: InsertSide,
     dry_run: DryRun,
 ) -> anyhow::Result<MoveBranchResult> {
     let mut guard = ctx.exclusive_worktree_access();
     move_branch_with_perm(
         ctx,
         subject_branch,
-        target_branch,
+        relative_to,
+        side,
         dry_run,
         guard.write_permission(),
     )
 }
 
-/// Move `subject_branch` on top of `target_branch` under caller-held
+/// Move `subject_branch` to `side` of `relative_to` under caller-held
 /// exclusive repository access and record an oplog snapshot on success.
 ///
+/// The branch may come from a stack of the workspace or from a linked
+/// worktree, and `relative_to` may name a branch or a commit of either, so
+/// the same call moves a branch within the workspace, into a worktree, or
+/// out of one.
+///
 /// It prepares a best-effort move-branch oplog snapshot, rebases the subject
-/// branch onto the target branch, updates workspace metadata, and commits the
+/// branch to its new place, updates workspace metadata, and commits the
 /// snapshot only if the move succeeds. The returned [`MoveBranchResult`]
 /// contains the post-operation workspace view. When `dry_run` is enabled, it
 /// returns a preview of the resulting workspace state and skips oplog
@@ -1755,7 +1765,8 @@ pub fn move_branch(
 pub fn move_branch_with_perm(
     ctx: &mut but_ctx::Context,
     subject_branch: &gix::refs::FullNameRef,
-    target_branch: &gix::refs::FullNameRef,
+    relative_to: RelativeTo,
+    side: InsertSide,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveBranchResult> {
@@ -1773,7 +1784,7 @@ pub fn move_branch_with_perm(
                 ws_meta,
                 new_tip,
                 branch_stack_order,
-            } = but_workspace::branch::move_branch(editor, subject_branch, target_branch)?;
+            } = but_workspace::branch::move_branch(editor, subject_branch, relative_to, side)?;
 
             let result = MoveBranchResult {
                 workspace: branch_workspace_from_rebase(
