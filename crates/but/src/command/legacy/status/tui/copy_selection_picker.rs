@@ -189,11 +189,11 @@ impl CopySelectionItem {
         }
     }
 
-    fn what_to_copy(&self, ctx: &Context) -> anyhow::Result<String> {
-        let repo = ctx.repo.get()?;
+    fn what_to_copy(&self, ctx: &mut Context) -> anyhow::Result<String> {
         match self {
             CopySelectionItem::CommitSha(commit_id) => Ok(commit_id.to_string()),
             CopySelectionItem::ChangeId(commit_id) => {
+                let repo = ctx.repo.get()?;
                 let commit = repo.find_commit(*commit_id)?;
                 let commit = commit.decode()?;
                 let change_id = Headers::try_from_commit_headers(|| commit.extra_headers())
@@ -205,6 +205,7 @@ impl CopySelectionItem {
                 Ok(commit_id.to_hex_with_len(7).to_string())
             }
             CopySelectionItem::CommitMessageTitle(commit_id) => {
+                let repo = ctx.repo.get()?;
                 let commit = commit(&repo, *commit_id)?;
                 let commit_message = commit.message.to_str_lossy();
                 Ok(commit_message
@@ -214,11 +215,13 @@ impl CopySelectionItem {
                     .to_string())
             }
             CopySelectionItem::WholeCommitMessage(commit_id) => {
+                let repo = ctx.repo.get()?;
                 let commit = commit(&repo, *commit_id)?;
                 let commit_message = commit.message.to_str_lossy();
                 Ok(commit_message.to_string())
             }
             CopySelectionItem::CommitAuthor(commit_id) => {
+                let repo = ctx.repo.get()?;
                 let commit = commit(&repo, *commit_id)?;
                 let author = &commit.author;
                 Ok(format!(
@@ -228,6 +231,7 @@ impl CopySelectionItem {
                 ))
             }
             CopySelectionItem::CommitDiff(commit_id) => {
+                let repo = ctx.repo.get()?;
                 let commit_details = commit_details(&repo, *commit_id)?;
                 tree_changes_to_diff(
                     commit_details.diff_with_first_parent,
@@ -239,6 +243,7 @@ impl CopySelectionItem {
                 Ok(branch_name.shorten().to_str_lossy().to_string())
             }
             CopySelectionItem::BranchDiff(branch_name) => {
+                let repo = ctx.repo.get()?;
                 let name = branch_name.shorten().to_str_lossy().to_string();
                 let tree_changes = but_api::branch::branch_diff(ctx, name)?;
                 tree_changes_to_diff(
@@ -308,7 +313,7 @@ impl FuzzyPickerItem for CopySelectionItem {
 // TODO(david): this is likely duplicated elswhere in the but crate or should otherwise be in a
 // shared place
 fn uncommitted_hunk_or_file_to_diff(
-    ctx: &Context,
+    ctx: &mut Context,
     uncommitted: &UncommittedHunkOrFile,
 ) -> anyhow::Result<String> {
     // The changes have to be read from the checkout the selection lives in, or

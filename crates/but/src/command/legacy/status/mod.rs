@@ -582,7 +582,7 @@ fn build_status_context<'a>(
         ctx,
         but_api::commit::json::ChangesSource::Head,
         false,
-        perm.read_permission(),
+        perm,
     )?;
 
     let mut conflicted_paths: Vec<String> = worktree_changes

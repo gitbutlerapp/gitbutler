@@ -101,7 +101,7 @@ impl Handler {
         paths: Vec<PathBuf>,
     ) -> Result<()> {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
         let wt_changes = but_core::diff::worktree_changes(&repo)?;
 

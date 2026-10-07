@@ -481,8 +481,8 @@ async fn workspace_view_for_request(
     request: WorkspaceRequest,
     context: RequestContext<RoleServer>,
 ) -> Result<WorkspaceView> {
-    let resolved = resolve_repository(request.repository, context).await?;
-    workspace_view_from_context(&resolved.ctx, &resolved.repository.path)
+    let mut resolved = resolve_repository(request.repository, context).await?;
+    workspace_view_from_context(&mut resolved.ctx, &resolved.repository.path)
 }
 
 async fn resolve_repository(
@@ -570,9 +570,12 @@ fn open_repository(repository: &Path) -> Result<ResolvedRepository> {
     })
 }
 
-fn workspace_view_from_context(ctx: &but_ctx::Context, repository: &Path) -> Result<WorkspaceView> {
-    let guard = ctx.shared_worktree_access();
-    let workspace = but_api::workspace::get_workspace(ctx, guard.read_permission())
+fn workspace_view_from_context(
+    ctx: &mut but_ctx::Context,
+    repository: &Path,
+) -> Result<WorkspaceView> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let workspace = but_api::workspace::get_workspace(ctx, guard.write_permission())
         .context("Could not derive the detailed workspace graph")?;
 
     let mut branches = 0;
@@ -636,7 +639,7 @@ fn commit_details(request: CommitDetailsRequest) -> Result<CommitDetailsView> {
 }
 
 fn branch_details(request: BranchDetailsRequest) -> Result<BranchDetailsView> {
-    let resolved = open_repository(&request.repository)?;
+    let mut resolved = open_repository(&request.repository)?;
     let branch_name = request
         .branch
         .strip_prefix("refs/heads/")
@@ -652,8 +655,8 @@ fn branch_details(request: BranchDetailsRequest) -> Result<BranchDetailsView> {
         .project_meta()?
         .target_ref
         .map(|name| String::from_utf8_lossy(name.shorten()).into_owned());
-    let guard = resolved.ctx.shared_worktree_access();
-    let workspace = but_api::workspace::get_workspace(&resolved.ctx, guard.read_permission())
+    let mut guard = resolved.ctx.exclusive_worktree_access();
+    let workspace = but_api::workspace::get_workspace(&mut resolved.ctx, guard.write_permission())
         .context("Could not derive the detailed workspace graph")?;
     let (reference, commits) = workspace
         .stacks
@@ -1453,9 +1456,9 @@ mod tests {
         let env = but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(
             "one-stack",
         );
-        let ctx = env.context();
+        let mut ctx = env.context();
 
-        let view = workspace_view_from_context(&ctx, env.projects_root())?;
+        let view = workspace_view_from_context(&mut ctx, env.projects_root())?;
 
         assert_eq!(view.version, 1, "workspace response has a stable version");
         assert!(
@@ -1481,8 +1484,8 @@ mod tests {
                 but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(
                     "one-stack",
                 );
-            let ctx = env.context();
-            let workspace = workspace_view_from_context(&ctx, env.projects_root())?;
+            let mut ctx = env.context();
+            let workspace = workspace_view_from_context(&mut ctx, env.projects_root())?;
             let commit_id = workspace
                 .workspace
                 .stacks
@@ -1515,8 +1518,8 @@ mod tests {
                 but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(
                     "one-stack",
                 );
-            let ctx = env.context();
-            let workspace = workspace_view_from_context(&ctx, env.projects_root())?;
+            let mut ctx = env.context();
+            let workspace = workspace_view_from_context(&mut ctx, env.projects_root())?;
             let branch = workspace
                 .workspace
                 .stacks
@@ -1565,8 +1568,8 @@ mod tests {
                 },
             ];
 
-            let resolved = repository_from_roots(&roots)?;
-            let view = workspace_view_from_context(&resolved.ctx, &resolved.repository.path)?;
+            let mut resolved = repository_from_roots(&roots)?;
+            let view = workspace_view_from_context(&mut resolved.ctx, &resolved.repository.path)?;
 
             assert_eq!(
                 view.repository.path,

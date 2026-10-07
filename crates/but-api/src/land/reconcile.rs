@@ -38,7 +38,7 @@ pub(super) fn reconcile_after_land(ctx: &mut but_ctx::Context) -> anyhow::Result
     let updates = bottom_updates(ctx, guard.write_permission())?;
     if updates.is_empty() {
         return Ok(Reconciled {
-            workspace: current_state(ctx, guard.read_permission())?,
+            workspace: current_state(ctx, guard.write_permission())?,
             blocked_by_worktree: false,
         });
     }
@@ -59,7 +59,7 @@ pub(super) fn reconcile_after_land(ctx: &mut but_ctx::Context) -> anyhow::Result
             blocked_by_worktree: false,
         }),
         Err(err) if is_uncommitted_changes_block(&err) => Ok(Reconciled {
-            workspace: current_state(ctx, guard.read_permission())?,
+            workspace: current_state(ctx, guard.write_permission())?,
             blocked_by_worktree: true,
         }),
         Err(err) => Err(err),
@@ -79,11 +79,11 @@ fn is_uncommitted_changes_block(err: &anyhow::Error) -> bool {
 /// branches were not rebased) rather than any in-memory projection a failed integration left behind.
 fn current_state(
     ctx: &mut but_ctx::Context,
-    perm: &but_core::sync::RepoShared,
+    perm: &mut but_core::sync::RepoExclusive,
 ) -> anyhow::Result<WorkspaceState> {
     ctx.invalidate_workspace_cache()?;
     let mut meta = ctx.meta()?;
-    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)
 }
 

@@ -214,7 +214,7 @@ impl NewUnstackedBranchOperation {
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<NewOutcome> {
         let NewUnstackedBranchOperation { name, switch } = self;
-        let sbm = SingleBranchMode::new(ctx, perm.read_permission(), switch)?;
+        let sbm = SingleBranchMode::new(ctx, perm, switch)?;
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
 
         let (new_ref, _ws) = sbm.transaction_with_workspace_setup(
@@ -281,7 +281,7 @@ impl NewStackedBranchOperation {
             switch,
         } = self;
 
-        let sbm = SingleBranchMode::new(ctx, perm.read_permission(), switch)?;
+        let sbm = SingleBranchMode::new(ctx, perm, switch)?;
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
 
         let (new_ref, _ws) = sbm.transaction_with_workspace_setup(

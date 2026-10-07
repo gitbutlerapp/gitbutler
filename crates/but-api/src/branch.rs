@@ -1646,12 +1646,12 @@ pub struct ListedBranch {
 #[but_api(napi, try_from = json::InitialBranchIntegration)]
 #[instrument(err(Debug))]
 pub fn get_initial_branch_integration(
-    ctx: &Context,
+    ctx: &mut Context,
     branch: &gix::refs::FullNameRef,
     strategy: Option<json::BranchIntegrationStrategy>,
 ) -> anyhow::Result<InitialBranchIntegration> {
     let mut meta = ctx.meta()?;
-    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+    let (_guard, repo, ws, mut db) = ctx.workspace_mut_and_db_mut()?;
     let mut ws = ws.clone();
     let strategy = strategy
         .map(BranchIntegrationStrategy::from)

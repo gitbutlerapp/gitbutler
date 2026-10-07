@@ -551,7 +551,7 @@ fn resolve(
     } = args;
 
     let context_lines = ctx.settings.context_lines;
-    let (repo, ws, _db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+    let (repo, ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
     let resolved_sources = resolve_sources(&repo, context_lines, id_map, sources)?;
 
@@ -1073,7 +1073,7 @@ pub fn run(
     // Restacking can implicitly check out a new tip too, without creating a reference.
     let moves_branch = matches!(move_op, MoveOperation::StackBranch(_));
     let sbm = (creates_independent_branch || creates_stacked_branch || moves_branch || switch)
-        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), switch))
+        .then(|| SingleBranchMode::new(ctx, perm, switch))
         .transpose()?;
     let snapshot_details = match &move_op {
         MoveOperation::CommitsRelativeTo(_) | MoveOperation::CommitsToNewBranch(_) => {

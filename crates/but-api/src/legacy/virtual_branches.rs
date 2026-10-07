@@ -486,12 +486,12 @@ pub fn unapply_stack_with_perm(
 /// keeps only assignments owned by `stack_id`, and flattens them into the
 /// diffspec list consumed by unapply implementations.
 fn assigned_diffspec_for_stack(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
-    perm: &RepoShared,
+    perm: &mut RepoExclusive,
 ) -> Result<Vec<DiffSpec>> {
     let context_lines = ctx.settings.context_lines;
-    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
         &repo,
@@ -547,7 +547,7 @@ fn unapply_stack_v3_with_perm(
             .context("Unapplying a stack requires open workspace mode")?;
     }
 
-    let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm.read_permission())?;
+    let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm)?;
     let stack_branches = stack_branch_names(ctx, stack_id, perm.read_permission())?;
     let Some(branch_to_unapply) = stack_branches.first().cloned() else {
         return Ok(());

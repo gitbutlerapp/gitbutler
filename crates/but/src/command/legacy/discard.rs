@@ -521,7 +521,7 @@ pub fn run(
 
             let changes = {
                 let context_lines = ctx.settings.context_lines;
-                let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+                let (repo, ..) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
                 let mut builder = DiffSpecBuilder::new(&repo, context_lines);
                 for change in changes {
                     match change {
@@ -574,7 +574,7 @@ pub fn run(
         DiscardOperation::Uncommitted(selection) => {
             let changes = {
                 let context_lines = ctx.settings.context_lines;
-                let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+                let (repo, ..) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
                 let mut builder = DiffSpecBuilder::new(&repo, context_lines);
                 match selection {
                     UncommittedSelection::All => builder.push_changes_from_uncommitted_area()?,
