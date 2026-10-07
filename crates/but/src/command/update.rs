@@ -169,7 +169,9 @@ fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
 
     // Call installer directly (handles all user-facing output)
     // Don't print usage info since user is already using the CLI
-    but_installer::run_installation_with_version(version_request, false)?;
+    tokio::task::block_in_place(|| {
+        but_installer::run_installation_with_version(version_request, false)
+    })?;
 
     // Show change log link
     if let Some(writer) = out.for_human() {
