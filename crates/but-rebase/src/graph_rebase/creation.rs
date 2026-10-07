@@ -82,6 +82,9 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             };
             mutable_entrypoints.push(segment.id);
         }
+        for tip in worktree_tips.iter().filter(|tip| tip.ref_name.is_none()) {
+            mutable_entrypoints.push(workspace.graph.segment_id_by_commit_id(tip.id)?);
+        }
 
         // Segments reachable from a mutable entrypoint (following parent edges)
         // may be rewritten. Every other segment is still included in the

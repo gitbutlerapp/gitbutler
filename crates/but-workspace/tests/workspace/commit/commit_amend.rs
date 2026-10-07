@@ -221,7 +221,7 @@ mod from_worktree {
     use but_graph::Graph;
     use but_meta::VirtualBranchesTomlMetadata;
     use but_rebase::graph_rebase::{Editor, LookupStep as _, mutate::InsertSide};
-    use but_testsupport::{git_status_at_dir, visualize_commit_graph_all};
+    use but_testsupport::{CommandExt as _, git, git_status_at_dir, visualize_commit_graph_all};
     use but_workspace::{
         commit::{ChangeSource, commit_amend, commit_create},
         worktrees::open_worktree_repo,
@@ -486,20 +486,77 @@ mod from_worktree {
     }
 
     #[test]
-    fn amend_into_an_immutable_commit_fails_fast() -> Result<()> {
+    fn amend_into_a_detached_worktrees_commit_moves_its_head() -> Result<()> {
         let (repo, _tmp, mut meta, mut db) = scenario();
         let graph = graph_with_worktree_tips(&repo, &*meta, &mut db)?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
 
-        // The detached worktree's commit is in the graph, but no branch points at
-        // it, so it is never forced mutable. Amending into it used to write the
-        // amended commit and report success while no ref ever adopted it.
         let d1_id = detached_tip(&repo)?;
-        let err = commit_amend(
+        let outcome = commit_amend(
             editor,
             d1_id,
+            whole_file_spec("a-file"),
+            0,
+            ChangeSource::Worktree {
+                repo: &wt_repo,
+                name: "wt".into(),
+            },
+        )?;
+        let selector = outcome.commit_selector.expect("a commit was amended");
+        let materialized = outcome.rebase.materialize(Default::default())?;
+        let new_id = materialized.lookup_pick(selector)?;
+
+        assert_ne!(new_id, d1_id, "the commit was rewritten");
+        assert_eq!(
+            detached_tip(&repo)?,
+            new_id,
+            "no branch points at the commit, so the worktree's HEAD adopts the amended one"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn amend_into_an_immutable_commit_fails_fast() -> Result<()> {
+        let (repo, _tmp, mut meta, mut db) = scenario();
+        // Only a remote-tracking branch points at this commit, so nothing makes it mutable.
+        let head_name = repo.head_name()?.expect("on a branch");
+        let branch = head_name.shorten().to_string();
+        git(&repo).args(["remote", "add", "origin", "./fake"]).run();
+        git(&repo)
+            .args(["config", &format!("branch.{branch}.remote"), "origin"])
+            .run();
+        git(&repo)
+            .args([
+                "config",
+                &format!("branch.{branch}.merge"),
+                &head_name.to_string(),
+            ])
+            .run();
+        let remote_only = git(&repo)
+            .args(["commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "R1"])
+            .output()?;
+        let remote_only = String::from_utf8(remote_only.stdout)?;
+        git(&repo)
+            .args([
+                "update-ref",
+                &format!("refs/remotes/origin/{branch}"),
+                remote_only.trim(),
+            ])
+            .run();
+        let repo = but_testsupport::open_repo(repo.workdir().expect("non-bare"))?;
+        let graph = graph_with_worktree_tips(&repo, &*meta, &mut db)?;
+        let mut ws = graph.into_workspace()?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+        let wt_repo = open_worktree_repo(&repo, "wt".into())?;
+
+        let remote_only_id = repo
+            .rev_parse_single(format!("refs/remotes/origin/{branch}").as_str())?
+            .detach();
+        let err = commit_amend(
+            editor,
+            remote_only_id,
             whole_file_spec("a-file"),
             0,
             ChangeSource::Worktree {
@@ -509,7 +566,6 @@ mod from_worktree {
         )
         .unwrap_err();
         assert!(err.to_string().contains("the commit is immutable"), "{err}");
-        assert_eq!(detached_tip(&repo)?, d1_id, "nothing moved");
         Ok(())
     }
 
