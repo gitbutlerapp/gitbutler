@@ -184,12 +184,6 @@ pub enum Subcommands {
     /// ```text
     /// but config feature
     /// ```
-    ///
-    /// Enable single-branch mode:
-    ///
-    /// ```text
-    /// but config feature single-branch enable
-    /// ```
     Feature {
         /// Feature flag to view or update.
         #[clap(value_enum)]
@@ -390,22 +384,15 @@ pub enum MetricsStatus {
 
 /// Feature flags that can be managed through `but config feature`.
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
-pub enum FeatureFlag {
-    /// Enable single-branch mode.
-    SingleBranch,
-}
+pub enum FeatureFlag {}
 
 impl FeatureFlag {
     pub fn as_str(self) -> &'static str {
-        match self {
-            FeatureFlag::SingleBranch => "single-branch",
-        }
+        match self {}
     }
 
     pub fn as_json_key(self) -> &'static str {
-        match self {
-            FeatureFlag::SingleBranch => "single_branch",
-        }
+        match self {}
     }
 }
 

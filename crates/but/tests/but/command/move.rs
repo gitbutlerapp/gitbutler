@@ -1048,24 +1048,6 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-fn move_switch_requires_single_branch_feature() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    env.setup_metadata(&["A", "B"]);
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
-    env.but("move d3e2ba3 -b moved --switch")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: `--switch` requires the `single-branch` feature to be enabled
-
-Hint: Enable the feature with `but config feature single-branch enable`
-
-"#]]);
-}
-
-#[test]
 fn move_switch_conflicts_with_relative_targets() {
     let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
     env.but("move myy --above C --switch")

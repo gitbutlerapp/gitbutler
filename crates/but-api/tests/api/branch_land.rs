@@ -2,22 +2,22 @@ use but_testsupport::{CommandExt, git_at_dir};
 
 use crate::support::{repo_with_feature_branch, set_project_target_to_feature, write_file};
 
-/// Outside the managed workspace, landing is single-branch-mode behavior, so it stays refused
-/// while that feature is off.
+/// A detached HEAD cannot be used as a landing checkout.
 #[test]
-fn land_outside_workspace_requires_single_branch_mode() -> anyhow::Result<()> {
-    let (repo, _tmp) = repo_with_feature_branch()?;
+fn land_refuses_detached_head() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
     set_project_target_to_feature(&repo)?;
+    git_at_dir(tmp.path())
+        .args(["checkout", "--detach", "-q"])
+        .run();
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.single_branch = false;
 
     let err = but_api::land::branch_land(&mut ctx, "main".into(), false, false)
-        .expect_err("HEAD is on main, outside the managed workspace");
+        .expect_err("HEAD is detached, outside the managed workspace");
 
     assert_eq!(
         err.to_string(),
-        "`but merge` requires the GitButler workspace or, in single-branch mode, a checked-out \
-         branch."
+        "`but merge` requires the GitButler workspace or a checked-out branch."
     );
     Ok(())
 }
@@ -36,7 +36,6 @@ fn land_refuses_branch_outside_the_workspace() -> anyhow::Result<()> {
     git().args(["checkout", "-q", "main"]).run();
     let refs_before = git().args(["show-ref"]).output()?.stdout;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    ctx.settings.feature_flags.single_branch = true;
 
     let err = but_api::land::branch_land(&mut ctx, "topic".into(), false, false)
         .expect_err("topic is not part of the checked-out stack");

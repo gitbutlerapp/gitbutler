@@ -383,10 +383,13 @@ pub(crate) fn feature_config(
         return Ok(());
     }
 
-    let flags = [(
-        FeatureFlag::SingleBranch,
-        settings.feature_flags.single_branch,
-    )];
+    let flags: [(FeatureFlag, bool); _] = [
+        // NOTE: write feature flags here
+        // (
+        //     FeatureFlag::SingleBranch,
+        //     settings.feature_flags.single_branch,
+        // )
+    ];
     if let Some(out) = out.for_human() {
         writeln!(out, "\n{}:", t.important.paint("Feature Flags"))?;
         writeln!(out)?;
@@ -404,27 +407,25 @@ pub(crate) fn feature_config(
         }
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
-            "single_branch": settings.feature_flags.single_branch,
+            // NOTE: write feature flags here
+            // "single_branch": settings.feature_flags.single_branch,
         }))?;
     }
 
     Ok(())
 }
 
+#[expect(unused_variables)]
 fn feature_flag_value(flags: &but_settings::app_settings::FeatureFlags, flag: FeatureFlag) -> bool {
-    match flag {
-        FeatureFlag::SingleBranch => flags.single_branch,
-    }
+    match flag {}
 }
 
+#[expect(unreachable_code, unused_variables, unused_mut)]
 fn feature_flag_update(flag: FeatureFlag, enabled: bool) -> FeatureFlagsUpdate {
     let mut update = FeatureFlagsUpdate {
-        single_branch: None,
         worktree_manipulation: None,
     };
-    match flag {
-        FeatureFlag::SingleBranch => update.single_branch = Some(enabled),
-    }
+    match flag {}
     update
 }
 

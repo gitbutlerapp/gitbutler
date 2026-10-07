@@ -201,7 +201,6 @@ test.describe("GitHub review apply", () => {
 			gitbutlerOptions: {
 				config: {
 					onboardingComplete: true,
-					featureFlags: { singleBranch: true },
 				},
 			},
 		});

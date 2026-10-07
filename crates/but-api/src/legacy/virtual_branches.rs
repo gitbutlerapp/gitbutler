@@ -517,10 +517,8 @@ fn assigned_diffspec_for_stack(
 
 /// Unapply a stack through the newer workspace metadata implementation.
 ///
-/// Outside single branch mode this deliberately keeps the workspace reference and
-/// workspace merge commit in place for compatibility with the legacy API surface.
-/// In single branch mode the workspace reference is dropped once it is no longer
-/// needed, so unapplying the second-to-last stack checks out the remaining branch.
+/// The workspace reference is dropped once it is no longer needed, so unapplying the
+/// second-to-last stack checks out the remaining branch.
 /// Unapplying that last branch checks out the target's local tracking branch and clears its
 /// applied state from retained workspace metadata so switching back won't restore it.
 /// We implement plumbing here, particularly relative to assignment handling,
@@ -528,7 +526,7 @@ fn assigned_diffspec_for_stack(
 ///
 /// # Control-flow
 ///
-/// - require open workspace mode unless the single-branch feature is enabled, and reject edit mode;
+/// - reject edit mode, allowing both managed workspaces and ordinary branch checkouts;
 /// - collect currently assigned worktree changes for `stack_id`;
 /// - identify the workspace metadata branch representing the stack;
 /// - create a best-effort unapply snapshot with all stack branch names as trailers;
@@ -547,8 +545,7 @@ fn unapply_stack_v3_with_perm(
     stack_id: StackId,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
-    let single_branch = ctx.settings.feature_flags.single_branch;
-    if !single_branch || gitbutler_operating_modes::in_edit_mode(ctx, perm.read_permission())? {
+    if gitbutler_operating_modes::in_edit_mode(ctx, perm.read_permission())? {
         ensure_open_workspace_mode(ctx, perm.read_permission())
             .context("Unapplying a stack requires open workspace mode")?;
     }
@@ -570,18 +567,14 @@ fn unapply_stack_v3_with_perm(
     let mut meta = ctx.legacy_meta_mut(perm)?;
     let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let was_ad_hoc = matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc);
-    let workspace_disposition = if single_branch {
-        WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
-    } else {
-        WorkspaceDisposition::KeepWorkspaceCommit
-    };
     let outcome = but_workspace::branch::unapply(
         branch_to_unapply.as_ref(),
         &ws,
         &repo,
         &mut meta,
         but_workspace::branch::unapply::Options {
-            workspace_disposition,
+            workspace_disposition:
+                WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
         },
     )?;
     let new_ws = outcome.workspace.into_owned();

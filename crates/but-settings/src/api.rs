@@ -22,7 +22,6 @@ but_schemars::register_sdk_type!(TelemetryUpdate);
 #[schemars(extend("x-input" = true))]
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
-    pub single_branch: Option<bool>,
     pub worktree_manipulation: Option<bool>,
 }
 but_schemars::register_sdk_type!(FeatureFlagsUpdate);
@@ -90,14 +89,10 @@ impl AppSettingsWithDiskSync {
     pub fn update_feature_flags(
         &self,
         FeatureFlagsUpdate {
-            single_branch,
             worktree_manipulation,
         }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
-        if let Some(single_branch) = single_branch {
-            settings.feature_flags.single_branch = single_branch;
-        }
         if let Some(worktree_manipulation) = worktree_manipulation {
             settings.feature_flags.worktree_manipulation = worktree_manipulation;
         }
@@ -137,7 +132,7 @@ impl AppSettingsWithDiskSync {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{AppSettingsWithDiskSync, FeatureFlagsUpdate};
 
     fn create_test_settings() -> (tempfile::TempDir, AppSettingsWithDiskSync) {
         let temp_dir = tempfile::TempDir::new().unwrap();
@@ -147,45 +142,57 @@ mod tests {
     }
 
     #[test]
-    fn update_feature_flags_updates_single_branch_and_persists() {
+    fn update_feature_flags_updates_worktree_manipulation_and_persists() {
         let (dir, settings) = create_test_settings();
-        let original_worktree_manipulation =
-            settings.get().unwrap().feature_flags.worktree_manipulation;
+        let original_watch_mode = settings.get().unwrap().feature_flags.watch_mode.clone();
+        let enabled = !settings.get().unwrap().feature_flags.worktree_manipulation;
 
         settings
             .update_feature_flags(FeatureFlagsUpdate {
-                single_branch: Some(true),
-                worktree_manipulation: None,
+                worktree_manipulation: Some(enabled),
             })
             .unwrap();
 
         let s = settings.get().unwrap();
-        assert!(
-            s.feature_flags.single_branch,
-            "the API should be able to enable the single branch flag"
-        );
         assert_eq!(
-            s.feature_flags.worktree_manipulation, original_worktree_manipulation,
+            s.feature_flags.watch_mode, original_watch_mode,
             "partial updates should leave unrelated feature flags untouched"
         );
         drop(s);
 
         let reloaded = AppSettingsWithDiskSync::new_with_customization(dir.path(), None).unwrap();
-        assert!(
-            reloaded.get().unwrap().feature_flags.single_branch,
-            "the single branch flag should be readable after reload"
+        assert_eq!(
+            reloaded.get().unwrap().feature_flags.worktree_manipulation,
+            enabled,
+            "feature flag updates should persist across reloads"
         );
     }
 
     #[test]
-    fn feature_flags_update_deserializes_single_branch_from_api_payload() {
-        let update: FeatureFlagsUpdate =
-            serde_json::from_value(serde_json::json!({ "singleBranch": true })).unwrap();
+    fn empty_feature_flags_update_preserves_existing_value() {
+        let (_dir, settings) = create_test_settings();
+        settings
+            .update_feature_flags(FeatureFlagsUpdate {
+                worktree_manipulation: Some(true),
+            })
+            .unwrap();
+        settings
+            .update_feature_flags(FeatureFlagsUpdate::default())
+            .unwrap();
+        assert!(
+            settings.get().unwrap().feature_flags.worktree_manipulation,
+            "an omitted flag should retain its value"
+        );
+    }
 
+    #[test]
+    fn feature_flags_update_deserializes_worktree_manipulation() {
+        let update: FeatureFlagsUpdate =
+            serde_json::from_value(serde_json::json!({ "worktreeManipulation": true })).unwrap();
         assert_eq!(
-            update.single_branch,
+            update.worktree_manipulation,
             Some(true),
-            "the API payload should map singleBranch to the settings update"
+            "the API accepts camelCase feature flags"
         );
     }
 }

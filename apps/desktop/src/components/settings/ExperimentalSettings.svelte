@@ -1,14 +1,11 @@
 <script lang="ts">
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
-	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Toggle } from "@gitbutler/ui-svelte";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
-
-	const userService = inject(USER_SERVICE);
 </script>
 
 <p class="text-12 text-body experimental-settings__text">
@@ -33,27 +30,6 @@
 			/>
 		{/snippet}
 	</CardGroup.Item>
-
-	{#if userService.user?.role === "admin"}
-		<CardGroup.Item labelFor="single-branch">
-			{#snippet title()}
-				Single-branch mode
-			{/snippet}
-			{#snippet caption()}
-				Stay in the workspace view when leaving the gitbutler/workspace branch.
-			{/snippet}
-			{#snippet actions()}
-				<Toggle
-					id="single-branch"
-					checked={$settingsStore?.featureFlags.singleBranch}
-					onclick={() =>
-						settingsService.updateFeatureFlags({
-							singleBranch: !$settingsStore?.featureFlags.singleBranch,
-						})}
-				/>
-			{/snippet}
-		</CardGroup.Item>
-	{/if}
 
 	<CardGroup.Item labelFor="worktree-manipulation">
 		{#snippet title()}

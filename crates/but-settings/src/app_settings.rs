@@ -36,8 +36,6 @@ but_schemars::register_sdk_type!(GitHubOAuthAppSettings);
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureFlags {
-    /// Enable single branch mode.
-    pub single_branch: bool,
     /// Control how the filesystem watch should be established.
     /// Possible values: "auto", "legacy", "modern".
     /// "auto" automatically picks based on platform heuristics (default).

@@ -84,9 +84,6 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
                 .expect("archived state is writable");
         }
     }
-    let operating_mode = but_api::legacy::modes::operating_mode(&ctx)
-        .expect("failed to get operating mode")
-        .operating_mode;
     let mut out = OutputChannel::new(OutputFormat::Human { agent: false });
 
     let flags = StatusFlags::all_false();
@@ -99,7 +96,6 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
         guard.write_permission(),
         &mut out,
         format,
-        &operating_mode,
         flags,
         StatusRenderMode::Tui(launch_options.clone()),
     )
@@ -136,7 +132,6 @@ pub fn test_status_tui_with_options(mut env: Sandbox, options: TestTuiOptions) -
         incoming_out_of_band_messages,
         head_sha,
         clipboard,
-        operating_mode,
     )
     .unwrap();
 

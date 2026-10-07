@@ -10,7 +10,6 @@ use bstr::{BStr, BString, ByteSlice};
 use but_api::open::program::ProgramSpec;
 use but_ctx::Context;
 use crossterm::event::Event;
-use gitbutler_operating_modes::OperatingMode;
 use gix::refs::{Category, FullName};
 use nonempty::NonEmpty;
 use ratatui::prelude::*;
@@ -141,7 +140,6 @@ pub struct App {
     pub file_browser: Option<FileBrowser>,
     pub head_sha: String,
     pub clipboard: Clipboard,
-    pub operating_mode: OperatingMode,
     pub in_single_branch_mode: bool,
 }
 
@@ -335,7 +333,6 @@ impl App {
         mut incoming_out_of_band_messages: Vec<Receiver<Message>>,
         head_sha: String,
         clipboard: Clipboard,
-        operating_mode: OperatingMode,
     ) -> CliResult<Self> {
         let initial_hunk = initial_target.as_ref().and_then(|target| match target {
             ResolvedCliIdArg::UncommittedHunkOrFile(hunk) if !hunk.is_entire_file => {
@@ -439,7 +436,6 @@ impl App {
             file_browser,
             head_sha,
             clipboard,
-            operating_mode,
             in_single_branch_mode: false,
         };
 
@@ -1508,13 +1504,8 @@ impl App {
             }
         }
 
-        let new_lines = operations::reload_legacy(
-            ctx,
-            out,
-            &self.operating_mode,
-            self.flags,
-            self.launch_options.clone(),
-        )?;
+        let new_lines =
+            operations::reload_legacy(ctx, out, self.flags, self.launch_options.clone())?;
         self.head_sha = operations::head_sha(ctx)?;
 
         self.cursor = match select_after_reload {

@@ -37,7 +37,7 @@ pub fn handle(
 
         {
             let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-            but_api::land::ensure_landable_checkout(&ws, ctx.settings.feature_flags.single_branch)?;
+            but_api::land::ensure_landable_checkout(&ws)?;
         }
 
         let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;

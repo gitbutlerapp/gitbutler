@@ -149,7 +149,6 @@ fn applied_stacks_with_options(
         &info,
         metadata.as_ref(),
         object_hash.null(),
-        ctx.settings.feature_flags.single_branch,
     ))
 }
 
@@ -172,12 +171,7 @@ fn applied_lanes_with_options(
     let metadata = workspace_metadata(&ctx.meta()?)?;
     let (info, object_hash) = head_info(ctx, expensive_commit_info)?;
     let null_id = object_hash.null();
-    let mut lanes = head_info_stacks(
-        &info,
-        metadata.as_ref(),
-        null_id,
-        ctx.settings.feature_flags.single_branch,
-    );
+    let mut lanes = head_info_stacks(&info, metadata.as_ref(), null_id);
     for worktree in &info.worktrees {
         lanes.push(HeadInfoStack {
             id: None,
@@ -240,20 +234,17 @@ fn head_info_stacks(
     info: &RefInfo,
     metadata: Option<&Workspace>,
     null_id: gix::ObjectId,
-    retain_single_branch_id: bool,
 ) -> Vec<HeadInfoStack> {
     info.stacks
         .iter()
-        .filter_map(|stack| {
-            match head_info_stack(stack, metadata, null_id, retain_single_branch_id) {
-                Ok(stack) => Some(stack),
-                Err(err) => {
-                    tracing::warn!(
-                        ?err,
-                        "Skipping head_info stack that the CLI cannot represent"
-                    );
-                    None
-                }
+        .filter_map(|stack| match head_info_stack(stack, metadata, null_id) {
+            Ok(stack) => Some(stack),
+            Err(err) => {
+                tracing::warn!(
+                    ?err,
+                    "Skipping head_info stack that the CLI cannot represent"
+                );
+                None
             }
         })
         .collect()
@@ -263,7 +254,6 @@ fn head_info_stack(
     stack: &branch::Stack,
     metadata: Option<&Workspace>,
     null_id: gix::ObjectId,
-    retain_single_branch_id: bool,
 ) -> anyhow::Result<HeadInfoStack> {
     let branches = stack
         .segments
@@ -284,10 +274,7 @@ fn head_info_stack(
                     .map(|stack| stack.id)
             })
     });
-    let projection_id = stack
-        .id
-        .filter(|id| retain_single_branch_id || *id != StackId::single_branch_id());
-    let id = metadata_id.or(projection_id);
+    let id = metadata_id.or(stack.id);
     Ok(HeadInfoStack { id, branches })
 }
 
