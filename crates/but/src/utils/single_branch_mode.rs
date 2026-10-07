@@ -157,7 +157,7 @@ impl SingleBranchMode {
             meta.set_workspace(&workspace)?;
         }
 
-        let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (repo, mut ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         // Also apply an empty branch, which set_base_branch doesn't apply itself.
         // Non-empty branches may already have been applied by set_base_branch.
         let outcome = but_workspace::branch::apply(

@@ -115,7 +115,7 @@ pub fn workspace_recreate_with_perm(
         Vec::new()
     } else {
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (repo, mut ws, db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
         let mut skipped_missing_heads = false;
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {

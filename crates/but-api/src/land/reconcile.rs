@@ -94,7 +94,7 @@ fn bottom_updates(
     ctx: &mut but_ctx::Context,
     perm: &mut but_core::sync::RepoExclusive,
 ) -> anyhow::Result<Vec<BottomUpdate>> {
-    let (repo, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let head_info = but_workspace::graph_to_ref_info(
         &ws,
         &repo,

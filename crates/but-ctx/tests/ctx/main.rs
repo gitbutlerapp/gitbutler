@@ -93,31 +93,26 @@ fn writable_workspace_accessors_return_mutable_repositories() -> anyhow::Result<
     let (repo, _tmp) = but_testsupport::writable_scenario("unborn-empty");
     let mut ctx = Context::from_repo_for_testing(repo)?;
 
-    for mutable_db in [false, true] {
-        ctx.invalidate_workspace_cache()?;
-        // The first call constructs the workspace; the second reuses its cache.
-        for value in ["uncached", "cached"] {
-            {
-                let (_guard, mut repo, _ws) = if mutable_db {
-                    let (guard, repo, ws, _db) = ctx.workspace_mut_and_db_mut()?;
-                    (guard, repo, ws)
-                } else {
-                    let (guard, repo, ws, _db) = ctx.workspace_mut_and_db()?;
-                    (guard, repo, ws)
-                };
-                repo.config_snapshot_mut()
-                    .set_raw_value("but.contextTest", value)?;
-            }
-            let (_guard, repo, _ws, _db) = ctx.workspace_and_db()?;
-            assert_eq!(
-                repo.config_snapshot()
-                    .string("but.contextTest")
-                    .expect("the writable accessor updated the cached repository")
-                    .to_string(),
-                value,
-                "read access sees the repository update from either writable accessor"
-            );
+    ctx.invalidate_workspace_cache()?;
+    // The first call constructs the workspace; the second reuses its cache.
+    for value in ["uncached", "cached"] {
+        {
+            let (_guard, mut repo, _ws) = {
+                let (guard, repo, ws, _db) = ctx.workspace_mut_and_db_mut()?;
+                (guard, repo, ws)
+            };
+            repo.config_snapshot_mut()
+                .set_raw_value("but.contextTest", value)?;
         }
+        let (_guard, repo, _ws, _db) = ctx.workspace_and_db()?;
+        assert_eq!(
+            repo.config_snapshot()
+                .string("but.contextTest")
+                .expect("the writable accessor updated the cached repository")
+                .to_string(),
+            value,
+            "read access sees the repository update from either writable accessor"
+        );
     }
     Ok(())
 }

@@ -706,7 +706,7 @@ mod behind_count {
         let mut guard = ctx.exclusive_worktree_access();
         let mut meta = ctx.meta().unwrap();
         let (repo, mut workspace, _) = ctx
-            .workspace_mut_and_db_with_perm(guard.write_permission())
+            .workspace_mut_and_db_mut_with_perm(guard.write_permission())
             .unwrap();
         let outcome = but_workspace::branch::apply(
             "refs/heads/C".try_into().unwrap(),
