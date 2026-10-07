@@ -5,6 +5,10 @@
 //! Enumeration, archived-state reconciliation, and `HEAD` resolution are
 //! centralized in `but-ctx`, keeping this crate independent of it.
 
+use std::collections::HashSet;
+use std::fs;
+use std::io;
+use std::path::PathBuf;
 use std::{ffi::OsStr, path::Path};
 
 use anyhow::{Context as _, bail};
@@ -150,10 +154,555 @@ pub fn add(
             OsStr::new(&base),
         ],
     )?;
+
+    let worktree_repo = gix::open(path)?;
+
+    worktree_repo
+        .worktree()
+        .context("git registered the new checkout as linked worktree")?;
+
+    if let Err(err) = handle_worktreeinclude(repo, worktree_repo) {
+        // This is most likely not a fatal issue, the worktree checkout is almost certainly still
+        // usable. So we only log the error.
+        tracing::error!(?err, "Failed to copy .worktreeinclude files");
+    }
+
     gix::open(path)?
         .worktree()
         .and_then(|worktree| worktree.id().map(ToOwned::to_owned))
         .context("git registered the new checkout as a linked worktree")
+}
+
+/// Handle the .worktreeinclude rules and copy any file from the source worktree into the
+/// destination worktree that satisfies the following criteria.
+///
+/// 1. Is NOT a special git file
+/// 2. Is NOT tracked in either source or destination worktrees
+/// 3. Is either a symlink or a regular file - symlinks are copied verbatim, not followed
+/// 4. Is gitignored in the destination
+/// 5. Is NOT a prefix path of a tracked file in the destination worktree
+/// 6. Is matched by any pattern in the source's .worktreeinclude
+/// 7. Is NOT inside the destination worktree, if destination is nested inside source
+///
+/// The destination directory must contain a complete, clean, non-sparse checkout.
+///
+/// Permissions on traversed directories are retained so long as they were not part of the
+/// destination checkout.
+///
+/// IMPORTANT: Several safety properties of the algorithm, especially relating to not following
+/// symlinks, rely on there being no concurrent modifications of the source or destination
+/// directories mid execution.
+///
+/// There are two main issues related to symlinks:
+///
+/// 1. A leaf node (file) change from a file into a symlink between metadata lookup and copying.
+///    This is a minor risk in practice as the time between metadata lookup and file copying is
+///    small.
+/// 2. An ancestor node of the currently visited node might be replaced by a symlink mid-traversal,
+///    which invalidates the invariant that no ancestors are symlinks. Copying a descendant of that
+///    tree would follow the symlink.
+///
+/// It's difficult to get this bulletproof across operating systems, and most likely, the current
+/// setup will work well in practice. If it turns out to be a larger issue we'll have to invest some
+/// more time into making this concurrency safe.
+fn handle_worktreeinclude(
+    repo: &gix::Repository,
+    worktree_repo: gix::Repository,
+) -> Result<(), anyhow::Error> {
+    let src_dir = repo
+        .workdir()
+        .context("source worktree must have workdir")?;
+    let worktree_include_path = src_dir.join(".worktreeinclude");
+    if !worktree_include_path.exists() {
+        return Ok(());
+    }
+
+    let dst_dir = worktree_repo
+        .workdir()
+        .context("destination worktree must have workdir")?;
+
+    // Resolve aliases and relative paths before checking containment. Never traverse the new
+    // checkout itself, as copying while walking could repeatedly copy our own output.
+    let source_root = fs::canonicalize(src_dir)?;
+    let destination_root = fs::canonicalize(dst_dir)?;
+    let nested_destination = destination_root
+        .strip_prefix(&source_root)
+        .ok()
+        .map(|relative| src_dir.join(relative));
+
+    let worktree_include = fs::read(&worktree_include_path)?;
+    let worktree_include_roots: Vec<_> = gix::ignore::parse(&worktree_include, false)
+        .filter_map(|(pattern, _, _)| {
+            if !pattern.has_wildcard() && !pattern.is_negative() {
+                Some(pattern.text)
+            } else {
+                None
+            }
+        })
+        .filter_map(|root| gix::path::try_from_bstr(&root).ok().map(PathBuf::from))
+        .collect();
+
+    let src_index = repo.index()?;
+    let dst_index = worktree_repo.index()?;
+
+    let mut dst_ignore = repo.excludes(
+        &dst_index,
+        None,
+        gix::worktree::stack::state::ignore::Source::IdMapping,
+    )?;
+
+    #[cfg(target_os = "macos")]
+    let cloning_supported = is_cloning_supported(src_dir, dst_dir);
+
+    let mut destination_dir_is_created = HashSet::new();
+    let mut created_directory_permissions = Vec::new();
+    let mut visit = |path: &Path| {
+        if nested_destination.as_deref() == Some(path) {
+            return Ok(false);
+        }
+
+        let is_special_git_file = path
+            .file_name()
+            .map(|name| name == ".git" || name == ".gitignore" || name == ".gitattributes")
+            .unwrap_or_default();
+        if is_special_git_file {
+            return Ok(false);
+        }
+
+        let relpath = path.strip_prefix(src_dir)?;
+        let index_path = gix::path::to_unix_separators_on_windows(gix::path::into_bstr(relpath));
+        let tracked_in_destination = dst_index.entry_by_path(&index_path).is_some();
+        let tracked_in_source = src_index.entry_by_path(&index_path).is_some();
+
+        if tracked_in_destination || tracked_in_source {
+            return Ok(false);
+        }
+
+        // Assuming there aren't that many inclusion rules, this wasteful iteration is fine.
+        let mut in_inclusion = false;
+        let mut toward_inclusion = false;
+        for root in &worktree_include_roots {
+            if relpath.starts_with(root) {
+                in_inclusion = true;
+                break;
+            }
+            if root.starts_with(relpath) {
+                toward_inclusion = true
+            }
+        }
+
+        if !in_inclusion && !toward_inclusion {
+            // We can prune here, there's no chance to encounter an included file after this point.
+            return Ok(false);
+        }
+
+        let metadata = match fs::symlink_metadata(path) {
+            Ok(meta) => meta,
+            Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(false),
+            Err(err) => bail!(err),
+        };
+        let kind = metadata.file_type();
+
+        // Due to case folding quirks in different file systems, we can't rely entirely on index
+        // lookups to determine if a path is tracked (or a prefix of a tracked entry). We must
+        // check each intermediate destination path, and can only allow further traversal if it
+        // either doesn't exist, or both the source and destination are directories (which are
+        // definitionally not tracked).
+        //
+        // Note that the case-insensitive gix index only supports ASCII folding, so it cannot be
+        // relied upon to spot case aliases that fold in other ways.
+        //
+        // This is very important to protect against accidentally following symlinks in the
+        // destination, and also prevents us from attempting to copy a source file into a path
+        // that's already occupied by a checked out directory.
+        match fs::symlink_metadata(dst_dir.join(relpath)) {
+            Ok(meta) => {
+                if !(meta.is_dir() && kind.is_dir()) {
+                    return Ok(false);
+                }
+            }
+            Err(err) if err.kind() != io::ErrorKind::NotFound => bail!(err),
+            _ => (),
+        }
+
+        let mode = if kind.is_dir() {
+            return Ok(in_inclusion || toward_inclusion);
+        } else if kind.is_symlink() {
+            gix::index::entry::Mode::SYMLINK
+        } else if kind.is_file() {
+            gix::index::entry::Mode::FILE
+        } else {
+            return Ok(false);
+        };
+
+        if !in_inclusion {
+            return Ok(false);
+        }
+
+        if !dst_ignore.at_path(relpath, Some(mode))?.is_excluded() {
+            return Ok(false);
+        }
+
+        let dst_path = dst_dir.join(relpath);
+        let dst_parent = dst_path
+            .parent()
+            .context("Destination path must have parent")?;
+
+        if !destination_dir_is_created.contains(dst_parent) {
+            let missing = find_missing_directories_child_first(dst_parent)?;
+            for directory in missing.into_iter().rev() {
+                let source_directory = src_dir.join(directory.strip_prefix(dst_dir)?);
+                let permissions = fs::symlink_metadata(source_directory)?.permissions();
+                create_writable_dir(directory)?;
+                created_directory_permissions.push((directory.to_owned(), permissions));
+                destination_dir_is_created.insert(directory.to_owned());
+            }
+            destination_dir_is_created.insert(dst_parent.to_owned());
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        copy_file(path, &dst_path)?;
+        #[cfg(target_os = "macos")]
+        if cloning_supported {
+            clone_file(path, &dst_path)?;
+        } else {
+            copy_file(path, &dst_path)?;
+        }
+
+        Ok(false)
+    };
+
+    let mut result = walk(src_dir, &mut visit);
+
+    // Creation order is parent-first; restore children before making parents read-only.
+    // Also restore permissions after partial failure, without changing existing directories.
+    for (directory, permissions) in created_directory_permissions.into_iter().rev() {
+        let restore = fs::set_permissions(&directory, permissions)
+            .with_context(|| format!("Failed to restore permissions on '{}'", directory.display()));
+        result = result.and(restore);
+    }
+
+    result
+}
+
+/// Recursively walk that visits every file under `path` using `visit`.
+///
+/// If `visit` returns `Ok(true)` for a `path`, `walk` treats that `path` as a directory to walk
+/// into. Otherwise, `walk` stops at `path`.
+fn walk(path: &Path, visit: &mut impl FnMut(&Path) -> anyhow::Result<bool>) -> anyhow::Result<()> {
+    if !visit(path)? {
+        return Ok(());
+    }
+
+    for entry in
+        fs::read_dir(path).with_context(|| format!("Failed to read '{}'", path.display()))?
+    {
+        let entry = entry?;
+        walk(&entry.path(), visit)?;
+    }
+
+    Ok(())
+}
+
+/// Create a directory that's writeable for the current user.
+fn create_writable_dir(directory: &Path) -> Result<(), anyhow::Error> {
+    #[cfg(unix)]
+    let builder = {
+        use std::os::unix::fs::DirBuilderExt;
+        let mut builder = fs::DirBuilder::new();
+        builder.mode(0o700);
+        builder
+    };
+    #[cfg(not(unix))]
+    let builder = fs::DirBuilder::new();
+    builder.create(directory)?;
+    Ok(())
+}
+
+fn find_missing_directories_child_first(path: &Path) -> anyhow::Result<Vec<&Path>> {
+    let mut missing = Vec::new();
+    for parent in path.ancestors() {
+        match fs::symlink_metadata(parent) {
+            Ok(metadata) => {
+                anyhow::ensure!(metadata.is_dir(), "Destination parent must be a directory");
+                break;
+            }
+            Err(err) if err.kind() == io::ErrorKind::NotFound => missing.push(parent),
+            Err(err) => return Err(err.into()),
+        }
+    }
+    Ok(missing)
+}
+
+#[cfg(unix)]
+fn copy_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
+    if source.is_symlink() {
+        let target = fs::read_link(source)?;
+        std::os::unix::fs::symlink(&target, destination)?;
+    } else if source.is_file() {
+        fs::copy(source, destination)?;
+    } else {
+        bail!(
+            "Invalid source type '{}' for clone_file",
+            source
+                .metadata()
+                .map(|meta| format!("{:?}", meta.file_type()))
+                .unwrap_or("UNKNOWN".to_string())
+        )
+    }
+
+    Ok(())
+}
+
+#[cfg(windows)]
+fn copy_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
+    use std::os::windows::fs::{FileTypeExt, symlink_dir, symlink_file};
+
+    // Classify the link itself so dangling links retain their file/directory kind.
+    let kind = fs::symlink_metadata(source)?.file_type();
+    if kind.is_symlink_dir() {
+        symlink_dir(fs::read_link(source)?, destination)?;
+    } else if kind.is_symlink_file() {
+        symlink_file(fs::read_link(source)?, destination)?;
+    } else if kind.is_file() {
+        fs::copy(source, destination)?;
+    } else {
+        bail!("Unsupported source type for copying '{}'", source.display());
+    }
+    Ok(())
+}
+
+/// Best-effort, non-mutating preflight for cloning between existing worktree directories.
+/// Unknown capabilities or failed checks select ordinary copying. This cannot guarantee that
+/// individual files can be cloned: permissions, nested mounts, and filesystem state can differ
+/// from these roots or change after this check. Clone failures must still reach the caller.
+#[cfg(target_os = "macos")]
+fn is_cloning_supported(source: &Path, destination: &Path) -> bool {
+    use std::{
+        ffi::CString,
+        mem::{MaybeUninit, size_of},
+        os::unix::{ffi::OsStrExt, fs::MetadataExt},
+    };
+
+    let (Ok(source_metadata), Ok(destination_metadata)) =
+        (fs::metadata(source), fs::metadata(destination))
+    else {
+        return false;
+    };
+    if !source_metadata.is_dir()
+        || !destination_metadata.is_dir()
+        || source_metadata.dev() != destination_metadata.dev()
+    {
+        return false;
+    }
+    let (Ok(source), Ok(destination)) = (
+        CString::new(source.as_os_str().as_bytes()),
+        CString::new(destination.as_os_str().as_bytes()),
+    ) else {
+        return false;
+    };
+
+    // SAFETY: Both C strings remain alive and are NUL-terminated. access() does not retain them.
+    if unsafe { libc::access(source.as_ptr(), libc::R_OK | libc::X_OK) } != 0
+        || unsafe { libc::access(destination.as_ptr(), libc::W_OK | libc::X_OK) } != 0
+    {
+        return false;
+    }
+
+    let mut filesystem = MaybeUninit::<libc::statfs>::uninit();
+    // SAFETY: statfs receives a valid C string and storage for one statfs value.
+    if unsafe { libc::statfs(destination.as_ptr(), filesystem.as_mut_ptr()) } != 0 {
+        return false;
+    }
+    // SAFETY: Successful statfs initialized the output structure.
+    let filesystem = unsafe { filesystem.assume_init() };
+    if filesystem.f_flags & libc::MNT_RDONLY as u32 != 0 {
+        return false;
+    }
+
+    // getattrlist packs the buffer length followed by requested attributes at 4-byte alignment.
+    #[repr(C)]
+    struct VolumeCapabilities {
+        length: u32,
+        volume: libc::vol_capabilities_attr_t,
+    }
+    let mut attributes = libc::attrlist {
+        bitmapcount: libc::ATTR_BIT_MAP_COUNT,
+        reserved: 0,
+        commonattr: 0,
+        volattr: libc::ATTR_VOL_INFO | libc::ATTR_VOL_CAPABILITIES,
+        dirattr: 0,
+        fileattr: 0,
+        forkattr: 0,
+    };
+    let mut capabilities = VolumeCapabilities {
+        length: 0,
+        volume: libc::vol_capabilities_attr_t {
+            capabilities: [0; 4],
+            valid: [0; 4],
+        },
+    };
+    // SAFETY: The request selects only volume capabilities. The C-layout output buffer holds
+    // its length and that attribute, with the alignment and size required by getattrlist.
+    let result = unsafe {
+        libc::getattrlist(
+            destination.as_ptr(),
+            (&mut attributes as *mut libc::attrlist).cast(),
+            (&mut capabilities as *mut VolumeCapabilities).cast(),
+            size_of::<VolumeCapabilities>(),
+            0,
+        )
+    };
+    if result != 0 || capabilities.length as usize != size_of::<VolumeCapabilities>() {
+        return false;
+    }
+    let interfaces = libc::VOL_CAPABILITIES_INTERFACES;
+    capabilities.volume.valid[interfaces] & libc::VOL_CAP_INT_CLONE != 0
+        && capabilities.volume.capabilities[interfaces] & libc::VOL_CAP_INT_CLONE != 0
+}
+
+/// COW-clone a file or symlink without following it. Destination must not exist.
+/// Source and destination must share a filesystem supporting COW; no full-copy fallback.
+#[cfg(target_os = "macos")]
+fn clone_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
+    use std::{ffi::CString, os::unix::ffi::OsStrExt};
+
+    let source = CString::new(source.as_os_str().as_bytes())?;
+    let destination = CString::new(destination.as_os_str().as_bytes())?;
+    // Defined by <sys/clonefile.h>, but not exported by libc.
+    const CLONE_NOFOLLOW: u32 = 0x0001;
+    // SAFETY: Both pointers reference live, NUL-terminated path strings. CLONE_NOFOLLOW
+    // clones symlinks themselves, including dangling links, rather than their targets.
+    let result = unsafe { libc::clonefile(source.as_ptr(), destination.as_ptr(), CLONE_NOFOLLOW) };
+    if result != 0 {
+        return Err(std::io::Error::last_os_error()).context(
+            "clonefile(2) failed; source and destination must share a filesystem supporting copy-on-write cloning (no full-copy fallback)",
+        );
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod copy_tests {
+    use super::*;
+
+    #[test]
+    fn copying_regular_files_is_independent_and_rejects_directories() -> anyhow::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let source = temp.path().join("source");
+        let destination = temp.path().join("destination");
+        fs::write(&source, "original")?;
+        copy_file(&source, &destination)?;
+        assert_eq!(
+            fs::read(&destination)?,
+            b"original",
+            "copy preserves contents"
+        );
+        fs::write(&destination, "changed")?;
+        assert_eq!(
+            fs::read(&source)?,
+            b"original",
+            "copy has independent contents"
+        );
+        assert!(
+            copy_file(temp.path(), &temp.path().join("directory-copy")).is_err(),
+            "directories must be traversed, not copied as files"
+        );
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn copying_windows_symlinks_preserves_targets_and_kinds() -> anyhow::Result<()> {
+        use std::os::windows::fs::{FileTypeExt, symlink_dir, symlink_file};
+
+        // Requires Developer Mode or permission to create symlinks, like Git's symlink tests.
+        let temp = tempfile::tempdir()?;
+        fs::write(temp.path().join("file"), "contents")?;
+        fs::create_dir(temp.path().join("directory"))?;
+        for (name, target, directory) in [
+            ("file-link", "file", false),
+            ("directory-link", "directory", true),
+            ("dangling-file-link", "missing-file", false),
+            ("dangling-directory-link", "missing-directory", true),
+        ] {
+            let source = temp.path().join(name);
+            let destination = temp.path().join(format!("{name}-copy"));
+            if directory {
+                symlink_dir(target, &source)?;
+            } else {
+                symlink_file(target, &source)?;
+            }
+            copy_file(&source, &destination)?;
+            assert_eq!(
+                fs::read_link(&destination)?,
+                Path::new(target),
+                "relative targets must be preserved without following links"
+            );
+            let kind = fs::symlink_metadata(&destination)?.file_type();
+            assert_eq!(
+                kind.is_symlink_dir(),
+                directory,
+                "directory link kind is preserved"
+            );
+            assert_eq!(
+                kind.is_symlink_file(),
+                !directory,
+                "file link kind is preserved"
+            );
+        }
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn cloning_preflight_rejects_missing_paths_and_non_directories() -> anyhow::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let file = temp.path().join("file");
+        let missing = temp.path().join("missing");
+        fs::write(&file, "contents")?;
+        for (source, destination) in [
+            (temp.path(), missing.as_path()),
+            (missing.as_path(), temp.path()),
+            (temp.path(), file.as_path()),
+            (file.as_path(), temp.path()),
+        ] {
+            assert!(
+                !is_cloning_supported(source, destination),
+                "both roots must be existing directories"
+            );
+        }
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn advertised_cloning_support_allows_an_independent_clone() -> anyhow::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let source = temp.path().join("source");
+        let destination = temp.path().join("destination");
+        fs::create_dir(&source)?;
+        fs::create_dir(&destination)?;
+        fs::write(source.join("file"), "original")?;
+        // Test also runs on volumes without clone support; those use the copy path.
+        if is_cloning_supported(&source, &destination) {
+            clone_file(&source.join("file"), &destination.join("file"))?;
+        } else {
+            copy_file(&source.join("file"), &destination.join("file"))?;
+        }
+        assert_eq!(
+            fs::read(destination.join("file"))?,
+            b"original",
+            "selected operation preserves contents"
+        );
+        fs::write(destination.join("file"), "changed")?;
+        assert_eq!(
+            fs::read(source.join("file"))?,
+            b"original",
+            "selected operation preserves source independence"
+        );
+        Ok(())
+    }
 }
 
 fn git_worktree(repo: &gix::Repository, subcommand: &str, args: &[&OsStr]) -> anyhow::Result<()> {
