@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
+	import { t } from "$lib/i18n";
+
 	import { handleAddProjectOutcome } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { projectPath } from "$lib/routes/routes.svelte";
@@ -31,7 +33,7 @@
 	<Select
 		value={selectedId}
 		options={mappedProjects}
-		label="Switch to another project"
+		label={t("switch-to-another-project")}
 		wide
 		onselect={(value) => {
 			selectedId = value;
@@ -64,7 +66,7 @@
 						}
 					}}
 				>
-					Add local repository
+					{t("add-local-repository")}
 				</SelectItem>
 			{/if}
 			<SelectItem
@@ -79,7 +81,7 @@
 					}
 				}}
 			>
-				Clone repository
+				{t("clone-repository")}
 			</SelectItem>
 		</OptionsGroup>
 	</Select>
@@ -92,7 +94,7 @@
 			if (selectedId) goto(projectPath(selectedId));
 		}}
 	>
-		Open project
+		{t("open-project")}
 	</Button>
 </div>
 

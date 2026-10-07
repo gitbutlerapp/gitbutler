@@ -4,6 +4,7 @@
 	import newStackLefttSvg from "$components/stackTabs/assets/new-stack-left.svg?raw";
 	import newStackRightSvg from "$components/stackTabs/assets/new-stack-right.svg?raw";
 	import { autoSelectBranchCreationFeature } from "$lib/config/uiFeatureFlags";
+	import { t } from "$lib/i18n";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { getStackName } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -155,7 +156,7 @@
 	<div class="content-wrap">
 		<BranchNameTextbox
 			bind:this={branchNameInput}
-			label="New branch"
+			label={t("new-branch")}
 			id={ElementId.NewBranchNameInput}
 			value={createRefName}
 			autofocus
@@ -163,7 +164,7 @@
 			onvalidationchange={(isValid) => (isBranchNameValid = isValid)}
 		/>
 
-		<div class="options-wrap" role="radiogroup" aria-label="Branch type selection">
+		<div class="options-wrap" role="radiogroup" aria-label={t("branch-type-selection")}>
 			<!-- Option 1 -->
 			<label for="new-stack" class="radio-label" class:radio-selected={createRefType === "stack"}>
 				<div class="radio-btn">
@@ -176,9 +177,9 @@
 				</div>
 
 				<div class="radio-content">
-					<h3 class="text-14 text-bold text-body radio-title">Independent branch</h3>
+					<h3 class="text-14 text-bold text-body radio-title">{t("independent-branch")}</h3>
 					<p class="text-12 text-body radio-caption">
-						Create an independent branch<br />in a new stack.
+						{t("create-an-independent-branch")}<br />{t("in-a-new-stack")}
 					</p>
 
 					<div class="radio-illustration">
@@ -208,12 +209,12 @@
 				</div>
 
 				<div class="radio-content">
-					<h3 class="text-14 text-bold text-body radio-title">Dependent branch</h3>
+					<h3 class="text-14 text-bold text-body radio-title">{t("dependent-branch")}</h3>
 					<p class="text-12 text-body radio-caption">
 						{#if allStacks.length === 0}
-							Create a branch that depends<br />on another stack (none available).
+							{t("create-a-branch-that-depends")}<br />{t("on-another-stack-none-available")}
 						{:else}
-							Create a branch that depends<br />on a selected stack.
+							{t("create-a-branch-that-depends")}<br />{t("on-a-selected-stack")}
 						{/if}
 					</p>
 
@@ -228,9 +229,9 @@
 			<Select
 				options={stackOptions}
 				value={selectedStackId}
-				label="Add to stack"
+				label={t("add-to-stack")}
 				disabled={stackOptions.length <= 1}
-				placeholder="Select a stack..."
+				placeholder={t("select-a-stack")}
 				onselect={(value) => (selectedStackId = value)}
 			>
 				{#snippet itemSnippet({ item, highlighted })}
@@ -246,9 +247,9 @@
 
 			<p>
 				{#if createRefType === "stack"}
-					The new branch will be applied in parallel with other stacks in the workspace.
+					{t("the-new-branch-will-be-applied-in-parallel-with-other-stacks")}
 					<br />
-					Adjust branch placement and preferences in
+					{t("adjust-branch-placement-and-preferences-in")}
 					<button
 						type="button"
 						class="settings-link underline-dotted"
@@ -257,13 +258,14 @@
 							openGeneralSettings("lanes-and-branches");
 						}}
 					>
-						Settings → Lanes & branches
+						{t("settings-lanes-branches")}
 					</button>
 				{:else}
-					Creates a branch that depends on a selected stack.
+					{t("creates-a-branch-that-depends-on-a-selected-stack")}
 					<br />
-					A stack's top branches also have a
-					<i class="create-dependent-icon"><Icon name="stack-plus" /></i> icon to create dependent branches.
+					{t("a-stack-s-top-branches-also-have-a")}
+					<i class="create-dependent-icon"><Icon name="stack-plus" /></i>
+					{t("icon-to-create-dependent-branches")}
 				{/if}
 			</p>
 		</div>
@@ -272,9 +274,9 @@
 	{#snippet controls(close)}
 		<div class="footer">
 			<span class="text-12 text-body footer-text"
-				>See more: <Link
-					href="https://docs.gitbutler.com/features/branch-management/stacked-branches"
-					>Stacked vs. Independent</Link
+				>{t("see-more")}
+				<Link href="https://docs.gitbutler.com/features/branch-management/stacked-branches"
+					>{t("stacked-vs-independent")}</Link
 				></span
 			>
 
@@ -288,7 +290,7 @@
 					loading={isAddingNew}
 					testId={TestId.ConfirmSubmit}
 				>
-					Create branch
+					{t("create-branch")}
 				</Button>
 			</div>
 		</div>

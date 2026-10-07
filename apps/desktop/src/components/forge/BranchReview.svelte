@@ -5,6 +5,7 @@
 	import ReviewCreationControls from "$components/forge/ReviewCreationControls.svelte";
 	import StackedPullRequestCard from "$components/forge/StackedPullRequestCard.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { t } from "$lib/i18n";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, Modal } from "@gitbutler/ui-svelte";
 	import type { Segment } from "@gitbutler/but-sdk";
@@ -75,10 +76,11 @@
 		}}
 	>
 		<p class="text-13 text-body helper-text">
-			It's strongly recommended to create {reviewUnitName.toLowerCase()}s starting with the branch
-			at the base of the stack.
+			{t("it-s-strongly-recommended-to-create")}
+			{reviewUnitName.toLowerCase()}{t("s-starting-with-the-branch-at-the-base-of-the-stack")}
 			<br />
-			Do you still want to create this {reviewUnitName.toLowerCase()}?
+			{t("do-you-still-want-to-create-this")}
+			{reviewUnitName.toLowerCase()}?
 		</p>
 		{#snippet controls(close)}
 			<Button kind="outline" onclick={close}>Cancel</Button>

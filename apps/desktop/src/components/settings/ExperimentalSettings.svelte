@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
+	import { t } from "$lib/i18n";
+
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -12,18 +14,18 @@
 </script>
 
 <p class="text-12 text-body experimental-settings__text">
-	Flags for features in development or beta. Features may not work fully.
+	{t("flags-for-features-in-development-or-beta-features-may-not-w")}
 	<br />
-	Use at your own risk.
+	{t("use-at-your-own-risk")}
 </p>
 
 <CardGroup>
 	<CardGroup.Item labelFor="f-mode">
 		{#snippet title()}
-			F Mode Navigation
+			{t("f-mode-navigation")}
 		{/snippet}
 		{#snippet caption()}
-			Enable F mode for quick keyboard navigation to buttons using two-letter shortcuts.
+			{t("enable-f-mode-for-quick-keyboard-navigation-to-buttons-using")}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -37,10 +39,10 @@
 	{#if userService.user?.role === "admin"}
 		<CardGroup.Item labelFor="single-branch">
 			{#snippet title()}
-				Single-branch mode
+				{t("single-branch-mode")}
 			{/snippet}
 			{#snippet caption()}
-				Stay in the workspace view when leaving the gitbutler/workspace branch.
+				{t("stay-in-the-workspace-view-when-leaving-the-gitbutler-worksp")}
 			{/snippet}
 			{#snippet actions()}
 				<Toggle
@@ -57,10 +59,10 @@
 
 	<CardGroup.Item labelFor="worktree-manipulation">
 		{#snippet title()}
-			Worktree manipulation
+			{t("worktree-manipulation")}
 		{/snippet}
 		{#snippet caption()}
-			Enable experimental support for working with linked git worktrees.
+			{t("enable-experimental-support-for-working-with-linked-git-work")}
 		{/snippet}
 		{#snippet actions()}
 			<Toggle

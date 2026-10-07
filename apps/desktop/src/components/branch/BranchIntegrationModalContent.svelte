@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchIntegrationGraph from "$components/branch/BranchIntegrationGraph.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import { t } from "$lib/i18n";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { buildCurrentStateDisplayRows } from "$lib/upstream/branchIntegrationCurrentStateDisplay";
 	import {
@@ -215,16 +216,16 @@
 		})}
 		<div class="branch-integration">
 			<p class="text-13 text-body clr-text-2">
-				This branch and its remote have diverged.
+				{t("this-branch-and-its-remote-have-diverged")}
 				<br />
-				Pick an integration strategy below to combine them.
+				{t("pick-an-integration-strategy-below-to-combine-them")}
 			</p>
 
 			<div
 				class="strategy-cards"
 				class:strategy-cards_expanded={showAllStrategies}
 				role="radiogroup"
-				aria-label="Integration strategy selection"
+				aria-label={t("integration-strategy-selection")}
 				data-testid="branch-integration-strategies"
 			>
 				{#each visibleTemplates as template (template.id)}
@@ -248,7 +249,7 @@
 						<h3 class="text-13 text-bold strategy-card__title">
 							{template.label}
 							{#if template.recommended}
-								<span class="op-40">(Recommended)</span>
+								<span class="op-40">{t("recommended")}</span>
 							{/if}
 						</h3>
 						<p class="text-12 text-body strategy-card__caption">
@@ -284,7 +285,7 @@
 			<div class="branch-integration__sections">
 				<div class="branch-integration__section">
 					<div class="branch-integration__section-header">
-						<Badge style="gray" kind="soft" size="tag">CURRENT STATE</Badge>
+						<Badge style="gray" kind="soft" size="tag">{t("current-state")}</Badge>
 						<div class="section-arrow">
 							<div class="section-arrow__line"></div>
 						</div>
@@ -304,7 +305,7 @@
 
 				<div class="branch-integration__section">
 					<div class="branch-integration__section-header">
-						<Badge style="gray" size="tag">OUTPUT BRANCH</Badge>
+						<Badge style="gray" size="tag">{t("output-branch")}</Badge>
 					</div>
 
 					<section class="branch-integration__graph" data-testid="branch-integration-preview">
@@ -314,11 +315,11 @@
 							</div>
 						{:else if previewRows === null}
 							<div class="branch-integration__empty" data-testid="branch-integration-empty-state">
-								Preview produced no branch segment for this ref.
+								{t("preview-produced-no-branch-segment-for-this-ref")}
 							</div>
 						{:else if previewRows.length === 0}
 							<div class="branch-integration__empty" data-testid="branch-integration-empty-state">
-								The resulting branch would be empty.
+								{t("the-resulting-branch-would-be-empty")}
 							</div>
 						{:else}
 							<BranchIntegrationGraph
@@ -342,7 +343,7 @@
 				disabled={!preparedIntegration || preparedIntegration.steps.length === 0 || applying}
 				loading={applying}
 			>
-				Apply integration
+				{t("apply-integration")}
 			</Button>
 		</ModalFooter>
 	{/snippet}

@@ -2,6 +2,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import SettingsSection from "$components/shared/SettingsSection.svelte";
 	import { projectRunCommitHooks } from "$lib/config/config";
+	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Toggle } from "@gitbutler/ui-svelte";
@@ -21,10 +22,10 @@
 	<CardGroup>
 		<CardGroup.Item labelFor="runHooks">
 			{#snippet title()}
-				Run Git hooks
+				{t("run-git-hooks")}
 			{/snippet}
 			{#snippet caption()}
-				Enable running git hooks (pre-push, pre/post-commit, commit-msg) during GitButler actions.
+				{t("enable-running-git-hooks-pre-push-pre-post-commit-commit-msg")}
 			{/snippet}
 			{#snippet actions()}
 				<Toggle id="runHooks" bind:checked={$runCommitHooks} />
@@ -37,13 +38,12 @@
 			<CardGroup>
 				<CardGroup.Item labelFor="huskyHooks">
 					{#snippet title()}
-						Enable Husky hooks
+						{t("enable-husky-hooks")}
 					{/snippet}
 					{#snippet caption()}
-						⚠️ Only enable this for repositories you trust.
+						{t("only-enable-this-for-repositories-you-trust")}
 						<br />
-						Allow GitButler to execute scripts from `.husky` (which can come from the repository). Hooks
-						in `.git/hooks` are unaffected.
+						{t("allow-gitbutler-to-execute-scripts-from-husky-which-can-come")}
 					{/snippet}
 					{#snippet actions()}
 						<Toggle

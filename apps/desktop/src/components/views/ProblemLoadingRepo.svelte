@@ -6,6 +6,7 @@
 	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
 	import AppLayout from "$components/views/AppLayout.svelte";
 	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
+	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
@@ -52,13 +53,13 @@
 				<ProjectNameLabel projectName={projectTitle} />
 			</div>
 			<h2 class="problem__title text-18 text-body text-bold">
-				There was a problem loading this repo
+				{t("there-was-a-problem-loading-this-repo")}
 			</h2>
 
 			<div class="problem__error text-12 text-body">
 				<Icon name="danger" color="var(--fill-danger-bg)" />
 				{#if !isDefined(error)}
-					'An unknown error occured'
+					{t("an-unknown-error-occured")}
 				{:else if error instanceof Object && "message" in error}
 					{error.message}
 				{:else}

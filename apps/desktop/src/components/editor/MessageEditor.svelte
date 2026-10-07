@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { t } from "$lib/i18n";
+
 	export type AiButtonClickParams = {
 		useHaiku?: boolean;
 		useEmojiStyle?: boolean;
@@ -280,18 +282,17 @@
 		close();
 	}}
 >
-	Your file will be stored in GitButler’s digital vault, safe and sound. We promise it’s secure, so
-	feel free to share the link however you like 🔐
+	{t("your-file-will-be-stored-in-gitbutler-s-digital-vault-safe-a")}
 	{#snippet controls(close)}
 		<div class="modal-footer">
 			<div class="flex flex-1">
 				<label for="dont-show-again" class="modal-footer__checkbox">
 					<Checkbox name="dont-show-again" small bind:checked={$doNotShowUploadWarning} />
-					<span class="text-12"> Don’t show again</span>
+					<span class="text-12"> {t("don-t-show-again")}</span>
 				</label>
 			</div>
 			<Button kind="outline" onclick={close}>Cancel</Button>
-			<Button style="pop" type="submit">Yes, upload!</Button>
+			<Button style="pop" type="submit">{t("yes-upload")}</Button>
 		</div>
 	{/snippet}
 </Modal>
@@ -378,7 +379,7 @@
 					<Button
 						kind="ghost"
 						icon="paperclip"
-						tooltip="Drop, paste or click to upload files"
+						tooltip={t("drop-paste-or-click-to-upload-files")}
 						onclick={handleAttachFiles}
 					/>
 				{/if}
@@ -386,7 +387,7 @@
 					<FormattingButton
 						icon="text-wrap"
 						activated={useRuler}
-						tooltip="Wrap text automatically"
+						tooltip={t("wrap-text-automatically")}
 						onclick={async () => {
 							uiState.global.useRuler.set(!useRuler);
 							await tick(); // Wait for reactive update.
@@ -439,7 +440,7 @@
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
 						<ContextMenuItem
-							label="Extra concise"
+							label={t("extra-concise")}
 							onclick={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
 						>
 							{#snippet control()}
@@ -457,7 +458,7 @@
 						</ContextMenuItem>
 
 						<ContextMenuItem
-							label="Use emojis 😎"
+							label={t("use-emojis")}
 							onclick={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 						>
 							{#snippet control()}

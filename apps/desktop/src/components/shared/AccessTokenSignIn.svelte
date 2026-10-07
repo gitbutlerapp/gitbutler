@@ -1,5 +1,7 @@
 <script lang="ts">
 	import signinSvg from "$lib/assets/token.svg?raw";
+	import { t } from "$lib/i18n";
+
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Textbox, Spacer, AsyncButton } from "@gitbutler/ui-svelte";
@@ -17,10 +19,10 @@
 			</div>
 
 			<div class="info-section">
-				<h2 class="text-15 text-bold m-b-6">Access token</h2>
+				<h2 class="text-15 text-bold m-b-6">{t("access-token")}</h2>
 
 				<p class="text-12 text-body clr-text-2">
-					Sign in to GitButler to get your personal access token.
+					{t("sign-in-to-gitbutler-to-get-your-personal-access-token")}
 				</p>
 
 				<div class="flex gap-8 m-t-12">
@@ -31,7 +33,7 @@
 							await userService.openLoginPage();
 						}}
 					>
-						Log in / Sign up
+						{t("log-in-sign-up")}
 					</AsyncButton>
 
 					<AsyncButton
@@ -41,7 +43,7 @@
 							await userService.copyLoginPageLink();
 						}}
 					>
-						Copy login link
+						{t("copy-login-link")}
 					</AsyncButton>
 				</div>
 
@@ -63,13 +65,12 @@
 							accessToken = "";
 						}}
 					>
-						Authorize access token
+						{t("authorize-access-token")}
 					</AsyncButton>
 				</div>
 
 				<p class="text-12 text-body clr-text-2 m-t-16">
-					An access token is required to use GitButler's smart automation features, including
-					intelligent branch creation and commit message generation.
+					{t("an-access-token-is-required-to-use-gitbutler-s-smart-automat")}
 				</p>
 			</div>
 		</div>

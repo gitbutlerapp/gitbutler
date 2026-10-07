@@ -1,6 +1,7 @@
 <script lang="ts">
 	import emptyFileSvg from "$lib/assets/empty-state/empty-file.svg?raw";
 	import { FILE_SERVICE } from "$lib/files/fileService";
+	import { t } from "$lib/i18n";
 	import { inject } from "@gitbutler/core/context";
 	import { ImageDiff, EmptyStatePlaceholder } from "@gitbutler/ui-svelte";
 	import type { TreeChange } from "@gitbutler/but-sdk";
@@ -188,7 +189,7 @@
 	<div class="imagediff-placeholder">
 		<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
 			{#snippet caption()}
-				Can't preview this file type
+				{t("can-t-preview-this-file-type")}
 			{/snippet}
 		</EmptyStatePlaceholder>
 	</div>

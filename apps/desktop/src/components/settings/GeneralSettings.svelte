@@ -5,6 +5,8 @@
 	import { BACKEND } from "$lib/backend";
 	import { getUserErrorCode } from "$lib/backend/ipc";
 	import { CLI_MANAGER } from "$lib/config/cli";
+	import { APP_LOCALES, type AppLocale } from "$lib/i18n";
+	import { t } from "$lib/i18n";
 	import { showToast } from "$lib/notifications/toasts";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
@@ -61,6 +63,8 @@
 	const uiState = inject(UI_STATE);
 	const defaultCodeEditor = uiState.global.defaultCodeEditor;
 	const defaultTerminal = uiState.global.defaultTerminal;
+	const localeSetting = uiState.global.locale;
+	const localeOptions = APP_LOCALES.map((l) => ({ label: l.label, value: l.value }));
 
 	const editorOptions: CodeEditorSettings[] = [
 		{ schemeIdentifer: "vscodium", displayName: "VSCodium" },
@@ -169,11 +173,11 @@
 
 			<div id="contact-info" class="contact-info">
 				<div class="contact-info__fields">
-					<Textbox label="Full name" bind:value={newName} required />
+					<Textbox label={t("full-name")} bind:value={newName} required />
 					<Textbox label="Email" value={userService.user?.email} readonly />
 				</div>
 
-				<Button type="submit" style="pop" loading={saving}>Update profile</Button>
+				<Button type="submit" style="pop" loading={saving}>{t("update-profile")}</Button>
 			</div>
 		</form>
 	</CardGroup>
@@ -181,10 +185,10 @@
 	<CardGroup>
 		<CardGroup.Item>
 			{#snippet title()}
-				Forget credentials and log out
+				{t("forget-credentials-and-log-out")}
 			{/snippet}
 			{#snippet caption()}
-				Click here to clear your credentials and unwind.
+				{t("click-here-to-clear-your-credentials-and-unwind")}
 			{/snippet}
 			{#snippet actions()}
 				<Button
@@ -192,7 +196,7 @@
 					icon="logout"
 					onclick={async () => {
 						await userService.forgetUserCredentials();
-					}}>Forget credentials</Button
+					}}>{t("forget-credentials")}</Button
 				>
 			{/snippet}
 		</CardGroup.Item>
@@ -206,7 +210,27 @@
 <CardGroup>
 	<CardGroup.Item alignment="center">
 		{#snippet title()}
-			Default code editor
+			{t("language")}
+		{/snippet}
+		{#snippet actions()}
+			<Select
+				value={localeSetting.current}
+				options={localeOptions}
+				onselect={(value) => {
+					localeSetting.set(value as AppLocale);
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === localeSetting.current} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		{/snippet}
+	</CardGroup.Item>
+	<CardGroup.Item alignment="center">
+		{#snippet title()}
+			{t("default-code-editor")}
 		{/snippet}
 		{#snippet actions()}
 			<Select
@@ -233,7 +257,7 @@
 	{#if platformName !== "web"}
 		<CardGroup.Item alignment="center">
 			{#snippet title()}
-				Default terminal
+				{t("default-terminal")}
 			{/snippet}
 			{#snippet actions()}
 				<Select
@@ -260,11 +284,11 @@
 <CardGroup>
 	<CardGroup.Item labelFor="disable-auto-checks">
 		{#snippet title()}
-			Automatically check for updates
+			{t("automatically-check-for-updates")}
 		{/snippet}
 
 		{#snippet caption()}
-			Automatically check for updates. You can still check manually when needed.
+			{t("automatically-check-for-updates-you-can-still-check-manually")}
 		{/snippet}
 
 		{#snippet actions()}
@@ -280,23 +304,22 @@
 <CardGroup>
 	<CardGroup.Item>
 		{#snippet title()}
-			Install the GitButler CLI <code class="code-string">but</code>
+			{t("install-the-gitbutler-cli")} <code class="code-string">but</code>
 		{/snippet}
 
 		{#snippet caption()}
 			{#if $appSettings?.ui.cliIsManagedByPackageManager}
-				The <code>but</code> CLI is managed by your package manager. Please use your package manager to
-				install, update, or remove it.
+				The <code>but</code> {t("cli-is-managed-by-your-package-manager-please-use-your-packa")}
 			{:else if platformName === "windows"}
-				On Windows, you can manually copy the executable (<code>`but`</code>) to a directory in your
-				PATH. Click "Show Command" for instructions.
+				{t("on-windows-you-can-manually-copy-the-executable")}<code>`but`</code>{t(
+					"to-a-directory-in-your-path-click-show-command-for-instructi",
+				)}
 			{:else if platformName === "linux"}
-				On Linux, you can manually create a symlink to the CLI in your PATH. Click "Show Command"
-				for instructions.
+				{t("on-linux-you-can-manually-create-a-symlink-to-the-cli-in-you")}
 			{:else}
-				Installs the GitButler CLI (<code>`but`</code>) in your PATH, allowing you to use it from
-				the terminal. This action will request admin privileges. Alternatively, you could create a
-				symlink manually.
+				{t("installs-the-gitbutler-cli")}<code>`but`</code>{t(
+					"in-your-path-allowing-you-to-use-it-from-the-terminal-this-a",
+				)}
 			{/if}
 		{/snippet}
 
@@ -328,14 +351,14 @@
 							}}
 							loading={installingCLI.current.isLoading}
 						>
-							Install But CLI</Button
+							{t("install-but-cli")}</Button
 						>
 					{/if}
 					<Button
 						style="gray"
 						kind="outline"
 						disabled={showSymlink}
-						onclick={() => (showSymlink = !showSymlink)}>Show command</Button
+						onclick={() => (showSymlink = !showSymlink)}>{t("show-command")}</Button
 					>
 				</div>
 			</div>
@@ -352,17 +375,17 @@
 <CardGroup>
 	<CardGroup.Item>
 		{#snippet title()}
-			Remove all projects
+			{t("remove-all-projects")}
 		{/snippet}
 		{#snippet caption()}
-			You can delete all projects from the GitButler app.
+			{t("you-can-delete-all-projects-from-the-gitbutler-app")}
 			<br />
-			Your code remains safe. it only clears the configuration.
+			{t("your-code-remains-safe-it-only-clears-the-configuration")}
 		{/snippet}
 
 		{#snippet actions()}
 			<Button style="danger" kind="outline" onclick={() => deleteConfirmationModal?.show()}>
-				Remove projects…
+				{t("remove-projects")}
 			</Button>
 		{/snippet}
 	</CardGroup.Item>
@@ -374,7 +397,7 @@
 	title="Remove all projects"
 	onSubmit={onDeleteClicked}
 >
-	<p>Are you sure you want to remove all GitButler projects?</p>
+	<p>{t("are-you-sure-you-want-to-remove-all-gitbutler-projects")}</p>
 
 	{#snippet controls(close)}
 		<Button style="danger" kind="outline" loading={isDeleting} type="submit">Remove</Button>

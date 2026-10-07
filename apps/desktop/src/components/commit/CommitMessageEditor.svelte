@@ -11,6 +11,7 @@
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { projectAiGenEnabled } from "$lib/config/config";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
+	import { t } from "$lib/i18n";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
@@ -166,7 +167,7 @@
 		testId={TestId.CommitDrawerTitleInput}
 		bind:ref={titleInput}
 		bind:value={title}
-		placeholder="Commit title (required)"
+		placeholder={t("commit-title-required")}
 		onchange={(value) => {
 			onChange?.({ title: value });
 		}}
@@ -192,7 +193,7 @@
 		testId={TestId.CommitDrawerDescriptionInput}
 		bind:this={composer}
 		initialValue={description}
-		placeholder="Commit message"
+		placeholder={t("commit-message")}
 		messageType="commit"
 		enableRuler
 		{projectId}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AIPromptEntry from "$components/settings/AIPromptEntry.svelte";
 	import { PROMPT_SERVICE } from "$lib/ai/aiPromptService";
+	import { t } from "$lib/i18n";
 	import { inject } from "@gitbutler/core/context";
 	import { Button } from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
@@ -45,7 +46,7 @@
 		<h3 class="text-15 text-bold">
 			{promptUse === "commits" ? "Commit message" : "Branch name"}
 		</h3>
-		<Button kind="outline" icon="plus" onclick={createNewPrompt}>New prompt</Button>
+		<Button kind="outline" icon="plus" onclick={createNewPrompt}>{t("new-prompt")}</Button>
 	</div>
 	<div class="content">
 		<AIPromptEntry

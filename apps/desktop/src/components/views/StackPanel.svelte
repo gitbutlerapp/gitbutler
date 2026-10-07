@@ -16,6 +16,7 @@
 	import StackDragHandle from "$components/stack/StackDragHandle.svelte";
 	import BranchList from "$components/views/BranchList.svelte";
 	import { stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
+	import { t } from "$lib/i18n";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createWorktreeSelection, type SelectionId } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
@@ -175,7 +176,7 @@
 						{#if !controller.isCommitting}
 							<div class="assigned-changes-empty">
 								<p class="text-12 text-body assigned-changes-empty__text">
-									Drop files to stage or commit directly
+									{t("drop-files-to-stage-or-commit-directly")}
 								</p>
 							</div>
 						{/if}
@@ -212,7 +213,7 @@
 							if (topBranchName) startCommit(topBranchName);
 						}}
 					>
-						Start a commit…
+						{t("start-a-commit")}
 					</Button>
 				</div>
 			{:else if controller.isCommitting}
