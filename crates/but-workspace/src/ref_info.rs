@@ -8,7 +8,7 @@ use std::{
     str::FromStr,
 };
 
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata;
 use but_graph::{SegmentIndex, workspace::StackCommitFlags};
 use gix::Repository;
@@ -349,12 +349,49 @@ pub struct Lane<'a> {
     pub segments: &'a [Segment],
     /// The commit in another lane that the last segment rests on.
     pub rests_on: Option<gix::ObjectId>,
+    /// The stable name of the worktree this lane is, or `None` for a stack.
+    pub worktree: Option<&'a BStr>,
+}
+
+/// What a segment is known by before and after its lane is rebased.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SegmentIdentity {
+    /// The branch naming the segment.
+    Branch(gix::refs::FullName),
+    /// The worktree whose detached `HEAD` owns the segment, by its stable name.
+    DetachedWorktree(BString),
+}
+
+impl std::fmt::Display for SegmentIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SegmentIdentity::Branch(ref_name) => ref_name.shorten().fmt(f),
+            SegmentIdentity::DetachedWorktree(name) => name.fmt(f),
+        }
+    }
 }
 
 impl<'a> Lane<'a> {
     /// The segments from `index` down to the base.
     pub fn segments_from(self, index: usize) -> &'a [Segment] {
         self.segments.get(index..).unwrap_or_default()
+    }
+
+    /// Each segment along with what it is known by across a rebase: its branch, or the worktree
+    /// for the anonymous segment a detached worktree has checked out. An anonymous segment of a
+    /// stack has nothing to tell it apart.
+    pub fn identified_segments(
+        self,
+    ) -> impl Iterator<Item = (Option<SegmentIdentity>, &'a Segment)> {
+        self.segments.iter().map(move |segment| {
+            let identity = match segment.ref_name() {
+                Some(ref_name) => Some(SegmentIdentity::Branch(ref_name.to_owned())),
+                None => self
+                    .worktree
+                    .map(|name| SegmentIdentity::DetachedWorktree(name.to_owned())),
+            };
+            (identity, segment)
+        })
     }
 
     fn segment_index(&self, matches: impl Fn(&Segment) -> bool) -> Option<usize> {

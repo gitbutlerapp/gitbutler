@@ -438,6 +438,7 @@ impl Stack {
         ref_info::Lane {
             segments: &self.segments,
             rests_on: None,
+            worktree: None,
         }
     }
 

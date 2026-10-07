@@ -48,6 +48,7 @@ impl WorktreeInfo {
                 Some(WorktreeBase::InWorkspace(id)) => Some(id),
                 Some(WorktreeBase::Outside(_)) | None => None,
             },
+            worktree: Some(self.name.as_ref()),
         }
     }
 
