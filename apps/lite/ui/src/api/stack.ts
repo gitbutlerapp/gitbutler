@@ -4,6 +4,7 @@ import type {
 	RelativeTo,
 	Segment,
 	Stack,
+	Target,
 	Worktree,
 } from "@gitbutler/but-sdk";
 
@@ -43,3 +44,6 @@ export const rebaseAllUpdates = (headInfo: RefInfo): Array<BottomUpdate> =>
 	]
 		.filter((relativeTo) => relativeTo != null)
 		.map((relativeTo) => ({ kind: "rebase", selector: relativeTo }));
+
+/** Whether a pull has work to do: the stored target trails its ref, or a lane has yet to catch up with it. */
+export const pullHasWork = (target: Target): boolean => !target.isCurrent || target.hasLanesBehind;

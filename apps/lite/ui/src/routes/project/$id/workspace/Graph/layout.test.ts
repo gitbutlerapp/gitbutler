@@ -85,10 +85,11 @@ const worktree = (name: string, base: Worktree["base"], commits: Array<string>):
 	],
 });
 
-const target = (isCurrent: boolean): Target => ({
+const target = (isCurrent: boolean, hasLanesBehind = false): Target => ({
 	remoteTrackingRef: { fullNameBytes: [], displayName: "master", remoteName: "origin" },
 	commitsAhead: 0,
 	isCurrent,
+	hasLanesBehind,
 });
 
 const folded: Folds = {
@@ -260,7 +261,7 @@ describe("layout", () => {
 		expect(whole?.hidden).toBe(0);
 	});
 
-	it("names the target's row once its commits are known, and says whether the base is at its tip", () => {
+	it("names the target's row once its commits are known, and says whether every lane is at its tip", () => {
 		expect(layout([], target(true), undefined, folded).header).toBeNull();
 		expect(layout([], null, listing, folded).header).toBeNull();
 		expect(layout([], target(true), listing, folded).header).toEqual({
@@ -269,6 +270,7 @@ describe("layout", () => {
 			current: true,
 		});
 		expect(layout([], target(false), listing, folded).header?.current).toBe(false);
+		expect(layout([], target(true, true), listing, folded).header?.current).toBe(false);
 	});
 
 	it("nests a worktree above the shown commit it rests on, and stands the rest alone", () => {

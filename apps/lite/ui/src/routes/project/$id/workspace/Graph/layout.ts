@@ -1,5 +1,6 @@
 import { addressEquals, commitAddress, type Address } from "#ui/addresses.ts";
 import { assert } from "#ui/assert.ts";
+import { pullHasWork } from "#ui/api/stack.ts";
 import { remoteTrackingLabel } from "#ui/branch.ts";
 import { GRAPH_LANE_WIDTH, GRAPH_TRUNK_INSET } from "#ui/components/graph-spacing.ts";
 import type { RefInfo, Stack, TargetCommit, TargetCommitPage, Worktree } from "@gitbutler/but-sdk";
@@ -78,7 +79,7 @@ export type Plan = {
 	order: Array<number>;
 	/**
 	 * The target's row, standing for the workspace's base: its label, how many
-	 * commits are incoming, and whether the base is at the target's tip. Null
+	 * commits are incoming, and whether every lane is at the target's tip. Null
 	 * without a target, and until its commits are known. Not a value: nothing
 	 * selects it.
 	 */
@@ -235,10 +236,9 @@ export const layout = (
 				: {
 						label: remoteTrackingLabel(target.remoteTrackingRef),
 						incoming: commits.filter((entry) => !entry.inWorkspace).length,
-						// The stored target trails the fetched tip exactly while there is work
-						// to do; counting incoming commits misses the case where a lane already
-						// holds them.
-						current: target.isCurrent,
+						// Counting incoming commits misses the case where a lane already holds
+						// them, and the one where an update left a lane behind.
+						current: !pullHasWork(target),
 					},
 		incomingExpanded: folds.incomingExpanded,
 		incoming: folds.incomingExpanded ? incomingRuns(structure.line, folds) : [],

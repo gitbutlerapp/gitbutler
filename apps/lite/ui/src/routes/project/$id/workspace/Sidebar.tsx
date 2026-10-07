@@ -2,7 +2,7 @@ import { useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { setPage, usePage } from "#ui/use-cursor.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { NotificationBell } from "#ui/review-inbox-bell.tsx";
-import { rebaseAllUpdates } from "#ui/api/stack.ts";
+import { pullHasWork, rebaseAllUpdates } from "#ui/api/stack.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
@@ -101,12 +101,11 @@ export const Sidebar: FC<{
 		});
 	};
 
-	// Only an update advances the stored target, so there is work to do exactly
-	// while it trails the target ref. Counting upstream commits misses the case
-	// where a lane already contains them.
+	// Counting upstream commits misses the case where a lane already contains them.
 	const canUpdateWorkspace =
 		noOperationPending &&
-		headInfo?.target?.isCurrent === false &&
+		headInfo?.target != null &&
+		pullHasWork(headInfo.target) &&
 		!isWorkspaceIntegrateUpstreamPending;
 	const canCreateBranch = newBranch.enabled;
 
