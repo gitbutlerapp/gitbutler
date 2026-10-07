@@ -40,6 +40,19 @@ pub struct WorktreeInfo {
 }
 
 impl WorktreeInfo {
+    /// What the worktree rests on, if that is the target and it has a branch or commits of its
+    /// own to rebase there.
+    pub fn rebasable_base(&self) -> Option<gix::ObjectId> {
+        match self.base {
+            Some(WorktreeBase::Outside(base))
+                if self.ref_name.is_some() || self.commits().next().is_some() =>
+            {
+                Some(base)
+            }
+            _ => None,
+        }
+    }
+
     /// The worktree as a lane, which rests on another lane only when based inside the workspace.
     pub fn lane(&self) -> Lane<'_> {
         Lane {

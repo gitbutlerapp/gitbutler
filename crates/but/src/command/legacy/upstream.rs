@@ -6,7 +6,7 @@ use but_workspace::{
     branch::Stack,
     ref_info::{Lane, LocalCommitRelation, Segment, SegmentIdentity},
     ui::PushStatus,
-    worktrees::{WorktreeBase, WorktreeInfo},
+    worktrees::WorktreeInfo,
 };
 
 use crate::args::PullUpdate;
@@ -89,22 +89,10 @@ pub(crate) fn selected_lanes<'a>(head_info: &'a RefInfo, update: &[PullUpdate]) 
         .worktrees
         .iter()
         .filter(|worktree| {
-            update.contains(&PullUpdate::Worktrees) && rebasable_base(worktree).is_some()
+            update.contains(&PullUpdate::Worktrees) && worktree.rebasable_base().is_some()
         })
         .map(WorktreeInfo::lane);
     stacks.chain(worktrees).collect()
-}
-
-/// What `worktree` rests on, if that is the target and it has a branch or commits to move there.
-fn rebasable_base(worktree: &WorktreeInfo) -> Option<gix::ObjectId> {
-    match worktree.base {
-        Some(WorktreeBase::Outside(base))
-            if worktree.ref_name.is_some() || worktree.commits().next().is_some() =>
-        {
-            Some(base)
-        }
-        _ => None,
-    }
 }
 
 /// The lanes `update` selects along with every lane stacked on one of them, as rebasing a lane
@@ -130,10 +118,11 @@ pub(crate) fn has_worktree_behind(
     target_tip: gix::ObjectId,
 ) -> bool {
     update.contains(&PullUpdate::Worktrees)
-        && head_info
-            .worktrees
-            .iter()
-            .any(|worktree| rebasable_base(worktree).is_some_and(|base| base != target_tip))
+        && head_info.worktrees.iter().any(|worktree| {
+            worktree
+                .rebasable_base()
+                .is_some_and(|base| base != target_tip)
+        })
 }
 
 pub(crate) fn classify(
