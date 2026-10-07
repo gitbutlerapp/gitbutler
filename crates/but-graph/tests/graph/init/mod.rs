@@ -2474,6 +2474,72 @@ fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
 }
 
 #[test]
+fn ad_hoc_singleton_at_target_preserves_displaced_main() -> anyhow::Result<()> {
+    use but_core::RefMetadata as _;
+
+    let (tmp, repo) = empty_repo()?;
+    let base = commit(&repo, "base")?;
+    create_branches(&repo, base, ["refs/heads/bottom"])?;
+    let tip = repo
+        .commit(
+            "refs/heads/top",
+            "top",
+            repo.object_hash().empty_tree(),
+            Some(base),
+        )?
+        .detach();
+    let mut meta = in_memory_meta(tmp.as_ref())?;
+    repo.edit_reference(gix::refs::transaction::RefEdit::update(
+        ref_name("HEAD"),
+        ref_name("refs/heads/top"),
+        gix::refs::transaction::PreviousValue::Any,
+        "check out top",
+    ))?;
+    let mut main = meta.branch(ref_name("refs/heads/main").as_ref())?;
+    main.update_times(false);
+    meta.set_branch(&main)?;
+    let mut bottom = meta.branch(ref_name("refs/heads/bottom").as_ref())?;
+    bottom.update_times(false);
+    meta.set_branch(&bottom)?;
+    let overlay = Overlay::default()
+        .with_branch_stack_order_override(["refs/heads/top", "refs/heads/bottom"].map(ref_name));
+    let graph = Graph::from_commit_traversal(
+        tip.attach(&repo),
+        Some(ref_name("refs/heads/top")),
+        &*meta,
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(ref_name("refs/heads/main")),
+            target_commit_id: Some(base),
+            push_remote: None,
+        },
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .redo_traversal_with_overlay(&repo, &*meta, overlay)?
+    .validated()?;
+    let (_, main_commit) = graph
+        .segment_and_commit_by_ref_name(ref_name("refs/heads/main").as_ref())
+        .expect("restoring bottom must preserve the displaced main reference in the graph");
+    assert_eq!(
+        main_commit.id, base,
+        "main still points to the target commit"
+    );
+    // Main remains the integration base, while the distinct bottom branch is visible.
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+⌂:top[🌳] <> ✓! on 86719d5
+└── ≡:top[🌳] on 86719d5 {1}
+    ├── :top[🌳]
+    │   └── ·6ff386b
+    └── 📙:bottom
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
     let (tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
