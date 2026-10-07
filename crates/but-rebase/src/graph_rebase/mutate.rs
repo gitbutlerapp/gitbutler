@@ -8,7 +8,7 @@ use petgraph::{Direction, algo::has_path_connecting, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
 
 use crate::graph_rebase::{
-    Edge, Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector, ToSelector,
+    Checkout, Edge, Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector, ToSelector,
 };
 
 /// Describes where relative to the selector a step should be inserted
@@ -633,7 +633,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     ///
     /// If `nodes_to_connect` is None:
     ///     If inserted above, all the target selector's children will be disconnected and reconnected to the last
-    ///     node of the segment. If inserted below, all the target selector's parents will be disconnected and
+    ///     node of the segment. A checkout of the target is among what sat on it and moves to that node as
+    ///     well, so the segment's branch becomes the checked-out one. If inserted below, all the target selector's parents will be disconnected and
     ///     reconnected to the parent-most node of the segment using `parent_reparenting_order`.
     /// If `nodes_to_connect` is Some:
     ///     If inserted above, connect the given nodes as children. If inserted below, connect the given nodes as parents
@@ -707,6 +708,13 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                         };
                         self.graph.add_edge(edge_source, child.id, new_weight);
                     }
+                    for checkout in &mut self.checkouts {
+                        let (Checkout::Head { selector, .. } | Checkout::Worktree { selector, .. }) =
+                            checkout;
+                        if self.history.normalize_selector(*selector)?.id == target.id {
+                            *selector = child;
+                        }
+                    }
                 }
 
                 // Connect the target to the parent-most node in the given segment according to
@@ -767,7 +775,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// The segment is described by its delimiter: First (parent-most) and last (child-most) node.
     ///
     /// If inserted above, all the target selector's children will be disconnected and reconnected to the last
-    /// node of the segment.
+    /// node of the segment, and so is a checkout of the target.
     /// If inserted below, all the target selector's parents will be disconnected and reconnected to the
     /// parent-most node of the segment.
     ///
