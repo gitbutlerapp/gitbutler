@@ -1011,22 +1011,9 @@ async fn dispatch_subcommand(
                     let outcome = command::worktree::remove::remove(&mut ctx, &worktree, force)?;
                     out.print_cli_output(outcome)?;
                 }
-                worktree::Subcommands::New {
-                    name,
-                    above,
-                    #[cfg(feature = "worktree-cow")]
-                    create_mode,
-                } => {
-                    use but_api::worktrees::WorktreeCreationMode;
-                    #[cfg(not(feature = "worktree-cow"))]
-                    let mode = WorktreeCreationMode::Checkout;
-                    #[cfg(feature = "worktree-cow")]
-                    let mode = match create_mode {
-                        worktree::CreateMode::Cow => WorktreeCreationMode::Cow,
-                        worktree::CreateMode::Checkout => WorktreeCreationMode::Checkout,
-                    };
+                worktree::Subcommands::New { name, above } => {
                     let outcome =
-                        command::worktree::new::new(&mut ctx, name.as_ref(), above.as_ref(), mode)?;
+                        command::worktree::new::new(&mut ctx, name.as_ref(), above.as_ref())?;
                     out.print_cli_output(outcome)?;
                 }
             }
