@@ -2237,6 +2237,50 @@ git worktree add -q -b wt wt-dir A
     }
 
     #[test]
+    fn stack_branch_moves_above_a_detached_worktree_and_gets_checked_out() -> anyhow::Result<()> {
+        let mut fixture = workspace_with_worktree(
+            "git -C wt-dir checkout -q --detach && git branch -D wt wt-lower",
+        )?;
+        let head = std::fs::read_to_string(fixture.repo.git_dir().join("worktrees/wt-dir/HEAD"))?;
+
+        fixture.move_branch(
+            "C",
+            (RelativeTo::Commit(head.trim().parse()?), InsertSide::Above),
+        )?;
+
+        // `C` left its stack for the top of the worktree, which has it checked out now.
+        snapbox::assert_data_eq!(
+            graph_workspace(&fixture.ws).to_string(),
+            snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+├── ≡📙:B on 85efbe4 {2}
+│   └── 📙:B
+│       └── ·c813d8d (🏘️)
+└── 📁wt-dir on 09d8e52 (🏘️)
+    └── :C[📁wt-dir]
+        ├── ·ede5c37
+        ├── ·7f04017
+        └── ·e9b62b2
+
+"#]]
+        );
+        assert_eq!(
+            std::fs::read_to_string(fixture.repo.git_dir().join("worktrees/wt-dir/HEAD"))?,
+            "ref: refs/heads/C\n",
+            "the worktree is no longer detached"
+        );
+        assert_eq!(
+            fixture.worktree_status()?,
+            "",
+            "the worktree's checkout follows its new branch"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn a_branch_cannot_move_above_what_builds_on_it() -> anyhow::Result<()> {
         let mut fixture = workspace_with_worktree("")?;
         let err = fixture.move_branch("A", above("wt-lower")?).unwrap_err();

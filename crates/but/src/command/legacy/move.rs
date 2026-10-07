@@ -32,8 +32,11 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream,
-        single_branch_mode::SingleBranchMode, targeting::Side, worktrees::worktree_tip_target,
+        diff_specs::DiffSpecBuilder,
+        merged_upstream::MergedUpstream,
+        single_branch_mode::SingleBranchMode,
+        targeting::Side,
+        worktrees::{worktree_branch, worktree_tip_target},
     },
 };
 
@@ -776,8 +779,17 @@ fn create_move_above_or_below_op(
                 bad_input("Cannot use `-b/--branch` when moving relative to worktrees").into(),
             );
         }
-        MoveTarget::BranchTip {
-            name: worktree_tip_target(repo, name.as_ref(), side, &unresolved_target)?,
+        match (&resolved_sources, side) {
+            // Above what a worktree has checked out, a branch becomes its checkout.
+            (ResolvedSources::Branch(_), Side::Above) => MoveTarget::BranchBucket {
+                name: worktree_branch(repo, name.as_ref())
+                    .map_err(|err| bad_input(err.to_string()))?,
+                side,
+                new_branch_name: None,
+            },
+            _ => MoveTarget::BranchTip {
+                name: worktree_tip_target(repo, name.as_ref(), side, &unresolved_target)?,
+            },
         }
     } else {
         match unresolved_target

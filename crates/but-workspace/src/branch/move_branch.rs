@@ -13,8 +13,9 @@ pub struct Outcome<'ws, 'meta, M: RefMetadata> {
     pub ws_meta: Option<but_core::ref_metadata::Workspace>,
     /// In single-branch (ad-hoc) mode, set to the reference that should become the new tip after the
     /// reorder. This can be the subject when it moves above the current tip, or the branch now above
-    /// it when the checked-out tip moves down. `HEAD` is *not* moved by the operation; the caller is
-    /// responsible for checking this out so the whole reordered stack stays projected (mirroring
+    /// it when the checked-out tip moves down. Materializing moves `HEAD` there only when the
+    /// subject was inserted directly above the checked-out branch, so the caller is responsible for
+    /// checking this out to keep the whole reordered stack projected (mirroring
     /// [`create_reference`](crate::branch::create_reference())). `None` when the tip is unchanged.
     pub new_tip: Option<gix::refs::FullName>,
     /// In single-branch (ad-hoc) mode, the reordered tip-to-base branch chain that the caller should
@@ -202,6 +203,8 @@ pub(super) mod function {
     ///
     /// Moving the branch a linked worktree has checked out leaves that worktree on what the
     /// branch was based on: the branch below it, or else that commit with a detached `HEAD`.
+    /// A branch placed directly above what a linked worktree has checked out, be it a branch or
+    /// the commit of a detached `HEAD`, becomes what that worktree has checked out.
     ///
     /// Currently, this looks into the workspace projection in order to determine **where to take the branch from**.
     ///
@@ -424,22 +427,14 @@ pub(super) mod function {
         let mut ws_meta = workspace.metadata.clone();
 
         let (source_lane, subject_segment) = source;
-        if let Lane::Worktree(worktree) = anchor.lane {
-            if matches!(anchor.side, InsertSide::Above) && is_tip_of(anchor.lane, anchor.segment) {
-                bail!(
-                    "Cannot place '{}' {}: it is checked out in worktree '{}'",
-                    subject_branch_name.shorten(),
-                    Location(&relative_to, side),
-                    worktree.name
-                );
-            }
-            if subject_segment.commits.is_empty() {
-                bail!(
-                    "Cannot place empty branch '{}' in worktree '{}': branches can't be ordered in worktrees yet",
-                    subject_branch_name.shorten(),
-                    worktree.name
-                );
-            }
+        if let Lane::Worktree(worktree) = anchor.lane
+            && subject_segment.commits.is_empty()
+        {
+            bail!(
+                "Cannot place empty branch '{}' in worktree '{}': branches can't be ordered in worktrees yet",
+                subject_branch_name.shorten(),
+                worktree.name
+            );
         }
         if matches!(
             (source_lane, anchor.lane, &relative_to),

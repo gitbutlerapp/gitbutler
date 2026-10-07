@@ -4960,24 +4960,63 @@ Moved lrm to the tip of branch 'wt-inside'
     );
 }
 
-/// Nothing sits above the branch a worktree has checked out, so stacking onto it is refused
-/// with that reason rather than the misleading "not found".
+/// A branch stacked onto the branch a worktree has checked out leaves the workspace and becomes
+/// what that worktree has checked out.
 #[test]
-fn move_a_branch_onto_a_worktree_branch_is_refused() {
+fn move_a_branch_onto_a_worktrees_checked_out_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     crate::command::util::enable_worktree_manipulation(&env);
     env.but("status").assert().success();
-    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+    let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
 
-    env.but("move B -b wt-inside")
+    env.but("move B --above wt-inside")
         .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: Cannot place 'B' above 'wt-inside': it is checked out in worktree 'wt-inside'
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'B' on top of branch 'wt-inside'
 
 "#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ h0:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ h0 [B]
+┊┊●   lrm add B
+┊┊│
+┊┊├┄ wt [wt-inside]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+* 4ce1279 (HEAD -> B) add B
+* 580bef0 (wt-inside) add W
+| * b66c23e (gitbutler/workspace) GitButler Workspace Commit
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    assert!(
+        wt_dir.join("B").exists(),
+        "the moved branch's file reached the worktree's checkout"
+    );
 }
 
 #[test]
