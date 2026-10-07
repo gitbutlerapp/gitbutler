@@ -84,7 +84,7 @@ fn min_length_for_prefix_based_short_ids() -> usize {
     // Unit tests aren't isolated from the environment, and we want agents and humans to get the
     // same results in tests, so we ignore agent detection in test.
     !cfg!(test) && detect_agent::detect().is_some() {
-        3
+        4
     } else {
         1
     }
