@@ -628,12 +628,17 @@ pub fn graph_to_ref_info(
         target_ref: target_ref.clone(),
         target_commit: target_commit.clone(),
         is_target_current,
+        has_lanes_behind_target: false,
         ancestor_workspace_commit,
         worktrees: worktrees
             .iter()
             .map(|worktree| crate::worktrees::WorktreeInfo::try_from_graph_worktree(worktree, repo))
             .collect::<anyhow::Result<_>>()?,
     };
+
+    info.has_lanes_behind_target = target_commit
+        .as_ref()
+        .is_some_and(|target| info.has_lanes_behind(graph, target));
 
     if let Some(info) = &info.ancestor_workspace_commit {
         // This is the MVP version of what should be guided by the UI - just communicate through
@@ -728,6 +733,29 @@ fn forge_review_for_branch(
 }
 
 impl RefInfo {
+    /// Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
+    /// `target`.
+    ///
+    /// A lane resting on `target` has it. One resting elsewhere may still have merged it in,
+    /// which the graph tells.
+    fn has_lanes_behind(&self, graph: &Graph, target: &but_graph::workspace::TargetCommit) -> bool {
+        let stacks = self
+            .stacks
+            .iter()
+            .map(|stack| (stack.base, &stack.segments));
+        let worktrees = self
+            .worktrees
+            .iter()
+            .map(|worktree| (worktree.rebasable_base(), &worktree.segments));
+        stacks.chain(worktrees).any(|(base, segments)| {
+            base.is_some_and(|base| base != target.commit_id)
+                && segments.first().is_some_and(|top| {
+                    graph.find_merge_base(target.segment_index, top.id)
+                        != Some(target.segment_index)
+                })
+        })
+    }
+
     /// Every lane, i.e. each stack followed by each worktree in tip order.
     ///
     /// A lane can only rest on a lane listed before it, so following [`Lane::rests_on`] always

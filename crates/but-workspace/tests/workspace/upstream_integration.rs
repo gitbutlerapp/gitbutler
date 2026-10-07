@@ -4235,3 +4235,94 @@ fn integrated_worktree_branches_are_replaced_with_new_ones() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn lanes_left_out_of_an_update_are_behind_the_target() -> Result<()> {
+    let (_tmp, repo, mut meta, mut db) = worktree_workspace()?;
+    let upstream = git(&repo)
+        .args(["commit-tree", "main^{tree}", "-p", "main", "-m", "M2"])
+        .output()?;
+    git(&repo)
+        .args([
+            "update-ref",
+            "refs/remotes/origin/main",
+            String::from_utf8(upstream.stdout)?.trim(),
+        ])
+        .run();
+    let workspace = |target: &str,
+                     meta: &but_meta::VirtualBranchesTomlMetadata,
+                     db: &mut but_db::DbHandle|
+     -> Result<but_graph::Workspace> {
+        but_graph::Graph::from_head(
+            &repo,
+            meta,
+            target_project_meta(
+                "refs/remotes/origin/main",
+                repo.rev_parse_single(target)?.detach(),
+            )?,
+            db,
+            Options {
+                worktrees: true,
+                ..Options::limited()
+            },
+        )?
+        .into_workspace()
+    };
+    let target_state = |workspace: &but_graph::Workspace| -> Result<(bool, bool)> {
+        let info = but_workspace::graph_to_ref_info(workspace, &repo, Default::default())?;
+        Ok((info.is_target_current, info.has_lanes_behind_target))
+    };
+    let update = |workspace: &mut but_graph::Workspace,
+                  meta: &mut but_meta::VirtualBranchesTomlMetadata,
+                  db: &mut but_db::DbHandle,
+                  bottoms: &[&str]|
+     -> Result<()> {
+        let project_meta = workspace.graph.project_meta.clone();
+        let updates = bottoms
+            .iter()
+            .map(|bottom| {
+                Ok(BottomUpdate {
+                    kind: BottomUpdateKind::Rebase,
+                    selector: RelativeTo::Commit(repo.rev_parse_single(*bottom)?.detach()),
+                })
+            })
+            .collect::<Result<_>>()?;
+        integrate_upstream(workspace, meta, project_meta, &repo, db, updates)?
+            .rebase
+            .materialize(Default::default())?;
+        Ok(())
+    };
+
+    let mut ws = workspace("main", &meta, &mut db)?;
+    assert_eq!(
+        target_state(&ws)?,
+        (false, true),
+        "the stored target trails its ref, and `wt-below` forked from beneath what is stored"
+    );
+
+    update(&mut ws, &mut meta, &mut db, &["wt-below"])?;
+    // The API fast-forwards the local target branch after an update.
+    git(&repo)
+        .args(["branch", "-f", "main", "origin/main"])
+        .run();
+    let mut ws = workspace("origin/main", &meta, &mut db)?;
+    assert_eq!(
+        target_state(&ws)?,
+        (true, true),
+        "the update advanced the stored target past every lane it left out"
+    );
+
+    update(
+        &mut ws,
+        &mut meta,
+        &mut db,
+        &["A~1", "B", "wt-outside", "wt-pushed~1"],
+    )?;
+    let ws = workspace("origin/main", &meta, &mut db)?;
+    assert_eq!(
+        target_state(&ws)?,
+        (true, false),
+        "every lane has caught up with the stored target"
+    );
+    Ok(())
+}
