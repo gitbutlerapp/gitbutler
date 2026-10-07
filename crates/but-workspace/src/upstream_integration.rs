@@ -289,10 +289,15 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         })
         .collect::<Result<Vec<_>>>()?;
 
+    let direct_checkout_head = match direct_checkout_ref_selector {
+        Some(selector) => selector,
+        None => editor.select_commit(head_commit_id)?,
+    };
+
     let mut stacks = collect_stacks(
         head_commit,
         head_is_workspace_commit,
-        direct_checkout_ref_selector,
+        direct_checkout_head,
         worktree_heads.clone(),
         &editor,
         from_target_sha,
@@ -378,6 +383,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             // If we're not in the managed workspace, we haven't determined a
             // ref replacement yet and we were checked out on a local branch.
             if !head_is_workspace_commit
+                && stack.heads.contains(&direct_checkout_head)
                 && direct_checkout_replacement_ref.is_none()
                 && let Some(head_ref_name) = direct_checkout_head_ref_name.as_ref()
                 && should_delete_integrated_local_branch(
@@ -625,7 +631,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     head_commit: gix::Commit<'_>,
     head_is_workspace_commit: bool,
-    direct_checkout_ref_selector: Option<Selector>,
+    direct_checkout_head: Selector,
     worktree_heads: Vec<Selector>,
     editor: &Editor<'ws, 'meta, M>,
     from_target_sha: HashSet<Selector>,
@@ -643,10 +649,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             .map(|(c, _)| c)
             .collect()
     } else {
-        vec![match direct_checkout_ref_selector {
-            Some(selector) => selector,
-            None => editor.select_commit(head_commit.id)?,
-        }]
+        vec![direct_checkout_head]
     };
     let mut stacks = checkout_heads
         .into_iter()

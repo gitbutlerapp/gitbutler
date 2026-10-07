@@ -4326,3 +4326,78 @@ fn lanes_left_out_of_an_update_are_behind_the_target() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn integrated_worktree_leaves_the_direct_checkout_on_its_branch() -> Result<()> {
+    let (_tmp, repo, mut meta, mut db) = worktree_workspace()?;
+    git(&repo).args(["checkout", "B"]).run();
+    remove_managed_workspace_ref(&repo)?;
+    git(&repo)
+        .args([
+            "update-ref",
+            "refs/remotes/origin/main",
+            "refs/heads/wt-outside",
+        ])
+        .run();
+    let project_meta = target_project_meta(
+        "refs/remotes/origin/main",
+        repo.rev_parse_single("main")?.detach(),
+    )?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut db,
+        Options {
+            worktrees: true,
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let but_workspace::IntegrateUpstreamOutcome {
+        rebase,
+        deleted_refs,
+        ..
+    } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        &mut db,
+        ["B", "wt-outside"]
+            .into_iter()
+            .map(|bottom| {
+                Ok(BottomUpdate {
+                    kind: BottomUpdateKind::Rebase,
+                    selector: RelativeTo::Commit(repo.rev_parse_single(bottom)?.detach()),
+                })
+            })
+            .collect::<Result<_>>()?,
+    )?;
+    rebase.materialize(Default::default())?;
+
+    assert_eq!(
+        deleted_refs
+            .iter()
+            .map(|name| name.shorten().to_string())
+            .collect::<Vec<_>>(),
+        ["wt-outside"],
+        "only the worktree's branch landed upstream"
+    );
+    assert_eq!(
+        repo.head_name()?.map(|name| name.shorten().to_string()),
+        Some("B".into()),
+        "the checkout keeps its branch, as its work has not landed"
+    );
+    assert_eq!(
+        repo.rev_parse_single("B~1")?,
+        repo.rev_parse_single("origin/main")?,
+        "the checked-out branch is rebased onto the target tip"
+    );
+    assert_eq!(
+        open_repo(&repo.workdir().expect("non-bare").join("wt-outside"))?.head_id()?,
+        repo.rev_parse_single("origin/main")?,
+        "the worktree's replacement branch starts at the target tip"
+    );
+    Ok(())
+}
