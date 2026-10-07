@@ -54,6 +54,22 @@ nextest:
 clippy-fix:
 	cargo clippy --workspace --all-targets --fix --allow-dirty
 
+.PHONY: but-cow-build
+but-cow-build:
+	CARGO_PROFILE_BENCH_DEBUG=true \
+	CARGO_PROFILE_BENCH_STRIP=none \
+	CARGO_PROFILE_BENCH_SPLIT_DEBUGINFO=packed \
+	cargo build --profile bench -p but --features worktree-cow
+
+.PHONY: but-cow-profile
+but-cow-profile:
+	mkdir -p "$$HOME/but-perf-tmp"
+	PERF_CHANNEL= PERF_VERSION= \
+	TMPDIR="$$HOME/but-perf-tmp" \
+	PERF_RESULTS_DIR="$$(mktemp -d "$$HOME/but-cow-profile.XXXXXX")" \
+	BUT_BIN="$(CURDIR)/target/release/but" \
+	./crates/but/tests/performance/profile.sh samply worktree-cow
+
 .PHONY: but-bench
 but-bench:
 	./crates/but/tests/performance/run.sh $(SCENARIO)
