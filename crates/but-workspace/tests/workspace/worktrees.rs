@@ -434,6 +434,194 @@ fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path
 }
 
 #[test]
+fn add_copies_only_ignored_directory_selected_by_untracked_worktreeinclude() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let source = repo.workdir().expect("fixture has a working directory");
+    but_testsupport::invoke_bash_at_dir(
+        r#"
+        printf '/included/\n/control/\n' > .gitignore
+        git add .gitignore
+        git commit -qm 'Ignore local artifact directories'
+        mkdir -p included/nested control
+        printf 'included artifact\n' > included/nested/artifact
+        printf 'control artifact\n' > control/artifact
+        printf '/included/\n' > .worktreeinclude
+        git check-ignore -q included/nested/artifact
+        git check-ignore -q control/artifact
+        "#,
+        source,
+    );
+    assert!(
+        repo.index()?
+            .entry_by_path(".worktreeinclude".into())
+            .is_none(),
+        "include configuration exists only in the source working directory, not its index"
+    );
+    let base = repo.head_id()?.detach();
+    assert!(
+        repo.find_commit(base)?
+            .tree()?
+            .lookup_entry_by_path(".worktreeinclude")?
+            .is_none(),
+        "include configuration is not part of the destination commit"
+    );
+    let destination = repo
+        .common_dir()
+        .join("gb-wts")
+        .join("wt-included-artifacts");
+    let branch: &gix::refs::FullNameRef = "refs/heads/wt-included-artifacts".try_into()?;
+
+    but_workspace::worktrees::add(&repo, &destination, branch, base)?;
+
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join(".gitignore"))?,
+        "/included/\n/control/\n"
+    );
+    but_testsupport::invoke_bash_at_dir(
+        "git check-ignore -q included/nested/artifact; git check-ignore -q control/artifact",
+        &destination,
+    );
+    assert!(
+        !destination.join(".worktreeinclude").exists(),
+        "untracked source configuration need not exist in the destination"
+    );
+    assert!(
+        !destination.join("control").exists(),
+        "being gitignored is insufficient: the control directory is not included"
+    );
+    assert!(
+        destination.join("included/nested/artifact").is_file(),
+        "source .worktreeinclude must copy selected ignored directory contents into the new worktree"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join("included/nested/artifact"))?,
+        "included artifact\n"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(source.join("included/nested/artifact"))?,
+        "included artifact\n"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(source.join("control/artifact"))?,
+        "control artifact\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn add_worktreeinclude_copies_only_destination_ignored_files_untracked_in_both_indexes() {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let source = repo.workdir().expect("fixture has a working directory");
+    but_testsupport::invoke_bash_at_dir(
+        r#"
+        set -eu
+        mkdir included
+        printf '/included/ignored-untracked\n/included/source-tracked\n/included/destination-tracked\n' > .gitignore
+        printf 'destination committed contents\n' > included/destination-tracked
+        git add .gitignore
+        git add -f included/destination-tracked
+        git commit -qm 'Destination tracks one ignored file'
+        "#,
+        source,
+    );
+    let destination_base = repo.head_id().unwrap().detach();
+    but_testsupport::invoke_bash_at_dir(
+        r#"
+        set -eu
+        git rm --cached included/destination-tracked
+        printf 'source tracked contents\n' > included/source-tracked
+        git add -f included/source-tracked
+        git commit -qm 'Source tracks a different ignored file'
+        printf 'source contents must not overwrite destination\n' > included/destination-tracked
+        printf 'copy this artifact\n' > included/ignored-untracked
+        printf 'ordinary untracked contents\n' > included/not-ignored
+        printf '/included/\n' > .worktreeinclude
+        git check-ignore -q included/ignored-untracked
+        if git check-ignore -q included/not-ignored; then
+            echo 'included/not-ignored must not be ignored in source' >&2
+            exit 1
+        fi
+        git check-ignore --no-index -q included/source-tracked
+        git check-ignore --no-index -q included/destination-tracked
+        "#,
+        source,
+    );
+    let source_index = repo.index().unwrap();
+    for (path, tracked) in [
+        ("included/ignored-untracked", false),
+        ("included/not-ignored", false),
+        ("included/source-tracked", true),
+        ("included/destination-tracked", false),
+        (".worktreeinclude", false),
+    ] {
+        assert_eq!(
+            source_index.entry_by_path(path.into()).is_some(),
+            tracked,
+            "source tracking state for {path}"
+        );
+    }
+    let destination_tree = repo
+        .find_commit(destination_base)
+        .unwrap()
+        .tree_id()
+        .unwrap();
+    let destination_index = repo.index_from_tree(&destination_tree).unwrap();
+    for (path, tracked) in [
+        ("included/ignored-untracked", false),
+        ("included/not-ignored", false),
+        ("included/source-tracked", false),
+        ("included/destination-tracked", true),
+    ] {
+        assert_eq!(
+            destination_index.entry_by_path(path.into()).is_some(),
+            tracked,
+            "destination tracking state for {path}"
+        );
+    }
+    let destination = repo
+        .common_dir()
+        .join("gb-wts")
+        .join("wt-filtered-artifacts");
+    let branch: &gix::refs::FullNameRef = "refs/heads/wt-filtered-artifacts".try_into().unwrap();
+
+    but_workspace::worktrees::add(&repo, &destination, branch, destination_base).unwrap();
+
+    but_testsupport::invoke_bash_at_dir(
+        r#"
+        set -eu
+        git check-ignore --no-index -q included/ignored-untracked
+        if git check-ignore --no-index -q included/not-ignored; then
+            echo 'included/not-ignored must not be ignored in destination' >&2
+            exit 1
+        fi
+        git check-ignore --no-index -q included/source-tracked
+        git check-ignore --no-index -q included/destination-tracked
+        "#,
+        &destination,
+    );
+    assert!(
+        !destination.join("included/not-ignored").exists(),
+        "inclusion alone must not copy an ordinary untracked file"
+    );
+    assert!(
+        !destination.join("included/source-tracked").exists(),
+        "files tracked only in source must not be copied"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join("included/destination-tracked")).unwrap(),
+        "destination committed contents\n"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join("included/ignored-untracked")).unwrap(),
+        "copy this artifact\n"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(source.join("included/destination-tracked")).unwrap(),
+        "source contents must not overwrite destination\n"
+    );
+}
+
+#[test]
 fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
     let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(

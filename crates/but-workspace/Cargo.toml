@@ -19,6 +19,7 @@ ignored = [
 doctest = false
 
 [features]
+## Low-level COW cloning on macOS (Linux provides a full-copy development mock).
 legacy = [
     "dep:but-ctx",
     "dep:git2",
@@ -79,6 +80,9 @@ snapbox.workspace = true
 gitbutler-commit = { workspace = true, features = ["testing"] }
 gitbutler-reference.workspace = true
 chrono.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = { workspace = true }
 
 [lints]
 workspace = true

@@ -178,6 +178,14 @@ impl Sandbox {
     pub fn home_dir(&self) -> PathBuf {
         self.app_data_dir().join("home")
     }
+
+    /// The working directory of a linked worktree.
+    pub fn linked_worktree_root(&self, worktree_name: &str) -> PathBuf {
+        self.home_dir()
+            .join(".gitbutler-worktrees")
+            .join(self.projects_root().file_name().unwrap())
+            .join(worktree_name)
+    }
 }
 
 pub trait CommandExt {

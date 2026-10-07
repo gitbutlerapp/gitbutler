@@ -1808,6 +1808,7 @@ dependencies = [
  "gix",
  "indexmap 2.14.0",
  "itertools",
+ "libc",
  "md5",
  "sapling-renderdag",
  "schemars 1.2.1",

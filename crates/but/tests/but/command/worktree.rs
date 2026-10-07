@@ -548,6 +548,540 @@ Error: '[..]/home/.gitbutler-worktrees/[..]/feature-one' already exists
 "#]]);
 }
 
+#[cfg(unix)]
+#[test]
+fn new_worktreeinclude_preserves_symlinks_and_skips_special_files() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    enable_worktree_manipulation(&env);
+
+    env.file(".gitignore", "/included/\n");
+    env.but("commit -b my-branch -m 'Ignore included artifacts'")
+        .assert()
+        .success();
+    let destination_base = env.invoke_git("rev-parse my-branch");
+
+    env.file("included/directory/file", "content\n");
+    let links = [
+        ("file-link", "directory/file"),
+        ("directory-link", "directory"),
+        ("dangling-link", "missing"),
+    ];
+    for (name, target) in links {
+        std::os::unix::fs::symlink(target, env.projects_root().join("included").join(name))
+            .unwrap();
+    }
+    env.invoke_bash("mkfifo included/pipe");
+    env.file(".worktreeinclude", "/included/\n");
+
+    env.but(format!(
+        "worktree new included-artifacts --above {}",
+        destination_base.trim()
+    ))
+    .assert()
+    .success()
+    .stderr_eq(snapbox::str![]);
+
+    let destination = env
+        .linked_worktree_root("included-artifacts")
+        .join("included");
+    assert_eq!(
+        std::fs::read_to_string(destination.join("directory/file")).unwrap(),
+        "content\n",
+        "ordinary ignored files are copied alongside symlinks"
+    );
+    for (name, target) in links {
+        assert_eq!(
+            std::fs::read_link(destination.join(name)).unwrap(),
+            std::path::Path::new(target),
+            "symlinks retain their targets instead of being followed"
+        );
+    }
+    assert!(
+        !destination.join("pipe").exists(),
+        "special files are skipped without opening them"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn new_worktreeinclude_preserves_explicitly_included_symlinks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    enable_worktree_manipulation(&env);
+    let outside = tempfile::tempdir().unwrap();
+
+    env.file(".gitignore", "/included/\n");
+    env.but("commit -b my-branch -m 'Ignore included artifacts'")
+        .assert()
+        .success();
+    let destination_base = env.invoke_git("rev-parse my-branch");
+
+    env.file("included/directory/file", "source target contents\n");
+    env.file(outside.path().join("file"), "outside target contents\n");
+    let links = [
+        ("file-link", std::path::Path::new("directory/file")),
+        ("directory-link", std::path::Path::new("directory")),
+        ("dangling-link", std::path::Path::new("missing")),
+        ("outside-link", outside.path()),
+    ];
+    for (name, target) in links {
+        std::os::unix::fs::symlink(target, env.projects_root().join("included").join(name))
+            .unwrap();
+    }
+    env.file(
+        ".worktreeinclude",
+        "included/file-link\nincluded/directory-link\nincluded/dangling-link\nincluded/outside-link\n",
+    );
+
+    env.but(format!(
+        "worktree new explicit-links --above {}",
+        destination_base.trim()
+    ))
+    .assert()
+    .success()
+    .stderr_eq(snapbox::str![]);
+
+    let destination = env.linked_worktree_root("explicit-links").join("included");
+    // Collect all outcomes so failures show which kinds of root symlinks were not preserved.
+    let actual: Vec<_> = links
+        .iter()
+        .map(|(name, _)| {
+            (
+                *name,
+                std::fs::read_link(destination.join(name)).map_err(|err| err.kind()),
+            )
+        })
+        .collect();
+    let expected: Vec<_> = links
+        .iter()
+        .map(|(name, target)| (*name, Ok(target.to_path_buf())))
+        .collect();
+    assert_eq!(
+        actual, expected,
+        "explicit include roots must preserve symlinks, including dangling links and links outside source worktree"
+    );
+    assert!(
+        !destination.join("directory").exists(),
+        "including a symlink must not implicitly copy its target"
+    );
+    assert_eq!(
+        std::fs::read_to_string(outside.path().join("file")).unwrap(),
+        "outside target contents\n",
+        "copying a symlink must leave external target contents unchanged"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn new_worktreeinclude_handles_overlapping_roots() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    enable_worktree_manipulation(&env);
+    env.file(".gitignore", "/included/\n");
+    env.but("commit -b my-branch -m 'Ignore artifacts'")
+        .assert()
+        .success();
+    let base = env.invoke_git("rev-parse my-branch");
+
+    env.file("included/file", "artifact\n");
+    std::os::unix::fs::symlink("file", env.projects_root().join("included/link")).unwrap();
+    env.file(".worktreeinclude", "included/\nincluded/link\n");
+    env.but(format!("worktree new overlapping --above {}", base.trim()))
+        .assert()
+        .success();
+    assert_eq!(
+        std::fs::read_link(
+            env.linked_worktree_root("overlapping")
+                .join("included/link")
+        )
+        .unwrap(),
+        std::path::Path::new("file"),
+        "overlapping roots must copy a symlink only once"
+    );
+}
+
+#[test]
+fn new_worktreeinclude_handles_specific_file_inclusion() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    enable_worktree_manipulation(&env);
+
+    env.file(".gitignore", "included/\n");
+    env.but("commit -m 'Add gitignore'").assert().success();
+    env.file("included/ignored/untracked", "copy this artifact\n");
+
+    env.file(".worktreeinclude", "included/ignored/untracked\n");
+
+    env.but("worktree new filtered-artifacts --above qmo")
+        .assert()
+        .success();
+
+    env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   wx A .worktreeinclude
+┊
+┊╭┄ br [a-branch-1]
+┊┊
+┊┊╭┄ fi:@ [uncommitted] {filtered-artifacts} (no changes)
+┊┊├┄ fi [filtered-artifacts] (no commits)
+┊├╯
+┊●   qmo Add gitignore
+┊│     qmo:p A .gitignore
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    let linked_worktree_workdir = env.linked_worktree_root("filtered-artifacts");
+    assert_eq!(
+        std::fs::read_to_string(linked_worktree_workdir.join("included/ignored/untracked"))
+            .unwrap(),
+        "copy this artifact\n",
+        "included, destination-ignored files untracked in both indexes must be copied"
+    );
+}
+
+#[test]
+fn new_worktreeinclude_ignores_negative_patterns_and_wildcards() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    enable_worktree_manipulation(&env);
+
+    env.file(".gitignore", "file\n");
+    env.but("commit -m 'Add gitignore'").assert().success();
+    env.file("file", "should not be copied\n");
+
+    env.file(".worktreeinclude", "!file\n*le\n");
+
+    env.but("worktree new filtered-artifacts --above rlx")
+        .assert()
+        .stderr_eq("")
+        .success();
+
+    env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   wx A .worktreeinclude
+┊
+┊╭┄ br [a-branch-1]
+┊┊
+┊┊╭┄ fi:@ [uncommitted] {filtered-artifacts} (no changes)
+┊┊├┄ fi [filtered-artifacts] (no commits)
+┊├╯
+┊●   rlx Add gitignore
+┊│     rlx:p A .gitignore
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    let linked_worktree_workdir = env.linked_worktree_root("filtered-artifacts");
+    assert!(
+        !linked_worktree_workdir.join("file").exists(),
+        "file should not be copied from negative .worktreeinclude pattern"
+    );
+}
+
+#[test]
+fn new_worktreeinclude_skips_files_blocked_by_tracked_destination_ancestor() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    enable_worktree_manipulation(&env);
+
+    env.file(".gitignore", "/my/nice/file\n");
+    env.file("my", "destination tracked file\n");
+    env.but("commit -b my-branch -m 'Track destination ancestor and ignore artifact'")
+        .assert()
+        .success();
+    let destination_base = env.invoke_git("rev-parse my-branch");
+
+    env.remove_file("my");
+    env.but("commit -m 'Remove ancestor file from source'")
+        .assert()
+        .success();
+    env.file("my/nice/file", "source ignored artifact\n");
+    // Exercise both direct file inclusion and recursive directory copying.
+    for (name, pattern) in [
+        ("colliding-file", "my/nice/file\n"),
+        ("colliding-directory", "my/\n"),
+    ] {
+        env.file(".worktreeinclude", pattern);
+        env.but(format!(
+            "worktree new {name} --above {}",
+            destination_base.trim()
+        ))
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+
+        let checkout = env.linked_worktree_root(name);
+        assert_eq!(
+            std::fs::read_to_string(checkout.join("my")).unwrap(),
+            "destination tracked file\n",
+            "copying must preserve a tracked destination file blocking an artifact's parent directory"
+        );
+        assert!(
+            !checkout.join("my/nice/file").exists(),
+            "an artifact must be skipped when its parent path collides with a tracked file"
+        );
+    }
+    assert_eq!(
+        env.read_file("my/nice/file").unwrap(),
+        "source ignored artifact\n",
+        "skipping a colliding artifact must leave source contents unchanged"
+    );
+}
+
+#[test]
+fn new_worktreeinclude_skips_files_blocked_by_tracked_immediate_parent() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    enable_worktree_manipulation(&env);
+
+    env.file(".gitignore", "/my/nice/file\n");
+    env.file("my/nice", "destination tracked file\n");
+    env.but("commit -b my-branch -m 'Track immediate parent'")
+        .assert()
+        .success();
+    let destination_base = env.invoke_git("rev-parse my-branch");
+    env.remove_file("my/nice");
+    env.but("commit -m 'Remove immediate parent from source'")
+        .assert()
+        .success();
+    env.file("my/nice/file", "source ignored artifact\n");
+
+    for (name, pattern) in [
+        ("blocked-file", "my/nice/file\n"),
+        ("blocked-directory", "my/\n"),
+    ] {
+        env.file(".worktreeinclude", pattern);
+        env.but(format!(
+            "worktree new {name} --above {}",
+            destination_base.trim()
+        ))
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+        let checkout = env.linked_worktree_root(name);
+        assert_eq!(
+            std::fs::read_to_string(checkout.join("my/nice")).unwrap(),
+            "destination tracked file\n",
+            "a tracked file at the artifact's immediate parent must remain intact"
+        );
+        assert!(
+            !checkout.join("my/nice/file").exists(),
+            "artifacts blocked by a tracked immediate parent must be skipped"
+        );
+    }
+    assert_eq!(
+        env.read_file("my/nice/file").unwrap(),
+        "source ignored artifact\n",
+        "source artifact must remain intact"
+    );
+}
+
+#[test]
+fn new_worktreeinclude_skips_files_colliding_with_destination_directory() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    enable_worktree_manipulation(&env);
+
+    env.file(".gitignore", "/my/nice\n");
+    env.file("my/nice/child", "destination tracked child\n");
+    env.invoke_git("add --force my/nice/child");
+    env.but("commit -b my-branch -m 'Track child inside destination directory'")
+        .assert()
+        .success();
+    let destination_base = env.invoke_git("rev-parse my-branch");
+    env.remove_file("my/nice/child");
+    env.but("commit -m 'Remove child from source'")
+        .assert()
+        .success();
+    if env.projects_root().join("my/nice").exists() {
+        std::fs::remove_dir(env.projects_root().join("my/nice")).unwrap();
+    }
+    env.file("my/nice", "source ignored artifact\n");
+
+    for (name, pattern) in [
+        ("colliding-file", "my/nice\n"),
+        ("colliding-directory", "my/\n"),
+    ] {
+        env.file(".worktreeinclude", pattern);
+        env.but(format!(
+            "worktree new {name} --above {}",
+            destination_base.trim()
+        ))
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+        assert_eq!(
+            std::fs::read_to_string(env.linked_worktree_root(name).join("my/nice/child")).unwrap(),
+            "destination tracked child\n",
+            "an ignored file must not replace a directory containing tracked files"
+        );
+    }
+    assert_eq!(
+        env.read_file("my/nice").unwrap(),
+        "source ignored artifact\n",
+        "source artifact must remain intact"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn new_worktreeinclude_skips_files_beneath_tracked_destination_symlink() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    enable_worktree_manipulation(&env);
+    let outside = tempfile::tempdir().unwrap();
+    env.file(
+        outside.path().join("nice/file"),
+        "outside contents must not change\n",
+    );
+
+    env.file(".gitignore", "/my/nice/file\n");
+    std::os::unix::fs::symlink(outside.path(), env.projects_root().join("my")).unwrap();
+    env.but("commit -b my-branch -m 'Track symlink to outside directory'")
+        .assert()
+        .success();
+    let destination_base = env.invoke_git("rev-parse my-branch");
+    env.remove_file("my");
+    env.but("commit -m 'Remove symlink from source'")
+        .assert()
+        .success();
+    env.file("my/nice/file", "source ignored artifact\n");
+
+    for (name, pattern) in [
+        ("symlink-file", "my/nice/file\n"),
+        ("symlink-directory", "my/\n"),
+    ] {
+        env.file(".worktreeinclude", pattern);
+        env.but(format!(
+            "worktree new {name} --above {}",
+            destination_base.trim()
+        ))
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+        assert_eq!(
+            std::fs::read_link(env.linked_worktree_root(name).join("my")).unwrap(),
+            outside.path(),
+            "tracked destination symlink must remain intact"
+        );
+        assert_eq!(
+            std::fs::read_to_string(outside.path().join("nice/file")).unwrap(),
+            "outside contents must not change\n",
+            "copying must not follow a tracked ancestor symlink outside destination worktree"
+        );
+    }
+    assert_eq!(
+        env.read_file("my/nice/file").unwrap(),
+        "source ignored artifact\n",
+        "source artifact must remain intact"
+    );
+}
+
+#[test]
+fn new_worktreeinclude_copies_only_destination_ignored_files_untracked_in_both_indexes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    enable_worktree_manipulation(&env);
+
+    env.file(
+        ".gitignore",
+        "/included/ignored/untracked
+/included/source/tracked
+/included/destination/tracked
+",
+    );
+    env.file(
+        "included/destination/tracked",
+        "destination committed contents\n",
+    );
+    env.invoke_git("add --force included/destination/tracked");
+    env.but("commit -b my-branch -m 'gitignore and destination/tracked file'")
+        .assert()
+        .success();
+    let destination_base = env.invoke_git("rev-parse my-branch");
+
+    env.remove_file("included/destination/tracked");
+    env.file("included/source/tracked", "source tracked contents\n");
+    env.invoke_git("add --force included/source/tracked");
+    env.but("commit -m 'Remove destination/tracked file and add source/tracked file'")
+        .assert()
+        .success();
+
+    // now add some garbage data to the destination/tracked file but in the source working
+    // directory, so we can detect if we accidentally overwrite the tracked file in the destination.
+    env.file(
+        "included/destination/tracked",
+        "source contents must not overwrite destination\n",
+    );
+    env.file("included/ignored/untracked", "copy this artifact\n");
+    env.file("included/not-ignored", "ordinary untracked contents\n");
+    env.file(".worktreeinclude", "included/\n");
+
+    env.but(format!(
+        "worktree new filtered-artifacts --above {}",
+        destination_base.trim()
+    ))
+    .assert()
+    .success();
+
+    env.but("status -f").assert().success().stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   wx A .worktreeinclude
+┊   ls A included/not-ignored
+┊
+┊╭┄ my [my-branch]
+┊●   ulu Remove destination/tracked file and add source/tracked file
+┊│     ulu:tt D included/destination/tracked
+┊│     ulu:ts A included/source/tracked
+┊┊
+┊┊╭┄ fi:@ [uncommitted] {filtered-artifacts} (no changes)
+┊┊├┄ fi [filtered-artifacts] (no commits)
+┊├╯
+┊●   xzo gitignore and destination/tracked file
+┊│     xzo:p A .gitignore
+┊│     xzo:t A included/destination/tracked
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    let linked_worktree_workdir = env.linked_worktree_root("filtered-artifacts");
+    assert!(
+        !linked_worktree_workdir
+            .join("included/not-ignored")
+            .exists(),
+        "inclusion alone must not copy an ordinary untracked file"
+    );
+    assert!(
+        !linked_worktree_workdir
+            .join("included/source/tracked")
+            .exists(),
+        "files tracked only in source must not be copied"
+    );
+    assert_eq!(
+        std::fs::read_to_string(linked_worktree_workdir.join("included/destination/tracked"))
+            .unwrap(),
+        "destination committed contents\n",
+        "copying must not overwrite files tracked in destination"
+    );
+    assert_eq!(
+        std::fs::read_to_string(linked_worktree_workdir.join("included/ignored/untracked"))
+            .unwrap(),
+        "copy this artifact\n",
+        "included, destination-ignored files untracked in both indexes must be copied"
+    );
+    assert_eq!(
+        std::fs::read_to_string(env.projects_root().join("included/destination/tracked")).unwrap(),
+        "source contents must not overwrite destination\n",
+        "copying must leave source contents unchanged"
+    );
+}
+
 #[test]
 fn new_above_a_commit_cli_id() {
     let env = flag_on_sandbox();

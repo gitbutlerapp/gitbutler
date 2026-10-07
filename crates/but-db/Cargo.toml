@@ -28,7 +28,7 @@ snapbox.workspace = true
 
 # for multi-process migration testing.
 [target."cfg(unix)".dev-dependencies]
-libc = "0.2.186"
+libc.workspace = true
 
 [lints]
 workspace = true
