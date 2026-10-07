@@ -5,7 +5,8 @@ Hyperfine owns timing and statistics; shell scripts own deterministic fixture se
 
 ## Cheat sheet
 
-Run from repository root. No scenario arguments means full suite.
+Run from repository root. No scenario arguments means portable suite; local-only
+`worktree-cow` requires explicit selection.
 
 ```sh
 # Full suite against latest nightly / stable release (Linux x86_64)
@@ -264,6 +265,39 @@ symbolization troubleshooting (including lld/mold's `--no-rosegment` requirement
 - `status-large-uncommitted-file`: time `but status` with one untracked 400 MiB random binary file.
 - `status-many-uncommitted-changes`: time `but status` after directly modifying 240 tracked Rust files with `core.autocrlf=input`.
 - `status-many-uncommitted-changes-fragmented-odb`: same status workload with 200 additional small local packs. Reproduces [the null-ID object database rescan fixed by GitButler PR #15746](https://github.com/gitbutlerapp/gitbutler/pull/15746): with automatic text conversion enabled, each changed worktree file could trigger a guaranteed-miss null-ID lookup and rescan every pack.
+- `worktree-cow` (explicit-only, macOS): time `but worktree new --create-mode cow` in a GitButler fixture containing a copy of this checkout's actual `target/`, including accumulated `target/debug/deps` artifacts. Requires a COW-enabled binary and APFS (or another filesystem supporting `clonefile`). Excluded from default benchmark and standalone profiling suites; paired profiling includes it when present in saved benchmarks.
+
+### Local COW benchmark
+
+Requires a checkout containing the `worktree-cow` Cargo feature. Build a
+COW-enabled optimized binary first, then run on macOS:
+
+```sh
+cargo build --profile bench -p but --features worktree-cow
+# Existing directory on same COW-capable filesystem as repository, outside target/.
+mkdir -p "$HOME/but-perf-tmp"
+TMPDIR="$HOME/but-perf-tmp" \
+BUT_BIN="$PWD/target/release/but" PERF_BINARY_COMMIT="$(git rev-parse HEAD)" \
+PERF_RESULTS_DIR="$HOME/but-cow-results-$(date +%Y%m%d-%H%M%S)" \
+PERF_WARMUP=0 PERF_RUNS=1 \
+./crates/but/tests/performance/run.sh worktree-cow
+```
+
+Increase warmups/runs for measurement. Setup uses `cp -cRp` to copy local `target/`
+into each fresh fixture outside timing, preserving file timestamps and permissions
+without hard links. Both source fixture and newly created worktree live in session
+filesystem. Keep builds, cleanup, and other writes to source `target/` stopped
+throughout measurement; keep results outside `target/` too. Repeatability depends
+on holding local build state fixed, not just fixture commit. Artifacts aren't
+expected to match historical fixture source; this measures copying, not cache reuse
+or subsequent build performance. Non-default Cargo target directories aren't used.
+
+Timed operation includes complete worktree creation, checkout, and cleanup—not
+just `clonefile(2)`. Compare full and locally modified no-op binaries against same
+artifact state; omitting clones of tracked files also changes checkout work.
+Linux development mocks do full copies, so scenario rejects Linux rather than
+reporting them as COW measurements. Setup fails early if binary lacks COW support.
+No production code or no-op mode is added by this scenario.
 
 ## Measurement and fixture rules
 

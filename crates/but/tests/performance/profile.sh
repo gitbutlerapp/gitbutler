@@ -129,6 +129,10 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
         fi
         for scenario_dir in "$scenario_root"/*; do
             [ -d "$scenario_dir" ] || continue
+            # Explicit-only unless profiling an existing benchmark execution.
+            if [ "$paired" != 1 ] && [ "$(basename "$scenario_dir")" = worktree-cow ]; then
+                continue
+            fi
             set -- "$@" "$(basename "$scenario_dir")"
         done
     fi

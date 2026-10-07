@@ -130,6 +130,8 @@ if [ "$#" -eq 0 ]; then
     set --
     for scenario_dir in "$scenario_root"/*; do
         [ -d "$scenario_dir" ] || continue
+        # Local build artifacts and macOS COW support make this explicit-only.
+        [ "$(basename "$scenario_dir")" != worktree-cow ] || continue
         set -- "$@" "$(basename "$scenario_dir")"
     done
 fi
