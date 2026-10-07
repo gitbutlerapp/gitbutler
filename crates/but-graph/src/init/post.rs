@@ -1360,6 +1360,11 @@ impl Graph {
     /// the graph. The caller records the reverse `sibling_segment_id` link on
     /// the remote segment afterwards.
     ///
+    /// The entrypoint is the exception: nothing but the traversal starting there
+    /// made it own the shared tip, so the local tracking branch takes the commits
+    /// along with everything connected to them, and the entrypoint rests on it
+    /// as an empty segment, just like it does once it is ahead.
+    ///
     /// Returning `None` means the graph should keep its current presentation.
     /// That happens when there is no configured local tracking branch, the local
     /// ref no longer exists, its tip was not traversed, or the local tip is not
@@ -1400,6 +1405,25 @@ impl Graph {
             return Ok(None);
         }
 
+        self[owner_sidx].commits[owner_cidx]
+            .refs
+            .retain(|ri| ri.ref_name != local_ref_name);
+        if self.entrypoint.is_some_and(|(sidx, _)| sidx == owner_sidx) {
+            let local_sidx = self.split_segment(
+                owner_sidx,
+                owner_cidx,
+                Some(local_ref_name),
+                None,
+                meta,
+                worktree_by_branch,
+            )?;
+            self.move_incoming_edges((owner_sidx, None), local_sidx, Some(0), Some(local_tip));
+            let local_segment = &mut self[local_sidx];
+            local_segment.remote_tracking_ref_name = Some(remote_ref_name);
+            local_segment.remote_tracking_branch_segment_id = Some(remote_sidx);
+            return Ok(Some(local_sidx));
+        }
+
         let local_segment = crate::Segment {
             metadata: meta
                 .branch_opt(local_ref_name.as_ref())?
@@ -1423,9 +1447,6 @@ impl Graph {
             Some(local_tip),
             0,
         );
-        self[owner_sidx].commits[owner_cidx]
-            .refs
-            .retain(|ri| ri.ref_name != local_ref_name);
         Ok(Some(local_sidx))
     }
 

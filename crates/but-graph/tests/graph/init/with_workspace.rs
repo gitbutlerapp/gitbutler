@@ -2821,17 +2821,18 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
 ◎  A
 │ ◎  B
 ├─╯
-│ ◎  D
-├─╯
-│ ◎  E
-├─╯
-│ ◎  F
-├─╯
-│ ◎  📕gitbutler/workspace
-│ │ ◎  origin/main
-│ │ ◎  main[🌳] <> origin/main
-│ ├─╯
 │ ◎  👉C
+│ │ ◎  D
+├───╯
+│ │ ◎  E
+├───╯
+│ │ ◎  F
+├───╯
+│ │ ◎  📕gitbutler/workspace
+│ ├─╯
+│ │ ◎  origin/main
+│ ├─╯
+│ ◎  main[🌳] <> origin/main
 ├─╯
 ●  🏁·fafd9d0 (⌂|🏘|✓)
 "#]]

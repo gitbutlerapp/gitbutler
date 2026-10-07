@@ -434,12 +434,12 @@ RefInfo {
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
-            segment_index: NodeIndex(0),
+            segment_index: NodeIndex(2),
         },
     ),
     is_target_current: true,
     lower_bound: Some(
-        NodeIndex(0),
+        NodeIndex(2),
     ),
     ancestor_workspace_commit: None,
 }
