@@ -520,12 +520,11 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                 }
                 Checkout::Worktree {
                     selector,
+                    ref_name,
                     initial_head,
                     ..
                 } => {
-                    let target = self.checkout_target(*selector)?.map(|t| t.0);
-
-                    if target != Some(*initial_head) {
+                    if self.checkout_target(*selector)? != Some((*initial_head, ref_name.clone())) {
                         return Ok(true);
                     }
                 }

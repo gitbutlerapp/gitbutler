@@ -750,6 +750,42 @@ fn changes_consumed_from_a_linked_worktree_cancel_during_its_checkout() -> Resul
 }
 
 #[test]
+fn a_worktree_checks_out_what_its_checkout_is_set_to() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let worktree_dir = repo.workdir().unwrap().join("wt");
+    let middle = repo.rev_parse_single("middle")?.detach();
+    let base = repo.rev_parse_single("middle~1")?.detach();
+
+    for (target, has_a) in [(middle, true), (base, false)] {
+        let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+        let mut ws = graph.into_workspace()?;
+        let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+        editor.set_worktree_checkout(gix::bstr::BStr::new("wt"), target)?;
+        editor.rebase()?.materialize(Default::default())?;
+
+        let worktree = gix::open(&worktree_dir)?;
+        assert_eq!(
+            worktree.head_name()?,
+            None,
+            "a commit detaches the worktree, even the one its branch points to"
+        );
+        assert_eq!(worktree.head_id()?, target);
+        assert_eq!(
+            worktree_dir.join("a").exists(),
+            has_a,
+            "the worktree's files follow its new checkout"
+        );
+        snapbox::assert_data_eq!(git_status(&worktree)?, snapbox::str![""]);
+        assert_eq!(
+            repo.rev_parse_single("middle")?.detach(),
+            middle,
+            "the branch the worktree left stays where it was"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn a_merge_base_override_for_an_unknown_worktree_is_rejected() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-partial-amend")?;
     let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
