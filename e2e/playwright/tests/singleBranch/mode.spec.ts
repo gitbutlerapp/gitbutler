@@ -4,7 +4,12 @@ import {
 	openSingleBranchWorkspace,
 	SINGLE_BRANCH_NAME,
 } from "./helpers.ts";
-import { assertBranch, assertCommitSubjects, branchTip } from "../../src/branch.ts";
+import {
+	assertBranch,
+	assertCommitSubjects,
+	branchTip,
+	createNewBranch,
+} from "../../src/branch.ts";
 import { expect } from "../../src/expect.ts";
 import { openWorkspace } from "../../src/setup.ts";
 import { test } from "../../src/test.ts";
@@ -61,6 +66,23 @@ test.describe("single-branch mode enabled", () => {
 
 		await assertBranch("gitbutler/workspace", localClone);
 		await waitForTestIdToNotExist(page, "chrome-header-switch-back-to-workspace-button");
+		await expectCurrentBranchChip(page, "gitbutler/workspace");
+	});
+
+	test("creates an independent branch from a normal branch through the modal", async ({
+		page,
+		gitbutler,
+	}) => {
+		await gitbutler.runScript("project-in-single-branch-mode.sh");
+		const localClone = gitbutler.pathInWorkdir("local-clone");
+		await assertBranch(SINGLE_BRANCH_NAME, localClone);
+		await openSingleBranchWorkspace(page);
+
+		await createNewBranch(page, "new-independent-branch");
+
+		await waitForTestIdToNotExist(page, "create-new-branch-modal");
+		await assertBranch("gitbutler/workspace", localClone);
+		await expect(branchHeader(page, "new-independent-branch")).toBeVisible();
 		await expectCurrentBranchChip(page, "gitbutler/workspace");
 	});
 
