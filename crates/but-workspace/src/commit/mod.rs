@@ -123,6 +123,8 @@ impl ChangeSource<'_> {
 /// Tell the editor which of `all_changes` were consumed, so the checkout that
 /// provided them doesn't reintroduce them as uncommitted changes.
 /// Configure checkout cancellation for all accepted changes from `source`.
+/// Unmatched headers are excluded individually, so accepted selections on the
+/// same path still cancel out. Other rejection reasons exclude the entire path.
 ///
 /// Composed operations that call [`commit_amend_without_checkout_cancellation()`]
 /// repeatedly must call this once with their complete accepted change set before
@@ -134,11 +136,28 @@ pub fn cancel_consumed_changes<M: but_core::RefMetadata>(
     rejected_specs: &[(but_core::tree::create_tree::RejectionReason, DiffSpec)],
     context_lines: u32,
 ) -> anyhow::Result<()> {
-    let rejected_paths: std::collections::BTreeSet<_> =
-        rejected_specs.iter().map(|(_, spec)| &spec.path).collect();
     let consumed: Vec<_> = all_changes
         .into_iter()
-        .filter(|spec| !rejected_paths.contains(&spec.path))
+        .filter_map(|mut spec| {
+            for (reason, rejected) in rejected_specs
+                .iter()
+                .filter(|(_, rejected)| rejected.path == spec.path)
+            {
+                if *reason
+                    != but_core::tree::create_tree::RejectionReason::MissingDiffSpecAssociation
+                {
+                    return None;
+                }
+                if !spec.hunk_headers.is_empty() {
+                    spec.hunk_headers
+                        .retain(|header| !rejected.hunk_headers.contains(header));
+                    if spec.hunk_headers.is_empty() {
+                        return None;
+                    }
+                }
+            }
+            Some(spec)
+        })
         .collect();
     if consumed.is_empty() {
         return Ok(());

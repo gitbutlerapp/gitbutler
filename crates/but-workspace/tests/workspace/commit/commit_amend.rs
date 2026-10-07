@@ -72,6 +72,140 @@ fn amend_commit_smoke_test() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn partially_rejected_selection_cancels_only_accepted_changes() -> Result<()> {
+    for create_new in [false, true] {
+        for include_invalid in [false, true] {
+            let (_tmp, graph, repo, mut meta, _description, mut db) =
+                writable_scenario("amend-with-partial-commit", |_| {})?;
+            let worktree_content = "LINE 1\nLINE 1.1\nunchanged\nline 1.2\nline 2\nline 3\n";
+            let path = repo.workdir_path("test.txt").expect("non-bare repo");
+            std::fs::write(&path, worktree_content)?;
+            let target = repo.rev_parse_single("stack-1")?.detach();
+            let invalid = but_core::HunkHeader {
+                old_start: 40,
+                old_lines: 1,
+                new_start: 40,
+                new_lines: 1,
+            };
+            let mut headers = vec![
+                but_core::HunkHeader {
+                    old_start: 1,
+                    old_lines: 1,
+                    new_start: 0,
+                    new_lines: 0,
+                },
+                but_core::HunkHeader {
+                    old_start: 0,
+                    old_lines: 0,
+                    new_start: 1,
+                    new_lines: 1,
+                },
+            ];
+            if include_invalid {
+                headers.push(invalid);
+            }
+            let mut changes = vec![DiffSpec {
+                path: "test.txt".into(),
+                hunk_headers: headers,
+                ..Default::default()
+            }];
+            if include_invalid {
+                std::fs::write(
+                    repo.workdir_path("base.txt").expect("non-bare"),
+                    "dirty base\n",
+                )?;
+                changes.push(DiffSpec {
+                    path: "base.txt".into(),
+                    hunk_headers: vec![invalid],
+                    ..Default::default()
+                });
+            }
+            let mut ws = graph.into_workspace()?;
+            let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+            let (rebase, selector, rejected) = if create_new {
+                let outcome = but_workspace::commit::commit_create(
+                    editor,
+                    changes,
+                    target,
+                    but_rebase::graph_rebase::mutate::InsertSide::Above,
+                    "selected line",
+                    0,
+                    ChangeSource::Head,
+                )?;
+                (
+                    outcome.rebase,
+                    outcome.commit_selector,
+                    outcome.rejected_specs,
+                )
+            } else {
+                let outcome = commit_amend(editor, target, changes, 0, ChangeSource::Head)?;
+                (
+                    outcome.rebase,
+                    outcome.commit_selector,
+                    outcome.rejected_specs,
+                )
+            };
+            assert_eq!(
+                rejected.len(),
+                2 * usize::from(include_invalid),
+                "only invalid selectors are rejected"
+            );
+            if include_invalid {
+                assert_eq!(
+                    rejected[0].1.hunk_headers,
+                    [invalid],
+                    "the rejection contains only the unmatched selector"
+                );
+            }
+            let materialized = rebase.materialize(Default::default())?;
+            assert!(
+                !materialized.checkout_conflict_occurred,
+                "accepted content must be cancelled even if another selector for the path is rejected"
+            );
+            let commit = repo.find_commit(
+                materialized.lookup_pick(selector.expect("accepted content creates a commit"))?,
+            )?;
+            assert_eq!(
+                commit
+                    .tree()?
+                    .lookup_entry_by_path("test.txt")?
+                    .expect("committed file")
+                    .object()?
+                    .into_blob()
+                    .data,
+                b"LINE 1\nline 1.1\nunchanged\nline 2\nline 3\n",
+                "only the selected line enters the commit"
+            );
+            assert_eq!(
+                std::fs::read_to_string(&path)?,
+                worktree_content,
+                "materialization must preserve all unselected worktree content"
+            );
+            if include_invalid {
+                assert_eq!(
+                    commit
+                        .tree()?
+                        .lookup_entry_by_path("base.txt")?
+                        .expect("base file")
+                        .object()?
+                        .into_blob()
+                        .data,
+                    b"base\n",
+                    "a fully rejected header must never become a whole-file request"
+                );
+                assert_eq!(
+                    std::fs::read_to_string(repo.workdir_path("base.txt").expect("non-bare"))?,
+                    "dirty base\n",
+                    "fully rejected content must remain dirty and intact"
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
 /// Amending uncommitted changes into an earlier commit when a later commit
 /// also touches the same file should leave no uncommitted changes afterwards.
 ///
@@ -82,7 +216,6 @@ fn amend_commit_smoke_test() -> Result<()> {
 ///   - Amend line 1.2 into "save 1"
 ///
 /// After amend, there should be no remaining uncommitted changes.
-#[test]
 fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
     let (_tmp, graph, repo, mut meta, _description, mut db) =
         writable_scenario("amend-with-partial-commit", |_| {})?;
@@ -343,6 +476,15 @@ mod from_worktree {
 
     #[test]
     fn amend_one_worktree_hunk_leaves_the_other_hunk_dirty() -> Result<()> {
+        amend_one_worktree_hunk(false)
+    }
+
+    #[test]
+    fn amend_partially_rejected_worktree_hunk_leaves_the_other_hunk_dirty() -> Result<()> {
+        amend_one_worktree_hunk(true)
+    }
+
+    fn amend_one_worktree_hunk(include_invalid: bool) -> Result<()> {
         let (repo, _tmp, mut meta, mut db) = scenario();
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
         std::fs::write(wt_dir.join("a-file"), "ONE\ntwo\nthree\nfour\n")?;
@@ -362,11 +504,20 @@ mod from_worktree {
             panic!("text changes have a patch")
         };
         assert_eq!(hunks.len(), 2, "the fixture has two selectable hunks");
-        let selected = DiffSpec {
+        let mut selected = DiffSpec {
             path: "a-file".into(),
             hunk_headers: vec![(&hunks[0]).into()],
             ..Default::default()
         };
+        let invalid = but_core::HunkHeader {
+            old_start: 40,
+            old_lines: 1,
+            new_start: 40,
+            new_lines: 1,
+        };
+        if include_invalid {
+            selected.hunk_headers.push(invalid);
+        }
 
         let outcome = commit_amend(
             editor,
@@ -378,8 +529,24 @@ mod from_worktree {
                 name: "wt".into(),
             },
         )?;
+        assert_eq!(
+            outcome.rejected_specs.len(),
+            usize::from(include_invalid),
+            "only an unmatched worktree selector is rejected"
+        );
+        if include_invalid {
+            assert_eq!(
+                outcome.rejected_specs[0].1.hunk_headers,
+                [invalid],
+                "the accepted worktree hunk must not be included in the rejection"
+            );
+        }
         let selector = outcome.commit_selector.expect("a commit was amended");
         let materialized = outcome.rebase.materialize(Default::default())?;
+        assert!(
+            !materialized.checkout_conflict_occurred,
+            "partial rejection must not cause a linked-worktree checkout conflict"
+        );
         let new_id = materialized.lookup_pick(selector)?;
 
         assert_eq!(
