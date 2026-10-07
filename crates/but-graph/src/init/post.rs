@@ -124,7 +124,7 @@ impl Graph {
         // refs left on its first commit, which would re-couple a fork to the
         // lane it points into. The pass maintains remote/sibling links itself
         // when it moves a name.
-        self.fork_out_worktree_checkout_refs(meta, &worktree_by_branch)?;
+        self.fork_out_refs_outside_lanes(meta, &worktree_by_branch)?;
         self.land_worktree_lanes_on_commits(meta, &worktree_by_branch)?;
 
         // Finally, once all segments were added, it's good to generations
@@ -1648,13 +1648,13 @@ impl Graph {
     /// `Workspace::metadata_from_projection()`). Exempt is only the subject
     /// of this graph's view: the branch checked out by the repository that
     /// built the graph, and the entrypoint ref.
-    fn fork_out_worktree_checkout_refs<T: RefMetadata>(
+    fn fork_out_refs_outside_lanes<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
         let mut seen = BTreeSet::new();
-        let checkout_refs: Vec<gix::refs::FullName> = self
+        let refs_outside_lanes: Vec<gix::refs::FullName> = self
             .worktree_tips
             .iter()
             .filter_map(|tip| tip.ref_name.clone())
@@ -1669,9 +1669,9 @@ impl Graph {
             .filter(|ref_name| seen.insert(ref_name.clone()))
             .collect();
         let mut identity_left_the_lane = BTreeSet::new();
-        for ref_name in checkout_refs {
+        for ref_name in refs_outside_lanes {
             if let Some((fork_sidx, vacated_sidx)) =
-                self.fork_out_worktree_checkout_ref(ref_name, meta, worktree_by_branch)?
+                self.fork_out_ref(ref_name, meta, worktree_by_branch)?
             {
                 identity_left_the_lane.insert(fork_sidx);
                 identity_left_the_lane.extend(vacated_sidx);
@@ -1790,7 +1790,7 @@ impl Graph {
     /// Returns the fork segment now carrying `ref_name` along with the lane
     /// segment its identity vacated, if any, or `None` if the ref could not be
     /// placed.
-    fn fork_out_worktree_checkout_ref<T: RefMetadata>(
+    fn fork_out_ref<T: RefMetadata>(
         &mut self,
         ref_name: gix::refs::FullName,
         meta: &OverlayMetadata<'_, T>,
@@ -1821,7 +1821,7 @@ impl Graph {
             // Traversal limits or an overlay can leave the ref out of the graph.
             tracing::debug!(
                 ref_name = %ref_name.as_bstr(),
-                "worktree-checked-out ref not in graph, leaving it as is"
+                "ref to fork out is not in graph, leaving it as is"
             );
             return Ok(None);
         };
@@ -1841,7 +1841,7 @@ impl Graph {
                 else {
                     tracing::debug!(
                         ref_name = %ref_name.as_bstr(),
-                        "empty worktree-checked-out segment points at no unambiguous commit"
+                        "empty segment to fork out points at no unambiguous commit"
                     );
                     return Ok(None);
                 };
