@@ -3,7 +3,9 @@
 	import dependentBranchSvg from "$components/stackTabs/assets/dependent-branch.svg?raw";
 	import newStackLefttSvg from "$components/stackTabs/assets/new-stack-left.svg?raw";
 	import newStackRightSvg from "$components/stackTabs/assets/new-stack-right.svg?raw";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { autoSelectBranchCreationFeature } from "$lib/config/uiFeatureFlags";
+	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { getStackName } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -30,6 +32,10 @@
 
 	let { projectId, stackId }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
+	const modeService = inject(MODE_SERVICE);
+	const mode = $derived(modeService.mode(projectId));
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const [switchBackToWorkspace, workspaceSwitch] = baseBranchService.switchBackToWorkspace;
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.branchCreate;
 	const { openGeneralSettings } = useSettingsModal();
@@ -90,6 +96,9 @@
 
 	async function addNew() {
 		if (createRefType === "stack") {
+			if (mode.response?.type === "OutsideWorkspace") {
+				await switchBackToWorkspace({ projectId });
+			}
 			await createNewStack({
 				projectId,
 				branch: {
@@ -130,7 +139,11 @@
 		selectedStackId = undefined;
 	}
 
-	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
+	const isAddingNew = $derived(
+		workspaceSwitch.current.isLoading ||
+			stackCreation.current.isLoading ||
+			branchCreation.current.isLoading,
+	);
 
 	export async function show(initialType?: "stack" | "dependent") {
 		createRefModal?.show();
