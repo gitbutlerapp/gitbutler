@@ -5638,6 +5638,135 @@ Hint: run `but help` for all commands
     );
 }
 
+/// The branch a worktree has checked out is a move source too: it leaves for the workspace,
+/// and the worktree is left on the branch that was below it.
+#[test]
+fn move_a_worktrees_checked_out_branch_onto_a_workspace_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
+
+    env.but("move wt-inside -b B")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'wt-inside' on top of branch 'B'
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ lo:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ lo [wt-lower]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ wt [wt-inside]
+┊●   ntk add W2
+┊│
+┊├┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+*   1974aca (gitbutler/workspace) GitButler Workspace Commit
+|\  
+* | db0b242 (wt-inside) add W2
+* | d3e2ba3 (B) add B
+| | * 580bef0 (HEAD -> wt-lower) add W
+| |/  
+| * 9477ae7 (A) add A
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    assert!(
+        !wt_dir.join("wt-top.txt").exists() && wt_dir.join("wt-file.txt").exists(),
+        "only the moved branch's file left the worktree's checkout"
+    );
+}
+
+/// With nothing below it in its worktree, the checked-out branch leaves the worktree detached
+/// on the commit it was based on.
+#[test]
+fn move_a_worktrees_only_branch_onto_a_workspace_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "A");
+
+    env.but("move wt-inside -b B")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'wt-inside' on top of branch 'B'
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ i0:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ i0 (no commits)
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ wt [wt-inside]
+┊●   nsn add W
+┊│
+┊├┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+*   7ca2b42 (gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 9477ae7 (HEAD, A) add A
+* | f379d52 (wt-inside) add W
+* | d3e2ba3 (B) add B
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    assert!(
+        !wt_dir.join("wt-file.txt").exists(),
+        "the moved branch's file left the worktree's checkout"
+    );
+}
+
 #[test]
 fn moving_commit_to_branch_below_then_switching_to_workspace() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");

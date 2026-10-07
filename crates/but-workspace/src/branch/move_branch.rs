@@ -200,6 +200,9 @@ pub(super) mod function {
     /// - above or below a commit, it splits the branch owning that commit there, taking over
     ///   everything beneath it.
     ///
+    /// Moving the branch a linked worktree has checked out leaves that worktree on what the
+    /// branch was based on: the branch below it, or else that commit with a detached `HEAD`.
+    ///
     /// Currently, this looks into the workspace projection in order to determine **where to take the branch from**.
     ///
     /// ### The issue
@@ -421,15 +424,6 @@ pub(super) mod function {
         let mut ws_meta = workspace.metadata.clone();
 
         let (source_lane, subject_segment) = source;
-        if let Lane::Worktree(worktree) = source_lane
-            && is_tip_of(source_lane, subject_segment)
-        {
-            bail!(
-                "Cannot move '{}': it is checked out in worktree '{}'",
-                subject_branch_name.shorten(),
-                worktree.name
-            );
-        }
         if let Lane::Worktree(worktree) = anchor.lane {
             if matches!(anchor.side, InsertSide::Above) && is_tip_of(anchor.lane, anchor.segment) {
                 bail!(
@@ -491,6 +485,21 @@ pub(super) mod function {
             parents_to_disconnect,
             skip_reconnect_step,
         )?;
+        if let Lane::Worktree(worktree) = source_lane
+            && is_tip_of(source_lane, subject_segment)
+        {
+            let based_on = match worktree.segments.get(1).and_then(|below| below.ref_name()) {
+                Some(branch_below) => editor.select_reference(branch_below)?,
+                None => editor.select_commit(subject_segment.base.with_context(|| {
+                    format!(
+                        "Cannot move '{}': worktree '{}' would have nothing left to check out",
+                        subject_branch_name.shorten(),
+                        worktree.name
+                    )
+                })?)?,
+            };
+            editor.set_worktree_checkout(gix::bstr::BStr::new(&worktree.name), based_on)?;
+        }
         if traverse_nodes(&editor, target_selector)?.contains(&subject_delimiter.parent) {
             bail!(
                 "Cannot move '{}' {}, which builds on it",
