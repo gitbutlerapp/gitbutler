@@ -8,7 +8,7 @@ use bstr::BString;
 use but_core::{DiffSpec, RefMetadata};
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{Editor, LookupStep, Selector, Step, SuccessfulRebase, ToCommitSelector},
+    graph_rebase::{Editor, LookupStep, Selector, SuccessfulRebase, ToCommitSelector},
 };
 
 use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
@@ -226,7 +226,7 @@ fn uncommit_changes_no_rebase_inner<M: RefMetadata>(
         editor.new_commit(new_commit, DateMode::CommitterUpdateAuthorKeep)?
     };
 
-    editor.replace(commit_selector, Step::new_pick(new_commit_id))?;
+    editor.amend_pick(commit_selector, new_commit_id)?;
     Ok(commit_selector)
 }
 

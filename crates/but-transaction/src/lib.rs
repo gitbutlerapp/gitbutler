@@ -463,7 +463,7 @@ where
                 Some(child_selector)
             };
 
-            editor.replace(ref_selector, but_rebase::graph_rebase::Step::None)?;
+            editor.replace_with_none(ref_selector)?;
             if let Some(must_disconnect_child) = must_disconnect_child {
                 editor.remove_edges(must_disconnect_child, ref_selector)?;
             }

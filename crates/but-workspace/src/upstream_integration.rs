@@ -447,7 +447,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     {
                         continue;
                     }
-                    editor.replace(*selector, Step::None)?;
+                    editor.replace_with_none(*selector)?;
                 }
             }
         }
@@ -552,7 +552,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     continue;
                 };
                 if attrs.content_integrated || attrs.review_integrated {
-                    editor.replace(*node, Step::None)?;
+                    editor.replace_with_none(*node)?;
                 }
 
                 for (parent, _) in editor.direct_parents(*node)? {
@@ -1215,7 +1215,7 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
             // advances it to the target tip in the same rebase that switches the checkout,
             // so previews and materialization agree without an early Git ref mutation.
             let existing_selector = editor.select_reference(preferred_ref)?;
-            editor.replace(existing_selector, Step::None)?;
+            editor.replace_with_none(existing_selector)?;
             reusable_ref = Some(preferred_ref.to_owned());
         }
     }
@@ -1226,9 +1226,9 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
         })?,
     };
 
-    editor.replace(
-        head_ref_selector,
-        Step::new_reference(fallback_ref_name.clone()),
+    editor.replace_reference(
+        editor.select_reference(head_ref_name)?,
+        fallback_ref_name.clone(),
     )?;
 
     editor.disconnect_segment_from(
@@ -1250,17 +1250,16 @@ fn preserve_pick_parents<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     selector: Selector,
 ) -> Result<()> {
-    let Step::Pick(mut pick) = editor.lookup_step(selector)? else {
-        bail!("Expected target tip selector to point to a pick");
-    };
-    let commit = editor.find_commit(pick.id)?;
-    // TODO: Teach but-rebase to treat immutable reference parents as object
-    // anchors. Until then, preserve the target tip's original parents here so
-    // graph-rebase materializes the fallback branch at the exact target ref
-    // object instead of replaying merge-based target history into an equivalent
-    // local rewrite.
-    pick.preserved_parents = Some(commit.inner.parents.iter().copied().collect());
-    editor.replace(selector, Step::Pick(pick))?;
+    editor.update_pick(selector, |editor, mut pick| {
+        let commit = editor.find_commit(pick.id)?;
+        // TODO: Teach but-rebase to treat immutable reference parents as object
+        // anchors. Until then, preserve the target tip's original parents here so
+        // graph-rebase materializes the fallback branch at the exact target ref
+        // object instead of replaying merge-based target history into an equivalent
+        // local rewrite.
+        pick.preserved_parents = Some(commit.inner.parents.iter().copied().collect());
+        Ok(pick)
+    })?;
     Ok(())
 }
 

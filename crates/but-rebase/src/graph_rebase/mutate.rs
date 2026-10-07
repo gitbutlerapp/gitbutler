@@ -333,23 +333,61 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(references)
     }
 
-    /// Replaces the node that the function was pointing to.
-    ///
-    /// If a commit step has been replaced with another commit step, the commit
-    /// mappings will get updated to include an entry going from the old to the
-    /// new object id.
-    ///
-    /// Returns the replaced step.
-    pub fn replace(&mut self, target: impl ToSelector, mut step: Step) -> Result<Step> {
+    /// Replaces the step described by `target` with a new mutable [Step::Reference] step.
+    pub fn replace_reference(
+        &mut self,
+        target: impl ToReferenceSelector,
+        refname: gix::refs::FullName,
+    ) -> Result<()> {
+        let target = self
+            .history
+            .normalize_selector(target.to_reference_selector(self)?)?;
+        self.graph[target.id] = Step::new_reference(refname);
+        Ok(())
+    }
+
+    /// Replaces the step with [Step::None].
+    pub fn replace_with_none(&mut self, target: impl ToSelector) -> Result<Step> {
         let target = self.history.normalize_selector(target.to_selector(self)?)?;
-        if let (Step::Pick(from), Step::Pick(to)) = (&self.graph[target.id], &step)
-            && !from.exclude_from_tracking
-            && !to.exclude_from_tracking
-        {
-            self.history.update_mapping(from.id, to.id);
-        };
+        let mut step = Step::None;
         std::mem::swap(&mut self.graph[target.id], &mut step);
         Ok(step)
+    }
+
+    /// Updates the pick to another pick and records a commit mapping.
+    ///
+    /// The function also receives a reference to self to work around borrow checker issues.
+    pub fn update_pick<F>(&mut self, target: impl ToCommitSelector, f: F) -> Result<()>
+    where
+        F: FnOnce(&Self, Pick) -> Result<Pick>,
+    {
+        let target = self
+            .history
+            .normalize_selector(target.to_commit_selector(self)?)?;
+        let Step::Pick(from) = self.graph[target.id].clone() else {
+            bail!("BUG: to_commit_selector should have asserted Step::Pick");
+        };
+        let from_id = if from.exclude_from_tracking {
+            None
+        } else {
+            Some(from.id)
+        };
+        let to = f(self, from)?;
+        if let Some(from_id) = from_id
+            && !to.exclude_from_tracking
+        {
+            self.history.update_mapping(from_id, to.id);
+        }
+        self.graph[target.id] = Step::Pick(to);
+        Ok(())
+    }
+
+    /// Convenience function to amend a pick.
+    pub fn amend_pick(&mut self, target: impl ToCommitSelector, id: gix::ObjectId) -> Result<()> {
+        self.update_pick(target, |_editor, mut pick| {
+            pick.id = id;
+            Ok(pick)
+        })
     }
 
     /// Disconnect a segment from a parent segment.
