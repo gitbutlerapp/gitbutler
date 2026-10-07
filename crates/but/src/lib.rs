@@ -1023,6 +1023,8 @@ async fn dispatch_subcommand(
                     #[cfg(feature = "worktree-cow")]
                     let mode = match create_mode {
                         worktree::CreateMode::Cow => WorktreeCreationMode::Cow,
+                        worktree::CreateMode::CowIgnored => WorktreeCreationMode::CowIgnored,
+                        worktree::CreateMode::CowTarget => WorktreeCreationMode::CowTarget,
                         worktree::CreateMode::Checkout => WorktreeCreationMode::Checkout,
                     };
                     let outcome =

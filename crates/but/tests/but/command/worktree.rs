@@ -21,6 +21,8 @@ fn flag_on_sandbox() -> Sandbox {
 fn new_create_modes() {
     for (flags, copies_artifacts) in [
         ("--create-mode cow", true),
+        ("--create-mode cow-ignored", true),
+        ("--create-mode cow-target", false),
         ("--create-mode checkout", false),
         ("", false), // defaults to checkout
     ] {
@@ -45,6 +47,161 @@ Created worktree wt-mode on 'wt-mode' from 0dc3733 at [..]/home/.gitbutler-workt
             "{flags:?} selects whether ignored artifacts are copied"
         );
     }
+}
+
+#[test]
+#[cfg(all(
+    feature = "worktree-cow",
+    any(target_os = "linux", target_os = "macos")
+))]
+fn new_selective_cow_checks_out_before_copying_artifacts() {
+    for mode in ["cow-ignored", "cow-target"] {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("single-branch-in-sync");
+        env.invoke_git("checkout main");
+        env.file(".gitignore", "/target/\n/generated/cache\n/extra\n");
+        env.file("target/tracked", "committed\n");
+        env.file("target/directory/tracked", "committed\n");
+        env.file("generated/.gitignore", "*.log\n!keep.log\n");
+        env.invoke_bash("ln -s ../outside target/link; git add .gitignore generated/.gitignore; git add -f target; git commit -qm 'tracked artifacts'");
+        let base = env.invoke_git("rev-parse HEAD");
+        enable_worktree_manipulation(&env);
+        env.file("target/tracked", "dirty\n");
+        env.file("target/debug/deps/artifact", "artifact\n");
+        env.file("generated/cache", "cache\n");
+        env.file("generated/untracked", "do not copy\n");
+        env.file("generated/build.log", "copy\n");
+        env.file("generated/keep.log", "do not copy\n");
+        env.file("generated/.gitignore", "*\n");
+        env.file("extra", "extra\n");
+        // Destination rules, not dirty source rules, determine ignored files.
+        env.file(".gitignore", "/wrong\n");
+        env.file("wrong", "do not copy\n");
+        env.invoke_bash("rm -r target/directory; ln -s /does-not-exist target/directory; ln -s missing target/dangling; rm target/link; mkdir target/link; echo content > target/link/file; mkfifo target/pipe");
+        env.but(format!(
+            "worktree new --create-mode {mode} -A {} wt-selective",
+            base.trim()
+        ))
+        .assert()
+        .success();
+        let destination = env
+            .home_dir()
+            .join(".gitbutler-worktrees")
+            .join(env.projects_root().file_name().unwrap())
+            .join("wt-selective");
+        snapbox::assert_data_eq!(
+            std::fs::read_to_string(destination.join("target/tracked")).unwrap(),
+            "committed\n"
+        );
+        snapbox::assert_data_eq!(
+            std::fs::read_to_string(destination.join("target/directory/tracked")).unwrap(),
+            "committed\n"
+        );
+        snapbox::assert_data_eq!(
+            std::fs::read_to_string(destination.join("target/debug/deps/artifact")).unwrap(),
+            "artifact\n"
+        );
+        assert_eq!(
+            destination.join("extra").exists(),
+            mode == "cow-ignored",
+            "only ignored mode copies artifacts outside target"
+        );
+        assert_eq!(
+            destination.join("generated/cache").exists(),
+            mode == "cow-ignored",
+            "ignored file survives beside ordinary untracked file"
+        );
+        assert_eq!(
+            destination.join("generated/build.log").exists(),
+            mode == "cow-ignored",
+            "nested destination ignore rules are used"
+        );
+        assert!(
+            !destination.join("generated/keep.log").exists(),
+            "negated ignore rules are honored"
+        );
+        assert_eq!(
+            std::fs::read_link(destination.join("target/link")).unwrap(),
+            std::path::Path::new("../outside"),
+            "checked-out symlinks are not replaced or traversed"
+        );
+        assert!(
+            !destination.join("outside").exists(),
+            "cloning must not write through destination symlinks"
+        );
+        assert!(
+            !destination.join("generated/untracked").exists(),
+            "ordinary untracked files are not copied"
+        );
+        assert!(
+            !destination.join("wrong").exists(),
+            "dirty source ignore rules are not used"
+        );
+        assert!(
+            !destination.join("target/pipe").exists(),
+            "special files are skipped"
+        );
+        assert_eq!(
+            std::fs::read_link(destination.join("target/dangling")).unwrap(),
+            std::path::Path::new("missing"),
+            "dangling links are cloned, not followed"
+        );
+        env.invoke_bash(format!(
+            r#"test -z "$(git -C '{}' status --porcelain --untracked-files=all)""#,
+            destination.display()
+        ));
+    }
+}
+
+#[test]
+#[cfg(all(
+    feature = "worktree-cow",
+    any(target_os = "linux", target_os = "macos")
+))]
+fn new_selective_cow_target_does_not_require_ignore_rules() {
+    for mode in ["cow-ignored", "cow-target"] {
+        let env = flag_on_sandbox();
+        env.file("target/cache", "artifact\n");
+        env.file("nested/target/cache", "not root target\n");
+        env.but(format!("worktree new --create-mode {mode} wt-target"))
+            .assert()
+            .success();
+        let destination = env
+            .home_dir()
+            .join(".gitbutler-worktrees")
+            .join(env.projects_root().file_name().unwrap())
+            .join("wt-target");
+        assert_eq!(
+            destination.join("target/cache").exists(),
+            mode == "cow-target",
+            "target mode copies artifacts even without ignore rules"
+        );
+        assert!(
+            !destination.join("nested/target/cache").exists(),
+            "target mode only copies root target directory"
+        );
+    }
+}
+
+#[test]
+#[cfg(all(
+    feature = "worktree-cow",
+    any(target_os = "linux", target_os = "macos")
+))]
+fn new_selective_cow_target_skips_symlinked_target() {
+    let env = flag_on_sandbox();
+    env.invoke_bash("mkdir external; echo content > external/cache; ln -s external target");
+    env.but("worktree new --create-mode cow-target wt-target")
+        .assert()
+        .success();
+    let destination = env
+        .home_dir()
+        .join(".gitbutler-worktrees")
+        .join(env.projects_root().file_name().unwrap())
+        .join("wt-target");
+    assert!(
+        std::fs::symlink_metadata(destination.join("target")).is_err(),
+        "root target symlink is neither followed nor copied"
+    );
 }
 
 /// Add the worktree `name` at `commit` with the extra `git worktree add` `flags`, stamping its

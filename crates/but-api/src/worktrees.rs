@@ -322,6 +322,12 @@ pub enum WorktreeCreationMode {
     /// COW-Clone main-worktree files, including ignored artifacts, before restoring tracked files.
     #[cfg(feature = "worktree-cow")]
     Cow,
+    /// Check out tracked files, then clone ignored artifacts using destination ignore rules.
+    #[cfg(feature = "worktree-cow")]
+    CowIgnored,
+    /// Check out tracked files, then clone only the root target directory.
+    #[cfg(feature = "worktree-cow")]
+    CowTarget,
 }
 
 /// See [`worktree_new()`]; this variant is for callers that already hold exclusive
@@ -377,9 +383,29 @@ pub fn worktree_new_at_base_with_perm(
             but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?
         }
         #[cfg(feature = "worktree-cow")]
-        WorktreeCreationMode::Cow => {
-            but_workspace::worktrees::add_cow(&repo, &path, ref_name.as_ref(), base)?
-        }
+        WorktreeCreationMode::Cow => but_workspace::worktrees::add_cow(
+            &repo,
+            &path,
+            ref_name.as_ref(),
+            base,
+            but_workspace::worktrees::CowMode::All,
+        )?,
+        #[cfg(feature = "worktree-cow")]
+        WorktreeCreationMode::CowIgnored => but_workspace::worktrees::add_cow(
+            &repo,
+            &path,
+            ref_name.as_ref(),
+            base,
+            but_workspace::worktrees::CowMode::Ignored,
+        )?,
+        #[cfg(feature = "worktree-cow")]
+        WorktreeCreationMode::CowTarget => but_workspace::worktrees::add_cow(
+            &repo,
+            &path,
+            ref_name.as_ref(),
+            base,
+            but_workspace::worktrees::CowMode::Target,
+        )?,
     };
     let path = gix::path::realpath(&path)?;
     drop((repo, ws, db));

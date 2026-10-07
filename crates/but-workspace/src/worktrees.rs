@@ -149,7 +149,19 @@ fn add_inner(
         .context("git registered the new checkout as a linked worktree")
 }
 
-/// Create a linked worktree by cloning the main worktree.
+/// Which files to clone from the source worktree.
+#[cfg(feature = "worktree-cow")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CowMode {
+    /// Clone everything before restoring tracked files and removing untracked files.
+    All,
+    /// Check out first, then clone only ignored, untracked files.
+    Ignored,
+    /// Check out first, then clone untracked files in the root target directory.
+    Target,
+}
+
+/// Create a linked worktree by cloning selected files from the main worktree.
 /// Uses copy-on-write on macOS and a full-copy development mock on Linux.
 #[cfg(feature = "worktree-cow")]
 pub fn add_cow(
@@ -157,6 +169,7 @@ pub fn add_cow(
     path: &Path,
     branch: &gix::refs::FullNameRef,
     base: gix::ObjectId,
+    mode: CowMode,
 ) -> anyhow::Result<BString> {
     let Some(workdir) = repo.workdir() else {
         anyhow::bail!("Cannot use COW worktree mode on bare repository");
@@ -168,7 +181,7 @@ pub fn add_cow(
         );
     }
 
-    let worktree_name = add_inner(repo, path, branch, base, true)?;
+    let worktree_name = add_inner(repo, path, branch, base, mode == CowMode::All)?;
 
     // If we fail after this point, we must try to remove the created worktree, so all further
     // actions are encapsulated in this awkward closure :)
@@ -186,6 +199,16 @@ pub fn add_cow(
             !destination.starts_with(&source_directory),
             "Nested worktrees not allowed for COW"
         );
+
+        if mode != CowMode::All {
+            return clone_checkout_artifacts(
+                repo,
+                &worktree_repo,
+                &source_directory,
+                &destination,
+                mode,
+            );
+        }
 
         clone_worktree_files(&source_directory, &destination, &worktree_root_tree)?;
 
@@ -247,7 +270,7 @@ fn clone_worktree_files(
     target_root_tree: &gix::Tree<'_>,
 ) -> anyhow::Result<()> {
     let ignored_paths = [working_directory.join(".git")];
-    let filter_path = |path: &Path| {
+    let mut filter_path = |path: &Path, _kind: fs::FileType| {
         if ignored_paths.iter().any(|p| p == path) {
             return Ok(false);
         }
@@ -264,14 +287,74 @@ fn clone_worktree_files(
             .map(|lookup| lookup.is_some())?)
     };
 
-    clone_directory(working_directory, destination, &filter_path)
+    clone_directory(working_directory, destination, &mut filter_path)
+}
+
+/// Populate an existing checkout without replacing its files or following its symlinks.
+#[cfg(feature = "worktree-cow")]
+fn clone_checkout_artifacts(
+    source_repo: &gix::Repository,
+    destination_repo: &gix::Repository,
+    source: &Path,
+    destination: &Path,
+    mode: CowMode,
+) -> anyhow::Result<()> {
+    let source_index = source_repo.index_or_empty()?;
+    let destination_index = destination_repo.index_or_empty()?;
+    // Only committed ignore files participate: copying an ignored .gitignore must not
+    // change classification halfway through the walk.
+    let mut excludes = destination_repo.excludes(
+        &destination_index,
+        None,
+        gix::worktree::stack::state::ignore::Source::IdMapping,
+    )?;
+    let mut filter = |path: &Path, kind: fs::FileType| -> anyhow::Result<bool> {
+        let relative = path.strip_prefix(source)?;
+        if path.file_name() == Some(OsStr::new(".git")) {
+            return Ok(false);
+        }
+        if mode == CowMode::Target && !relative.starts_with("target") {
+            return Ok(false);
+        }
+        // A symlink named target is not a target directory. Never follow it.
+        if mode == CowMode::Target && relative == Path::new("target") && !kind.is_dir() {
+            return Ok(false);
+        }
+        let git_path = gix::path::into_bstr(relative);
+        if source_index.entry_by_path(git_path.as_ref()).is_some()
+            || destination_index.entry_by_path(git_path.as_ref()).is_some()
+        {
+            return Ok(false);
+        }
+        match fs::symlink_metadata(destination.join(relative)) {
+            Ok(metadata) if !(kind.is_dir() && metadata.is_dir()) => return Ok(false),
+            Ok(_) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(err.into()),
+        }
+        if kind.is_dir() || mode == CowMode::Target {
+            // Even an unignored directory can contain ignored descendants.
+            return Ok(true);
+        }
+        // Do not transplant source-only ignore rules into the clean checkout.
+        if path.file_name() == Some(OsStr::new(".gitignore")) {
+            return Ok(false);
+        }
+        let entry_mode = if kind.is_symlink() {
+            gix::index::entry::Mode::SYMLINK
+        } else {
+            gix::index::entry::Mode::FILE
+        };
+        Ok(excludes.at_path(relative, Some(entry_mode))?.is_excluded())
+    };
+    clone_directory(source, destination, &mut filter)
 }
 
 #[cfg(feature = "worktree-cow")]
 fn clone_directory(
     source: &Path,
     destination: &Path,
-    filter_path: &impl Fn(&Path) -> anyhow::Result<bool>,
+    filter_path: &mut impl FnMut(&Path, fs::FileType) -> anyhow::Result<bool>,
 ) -> anyhow::Result<()> {
     anyhow::ensure!(source.is_dir(), "Source must be a directory");
 
@@ -281,18 +364,31 @@ fn clone_directory(
         let entry = entry?;
 
         let source = entry.path();
-        if !filter_path(&source)? {
+        let kind = entry.file_type()?;
+        if !filter_path(&source, kind)? {
             continue;
         }
 
         let destination = destination.join(entry.file_name());
 
-        let kind = entry.file_type()?;
         if kind.is_dir() {
-            fs::create_dir(&destination)
-                .with_context(|| format!("Failed to create '{}'", destination.display()))?;
+            let created = match fs::create_dir(&destination) {
+                Ok(()) => true,
+                Err(err)
+                    if err.kind() == std::io::ErrorKind::AlreadyExists
+                        && fs::symlink_metadata(&destination)?.is_dir() =>
+                {
+                    false
+                }
+                Err(err) => {
+                    return Err(err)
+                        .with_context(|| format!("Failed to create '{}'", destination.display()));
+                }
+            };
             clone_directory(&source, &destination, filter_path)?;
-            fs::set_permissions(&destination, entry.metadata()?.permissions())?;
+            if created {
+                fs::set_permissions(&destination, entry.metadata()?.permissions())?;
+            }
         } else if source.is_symlink() || source.is_file() {
             clone_file(&source, &destination).with_context(|| {
                 format!(

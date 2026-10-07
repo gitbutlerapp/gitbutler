@@ -571,7 +571,7 @@ but worktree remove [-f] <id|name> # Like `git worktree remove`; `-f` for uncomm
 
 `new` generates a branch name when omitted. `--above <COMMIT>` (`-A`) starts the new branch at that commit instead of the workspace base; branch targets and conflicted commits are refused. Checkouts live under `~/.gitbutler-worktrees/<repo-dir-basename>/`.
 
-On macOS, `new` accepts `--create-mode <cow|checkout>` to tune how worktrees are populated with files. `cow` clones source worktree files, including ignored files, in order to speed up builds in the new worktree and reduce disk usage. `checkout` performs a standard checkout, and is the default mode.
+With COW support enabled, `new` accepts `--create-mode <cow|cow-ignored|cow-target|checkout>`. `checkout` is the default and copies only tracked files. `cow` clones source worktree files, including ignored artifacts, then restores tracked state. `cow-ignored` performs a normal checkout first, then clones ignored artifacts according to destination ignore rules (not dirty source `.gitignore` files). `cow-target` performs a normal checkout first, then clones extras only from the root `target/` directory, even without ignore rules. Both selective modes skip source-tracked files and preserve destination tracked files; a missing or symlinked root `target` is skipped by `cow-target`. COW shares file data on macOS; Linux builds use a full-copy development mock.
 
 Worktrees are listed most recently updated first, as `id name (refs/heads/branch) - path`, with the branch shown only when it differs from the worktree name. Archiving is a GitButler-only state; none of these take part in `but undo`.
 

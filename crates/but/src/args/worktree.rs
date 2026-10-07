@@ -8,6 +8,10 @@ pub enum CreateMode {
     /// builds with build tools that cache artifacts and dependencies in the working directory, as
     /// well as reduce overall disk space footprint.
     Cow,
+    /// Check out tracked files, then clone ignored artifacts using destination ignore rules.
+    CowIgnored,
+    /// Check out tracked files, then clone only the root target directory without overwriting tracked files.
+    CowTarget,
     /// Perform a standard checkout in the new worktree. Only tracked files carry over.
     Checkout,
 }
