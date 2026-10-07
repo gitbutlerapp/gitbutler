@@ -28,6 +28,10 @@ use crate::{
     utils::{SegmentTable, SegmentVisitScratch},
 };
 
+/// The branch whose reflog keeps the oplog reachable. It is created on whatever the target
+/// was at the time and never moves, so it says nothing about the history it points into.
+const OPLOG_ANCHOR_REF_NAME: &str = "refs/heads/gitbutler/target";
+
 /// A place history is checked out at, owning the segments no earlier checkout reaches.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Checkout {
@@ -117,13 +121,13 @@ impl Graph {
             &worktree_by_branch,
         )?;
 
-        // Branches checked out in linked worktrees leave the lanes the passes
-        // above put them in - the worktree classification wins over workspace
-        // metadata. This must run after everything that names segments: the
-        // remote improvements above can re-name an anonymous segment from the
-        // refs left on its first commit, which would re-couple a fork to the
-        // lane it points into. The pass maintains remote/sibling links itself
-        // when it moves a name.
+        // Branches checked out in linked worktrees and the oplog's anchor leave
+        // the lanes the passes above put them in - the worktree classification
+        // wins over workspace metadata. This must run after everything that
+        // names segments: the remote improvements above can re-name an
+        // anonymous segment from the refs left on its first commit, which would
+        // re-couple a fork to the lane it points into. The pass maintains
+        // remote/sibling links itself when it moves a name.
         self.fork_out_refs_outside_lanes(meta, &worktree_by_branch)?;
         self.land_worktree_lanes_on_commits(meta, &worktree_by_branch)?;
 
@@ -1627,7 +1631,9 @@ impl Graph {
 
     /// Give each branch that a linked worktree has checked out its own empty
     /// segment, forking directly into the commit it points at, see
-    /// [worktree tips](Graph::worktree_tips).
+    /// [worktree tips](Graph::worktree_tips). The [oplog's anchor](OPLOG_ANCHOR_REF_NAME)
+    /// forks out the same way, as a checkout would otherwise fall onto it once
+    /// the branch above it is removed.
     ///
     /// Being checked out somewhere is transient state: it decides where the
     /// branch is drawn and which checkout follows a rewrite, never what the
@@ -1663,6 +1669,7 @@ impl Graph {
                     .get(ref_name)
                     .is_some_and(|worktrees| worktrees.iter().any(|wt| wt.owned_by_repo))
             })
+            .chain(OPLOG_ANCHOR_REF_NAME.try_into().ok())
             // The entrypoint is the subject of this graph's view, even when it is
             // checked out in a linked worktree - keep it addressable as a lane.
             .filter(|ref_name| Some(ref_name) != self.entrypoint_ref.as_ref())

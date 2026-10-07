@@ -559,13 +559,14 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  origin/main
-●  🟣085535d (0x0)
-◎  origin/split-segment
-●  🟣dd9f8d9 (0x0)
-◎  👉main[🌳] <> origin/main
-●  ·971953d (⌂)
 ◎  gitbutler/target
+│ ◎  origin/main
+│ ●  🟣085535d (0x0)
+│ ◎  origin/split-segment
+│ ●  🟣dd9f8d9 (0x0)
+│ ◎  👉main[🌳] <> origin/main
+│ ●  ·971953d (⌂)
+├─╯
 ●  ·ce09734 (⌂)
 ●  🏁·fafd9d0 (⌂)
 "#]]
@@ -1669,11 +1670,12 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·3686017 (⌂)
-◎  gitbutler/edit
-●  ·9725482 (⌂)
 ◎  gitbutler/target
+│ ◎  👉main[🌳]
+│ ●  ·3686017 (⌂)
+│ ◎  gitbutler/edit
+│ ●  ·9725482 (⌂)
+├─╯
 ●  🏁·fafd9d0 (⌂)
 "#]]
     );
