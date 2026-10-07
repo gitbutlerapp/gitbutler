@@ -210,7 +210,6 @@ impl App {
             StatusOutputLineData::MergeBase => NewOperation {
                 ref_name: None,
                 base: None,
-                mode: but_api::worktrees::WorktreeCreationMode::Checkout,
             },
             StatusOutputLineData::Commit { cli_id, .. } => {
                 let CliId::Commit { commit, .. } = &**cli_id else {
@@ -230,7 +229,6 @@ impl App {
                 NewOperation {
                     ref_name: None,
                     base: Some(commit.commit_id),
-                    mode: but_api::worktrees::WorktreeCreationMode::Checkout,
                 }
             }
 
