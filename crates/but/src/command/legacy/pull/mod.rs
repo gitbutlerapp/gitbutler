@@ -5,6 +5,7 @@ use std::fmt::Write;
 use but_api::WorkspaceState;
 use but_core::{DryRun, RepositoryExt};
 use but_ctx::Context;
+use but_workspace::ref_info::SegmentIdentity;
 use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, UpstreamInfo};
 use serde::{Deserialize, Serialize};
 
@@ -675,7 +676,7 @@ fn collect_materialized_rebase_results(
             continue;
         }
 
-        match post_branch_status(post_integration_statuses, branch_status.name.as_str()) {
+        match post_branch_status(post_integration_statuses, &branch_status.identity) {
             Some(PullBranchStatus::Conflicted) => {
                 conflicted_rebases.push(branch_status.name.clone());
             }
@@ -691,11 +692,11 @@ fn collect_materialized_rebase_results(
 
 fn post_branch_status(
     post_integration_statuses: &[PullBranchStatusInfo],
-    branch_name: &str,
+    identity: &Option<SegmentIdentity>,
 ) -> Option<PullBranchStatus> {
     post_integration_statuses
         .iter()
-        .find(|branch_status| branch_status.name == branch_name)
+        .find(|branch_status| branch_status.identity == *identity)
         .map(|branch_status| branch_status.status)
 }
 

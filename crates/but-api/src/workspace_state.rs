@@ -3,18 +3,18 @@ use std::collections::{BTreeMap, HashMap};
 
 use but_core::{DryRun, RefMetadata};
 use but_rebase::graph_rebase::{MaterializeOutcome, SuccessfulRebase};
+use but_workspace::ref_info::SegmentIdentity;
 
 impl WorkspaceState {
-    /// Map each projected local reference to whether its commits contain conflicts.
+    /// Map each projected segment that can be told apart to whether its commits contain conflicts.
     #[cfg(not(feature = "graph-workspace"))]
-    pub fn conflicts_by_reference(&self) -> HashMap<Vec<u8>, bool> {
+    pub fn conflicts_by_segment(&self) -> HashMap<SegmentIdentity, bool> {
         self.head_info
             .lanes()
-            .flat_map(|lane| lane.segments)
-            .filter_map(|segment| {
-                let ref_info = segment.ref_info.as_ref()?;
+            .flat_map(but_workspace::ref_info::Lane::identified_segments)
+            .filter_map(|(identity, segment)| {
                 Some((
-                    ref_info.ref_name.as_bstr().to_vec(),
+                    identity?,
                     segment.commits.iter().any(|commit| commit.has_conflicts),
                 ))
             })
@@ -22,8 +22,10 @@ impl WorkspaceState {
     }
 
     /// Map each projected local reference to whether its commits contain conflicts.
+    ///
+    /// The graph projection carries no worktrees, so detached worktrees are absent.
     #[cfg(feature = "graph-workspace")]
-    pub fn conflicts_by_reference(&self) -> HashMap<Vec<u8>, bool> {
+    pub fn conflicts_by_segment(&self) -> HashMap<SegmentIdentity, bool> {
         use but_workspace::ui::workspace::DetailedGraphRowData;
 
         self.graph_workspace
@@ -42,7 +44,11 @@ impl WorkspaceState {
                             Some(DetailedGraphRowData::Commit(commit)) if commit.has_conflicts
                         )
                     });
-                    Some((reference.ref_name.full_name_bytes.to_vec(), has_conflicts))
+                    let ref_name = gix::refs::FullName::try_from(bstr::BString::from(
+                        reference.ref_name.full_name_bytes.to_vec(),
+                    ))
+                    .ok()?;
+                    Some((SegmentIdentity::Branch(ref_name), has_conflicts))
                 })
             })
             .collect()

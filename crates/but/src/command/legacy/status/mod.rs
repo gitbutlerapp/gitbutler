@@ -2501,6 +2501,12 @@ fn compute_branch_merge_statuses(
     Ok(preview
         .statuses
         .into_iter()
+        .filter(|branch| {
+            matches!(
+                branch.identity,
+                Some(but_workspace::ref_info::SegmentIdentity::Branch(_))
+            )
+        })
         .map(|branch| (branch.name, branch.status))
         .collect())
 }

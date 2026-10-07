@@ -1,11 +1,10 @@
-use bstr::ByteSlice;
 use but_api::workspace::WorkspaceIntegrateUpstreamOutcome;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_ctx::Context;
 use but_workspace::{
     RefInfo,
     branch::Stack,
-    ref_info::{Lane, LocalCommitRelation, Segment},
+    ref_info::{Lane, LocalCommitRelation, Segment, SegmentIdentity},
     ui::PushStatus,
     worktrees::{WorktreeBase, WorktreeInfo},
 };
@@ -36,6 +35,8 @@ impl BranchStatus {
 
 #[derive(Debug)]
 pub(crate) struct BranchStatusInfo {
+    /// What the segment is known by across the rebase, if anything tells it apart.
+    pub(crate) identity: Option<SegmentIdentity>,
     pub(crate) name: String,
     pub(crate) status: BranchStatus,
 }
@@ -140,12 +141,12 @@ pub(crate) fn classify(
     update: &[PullUpdate],
     preview: &but_api::WorkspaceState,
 ) -> Vec<BranchStatusInfo> {
-    let preview_conflicts = preview.conflicts_by_reference();
+    let preview_conflicts = preview.conflicts_by_segment();
 
     rebased_lanes(current, update)
         .into_iter()
-        .flat_map(|lane| lane.segments)
-        .map(|segment| classify_branch(segment, &preview_conflicts))
+        .flat_map(Lane::identified_segments)
+        .map(|(identity, segment)| classify_segment(identity, segment, &preview_conflicts))
         .collect()
 }
 
@@ -163,39 +164,26 @@ pub(crate) fn has_cleanup_candidate(head_info: &RefInfo, update: &[PullUpdate]) 
         })
 }
 
-fn classify_branch(
+fn classify_segment(
+    identity: Option<SegmentIdentity>,
     segment: &Segment,
-    preview_conflicts: &std::collections::HashMap<Vec<u8>, bool>,
+    preview_conflicts: &std::collections::HashMap<SegmentIdentity, bool>,
 ) -> BranchStatusInfo {
-    let name = branch_display_name(segment);
-    let Some(ref_info) = &segment.ref_info else {
-        return BranchStatusInfo {
-            name,
-            status: BranchStatus::Clear,
-        };
-    };
-
-    let Some(&has_conflicts) = preview_conflicts.get(ref_info.ref_name.as_bstr().as_bytes()) else {
-        return BranchStatusInfo {
-            name,
-            status: BranchStatus::Integrated,
-        };
-    };
-
-    let status = if segment.commits.is_empty() {
-        BranchStatus::Empty
-    } else if has_conflicts {
-        BranchStatus::Conflicted
-    } else {
-        BranchStatus::Clear
-    };
-    BranchStatusInfo { name, status }
-}
-
-fn branch_display_name(segment: &Segment) -> String {
-    segment
-        .ref_info
+    let has_conflicts = identity
         .as_ref()
-        .map(|ref_info| ref_info.ref_name.shorten().to_string())
-        .unwrap_or_else(|| "Unnamed segment".to_string())
+        .and_then(|identity| preview_conflicts.get(identity));
+    let status = match (&identity, has_conflicts) {
+        (Some(SegmentIdentity::Branch(_)), None) => BranchStatus::Integrated,
+        (Some(SegmentIdentity::DetachedWorktree(_)) | None, None) => BranchStatus::Clear,
+        (_, Some(_)) if segment.commits.is_empty() => BranchStatus::Empty,
+        (_, Some(true)) => BranchStatus::Conflicted,
+        (_, Some(false)) => BranchStatus::Clear,
+    };
+    BranchStatusInfo {
+        name: identity
+            .as_ref()
+            .map_or_else(|| "Unnamed segment".to_owned(), ToString::to_string),
+        identity,
+        status,
+    }
 }

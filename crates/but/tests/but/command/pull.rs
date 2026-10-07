@@ -1635,6 +1635,12 @@ fn worktrees_behind_target_scenario() -> Sandbox {
         env.app_data_dir().join("worktrees/wt-detached").display()
     ));
 
+    add_upstream_commit(&env);
+    env
+}
+
+/// Put a commit adding `upstream.txt` on `origin/main`, for the next fetch to find.
+fn add_upstream_commit(env: &Sandbox) {
     env.invoke_git(
         "config --replace-all remote.origin.fetch +refs/heads/main:refs/remotes/origin/main",
     );
@@ -1644,7 +1650,6 @@ fn worktrees_behind_target_scenario() -> Sandbox {
     env.invoke_git("add upstream.txt");
     env.invoke_git("commit -m upstream-change");
     env.invoke_git("checkout gitbutler/workspace");
-    env
 }
 
 fn contains_target(env: &Sandbox, branch: &str) -> bool {
@@ -1923,6 +1928,95 @@ Branch Status
   [ok] wt-outside
 
 Run `but pull` to update your branches
+
+"#]]);
+}
+
+#[test]
+fn pull_reports_conflicts_in_a_detached_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    // The first read with the flag on archives every worktree already on disk.
+    env.but("status").assert().success();
+    // `add local` conflicts with the upstream commit while `add other` on top of it applies
+    // cleanly: a worktree cannot check out a conflicted commit, and so cannot end on one.
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git worktree add -q --detach "{wt}" main
+        (cd "{wt}" &&
+          echo local >upstream.txt && git add upstream.txt && git commit -q -m "add local" &&
+          echo other >other.txt && git add other.txt && git commit -q -m "add other")
+        "#,
+            wt = env.app_data_dir().join("worktrees/wt-detached").display()
+        ),
+        env.projects_root(),
+    );
+    add_upstream_commit(&env);
+
+    env.but("pull --check")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Base branch:	origin/main
+Upstream:	1 new commits on origin/main
+
+  526bb83 upstream-change 
+
+Branch Status
+  [ok] A
+  [ok] B
+  [conflict - rebasable] wt-detached
+
+Run `but pull` to update your branches
+
+"#]]);
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+
+Found 1 upstream commits on origin/main
+   526bb83 upstream-change
+
+Updating 3 active branches...
+
+Rebase resulted in some conflicts
+
+Summary
+────────
+  A - rebased
+  B - rebased
+  wt-detached - conflicted
+
+To resolve conflicts:
+  1. Run `but status` to inspect the conflicted commits, then `but resolve <commit>`. Worktree files show no conflict markers until resolve checks the commit out
+  2. Edit files to resolve the conflicts
+  3. Run `but resolve finish` to finalize the resolution
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ i0:@ [uncommitted] {wt-detached} (no changes)
+┊├┄ i0
+┊●   wqu add other
+┊●   qnu add local (no changes) {conflicted}
+├╯
+┊
+┴ 526bb83 (common base, main, origin/main) 2000-01-02 upstream-change
+
+Hint: run `but help` for all commands
 
 "#]]);
 }
