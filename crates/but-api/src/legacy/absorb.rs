@@ -2445,6 +2445,102 @@ mod tests {
     }
 
     #[test]
+    fn mixed_valid_and_unrecognized_selectors_leave_public_absorb_unchanged() -> anyhow::Result<()>
+    {
+        for (include_valid_selection, delete_source) in
+            [(false, false), (true, false), (false, true), (true, true)]
+        {
+            let (repo, tmp) = but_testsupport::writable_scenario("absorb-paired-selection");
+            if delete_source {
+                std::fs::remove_file(tmp.path().join("selected.txt"))?;
+            }
+            let commit_id = repo.head_id()?.detach();
+            but_core::ref_metadata::ProjectMeta {
+                target_ref: Some("refs/remotes/origin/main".try_into()?),
+                target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+                push_remote: None,
+            }
+            .persist(&repo)?;
+            let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+            ctx.settings.context_lines = 0;
+            let mut headers = Vec::new();
+            if include_valid_selection {
+                headers.push(but_core::HunkHeader {
+                    old_start: 2,
+                    old_lines: 1,
+                    new_start: 0,
+                    new_lines: 0,
+                });
+                if !delete_source {
+                    headers.push(but_core::HunkHeader {
+                        old_start: 0,
+                        old_lines: 0,
+                        new_start: 2,
+                        new_lines: 1,
+                    });
+                }
+            }
+            headers.push(but_core::HunkHeader {
+                old_start: 4,
+                old_lines: 1,
+                new_start: 4,
+                new_lines: 1,
+            });
+            let mut plan = vec![CommitAbsorption {
+                stack_id: StackId::generate(),
+                commit_id,
+                blank_commit_ref: None,
+                source_snapshot_tree: None,
+                commit_summary: "add selected lines".into(),
+                hunks: headers
+                    .into_iter()
+                    .map(|header| but_core::SingleHunk {
+                        hunk_header: Some(header),
+                        path: "selected.txt".into(),
+                        diff: None,
+                    })
+                    .collect(),
+                reason: AbsorptionReason::HunkDependency,
+            }];
+            stamp_plan(&mut ctx, &mut plan)?;
+            let refs = [
+                "refs/heads/main",
+                "refs/heads/feature",
+                "refs/remotes/origin/main",
+            ];
+            let before = absorb_invocation_state(
+                &mut ctx,
+                tmp.path(),
+                &["selected.txt"],
+                &refs,
+                &[("refs/heads/feature", &["selected.txt"])],
+            )?;
+
+            let rejected = absorb(&mut ctx, plan)
+                .expect_err("an unrecognized selector must reject the entire invocation");
+
+            let after = absorb_invocation_state(
+                &mut ctx,
+                tmp.path(),
+                &["selected.txt"],
+                &refs,
+                &[("refs/heads/feature", &["selected.txt"])],
+            )?;
+            assert!(
+                rejected.to_string().contains("selected.txt")
+                    && rejected.to_string().contains("-4,1 +4,1")
+                    && rejected.to_string().contains("no changes were published"),
+                "the invalid header must be reported even with a valid selection: {rejected}"
+            );
+            assert_eq!(
+                after, before,
+                "rejection preserves invocation state with include_valid_selection={include_valid_selection}, delete_source={delete_source}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
     fn rejected_hunk_after_applicable_hunk_leaves_public_absorb_invocation_unchanged()
     -> anyhow::Result<()> {
         let (repo, tmp) = but_testsupport::writable_scenario("absorb-rejected-hunks");

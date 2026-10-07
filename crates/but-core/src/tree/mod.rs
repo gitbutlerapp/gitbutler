@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
-use anyhow::bail;
+use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use gix::{merge::tree::TreatAsUnresolved, object::tree::EntryKind, prelude::ObjectIdExt};
 
@@ -61,6 +61,8 @@ pub struct CreateTreeOutcome {
     /// Changes that were removed from `new_tree` because they caused conflicts when rebasing dependent commits,
     /// when merging the workspace commit, or because the specified hunks didn't match exactly due to changes
     /// that happened in the meantime, or if a file without a change was specified.
+    /// Partially applied specs contain only unmatched headers; their accepted changes may
+    /// still be present in `destination_tree`.
     pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
     /// The newly created seen from tree that acts as the destination of the changes, or `None` if no tree could be
     /// created as all changes-requests were rejected (or there was no change).
@@ -78,11 +80,17 @@ pub fn create_tree(
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<CreateTreeOutcome> {
-    let mut changes: Vec<_> = changes.into_iter().map(Ok).collect();
+    let original_changes = changes;
+    let mut changes: Vec<_> = original_changes.iter().cloned().map(Ok).collect();
     let (new_tree, changed_tree_pre_cherry_pick) = if changes.is_empty() {
         (Some(target_tree), None)
     } else {
         'retry: loop {
+            for (change, original) in changes.iter_mut().zip(&original_changes) {
+                if let Ok(spec) = change {
+                    spec.clone_from(original);
+                }
+            }
             let (new_tree, actual_base_tree) = {
                 let changes_base_tree = repo
                     .head()?
@@ -142,11 +150,17 @@ pub fn create_tree(
                     })
                     .collect();
                 if !unresolved_conflicts.is_empty() {
-                    for change in changes.iter_mut().filter(|c| {
-                        c.as_ref().ok().is_some_and(|change| {
-                            unresolved_conflicts.contains(&change.path.as_bstr())
-                        })
-                    }) {
+                    for (change, original) in
+                        changes
+                            .iter_mut()
+                            .zip(&original_changes)
+                            .filter(|(change, _)| {
+                                change.as_ref().ok().is_some_and(|change| {
+                                    unresolved_conflicts.contains(&change.path.as_bstr())
+                                })
+                            })
+                    {
+                        *change = Ok(original.clone());
                         into_err_spec(change, RejectionReason::CherryPickMergeConflict);
                     }
                     continue 'retry;
@@ -160,7 +174,16 @@ pub fn create_tree(
         }
     };
     Ok(CreateTreeOutcome {
-        rejected_specs: changes.into_iter().filter_map(Result::err).collect(),
+        rejected_specs: changes
+            .into_iter()
+            .filter_map(|change| match change {
+                Ok(spec) if !spec.hunk_headers.is_empty() => {
+                    Some((RejectionReason::MissingDiffSpecAssociation, spec))
+                }
+                Ok(_) => None,
+                Err(rejected) => Some(rejected),
+            })
+            .collect(),
         destination_tree: new_tree,
         changed_tree_pre_cherry_pick,
     })
@@ -182,6 +205,8 @@ pub type PossibleChange = Result<DiffSpec, (RejectionReason, DiffSpec)>;
 ///
 /// Note that the returned `new_tree` may be the same as `actual_base_tree`, if no change was successfully applied
 /// as recorded in `changes`.
+/// Successfully applied specs retain only unmatched hunk headers. Keep the original specs
+/// when retrying, as empty headers request the entire file rather than the original selection.
 pub fn apply_worktree_changes<'repo>(
     actual_base_tree: gix::ObjectId,
     repo: &'repo gix::Repository,
@@ -236,10 +261,13 @@ pub fn apply_worktree_changes<'repo>(
         };
         let path = work_dir.join(gix::path::from_bstr(change_request.path.as_bstr()));
         let md = match gix::index::fs::Metadata::from_path_no_follow(&path) {
-            Ok(md) => md,
+            Ok(md) => Some(md),
             Err(err) if gix::fs::io_err::is_not_found(err.kind(), err.raw_os_error()) => {
-                base_tree_editor.remove_leaf(change_request.path.as_bstr())?;
-                continue;
+                if change_request.hunk_headers.is_empty() {
+                    base_tree_editor.remove_leaf(change_request.path.as_bstr())?;
+                    continue;
+                }
+                None
             }
             Err(err) => return Err(err.into()),
         };
@@ -315,14 +343,18 @@ pub fn apply_worktree_changes<'repo>(
                 .map(|(state, maybe_path)| (Some(state), maybe_path))
                 .unwrap_or_default();
             let base_rela_path = previous_path.unwrap_or(change_request.path.as_bstr());
-            let current_entry_kind = if md.is_symlink() {
+            let current_entry_kind = if md.as_ref().is_some_and(|md| md.is_symlink()) {
                 EntryKind::Link
-            } else if md.is_file() {
-                if md.is_executable() {
+            } else if md.as_ref().is_some_and(|md| md.is_file()) {
+                if md.as_ref().is_some_and(|md| md.is_executable()) {
                     EntryKind::BlobExecutable
                 } else {
                     EntryKind::Blob
                 }
+            } else if md.is_none() {
+                previous_state
+                    .context("Deleted file must have a previous state")?
+                    .kind
             } else {
                 // This could be a fifo (skip) or a repository. But that wouldn't have hunks.
                 into_err_spec(possible_change, RejectionReason::UnsupportedDirectoryEntry);
@@ -345,25 +377,33 @@ pub fn apply_worktree_changes<'repo>(
                 }
             };
 
-            worktree_file_to_git_in_buf(
-                &mut current_worktree,
-                &md,
-                base_rela_path,
-                &path,
-                &mut pipeline,
-                &index,
-            )?;
+            if let Some(md) = &md {
+                worktree_file_to_git_in_buf(
+                    &mut current_worktree,
+                    md,
+                    base_rela_path,
+                    &path,
+                    &mut pipeline,
+                    &index,
+                )?;
+            } else {
+                current_worktree.clear();
+            }
             let base_with_patches = apply_hunks(
                 worktree_base.as_bstr(),
                 current_worktree.as_bstr(),
                 &hunks_to_commit,
             )?;
-            let blob_with_selected_patches = repo.write_blob(base_with_patches.as_slice())?;
-            base_tree_editor.upsert(
-                change_request.path.as_bstr(),
-                entry_kind(change_request.path.as_bstr(), current_entry_kind),
-                blob_with_selected_patches,
-            )?;
+            if md.is_none() && base_with_patches.is_empty() {
+                base_tree_editor.remove_leaf(change_request.path.as_bstr())?;
+            } else {
+                let blob_with_selected_patches = repo.write_blob(base_with_patches.as_slice())?;
+                base_tree_editor.upsert(
+                    change_request.path.as_bstr(),
+                    entry_kind(change_request.path.as_bstr(), current_entry_kind),
+                    blob_with_selected_patches,
+                )?;
+            }
         } else {
             unreachable!("worktree-changes are always set if there are hunks")
         }
@@ -492,8 +532,9 @@ fn to_additive_hunks(
                 },
             )
             .collect::<Result<_, _>>()?;
-        let (hunks_to_commit, rejected) =
+        let (hunks_to_commit, fallback_rejected) =
             to_additive_hunks_fallback(hunks, worktree_hunks, worktree_hunks_no_context);
+        rejected.extend(fallback_rejected);
         if !in_order(&hunks_to_commit) {
             bail!(
                 "Alternative hunks algorithms still didn't produce properly ordered hunks or saw duplicate inputs: {hunks_to_commit:?}"

@@ -47,6 +47,28 @@ mod to_additive_hunks {
     }
 
     #[test]
+    fn fallback_preserves_rejected_selectors() {
+        let worktree_hunks = [hunk_header("-1,1", "+1,1"), hunk_header("-5,1", "+5,1")];
+        let invalid = hunk_header("-20,1", "+0,0");
+        for invalid_position in 0..=2 {
+            let mut selected = vec![hunk_header("-0,0", "+5,1"), hunk_header("-0,0", "+1,1")];
+            selected.insert(invalid_position, invalid);
+            let (accepted, rejected) =
+                to_additive_hunks(selected, &worktree_hunks, &worktree_hunks).unwrap();
+            assert_eq!(
+                rejected,
+                [invalid],
+                "fallback must retain the unmatched selector regardless of its position"
+            );
+            assert_eq!(
+                accepted,
+                [hunk_header("-1,0", "+1,1"), hunk_header("-5,0", "+5,1")],
+                "fallback must retain and order both accepted selections"
+            );
+        }
+    }
+
+    #[test]
     fn only_selections() {
         let wth = vec![hunk_header("-1,10", "+1,10")];
         snapbox::assert_data_eq!(

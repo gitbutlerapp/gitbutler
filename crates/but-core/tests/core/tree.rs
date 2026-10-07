@@ -1,6 +1,200 @@
-use but_core::DiffSpec;
+use but_core::{DiffSpec, HunkHeader, tree::create_tree::RejectionReason};
 use but_testsupport::writable_scenario;
 use gix::object::tree::EntryKind;
+
+#[test]
+fn create_tree_reports_unrecognized_headers_alongside_accepted_selections() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
+    let base = repo.head_tree_id()?.detach();
+    let invalid = HunkHeader {
+        old_start: 4,
+        old_lines: 1,
+        new_start: 4,
+        new_lines: 1,
+    };
+    for context_lines in [0, 3] {
+        for invalid_position in [None, Some(0), Some(1)] {
+            let mut change = spec(None, "file");
+            change.hunk_headers.push(HunkHeader {
+                old_start: 0,
+                old_lines: 0,
+                new_start: 2,
+                new_lines: 1,
+            });
+            if let Some(position) = invalid_position {
+                change.hunk_headers.insert(position, invalid);
+            }
+            let outcome = but_core::tree::create_tree(&repo, base, vec![change], context_lines)?;
+            assert_eq!(
+                outcome.rejected_specs.len(),
+                usize::from(invalid_position.is_some()),
+                "only an unrecognized header produces a rejection"
+            );
+            if let Some((reason, rejected)) = outcome.rejected_specs.first() {
+                assert_eq!(
+                    *reason,
+                    RejectionReason::MissingDiffSpecAssociation,
+                    "the rejection identifies the unmatched selector"
+                );
+                assert_eq!(rejected.path, "file", "the rejected spec retains its path");
+                assert_eq!(
+                    rejected.hunk_headers,
+                    [invalid],
+                    "the accepted selector must not be included in the rejection"
+                );
+            }
+            let tree = repo.find_tree(outcome.destination_tree.expect("accepted selection"))?;
+            let blob = tree
+                .lookup_entry_by_path("file")?
+                .expect("selected file")
+                .object()?
+                .into_blob();
+            assert_eq!(
+                blob.data, b"2\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
+                "partial application still writes only the accepted line into the destination tree"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn create_tree_retry_preserves_selections_and_rejections() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
+    let mut target = repo.head_commit()?.tree()?.edit()?;
+    target.upsert(
+        "file-in-index",
+        EntryKind::Blob,
+        repo.write_blob("target\n")?,
+    )?;
+    let target_tree = target.write()?.detach();
+    for include_invalid in [false, true] {
+        let mut selected = spec(None, "file");
+        selected.hunk_headers.push(HunkHeader {
+            old_start: 0,
+            old_lines: 0,
+            new_start: 2,
+            new_lines: 1,
+        });
+        let invalid = HunkHeader {
+            old_start: 4,
+            old_lines: 1,
+            new_start: 4,
+            new_lines: 1,
+        };
+        if include_invalid {
+            selected.hunk_headers.push(invalid);
+        }
+        let outcome = but_core::tree::create_tree(
+            &repo,
+            target_tree,
+            vec![selected, spec(None, "file-in-index")],
+            0,
+        )?;
+        let tree = repo.find_tree(outcome.destination_tree.expect("nonconflicting selection"))?;
+        assert_eq!(
+            tree.lookup_entry_by_path("file")?
+                .expect("selected file")
+                .object()?
+                .into_blob()
+                .data,
+            b"2\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n",
+            "a retry must not widen a line selection or lose its accepted content"
+        );
+        assert_eq!(
+            tree.lookup_entry_by_path("file-in-index")?
+                .expect("conflicting file")
+                .object()?
+                .into_blob()
+                .data,
+            b"target\n",
+            "the conflicting request must leave the target content intact"
+        );
+        assert_eq!(
+            outcome.rejected_specs.len(),
+            1 + usize::from(include_invalid),
+            "retry retains both conflict and selector rejections"
+        );
+        assert!(
+            outcome.rejected_specs.iter().any(|(reason, rejected)| {
+                *reason == RejectionReason::CherryPickMergeConflict
+                    && rejected.path == "file-in-index"
+            }),
+            "the unrelated conflict must be reported"
+        );
+        if include_invalid {
+            assert!(
+                outcome.rejected_specs.iter().any(|(reason, rejected)| {
+                    *reason == RejectionReason::MissingDiffSpecAssociation
+                        && rejected.path == "file"
+                        && rejected.hunk_headers == [invalid]
+                }),
+                "the unmatched selector must remain reported after retry"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn create_tree_validates_deleted_file_selections() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("deletion-selectors");
+    let base = repo.head_tree_id()?.detach();
+    let invalid = HunkHeader {
+        old_start: 20,
+        old_lines: 1,
+        new_start: 0,
+        new_lines: 0,
+    };
+    for selected_lines in [None, Some(1), Some(3)] {
+        for include_invalid in [false, true] {
+            let mut change = spec(None, "file");
+            if let Some(old_lines) = selected_lines {
+                change.hunk_headers.push(HunkHeader {
+                    old_start: 1,
+                    old_lines,
+                    new_start: 0,
+                    new_lines: 0,
+                });
+            } else if include_invalid {
+                continue;
+            }
+            if include_invalid {
+                change.hunk_headers.push(invalid);
+            }
+            let outcome = but_core::tree::create_tree(&repo, base, vec![change], 0)?;
+            assert_eq!(
+                outcome.rejected_specs.len(),
+                usize::from(include_invalid),
+                "only unmatched deletion selectors are rejected: selected_lines={selected_lines:?}, outcome={outcome:?}"
+            );
+            if include_invalid {
+                assert_eq!(
+                    outcome.rejected_specs[0].0,
+                    RejectionReason::MissingDiffSpecAssociation,
+                    "deletion selectors use the same rejection classification"
+                );
+                assert_eq!(
+                    outcome.rejected_specs[0].1.hunk_headers,
+                    [invalid],
+                    "valid deletion selectors must not be reported as unmatched"
+                );
+            }
+            let tree = repo.find_tree(outcome.destination_tree.expect("accepted deletion"))?;
+            let entry = tree.lookup_entry_by_path("file")?;
+            if selected_lines == Some(1) {
+                assert_eq!(
+                    entry.expect("remaining lines").object()?.into_blob().data,
+                    b"second\nthird\n",
+                    "partial deletion removes only the selected old line"
+                );
+            } else {
+                assert!(entry.is_none(), "a full deletion removes the tree entry");
+            }
+        }
+    }
+    Ok(())
+}
 
 #[test]
 fn filemode_disabled_preserves_conflict_stage_modes() -> anyhow::Result<()> {
