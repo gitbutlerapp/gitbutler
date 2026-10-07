@@ -989,3 +989,43 @@ Hint: run `but branch new` to create a new branch to work on
         .raw()
     );
 }
+
+#[test]
+fn unapplying_the_last_branch_checks_out_the_target() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("branch new one").assert().success();
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ on [one] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("unapply one").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
