@@ -443,8 +443,7 @@ where
                         if !ok_to_skip
                             && let Some(ref target_local_branch) = target_local_branch
                             && matches!(step, Step::Reference { ref refname, .. }
-                                if refname == target_local_branch ||
-                                    refname == "refs/heads/gitbutler/target")
+                                if refname == target_local_branch)
                         {
                             ok_to_skip = true;
                         }

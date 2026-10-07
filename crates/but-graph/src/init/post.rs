@@ -28,6 +28,10 @@ use crate::{
     utils::{SegmentTable, SegmentVisitScratch},
 };
 
+/// The branch whose reflog keeps the oplog reachable. It is created on whatever the target
+/// was at the time and never moves, so it says nothing about the history it points into.
+const OPLOG_ANCHOR_REF_NAME: &str = "refs/heads/gitbutler/target";
+
 /// A place history is checked out at, owning the segments no earlier checkout reaches.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Checkout {
@@ -117,14 +121,14 @@ impl Graph {
             &worktree_by_branch,
         )?;
 
-        // Branches checked out in linked worktrees leave the lanes the passes
-        // above put them in - the worktree classification wins over workspace
-        // metadata. This must run after everything that names segments: the
-        // remote improvements above can re-name an anonymous segment from the
-        // refs left on its first commit, which would re-couple a fork to the
-        // lane it points into. The pass maintains remote/sibling links itself
-        // when it moves a name.
-        self.fork_out_worktree_checkout_refs(meta, &worktree_by_branch)?;
+        // Branches checked out in linked worktrees and the oplog's anchor leave
+        // the lanes the passes above put them in - the worktree classification
+        // wins over workspace metadata. This must run after everything that
+        // names segments: the remote improvements above can re-name an
+        // anonymous segment from the refs left on its first commit, which would
+        // re-couple a fork to the lane it points into. The pass maintains
+        // remote/sibling links itself when it moves a name.
+        self.fork_out_refs_outside_lanes(meta, &worktree_by_branch)?;
         self.land_worktree_lanes_on_commits(meta, &worktree_by_branch)?;
 
         // Finally, once all segments were added, it's good to generations
@@ -1356,6 +1360,11 @@ impl Graph {
     /// the graph. The caller records the reverse `sibling_segment_id` link on
     /// the remote segment afterwards.
     ///
+    /// The entrypoint is the exception: nothing but the traversal starting there
+    /// made it own the shared tip, so the local tracking branch takes the commits
+    /// along with everything connected to them, and the entrypoint rests on it
+    /// as an empty segment, just like it does once it is ahead.
+    ///
     /// Returning `None` means the graph should keep its current presentation.
     /// That happens when there is no configured local tracking branch, the local
     /// ref no longer exists, its tip was not traversed, or the local tip is not
@@ -1396,6 +1405,25 @@ impl Graph {
             return Ok(None);
         }
 
+        self[owner_sidx].commits[owner_cidx]
+            .refs
+            .retain(|ri| ri.ref_name != local_ref_name);
+        if self.entrypoint.is_some_and(|(sidx, _)| sidx == owner_sidx) {
+            let local_sidx = self.split_segment(
+                owner_sidx,
+                owner_cidx,
+                Some(local_ref_name),
+                None,
+                meta,
+                worktree_by_branch,
+            )?;
+            self.move_incoming_edges((owner_sidx, None), local_sidx, Some(0), Some(local_tip));
+            let local_segment = &mut self[local_sidx];
+            local_segment.remote_tracking_ref_name = Some(remote_ref_name);
+            local_segment.remote_tracking_branch_segment_id = Some(remote_sidx);
+            return Ok(Some(local_sidx));
+        }
+
         let local_segment = crate::Segment {
             metadata: meta
                 .branch_opt(local_ref_name.as_ref())?
@@ -1419,9 +1447,6 @@ impl Graph {
             Some(local_tip),
             0,
         );
-        self[owner_sidx].commits[owner_cidx]
-            .refs
-            .retain(|ri| ri.ref_name != local_ref_name);
         Ok(Some(local_sidx))
     }
 
@@ -1627,7 +1652,9 @@ impl Graph {
 
     /// Give each branch that a linked worktree has checked out its own empty
     /// segment, forking directly into the commit it points at, see
-    /// [worktree tips](Graph::worktree_tips).
+    /// [worktree tips](Graph::worktree_tips). The [oplog's anchor](OPLOG_ANCHOR_REF_NAME)
+    /// forks out the same way, as a checkout would otherwise fall onto it once
+    /// the branch above it is removed.
     ///
     /// Being checked out somewhere is transient state: it decides where the
     /// branch is drawn and which checkout follows a rewrite, never what the
@@ -1648,13 +1675,13 @@ impl Graph {
     /// `Workspace::metadata_from_projection()`). Exempt is only the subject
     /// of this graph's view: the branch checked out by the repository that
     /// built the graph, and the entrypoint ref.
-    fn fork_out_worktree_checkout_refs<T: RefMetadata>(
+    fn fork_out_refs_outside_lanes<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
         let mut seen = BTreeSet::new();
-        let checkout_refs: Vec<gix::refs::FullName> = self
+        let refs_outside_lanes: Vec<gix::refs::FullName> = self
             .worktree_tips
             .iter()
             .filter_map(|tip| tip.ref_name.clone())
@@ -1663,15 +1690,16 @@ impl Graph {
                     .get(ref_name)
                     .is_some_and(|worktrees| worktrees.iter().any(|wt| wt.owned_by_repo))
             })
+            .chain(OPLOG_ANCHOR_REF_NAME.try_into().ok())
             // The entrypoint is the subject of this graph's view, even when it is
             // checked out in a linked worktree - keep it addressable as a lane.
             .filter(|ref_name| Some(ref_name) != self.entrypoint_ref.as_ref())
             .filter(|ref_name| seen.insert(ref_name.clone()))
             .collect();
         let mut identity_left_the_lane = BTreeSet::new();
-        for ref_name in checkout_refs {
+        for ref_name in refs_outside_lanes {
             if let Some((fork_sidx, vacated_sidx)) =
-                self.fork_out_worktree_checkout_ref(ref_name, meta, worktree_by_branch)?
+                self.fork_out_ref(ref_name, meta, worktree_by_branch)?
             {
                 identity_left_the_lane.insert(fork_sidx);
                 identity_left_the_lane.extend(vacated_sidx);
@@ -1790,7 +1818,7 @@ impl Graph {
     /// Returns the fork segment now carrying `ref_name` along with the lane
     /// segment its identity vacated, if any, or `None` if the ref could not be
     /// placed.
-    fn fork_out_worktree_checkout_ref<T: RefMetadata>(
+    fn fork_out_ref<T: RefMetadata>(
         &mut self,
         ref_name: gix::refs::FullName,
         meta: &OverlayMetadata<'_, T>,
@@ -1821,7 +1849,7 @@ impl Graph {
             // Traversal limits or an overlay can leave the ref out of the graph.
             tracing::debug!(
                 ref_name = %ref_name.as_bstr(),
-                "worktree-checked-out ref not in graph, leaving it as is"
+                "ref to fork out is not in graph, leaving it as is"
             );
             return Ok(None);
         };
@@ -1841,7 +1869,7 @@ impl Graph {
                 else {
                     tracing::debug!(
                         ref_name = %ref_name.as_bstr(),
-                        "empty worktree-checked-out segment points at no unambiguous commit"
+                        "empty segment to fork out points at no unambiguous commit"
                     );
                     return Ok(None);
                 };
