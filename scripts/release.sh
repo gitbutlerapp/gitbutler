@@ -202,8 +202,6 @@ if [ "$CHANNEL" = "nightly" ]; then
 	FEATURES="$FEATURES nightly"
 fi
 
-FEATURES="$FEATURES ${EXTRA_CARGO_FEATURES:-}"
-
 # update the version in the tauri release config
 jq  --arg version "$VERSION"\
     --argjson externalBin "$EXTERNAL_BIN"\
