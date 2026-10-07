@@ -17,7 +17,7 @@ pub use but_graph::workspace::WorktreeBase;
 #[cfg(feature = "worktree-cow")]
 use gix::utils::AsBStr;
 
-use crate::ref_info::{LocalCommit, Segment};
+use crate::ref_info::{Lane, LocalCommit, Segment};
 
 /// A non-archived linked worktree along with the first-parent history it owns exclusively,
 /// i.e. the segments between its `HEAD` and the workspace, an earlier worktree, or the target.
@@ -40,6 +40,31 @@ pub struct WorktreeInfo {
 }
 
 impl WorktreeInfo {
+    /// What the worktree rests on, if that is the target and it has a branch or commits of its
+    /// own to rebase there.
+    pub fn rebasable_base(&self) -> Option<gix::ObjectId> {
+        match self.base {
+            Some(WorktreeBase::Outside(base))
+                if self.ref_name.is_some() || self.commits().next().is_some() =>
+            {
+                Some(base)
+            }
+            _ => None,
+        }
+    }
+
+    /// The worktree as a lane, which rests on another lane only when based inside the workspace.
+    pub fn lane(&self) -> Lane<'_> {
+        Lane {
+            segments: &self.segments,
+            rests_on: match self.base {
+                Some(WorktreeBase::InWorkspace(id)) => Some(id),
+                Some(WorktreeBase::Outside(_)) | None => None,
+            },
+            worktree: Some(self.name.as_ref()),
+        }
+    }
+
     /// The commits owned by this worktree alone, from its `HEAD` down to (excluding) its
     /// [base](Self::base), along the first parent.
     pub fn commits(&self) -> impl Iterator<Item = &LocalCommit> {

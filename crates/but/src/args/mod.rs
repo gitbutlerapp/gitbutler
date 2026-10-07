@@ -461,10 +461,10 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Push(push::Command),
 
-    /// Update all applied branches onto the latest target branch.
+    /// Update applied branches and worktrees onto the latest target.
     ///
     /// This fetches the latest changes from the remote and rebases all applied branches
-    /// on top of the updated target branch.
+    /// and linked worktrees on top of the updated target branch.
     ///
     /// You should run this regularly to keep your branches up to date with the latest
     /// changes from the main development line.
@@ -481,6 +481,14 @@ pub enum Subcommands {
         /// Only check whether the update would apply cleanly, without updating
         #[clap(long, short = 'c')]
         check: bool,
+        /// What to rebase onto the target, comma-separated.
+        #[clap(
+            long,
+            value_enum,
+            value_delimiter = ',',
+            default_value = "worktrees,workspace"
+        )]
+        update: Vec<PullUpdate>,
     },
 
     /// Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab MRs.
@@ -1092,6 +1100,15 @@ pub mod resolve;
 
 pub mod branch;
 pub mod worktree;
+
+/// A group of lanes that `but pull` rebases onto the target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum PullUpdate {
+    /// The linked worktrees that are based on the target rather than on an applied branch.
+    Worktrees,
+    /// The applied branches, along with the linked worktrees based on them.
+    Workspace,
+}
 
 /// Find the subcommand token and its index in raw argv, skipping root options.
 pub(crate) fn find_subcommand(args: &[std::ffi::OsString]) -> Option<(usize, &std::ffi::OsString)> {

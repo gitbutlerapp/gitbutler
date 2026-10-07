@@ -1707,7 +1707,7 @@ export declare function workspaceFetchStatus(projectId: string): Promise<Workspa
  * workspace previews the integration and no oplog entry is persisted. See
  * [`workspace_integrate_upstream_with_perm()`] for lower-level details.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:806}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:807}
  */
 export declare function workspaceIntegrateUpstream(projectId: string, updates: Array<BottomUpdate>, dryRun: boolean): Promise<WorkspaceIntegrateUpstreamOutcome>
 
@@ -4448,6 +4448,14 @@ export type Target = {
    * Only a workspace update advances the stored target, so `false` means an update has work to do.
    */
   isCurrent: boolean;
+  /**
+   * Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
+   * the stored target commit.
+   *
+   * Updating only some of them leaves the others so, which means an update has work to do
+   * even while [`Self::is_current`] holds.
+   */
+  hasLanesBehind: boolean;
 };
 
 /**

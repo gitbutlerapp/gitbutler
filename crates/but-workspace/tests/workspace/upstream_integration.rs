@@ -4235,3 +4235,169 @@ fn integrated_worktree_branches_are_replaced_with_new_ones() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn lanes_left_out_of_an_update_are_behind_the_target() -> Result<()> {
+    let (_tmp, repo, mut meta, mut db) = worktree_workspace()?;
+    let upstream = git(&repo)
+        .args(["commit-tree", "main^{tree}", "-p", "main", "-m", "M2"])
+        .output()?;
+    git(&repo)
+        .args([
+            "update-ref",
+            "refs/remotes/origin/main",
+            String::from_utf8(upstream.stdout)?.trim(),
+        ])
+        .run();
+    let workspace = |target: &str,
+                     meta: &but_meta::VirtualBranchesTomlMetadata,
+                     db: &mut but_db::DbHandle|
+     -> Result<but_graph::Workspace> {
+        but_graph::Graph::from_head(
+            &repo,
+            meta,
+            target_project_meta(
+                "refs/remotes/origin/main",
+                repo.rev_parse_single(target)?.detach(),
+            )?,
+            db,
+            Options {
+                worktrees: true,
+                ..Options::limited()
+            },
+        )?
+        .into_workspace()
+    };
+    let target_state = |workspace: &but_graph::Workspace| -> Result<(bool, bool)> {
+        let info = but_workspace::graph_to_ref_info(workspace, &repo, Default::default())?;
+        Ok((info.is_target_current, info.has_lanes_behind_target))
+    };
+    let update = |workspace: &mut but_graph::Workspace,
+                  meta: &mut but_meta::VirtualBranchesTomlMetadata,
+                  db: &mut but_db::DbHandle,
+                  bottoms: &[&str]|
+     -> Result<()> {
+        let project_meta = workspace.graph.project_meta.clone();
+        let updates = bottoms
+            .iter()
+            .map(|bottom| {
+                Ok(BottomUpdate {
+                    kind: BottomUpdateKind::Rebase,
+                    selector: RelativeTo::Commit(repo.rev_parse_single(*bottom)?.detach()),
+                })
+            })
+            .collect::<Result<_>>()?;
+        integrate_upstream(workspace, meta, project_meta, &repo, db, updates)?
+            .rebase
+            .materialize(Default::default())?;
+        Ok(())
+    };
+
+    let mut ws = workspace("main", &meta, &mut db)?;
+    assert_eq!(
+        target_state(&ws)?,
+        (false, true),
+        "the stored target trails its ref, and `wt-below` forked from beneath what is stored"
+    );
+
+    update(&mut ws, &mut meta, &mut db, &["wt-below"])?;
+    // The API fast-forwards the local target branch after an update.
+    git(&repo)
+        .args(["branch", "-f", "main", "origin/main"])
+        .run();
+    let mut ws = workspace("origin/main", &meta, &mut db)?;
+    assert_eq!(
+        target_state(&ws)?,
+        (true, true),
+        "the update advanced the stored target past every lane it left out"
+    );
+
+    update(
+        &mut ws,
+        &mut meta,
+        &mut db,
+        &["A~1", "B", "wt-outside", "wt-pushed~1"],
+    )?;
+    let ws = workspace("origin/main", &meta, &mut db)?;
+    assert_eq!(
+        target_state(&ws)?,
+        (true, false),
+        "every lane has caught up with the stored target"
+    );
+    Ok(())
+}
+
+#[test]
+fn integrated_worktree_leaves_the_direct_checkout_on_its_branch() -> Result<()> {
+    let (_tmp, repo, mut meta, mut db) = worktree_workspace()?;
+    git(&repo).args(["checkout", "B"]).run();
+    remove_managed_workspace_ref(&repo)?;
+    git(&repo)
+        .args([
+            "update-ref",
+            "refs/remotes/origin/main",
+            "refs/heads/wt-outside",
+        ])
+        .run();
+    let project_meta = target_project_meta(
+        "refs/remotes/origin/main",
+        repo.rev_parse_single("main")?.detach(),
+    )?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut db,
+        Options {
+            worktrees: true,
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let but_workspace::IntegrateUpstreamOutcome {
+        rebase,
+        deleted_refs,
+        ..
+    } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        &mut db,
+        ["B", "wt-outside"]
+            .into_iter()
+            .map(|bottom| {
+                Ok(BottomUpdate {
+                    kind: BottomUpdateKind::Rebase,
+                    selector: RelativeTo::Commit(repo.rev_parse_single(bottom)?.detach()),
+                })
+            })
+            .collect::<Result<_>>()?,
+    )?;
+    rebase.materialize(Default::default())?;
+
+    assert_eq!(
+        deleted_refs
+            .iter()
+            .map(|name| name.shorten().to_string())
+            .collect::<Vec<_>>(),
+        ["wt-outside"],
+        "only the worktree's branch landed upstream"
+    );
+    assert_eq!(
+        repo.head_name()?.map(|name| name.shorten().to_string()),
+        Some("B".into()),
+        "the checkout keeps its branch, as its work has not landed"
+    );
+    assert_eq!(
+        repo.rev_parse_single("B~1")?,
+        repo.rev_parse_single("origin/main")?,
+        "the checked-out branch is rebased onto the target tip"
+    );
+    assert_eq!(
+        open_repo(&repo.workdir().expect("non-bare").join("wt-outside"))?.head_id()?,
+        repo.rev_parse_single("origin/main")?,
+        "the worktree's replacement branch starts at the target tip"
+    );
+    Ok(())
+}

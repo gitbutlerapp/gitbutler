@@ -108,6 +108,12 @@ pub struct RefInfo {
     ///
     /// Only a workspace update advances the stored target, so `false` means an update has work to do.
     pub is_target_current: bool,
+    /// Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
+    /// the stored target commit.
+    ///
+    /// Updating only some lanes advances the stored target past the others, so `true` means an
+    /// update has work to do even while [`Self::is_target_current`] holds.
+    pub has_lanes_behind_target: bool,
     /// The bound can be imagined as the segment from which all other commits in the workspace originate.
     /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
     /// as antagonist to the first commit in tip of the segment with `id`, serving as first commit that is
@@ -129,8 +135,8 @@ pub struct RefInfo {
     pub worktrees: Vec<worktrees::WorktreeInfo>,
 }
 
-/// Hand-written so `worktrees` only shows up once there are some, keeping the debug output (and
-/// the many snapshots built on it) unchanged for the overwhelmingly common flag-off case.
+/// Hand-written so `worktrees` and `has_lanes_behind_target` only show up once set, keeping the
+/// debug output (and the many snapshots built on it) unchanged for the overwhelmingly common case.
 impl std::fmt::Debug for RefInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let RefInfo {
@@ -139,6 +145,7 @@ impl std::fmt::Debug for RefInfo {
             target_ref,
             target_commit,
             is_target_current,
+            has_lanes_behind_target,
             lower_bound,
             ancestor_workspace_commit,
             worktrees,
@@ -151,6 +158,9 @@ impl std::fmt::Debug for RefInfo {
             .field("is_target_current", is_target_current)
             .field("lower_bound", lower_bound)
             .field("ancestor_workspace_commit", ancestor_workspace_commit);
+        if *has_lanes_behind_target {
+            s.field("has_lanes_behind_target", has_lanes_behind_target);
+        }
         if !worktrees.is_empty() {
             s.field("worktrees", worktrees);
         }

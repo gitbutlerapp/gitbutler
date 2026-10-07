@@ -465,13 +465,18 @@ turn the completed Git push into a failure.
 
 ### `but pull`
 
-Update applied branches onto the latest target branch changes (usually `main`).
+Update applied branches and linked worktrees onto the latest target branch changes (usually `main`).
 Use this for "get latest from main" in a GitButler workspace.
 
 ```bash
-but pull                      # Fetch and rebase applied branches
+but pull                      # Fetch and rebase applied branches and linked worktrees
 but pull --check              # Dry-run preview: report what would happen, change nothing
+but pull --update=workspace   # Leave worktrees based on the target alone
+but pull --update=worktrees   # Rebase only the worktrees based on the target
 ```
+
+`--update` takes a comma-separated list and defaults to `worktrees,workspace`. A worktree based on
+an applied branch shares that branch's commits, so it is rebased with `workspace`.
 
 Run `but pull` directly for a straightforward update; its output reports the result and `but undo`
 reverts it. Use `--check` first when the user or repository policy requires a preview without

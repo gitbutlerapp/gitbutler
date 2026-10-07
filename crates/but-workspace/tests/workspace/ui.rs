@@ -310,7 +310,8 @@ TreeChanges {
       "remoteName": "origin"
     },
     "commitsAhead": 0,
-    "isCurrent": true
+    "isCurrent": true,
+    "hasLanesBehind": false
   },
   "worktrees": []
 }

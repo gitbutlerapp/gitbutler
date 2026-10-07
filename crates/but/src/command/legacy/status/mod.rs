@@ -2493,10 +2493,20 @@ fn compute_branch_merge_statuses(
     ctx: &mut Context,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BTreeMap<String, UpstreamBranchStatus>> {
-    let preview = upstream::dry_run_integration_with_perm(ctx, perm)?;
+    let preview = upstream::dry_run_integration_with_perm(
+        ctx,
+        <crate::args::PullUpdate as clap::ValueEnum>::value_variants(),
+        perm,
+    )?;
     Ok(preview
         .statuses
         .into_iter()
+        .filter(|branch| {
+            matches!(
+                branch.identity,
+                Some(but_workspace::ref_info::SegmentIdentity::Branch(_))
+            )
+        })
         .map(|branch| (branch.name, branch.status))
         .collect())
 }

@@ -98,6 +98,12 @@ pub struct Target {
     ///
     /// Only a workspace update advances the stored target, so `false` means an update has work to do.
     pub is_current: bool,
+    /// Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
+    /// the stored target commit.
+    ///
+    /// Updating only some of them leaves the others so, which means an update has work to do
+    /// even while [`Self::is_current`] holds.
+    pub has_lanes_behind: bool,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Target);
@@ -111,11 +117,13 @@ impl Target {
         }: but_graph::workspace::TargetRef,
         remote_names: &gix::remote::Names,
         is_current: bool,
+        has_lanes_behind: bool,
     ) -> anyhow::Result<Self> {
         Ok(Target {
             remote_tracking_ref: RemoteTrackingReference::for_ui(ref_name, remote_names)?,
             commits_ahead,
             is_current,
+            has_lanes_behind,
         })
     }
 }
@@ -243,6 +251,7 @@ impl inner::RefInfo {
             target_ref,
             target_commit: _,
             is_target_current,
+            has_lanes_behind_target,
             lower_bound: _,
             ancestor_workspace_commit: _,
             worktrees,
@@ -255,7 +264,14 @@ impl inner::RefInfo {
         Ok(inner::RefInfo {
             stacks,
             target: target_ref
-                .map(|t| Target::for_ui(t, &symbolic_remote_names, is_target_current))
+                .map(|t| {
+                    Target::for_ui(
+                        t,
+                        &symbolic_remote_names,
+                        is_target_current,
+                        has_lanes_behind_target,
+                    )
+                })
                 .transpose()?,
             worktrees: worktrees
                 .into_iter()

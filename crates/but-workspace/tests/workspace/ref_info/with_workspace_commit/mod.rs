@@ -840,6 +840,7 @@ RefInfo {
         NodeIndex(4),
     ),
     ancestor_workspace_commit: None,
+    has_lanes_behind_target: true,
 }
 
 "#]]

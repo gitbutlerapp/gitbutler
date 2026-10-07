@@ -671,13 +671,14 @@ pub mod json {
     }
 }
 
-/// Build one rebase update for the bottom of every visible workspace stack.
-pub fn rebase_stack_bottoms(head_info: &but_workspace::RefInfo) -> Vec<BottomUpdate> {
-    head_info
-        .stacks
-        .iter()
-        .filter_map(|stack| {
-            let segment = stack.segments.last()?;
+/// Build one rebase update for the bottom of each of `lanes`, which must rest on the target.
+pub fn rebase_lane_bottoms<'a>(
+    lanes: impl IntoIterator<Item = but_workspace::ref_info::Lane<'a>>,
+) -> Vec<BottomUpdate> {
+    lanes
+        .into_iter()
+        .filter_map(|lane| {
+            let segment = lane.segments.last()?;
             let selector = match segment.commits.last() {
                 Some(commit) => RelativeTo::Commit(commit.id),
                 None => RelativeTo::Reference(segment.ref_info.as_ref()?.ref_name.clone()),
