@@ -487,7 +487,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         // Branch names are not globally unique: each stack keeps the head it already owns,
         // and duplicate names in other stacks stay where they are.
         let mut seen_stack_ids = HashSet::new();
-        for stack in &value.stacks {
+        for (stack_idx, stack) in value.stacks.iter().enumerate() {
             if stack.branches.is_empty() {
                 bail!(
                     "BUG: incoming stack is probably empty, caller should have removed the whole stack"
@@ -599,6 +599,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 ))
             }
             vb_stack.in_workspace = stack.is_in_workspace();
+            vb_stack.order = stack_idx;
             vb_stack.heads.sort_by_key(|head| {
                 stack.branches.iter().enumerate().find_map(|(idx, branch)| {
                     (branch.ref_name.shorten() == head.name.as_str()).then_some(idx)
@@ -617,12 +618,6 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 vb_stack.archived = stack.archived;
             }
             vb_stack.heads.reverse()
-        }
-
-        for (stack_idx, stack) in value.stacks.iter().enumerate() {
-            if let Some(vb_stack) = self.data_mut().branches.get_mut(&stack.id) {
-                vb_stack.order = stack_idx;
-            }
         }
 
         let stacks_to_delete: Vec<_> = self
