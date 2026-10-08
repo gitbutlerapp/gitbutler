@@ -406,8 +406,6 @@ pub(super) mod function {
             bail!("Couldn't find workspace head.")
         };
 
-        let mut ws_meta = workspace.metadata.clone();
-
         let (source_lane, subject_segment) = source;
         if let Lane::Worktree(worktree) = anchor.lane
             && subject_segment.commits.is_empty()
@@ -423,14 +421,12 @@ pub(super) mod function {
             (Lane::Stack(_), Lane::Stack(_), RelativeTo::Reference(_))
         ) && subject_segment.commits.is_empty()
             && anchor.segment.commits.is_empty()
-            && ws_meta.is_some()
+            && let Some(mut ws_meta) = workspace.metadata.clone()
         {
-            if let Some(ws_meta) = ws_meta.as_mut() {
-                move_branch_in_metadata(ws_meta, subject_branch_name, &anchor);
-            }
+            move_branch_in_metadata(&mut ws_meta, subject_branch_name, &anchor);
             return Ok(Outcome {
                 rebase: successful_rebase,
-                ws_meta,
+                ws_meta: Some(ws_meta),
                 new_tip: None,
                 branch_stack_order: None,
             });
@@ -486,20 +482,9 @@ pub(super) mod function {
         }
         editor.insert_segment(target_selector, subject_delimiter, side)?;
 
-        // Keep workspace metadata aligned with the graph move outcome: we remove the subject
-        // branch from its current location and reinsert it next to the anchor.
-        // A branch that left for a worktree leaves its stack when the move is materialized.
-        let ws_meta = match anchor.lane {
-            Lane::Stack(_) => ws_meta.map(|mut ws_meta| {
-                move_branch_in_metadata(&mut ws_meta, subject_branch_name, &anchor);
-                ws_meta
-            }),
-            Lane::Worktree(_) => None,
-        };
-
         Ok(Outcome {
             rebase: editor.rebase()?,
-            ws_meta,
+            ws_meta: None,
             new_tip: None,
             branch_stack_order: None,
         })

@@ -821,11 +821,6 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
         "refs/heads/A".try_into()?,
     )?;
 
-    let updated_metadata_order = ws_meta
-        .as_ref()
-        .map(|ws_meta| workspace_metadata_stack_order(ws_meta, StackKind::Applied))
-        .unwrap_or_default();
-
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
 
@@ -865,6 +860,7 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
     );
 
     let after_display_order = stack_display_order(&ws);
+    let updated_metadata_order = metadata_stack_order(&ws);
 
     assert_ne!(updated_metadata_order, before_metadata_order);
     assert_ne!(after_display_order, before_display_order);
@@ -933,17 +929,13 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
         "refs/heads/A".try_into()?,
     )?;
 
-    let updated_metadata_order = ws_meta
-        .as_ref()
-        .map(|ws_meta| workspace_metadata_stack_order(ws_meta, StackKind::AppliedAndUnapplied))
-        .unwrap_or_default();
-
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
     let after_display_order = stack_display_order(&ws);
+    let updated_metadata_order = metadata_stack_order(&ws);
 
     assert_ne!(updated_metadata_order, before_metadata_order);
     assert_ne!(after_display_order, before_display_order);
