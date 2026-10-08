@@ -9,10 +9,7 @@ use crate::WorkspaceState;
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
-use but_core::{
-    DryRun, RefMetadata, extract_remote_name_and_short_name, is_workspace_ref_name,
-    sync::RepoExclusive,
-};
+use but_core::{DryRun, RefMetadata, extract_remote_name_and_short_name, sync::RepoExclusive};
 use but_error::AnyhowContextExt as _;
 use but_forge::ForgeReview;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
@@ -913,7 +910,6 @@ pub fn workspace_integrate_upstream_only_with_perm(
         let cached_target = ws.graph.project_meta.target_commit_id;
         let IntegrateUpstreamOutcome {
             mut rebase,
-            ws_meta,
             project_meta,
             deleted_refs,
         } = but_workspace::integrate_upstream_with_hints(
@@ -950,14 +946,6 @@ pub fn workspace_integrate_upstream_only_with_perm(
             warn!(?err, "failed to fast-forward local target branch");
         }
 
-        if let Some(ref_name) = materialized.workspace.ref_name()
-            && let Some(ws_meta) = ws_meta
-            && is_workspace_ref_name(ref_name)
-        {
-            let mut md = materialized.meta.workspace(ref_name)?;
-            *md = ws_meta;
-            materialized.meta.set_workspace(&md)?;
-        }
         // Only discard metadata once the corresponding Git refs have been removed successfully.
         for ref_name in deleted_refs {
             materialized.meta.remove(ref_name.as_ref())?;

@@ -1410,16 +1410,14 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
         }],
     )?;
-    let ws_meta = out
-        .ws_meta
-        .as_ref()
-        .context("workspace metadata should be returned")?;
+    out.rebase.materialize(Default::default())?;
     assert_eq!(
-        ws_meta.stacks.len(),
+        meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+            .stacks
+            .len(),
         1,
         "non-bottom update selectors should not mark integrated stacks as selected for pruning"
     );
-    out.rebase.materialize(Default::default())?;
 
     assert!(
         repo.try_find_reference("A")?.is_some(),
@@ -2086,9 +2084,11 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
 ├── ≡:anon: on fe9ae6e
 │   └── :anon:
 │       └── ·0d97cc1 (🏘️)
-└── ≡📙:A on 20a5ffc {1}
-    └── 📙:A
-        └── ·c529875 (🏘️)
+├── ≡📙:A on 20a5ffc {1}
+│   └── 📙:A
+│       └── ·c529875 (🏘️)
+└── ≡📙:target-sha on fe9ae6e {[..]}
+    └── 📙:target-sha
 
 "#]]
     );
@@ -2806,15 +2806,13 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
             selector: RelativeTo::Commit(topic_bottom_commit),
         }],
     )?;
-    let ws_meta = out
-        .ws_meta
-        .as_ref()
-        .context("workspace metadata should be returned")?;
+    out.rebase.materialize(Default::default())?;
     assert!(
-        ws_meta.stacks.is_empty(),
+        meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+            .stacks
+            .is_empty(),
         "workspace metadata should no longer expose the integrated empty branch"
     );
-    out.rebase.materialize(Default::default())?;
     let graph =
         but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
@@ -3003,10 +3001,8 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         }],
     )?;
 
-    let ws_meta = out
-        .ws_meta
-        .as_ref()
-        .context("workspace metadata should be returned")?;
+    out.rebase.materialize(Default::default())?;
+    let ws_meta = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     let branch_names = ws_meta
         .stacks
         .iter()
@@ -3019,7 +3015,6 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         vec!["top"],
         "workspace metadata should retain only the unmerged empty top branch"
     );
-    out.rebase.materialize(Default::default())?;
     let graph =
         but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
@@ -3761,18 +3756,10 @@ fn integrate_and_materialize<M: RefMetadata>(
     let current_project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
-        ws_meta,
         project_meta,
         deleted_refs,
     } = integrate_upstream(workspace, meta, current_project_meta, repo, db, updates)?;
     let materialized = rebase.materialize(Default::default())?;
-    if let Some(ref_name) = materialized.workspace.ref_name()
-        && let Some(ws_meta) = ws_meta
-    {
-        let mut md = materialized.meta.workspace(ref_name)?;
-        *md = ws_meta;
-        materialized.meta.set_workspace(&md)?;
-    }
     for ref_name in deleted_refs {
         materialized.meta.remove(ref_name.as_ref())?;
     }
@@ -3801,7 +3788,6 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
     let current_project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
-        ws_meta,
         project_meta,
         deleted_refs,
     } = integrate_upstream_with_hints(
@@ -3815,13 +3801,6 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         false,
     )?;
     let materialized = rebase.materialize(Default::default())?;
-    if let Some(ref_name) = materialized.workspace.ref_name()
-        && let Some(ws_meta) = ws_meta
-    {
-        let mut md = materialized.meta.workspace(ref_name)?;
-        *md = ws_meta;
-        materialized.meta.set_workspace(&md)?;
-    }
     for ref_name in deleted_refs {
         materialized.meta.remove(ref_name.as_ref())?;
     }

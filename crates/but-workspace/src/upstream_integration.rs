@@ -56,8 +56,6 @@ pub struct ReviewIntegrationHint {
 
 /// The outcome of integrating upstream
 pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
-    /// The updated workspace metadata.
-    pub ws_meta: Option<but_core::ref_metadata::Workspace>,
     /// The updated project metadata.
     pub project_meta: ProjectMeta,
     /// Integrated local branches whose metadata must be removed after successful materialization.
@@ -193,7 +191,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         bail!("Operation not possible while HEAD is detached");
     }
 
-    let mut ws_meta = workspace.metadata.clone();
     let target_sha = project_meta
         .target_commit_id
         .context("Cannot update a workspace without a target sha")?;
@@ -437,24 +434,21 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 }
                 continue;
             }
-            if let Some(ref_name) = attrs.reference_integrated.as_ref() {
-                if let Some(ws_meta) = ws_meta.as_mut() {
-                    ws_meta.remove_segment(ref_name.as_ref());
-                }
-                if should_delete_integrated_local_branch(
+            if let Some(ref_name) = attrs.reference_integrated.as_ref()
+                && should_delete_integrated_local_branch(
                     ref_name.as_ref(),
                     target_ref.ref_name.as_ref(),
                     local_target_ref.as_ref().map(|name| name.as_ref()),
-                ) {
-                    deleted_refs.push(ref_name.clone());
-                    if direct_checkout_replacement_ref
-                        .as_ref()
-                        .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
-                    {
-                        continue;
-                    }
-                    editor.replace_with_none(*selector)?;
+                )
+            {
+                deleted_refs.push(ref_name.clone());
+                if direct_checkout_replacement_ref
+                    .as_ref()
+                    .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
+                {
+                    continue;
                 }
+                editor.replace_with_none(*selector)?;
             }
         }
     }
@@ -620,7 +614,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     // against the old base, with the target's commits folded into the stacks as integrated.
     rebase.project_meta_mut().target_commit_id = project_meta.target_commit_id;
     Ok(IntegrateUpstreamOutcome {
-        ws_meta,
         project_meta,
         deleted_refs,
         rebase,
