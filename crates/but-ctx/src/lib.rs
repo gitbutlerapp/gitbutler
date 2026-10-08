@@ -605,6 +605,58 @@ impl Context {
     }
 
     /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
+    /// along with `(guard, &repo, &ws, &mut db)`.
+    /// The `db` is writable as this is more useful and naturally synced.
+    /// The guard is for shared access to the repository.
+    ///
+    /// # IMPORTANT
+    /// * Keep the guard alive like `let (_guard, …) = …`!
+    #[instrument(name = "Context::workspace_and_db_mut", level = "debug", skip_all)]
+    #[expect(clippy::type_complexity)]
+    pub fn workspace_and_db_mut(
+        &self,
+    ) -> anyhow::Result<(
+        RepoSharedGuard,
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
+        let guard = self.shared_worktree_access();
+        let (repo, ws, db) = self.workspace_and_db_mut_with_perm(guard.read_permission())?;
+        Ok((guard, repo, ws, db))
+    }
+
+    /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
+    /// along with `(&repo, &ws, &mut db)`, given a read-`perm`ission.
+    /// The `db` is writable as this is more useful and naturally synced.
+    #[instrument(
+        name = "Context::workspace_and_db_mut_with_perm",
+        level = "debug",
+        skip_all
+    )]
+    pub fn workspace_and_db_mut_with_perm(
+        &self,
+        _perm: &RepoShared,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
+        if let Ok(cached) = cell::Ref::filter_map(self.workspace.try_borrow()?, |opt| opt.as_ref())
+        {
+            return Ok((self.repo.get()?, cached, self.db.get_cache_mut()?));
+        }
+        let ws = self.workspace_from_head()?;
+        {
+            let mut value = self.workspace.try_borrow_mut()?;
+            *value = Some(ws);
+        }
+        let ws = cell::Ref::filter_map(self.workspace.borrow(), |opt| opt.as_ref())
+            .unwrap_or_else(|_| unreachable!("just set the value"));
+        Ok((self.repo.get()?, ws, self.db.get_cache_mut()?))
+    }
+
+    /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
     /// along with `(guard, &repo, &ws, &db)`.
     /// The `db` is read-only.
     /// The guard is for shared access to the repository.
