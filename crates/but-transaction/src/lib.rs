@@ -518,7 +518,7 @@ where
 
     pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {
         let (ws_meta, branch_stack_order) = self.rebase(|editor, _| {
-            let outcome = but_workspace::branch::tear_off_branch(editor, source_branch, None)?;
+            let outcome = but_workspace::branch::tear_off_branch(editor, source_branch)?;
             Ok((
                 (outcome.ws_meta, outcome.branch_stack_order),
                 MaterializeWithoutCheckout::No,

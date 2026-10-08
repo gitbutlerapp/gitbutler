@@ -1889,7 +1889,7 @@ pub fn tear_off_branch_with_perm(
                 ws_meta,
                 branch_stack_order,
                 new_tip: _,
-            } = but_workspace::branch::tear_off_branch(editor, subject_branch, None)?;
+            } = but_workspace::branch::tear_off_branch(editor, subject_branch)?;
 
             Ok(MoveBranchResult {
                 workspace: branch_workspace_from_rebase(

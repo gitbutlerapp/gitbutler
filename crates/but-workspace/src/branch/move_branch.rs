@@ -55,14 +55,10 @@ pub(super) mod function {
     ///
     /// `subject_branch_name` - The branch to take out of a stack.
     ///
-    /// `stack_id_override` - Optionally, the ID to use for the newly created stack.
-    ///     Mainly used for testing purposes.
-    ///
     /// Returns the in memory update [outcome](Outcome) that can then used for materialisation.
     pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
         editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
-        stack_id_override: Option<StackId>,
     ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
         let mut successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
@@ -87,15 +83,13 @@ pub(super) mod function {
             WorkspaceKind::AdHoc => false,
         };
 
-        let mut ws_meta = workspace.metadata.clone();
-
         let (source_stack, subject_segment) = source;
 
         if source_stack.segments.len() == 1 {
             // There's only one branch in the source stack. Nothing to do.
             return Ok(Outcome {
                 rebase: editor.rebase()?,
-                ws_meta,
+                ws_meta: None,
                 new_tip: None,
                 branch_stack_order: None,
             });
@@ -166,21 +160,9 @@ pub(super) mod function {
             )
         };
 
-        // Update the workspace meta in order to create a new stack containing the
-        // torn-off branch.
-        if let Some(ws_meta) = ws_meta.as_mut() {
-            ws_meta.remove_segment(subject_branch_name);
-            ws_meta.add_or_insert_new_stack_if_not_present(
-                subject_branch_name,
-                None,
-                but_core::ref_metadata::WorkspaceCommitRelation::Merged,
-                |_| stack_id_override.unwrap_or_else(StackId::generate),
-            );
-        };
-
         Ok(Outcome {
             rebase: editor.rebase()?,
-            ws_meta,
+            ws_meta: None,
             new_tip: None,
             branch_stack_order,
         })
