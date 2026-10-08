@@ -15,7 +15,9 @@
 	color-scheme: light dark;
 
 	--panel-padding-block: 12px;
-	--panel-padding-inline: 12px;
+	/* Edge to edge, a panel's content stands in from the window's edge by this alone: 16, as
+	   the macOS window buttons do in the sidebar header. */
+	--panel-padding-inline: 16px;
 
 	/* The scrollbar gutter carries the panel background by default. Surfaces
 	   that sit on another background (popups) restate these on themselves. */
