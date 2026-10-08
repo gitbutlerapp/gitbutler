@@ -1315,12 +1315,17 @@ fn restore_snapshot_tree(
     // left in place); repoint gitbutler/workspace at the restored commit.
     match restored_workspace_commit {
         Some(commit_oid) => {
-            repo.reference(
-                workspace_ref,
-                commit_oid,
-                gix::refs::transaction::PreviousValue::Any,
-                "restore snapshot workspace ref",
-            )?;
+            let current_workspace_commit = repo
+                .try_find_reference(workspace_ref)?
+                .and_then(|reference| reference.target().try_id().map(ToOwned::to_owned));
+            if current_workspace_commit != Some(commit_oid) {
+                repo.reference(
+                    workspace_ref,
+                    commit_oid,
+                    gix::refs::transaction::PreviousValue::Any,
+                    "restore snapshot workspace ref",
+                )?;
+            }
         }
         // A new-format snapshot with no workspace commit records that the ref did not exist.
         None if restored_checkout.is_some() => {

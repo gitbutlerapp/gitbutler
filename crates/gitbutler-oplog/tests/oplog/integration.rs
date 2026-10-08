@@ -927,6 +927,60 @@ fn restore_repoints_workspace_and_worktree() -> anyhow::Result<()> {
 }
 
 #[test]
+#[expect(deprecated, reason = "libgit2 index compatibility boundary")]
+fn restore_skips_workspace_ref_update_when_target_already_matches() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let gix_repo = repo.open_repo();
+    let workspace_commit = gix_repo
+        .rev_parse_single(but_core::WORKSPACE_REF_NAME)?
+        .detach();
+    let lock_path = gix_repo.path().join("refs/heads/gitbutler/workspace.lock");
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+
+    fs::write(repo.projects_root().join("second"), "changed\n")?;
+    {
+        let git2_repo = ctx.git2_repo.get()?;
+        let mut index = git2_repo.index()?;
+        index.clear()?;
+        index.write()?;
+    }
+    fs::write(&lock_path, "locked\n")?;
+    let restore_result = ctx.restore_snapshot(
+        snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    );
+    fs::remove_file(&lock_path)?;
+    restore_result?;
+
+    assert_eq!(
+        gix_repo
+            .find_reference(but_core::WORKSPACE_REF_NAME)?
+            .peel_to_id()?,
+        workspace_commit,
+        "restore keeps the already-correct workspace ref untouched"
+    );
+    assert_eq!(
+        fs::read_to_string(repo.projects_root().join("second"))?,
+        "second\n",
+        "restore checks out the snapshotted worktree"
+    );
+    assert!(
+        ctx.git2_repo
+            .get()?
+            .index()?
+            .get_path(Path::new("second"), 0)
+            .is_some(),
+        "restore resets the index even when the workspace ref is locked"
+    );
+    Ok(())
+}
+
+#[test]
 fn restore_round_trips_workspace_and_ad_hoc_checkouts() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::default();
     let repo = repo.open_repo();
