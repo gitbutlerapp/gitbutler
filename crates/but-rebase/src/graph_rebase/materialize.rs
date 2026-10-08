@@ -226,7 +226,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         let branch_stacks = self.branch_stacks()?;
         let repo = self.repo.clone();
         if !self.references_updated()? {
-            if branch_stacks.persist(self.meta)? {
+            if branch_stacks.persist(self.meta, self.workspace)? {
                 self.refresh_workspace(&repo)?;
             }
             return Ok(MaterializeOutcome {
@@ -306,7 +306,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
 
         edit_references_deleting_directory_conflicts_first(&repo, ref_edits)?;
-        branch_stacks.persist(self.meta)?;
+        branch_stacks.persist(self.meta, self.workspace)?;
         self.refresh_workspace(&repo)?;
 
         Ok(MaterializeOutcome {

@@ -477,7 +477,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                 (id, Some(ref_name))
             });
         let branch_stacks = self.branch_stacks()?;
-        let workspace_metadata = branch_stacks.workspace_metadata(&*self.meta)?;
+        let workspace_metadata = branch_stacks.workspace_metadata(&*self.meta, self.workspace)?;
         let branch_metadata = workspace_metadata
             .iter()
             .flat_map(|workspace| &workspace.stacks)

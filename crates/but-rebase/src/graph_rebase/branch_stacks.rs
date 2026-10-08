@@ -40,16 +40,21 @@ impl BranchStacks {
     /// The workspace metadata once it describes these stacks, if `HEAD` is in a workspace.
     ///
     /// A stack keeps the id and the position of the stack that held its lowest known branch
-    /// before, and stacks that are new to the metadata follow in parent order.
+    /// in `projected`, the workspace as it was before the rewrite, and stacks that are new to
+    /// the metadata follow in parent order.
     pub(crate) fn workspace_metadata<M: RefMetadata>(
         &self,
         meta: &M,
+        projected: &but_graph::Workspace,
     ) -> Result<Option<M::Handle<Workspace>>> {
         let Some(stacks) = &self.workspace else {
             return Ok(None);
         };
         let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
         let mut workspace = meta.workspace(workspace_ref.as_ref())?;
+        if projected.ref_name() == Some(workspace_ref.as_ref()) {
+            projected.reconcile_metadata(&mut workspace)?;
+        }
         let mut kept_ids = HashSet::new();
         let mut stacks: Vec<_> = stacks
             .iter()
@@ -88,9 +93,13 @@ impl BranchStacks {
     }
 
     /// Make `meta` describe these stacks, returning whether that changed anything.
-    pub(crate) fn persist<M: RefMetadata>(&self, meta: &mut M) -> Result<bool> {
+    pub(crate) fn persist<M: RefMetadata>(
+        &self,
+        meta: &mut M,
+        projected: &but_graph::Workspace,
+    ) -> Result<bool> {
         let mut changed = false;
-        if let Some(workspace) = self.workspace_metadata(meta)?
+        if let Some(workspace) = self.workspace_metadata(meta, projected)?
             && *meta.workspace(workspace.as_ref())? != *workspace
         {
             meta.set_workspace(&workspace)?;
