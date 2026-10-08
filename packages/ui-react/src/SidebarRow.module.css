@@ -53,12 +53,15 @@
 		}
 	}
 
-	/* The inverted ghost's colours, on the buttons themselves, since a variant declares these on
-	   its own element and an inherited value would lose to it. Outline buttons keep their edge. */
+	/* The inverted button colours, on the buttons themselves, since a variant declares these on
+	   its own element and an inherited value would lose to it. An outline's edge takes the inverted
+	   outline's colour; a ghost has no edge for it to colour. */
 	button {
 		--button-bg: transparent;
 		--button-fg: var(--text-1-invert);
 		--button-hover-bg: var(--bg-hover-invert);
+
+		border-color: color-mix(in srgb, var(--fill-gray-fg) 26%, transparent);
 	}
 }
 
