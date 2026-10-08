@@ -415,7 +415,7 @@ Operation History:
 Server Interactions:
   merge        Merge a branch directly onto the target branch, bypassing review
   push         Push changes in a branch to remote
-  pull         Update all applied branches onto the latest target branch
+  pull         Update applied branches and worktrees onto the latest target
   pr           Commands for creating and managing reviews on a forge, e.g. Git…
 
 Other Commands:

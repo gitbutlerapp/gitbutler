@@ -1787,6 +1787,7 @@ fn print_lane_segments(
                 CommitChanges::Remote(&details.diff_with_first_parent),
                 CommitClassification::Upstream,
                 None,
+                0,
                 depth,
                 output,
             )?;
@@ -1794,6 +1795,17 @@ fn print_lane_segments(
         if has_remote_commits_to_print {
             output.connector(in_lane(depth, [Span::raw("┊-")]))?;
         }
+        let max_id_width = segment
+            .workspace_commits
+            .iter()
+            .map(|commit| {
+                commit.change_id.as_ref().map_or_else(
+                    || shorten_object_id(repo, commit.commit_id()).len(),
+                    |change_id| change_id.padded_short_id().len(),
+                )
+            })
+            .max()
+            .unwrap_or(0);
         for commit in segment.workspace_commits.iter() {
             // Commits are listed newest first, so a worktree branching off this commit
             // opens its lane just above it and closes back onto it.
@@ -1824,6 +1836,7 @@ fn print_lane_segments(
                 // seems to be populated in handle_gerrit in
                 // crates/but-api/src/legacy/workspace.rs
                 None,
+                max_id_width,
                 depth,
                 output,
             )?;
@@ -1922,6 +1935,7 @@ fn print_commit(
     commit_changes: CommitChanges,
     classification: CommitClassification,
     review_url: Option<String>,
+    max_id_width: usize,
     depth: usize,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
@@ -1943,7 +1957,7 @@ fn print_commit(
         StatusRenderMode::Tui(_) => None,
     };
 
-    let (details_line, _) = display_cli_commit_details(
+    let (mut details_line, _) = display_cli_commit_details(
         repo,
         commit_cli_id.to_short_string(),
         change_id,
@@ -1955,6 +1969,16 @@ fn print_commit(
         status_ctx.flags.verbose,
         status_ctx.is_paged,
     );
+
+    let id_spans = if details_line.change_id.is_empty() {
+        &mut details_line.sha
+    } else {
+        &mut details_line.change_id
+    };
+    let id_width: usize = id_spans.iter().map(Span::width).sum();
+    if max_id_width > id_width {
+        id_spans.push(Span::raw(" ".repeat(max_id_width - id_width)));
+    }
 
     let details_line = if upstream_commit {
         dim_commit_line_content(details_line)
@@ -2469,10 +2493,20 @@ fn compute_branch_merge_statuses(
     ctx: &mut Context,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BTreeMap<String, UpstreamBranchStatus>> {
-    let preview = upstream::dry_run_integration_with_perm(ctx, perm)?;
+    let preview = upstream::dry_run_integration_with_perm(
+        ctx,
+        <crate::args::PullUpdate as clap::ValueEnum>::value_variants(),
+        perm,
+    )?;
     Ok(preview
         .statuses
         .into_iter()
+        .filter(|branch| {
+            matches!(
+                branch.identity,
+                Some(but_workspace::ref_info::SegmentIdentity::Branch(_))
+            )
+        })
         .map(|branch| (branch.name, branch.status))
         .collect())
 }

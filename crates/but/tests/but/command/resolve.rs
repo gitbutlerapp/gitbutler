@@ -2,7 +2,10 @@ use anyhow::Context as _;
 use snapbox::{IntoData as _, str};
 
 use super::util::enter_edit_mode_with_conflicted_commit;
-use crate::{command::util::sandbox_with_conflicted_commit, utils::Sandbox};
+use crate::{
+    command::util::sandbox_with_conflicted_commit,
+    utils::{CommandExt, Sandbox},
+};
 
 fn current_branch_name(env: &Sandbox) -> String {
     let repo = env.open_repo();
@@ -187,11 +190,13 @@ fn agent_resolve_finish_json_includes_result_and_status() {
     env.file("file.txt", "resolved content\n");
     env.invoke_git("add file.txt");
 
-    let mut command = super::util::but_std_cmd(&env, "--json resolve finish --status-after");
-    command.env("AI_AGENT", "codex");
-    let output = command.output().unwrap();
-    assert!(output.status.success(), "resolve finish should succeed");
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let output = env
+        .but("--json resolve finish --status-after")
+        .as_agent()
+        .allow_json()
+        .assert()
+        .success();
+    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
     assert!(
         json["result"].is_object(),
         "agent output should retain the resolve result"
@@ -251,11 +256,13 @@ fn agent_resolve_finish_json_status_tracks_rebased_conflict_queue() {
     env.file("bottom.txt", "resolved bottom\n");
     env.invoke_git("add bottom.txt");
 
-    let mut command = super::util::but_std_cmd(&env, "--json resolve finish --status-after");
-    command.env("AI_AGENT", "codex");
-    let output = command.output().unwrap();
-    assert!(output.status.success(), "resolve finish should succeed");
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let output = env
+        .but("--json resolve finish --status-after")
+        .as_agent()
+        .allow_json()
+        .assert()
+        .success();
+    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
 
     let queue = json["result"]["resolution_queue"]
         .as_array()
@@ -332,7 +339,7 @@ fn resolve_cancel_requires_force_when_changes_were_made() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to handle conflict resolution. There are changes that differ from the original commit you were editing. Canceling will drop those changes.
+There are changes that differ from the original commit you were editing. Canceling will drop those changes.
 
 If you want to go through with this, please re-run with `--force`.
 
@@ -423,14 +430,14 @@ fn resolve_refuses_mixed_and_ai_targets_for_conflicted_files() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to handle conflict resolution. 'other.txt' is not a conflicted uncommitted file; `but resolve` takes either one commit or only conflicted files (see `but status`).
+'other.txt' is not a conflicted uncommitted file; `but resolve` takes either one commit or only conflicted files (see `but status`).
 
 "#]]);
     env.but("resolve commit.txt --ai")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to handle conflict resolution. Conflicted uncommitted files can only be marked as resolved: `but resolve <path>...`
+Conflicted uncommitted files can only be marked as resolved: `but resolve <path>...`
 
 "#]]);
     assert_eq!(
@@ -507,7 +514,7 @@ fn resolve_finish_refuses_unresolved_submodule_conflict() {
         .failure()
         .stdout_eq(str![""])
         .stderr_eq(str![[r#"
-Failed to handle conflict resolution. Unresolved submodule conflicts: "sm"
+Unresolved submodule conflicts: "sm"
 Put the wanted submodule commit or file at each path and run `git add -- <path>`, remove it with `git rm -- <path>`, or discard the resolution with `but resolve cancel --force`.
 
 "#]]);
@@ -516,7 +523,7 @@ Put the wanted submodule commit or file at each path and run `git add -- <path>`
         .failure()
         .stdout_eq(str![""])
         .stderr_eq(str![[r#"
-Failed to handle conflict resolution. Unresolved submodule conflicts: "sm"
+Unresolved submodule conflicts: "sm"
 ...
 "#]]);
 
@@ -697,7 +704,7 @@ fn resolve_keeps_submodule_paths_that_differ_in_non_utf8_bytes_apart() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to handle conflict resolution. Unresolved submodule conflicts: "sm", "sm\xfe", "sm\xff"
+Unresolved submodule conflicts: "sm", "sm\xfe", "sm\xff"
 Put the wanted submodule commit or file at each path and run `git add -- <path>`, remove it with `git rm -- <path>`, or discard the resolution with `but resolve cancel --force`.
 
 "#]].raw());
@@ -767,5 +774,132 @@ Hint: Run `but switch --workspace` and start conflict resolution with `but resol
         env.invoke_git("symbolic-ref HEAD"),
         head_ref_before,
         "rejecting a conflicted checkout leaves the checked-out branch unchanged"
+    );
+}
+
+#[test]
+fn but_resolve_apply_without_workspace_reference() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "single-branch-conflict-in-bottom-commit",
+    );
+    env.but("config feature single-branch enable")
+        .assert()
+        .success();
+
+    // we should have no workspace commit to begin with
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* ba7878f (HEAD -> A) top change
+* ff53bff bottom change
+| * 7f73771 (origin/main, origin/HEAD, main) upstream change
+|/  
+* 8fa27c9 base
+
+"#]]
+    );
+
+    env.but("pull").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊◐   rvk top change
+┊◐   rou bottom change (no changes) {conflicted}
+├╯
+┊
+┴ 7f73771 (common base, main, origin/main) 2000-01-02 upstream change
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // make sure `but resolve` gives a decent error message...
+    env.but("resolve rou")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: `but resolve` does not support a checked-out branch. A GitButler workspace is required.
+
+Hint: Enter workspace with `but apply A` then re-run `but resolve rou`
+
+"#]]);
+
+    // ...also for agents
+    env.but("resolve rou")
+        .as_agent()
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: `but resolve` does not support a checked-out branch. A GitButler workspace is required.
+
+Hint: Use `but resolve apply` to resolve conflicts without changing HEAD. As a fallback use `but apply A`
+
+"#]]);
+
+    env.but("resolve conflicts A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Conflicts in commit d5fa75c on branch A
+
+shared.txt
+── conflict 1 of 1
+<<< ours (new base)
+upstream
+||| base
+base
+>>> theirs (this commit)
+bottom
+
+Resolve with `but resolve apply <path>[:<N>] --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N>`. `but resolve --ai` resolves everything at once.
+
+"#]]);
+
+    env.but("resolve apply shared.txt:1 --commit rou --ours")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+✓ Resolved 1 conflict in shared.txt — d5fa75c → d081020
+All conflicts in this commit are resolved.
+The commit is now empty — the kept content matches its parent.
+If this isn't right, run `but undo` to revert it.
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊◐   rvk top change
+┊◐   rou bottom change (no changes)
+├╯
+┊
+┴ 7f73771 (common base, main, origin/main) 2000-01-02 upstream change
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // and there should be no workspace commit when we're done
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* c7222b6 (HEAD -> A) top change
+* d081020 bottom change
+* 7f73771 (origin/main, origin/HEAD, main, gitbutler/target) upstream change
+| * ba7878f (origin/A) top change
+| * ff53bff bottom change
+|/  
+* 8fa27c9 base
+
+"#]]
     );
 }

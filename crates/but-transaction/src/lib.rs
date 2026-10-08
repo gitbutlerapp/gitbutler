@@ -443,8 +443,7 @@ where
                         if !ok_to_skip
                             && let Some(ref target_local_branch) = target_local_branch
                             && matches!(step, Step::Reference { ref refname, .. }
-                                if refname == target_local_branch ||
-                                    refname == "refs/heads/gitbutler/target")
+                                if refname == target_local_branch)
                         {
                             ok_to_skip = true;
                         }
@@ -463,7 +462,7 @@ where
                 Some(child_selector)
             };
 
-            editor.replace(ref_selector, but_rebase::graph_rebase::Step::None)?;
+            editor.replace_with_none(ref_selector)?;
             if let Some(must_disconnect_child) = must_disconnect_child {
                 editor.remove_edges(must_disconnect_child, ref_selector)?;
             }

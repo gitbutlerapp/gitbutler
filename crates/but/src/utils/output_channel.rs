@@ -768,6 +768,10 @@ impl OutputChannel {
         self.format.is_json().then_some(self)
     }
 
+    pub fn is_agent(&mut self) -> bool {
+        self.format.is_agent()
+    }
+
     /// A convenience function to create a progress channel that only writes when the output format permits progress.
     /// The progress channel writes to stderr if it's a terminal and the output format permits progress.
     pub fn progress_channel(&self) -> ProgressChannel {

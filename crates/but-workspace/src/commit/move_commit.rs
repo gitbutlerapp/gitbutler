@@ -3,7 +3,7 @@
 use anyhow::bail;
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{
-    Editor, Step, SuccessfulRebase,
+    Editor, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
 };
 
@@ -12,7 +12,7 @@ use but_rebase::graph_rebase::{
 /// The commits are ordered by parentage before moving so callers do not need to
 /// provide them in graph order.
 ///
-/// Each subject is plucked from its old slot - replaced in place by [`Step::None`] -
+/// Each subject is plucked from its old slot
 /// and inserted relative to `relative_to`. Leaving a placeholder behind means the source
 /// topology is never rewritten, so every reference anchored in it keeps its position and
 /// resolves through the placeholder to the commit below, which is exactly what a branch
@@ -45,7 +45,7 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
         let mut parents = editor.direct_parents(selector)?;
         parents.sort_by_key(|(_, order)| *order);
         let merge_parents = parents.split_off(1.min(parents.len()));
-        let step = editor.replace(selector, Step::None)?;
+        let step = editor.replace_with_none(selector)?;
         plucked.push((step, selector, merge_parents));
     }
     for (step, placeholder, merge_parents) in plucked {

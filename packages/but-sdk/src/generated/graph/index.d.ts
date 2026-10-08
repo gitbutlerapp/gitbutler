@@ -135,7 +135,7 @@ export interface AiConfigurationUpdate {
  * This acquires exclusive worktree access from `ctx`, applies
  * `existing_branch`, and records an oplog snapshot on success.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:890}
+ * {@link ../../../../../crates/but-api/src/branch.rs:888}
  */
 export declare function apply(projectId: string, existingBranch: string): Promise<ApplyOutcome>
 
@@ -147,7 +147,7 @@ export declare function apply(projectId: string, existingBranch: string): Promis
  * `dry_run` is enabled, the returned workspace previews the integration
  * result and no oplog entry is persisted.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1673}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1670}
  */
 export declare function applyBranchIntegration(projectId: string, branch: string, integration: InteractiveIntegration, dryRun: boolean): Promise<IntegrateBranchResult>
 
@@ -174,7 +174,7 @@ export declare function assignHunk(projectId: string, assignments: Array<HunkAss
  * deduplicated against local branches and the short names of remote-tracking
  * branches, both of which can change afterwards.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:940}
+ * {@link ../../../../../crates/but-api/src/branch.rs:938}
  */
 export declare function branchCannedName(projectId: string): Promise<string>
 
@@ -188,7 +188,7 @@ export declare function branchCannedName(projectId: string): Promise<string>
  * in which case its local tracking branch is checked out, created at the
  * remote-tracking commit first if it doesn't exist yet.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1360}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1357}
  */
 export declare function branchCheckout(projectId: string, branch: FullNameBytes): Promise<BranchCheckoutResult>
 
@@ -200,7 +200,7 @@ export declare function branchCheckout(projectId: string, branch: FullNameBytes)
  * before creating `refs/heads/<name>`. If omitted, a unique canned branch name
  * is generated. The resulting branch must not already exist.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1376}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1373}
  */
 export declare function branchCheckoutNew(projectId: string, name: string | null): Promise<BranchCheckoutResult>
 
@@ -213,7 +213,7 @@ export declare function branchCheckoutNew(projectId: string, name: string | null
  * checked-out local branch. For lower-level implementation details, see
  * [`but_workspace::branch::create_reference()`].
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:955}
+ * {@link ../../../../../crates/but-api/src/branch.rs:953}
  */
 export declare function branchCreate(projectId: string, newRef: MaybeLossyFullNameRef, placement: BranchCreatePlacement): Promise<BranchCreateResult>
 
@@ -229,7 +229,7 @@ export declare function branchDetails(projectId: string, branchName: string, rem
  * diff is computed against the current workspace state. For lower-level
  * implementation details, see [`but_workspace::ui::diff::changes_in_branch()`].
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1562}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1559}
  */
 export declare function branchDiff(projectId: string, branch: string): Promise<TreeChanges>
 
@@ -262,7 +262,7 @@ export declare function branchLand(projectId: string, branch: string, noFf: bool
  * workspace-related ones. Ahead-counts are relative to the
  * project's configured target branch, which clients know from the project APIs.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1579}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1576}
  */
 export declare function branchList(projectId: string): Promise<Array<ListedStack>>
 
@@ -279,7 +279,7 @@ export declare function branchList(projectId: string): Promise<Array<ListedStack
  * lower-level implementation details, see
  * [`but_workspace::branch::remove_reference()`].
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1086}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1084}
  */
 export declare function branchRemove(projectId: string, refName: FullNameBytes): Promise<BranchRemoveResult>
 
@@ -295,7 +295,7 @@ export declare function branchRemove(projectId: string, refName: FullNameBytes):
  * It requires no stack id and works in both managed and ad-hoc/single-branch
  * workspaces.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1244}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1242}
  */
 export declare function branchRename(projectId: string, refName: FullNameBytes, newName: string): Promise<BranchRenameResult>
 
@@ -846,7 +846,7 @@ export declare function getGlUser(account: GitlabAccountIdentifier): Promise<Git
 /**
  * Get the initial upstream integration script for `branch`.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1649}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1646}
  */
 export declare function getInitialBranchIntegration(projectId: string, branch: string, strategy: BranchIntegrationStrategy | null): Promise<InitialBranchIntegration>
 
@@ -1182,7 +1182,7 @@ export declare function mergeReview(projectId: string, reviewId: number, mergeMe
  * `dry_run` is enabled, the returned workspace previews the move and no oplog
  * entry is persisted.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1730}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1727}
  */
 export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string, dryRun: boolean): Promise<MoveBranchResult>
 
@@ -1539,7 +1539,7 @@ export declare function storeGitlabPat(accessToken: string): Promise<GitlabAuthS
  * `dry_run` is enabled, the returned workspace previews the tear-off and no
  * oplog entry is persisted.
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1817}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1814}
  */
 export declare function tearOffBranch(projectId: string, subjectBranch: string, dryRun: boolean): Promise<MoveBranchResult>
 
@@ -1662,7 +1662,7 @@ export declare function workspaceBranchAndAncestorsPush(projectId: string, withF
 /**
  * Switch to the workspace reference
  *
- * {@link ../../../../../crates/but-api/src/branch.rs:1422}
+ * {@link ../../../../../crates/but-api/src/branch.rs:1419}
  */
 export declare function workspaceCheckout(projectId: string): Promise<BranchCheckoutResult>
 
@@ -1707,7 +1707,7 @@ export declare function workspaceFetchStatus(projectId: string): Promise<Workspa
  * workspace previews the integration and no oplog entry is persisted. See
  * [`workspace_integrate_upstream_with_perm()`] for lower-level details.
  *
- * {@link ../../../../../crates/but-api/src/workspace.rs:806}
+ * {@link ../../../../../crates/but-api/src/workspace.rs:807}
  */
 export declare function workspaceIntegrateUpstream(projectId: string, updates: Array<BottomUpdate>, dryRun: boolean): Promise<WorkspaceIntegrateUpstreamOutcome>
 
@@ -4486,6 +4486,14 @@ export type Target = {
    * Only a workspace update advances the stored target, so `false` means an update has work to do.
    */
   isCurrent: boolean;
+  /**
+   * Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
+   * the stored target commit.
+   *
+   * Updating only some of them leaves the others so, which means an update has work to do
+   * even while [`Self::is_current`] holds.
+   */
+  hasLanesBehind: boolean;
 };
 
 /**

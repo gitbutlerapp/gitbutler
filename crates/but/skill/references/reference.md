@@ -465,13 +465,18 @@ turn the completed Git push into a failure.
 
 ### `but pull`
 
-Update applied branches onto the latest target branch changes (usually `main`).
+Update applied branches and linked worktrees onto the latest target branch changes (usually `main`).
 Use this for "get latest from main" in a GitButler workspace.
 
 ```bash
-but pull                      # Fetch and rebase applied branches
+but pull                      # Fetch and rebase applied branches and linked worktrees
 but pull --check              # Dry-run preview: report what would happen, change nothing
+but pull --update=workspace   # Leave worktrees based on the target alone
+but pull --update=worktrees   # Rebase only the worktrees based on the target
 ```
+
+`--update` takes a comma-separated list and defaults to `worktrees,workspace`. A worktree based on
+an applied branch shares that branch's commits, so it is rebased with `workspace`.
 
 Run `but pull` directly for a straightforward update; its output reports the result and `but undo`
 reverts it. Use `--check` first when the user or repository policy requires a preview without
@@ -570,6 +575,8 @@ but worktree remove [-f] <id|name> # Like `git worktree remove`; `-f` for uncomm
 ```
 
 `new` generates a branch name when omitted. `--above <COMMIT>` (`-A`) starts the new branch at that commit instead of the workspace base; branch targets and conflicted commits are refused. Checkouts live under `~/.gitbutler-worktrees/<repo-dir-basename>/`.
+
+On macOS, `new` accepts `--create-mode <cow|checkout>` to tune how worktrees are populated with files. `cow` clones source worktree files, including ignored files, in order to speed up builds in the new worktree and reduce disk usage. `checkout` performs a standard checkout, and is the default mode.
 
 Worktrees are listed most recently updated first, as `id name (refs/heads/branch) - path`, with the branch shown only when it differs from the worktree name. Archiving is a GitButler-only state; none of these take part in `but undo`.
 

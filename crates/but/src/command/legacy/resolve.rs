@@ -15,8 +15,9 @@ use gitbutler_edit_mode::commands::changes_from_initial;
 use gitbutler_operating_modes::OperatingMode;
 
 use crate::{
-    IdMap,
+    CliResult, IdMap,
     args::resolve::Subcommands,
+    bad_input,
     id::{CliId, CommitId, CommitIdRef},
     theme::{self, Paint},
     utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
@@ -28,7 +29,7 @@ pub(crate) fn handle(
     cmd: Option<Subcommands>,
     targets: Vec<String>,
     ai: bool,
-) -> Result<()> {
+) -> CliResult<()> {
     // Conflicted uncommitted files are marked resolved; anything else is a commit.
     let conflicted_paths = if targets.is_empty() {
         Vec::new()
@@ -40,28 +41,28 @@ pub(crate) fn handle(
         [target] if !conflicted_paths.contains(target) => Some(target.clone()),
         _ => {
             if let Some(other) = targets.iter().find(|t| !conflicted_paths.contains(t)) {
-                bail!(
+                return Err(anyhow::anyhow!(
                     "'{other}' is not a conflicted uncommitted file; `but resolve` takes either one commit or only conflicted files (see `but status`)."
-                );
+                ).into());
             }
             if ai {
-                bail!(
+                return Err(anyhow::anyhow!(
                     "Conflicted uncommitted files can only be marked as resolved: `but resolve <path>...`"
-                );
+                ).into());
             }
-            return mark_worktree_conflicts_resolved(ctx, out, targets);
+            return Ok(mark_worktree_conflicts_resolved(ctx, out, targets)?);
         }
     };
     if ai {
         if cmd.is_some() {
-            bail!(
+            return Err(anyhow::anyhow!(
                 "--ai cannot be combined with a resolve subcommand. For one conflict, use `but resolve apply <path>[:<N>] --ai` instead."
-            );
+            ).into());
         }
-        return resolve_with_ai(ctx, out, commit_id.as_deref());
+        return Ok(resolve_with_ai(ctx, out, commit_id.as_deref())?);
     }
     match cmd {
-        Some(Subcommands::Conflicts { commit }) => list_conflicts(ctx, out, commit.as_deref()),
+        Some(Subcommands::Conflicts { commit }) => Ok(list_conflicts(ctx, out, commit.as_deref())?),
         Some(Subcommands::Apply {
             target,
             commit,
@@ -78,18 +79,18 @@ pub(crate) fn handle(
             };
             // Lock stdin at the CLI boundary; the handler reads it only for a
             // piped mixed-content resolution.
-            apply_resolutions(
+            Ok(apply_resolutions(
                 ctx,
                 out,
                 commit.as_deref(),
                 &target,
                 flags,
                 std::io::stdin().lock(),
-            )
+            )?)
         }
-        Some(Subcommands::Status) => show_status(ctx, out),
-        Some(Subcommands::Finish) => finish_resolution(ctx, out),
-        Some(Subcommands::Cancel { force }) => cancel_resolution(ctx, out, force),
+        Some(Subcommands::Status) => Ok(show_status(ctx, out)?),
+        Some(Subcommands::Finish) => Ok(finish_resolution(ctx, out)?),
+        Some(Subcommands::Cancel { force }) => Ok(cancel_resolution(ctx, out, force)?),
         None => {
             // Default action: enter resolution mode for the specified commit
             if let Some(commit_id_str) = commit_id {
@@ -99,10 +100,10 @@ pub(crate) fn handle(
                 let mode = operating_mode(ctx)?.operating_mode;
                 if matches!(mode, OperatingMode::Edit(_)) {
                     // If in edit mode, show status instead of help
-                    show_status(ctx, out)
+                    Ok(show_status(ctx, out)?)
                 } else {
                     // Not in edit mode and no commit specified - check for conflicted commits
-                    check_and_prompt_for_conflicts(ctx, out)
+                    Ok(check_and_prompt_for_conflicts(ctx, out)?)
                 }
             }
         }
@@ -211,7 +212,15 @@ fn parse_commit_id(ctx: &mut Context, commit_id_str: &str) -> Result<(gix::Objec
     }
 }
 
-fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &str) -> Result<()> {
+fn enter_resolution(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    commit_id_str: &str,
+) -> CliResult<()> {
+    if crate::utils::in_single_branch_mode(ctx)? {
+        return unsupported_in_single_branch_mode_error(ctx, out, commit_id_str);
+    }
+
     let t = theme::get();
     use gix::{prelude::ObjectIdExt as _, revision::walk::Sorting};
 
@@ -224,9 +233,9 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
         .context("Failed to find commit")?;
 
     if !commit.is_conflicted() {
-        bail!(
+        return Err(anyhow::anyhow!(
             "Commit {commit_ref} is not in a conflicted state. Only conflicted commits can be resolved."
-        );
+        ).into());
     }
 
     // Find which stack this commit belongs to
@@ -275,7 +284,7 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     }
 
     // Now show the same status as `but resolve status` would show
-    show_status(ctx, out)
+    Ok(show_status(ctx, out)?)
 }
 
 fn show_status(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
@@ -1545,14 +1554,14 @@ pub(crate) fn find_conflicted_commits(
 }
 
 /// Check for conflicted commits and prompt user to resolve them
-fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     let t = theme::get();
     // Find all conflicted commits
     let conflicts_by_branch = find_conflicted_commits(ctx)?;
 
     if conflicts_by_branch.is_empty() {
         // No conflicts found, show the normal help text
-        return show_workflow_help(out);
+        return Ok(show_workflow_help(out)?);
     }
 
     if let Some(json_out) = out.for_json() {
@@ -1785,6 +1794,36 @@ fn show_workflow_help(out: &mut OutputChannel) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn unsupported_in_single_branch_mode_error<T>(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    commit_id_str: &str,
+) -> CliResult<T> {
+    let repo = ctx.repo.get()?;
+    let workspace_command = if let Some(head_ref) = repo.head_ref().ok().flatten() {
+        format!("but apply {}", head_ref.inner.name.shorten())
+    } else {
+        "but switch --workspace".to_string()
+    };
+    let hint = if out.is_agent() {
+        format!(
+            "Use `but resolve apply` to resolve conflicts without changing HEAD. \
+                As a fallback use `{workspace_command}`"
+        )
+    } else {
+        format!(
+            "Enter workspace with `{workspace_command}` then re-run `but resolve {commit_id_str}`"
+        )
+    };
+
+    Err(bad_input(
+        "`but resolve` does not support a checked-out branch. \
+                A GitButler workspace is required.",
+    )
+    .hint(hint)
+    .into())
 }
 
 #[cfg(test)]

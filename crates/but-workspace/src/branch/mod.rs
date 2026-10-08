@@ -433,6 +433,15 @@ pub struct Stack {
 }
 
 impl Stack {
+    /// The stack as a lane, which rests on the target.
+    pub fn lane(&self) -> ref_info::Lane<'_> {
+        ref_info::Lane {
+            segments: &self.segments,
+            rests_on: None,
+            worktree: None,
+        }
+    }
+
     /// Return the tip of the stack, which is either the first commit of the first segment or `None` if this is an unborn branch.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.segments.first().and_then(|name| name.tip())

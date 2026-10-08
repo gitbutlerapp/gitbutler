@@ -207,8 +207,9 @@ Push changes in a branch to remote
 - `-d, --dry-run` Show what would be pushed without actually pushing
 
 ### but pull
-Update all applied branches onto the latest target branch
+Update applied branches and worktrees onto the latest target
 - `-c, --check` Only check whether the update would apply cleanly, without updating
+- `--update <UPDATE>` What to rebase onto the target, comma-separated [possible values: worktrees, workspace] [default: worktrees,workspace]
 
 ### but pr
 Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab MRs

@@ -109,8 +109,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Writes a commit with correct signing to the in memory repository.
     ///
     /// This does not update the commit mappings; a rewrite is only recorded
-    /// once the commit is installed into the graph via [`Editor::replace`] or
-    /// a rebase.
+    /// once the commit is installed into the graph via, say,
+    /// [Editor::amend_pick] or a rebase.
     pub fn new_commit(
         &self,
         commit: but_core::CommitOwned,

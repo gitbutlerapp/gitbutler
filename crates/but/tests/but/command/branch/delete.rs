@@ -235,3 +235,25 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn removing_checked_out_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("branch new one").assert().success();
+
+    env.but("branch delete one").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}

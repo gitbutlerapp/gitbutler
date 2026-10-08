@@ -306,7 +306,22 @@ pub fn worktree_new(
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
     let mut guard = ctx.exclusive_worktree_access();
-    worktree_new_with_perm(ctx, new_ref, guard.write_permission())
+    worktree_new_with_perm(
+        ctx,
+        new_ref,
+        WorktreeCreationMode::Checkout,
+        guard.write_permission(),
+    )
+}
+
+/// How to populate a newly created linked worktree.
+#[derive(Debug, Clone, Copy)]
+pub enum WorktreeCreationMode {
+    /// Check out tracked files from the selected commit.
+    Checkout,
+    /// COW-Clone main-worktree files, including ignored artifacts, before restoring tracked files.
+    #[cfg(feature = "worktree-cow")]
+    Cow,
 }
 
 /// See [`worktree_new()`]; this variant is for callers that already hold exclusive
@@ -314,6 +329,7 @@ pub fn worktree_new(
 pub fn worktree_new_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
+    mode: WorktreeCreationMode,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
@@ -322,7 +338,7 @@ pub fn worktree_new_with_perm(
         ws.highest_base()
             .context("The workspace has no target to base a new worktree on")?
     };
-    worktree_new_at_base_with_perm(ctx, new_ref, base, perm)
+    worktree_new_at_base_with_perm(ctx, new_ref, base, mode, perm)
 }
 
 /// Create a worktree at a given base.
@@ -330,6 +346,7 @@ pub fn worktree_new_at_base_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
     base: gix::ObjectId,
+    mode: WorktreeCreationMode,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
@@ -355,7 +372,15 @@ pub fn worktree_new_at_base_with_perm(
         .join(".gitbutler-worktrees")
         .join(repo_name)
         .join(&slug);
-    let name = but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?;
+    let name = match mode {
+        WorktreeCreationMode::Checkout => {
+            but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?
+        }
+        #[cfg(feature = "worktree-cow")]
+        WorktreeCreationMode::Cow => {
+            but_workspace::worktrees::add_cow(&repo, &path, ref_name.as_ref(), base)?
+        }
+    };
     let path = gix::path::realpath(&path)?;
     drop((repo, ws, db));
     ctx.invalidate_workspace_cache()?;

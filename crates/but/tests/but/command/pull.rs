@@ -1,6 +1,9 @@
 use snapbox::str;
 
-use crate::utils::{CommandExt, Sandbox};
+use crate::{
+    command::util::{add_worktree_with_commit, enable_worktree_manipulation},
+    utils::{CommandExt, Sandbox},
+};
 
 fn single_branch_integration_scenario() -> Sandbox {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
@@ -126,12 +129,16 @@ fn undo_and_redo_restore_the_local_target_branch() {
 fn undo_leaves_a_local_target_checked_out_in_a_linked_worktree_unchanged() {
     let env = target_branch_pull_scenario(false);
     env.but("pull").assert().success();
+    // Free main for the linked worktree without adding an oplog entry: undo must target pull.
+    env.invoke_git("switch -c after-pull");
     let target = rev_parse(&env, "main");
-    let workspace_head = rev_parse(&env, "HEAD");
+    let checkout_head = rev_parse(&env, "HEAD");
     let worktree = env.app_data_dir().join("linked-main");
     env.invoke_git(&format!("worktree add -q \"{}\" main", worktree.display()));
 
-    env.but("undo").assert().failure();
+    env.but("undo").assert().failure().stderr_eq(str![[r#"
+Error: Cannot restore branch 'main' because it is checked out in worktrees: [..]
+"#]]);
 
     assert_eq!(
         rev_parse(&env, "main"),
@@ -140,8 +147,13 @@ fn undo_leaves_a_local_target_checked_out_in_a_linked_worktree_unchanged() {
     );
     assert_eq!(
         rev_parse(&env, "HEAD"),
-        workspace_head,
-        "a refused undo must not change the managed workspace"
+        checkout_head,
+        "a refused undo must not change the current checkout"
+    );
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "after-pull",
+        "a refused undo must not change the checked-out branch"
     );
 }
 
@@ -1147,7 +1159,7 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-fn pull_checks_out_canned_branch_after_all_stacks_integrate() {
+fn pull_checks_out_main_after_all_stacks_integrate() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("pull-two-integrated-stacks");
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
 
@@ -1172,16 +1184,17 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1] [HEAD] (no commits)
-├╯
-┊
-┴ 7e5d4e1 (common base, main, origin/main) 2000-01-02 add upstream
+┴ 7e5d4e1 (common base, main, origin/main, HEAD) 2000-01-02 add upstream
 
-Hint: run `but help` for all commands
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
-    assert_eq!(env.invoke_git("symbolic-ref --short HEAD"), "a-branch-1");
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "main",
+        "the local target should become the checkout after all stacks integrate"
+    );
     assert_eq!(rev_parse(&env, "HEAD"), rev_parse(&env, "origin/main"));
     assert!(
         env.open_repo()
@@ -1192,9 +1205,18 @@ Hint: run `but help` for all commands
     );
     assert_eq!(
         status_stack_count(&env),
-        1,
-        "the canned branch should become the ad-hoc checkout"
+        0,
+        "checking out the local target should leave no stacks"
     );
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 7e5d4e1 (common base, main, origin/main, HEAD) 2000-01-02 add upstream
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
 }
 
 #[test]
@@ -1591,6 +1613,408 @@ To undo this operation:
 ┊
 ┴ 7f73771 (common base, main, origin/main) 2000-01-02 upstream change
 ⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+/// `two-stacks` with `wt-inside` resting on stack `A`, `wt-outside` resting on the target,
+/// `wt-detached` checked out at the target with nothing of its own, and `origin/main` one commit
+/// ahead of the stored target.
+fn worktrees_behind_target_scenario() -> Sandbox {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    // The first read with the flag on archives every worktree already on disk.
+    env.but("status").assert().success();
+    add_worktree_with_commit(&env, "wt-inside", "A");
+    add_worktree_with_commit(&env, "wt-outside", "main");
+    env.invoke_git(&format!(
+        "worktree add -q --detach {} main",
+        env.app_data_dir().join("worktrees/wt-detached").display()
+    ));
+
+    add_upstream_commit(&env);
+    env
+}
+
+/// Put a commit adding `upstream.txt` on `origin/main`, for the next fetch to find.
+fn add_upstream_commit(env: &Sandbox) {
+    env.invoke_git(
+        "config --replace-all remote.origin.fetch +refs/heads/main:refs/remotes/origin/main",
+    );
+    env.invoke_git("remote set-url origin .");
+    env.invoke_git("checkout main");
+    env.file("upstream.txt", "upstream\n");
+    env.invoke_git("add upstream.txt");
+    env.invoke_git("commit -m upstream-change");
+    env.invoke_git("checkout gitbutler/workspace");
+}
+
+fn contains_target(env: &Sandbox, branch: &str) -> bool {
+    env.invoke_git(&format!("merge-base origin/main {branch}")) == rev_parse(env, "origin/main")
+}
+
+#[test]
+fn pull_rebases_worktrees_and_workspace() {
+    let env = worktrees_behind_target_scenario();
+
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+
+Found 1 upstream commits on origin/main
+   526bb83 upstream-change
+
+Updating 4 active branches...
+
+Rebase successful
+
+Summary
+────────
+  A - rebased
+  B - rebased
+  wt-inside - rebased
+  wt-outside - rebased
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ wt [wt-inside]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ i0:@ [uncommitted] {wt-detached} (no changes)
+┊├┄ i0 (no commits)
+├╯
+┊
+┊╭┄ ou:@ [uncommitted] {wt-outside} (no changes)
+┊├┄ ou [wt-outside]
+┊●   swk add W
+├╯
+┊
+┴ 526bb83 (common base, main, origin/main) 2000-01-02 upstream-change
+
+Hint: run `but help` for all commands
+
+"#]]);
+    for branch in ["A", "B", "wt-inside", "wt-outside"] {
+        assert!(
+            contains_target(&env, branch),
+            "{branch} should have been rebased onto the target"
+        );
+    }
+    assert!(
+        env.app_data_dir()
+            .join("worktrees/wt-outside/upstream.txt")
+            .exists(),
+        "the worktree's checkout follows its rebased branch"
+    );
+}
+
+#[test]
+fn pull_update_workspace_leaves_worktrees_on_the_target_for_later() {
+    let env = worktrees_behind_target_scenario();
+
+    env.but("pull --update=workspace")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Found 1 upstream commits on origin/main
+   526bb83 upstream-change
+
+Updating 3 active branches...
+
+Rebase successful
+
+Summary
+────────
+  A - rebased
+  B - rebased
+  wt-inside - rebased
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+    for branch in ["A", "B", "wt-inside"] {
+        assert!(
+            contains_target(&env, branch),
+            "{branch} is in the workspace or stacked on it, so it was rebased"
+        );
+    }
+    assert!(
+        !contains_target(&env, "wt-outside"),
+        "a worktree resting on the target is not part of the workspace"
+    );
+
+    env.but("pull --update=worktrees")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+No new upstream commits found
+
+Updating 1 active branches...
+
+Rebase successful
+
+Summary
+────────
+  wt-outside - rebased
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+    assert!(
+        contains_target(&env, "wt-outside"),
+        "the worktree catches up although the workspace is already up to date"
+    );
+
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+
+No new upstream commits found
+
+Everything is up to date
+
+"#]]);
+}
+
+#[test]
+fn pull_update_worktrees_leaves_the_workspace_for_later() {
+    let env = worktrees_behind_target_scenario();
+
+    env.but("pull --update=worktrees")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Found 1 upstream commits on origin/main
+   526bb83 upstream-change
+
+Updating 1 active branches...
+
+Rebase successful
+
+Summary
+────────
+  wt-outside - rebased
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+    assert!(
+        contains_target(&env, "wt-outside"),
+        "a worktree resting on the target was rebased"
+    );
+    for branch in ["A", "B", "wt-inside"] {
+        assert!(
+            !contains_target(&env, branch),
+            "{branch} is in the workspace or stacked on it, so it was left alone"
+        );
+    }
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ wt [wt-inside]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ i0:@ [uncommitted] {wt-detached} (no changes)
+┊├┄ i0 (no commits)
+├╯
+┊
+┊╭┄ ou:@ [uncommitted] {wt-outside} (no changes)
+┊├┄ ou [wt-outside]
+┊●   swk add W
+├╯
+┊
+┊● 526bb83 (upstream: origin/main) 1 new commit[..]
+├╯ 526bb83 (common base, main, origin/main) 2000-01-02 upstream-change
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+
+"#]]);
+
+    env.but("pull --update=workspace")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Found 1 upstream commits on origin/main
+   526bb83 upstream-change
+
+Updating 3 active branches...
+
+Rebase successful
+
+Summary
+────────
+  A - rebased
+  B - rebased
+  wt-inside - rebased
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+    for branch in ["A", "B", "wt-inside"] {
+        assert!(
+            contains_target(&env, branch),
+            "{branch} catches up although the stored target already advanced"
+        );
+    }
+}
+
+#[test]
+fn pull_check_previews_only_what_update_selects() {
+    let env = worktrees_behind_target_scenario();
+
+    env.but("pull --check --update=worktrees")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Base branch:	origin/main
+Upstream:	1 new commits on origin/main
+
+  526bb83 upstream-change 
+
+Branch Status
+  [ok] wt-outside
+
+Run `but pull` to update your branches
+
+"#]]);
+    env.but("pull --check")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Base branch:	origin/main
+Upstream:	1 new commits on origin/main
+
+  526bb83 upstream-change 
+
+Branch Status
+  [ok] A
+  [ok] B
+  [ok] wt-inside
+  [ok] wt-outside
+
+Run `but pull` to update your branches
+
+"#]]);
+}
+
+#[test]
+fn pull_reports_conflicts_in_a_detached_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    // The first read with the flag on archives every worktree already on disk.
+    env.but("status").assert().success();
+    // `add local` conflicts with the upstream commit while `add other` on top of it applies
+    // cleanly: a worktree cannot check out a conflicted commit, and so cannot end on one.
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git worktree add -q --detach "{wt}" main
+        (cd "{wt}" &&
+          echo local >upstream.txt && git add upstream.txt && git commit -q -m "add local" &&
+          echo other >other.txt && git add other.txt && git commit -q -m "add other")
+        "#,
+            wt = env.app_data_dir().join("worktrees/wt-detached").display()
+        ),
+        env.projects_root(),
+    );
+    add_upstream_commit(&env);
+
+    env.but("pull --check")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Base branch:	origin/main
+Upstream:	1 new commits on origin/main
+
+  526bb83 upstream-change 
+
+Branch Status
+  [ok] A
+  [ok] B
+  [conflict - rebasable] wt-detached
+
+Run `but pull` to update your branches
+
+"#]]);
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+
+Found 1 upstream commits on origin/main
+   526bb83 upstream-change
+
+Updating 3 active branches...
+
+Rebase resulted in some conflicts
+
+Summary
+────────
+  A - rebased
+  B - rebased
+  wt-detached - conflicted
+
+To resolve conflicts:
+  1. Run `but status` to inspect the conflicted commits, then `but resolve <commit>`. Worktree files show no conflict markers until resolve checks the commit out
+  2. Edit files to resolve the conflicts
+  3. Run `but resolve finish` to finalize the resolution
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ i0:@ [uncommitted] {wt-detached} (no changes)
+┊├┄ i0
+┊●   wqu add other
+┊●   qnu add local (no changes) {conflicted}
+├╯
+┊
+┴ 526bb83 (common base, main, origin/main) 2000-01-02 upstream-change
 
 Hint: run `but help` for all commands
 

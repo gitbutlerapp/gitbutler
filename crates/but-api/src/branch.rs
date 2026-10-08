@@ -16,9 +16,7 @@ use but_core::{
 use but_ctx::Context;
 use but_error::bail_precondition;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::{
-    Editor, GraphEditorOptions, Step, SuccessfulRebase, mutate::InsertSide,
-};
+use but_rebase::graph_rebase::{Editor, GraphEditorOptions, SuccessfulRebase, mutate::InsertSide};
 use but_workspace::branch::{
     BranchIntegrationStrategy, InitialBranchIntegration, OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
@@ -1329,8 +1327,7 @@ pub fn branch_rename_with_perm(
             ..Default::default()
         };
         let mut editor = Editor::create_with_opts(&mut ws, &mut meta, &repo, &mut db, &options)?;
-        let selector = editor.select_reference(ref_name.as_ref())?;
-        editor.replace(selector, Step::new_reference(new_ref.clone()))?;
+        editor.replace_reference(editor.select_reference(ref_name.as_ref())?, new_ref.clone())?;
         editor.rebase()?.materialize(Default::default())?;
 
         meta.rename(ref_name.as_ref(), new_ref.as_ref())?;

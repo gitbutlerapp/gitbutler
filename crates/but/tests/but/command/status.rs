@@ -638,6 +638,33 @@ fn long_file_cli_ids_are_aligned() {
 }
 
 #[test]
+fn commit_ids_are_aligned_within_a_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("new-file", "first");
+    env.invoke_git("config --local gitbutler.testing.changeId 1234");
+    env.but("commit -b A -m first").assert().success();
+    env.file("new-file", "second");
+    env.invoke_git("config --local gitbutler.testing.changeId 1235");
+    env.but("commit -b A -m second").assert().success();
+
+    // The colliding change IDs need four characters, but the original commit needs three.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊●   1235 second
+┊●   1234 first
+┊●   tpm  add A
+...
+┊●   lrm add B
+...
+"#]]);
+}
+
+#[test]
 fn long_cli_ids() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix");
 
@@ -1455,7 +1482,7 @@ Hint: run `but help` for all commands
     // The first agent-detected invocation also delivers the skill-install
     // notice ahead of the graph (the sandbox home has no skill installed).
     env.but("status")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
