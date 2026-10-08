@@ -1,0 +1,406 @@
+.row {
+	display: flex;
+	position: relative;
+	column-gap: var(--gap-icon-text);
+	align-items: center;
+	min-height: var(--size-control);
+	/* Less on the end: a menu button sets itself in from the edge already. */
+	padding-inline: var(--space-lg) var(--space-sm);
+	border-radius: var(--radius-control);
+	color: var(--text-1);
+	text-decoration: none;
+	cursor: var(--control-cursor);
+
+	/* No transition: hover and selection share this ground, and selection moves with the arrow
+	   keys (design/foundations/states.md, "List rows snap"). */
+	&:where(:hover) {
+		background-color: var(--bg-hover);
+	}
+
+	/* After hover, so a selected row reads the same under the pointer. */
+	&[data-selected] {
+		background-color: var(--bg-selected-inactive);
+	}
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: -1px;
+	}
+}
+
+/* The solid fill and inverted contents are for the list holding the selection focus only, as in
+   FileList. --selection-inverted turns badges and counts to their inverted colours. */
+:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
+	.row[data-selected] {
+	--selection-inverted: true;
+
+	background-color: var(--bg-selected);
+	color: var(--text-1-invert);
+
+	.icon,
+	.toggle {
+		color: var(--text-2-invert);
+	}
+
+	/* A pull request's state colours its glyph and a merged title. The opposite scheme makes those
+	   light-dark() colours resolve to their inverted values, as Badge and MetaCount do. */
+	.branchGlyph,
+	.title {
+		color-scheme: dark;
+
+		@media (prefers-color-scheme: dark) {
+			color-scheme: light;
+		}
+	}
+
+	/* The inverted button colours, on the buttons themselves, since a variant declares these on
+	   its own element and an inherited value would lose to it. An outline's edge takes the inverted
+	   outline's colour; a ghost has no edge for it to colour. */
+	button {
+		--button-bg: transparent;
+		--button-fg: var(--text-1-invert);
+		--button-hover-bg: var(--bg-hover-invert);
+
+		border-color: color-mix(in srgb, var(--fill-gray-fg) 26%, transparent);
+	}
+}
+
+/* The indent: one guide per level, and the chevron of a row that folds in its own step. */
+.steps {
+	display: flex;
+	column-gap: var(--gap-icon-text);
+	flex-shrink: 0;
+	align-self: stretch;
+}
+
+.step {
+	display: flex;
+	position: relative;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+}
+
+/* Runs the row's full height and on through the pixel between rows, so the guides of the rows
+   above and below join into one line under the row they sit in. */
+.guide::before {
+	position: absolute;
+	width: 1px;
+	inset-block: 0 -1px;
+	background-color: color-mix(in srgb, var(--text-2) 20%, transparent);
+	content: "";
+}
+
+.toggle {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-3);
+	cursor: var(--control-cursor);
+
+	&:hover,
+	&:focus-visible {
+		color: var(--text-2);
+	}
+}
+
+.icon {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	color: var(--text-2);
+}
+
+.label {
+	display: flex;
+	column-gap: var(--space-md);
+	align-items: center;
+	/* Gives way to the state beside it, never under it: a badge too wide for what is left is cut
+	   rather than drawn over the counts. */
+	min-width: 0;
+	overflow: hidden;
+}
+
+.name {
+	overflow: hidden;
+	line-height: 17px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.meta {
+	display: flex;
+	column-gap: var(--space-md);
+	flex-shrink: 0;
+	align-items: center;
+}
+
+/* compact: the name takes the line and the state sits at the end, where it stays: the menu follows
+   it under the pointer, on keyboard focus and on a selected row, and the name gives way. The
+   actions, a next step for what the state counts (Update for ↓, Push for ↑), take the state's
+   place under the pointer and on keyboard focus only, so a selected row still says where it stands.
+   Keyboard focus only: a click focuses what it lands on (the chevron too), and the actions would
+   stay up after it. Also while the row's menu is open: the popup takes the pointer and the focus
+   away from the row, and its button must stay put. */
+.compact {
+	.label {
+		flex-grow: 1;
+	}
+}
+
+.end {
+	display: grid;
+	flex-shrink: 0;
+	justify-items: end;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
+}
+
+.hover {
+	display: flex;
+	visibility: hidden;
+	column-gap: var(--space-sm);
+	align-items: center;
+
+	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
+		& {
+		visibility: visible;
+	}
+}
+
+.endSwaps .meta {
+	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
+		& {
+		visibility: hidden;
+	}
+}
+
+/* With no state to swap with, the actions keep no room while hidden: the name takes the line, and
+   gives the end back only while they show, as the menu does. */
+.endBare {
+	.row:not(
+			:hover,
+			:focus-visible,
+			:has(:focus-visible),
+			:has([aria-haspopup][aria-expanded="true"])
+		)
+		& {
+		display: none;
+	}
+}
+
+/* rich, one line: the state and the actions follow the name, which gives way first. */
+.rich .label {
+	flex: 0 1 auto;
+}
+
+/* In either layout the menu takes the row's end only while it shows, so the name keeps the width
+   the rest of the time. */
+.menu {
+	display: none;
+	flex-shrink: 0;
+	margin-inline-start: auto;
+
+	.row:is(
+			:hover,
+			:focus-visible,
+			:has(:focus-visible),
+			[data-selected],
+			:has([aria-haspopup][aria-expanded="true"])
+		)
+		& {
+		display: flex;
+	}
+}
+
+/* 6px after the last fact, and 4px more, so the buttons don't read as one more count. */
+.actions {
+	display: flex;
+	column-gap: var(--space-sm);
+	flex-shrink: 0;
+	align-items: center;
+	margin-inline-start: var(--space-xs);
+}
+
+/* rich, a pull request: its title over its branch, state and actions. */
+.twoLine {
+	align-items: stretch;
+
+	/* The chevron centres on the title's first line. */
+	.toggle {
+		align-self: flex-start;
+		height: var(--size-control);
+	}
+}
+
+.content {
+	display: flex;
+	row-gap: 6px;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	/* With the title's 21px line, its first line centres where a one-line row's would. */
+	padding-block: 3.5px 7.5px;
+}
+
+/* Inline, so a wrapped title carries on under the glyph; two lines, then an ellipsis. Its lines
+   sit 4px apart. */
+.line1 {
+	display: -webkit-box;
+	overflow: hidden;
+	line-height: 21px;
+	overflow-wrap: anywhere;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+}
+
+.lead {
+	display: inline-flex;
+	column-gap: var(--gap-icon-text);
+	align-items: center;
+	height: 21px;
+	margin-inline-end: var(--gap-icon-text);
+	vertical-align: top;
+}
+
+.line2 {
+	display: flex;
+	column-gap: var(--space-md);
+	align-items: center;
+	min-height: var(--size-control-sm);
+
+	& > * {
+		flex-shrink: 0;
+	}
+
+	/* The branch's name gives way before the counts and the buttons. */
+	& > .branch {
+		flex-shrink: 1;
+	}
+}
+
+/* The menu sits in the title's corner while it shows; the title steps back from it then. */
+.corner {
+	position: absolute;
+	top: calc((var(--size-control) - var(--size-control-sm)) / 2);
+	right: var(--space-sm);
+}
+
+.twoLine:is(
+		:hover,
+		:focus-visible,
+		:has(:focus-visible),
+		[data-selected],
+		:has([aria-haspopup][aria-expanded="true"])
+	):has(.corner)
+	.line1 {
+	padding-inline-end: calc(22px + var(--space-sm));
+}
+
+/* A pull request's state in its glyph. */
+.branchGlyph.open {
+	color: var(--text-safe);
+}
+
+.branchGlyph.closed {
+	color: var(--text-danger);
+}
+
+.branchGlyph.merged {
+	color: var(--text-purple);
+}
+
+.badge {
+	flex-shrink: 0;
+}
+
+/* A merged request is done with: its title recedes, until the row is the one picked. */
+.merged .title {
+	color: var(--text-purple);
+	opacity: 0.6;
+}
+
+.merged[data-selected] .title {
+	opacity: 1;
+}
+
+.picture {
+	display: flex;
+}
+
+.offline {
+	opacity: 0.5;
+}
+
+.led {
+	flex-shrink: 0;
+	width: 7px;
+	height: 7px;
+	border-radius: var(--radius-full);
+	background-color: var(--text-3);
+}
+
+.online {
+	background-color: var(--text-safe);
+}
+
+/* A stack's caption names what follows; it doesn't open, so it doesn't answer the pointer beyond
+   showing its menu. */
+.caption {
+	color: var(--text-3);
+	cursor: default;
+
+	&:where(:hover) {
+		background-color: transparent;
+	}
+
+	.icon {
+		color: var(--text-3);
+	}
+}
+
+.captionTucked {
+	min-height: 24px;
+}
+
+.more {
+	width: 100%;
+	border: none;
+	background: none;
+	color: var(--text-2);
+	font: inherit;
+	text-align: start;
+
+	/* The row's own tint, which the button's reset above would otherwise clear; the label keeps its
+	   colour, so the tail stays quieter than the rows it hides. */
+	&:hover {
+		background-color: var(--bg-hover);
+	}
+
+	.icon {
+		color: var(--text-3);
+	}
+
+	.label {
+		flex-grow: 1;
+	}
+}
+
+.divider {
+	display: flex;
+	column-gap: var(--gap-icon-text);
+	align-items: center;
+	height: 20px;
+	padding-inline: var(--space-lg);
+}
+
+.line {
+	flex-grow: 1;
+	border-top: 1px dashed var(--border-3);
+}

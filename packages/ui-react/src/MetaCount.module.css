@@ -1,0 +1,50 @@
+.count {
+	display: inline-flex;
+	column-gap: 3px;
+	align-items: center;
+	/* A long value (a branch's name) gives way before the counts beside it, down to its glyph. */
+	min-width: 12px;
+	color: var(--text-2);
+	line-height: 16px;
+	white-space: nowrap;
+
+	/* Inside a selected row on the solid fill, the opposite scheme makes every light-dark() colour
+	   below resolve to its inverted value, as Badge does. */
+	@container style(--selection-inverted: true) {
+		color-scheme: dark;
+
+		@media (prefers-color-scheme: dark) {
+			color-scheme: light;
+		}
+	}
+}
+
+.glyph {
+	flex-shrink: 0;
+	opacity: 0.7;
+}
+
+.value {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.behind,
+.uncommitted,
+.agent-waiting,
+.working {
+	color: var(--text-warn);
+}
+
+.unpushed {
+	color: var(--text-blue);
+}
+
+.agent-working,
+.passed {
+	color: var(--text-safe);
+}
+
+.failed {
+	color: var(--text-danger);
+}

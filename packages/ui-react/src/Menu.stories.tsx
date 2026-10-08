@@ -1,0 +1,138 @@
+import preview from "#storybook/preview";
+import { useState, type FC } from "react";
+import { Button } from "./Button.tsx";
+import { Icon } from "./Icon.tsx";
+import {
+	ContextMenu,
+	Menu,
+	MenuItem,
+	MenuRadioGroup,
+	MenuRadioItem,
+	MenuSection,
+	type MenuProps,
+} from "./Menu.tsx";
+
+const meta = preview.meta({
+	component: Menu,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client?node-id=5858-126537",
+		},
+	},
+	args: {
+		side: "bottom",
+		align: "end",
+		sideOffset: 4,
+	},
+	argTypes: {
+		side: { control: "inline-radio", options: ["top", "bottom", "left", "right"] },
+		align: { control: "inline-radio", options: ["start", "center", "end"] },
+	},
+	decorators: [
+		(Story) => (
+			<div style={{ display: "flex", justifyContent: "center", padding: "120px 48px 280px" }}>
+				<Story />
+			</div>
+		),
+	],
+});
+
+/**
+ * A row's ⋯: its actions in sections, and one it can't run now held in place with the reason on
+ * hover.
+ */
+export const Default = meta.story({
+	args: {
+		"aria-label": "Branch actions",
+		trigger: (
+			<Button variant="ghost" size="small" iconOnly aria-label="More actions">
+				<Icon name="kebab" />
+			</Button>
+		),
+		children: (
+			<>
+				<MenuSection>
+					<MenuItem>Send to…</MenuItem>
+					<MenuItem disabled hint="pavel--macbook-pro-2 is offline">
+						Land…
+					</MenuItem>
+					<MenuItem>Rename…</MenuItem>
+				</MenuSection>
+				<MenuSection>
+					<MenuItem>Archive</MenuItem>
+					<MenuItem>Delete branch…</MenuItem>
+				</MenuSection>
+			</>
+		),
+	},
+});
+
+/** A header's view options, as the navigator holds them: three choices of one, each ticked where it stands. */
+const ViewOptionsMenu: FC<MenuProps> = (props) => {
+	const [group, setGroup] = useState("machine");
+	const [sort, setSort] = useState("activity");
+	const [show, setShow] = useState("active");
+	return (
+		<Menu
+			{...props}
+			aria-label="View options"
+			trigger={
+				<Button variant="ghost" iconOnly aria-label="View options">
+					<Icon name="mixer" />
+				</Button>
+			}
+		>
+			<MenuRadioGroup label="Group by" value={group} onValueChange={setGroup}>
+				<MenuRadioItem value="machine">Machine</MenuRadioItem>
+				<MenuRadioItem value="repo">Repository</MenuRadioItem>
+			</MenuRadioGroup>
+			<MenuRadioGroup label="Sort by" value={sort} onValueChange={setSort}>
+				<MenuRadioItem value="activity">Last activity</MenuRadioItem>
+				<MenuRadioItem value="name">Name</MenuRadioItem>
+			</MenuRadioGroup>
+			<MenuRadioGroup label="Show" value={show} onValueChange={setShow}>
+				<MenuRadioItem value="active">Active</MenuRadioItem>
+				<MenuRadioItem value="archived">Archived</MenuRadioItem>
+				<MenuRadioItem value="all">All</MenuRadioItem>
+			</MenuRadioGroup>
+		</Menu>
+	);
+};
+
+/** A header's view options: three choices of one, each ticked where it stands. */
+export const ViewOptions = meta.story({
+	render: (args) => <ViewOptionsMenu {...args} />,
+});
+
+/** The same actions on a right-click, at the pointer. */
+export const OnRightClick = meta.story({
+	render: () => (
+		<ContextMenu
+			aria-label="Commit actions"
+			trigger={
+				<div
+					className="text-13"
+					style={{
+						padding: "24px 32px",
+						border: "1px dashed var(--border-2)",
+						borderRadius: "var(--radius-card)",
+						color: "var(--text-2)",
+					}}
+				>
+					Right-click here
+				</div>
+			}
+		>
+			<MenuSection>
+				<MenuItem icon="copy" kbd="Mod+C">
+					Copy SHA
+				</MenuItem>
+				<MenuItem icon="edit">Edit message…</MenuItem>
+			</MenuSection>
+			<MenuSection>
+				<MenuItem icon="undo">Uncommit</MenuItem>
+			</MenuSection>
+		</ContextMenu>
+	),
+});

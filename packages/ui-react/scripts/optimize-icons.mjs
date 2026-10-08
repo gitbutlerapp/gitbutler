@@ -15,6 +15,10 @@
  * - vector-effect="non-scaling-stroke" on shape elements. Icons are drawn on a
  *   16px grid with 1.5px strokes; without this, a scaled-up icon reads heavier
  *   than its neighbours.
+ * - Clip paths that clip nothing dropped. Figma wraps some icons in a clip to the
+ *   whole frame. Its id is shared by every copy of the icon on a page, and the
+ *   browser resolves it to the first copy: once that copy sits in something
+ *   hidden (a row's actions before hover), every copy clips to nothing.
  * - Minification. Icons are inlined into the bundle as raw strings and
  *   injected via dangerouslySetInnerHTML, so Figma's indentation would ship to
  *   the user and land in the DOM. It also gives icons a canonical single-line
@@ -31,9 +35,10 @@
  *   the icon.
  * - Geometry outside the viewBox. Anything beyond "0 0 16 16" is clipped or
  *   overflows unpredictably.
- * - clipPath ids. Figma emits ids like clip0_1800_10322. Several icons are
- *   inlined into the same document, so ids must stay unique — keep Figma's
- *   generated suffix rather than renaming to something generic like "clip0".
+ * - clipPath ids that clip something. A clip to less than the whole frame stays,
+ *   and with it the same hazard as above; prefer geometry that needs no clip.
+ *   Several icons are inlined into the same document, so ids must stay unique —
+ *   keep Figma's generated suffix rather than renaming to something generic.
  * - Off-grid coordinates. 13.999999 instead of 14 means the frame wasn't
  *   aligned to the pixel grid in Figma; fix it at the source.
  */
@@ -154,6 +159,38 @@ function minify(svg) {
 }
 
 /**
+ * Drop each clip path that clips to the whole viewBox, which changes nothing but
+ * breaks every copy of the icon once its first copy on the page is hidden.
+ * @param {string} svg
+ * @returns {string}
+ */
+function dropFullFrameClips(svg) {
+	const viewBox = /viewBox="([^"]*)"/
+		.exec(svg)?.[1]
+		.trim()
+		.split(/[\s,]+/)
+		.map(Number);
+	if (!viewBox || viewBox.length !== 4) return svg;
+	const [minX, minY, width, height] = viewBox;
+	let result = svg;
+	for (const [clip, id, attrs] of svg.matchAll(
+		/<clipPath id="([^"]+)"><rect\b([^>]*?)\/><\/clipPath>/g,
+	)) {
+		const attr = (/** @type {string} */ key) =>
+			Number(new RegExp(`\\b${key}="([^"]*)"`).exec(attrs)?.[1] ?? 0);
+		const whole =
+			!/\btransform=/.test(attrs) &&
+			attr("x") === minX &&
+			attr("y") === minY &&
+			attr("width") === width &&
+			attr("height") === height;
+		if (!whole) continue;
+		result = result.replace(clip, "").replaceAll(` clip-path="url(#${id})"`, "");
+	}
+	return result.replace(/<defs><\/defs>/g, "");
+}
+
+/**
  * @param {string} svg
  * @returns {string}
  */
@@ -163,6 +200,7 @@ function optimizeSvg(svg) {
 	result = replaceColors(result);
 	result = addNonScalingStroke(result);
 	result = minify(result);
+	result = dropFullFrameClips(result);
 	return result;
 }
 
