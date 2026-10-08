@@ -591,11 +591,11 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   3f3b2ac (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   6664315 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * a3830b6 (C) add C
-| * 549c6bf (A) add A
-* | e76feb9 (B) add B
+| * e76feb9 (B) add B
+* | a3830b6 (C) add C
+* | 549c6bf (A) add A
 |/  
 * 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
 * e31e6ca add init
