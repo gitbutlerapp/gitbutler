@@ -9,7 +9,10 @@ use crate::WorkspaceState;
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
-use but_core::{DryRun, RefMetadata, extract_remote_name_and_short_name, sync::RepoExclusive};
+use but_core::{
+    DryRun, RefMetadata, extract_remote_name_and_short_name,
+    sync::{RepoExclusive, RepoShared},
+};
 use but_error::AnyhowContextExt as _;
 use but_forge::ForgeReview;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
@@ -461,11 +464,11 @@ pub fn workspace_fetch_status(ctx: &but_ctx::Context) -> anyhow::Result<Workspac
 #[but_api(napi)]
 #[instrument(skip_all, err(Debug))]
 pub fn get_workspace(
-    ctx: &mut but_ctx::Context,
-    perm: &mut RepoExclusive,
+    ctx: &but_ctx::Context,
+    perm: &RepoShared,
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
     let mut meta = ctx.meta()?;
-    let (repo, workspace, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (repo, workspace, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let mut workspace = workspace.clone();
     but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo, &mut db)
         .map(Into::into)

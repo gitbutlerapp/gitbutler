@@ -274,7 +274,7 @@ pub fn run(
     } = pick_op;
 
     let sbm = (commit_op.will_create_reference() || commit_op.switch())
-        .then(|| SingleBranchMode::new(ctx, perm, commit_op.switch()))
+        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
         .transpose()?;
     let snapshot_details =
         SnapshotDetails::new(OperationKind::CherryPick).with_count(sources.len());

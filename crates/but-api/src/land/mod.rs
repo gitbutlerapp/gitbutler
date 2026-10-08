@@ -608,8 +608,8 @@ fn segment_short_name(segment: &but_workspace::ref_info::Segment) -> Option<Stri
 fn current_workspace_state(ctx: &mut Context) -> anyhow::Result<WorkspaceState> {
     ctx.invalidate_workspace_cache()?;
     let mut meta = ctx.meta()?;
-    let mut guard = ctx.exclusive_worktree_access();
-    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
+    let guard = ctx.exclusive_worktree_access();
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
     WorkspaceState::from_workspace_with_db(
         &ws,
         &mut meta,
