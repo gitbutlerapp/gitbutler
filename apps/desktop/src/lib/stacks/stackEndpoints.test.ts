@@ -222,7 +222,8 @@ describe("buildStackEndpoints", () => {
 		).toEqual({
 			projectId: "project-1",
 			subjectBranch: "refs/heads/feature/source",
-			targetBranch: "refs/heads/feature/target",
+			relativeTo: { type: "reference", subject: "refs/heads/feature/target" },
+			side: "above",
 			dryRun: false,
 		});
 	});

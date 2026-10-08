@@ -61,6 +61,9 @@ pub struct Platform {
     /// If `BRANCH_OR_COMMIT` is a branch, the sources are placed on a new branch above the targeted
     /// branch.
     ///
+    /// If `BRANCH_OR_COMMIT` is a worktree, a branch source is stacked on the branch that worktree
+    /// has checked out and becomes its checked-out branch.
+    ///
     /// This target is applicable for all kinds of `<SOURCES>`.
     ///
     /// If moving commits or committed changes, use `--branch NAME` to name the new branch.

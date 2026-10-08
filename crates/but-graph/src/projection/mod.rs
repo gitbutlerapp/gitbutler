@@ -10,7 +10,7 @@
 /// Note that these are always a simplification, degenerating information, while maintaining a link back to the graph.
 mod stack;
 pub use stack::{
-    Stack, StackCommit, StackCommitDebugFlags, StackCommitFlags, StackSegment, WorktreeBase,
+    Lane, Stack, StackCommit, StackCommitDebugFlags, StackCommitFlags, StackSegment, WorktreeBase,
     WorktreeStack,
 };
 

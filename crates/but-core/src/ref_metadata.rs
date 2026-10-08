@@ -265,6 +265,27 @@ impl Workspace {
         );
         Some(true)
     }
+
+    /// Like [`Self::insert_new_segment_above_anchor_if_not_present()`], but insert `branch` below `anchor`.
+    pub fn insert_new_segment_below_anchor_if_not_present(
+        &mut self,
+        branch: &FullNameRef,
+        anchor: &FullNameRef,
+    ) -> Option<bool> {
+        if self.contains_ref(branch, StackKind::AppliedAndUnapplied) {
+            return Some(false);
+        };
+        let (stack_idx, segment_idx) =
+            self.find_owner_indexes_by_name(anchor, StackKind::AppliedAndUnapplied)?;
+        self.stacks[stack_idx].branches.insert(
+            segment_idx + 1,
+            WorkspaceStackBranch {
+                ref_name: branch.to_owned(),
+                archived: false,
+            },
+        );
+        Some(true)
+    }
 }
 
 /// Return project metadata repaired for migration/recovery paths.
