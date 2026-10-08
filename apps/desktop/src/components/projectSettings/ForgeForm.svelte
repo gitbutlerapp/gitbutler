@@ -2,6 +2,7 @@
 	import BitbucketAccountBadge from "$components/forge/BitbucketAccountBadge.svelte";
 	import GitHubAccountBadge from "$components/forge/GitHubAccountBadge.svelte";
 	import GitLabAccountBadge from "$components/forge/GitLabAccountBadge.svelte";
+	import GiteeAccountBadge from "$components/forge/GiteeAccountBadge.svelte";
 	import ForgeAccountConfig from "$components/projectSettings/ForgeAccountConfig.svelte";
 	import GitHubOrgRestrictionNotice from "$components/projectSettings/GitHubOrgRestrictionNotice.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
@@ -13,6 +14,11 @@
 	import { usePreferredBitbucketUsername } from "$lib/forge/bitbucket/hooks.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import {
+		giteeAccountIdentifierToString,
+		stringToGiteeAccountIdentifier,
+	} from "$lib/forge/gitee/giteeUserService.svelte";
+	import { usePreferredGiteeUsername } from "$lib/forge/gitee/hooks.svelte";
+	import {
 		githubAccountIdentifierToString,
 		stringToGitHubAccountIdentifier,
 	} from "$lib/forge/github/githubUserService.svelte";
@@ -23,6 +29,7 @@
 	} from "$lib/forge/gitlab/gitlabUserService.svelte";
 	import { usePreferredGitLabUsername } from "$lib/forge/gitlab/hooks.svelte";
 	import { LISTING_SERVICE } from "$lib/forge/listingService.svelte";
+	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
@@ -33,6 +40,7 @@
 		BitbucketAccountIdentifier,
 		ForgeName,
 		ForgeUser,
+		GiteeAccountIdentifier,
 		GitHubStackingMode,
 		GithubAccountIdentifier,
 		GitlabAccountIdentifier,
@@ -47,6 +55,7 @@
 		{ label: "GitLab", value: "gitlab" },
 		{ label: "Azure", value: "azure" },
 		{ label: "BitBucket", value: "bitbucket" },
+		{ label: "Gitee", value: "gitee" },
 	];
 
 	const { projectId }: { projectId: string } = $props();
@@ -94,6 +103,11 @@
 		reactive(() => projectId),
 	);
 
+	// Gitee hooks
+	const { preferredGiteeAccount, giteeAccounts } = usePreferredGiteeUsername(
+		reactive(() => projectId),
+	);
+
 	function handleSelectionChange(selectedOption: ForgeSelection) {
 		if (!project) return;
 
@@ -131,6 +145,10 @@
 		await updatePreferredForgeUser(projectId, { provider: "bitbucket", details: account });
 	}
 
+	async function updatePreferredGiteeAccount(projectId: string, account: GiteeAccountIdentifier) {
+		await updatePreferredForgeUser(projectId, { provider: "gitee", details: account });
+	}
+
 	async function updateReviewStackingDescription(value: ReviewStackingDescription) {
 		await gitConfigService.setGbConfig(projectId, { gitbutlerReviewStackingDescription: value });
 	}
@@ -143,23 +161,22 @@
 <CardGroup>
 	<CardGroup.Item>
 		{#snippet title()}
-			Forge override
+			{t("forge-override")}
 		{/snippet}
 
 		{#snippet caption()}
 			{#if determinedForgeType === "default"}
-				We couldn't detect which Forge you're using.
+				{t("we-couldn-t-detect-which-forge-you-re-using")}
 				<br />
-				To enable Forge integration, please select your Forge from the dropdown below.
+				{t("to-enable-forge-integration-please-select-your-forge-from-th")}
 				<br />
-				<span class="text-bold">Note:</span> Currently, only GitHub, GitLab and Bitbucket support pull
-				request creation.
+				<span class="text-bold">Note:</span>
+				{t("currently-only-github-gitlab-and-bitbucket-support-pull-requ")}
 			{:else}
-				We’ve detected that you’re using <span class="text-bold"
-					>{determinedForgeType.toUpperCase()}</span
-				>.
+				{t("we-ve-detected-that-you-re-using")}
+				<span class="text-bold">{determinedForgeType.toUpperCase()}</span>.
 				<br />
-				At the moment, it’s not possible to manually override the detected forge type.
+				{t("at-the-moment-it-s-not-possible-to-manually-override-the-det")}
 			{/if}
 		{/snippet}
 
@@ -181,13 +198,11 @@
 
 	<CardGroup.Item>
 		{#snippet title()}
-			Stack information in review descriptions
+			{t("stack-information-in-review-descriptions")}
 		{/snippet}
 
 		{#snippet caption()}
-			Choose where GitButler-managed stack information appears. Changes apply on the next review
-			sync. The default is Bottom. Does not apply to native GitHub stacked pull requests, where
-			GitHub shows the stack on its own.
+			{t("choose-where-gitbutler-managed-stack-information-appears-cha")}
 		{/snippet}
 
 		<div data-testid="review-stacking-description-select">
@@ -215,7 +230,7 @@
 	{#if forgeInfo?.name === "github"}
 		<CardGroup.Item>
 			{#snippet title()}
-				Native GitHub stacked pull requests
+				{t("native-github-stacked-pull-requests")}
 			{/snippet}
 
 			{#snippet caption()}
@@ -295,6 +310,22 @@
 			updatePreferredAccount={updatePreferredBitbucketAccount}
 			AccountBadge={BitbucketAccountBadge}
 			docsUrl="https://docs.gitbutler.com/features/forge-integration/bitbucket-integration"
+			requestType="pull request"
+		/>
+	{/if}
+
+	{#if forgeInfo?.name === "gitee"}
+		<ForgeAccountConfig
+			{projectId}
+			displayName="Gitee"
+			accounts={giteeAccounts.current}
+			preferredAccount={preferredGiteeAccount.current}
+			accountToString={giteeAccountIdentifierToString}
+			stringToAccount={stringToGiteeAccountIdentifier}
+			getUsername={(account) => account.info.username}
+			updatePreferredAccount={updatePreferredGiteeAccount}
+			AccountBadge={GiteeAccountBadge}
+			docsUrl="https://gitee.com/profile/personal_access_tokens"
 			requestType="pull request"
 		/>
 	{/if}

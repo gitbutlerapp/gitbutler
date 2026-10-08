@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { t } from "$lib/i18n";
+
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import {
@@ -78,11 +80,11 @@
 		}
 	}}
 >
-	<ModalHeader sticky={!isScrollVisible}>Absorb Changes into Commits</ModalHeader>
+	<ModalHeader sticky={!isScrollVisible}>{t("absorb-changes-into-commits")}</ModalHeader>
 	<ScrollableContainer onscrollTop={(visible) => (isScrollVisible = visible)}>
 		<div class="absorb-plan-content">
 			<p class="text-13 text-body clr-text-2">
-				The following changes will be absorbed into their respective commits:
+				{t("the-following-changes-will-be-absorbed-into-their-respective")}
 			</p>
 			<div class="commit-absorptions">
 				{#each absorbPlan as commitAbsorption}
@@ -91,9 +93,9 @@
 						{#if commitAbsorption.reason !== "default_stack"}
 							<div class="absorption__reason text-12 text-body clr-text-2">
 								{#if commitAbsorption.reason === "hunk_dependency"}
-									📍 Files depend on the commit due to overlapping hunks
+									{t("files-depend-on-the-commit-due-to-overlapping-hunks")}
 								{:else if commitAbsorption.reason === "stack_assignment"}
-									🔖 Files assigned to this stack
+									{t("files-assigned-to-this-stack")}
 								{/if}
 							</div>
 						{/if}
@@ -144,7 +146,7 @@
 			disabled={absorbPlan.length === 0 || absorbingChanges.current.isLoading}
 			testId={TestId.AbsorbModal_ActionButton}
 		>
-			Absorb changes
+			{t("absorb-changes")}
 		</Button>
 	{/snippet}
 </Modal>

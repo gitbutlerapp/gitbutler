@@ -1,4 +1,6 @@
 import dayjs from "dayjs";
+import "dayjs/locale/zh-cn";
+import "dayjs/locale/zh-tw";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 import relativeTime from "dayjs/plugin/relativeTime";
 import timezone from "dayjs/plugin/timezone";
@@ -11,11 +13,27 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 function customFormatDistance(date: Date, addSuffix: boolean): string {
-	const distance = dayjs(date).fromNow(!addSuffix);
+	const tag = dayjsLocaleTag(activeLocale());
+	const distance = dayjs(date).locale(tag).fromNow(!addSuffix);
+	if (tag.startsWith("zh")) return distance;
 	return distance.replace(
 		/\b(seconds?|minutes?|hours?|days?|months?|years?)\b/g,
 		(match) => unitShorthandMap[match] ?? "",
 	);
+}
+
+/** Current UI language for date formatting; overridable via setUiLocale. */
+let uiLocale: string | undefined;
+export function setUiLocale(locale: string | undefined) {
+	uiLocale = locale;
+}
+function activeLocale(): string {
+	return uiLocale ?? navigator.language;
+}
+
+// dayjs matches BCP-47 tags to its locale files; zh-CN maps to zh-cn
+function dayjsLocaleTag(tag: string): string {
+	return tag.toLowerCase();
 }
 
 function getSecondsUntilUpdate(seconds: number) {
@@ -38,7 +56,7 @@ export function getTimeAgo(input: Date | number, addSuffix: boolean = true): str
 
 	const seconds = Math.round(Math.abs((new Date().getTime() - date.getTime()) / 1000.0));
 	if (seconds < 10) {
-		return "just now";
+		return dayjsLocaleTag(activeLocale()).startsWith("zh") ? "刚刚" : "just now";
 	} else {
 		return customFormatDistance(date, addSuffix);
 	}
@@ -89,17 +107,20 @@ export function getAbsoluteTimestamp(input: Date | number | undefined, locale?: 
 	const date = typeof input === "number" ? new Date(input) : input;
 
 	// Format the date and time using specified locale or browser locale
-	const dateStr = date.toLocaleDateString(locale, {
+	const active = locale ?? activeLocale();
+	const dateStr = date.toLocaleDateString(active, {
 		year: "numeric",
 		month: "long",
 		day: "numeric",
 	});
-	const timeStr = date.toLocaleTimeString(locale, {
+	const timeStr = date.toLocaleTimeString(active, {
 		hour: "2-digit",
 		minute: "2-digit",
 	});
 
-	return `${dateStr} at ${timeStr}`;
+	return dayjsLocaleTag(active).startsWith("zh")
+		? `${dateStr} ${timeStr}`
+		: `${dateStr} at ${timeStr}`;
 }
 
 /**

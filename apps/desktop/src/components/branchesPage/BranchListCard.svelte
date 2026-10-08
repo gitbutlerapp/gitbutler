@@ -3,6 +3,7 @@
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";
+	import { t } from "$lib/i18n";
 	import { useUserAvatarUrl } from "$lib/user/userAvatar.svelte";
 	import { inject } from "@gitbutler/core/context";
 
@@ -147,7 +148,7 @@
 			{/if}
 
 			{#if branchListing.remotes.length === 0 && !branchListing.hasLocal}
-				<span class="truncate">No remotes</span>
+				<span class="truncate">{t("no-remotes")}</span>
 			{/if}
 		</div>
 	{/snippet}

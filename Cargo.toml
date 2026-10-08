@@ -62,6 +62,7 @@ members = [
     "crates/but-github", # 📄A thin wrapper of the GitHub API, for authentication and resource access.
     # 👉lacks top-level docs and docs.
     "crates/but-gitlab", # 📄A thin wrapper of the GitLab API, for authentication and resource access.
+    "crates/but-gitee", # 📄A thin wrapper of the Gitee API, for authentication and resource access.
     # 👉lacks top-level docs and docs.
     "crates/but-bitbucket", # 📄A thin wrapper of the Bitbucket Cloud API, for authentication and resource access.
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
@@ -163,6 +164,7 @@ but-api-macros = { path = "crates/but-api-macros" }
 but-gerrit = { path = "crates/but-gerrit" }
 but-github = { path = "crates/but-github" }
 but-gitlab = { path = "crates/but-gitlab" }
+but-gitee = { path = "crates/but-gitee" }
 but-bitbucket = { path = "crates/but-bitbucket" }
 but-error = { path = "crates/but-error" }
 but-serde = { path = "crates/but-serde" }

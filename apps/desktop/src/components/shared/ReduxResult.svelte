@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { t } from "$lib/i18n";
+
 	type A = unknown;
 	type B = string | undefined;
 	type C = string | undefined;
@@ -77,7 +79,7 @@
 					{error.name}
 				{/snippet}
 				{#snippet content()}
-					An asynchronous operation failed.
+					{t("an-asynchronous-operation-failed")}
 				{/snippet}
 			</InfoMessage>
 		</div>

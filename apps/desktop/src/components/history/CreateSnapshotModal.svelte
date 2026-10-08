@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { t } from "$lib/i18n";
+
 	export type CreateSnapshotModalProps = {
 		projectId: string;
 	};
@@ -46,7 +48,7 @@
 	onSubmit={createSnapshot}
 >
 	<Textbox
-		placeholder="Snapshot description (optional)"
+		placeholder={t("snapshot-description-optional")}
 		id={ElementId.SnapshotDescriptionInput}
 		bind:value={message}
 		autofocus
@@ -61,7 +63,7 @@
 			type="submit"
 			loading={isCreating}
 		>
-			Create snapshot
+			{t("create-snapshot")}
 		</Button>
 	{/snippet}
 </Modal>

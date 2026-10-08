@@ -998,6 +998,7 @@ dependencies = [
  "but-forge",
  "but-forge-storage",
  "but-gerrit",
+ "but-gitee",
  "but-github",
  "but-gitlab",
  "but-graph",
@@ -1286,6 +1287,7 @@ dependencies = [
  "but-db",
  "but-error",
  "but-forge-storage",
+ "but-gitee",
  "but-github",
  "but-gitlab",
  "but-path",
@@ -1330,6 +1332,24 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "snapbox",
+]
+
+[[package]]
+name = "but-gitee"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-error",
+ "but-forge-storage",
+ "but-schemars",
+ "but-secret",
+ "reqwest",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
+ "urlencoding",
 ]
 
 [[package]]
