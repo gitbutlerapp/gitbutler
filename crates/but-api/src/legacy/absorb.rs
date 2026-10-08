@@ -118,12 +118,8 @@ pub fn absorption_plan_with_perm(
             // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
-            let worktree_changes = crate::diff::changes_in_worktree_with_perm(
-                ctx,
-                ChangesSource::Head,
-                true,
-                perm.read_permission(),
-            )?;
+            let worktree_changes =
+                crate::diff::changes_in_worktree_with_perm(ctx, ChangesSource::Head, true, perm)?;
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
@@ -164,12 +160,8 @@ pub fn absorption_plan_with_perm(
             assigned_stack_id,
         } => {
             // Get all worktree changes, assignments, and dependencies
-            let worktree_changes = crate::diff::changes_in_worktree_with_perm(
-                ctx,
-                ChangesSource::Head,
-                true,
-                perm.read_permission(),
-            )?;
+            let worktree_changes =
+                crate::diff::changes_in_worktree_with_perm(ctx, ChangesSource::Head, true, perm)?;
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
@@ -202,12 +194,8 @@ pub fn absorption_plan_with_perm(
             // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
-            let worktree_changes = crate::diff::changes_in_worktree_with_perm(
-                ctx,
-                ChangesSource::Head,
-                true,
-                perm.read_permission(),
-            )?;
+            let worktree_changes =
+                crate::diff::changes_in_worktree_with_perm(ctx, ChangesSource::Head, true, perm)?;
             (
                 worktree_changes
                     .assignments

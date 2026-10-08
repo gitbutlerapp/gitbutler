@@ -337,12 +337,12 @@ pub fn run(
     let source_repo = ChangeSourceRepo::open(ctx, &commit_selection.source())?;
 
     let sbm = (commit_op.will_create_reference() || commit_op.switch())
-        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
+        .then(|| SingleBranchMode::new(ctx, perm, commit_op.switch()))
         .transpose()?;
 
     let changes = {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        let (repo, ..) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
         // One repo per builder, which is also what keeps `reconcile_worktree_diff_specs`
         // from seeing a spec whose path is not among that checkout's changes.

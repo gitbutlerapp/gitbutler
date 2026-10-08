@@ -1,8 +1,5 @@
 use but_api_macros::but_api;
-use but_core::{
-    sync::{RepoExclusive, RepoShared},
-    ui::TreeChange,
-};
+use but_core::{sync::RepoExclusive, ui::TreeChange};
 use but_ctx::Context;
 use but_hunk_assignment::{HunkAssignmentRequest, WorktreeChanges};
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
@@ -172,16 +169,16 @@ fn worktree_changes_with_modification_times(
 #[but_api(napi, provides = [WorktreeChanges])]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(
-    ctx: &Context,
+    ctx: &mut Context,
     changes_source: ChangesSource,
     compute_deps_and_assignments: bool,
 ) -> anyhow::Result<WorktreeChanges> {
-    let guard = ctx.shared_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     changes_in_worktree_with_perm(
         ctx,
         changes_source,
         compute_deps_and_assignments,
-        guard.read_permission(),
+        guard.write_permission(),
     )
 }
 
@@ -212,10 +209,10 @@ pub fn changes_in_worktree(
 #[but_api(napi)]
 #[instrument(skip_all, err(Debug))]
 pub fn changes_in_worktree_with_perm(
-    ctx: &Context,
+    ctx: &mut Context,
     changes_source: ChangesSource,
     compute_deps_and_assignments: bool,
-    perm: &RepoShared,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorktreeChanges> {
     let context_lines = ctx.settings.context_lines;
 
@@ -228,7 +225,7 @@ pub fn changes_in_worktree_with_perm(
         return Ok(worktree_changes_with_modification_times(&repo)?.into());
     }
 
-    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
     let changes = but_core::diff::worktree_changes(&repo)?;
 
@@ -271,32 +268,29 @@ pub fn changes_in_worktree_with_perm(
 /// Persists `assignments` for the current workspace without creating an oplog
 /// entry.
 ///
-/// This acquires shared worktree access from `ctx` before writing
-/// assignments.
-///
 /// See [`assign_hunk_only_with_perm()`] for details.
 #[but_api]
 #[instrument(skip_all, err(Debug))]
 pub fn assign_hunk_only(
-    ctx: &Context,
+    ctx: &mut Context,
     assignments: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<()> {
-    let guard = ctx.shared_worktree_access();
-    assign_hunk_only_with_perm(ctx, assignments, guard.read_permission())
+    let mut guard = ctx.exclusive_worktree_access();
+    assign_hunk_only_with_perm(ctx, assignments, guard.write_permission())
 }
 
-/// Persists `assignments` under caller-held shared repository access without
+/// Persists `assignments` under caller-held exclusive repository access without
 /// creating an oplog entry.
 ///
 /// For lower-level implementation details, see
 /// [`but_hunk_assignment::assign()`].
 pub fn assign_hunk_only_with_perm(
-    ctx: &Context,
+    ctx: &mut Context,
     assignments: Vec<HunkAssignmentRequest>,
-    perm: &RepoShared,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
     let context_lines = ctx.settings.context_lines;
-    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     but_hunk_assignment::assign(
         db.hunk_assignments_mut()?,
         &repo,
@@ -331,7 +325,7 @@ pub fn assign_hunk(
 /// best-effort `MoveHunk` oplog snapshot and commits the snapshot only if the
 /// assignment succeeds.
 pub fn assign_hunk_with_perm(
-    ctx: &Context,
+    ctx: &mut Context,
     assignments: Vec<HunkAssignmentRequest>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
@@ -344,7 +338,7 @@ pub fn assign_hunk_with_perm(
         but_core::DryRun::No,
     );
 
-    let res = assign_hunk_only_with_perm(ctx, assignments, perm.read_permission());
+    let res = assign_hunk_only_with_perm(ctx, assignments, perm);
     if let Some(snapshot) = maybe_oplog_entry
         && res.is_ok()
     {

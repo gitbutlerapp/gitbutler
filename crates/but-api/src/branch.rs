@@ -856,7 +856,7 @@ pub fn apply_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, mut ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let out = but_workspace::branch::apply(
         existing_branch,
         ws.clone(),
@@ -1029,7 +1029,7 @@ pub fn branch_create_with_perm(
         DryRun::No,
     );
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let checkout_after_create = checkout_anchor_ref.as_ref().is_some_and(|anchor_ref| {
         repo.head_name()
             .ok()
@@ -1135,7 +1135,7 @@ pub fn branch_remove_with_perm(
     // than the branch-order metadata on purpose: the metadata is best-effort and
     // may drift, whereas the projection reflects the real segments.
     let move_head_to = {
-        let (repo, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (repo, ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         let is_checked_out = repo
             .head_name()
             .ok()
@@ -1178,7 +1178,7 @@ pub fn branch_remove_with_perm(
     }
 
     let mut meta = ctx.meta()?;
-    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let new_ws = if moved_head {
         None
     } else {
@@ -1646,12 +1646,12 @@ pub struct ListedBranch {
 #[but_api(napi, try_from = json::InitialBranchIntegration)]
 #[instrument(err(Debug))]
 pub fn get_initial_branch_integration(
-    ctx: &Context,
+    ctx: &mut Context,
     branch: &gix::refs::FullNameRef,
     strategy: Option<json::BranchIntegrationStrategy>,
 ) -> anyhow::Result<InitialBranchIntegration> {
     let mut meta = ctx.meta()?;
-    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+    let (_guard, repo, ws, mut db) = ctx.workspace_mut_and_db_mut()?;
     let mut ws = ws.clone();
     let strategy = strategy
         .map(BranchIntegrationStrategy::from)

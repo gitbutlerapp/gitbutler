@@ -160,7 +160,7 @@ export declare function applyBranchIntegration(projectId: string, branch: string
  *
  * See [`assign_hunk_with_perm()`] for details.
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:317}
+ * {@link ../../../../../crates/but-api/src/diff.rs:311}
  */
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
@@ -302,7 +302,7 @@ export declare function branchRename(projectId: string, refName: FullNameBytes, 
 /**
  * See [`changes_in_worktree_with_perm()`].
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:172}
+ * {@link ../../../../../crates/but-api/src/diff.rs:169}
  */
 export declare function changesInWorktree(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
@@ -332,7 +332,7 @@ export declare function changesInWorktree(projectId: string, changesSource: Chan
  * [`but_hunk_assignment::assignments_with_fallback()`], and
  * [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:212}
+ * {@link ../../../../../crates/but-api/src/diff.rs:209}
  */
 export declare function changesInWorktreeWithPerm(projectId: string, changesSource: ChangesSource, computeDepsAndAssignments: boolean): Promise<WorktreeChanges>
 
@@ -455,7 +455,7 @@ export declare function commitCreate(projectId: string, relativeTo: RelativeTo, 
  * This exists for callers that always want line statistics without passing
  * `line_stats` explicitly.
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:84}
+ * {@link ../../../../../crates/but-api/src/diff.rs:81}
  */
 export declare function commitDetailsWithLineStats(projectId: string, commitId: string): Promise<CommitDetails>
 
@@ -537,7 +537,7 @@ export declare function commitMoveChangesBetween(projectId: string, sourceCommit
  * returns what `branch_diff` returns, so a caller can show a part of a branch
  * the way it shows all of it.
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:102}
+ * {@link ../../../../../crates/but-api/src/diff.rs:99}
  */
 export declare function commitRangeDiff(projectId: string, oldest: string, newest: string): Promise<TreeChanges>
 
@@ -1549,7 +1549,7 @@ export declare function tearOffBranch(projectId: string, subjectBranch: string, 
  * `change` must not be a type change or a submodule change. For lower-level
  * implementation details, see [`but_core::TreeChange::unified_patch()`].
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:126}
+ * {@link ../../../../../crates/but-api/src/diff.rs:123}
  */
 export declare function treeChangeDiffs(projectId: string, change: TreeChange): Promise<UnifiedPatch | null>
 
@@ -1560,7 +1560,7 @@ export declare function treeChangeDiffs(projectId: string, change: TreeChange): 
  * A linked worktree requires the `worktreeManipulation` feature flag and an active
  * worktree, see `worktrees::open_changes_source()`.
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:142}
+ * {@link ../../../../../crates/but-api/src/diff.rs:139}
  */
 export declare function treeChangeDiffsFromSource(projectId: string, changesSource: ChangesSource, change: TreeChange): Promise<UnifiedPatch | null>
 

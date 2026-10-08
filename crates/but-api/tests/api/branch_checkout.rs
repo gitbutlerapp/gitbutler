@@ -252,7 +252,7 @@ fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
     #[cfg(feature = "graph-workspace")]
     {
         let returned = format!("{:#?}", result.workspace.graph_workspace);
-        let fresh = format!("{:#?}", crate::support::fresh_graph_workspace(&ctx)?);
+        let fresh = format!("{:#?}", crate::support::fresh_graph_workspace(&mut ctx)?);
         assert_eq!(
             returned, fresh,
             "checkout API should return the same graph workspace a fresh post-checkout read sees"
@@ -377,7 +377,7 @@ fn checkout_new_returns_head_info_matching_fresh_head_info() -> anyhow::Result<(
     #[cfg(feature = "graph-workspace")]
     {
         let returned = format!("{:#?}", result.workspace.graph_workspace);
-        let fresh = format!("{:#?}", crate::support::fresh_graph_workspace(&ctx)?);
+        let fresh = format!("{:#?}", crate::support::fresh_graph_workspace(&mut ctx)?);
         assert_eq!(
             returned, fresh,
             "checkout-new API should return the same graph workspace a fresh post-checkout read sees"
