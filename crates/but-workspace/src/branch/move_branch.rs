@@ -28,7 +28,6 @@ pub struct Outcome<'ws, 'meta, M: RefMetadata> {
 pub(super) mod function {
 
     use but_core::RefMetadata;
-    use but_core::ref_metadata::StackId;
     use but_rebase::graph_rebase::mutate::SomeSelectors;
 
     use crate::graph_manipulation::DisconnectParameters;
@@ -416,22 +415,6 @@ pub(super) mod function {
                 worktree.name
             );
         }
-        if matches!(
-            (source_lane, anchor.lane, &relative_to),
-            (Lane::Stack(_), Lane::Stack(_), RelativeTo::Reference(_))
-        ) && subject_segment.commits.is_empty()
-            && anchor.segment.commits.is_empty()
-            && let Some(mut ws_meta) = workspace.metadata.clone()
-        {
-            move_branch_in_metadata(&mut ws_meta, subject_branch_name, &anchor);
-            return Ok(Outcome {
-                rebase: successful_rebase,
-                ws_meta: Some(ws_meta),
-                new_tip: None,
-                branch_stack_order: None,
-            });
-        }
-
         let mut editor = successful_rebase.into_editor();
         let target_selector = relative_to
             .to_selector(&editor)
@@ -626,37 +609,6 @@ pub(super) mod function {
             subject_branch_name.to_owned(),
         );
         order
-    }
-
-    fn move_branch_in_metadata(
-        ws_meta: &mut but_core::ref_metadata::Workspace,
-        subject_branch_name: &FullNameRef,
-        anchor: &Anchor<'_>,
-    ) {
-        ws_meta.remove_segment(subject_branch_name);
-        let inserted = anchor
-            .segment
-            .ref_name()
-            .and_then(|anchor_branch_name| match anchor.side {
-                InsertSide::Above => ws_meta.insert_new_segment_above_anchor_if_not_present(
-                    subject_branch_name,
-                    anchor_branch_name,
-                ),
-                InsertSide::Below => ws_meta.insert_new_segment_below_anchor_if_not_present(
-                    subject_branch_name,
-                    anchor_branch_name,
-                ),
-            });
-        if inserted.is_none() {
-            // If metadata doesn't know the anchor (stale metadata),
-            // keep the moved branch represented as a stack tip.
-            ws_meta.add_or_insert_new_stack_if_not_present(
-                subject_branch_name,
-                None,
-                but_core::ref_metadata::WorkspaceCommitRelation::Merged,
-                |_| StackId::generate(),
-            );
-        }
     }
 
     #[cfg(test)]
