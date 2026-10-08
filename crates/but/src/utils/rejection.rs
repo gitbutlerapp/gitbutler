@@ -158,8 +158,8 @@ fn should_allow_stacking_hint(
     has_descendant_dependency: bool,
     changes: &[RejectedChange],
 ) -> bool {
-    !has_descendant_dependency
-        && !(amend_target.is_some()
+    !(has_descendant_dependency
+        || amend_target.is_some()
             && changes
                 .iter()
                 .any(|change| !change.suspected_branches.is_empty()))
@@ -426,32 +426,6 @@ fn sole_dependency_branch(changes: &[RejectedChange]) -> Option<&str> {
     branch
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn amend_path_suspects_suppress_stacking_hints() {
-        let changes = [RejectedChange {
-            path: "shared.txt".into(),
-            reason: RejectionReason::WorkspaceMergeConflict,
-            dependencies: Vec::new(),
-            suspected_branches: vec!["later".to_owned()],
-        }];
-        let amend_target = gix::ObjectId::from_hex(b"0000000000000000000000000000000000000000")
-            .expect("valid object ID");
-
-        assert!(
-            !should_allow_stacking_hint(Some(amend_target), false, &changes),
-            "unverified path-level suspects must not produce an amend stacking hint"
-        );
-        assert!(
-            should_allow_stacking_hint(None, false, &changes),
-            "non-amend operations may still use path-level suspects for a stacking hint"
-        );
-    }
-}
-
 /// Find the hunks of `dependencies` that belong to `spec`.
 ///
 /// Matching is by path, then by hunk overlap: a rejected spec covering specific
@@ -617,5 +591,131 @@ fn reason_summary(reason: RejectionReason) -> &'static str {
         RejectionReason::MissingDiffSpecAssociation => {
             "the selected hunks no longer match the worktree"
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn amend_path_suspects_are_suppressed_after_workspace_fallback() -> anyhow::Result<()> {
+        use but_core::{
+            RefMetadata, WORKSPACE_REF_NAME,
+            ref_metadata::{
+                ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
+            },
+        };
+
+        let (repo, tmp) = but_testsupport::writable_scenario("amend-path-suspect");
+        ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: None,
+        }
+        .persist(&repo)?;
+        std::fs::write(
+            tmp.path().join("shared.txt"),
+            (1..=20)
+                .map(|line| {
+                    if line == 15 {
+                        "worktree change\n".to_owned()
+                    } else if line == 1 {
+                        "target branch change\n".to_owned()
+                    } else if line == 10 {
+                        "later branch change\n".to_owned()
+                    } else {
+                        format!("base line {line}\n")
+                    }
+                })
+                .collect::<String>(),
+        )?;
+        let mut ctx = Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        {
+            let workspace_ref: &gix::refs::FullNameRef = WORKSPACE_REF_NAME.try_into()?;
+            let mut metadata = ctx.meta()?;
+            let mut workspace = metadata.workspace(workspace_ref)?;
+            workspace.stacks = vec![WorkspaceStack {
+                id: StackId::generate(),
+                branches: ["B", "A"]
+                    .into_iter()
+                    .map(|name| {
+                        Ok(WorkspaceStackBranch {
+                            ref_name: format!("refs/heads/{name}").try_into()?,
+                            archived: false,
+                        })
+                    })
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+                workspacecommit_relation: WorkspaceCommitRelation::Merged,
+            }];
+            metadata.set_workspace(&workspace)?;
+        }
+        let target = {
+            let repo = ctx.repo.get()?;
+            let target_commit = repo.rev_parse_single("refs/heads/A")?.detach();
+            Target::Commit(CommitId::try_from_commit_id(target_commit, &repo)?)
+        };
+        let rejected = anyhow::Error::new(RejectedChanges(vec![(
+            RejectionReason::WorkspaceMergeConflict,
+            DiffSpec {
+                previous_path: None,
+                path: "shared.txt".into(),
+                hunk_headers: vec![HunkHeader {
+                    old_start: 1_000,
+                    old_lines: 1,
+                    new_start: 1_000,
+                    new_lines: 1,
+                }],
+            },
+        )]));
+        let mut guard = ctx.exclusive_worktree_access();
+        let report =
+            explain_after_rollback(&ctx, guard.write_permission(), "amend", target, rejected)
+                .to_string();
+
+        assert!(
+            report.contains("conflicts with commits on B") && !report.contains("Hint:"),
+            "unmatched hunk ranges fall back to path suspects but must not suggest stacking during amend: {report}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn amend_path_suspects_suppress_stacking_hints() {
+        let changes = [RejectedChange {
+            path: "shared.txt".into(),
+            reason: RejectionReason::WorkspaceMergeConflict,
+            dependencies: Vec::new(),
+            suspected_branches: vec!["later".to_owned()],
+        }];
+        assert_eq!(
+            sole_dependency_branch(&changes),
+            Some("later"),
+            "path-level suspects still explain which branch touched the rejected file"
+        );
+        let target_commit = gix::ObjectId::from_hex(b"0000000000000000000000000000000000000000")
+            .expect("valid object ID");
+        assert!(
+            !should_allow_stacking_hint(Some(target_commit), false, &changes),
+            "unverified path-level suspects must not produce an amend stacking hint"
+        );
+        assert!(
+            should_allow_stacking_hint(None, false, &changes),
+            "non-amend operations may still use path-level suspects for a stacking hint"
+        );
+
+        let mut report = String::new();
+        write_report(
+            &mut report,
+            &changes,
+            &Target::Branch("target".to_owned()),
+            Some("target"),
+            should_allow_stacking_hint(Some(target_commit), false, &changes),
+        )
+        .expect("writing to a String cannot fail");
+        assert!(
+            report.contains("conflicts with commits on later") && !report.contains("Hint:"),
+            "the report retains the fallback diagnosis without suggesting unsafe stacking: {report}"
+        );
     }
 }
