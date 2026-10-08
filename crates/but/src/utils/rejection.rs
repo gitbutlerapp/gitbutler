@@ -139,6 +139,8 @@ pub fn explain_after_rollback(
                     })
             })
     });
+    let allow_stacking_hint =
+        should_allow_stacking_hint(amend_target, has_descendant_dependency, &changes);
     let mut message = format!("Cannot {verb}: {rejected}:\n");
     // Writing to a String cannot fail.
     let _ = write_report(
@@ -146,9 +148,21 @@ pub fn explain_after_rollback(
         &changes,
         &target,
         target_branch.as_deref(),
-        !has_descendant_dependency,
+        allow_stacking_hint,
     );
     anyhow::Error::new(ExplainedRejection(message.trim_end().to_string()))
+}
+
+fn should_allow_stacking_hint(
+    amend_target: Option<gix::ObjectId>,
+    has_descendant_dependency: bool,
+    changes: &[RejectedChange],
+) -> bool {
+    !has_descendant_dependency
+        && !(amend_target.is_some()
+            && changes
+                .iter()
+                .any(|change| !change.suspected_branches.is_empty()))
 }
 
 /// A single rejected change, enriched with the workspace dependencies that
@@ -410,6 +424,32 @@ fn sole_dependency_branch(changes: &[RejectedChange]) -> Option<&str> {
         }
     }
     branch
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn amend_path_suspects_suppress_stacking_hints() {
+        let changes = [RejectedChange {
+            path: "shared.txt".into(),
+            reason: RejectionReason::WorkspaceMergeConflict,
+            dependencies: Vec::new(),
+            suspected_branches: vec!["later".to_owned()],
+        }];
+        let amend_target = gix::ObjectId::from_hex(b"0000000000000000000000000000000000000000")
+            .expect("valid object ID");
+
+        assert!(
+            !should_allow_stacking_hint(Some(amend_target), false, &changes),
+            "unverified path-level suspects must not produce an amend stacking hint"
+        );
+        assert!(
+            should_allow_stacking_hint(None, false, &changes),
+            "non-amend operations may still use path-level suspects for a stacking hint"
+        );
+    }
 }
 
 /// Find the hunks of `dependencies` that belong to `spec`.
