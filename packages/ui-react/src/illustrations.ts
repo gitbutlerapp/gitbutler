@@ -1,6 +1,7 @@
 import cactus from "./illustrations/cactus.svg?raw";
 import idCard from "./illustrations/id-card.svg?raw";
 import papers from "./illustrations/papers.svg?raw";
+import sleep from "./illustrations/sleep.svg?raw";
 import terminal from "./illustrations/terminal.svg?raw";
 import waving from "./illustrations/waving.svg?raw";
 
@@ -43,6 +44,7 @@ export const illustrations = {
 	cactus,
 	"id-card": idCard,
 	papers,
+	sleep,
 	terminal,
 	waving,
 } as const;
