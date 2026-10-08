@@ -190,6 +190,8 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 ┊● kyl author 2000-01-01 00:00:00 +0000 (sha 536958e)
 ┊│     B-change 
 ┊│     kyl:l A file-b.txt
+┊│
+┊├┄ as [base] (no commits)
 ├╯
 ┊
 ┊● 9354ac4 (upstream: origin/main) 2 new commits

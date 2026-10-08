@@ -532,13 +532,15 @@ fn single_branch_move_below_branch_preserves_checkout() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C] [HEAD]
+┊╭┄ g0 [C] [HEAD] (no commits)
+┊│
+┊├┄ h0 [B]
 ┊●   myy add B
 ┊│
 ┊├┄ mo [moved]
 ┊●   vuw add C
 ┊│
-┊├┄ h0 [A]
+┊├┄ i0 [A]
 ┊●   nmq add A
 ├╯
 ┊
@@ -3800,15 +3802,15 @@ Unstacked branch 'B'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
-┊●   wwm add B
-├╯
-┊
-┊╭┄ h0 [C]
+┊╭┄ g0 [C]
 ┊●   wlx add C
 ┊│
-┊├┄ i0 [A]
+┊├┄ h0 [A]
 ┊●   tpm add A
+├╯
+┊
+┊╭┄ i0 [B]
+┊●   wwm add B
 ├╯
 ┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
@@ -3861,15 +3863,15 @@ Unstacked branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
-┊●   tpm add A
-├╯
-┊
-┊╭┄ h0 [C]
+┊╭┄ g0 [C]
 ┊●   wlx add C
 ┊│
-┊├┄ i0 [B]
+┊├┄ h0 [B]
 ┊●   wwm add B
+├╯
+┊
+┊╭┄ i0 [A]
+┊●   tpm add A
 ├╯
 ┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
@@ -3975,15 +3977,15 @@ Unstacked branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
-┊●   tpm add A
-├╯
-┊
-┊╭┄ h0 [C]
+┊╭┄ g0 [C]
 ┊●   wlx add C
 ┊│
-┊├┄ i0 [B]
+┊├┄ h0 [B]
 ┊●   wwm add B
+├╯
+┊
+┊╭┄ i0 [A]
+┊●   tpm add A
 ├╯
 ┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M

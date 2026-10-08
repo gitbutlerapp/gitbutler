@@ -305,7 +305,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
 └── ≡📙:E on 162b064 {1}
     ├── 📙:E
     │   └── ·cb866ec (🏘️)
-    └── :C
+    └── 📙:C
         └── ·c7b32b8 (🏘️)
 
 "#]]

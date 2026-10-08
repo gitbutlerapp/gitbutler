@@ -212,12 +212,23 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }))
     }
 
-    /// Materializes a history rewrite.
+    fn refresh_workspace(&mut self, repo: &gix::Repository) -> Result<()> {
+        let project_meta = self.workspace.graph.project_meta.clone();
+        self.workspace
+            .refresh_from_head(repo, &*self.meta, project_meta, &mut *self.db)
+    }
+
+    /// Materializes a history rewrite, and records how its branches stack in the metadata.
     pub fn materialize(
         mut self,
         materialize_options: MaterializeOptions,
     ) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+        let branch_stacks = self.branch_stacks()?;
+        let repo = self.repo.clone();
         if !self.references_updated()? {
+            if branch_stacks.persist(self.meta)? {
+                self.refresh_workspace(&repo)?;
+            }
             return Ok(MaterializeOutcome {
                 graph: self.graph,
                 history: self.history,
@@ -228,7 +239,6 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             });
         }
 
-        let repo = self.repo.clone();
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(&self.repo)?;
         }
@@ -296,10 +306,8 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
 
         edit_references_deleting_directory_conflicts_first(&repo, ref_edits)?;
-
-        let project_meta = self.workspace.graph.project_meta.clone();
-        self.workspace
-            .refresh_from_head(&repo, &*self.meta, project_meta, &mut *self.db)?;
+        branch_stacks.persist(self.meta)?;
+        self.refresh_workspace(&repo)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,

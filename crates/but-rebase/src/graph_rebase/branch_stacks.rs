@@ -3,7 +3,14 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
-use but_core::{RefMetadata, WORKSPACE_REF_NAME, branch::resolve_tracking_branch_ref_name};
+use but_core::{
+    RefMetadata, WORKSPACE_REF_NAME,
+    branch::resolve_tracking_branch_ref_name,
+    ref_metadata::{
+        StackId, StackKind, Workspace, WorkspaceCommitRelation, WorkspaceStack,
+        WorkspaceStackBranch,
+    },
+};
 use gix::{
     bstr::ByteSlice as _,
     refs::{Category, FullName},
@@ -27,6 +34,79 @@ pub struct BranchStacks {
     /// The stack `HEAD` is on if there is no workspace commit, followed by one
     /// stack per linked worktree.
     pub ad_hoc: Vec<Vec<FullName>>,
+}
+
+impl BranchStacks {
+    /// The workspace metadata once it describes these stacks, if `HEAD` is in a workspace.
+    ///
+    /// A stack keeps the id and the position of the stack that held its lowest known branch
+    /// before, and stacks that are new to the metadata follow in parent order.
+    pub(crate) fn workspace_metadata<M: RefMetadata>(
+        &self,
+        meta: &M,
+    ) -> Result<Option<M::Handle<Workspace>>> {
+        let Some(stacks) = &self.workspace else {
+            return Ok(None);
+        };
+        let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
+        let mut workspace = meta.workspace(workspace_ref.as_ref())?;
+        let mut kept_ids = HashSet::new();
+        let mut stacks: Vec<_> = stacks
+            .iter()
+            .map(|branches| WorkspaceStack {
+                id: branches
+                    .iter()
+                    .rev()
+                    .find_map(|branch| {
+                        let (stack, _) = workspace.find_owner_indexes_by_name(
+                            branch.as_ref(),
+                            StackKind::AppliedAndUnapplied,
+                        )?;
+                        Some(workspace.stacks.get(stack)?.id)
+                    })
+                    .filter(|id| kept_ids.insert(*id))
+                    .unwrap_or_else(StackId::generate),
+                branches: branches
+                    .iter()
+                    .map(|ref_name| WorkspaceStackBranch {
+                        ref_name: ref_name.clone(),
+                        archived: false,
+                    })
+                    .collect(),
+                workspacecommit_relation: WorkspaceCommitRelation::Merged,
+            })
+            .collect();
+        stacks.sort_by_key(|stack| {
+            workspace
+                .stacks
+                .iter()
+                .position(|previous| previous.id == stack.id)
+                .unwrap_or(usize::MAX)
+        });
+        workspace.stacks = stacks;
+        Ok(Some(workspace))
+    }
+
+    /// Make `meta` describe these stacks, returning whether that changed anything.
+    pub(crate) fn persist<M: RefMetadata>(&self, meta: &mut M) -> Result<bool> {
+        let mut changed = false;
+        if let Some(workspace) = self.workspace_metadata(meta)?
+            && *meta.workspace(workspace.as_ref())? != *workspace
+        {
+            meta.set_workspace(&workspace)?;
+            changed = true;
+        }
+        if meta.can_persist_branch_stack_order() {
+            for stack in &self.ad_hoc {
+                let Some(tip) = stack.first() else { continue };
+                if meta.branch_stack_order(tip.as_ref())?.as_ref() != Some(stack) {
+                    meta.set_branch_stack_order(stack)?;
+                    changed = true;
+                }
+            }
+        }
+        Ok(changed)
+    }
 }
 
 fn first_parents(

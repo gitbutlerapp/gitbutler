@@ -427,10 +427,10 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:B on 85efbe4 {2}
+├── ≡📙:B on 85efbe4 {1}
 │   └── 📙:B
 │       └── ·1273ba9 (🏘️)
-└── ≡📙:A on 85efbe4 {1}
+└── ≡📙:A on 85efbe4 {3}
     └── 📙:A
         └── ·09d8e52 (🏘️)
 

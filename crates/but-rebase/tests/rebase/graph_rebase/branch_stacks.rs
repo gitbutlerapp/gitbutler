@@ -1,9 +1,9 @@
 use anyhow::Result;
-use but_core::ref_metadata::ProjectMeta;
+use but_core::{RefMetadata as _, RepositoryExt as _, ref_metadata::ProjectMeta};
 use but_graph::Graph;
-use but_meta::VirtualBranchesTomlMetadata;
-use but_rebase::graph_rebase::{Editor, testing::Testing as _};
-use but_testsupport::{StackState, invoke_bash};
+use but_meta::{BranchOrderMetadata, VirtualBranchesTomlMetadata};
+use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide, testing::Testing as _};
+use but_testsupport::{StackState, graph_tree, invoke_bash};
 
 use crate::{
     graph_rebase::add_stack_with_segments,
@@ -251,6 +251,107 @@ fn a_worktree_owns_the_branch_it_has_checked_out() -> Result<()> {
 ad hoc
   main
   middle
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
+    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
+    add_stack_with_segments(&mut meta, 0, "stack-b", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "unapplied", StackState::Inactive, &["below"]);
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+
+    let outcome = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?
+        .rebase()?
+        .materialize(Default::default())?;
+
+    let workspace = outcome
+        .meta
+        .workspace("refs/heads/gitbutler/workspace".try_into()?)?;
+    // `stack-b` keeps its id and its place, `stack-a` is new to the metadata, and what isn't a
+    // parent of the workspace commit is gone.
+    snapbox::assert_data_eq!(
+        format!("{:#?}", workspace.stacks),
+        snapbox::str![[r#"
+[
+    WorkspaceStack {
+        id: 00000000-0000-0000-0000-000000000000,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/stack-b",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+    WorkspaceStack {
+        id: [..],
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/stack-a",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+]
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn materializing_persists_an_order_that_moves_no_reference() -> Result<()> {
+    let (repo, _tmp, _meta, mut db) = fixture_writable("many-references")?;
+    let mut meta = BranchOrderMetadata::from_paths(
+        repo.path().join("virtual_branches.toml"),
+        repo.gitbutler_storage_path()?,
+    )?;
+    let graph = Graph::from_head(
+        &repo,
+        &meta,
+        ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+
+    let x = editor.select_reference("refs/heads/X".try_into()?)?;
+    editor.replace_with_none(x)?;
+    let z = editor.select_reference("refs/heads/Z".try_into()?)?;
+    editor.insert(
+        z,
+        Step::new_reference("refs/heads/X".try_into()?),
+        InsertSide::Below,
+    )?;
+    let outcome = editor.rebase()?.materialize(Default::default())?;
+
+    // `X`, `Y` and `Z` all rest on one commit, so only the metadata can tell `X` went to the bottom.
+    snapbox::assert_data_eq!(
+        graph_tree(&outcome.workspace.graph).to_string(),
+        snapbox::str![[r#"
+
+└── 👉►:0[0]:main[🌳]
+    ├── ·120e3a9 (⌂)
+    └── ·a96434e (⌂)
+        └── ►:2[1]:Y
+            └── ►:3[2]:Z
+                └── ►:1[3]:X
+                    ├── ·d591dfe (⌂)
+                    └── 🏁·35b8235 (⌂)
 
 "#]]
     );

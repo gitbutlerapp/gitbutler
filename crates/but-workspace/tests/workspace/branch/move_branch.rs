@@ -829,25 +829,25 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
     rebase.materialize(Default::default())?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
 
-    // before refreshing `ws` the pure-virtual change isn't visible (should be fixed once meta is in db!)
+    // Materializing recorded how the branches stack, so `ws` is current without another refresh.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:B on 85efbe4 {2}
-│   └── 📙:B
-│       └── ·c813d8d (🏘️)
-└── ≡📙:C on 85efbe4 {1}
-    ├── 📙:C
-    │   └── ·f2cc60d (🏘️)
-    └── 📙:A
-        └── ·09d8e52 (🏘️)
+├── ≡📙:C on 85efbe4 {1}
+│   ├── 📙:C
+│   │   └── ·f2cc60d (🏘️)
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:B on 85efbe4 {2}
+    └── 📙:B
+        └── ·c813d8d (🏘️)
 
 "#]]
     );
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
-    // after the refresh the workspace is finally uptodate (this will probably be an issue unless callers know that)
+    // Reading the operation's own metadata back changes nothing.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1897,30 +1897,24 @@ mod single_branch_mode {
         Ok(())
     }
 
-    /// Regression for the "clobbering" concern (#4): a branch is only projected as a *movable*
-    /// segment in ad-hoc mode when it's already part of `branch_order`. Refs that aren't tracked
-    /// there (e.g. stale/partial metadata, or refs created outside GitButler) are not projected as
-    /// segments, so `move_branch` fails to find them *before* reaching the reorder - it can never
-    /// overwrite the persisted order down to just untracked refs. This documents why the
-    /// "neither ref is tracked" path is unreachable in practice.
+    /// Refs created outside GitButler stack like any other local branch: the editor reads the order
+    /// off the graph, so they can be moved without the persisted order losing anything.
     #[test]
-    fn untracked_refs_are_not_movable_and_never_clobber_order() -> anyhow::Result<()> {
+    fn refs_created_outside_gitbutler_are_movable_and_keep_the_order() -> anyhow::Result<()> {
         use gix::refs::transaction::PreviousValue;
 
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
-        let order_before = meta.branch_stack_order(main_ref)?;
         let tip = repo.find_reference(main_ref)?.peel_to_id()?.detach();
 
-        // Two refs at the tip that were never added to `branch_order`. They show up only as commit
-        // decorations, not as ordered stack segments.
         repo.reference(r("refs/heads/x"), tip, PreviousValue::Any, "test")?;
         repo.reference(r("refs/heads/y"), tip, PreviousValue::Any, "test")?;
 
         let mut ws =
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
                 .into_workspace()?;
+        // Nothing was materialized since they were created, so they aren't in the persisted order yet.
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -1936,18 +1930,23 @@ mod single_branch_mode {
 "#]]
         );
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let err = match move_branch_above(editor, r("refs/heads/x"), r("refs/heads/y")) {
-            Ok(_) => panic!("untracked refs must not be movable in single-branch mode"),
-            Err(err) => err,
-        };
+        let but_workspace::branch::move_branch::Outcome {
+            new_tip,
+            branch_stack_order,
+            ..
+        } = move_branch_above(editor, r("refs/heads/y"), r("refs/heads/x"))?;
+
+        assert_eq!(new_tip, None, "neither is the checked-out tip");
         assert_eq!(
-            err.to_string(),
-            "Couldn't find branch to move in workspace with reference name: refs/heads/x"
-        );
-        assert_eq!(
-            meta.branch_stack_order(main_ref)?,
-            order_before,
-            "the branch order must be untouched"
+            branch_stack_order,
+            Some(vec![
+                r("refs/heads/main").to_owned(),
+                r("refs/heads/empty-top").to_owned(),
+                r("refs/heads/empty-bottom").to_owned(),
+                r("refs/heads/base").to_owned(),
+                r("refs/heads/y").to_owned(),
+                r("refs/heads/x").to_owned(),
+            ]),
         );
         Ok(())
     }
