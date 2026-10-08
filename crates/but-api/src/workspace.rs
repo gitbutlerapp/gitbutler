@@ -115,7 +115,7 @@ pub fn workspace_recreate_with_perm(
         Vec::new()
     } else {
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let (repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
             let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
@@ -154,7 +154,7 @@ pub fn workspace_recreate_with_perm(
                 },
             )?;
             if outcome.status.persisted_mutation() {
-                *ws = outcome.workspace.clone();
+                ws = outcome.workspace;
             } else {
                 anyhow::bail!(
                     "BUG: failed to apply head ref ({head_name}). Failed with {:?}",
@@ -163,7 +163,7 @@ pub fn workspace_recreate_with_perm(
             }
         }
 
-        if previously_applied_stack_heads.is_empty() {
+        let result = if previously_applied_stack_heads.is_empty() {
             if matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc) {
                 let workspace_commit_id = create_empty_workspace_commit(&repo, &ws)?;
                 but_core::worktree::safe_checkout_from_head(
@@ -181,7 +181,7 @@ pub fn workspace_recreate_with_perm(
                     "Restore workspace without deleted branches",
                 )?;
             }
-            drop((repo, ws, db));
+            drop(repo);
             crate::branch::workspace_checkout_with_perm_only(ctx, perm)?;
             Vec::new()
         } else {
@@ -202,12 +202,17 @@ pub fn workspace_recreate_with_perm(
                 }
 
                 if apply_outcome.status.persisted_mutation() {
-                    *ws = apply_outcome.workspace.clone();
+                    ws = apply_outcome.workspace;
                 }
             }
+            drop(repo);
 
             conflicting_stacks
-        }
+        };
+
+        ctx.update_workspace_cache(ws);
+
+        result
     };
 
     if let Some(snapshot) = maybe_oplog_entry {

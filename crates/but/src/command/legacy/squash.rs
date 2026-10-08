@@ -1558,6 +1558,12 @@ pub fn run(
                     DryRun::Yes,
                     perm,
                 )?;
+                // The implementation of `commit_uncommit_only_with_perm` requires a write lock on
+                // the workspace even in dry run mode. Ideally, we should change that function
+                // (or better, remove this whole `if` block and instead check for conflicts another
+                // way). For now, invalidate the workspace cache to enable future code to once
+                // again take locks.
+                ctx.invalidate_workspace_cache()?;
 
                 anyhow::ensure!(
                     !workspace.is_conflicted(),
@@ -1622,6 +1628,12 @@ pub fn run(
                         DryRun::Yes,
                         perm,
                     )?;
+                // The implementation of `commit_uncommit_changes_only_with_perm` requires a write lock on
+                // the workspace even in dry run mode. Ideally, we should change that function
+                // (or better, remove this whole `if` block and instead check for conflicts another
+                // way). For now, invalidate the workspace cache to enable future code to once
+                // again take locks.
+                ctx.invalidate_workspace_cache()?;
 
                 anyhow::ensure!(
                     !workspace.is_conflicted(),

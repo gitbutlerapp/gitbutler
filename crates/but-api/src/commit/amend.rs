@@ -72,6 +72,12 @@ pub(crate) fn commit_amend_only_impl(
         .transpose()?;
     let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
+    // `commit_amend_only_impl()` is called in a loop in at least one caller, so we have to put ws
+    // back.
+    drop(repo);
+    drop(db);
+    ctx.update_workspace_cache(ws);
+
     Ok(CommitCreateResult {
         new_commit,
         rejected_specs,
