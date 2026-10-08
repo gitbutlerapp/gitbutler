@@ -284,8 +284,9 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  *
  * Its `meta` reads in one order: `CiStatus`, then ↓ `behind`, ↑ `unpushed`, `uncommitted`, and
  * `commits`. Show ↑ or ⟜, never both; on an expanded branch drop ⟜, since its commits are listed
- * under it. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge), then View
- * PR on a branch with a request.
+ * under it. A branch with no commits yet reads `commits` with "empty" in place of a number, so its
+ * row isn't bare. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge),
+ * then View PR on a branch with a request.
  *
  * In `rich`, an open or draft request takes two lines: its title, which wraps once and then ends in
  * an ellipsis, over the branch's name (`branch`), its state and its actions. A plain branch stays

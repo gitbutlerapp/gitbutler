@@ -293,6 +293,13 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 					actions={push}
 					menu={menu("Branch")}
 				/>
+				<BranchItem
+					layout={layout}
+					title="offline-cache"
+					depth={2}
+					meta={<MetaCount type="commits">empty</MetaCount>}
+					menu={menu("Branch")}
+				/>
 			</Repository>
 			<Repository last>
 				<RepoItem
