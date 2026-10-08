@@ -38,7 +38,7 @@ pub fn reload_legacy(
 ) -> anyhow::Result<Vec<StatusOutputLine>> {
     let mut guard = ctx.exclusive_worktree_access();
 
-    ctx.invalidate_workspace(guard.write_permission());
+    ctx.invalidate_workspace_cache()?;
 
     let mut new_lines = Vec::new();
 
