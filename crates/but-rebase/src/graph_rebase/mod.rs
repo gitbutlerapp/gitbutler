@@ -20,6 +20,8 @@ use gix::refs::transaction::RefEdit;
 use crate::graph_rebase::util::{OrderedParentKind, collect_ordered_parents};
 
 use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
+mod branch_stacks;
+pub use branch_stacks::BranchStacks;
 pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;

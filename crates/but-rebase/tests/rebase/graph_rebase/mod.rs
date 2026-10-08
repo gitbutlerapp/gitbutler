@@ -5,6 +5,7 @@ use but_meta::{
 };
 use but_testsupport::StackState;
 
+mod branch_stacks;
 mod change_id;
 mod cherry_pick;
 mod conflictable_restriction;
