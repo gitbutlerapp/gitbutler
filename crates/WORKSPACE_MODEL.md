@@ -43,7 +43,7 @@ Prefer acquiring permissions/handles once at the boundary, then passing explicit
 
 - repo access
 - workspace/projection, only for presentation/compatibility helpers or existing workspace-shaped boundaries
-- metadata (`but_core::RefMetadata`)
+- metadata snapshots (`but_db::Metadata`)
 - database handles
 - graph or graph editor state for relationship/mutation decisions
 - permission-taking helper variants such as `_with_perm`
@@ -52,7 +52,7 @@ Avoid lower-level helpers reacquiring `Context` or repository write guards while
 
 ## Metadata and target refs
 
-Workspace metadata is exposed through `but_core::RefMetadata` and `but_core::ref_metadata::Workspace`.
+Workspace metadata is stored in SQLite and read through `DbHandle::meta()` or `Transaction::meta()` as `but_db::Metadata` and `but_core::ref_metadata::Workspace` values. Writes use `meta_mut()` and compose with the caller's database transaction. The live TOML file is no longer read or written.
 
 Important concepts:
 
@@ -134,15 +134,15 @@ The graph editor is not merely “a rebase command.” It is the in-memory graph
 
 ### What the editor borrows
 
-`Editor::create(workspace, meta, repo, db)` takes the workspace projection, the metadata handle, and the project database handle **mutably**, and holds all three for the life of the editor, the `SuccessfulRebase` it rebases into, and the `MaterializeOutcome` that materializing produces. The database handle is carriage only — the editor never reads it — but it travels the whole chain so that code after the rewrite can get it back:
+`Editor::create(workspace, repo, db.connection_mut())` borrows the workspace projection and owns a borrowed database view. That view can come from a `DbHandle` or an open `Transaction`, and travels through `SuccessfulRebase` and `MaterializeOutcome`. Metadata and other table access use this same connection, including its uncommitted changes:
 
 - `SuccessfulRebase::db()` — shared, for reads such as the forge review cache.
-- `SuccessfulRebase::repo_meta_and_db_mut()` — for the dry-run path, which never materializes.
+- `SuccessfulRebase::repo_and_db_mut()` — for the dry-run path, which never materializes.
 - `MaterializeOutcome::db` — for the real path.
 
 That exclusivity is the part worth remembering. `but_ctx::Context` hands out its database handle through a runtime-checked cell, so **asking `Context` for another database handle while an editor chain is alive fails at run time, not at compile time** (`RefCell already mutably borrowed`). Take the handle once, thread it through the editor, and pull it back off the rebase or the materialize outcome instead of re-borrowing from `Context`. If later work in the same function needs `Context` again, drop the editor chain and the handle first.
 
-The same applies to the workspace and metadata borrows: an operation that wants to hand `Context` to a helper after materializing must release the editor's borrows before it does.
+The same applies to the workspace borrow: an operation that wants to hand `Context` to a helper after materializing must release the editor's borrows before it does. Metadata snapshots are owned values; obtain a fresh snapshot after metadata writes.
 
 ## Push and upstream integration
 

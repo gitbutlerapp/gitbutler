@@ -521,14 +521,6 @@ impl Context {
 
     /// Use `repo` instead of the default repository that would be opened on first query.
     pub fn with_repo(mut self, repo: gix::Repository) -> anyhow::Result<Self> {
-        if !ProjectMeta::is_ported_repo(&repo)? {
-            ProjectMeta::port_if_needed(&repo, || {
-                Ok(but_meta::legacy_storage::read_legacy_project_meta(
-                    &self.project_data_dir.join("virtual_branches.toml"),
-                )?
-                .unwrap_or_default())
-            })?;
-        }
         self.repo.assign(repo);
         Ok(self)
     }
@@ -774,16 +766,11 @@ impl Context {
     /// one unconditionally, whether or not worktree discovery is enabled.
     fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
         let repo = self.repo.get()?;
-        let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
-            self.project_data_dir().join("virtual_branches.toml"),
-            self.project_data_dir(),
-        )?;
         let mut db = self.db.get_cache_mut()?;
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             self.project_meta()?,
-            &mut db,
+            &mut db.connection_mut(),
             but_graph::init::Options {
                 worktrees: self.settings.feature_flags.worktree_manipulation,
                 ..but_graph::init::Options::limited()
@@ -816,19 +803,14 @@ impl Context {
         _perm: &RepoShared,
     ) -> anyhow::Result<but_graph::Workspace> {
         let repo = self.repo.get()?;
-        let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
-            self.project_data_dir().join("virtual_branches.toml"),
-            self.project_data_dir(),
-        )?;
         let mut reference = repo.find_reference(ref_name)?;
         let tip = reference.peel_to_id()?;
         let mut db = self.db.get_cache_mut()?;
         let graph = but_graph::Graph::from_commit_traversal(
             tip,
             reference.name().to_owned(),
-            &meta,
             self.project_meta()?,
-            &mut db,
+            &mut db.connection_mut(),
             but_graph::init::Options {
                 worktrees: self.settings.feature_flags.worktree_manipulation,
                 ..but_graph::init::Options::limited()
@@ -894,26 +876,6 @@ impl Context {
     pub fn invalidate_workspace_cache(&self) -> anyhow::Result<()> {
         *self.workspace.try_borrow_mut()? = None;
         Ok(())
-    }
-
-    /// Return a read/write metadata handle for the project, backed by `virtual_branches.toml` and
-    /// the branch-order database.
-    ///
-    /// This is a plain read/write accessor and intentionally does *not* prune stale
-    /// branch-order entries: reading branch stack order is best-effort and may return refs for
-    /// branches that no longer exist (consumers already validate each ref against the repository
-    /// and ignore the ones that don't resolve). Pruning happens out-of-band on fetch via
-    /// [`RefMetadata::remove_missing_branch_stack_order_references`](but_core::RefMetadata::remove_missing_branch_stack_order_references);
-    /// see `prune_missing_branch_stack_order` in the API layer.
-    // TODO(ctx): remove method entirely as we don't need it anymore with a DB
-    //            based implementation as long as the instances starts a transaction to isolate
-    //            reads. For a correct implementation, this would also have to hold on to
-    //            `_read_only`.
-    pub fn meta(&self) -> anyhow::Result<impl but_core::RefMetadata + 'static> {
-        but_meta::BranchOrderMetadata::from_paths(
-            self.project_data_dir().join("virtual_branches.toml"),
-            self.project_data_dir(),
-        )
     }
 
     /// Copy all copyable values into an instance to pass across thread boundaries.

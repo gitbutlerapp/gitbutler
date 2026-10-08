@@ -18,7 +18,7 @@ pub struct Outcome<'repo> {
     pub metadata: Option<MetadataEdits>,
 }
 
-/// Edits for application to the [reference metadata store](crate::RefMetadata).
+/// Edits for application to the database metadata store.
 pub struct MetadataEdits {
     /// The workspace metadata stored in the snapshot.
     pub workspace: (gix::refs::FullName, crate::ref_metadata::Workspace),

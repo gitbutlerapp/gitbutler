@@ -70,11 +70,11 @@ impl<'conn> Transaction<'conn> {
 }
 
 pub struct HunkAssignmentsHandle<'conn> {
-    conn: &'conn rusqlite::Connection,
+    pub(crate) conn: &'conn rusqlite::Connection,
 }
 
 pub struct HunkAssignmentsHandleMut<'conn> {
-    sp: rusqlite::Savepoint<'conn>,
+    pub(crate) sp: rusqlite::Savepoint<'conn>,
 }
 
 impl HunkAssignmentsHandle<'_> {

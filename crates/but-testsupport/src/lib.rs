@@ -10,8 +10,13 @@ use gix::{
 pub use gix_testtools;
 use gix_testtools::{Creation, FixtureState, PostResult, tempfile};
 
-mod in_memory_meta;
-pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
+/// Whether a fixture stack is applied to its workspace.
+pub enum StackState {
+    /// The stack is applied.
+    InWorkspace,
+    /// The stack is unapplied.
+    Inactive,
+}
 
 #[cfg(feature = "sandbox")]
 mod sandbox;
@@ -116,13 +121,76 @@ pub fn in_memory_db() -> but_db::DbHandle {
     but_db::DbHandle::new_at_path(":memory:").expect("in-memory database always opens")
 }
 
+/// Add a fixture stack whose tip is `stack_name`, with `segments` ordered from tip to base.
+/// The numeric ID also determines the stack's position among other fixture stacks.
+/// Tests can represent overlapping or stale stacks by storing their workspace value directly.
+pub fn add_stack_with_segments(
+    db: &mut but_db::DbHandle,
+    stack_id: u128,
+    stack_name: &str,
+    state: StackState,
+    segments: &[&str],
+) -> but_core::ref_metadata::StackId {
+    use but_core::ref_metadata::{
+        Workspace, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
+    };
+
+    let stack_id = but_core::ref_metadata::StackId::from_number_for_testing(stack_id);
+    let metadata = db.meta().expect("fixture metadata can be read");
+    let workspace_ref = but_core::WORKSPACE_REF_NAME
+        .try_into()
+        .expect("valid workspace ref");
+    let mut workspace = metadata
+        .workspace(workspace_ref)
+        .cloned()
+        .unwrap_or_else(|| Workspace {
+            ref_info: but_core::ref_metadata::RefInfo {
+                created_at: Some(gix::date::Time::new(1675176957, 0)),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+    let branches = std::iter::once(stack_name)
+        .chain(segments.iter().copied())
+        .map(|name| WorkspaceStackBranch {
+            ref_name: format!("refs/heads/{name}")
+                .try_into()
+                .expect("valid fixture branch"),
+            archived: false,
+        })
+        .collect::<Vec<_>>();
+    for branch in &branches {
+        if metadata.branch(branch.ref_name.as_ref()).is_none() {
+            db.meta_mut()
+                .expect("fixture metadata can be written")
+                .set_branch(branch.ref_name.as_ref(), &Default::default())
+                .expect("fixture branch can be saved");
+        }
+    }
+    workspace.stacks.retain(|stack| stack.id != stack_id);
+    workspace.stacks.push(WorkspaceStack {
+        id: stack_id,
+        branches,
+        workspacecommit_relation: match state {
+            StackState::InWorkspace => WorkspaceCommitRelation::Merged,
+            StackState::Inactive => WorkspaceCommitRelation::Outside,
+        },
+    });
+    workspace.stacks.sort_by_key(|stack| stack.id);
+    db.meta_mut()
+        .expect("fixture metadata can be written")
+        .set_workspace(workspace_ref, &workspace)
+        .expect("fixture workspace can be saved");
+    stack_id
+}
+
 /// The project database of `repo`, at the same location GitButler itself stores it.
 ///
 /// Only for writable fixtures, whose storage lives and dies with the fixture's
 /// temporary directory; shared read-only fixtures use [`in_memory_db()`].
 pub fn project_db(repo: &gix::Repository) -> anyhow::Result<but_db::DbHandle> {
     use but_core::RepositoryExt as _;
-    but_db::DbHandle::new_in_directory(repo.gitbutler_storage_path()?)
+    but_db::DbHandle::new_in_directory(&repo.gitbutler_storage_path()?)
 }
 
 /// Return isolated configuration with a basic setup to run read-only and read-write tests.
