@@ -1344,9 +1344,10 @@ pub fn branch_rename_with_perm(
         };
         let mut editor = Editor::create_with_opts(&mut ws, &mut meta, &repo, &mut db, &options)?;
         editor.replace_reference(editor.select_reference(ref_name.as_ref())?, new_ref.clone())?;
-        editor.rebase()?.materialize(Default::default())?;
-
+        let mut rebase = editor.rebase()?;
+        let (_, meta) = rebase.repo_and_meta_mut();
         meta.rename(ref_name.as_ref(), new_ref.as_ref())?;
+        rebase.materialize(Default::default())?;
     }
 
     // Rebuild the workspace from scratch: this re-reads HEAD, so the moved-HEAD case needs no
