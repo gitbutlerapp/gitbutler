@@ -28,7 +28,7 @@ impl SingleBranchMode {
     pub fn new(ctx: &mut Context, perm: &mut RepoExclusive, switch: bool) -> anyhow::Result<Self> {
         let in_single_branch_mode = in_single_branch_mode_with_perm(ctx, perm.read_permission())?;
 
-        let (repo, ..) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let repo = ctx.repo.get()?;
 
         let project_meta = ProjectMeta::resolve(&repo)?;
         let head_reference = head_name(&repo)?;
