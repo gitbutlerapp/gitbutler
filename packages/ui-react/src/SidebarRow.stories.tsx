@@ -140,7 +140,6 @@ const machine = (
 		online
 		folded={false}
 		icon={<img src={machinePictures[0].src} alt="" width={14} height={14} />}
-		meta={<MetaCount type="age">3d</MetaCount>}
 		menu={menu("Machine")}
 	/>
 );
@@ -152,24 +151,24 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 	return (
 		<>
 			<Repository>
-				<RepoItem
-					layout={layout}
-					name="but-dev"
-					folded={false}
-					meta={<MetaCount type="worktrees">2</MetaCount>}
-					menu={menu("Repository")}
-				/>
+				<RepoItem layout={layout} name="but-dev" folded={false} menu={menu("Repository")} />
 				<WorktreeItem
 					layout={layout}
 					main
 					name="Main worktree"
 					depth={1}
 					folded={false}
-					meta={<MetaCount type="behind">4</MetaCount>}
+					meta={
+						<>
+							<MetaCount type="behind">4</MetaCount>
+							{age("1d")}
+						</>
+					}
 					actions={update}
 					menu={menu("Worktree")}
 				/>
 				<UncommittedItem
+					layout={layout}
 					count={19}
 					depth={2}
 					selected={selected === "uncommitted"}
@@ -272,13 +271,14 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 					folded={false}
 					meta={
 						<>
-							<MetaCount type="uncommitted">2</MetaCount>
 							<MetaCount type="behind">2</MetaCount>
+							{age("5h")}
 						</>
 					}
 					actions={update}
 					menu={menu("Worktree")}
 				/>
+				<UncommittedItem layout={layout} count={2} depth={2} menu={menu("Uncommitted changes")} />
 				<BranchItem
 					layout={layout}
 					title="resume-on-laptop"
@@ -299,7 +299,12 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 					layout={layout}
 					name="berlin-brutalism"
 					folded={false}
-					meta={<MetaCount type="behind">8</MetaCount>}
+					meta={
+						<>
+							<MetaCount type="behind">8</MetaCount>
+							{age("2h")}
+						</>
+					}
 					actions={update}
 					menu={menu("Repository")}
 				/>
@@ -399,7 +404,12 @@ export const UncommittedChanges = meta.story({
 			<RepoItem
 				name="berlin-brutalism"
 				folded={false}
-				meta={<MetaCount type="behind">1</MetaCount>}
+				meta={
+					<>
+						<MetaCount type="behind">1</MetaCount>
+						<MetaCount type="age">2h</MetaCount>
+					</>
+				}
 				menu={menu("Repository")}
 			/>
 			<UncommittedItem count={12} depth={1} menu={menu("Uncommitted changes")} />
@@ -416,17 +426,17 @@ export const UncommittedChanges = meta.story({
 				menu={menu("Branch")}
 			/>
 			<WorktreeDivider depth={0} />
-			<RepoItem
-				name="but-dev"
-				folded={false}
-				meta={<MetaCount type="worktrees">2</MetaCount>}
-				menu={menu("Repository")}
-			/>
+			<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
 			<WorktreeItem
 				name="review-ios"
 				depth={1}
 				folded={false}
-				meta={<MetaCount type="behind">8</MetaCount>}
+				meta={
+					<>
+						<MetaCount type="behind">8</MetaCount>
+						<MetaCount type="age">40m</MetaCount>
+					</>
+				}
 				menu={menu("Worktree")}
 			/>
 			<UncommittedItem count={17} depth={2} selected menu={menu("Uncommitted changes")} />
@@ -457,10 +467,11 @@ const ByRepositoryTree: FC<{ layout: SidebarRowLayout; open: boolean }> = ({ lay
 				folded={!open}
 				icon={picture(0)}
 				meta={
-					open ? (
-						<MetaCount type="age">8m</MetaCount>
-					) : (
+					open ? undefined : (
 						<>
+							<MetaCount type="uncommitted">12</MetaCount>
+							<MetaCount type="unpushed">8</MetaCount>
+							<MetaCount type="behind">3</MetaCount>
 							<MetaCount type="worktrees">2</MetaCount>
 							<MetaCount type="age">8m</MetaCount>
 						</>
@@ -478,12 +489,18 @@ const ByRepositoryTree: FC<{ layout: SidebarRowLayout; open: boolean }> = ({ lay
 						folded={false}
 						meta={
 							<>
-								<MetaCount type="uncommitted">12</MetaCount>
 								<MetaCount type="behind">3</MetaCount>
+								{age("8m")}
 							</>
 						}
 						actions={update}
 						menu={menu("Worktree")}
+					/>
+					<UncommittedItem
+						layout={layout}
+						count={12}
+						depth={2}
+						menu={menu("Uncommitted changes")}
 					/>
 					<BranchItem
 						layout={layout}
@@ -521,6 +538,15 @@ const ByRepositoryTree: FC<{ layout: SidebarRowLayout; open: boolean }> = ({ lay
 						}
 						menu={menu("Branch")}
 					/>
+					<WorktreeDivider depth={1} />
+					<WorktreeItem
+						layout={layout}
+						name="review-ios"
+						depth={1}
+						folded
+						meta={<MetaCount type="age">1d</MetaCount>}
+						menu={menu("Worktree")}
+					/>
 				</>
 			)}
 			<MachineItem
@@ -530,32 +556,27 @@ const ByRepositoryTree: FC<{ layout: SidebarRowLayout; open: boolean }> = ({ lay
 				icon={picture(6)}
 				meta={
 					open ? (
-						<MetaCount type="age">2d</MetaCount>
+						<>
+							<MetaCount type="behind">3</MetaCount>
+							<MetaCount type="age">2d</MetaCount>
+						</>
 					) : (
 						<>
-							<MetaCount type="worktrees">1</MetaCount>
+							<MetaCount type="unpushed">4</MetaCount>
+							<MetaCount type="behind">3</MetaCount>
 							<MetaCount type="age">2d</MetaCount>
 						</>
 					)
 				}
+				actions={update}
 				menu={menu("Machine")}
 			/>
 			{open && (
 				<>
-					<WorktreeItem
-						layout={layout}
-						main
-						name="Main worktree"
-						depth={1}
-						folded={false}
-						meta={<MetaCount type="behind">3</MetaCount>}
-						actions={update}
-						menu={menu("Worktree")}
-					/>
 					<BranchItem
 						layout={layout}
 						title="resume-on-laptop"
-						depth={2}
+						depth={1}
 						folded
 						meta={
 							<>
@@ -570,7 +591,7 @@ const ByRepositoryTree: FC<{ layout: SidebarRowLayout; open: boolean }> = ({ lay
 						layout={layout}
 						title="feat: archive old worktrees"
 						pr={{ number: 31, state: "merged" }}
-						depth={2}
+						depth={1}
 						folded
 						meta={
 							<>
@@ -599,19 +620,13 @@ const ByRepositoryTree: FC<{ layout: SidebarRowLayout; open: boolean }> = ({ lay
 	);
 };
 
-const repository = (
-	<RepoItem
-		name="but-dev"
-		folded={false}
-		meta={<MetaCount type="age">8m</MetaCount>}
-		menu={menu("Repository")}
-	/>
-);
+const repository = <RepoItem name="but-dev" folded={false} menu={menu("Repository")} />;
 
 /**
  * Grouped by repository: the repository heads the card and its machines are rows inside it, each
- * over its own worktrees. Folded, a machine sums up its worktrees and its age, and a cloud machine
- * shows its agents' time. Open, the same card in `compact` and in `rich`.
+ * over its own worktrees, or straight over the branches of its only one. Folded, a machine sums up
+ * its worktrees and its age, and a cloud machine shows its agents' time. Open, a row over several
+ * worktrees shows no age, as each says its own. The same card in `compact` and in `rich`.
  */
 export const ByRepository = meta.story({
 	parameters: { design: { type: "figma", url: core("2642-10912") } },

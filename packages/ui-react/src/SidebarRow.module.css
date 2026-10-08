@@ -139,11 +139,13 @@
 	align-items: center;
 }
 
-/* compact: the name takes the line, the state sits at the end, and the actions and the menu take
-   its place under the pointer, on keyboard focus and on a selected row. Keyboard focus only: a
-   click focuses what it lands on (the chevron too), and the actions would stay up after it. Also
-   while the row's menu is open: the popup takes the pointer and the focus away from the row, and
-   its button must stay put. */
+/* compact: the name takes the line and the state sits at the end, where it stays: the menu follows
+   it under the pointer, on keyboard focus and on a selected row, and the name gives way. The
+   actions, a next step for what the state counts (Update for ↓, Push for ↑), take the state's
+   place under the pointer and on keyboard focus only, so a selected row still says where it stands.
+   Keyboard focus only: a click focuses what it lands on (the chevron too), and the actions would
+   stay up after it. Also while the row's menu is open: the popup takes the pointer and the focus
+   away from the row, and its button must stay put. */
 .compact {
 	.label {
 		flex-grow: 1;
@@ -166,19 +168,45 @@
 	column-gap: var(--space-sm);
 	align-items: center;
 
-	.row:is(
-			:hover,
-			:focus-visible,
-			:has(:focus-visible),
-			[data-selected],
-			:has([aria-haspopup][aria-expanded="true"])
-		)
+	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
 		& {
 		visibility: visible;
 	}
 }
 
 .endSwaps .meta {
+	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
+		& {
+		visibility: hidden;
+	}
+}
+
+/* With no state to swap with, the actions keep no room while hidden: the name takes the line, and
+   gives the end back only while they show, as the menu does. */
+.endBare {
+	.row:not(
+			:hover,
+			:focus-visible,
+			:has(:focus-visible),
+			:has([aria-haspopup][aria-expanded="true"])
+		)
+		& {
+		display: none;
+	}
+}
+
+/* rich, one line: the state and the actions follow the name, which gives way first. */
+.rich .label {
+	flex: 0 1 auto;
+}
+
+/* In either layout the menu takes the row's end only while it shows, so the name keeps the width
+   the rest of the time. */
+.menu {
+	display: none;
+	flex-shrink: 0;
+	margin-inline-start: auto;
+
 	.row:is(
 			:hover,
 			:focus-visible,
@@ -187,45 +215,6 @@
 			:has([aria-haspopup][aria-expanded="true"])
 		)
 		& {
-		visibility: hidden;
-	}
-}
-
-/* With no state to swap with, the actions keep no room while hidden: the name takes the line, and
-   gives the end back only while they show, as rich's menu does. */
-.endBare {
-	.row:not(
-			:hover,
-			:focus-visible,
-			:has(:focus-visible),
-			[data-selected],
-			:has([aria-haspopup][aria-expanded="true"])
-		)
-		& {
-		display: none;
-	}
-}
-
-/* rich, one line: the state and the actions follow the name, which gives way first; the menu
-   takes the row's end only while it shows, so the name keeps the width the rest of the time. */
-.rich {
-	.label {
-		flex: 0 1 auto;
-	}
-
-	.menu {
-		display: none;
-		margin-inline-start: auto;
-	}
-
-	&:is(
-			:hover,
-			:focus-visible,
-			:has(:focus-visible),
-			[data-selected],
-			:has([aria-haspopup][aria-expanded="true"])
-		)
-		.menu {
 		display: flex;
 	}
 }
