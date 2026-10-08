@@ -5,15 +5,44 @@ import { Popup, PopupItem, PopupSection } from "./Popup.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 import { ContextMenu as BaseContextMenu, Menu as BaseMenu } from "@base-ui/react";
 import type { HotkeySequence } from "@tanstack/react-hotkeys";
-import type { ComponentProps, FC, ReactElement, ReactNode } from "react";
+import { useMemo, type ComponentProps, type FC, type ReactElement, type ReactNode } from "react";
 
 /** Where a menu without a trigger hangs: under an element, or at a point (where a click landed). */
 export type MenuAnchor = Element | { x: number; y: number };
 
-const toAnchor = (anchor: MenuAnchor | null | undefined) =>
-	anchor == null || anchor instanceof Element
-		? anchor
-		: { getBoundingClientRect: () => DOMRect.fromRect({ x: anchor.x, y: anchor.y }) };
+/** What Base UI positions the menu against, kept steady while the menu fades out:
+ * - a point becomes an element of its own, kept while the point stays put, since a new one on
+ *   every render reads as a new anchor;
+ * - an element is measured through a stand-in that keeps its last real place, since a button that
+ *   shows only while its menu is open (a row's ⋯) measures as nothing once the menu starts to
+ *   close.
+ * Either way, a menu fading out after a click elsewhere would otherwise jump to the corner of the
+ * page. */
+const useAnchor = (anchor: MenuAnchor | null | undefined) => {
+	const point = anchor != null && !(anchor instanceof Element) ? anchor : null;
+	const element = anchor instanceof Element ? anchor : null;
+	const [x, y] = [point?.x, point?.y];
+	const atPoint = useMemo(
+		() =>
+			x === undefined || y === undefined
+				? null
+				: { getBoundingClientRect: () => DOMRect.fromRect({ x, y }) },
+		[x, y],
+	);
+	const atElement = useMemo(() => {
+		if (!element) return null;
+		let seen: DOMRect | null = null;
+		return {
+			contextElement: element,
+			getBoundingClientRect: () => {
+				const rect = element.getBoundingClientRect();
+				if (rect.width > 0 || rect.height > 0) seen = rect;
+				return seen ?? rect;
+			},
+		};
+	}, [element]);
+	return anchor == null ? anchor : (atElement ?? atPoint);
+};
 
 /** The popup every menu wears: the one overlay container, scrolling when the window is shorter than its list. */
 const MenuPopup: FC<
@@ -22,7 +51,7 @@ const MenuPopup: FC<
 		side?: "top" | "bottom" | "left" | "right";
 		align?: "start" | "center" | "end";
 		sideOffset?: number;
-		anchor?: ReturnType<typeof toAnchor>;
+		anchor?: ReturnType<typeof useAnchor>;
 	} & ComponentProps<"div">
 > = ({ popup, side, align, sideOffset, anchor, className, children, ...props }) => (
 	<BaseMenu.Portal>
@@ -81,27 +110,35 @@ export const Menu: FC<MenuProps> = ({
 	align = "start",
 	sideOffset = 4,
 	...props
-}) => (
-	<BaseMenu.Root
-		open={open}
-		onOpenChange={(next, details) => {
-			const pressed = details.event.target;
-			if (!next && anchor instanceof Element && pressed instanceof Node && anchor.contains(pressed))
-				return;
-			onOpenChange?.(next);
-		}}
-	>
-		{trigger !== undefined && <BaseMenu.Trigger render={trigger} />}
-		<MenuPopup
-			{...props}
-			popup={<BaseMenu.Popup />}
-			side={side}
-			align={align}
-			sideOffset={sideOffset}
-			anchor={toAnchor(anchor)}
-		/>
-	</BaseMenu.Root>
-);
+}) => {
+	const at = useAnchor(anchor);
+	return (
+		<BaseMenu.Root
+			open={open}
+			onOpenChange={(next, details) => {
+				const pressed = details.event.target;
+				if (
+					!next &&
+					anchor instanceof Element &&
+					pressed instanceof Node &&
+					anchor.contains(pressed)
+				)
+					return;
+				onOpenChange?.(next);
+			}}
+		>
+			{trigger !== undefined && <BaseMenu.Trigger render={trigger} />}
+			<MenuPopup
+				{...props}
+				popup={<BaseMenu.Popup />}
+				side={side}
+				align={align}
+				sideOffset={sideOffset}
+				anchor={at}
+			/>
+		</BaseMenu.Root>
+	);
+};
 
 /** @public */
 export type ContextMenuProps = {
