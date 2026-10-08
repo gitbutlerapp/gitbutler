@@ -11,6 +11,7 @@
 
 use std::collections::BTreeMap;
 
+use but_core::ChangeId;
 #[cfg(not(feature = "graph-workspace"))]
 use but_workspace::RefInfo;
 
@@ -89,6 +90,8 @@ pub mod workspace_state;
 pub struct WorkspaceState {
     /// Commits that were replaced by the operation. Maps `old_id -> new_id`.
     pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+    /// Conflicted commits that were created.
+    pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
     /// The workspace presented for the frontend. See [`RefInfo`] for more
     /// detail.
     #[cfg(not(feature = "graph-workspace"))]

@@ -38,14 +38,21 @@ fn basic_cherry_pick_clean() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Commit(
-    Sha1(5a8f27d64a93b97e42b375c14540acebba2b1d09),
-)
+Commit {
+    id: Sha1(5a8f27d64a93b97e42b375c14540acebba2b1d09),
+    change_id: "tluxvxwmqzsnmnkovynrsxsmkwnusryt",
+    conflicted: false,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::Commit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: false,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -85,14 +92,21 @@ fn basic_cherry_pick_cp_conflicts() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-ConflictedCommit(
-    Sha1(c36dcfcf8bab780dcacc0bc43e8a31af2a1e7703),
-)
+Commit {
+    id: Sha1(c36dcfcf8bab780dcacc0bc43e8a31af2a1e7703),
+    change_id: "snzrqmxlovtnlnnpspxxzxlmqxtkryln",
+    conflicted: true,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::ConflictedCommit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: true,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -140,9 +154,11 @@ fn basic_cherry_pick_identity() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Identity(
-    Sha1(b23d933c3781f649b740445e5337362d74b9103e),
-)
+Identity {
+    id: Sha1(b23d933c3781f649b740445e5337362d74b9103e),
+    change_id: "snzrqmxlovtnlnnpspxxzxlmqxtkryln",
+    conflicted: false,
+}
 
 "#]]
     );
@@ -170,14 +186,21 @@ fn single_parent_to_multiple_parents_clean() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Commit(
-    Sha1(26eb34db737ae1cee6887cd1ab9a48c72c3d9c04),
-)
+Commit {
+    id: Sha1(26eb34db737ae1cee6887cd1ab9a48c72c3d9c04),
+    change_id: "tluxvxwmqzsnmnkovynrsxsmkwnusryt",
+    conflicted: false,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::Commit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: false,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -220,14 +243,21 @@ fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-ConflictedCommit(
-    Sha1(333dd65cbcc689b08744e30717faa343f88b0554),
-)
+Commit {
+    id: Sha1(333dd65cbcc689b08744e30717faa343f88b0554),
+    change_id: "snzrqmxlovtnlnnpspxxzxlmqxtkryln",
+    conflicted: true,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::ConflictedCommit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: true,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -326,14 +356,21 @@ fn synthetic_empty_merge_template_with_conflicting_new_parents_materializes_conf
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-ConflictedCommit(
-    Sha1(009287dffe7bc486ed6e08ce70ac55f291b15354),
-)
+Commit {
+    id: Sha1(009287dffe7bc486ed6e08ce70ac55f291b15354),
+    change_id: "nonuwuruzsrzzpklznvyqztzxrtwmwkr",
+    conflicted: true,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::ConflictedCommit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: true,
+    } = result
+    else {
         bail!("synthetic merge template should materialize a conflicted merge commit");
     };
 
@@ -410,14 +447,21 @@ fn synthetic_empty_merge_template_with_unrelated_new_parents_uses_empty_base_tre
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Commit(
-    Sha1(8deb9d849412560636bc9dce3a82392324467c0b),
-)
+Commit {
+    id: Sha1(8deb9d849412560636bc9dce3a82392324467c0b),
+    change_id: "uuyuxzmmxzozlpwnpzwyrtszumrozzxt",
+    conflicted: false,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::Commit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: false,
+    } = result
+    else {
         bail!("unrelated synthetic merge template should merge from the empty tree base");
     };
 
@@ -463,14 +507,21 @@ fn multiple_parents_to_single_parent_clean() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Commit(
-    Sha1(52a5e75c1e032898649d840c92a4e0a0ef03a60b),
-)
+Commit {
+    id: Sha1(52a5e75c1e032898649d840c92a4e0a0ef03a60b),
+    change_id: "pnrsvxnoxmkuqzonwuwzttvnztymnrrm",
+    conflicted: false,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::Commit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: false,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -511,14 +562,21 @@ fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-ConflictedCommit(
-    Sha1(3621c40c48ee697ce42ace960055702479ca5267),
-)
+Commit {
+    id: Sha1(3621c40c48ee697ce42ace960055702479ca5267),
+    change_id: "stlsupktwqskpwmxyovkxqzwwnoyqyrs",
+    conflicted: true,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::ConflictedCommit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: true,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -611,14 +669,21 @@ fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Commit(
-    Sha1(e1211f8c8ed78875cd0c231a3d9e51cff51186f9),
-)
+Commit {
+    id: Sha1(e1211f8c8ed78875cd0c231a3d9e51cff51186f9),
+    change_id: "pnrsvxnoxmkuqzonwuwzttvnztymnrrm",
+    conflicted: false,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::Commit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: false,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -661,14 +726,21 @@ fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-ConflictedCommit(
-    Sha1(718d834a2a57256c4a54706573a5d9863d54a653),
-)
+Commit {
+    id: Sha1(718d834a2a57256c4a54706573a5d9863d54a653),
+    change_id: "stlsupktwqskpwmxyovkxqzwwnoyqyrs",
+    conflicted: true,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::ConflictedCommit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: true,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -802,9 +874,11 @@ fn multiple_parents_to_multiple_parents_identity() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Identity(
-    Sha1(bec85a3ab113b86032660cac3d09afb4d342e135),
-)
+Identity {
+    id: Sha1(bec85a3ab113b86032660cac3d09afb4d342e135),
+    change_id: "pnrsvxnoxmkuqzonwuwzttvnztymnrrm",
+    conflicted: false,
+}
 
 "#]]
     );
@@ -831,9 +905,11 @@ fn no_parents_identity() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Identity(
-    Sha1(7a749663ddce268238da073e025f30a281120ef5),
-)
+Identity {
+    id: Sha1(7a749663ddce268238da073e025f30a281120ef5),
+    change_id: "pkszvrryvuznkpvzsnlzuoynvytvswoo",
+    conflicted: false,
+}
 
 "#]]
     );
@@ -860,14 +936,21 @@ fn single_parent_to_no_parents_clean() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Commit(
-    Sha1(768bf9f3dd8f1e6c5d24af762e87bba00a87cd5c),
-)
+Commit {
+    id: Sha1(768bf9f3dd8f1e6c5d24af762e87bba00a87cd5c),
+    change_id: "tluxvxwmqzsnmnkovynrsxsmkwnusryt",
+    conflicted: false,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::Commit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: false,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -906,14 +989,21 @@ fn no_parents_to_single_parent_clean() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Commit(
-    Sha1(288077e946039664793caf577166f21a82f70830),
-)
+Commit {
+    id: Sha1(288077e946039664793caf577166f21a82f70830),
+    change_id: "pkszvrryvuznkpvzsnlzuoynvytvswoo",
+    conflicted: false,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::Commit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: false,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -953,14 +1043,21 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-ConflictedCommit(
-    Sha1(46139f9346b201bf8cbff2112adecd3c99a2a956),
-)
+Commit {
+    id: Sha1(46139f9346b201bf8cbff2112adecd3c99a2a956),
+    change_id: "tppuzsoyyslzulsunvmtnqtywulolzsm",
+    conflicted: true,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::ConflictedCommit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: true,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -1008,14 +1105,21 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-ConflictedCommit(
-    Sha1(718d834a2a57256c4a54706573a5d9863d54a653),
-)
+Commit {
+    id: Sha1(718d834a2a57256c4a54706573a5d9863d54a653),
+    change_id: "stlsupktwqskpwmxyovkxqzwwnoyqyrs",
+    conflicted: true,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::ConflictedCommit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: true,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -1033,14 +1137,21 @@ ConflictedCommit(
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Commit(
-    Sha1(56ee45903fbd7570c857b02d4c5487e718564e72),
-)
+Commit {
+    id: Sha1(56ee45903fbd7570c857b02d4c5487e718564e72),
+    change_id: "stlsupktwqskpwmxyovkxqzwwnoyqyrs",
+    conflicted: false,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::Commit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: false,
+    } = result
+    else {
         bail!("impossible");
     };
 
@@ -1098,14 +1209,21 @@ fn cherry_pick_recursive_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         result.to_debug(),
         snapbox::str![[r#"
-Commit(
-    Sha1(b127ce2b2cf3e3c5bf2527a6082b565df4f8ab65),
-)
+Commit {
+    id: Sha1(b127ce2b2cf3e3c5bf2527a6082b565df4f8ab65),
+    change_id: "otxmsnwkyqvrqrvztkqzqqxllkurozrn",
+    conflicted: false,
+}
 
 "#]]
     );
 
-    let CherryPickOutcome::Commit(id) = result else {
+    let CherryPickOutcome::Commit {
+        id,
+        change_id: _,
+        conflicted: false,
+    } = result
+    else {
         bail!("impossible");
     };
 

@@ -1705,14 +1705,17 @@ async fn dispatch_subcommand(
                 command::legacy::merge::handle(&mut ctx, out, &branch, yes, no_ff, whole_stack)
                     .context("Failed to merge branch.")
                     .map_err(Into::into);
-            if result.is_ok() {
+            if let Ok(conflicted_commits) = result {
                 command::legacy::conflict_notice::report_newly_conflicted(
                     &ctx,
                     out,
                     conflicts_before,
+                    conflicted_commits,
                 );
+                return Ok(DispatchOutcome::ExitWithoutDestructors(Ok(())));
+            } else {
+                return Ok(DispatchOutcome::ExitWithoutDestructors(result.map(|_| ())));
             }
-            return Ok(DispatchOutcome::ExitWithoutDestructors(result));
         }
         #[cfg(feature = "legacy")]
         Subcommands::Pick(pick_args) => {
@@ -1773,14 +1776,18 @@ async fn dispatch_subcommand(
     };
 
     #[cfg(feature = "legacy")]
-    if let Some(ws) = ws
-        && ws.checkout_conflict_occurred
-    {
-        command::legacy::conflict_notice::report_checkout_conflict(out);
-    }
-    #[cfg(feature = "legacy")]
-    if let Some(conflicts_before) = newly_conflicted_data {
-        command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
+    if let Some(ws) = ws {
+        if ws.checkout_conflict_occurred {
+            command::legacy::conflict_notice::report_checkout_conflict(out);
+        }
+        if let Some(conflicts_before) = newly_conflicted_data {
+            command::legacy::conflict_notice::report_newly_conflicted(
+                &ctx,
+                out,
+                conflicts_before,
+                ws.conflicted_commits,
+            );
+        }
     }
     #[cfg(feature = "legacy")]
     if let Some(status_after) = status_after_data {

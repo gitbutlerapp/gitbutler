@@ -95,8 +95,9 @@ pub(crate) fn report_newly_conflicted(
     ctx: &Context,
     out: &mut OutputChannel,
     before: ConflictSnapshot,
+    after: Vec<(gix::ObjectId, ChangeId)>,
 ) {
-    if let Err(err) = try_report_newly_conflicted(ctx, out, before) {
+    if let Err(err) = try_report_newly_conflicted(ctx, out, before, after) {
         tracing::warn!(?err, "could not report newly conflicted commits");
     }
 }
@@ -105,14 +106,26 @@ fn try_report_newly_conflicted(
     ctx: &Context,
     out: &mut OutputChannel,
     before: ConflictSnapshot,
+    after: Vec<(gix::ObjectId, ChangeId)>,
 ) -> anyhow::Result<()> {
     let Some(before) = before.change_ids else {
         return Ok(());
     };
-    let newly: Vec<_> = conflicted_workspace_commits(ctx)?
-        .into_iter()
-        .filter(|commit| !before.contains(&commit.inner.change_id))
-        .collect();
+    let repo = ctx.repo.get()?;
+    let mut newly = Vec::new();
+    for (commit_id, change_id) in after {
+        if before.contains(&change_id) {
+            continue;
+        };
+        let commit = but_core::Commit::from_id(commit_id.attach(&repo))?;
+        newly.push(ConflictedCommit {
+            inner: CommitIdentifiers {
+                id: commit_id,
+                change_id,
+            },
+            message: message_excerpt(&commit),
+        });
+    }
     if newly.is_empty() {
         return Ok(());
     }
