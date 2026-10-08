@@ -39,9 +39,10 @@ pub struct BranchStacks {
 impl BranchStacks {
     /// The workspace metadata once it describes these stacks, if `HEAD` is in a workspace.
     ///
-    /// A stack keeps the id and the position of the stack that held its lowest known branch
-    /// in `projected`, the workspace as it was before the rewrite, and stacks that are new to
-    /// the metadata follow in parent order.
+    /// A stack keeps the id and the position of a stack its branches were in, in `projected`,
+    /// the workspace as it was before the rewrite. Stacks whose branches were all in one stack
+    /// choose first, then those mixing several, each taking the stack of its lowest branch that
+    /// is still free. Stacks that are new to the metadata follow in parent order.
     pub(crate) fn workspace_metadata<M: RefMetadata>(
         &self,
         meta: &M,
@@ -55,22 +56,38 @@ impl BranchStacks {
         if projected.ref_name() == Some(workspace_ref.as_ref()) {
             projected.reconcile_metadata(&mut workspace)?;
         }
+        let came_from: Vec<Vec<StackId>> = stacks
+            .iter()
+            .map(|branches| {
+                let mut ids = Vec::new();
+                for branch in branches.iter().rev() {
+                    let previous = workspace
+                        .find_owner_indexes_by_name(branch.as_ref(), StackKind::AppliedAndUnapplied)
+                        .and_then(|(stack, _)| workspace.stacks.get(stack));
+                    if let Some(previous) = previous
+                        && !ids.contains(&previous.id)
+                    {
+                        ids.push(previous.id);
+                    }
+                }
+                ids
+            })
+            .collect();
+        let mut choosing: Vec<usize> = (0..stacks.len()).collect();
+        choosing.sort_by_key(|stack| came_from[*stack].len() > 1);
         let mut kept_ids = HashSet::new();
+        let mut ids = vec![None; stacks.len()];
+        for stack in choosing {
+            ids[stack] = came_from[stack]
+                .iter()
+                .copied()
+                .find(|id| kept_ids.insert(*id));
+        }
         let mut stacks: Vec<_> = stacks
             .iter()
-            .map(|branches| WorkspaceStack {
-                id: branches
-                    .iter()
-                    .rev()
-                    .find_map(|branch| {
-                        let (stack, _) = workspace.find_owner_indexes_by_name(
-                            branch.as_ref(),
-                            StackKind::AppliedAndUnapplied,
-                        )?;
-                        Some(workspace.stacks.get(stack)?.id)
-                    })
-                    .filter(|id| kept_ids.insert(*id))
-                    .unwrap_or_else(StackId::generate),
+            .zip(ids)
+            .map(|(branches, id)| WorkspaceStack {
+                id: id.unwrap_or_else(StackId::generate),
                 branches: branches
                     .iter()
                     .map(|ref_name| WorkspaceStackBranch {

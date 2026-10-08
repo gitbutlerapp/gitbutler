@@ -1248,6 +1248,74 @@ fn workspace_metadata_stack_order(
         .collect()
 }
 
+#[test]
+fn a_branch_moved_to_the_bottom_of_another_stack_leaves_both_stacks_in_their_lanes()
+-> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-single-stack-double-stack",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
+            },
+        )?;
+    let mut ws = graph.into_workspace()?;
+
+    // The stack of `C` is the first parent of the workspace commit, and gives away its lowest branch.
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    but_workspace::branch::move_branch(
+        editor,
+        "refs/heads/B".try_into()?,
+        RelativeTo::Reference("refs/heads/A".try_into()?),
+        InsertSide::Below,
+    )?
+    .rebase
+    .materialize(Default::default())?;
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   ├── 📙:A
+│   └── 📙:B
+│       ├── ·f9061ed (🏘️)
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:C on 85efbe4 {2}
+    └── 📙:C
+        └── ·8e00332 (🏘️)
+
+"#]]
+    );
+
+    // The stack of `C` is still the first parent, and now receives the lowest branch of the other.
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    but_workspace::branch::move_branch(
+        editor,
+        "refs/heads/B".try_into()?,
+        RelativeTo::Reference("refs/heads/C".try_into()?),
+        InsertSide::Below,
+    )?
+    .rebase
+    .materialize(Default::default())?;
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    └── 📙:B
+        ├── ·df5d4d6 (🏘️)
+        ├── ·2506923 (🏘️)
+        └── ·8e00332 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
 fn set_workspace_metadata(
     meta: &mut impl RefMetadata,
     ws: &but_graph::Workspace,
