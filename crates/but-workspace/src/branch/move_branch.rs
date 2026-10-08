@@ -504,16 +504,15 @@ pub(super) mod function {
         }
         editor.insert_segment(target_selector, subject_delimiter, side)?;
 
-        // Keep workspace metadata aligned with the graph move outcome for all move cases.
-        // We remove the subject branch from its current location and reinsert it next to the anchor,
-        // unless it left for a worktree, which workspace metadata doesn't describe.
-        if let Some(ws_meta) = ws_meta.as_mut() {
-            match anchor.lane {
-                Lane::Stack(_) => move_branch_in_metadata(ws_meta, subject_branch_name, &anchor),
-                Lane::Worktree(_) => {
-                    ws_meta.remove_segment(subject_branch_name);
-                }
-            }
+        // Keep workspace metadata aligned with the graph move outcome: we remove the subject
+        // branch from its current location and reinsert it next to the anchor.
+        // A branch that left for a worktree leaves its stack when the move is materialized.
+        let ws_meta = match anchor.lane {
+            Lane::Stack(_) => ws_meta.map(|mut ws_meta| {
+                move_branch_in_metadata(&mut ws_meta, subject_branch_name, &anchor);
+                ws_meta
+            }),
+            Lane::Worktree(_) => None,
         };
 
         Ok(Outcome {
