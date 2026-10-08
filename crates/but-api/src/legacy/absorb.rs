@@ -230,6 +230,17 @@ pub fn absorb_with_checkpoint_with_perm(
     let source_hunks = but_core::worktree_hunks(&repo, context_lines)?;
     let editor = Editor::create(&mut workspace, &mut meta, &repo, &mut db)?;
     let mut rebase = editor.rebase()?;
+    for absorption in &absorption_plan {
+        let Some(blank_commit_ref) = &absorption.blank_commit_ref else {
+            continue;
+        };
+        let actual_target = rebase.reference_target(blank_commit_ref.as_ref())?;
+        anyhow::ensure!(
+            actual_target == absorption.commit_id,
+            "Absorb plan is stale: {blank_commit_ref} moved from {} to {actual_target}",
+            absorption.commit_id
+        );
+    }
 
     // Apply each group to the in-memory rebase and track failures. Nothing is
     // materialized until every planned group has been interpreted.
@@ -247,15 +258,6 @@ pub fn absorb_with_checkpoint_with_perm(
             let blank_commit = if let Some(blank_commit) = blank_commits.get(blank_commit_ref) {
                 *blank_commit
             } else {
-                let expected_target = rewritten_commits
-                    .get(&absorption.commit_id)
-                    .copied()
-                    .unwrap_or(absorption.commit_id);
-                let actual_target = rebase.reference_target(blank_commit_ref.as_ref())?;
-                anyhow::ensure!(
-                    actual_target == expected_target,
-                    "Absorb plan is stale: {blank_commit_ref} moved from {expected_target} to {actual_target}"
-                );
                 let (next_rebase, selector) = but_workspace::commit::insert_blank_commit(
                     rebase.into_editor(),
                     InsertSide::Below,
@@ -2809,6 +2811,7 @@ mod tests {
             metadata.set_workspace(&workspace)?;
         }
         let empty_branch: gix::refs::FullName = "refs/heads/empty".try_into()?;
+        let upper_empty_branch: gix::refs::FullName = "refs/heads/empty-upper".try_into()?;
         let a_branch: gix::refs::FullName = "refs/heads/A".try_into()?;
         crate::branch::branch_create(
             &mut ctx,
@@ -2818,32 +2821,53 @@ mod tests {
                 side: InsertSide::Above,
             },
         )?;
+        crate::branch::branch_create(
+            &mut ctx,
+            Some(upper_empty_branch.clone()),
+            crate::branch::json::BranchCreatePlacement::Dependent {
+                relative_to: crate::commit::json::RelativeTo::Reference(empty_branch.clone()),
+                side: InsertSide::Above,
+            },
+        )?;
         std::fs::write(tmp.path().join("empty.txt"), "new empty-branch content\n")?;
+        std::fs::write(
+            tmp.path().join("empty-upper.txt"),
+            "new upper empty-branch content\n",
+        )?;
 
         crate::diff::assign_hunk_only(
             &ctx,
-            vec![but_hunk_assignment::HunkAssignmentRequest {
-                hunk_header: Some(but_core::HunkHeader {
-                    old_start: 1,
-                    old_lines: 0,
-                    new_start: 1,
-                    new_lines: 1,
-                }),
-                path_bytes: bstr::BString::from("empty.txt"),
-                target: Some(but_hunk_assignment::HunkAssignmentTarget::Branch {
-                    branch_ref_bytes: bstr::BString::from(empty_branch.to_string().as_bytes()),
-                }),
-            }],
+            [
+                ("empty.txt", &empty_branch),
+                ("empty-upper.txt", &upper_empty_branch),
+            ]
+            .into_iter()
+            .map(
+                |(path, branch)| but_hunk_assignment::HunkAssignmentRequest {
+                    hunk_header: Some(but_core::HunkHeader {
+                        old_start: 1,
+                        old_lines: 0,
+                        new_start: 1,
+                        new_lines: 1,
+                    }),
+                    path_bytes: bstr::BString::from(path),
+                    target: Some(but_hunk_assignment::HunkAssignmentTarget::Branch {
+                        branch_ref_bytes: bstr::BString::from(branch.to_string().as_bytes()),
+                    }),
+                },
+            )
+            .collect(),
         )?;
         let before = absorb_invocation_state(
             &mut ctx,
             tmp.path(),
-            &["a.txt", "b.txt", "empty.txt"],
+            &["a.txt", "b.txt", "empty.txt", "empty-upper.txt"],
             &[
                 "refs/heads/main",
                 "refs/heads/A",
                 "refs/heads/B",
                 "refs/heads/empty",
+                "refs/heads/empty-upper",
                 "refs/remotes/origin/main",
                 "refs/heads/gitbutler/workspace",
             ],
@@ -2851,6 +2875,7 @@ mod tests {
                 ("refs/heads/A", &["a.txt"]),
                 ("refs/heads/B", &["b.txt"]),
                 ("refs/heads/empty", &["empty.txt"]),
+                ("refs/heads/empty-upper", &["empty-upper.txt"]),
                 ("refs/heads/gitbutler/workspace", &["a.txt", "b.txt"]),
             ],
         )?;
@@ -2886,12 +2911,13 @@ mod tests {
         let after = absorb_invocation_state(
             &mut ctx,
             tmp.path(),
-            &["a.txt", "b.txt", "empty.txt"],
+            &["a.txt", "b.txt", "empty.txt", "empty-upper.txt"],
             &[
                 "refs/heads/main",
                 "refs/heads/A",
                 "refs/heads/B",
                 "refs/heads/empty",
+                "refs/heads/empty-upper",
                 "refs/remotes/origin/main",
                 "refs/heads/gitbutler/workspace",
             ],
@@ -2899,6 +2925,7 @@ mod tests {
                 ("refs/heads/A", &["a.txt"]),
                 ("refs/heads/B", &["b.txt"]),
                 ("refs/heads/empty", &["empty.txt"]),
+                ("refs/heads/empty-upper", &["empty-upper.txt"]),
                 ("refs/heads/gitbutler/workspace", &["a.txt", "b.txt"]),
             ],
         )?;
@@ -2915,14 +2942,19 @@ mod tests {
             .get()?
             .rev_parse_single("refs/heads/empty")?
             .detach();
+        let upper_empty_before = ctx
+            .repo
+            .get()?
+            .rev_parse_single("refs/heads/empty-upper")?
+            .detach();
         let empty_plan = absorption_plan(&mut ctx, AbsorptionTarget::All)?
             .into_iter()
-            .filter(|absorption| absorption.blank_commit_ref.as_ref() == Some(&empty_branch))
+            .filter(|absorption| absorption.blank_commit_ref.is_some())
             .collect::<Vec<_>>();
         assert_eq!(
             empty_plan.len(),
-            1,
-            "the successful control has one deferred empty-branch target"
+            2,
+            "the successful control has deferred targets for both empty branches"
         );
         assert_eq!(
             absorb(&mut ctx, empty_plan)?,
@@ -2931,11 +2963,16 @@ mod tests {
         );
         let repo = ctx.repo.get()?;
         let empty_after = repo.rev_parse_single("refs/heads/empty")?.detach();
+        let upper_empty_after = repo.rev_parse_single("refs/heads/empty-upper")?.detach();
         assert_ne!(
             empty_after, empty_before,
-            "successful execution publishes the staged blank commit"
+            "successful execution publishes the staged lower blank commit"
         );
-        let blob = repo
+        assert_ne!(
+            upper_empty_after, upper_empty_before,
+            "successful execution publishes the staged upper blank commit"
+        );
+        let empty_blob = repo
             .find_commit(empty_after)?
             .tree()?
             .lookup_entry_by_path("empty.txt")?
@@ -2943,8 +2980,19 @@ mod tests {
             .object()?
             .into_blob();
         assert_eq!(
-            blob.data, b"new empty-branch content\n",
-            "the staged blank commit receives the selected content"
+            empty_blob.data, b"new empty-branch content\n",
+            "the lower staged blank commit receives its selected content"
+        );
+        let upper_empty_blob = repo
+            .find_commit(upper_empty_after)?
+            .tree()?
+            .lookup_entry_by_path("empty-upper.txt")?
+            .expect("upper empty branch contains the absorbed file")
+            .object()?
+            .into_blob();
+        assert_eq!(
+            upper_empty_blob.data, b"new upper empty-branch content\n",
+            "the upper staged blank commit receives its selected content"
         );
         Ok(())
     }
