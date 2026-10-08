@@ -31,7 +31,7 @@ const meta = preview.meta({
 
 /**
  * A filter anchored under its control: each row shows or hides one kind, ticked while shown. Not a
- * menu of actions — those are Electron's own, raised through `native-menu.ts`.
+ * menu of actions — that is a `Menu`.
  */
 export const Default = meta.story({
 	args: {

@@ -280,8 +280,8 @@ export type DropdownProps = {
  * A popup anchored to the control that opened it, with nothing dimmed behind it. Wears the same
  * container as {@link Modal}, minus the backdrop.
  *
- * This is for anchored *panels* — a notification list, a reaction picker, a filter. Menus in Lite
- * are Electron's own, raised through `native-menu.ts`; a dropdown is not the place to rebuild one.
+ * This is for anchored *panels* — a notification list, a reaction picker, a filter. A list of
+ * actions is a `Menu`, from `Menu.tsx`; a dropdown is not the place to rebuild one.
  *
  * It is as wide as its content, and never narrower than its trigger: a short list under a wide
  * control lines up with it, and a long one grows past it.
