@@ -102,6 +102,7 @@ struct RejectedAbsorption {
     path: bstr::BString,
     hunk_headers: Vec<but_core::HunkHeader>,
     reason: AbsorptionReason,
+    rejection_reason: but_core::tree::create_tree::RejectionReason,
 }
 
 impl std::fmt::Display for AbsorbExecutionOutcome {
@@ -125,18 +126,42 @@ impl std::fmt::Display for AbsorbExecutionOutcome {
                 .join(", ");
             writeln!(
                 out,
-                "- {} {} -> {} ({}): {}",
+                "- {} {} -> {} ({}): routed by {}; rejected because {}",
                 rejected.path,
                 ranges,
                 rejected.commit_summary,
                 rejected.commit_id,
-                rejected.reason.description()
+                rejected.reason.description(),
+                rejection_reason_description(rejected.rejection_reason)
             )?;
         }
         write!(
             out,
             "Refresh the absorb plan and inspect the listed dependencies before retrying."
         )
+    }
+}
+
+fn rejection_reason_description(
+    reason: but_core::tree::create_tree::RejectionReason,
+) -> &'static str {
+    use but_core::tree::create_tree::RejectionReason;
+
+    match reason {
+        RejectionReason::NoEffectiveChanges => "no effective change to commit",
+        RejectionReason::CherryPickMergeConflict => "cherry-pick conflict",
+        RejectionReason::WorkspaceMergeConflict => "workspace merge conflict",
+        RejectionReason::WorkspaceMergeConflictOfUnrelatedFile => {
+            "workspace merge conflict in an unrelated file"
+        }
+        RejectionReason::WorktreeFileMissingForObjectConversion => {
+            "worktree file went missing while committing"
+        }
+        RejectionReason::FileToLargeOrBinary => "file is too large or binary",
+        RejectionReason::PathNotFoundInBaseTree => "path was not found in the base tree",
+        RejectionReason::UnsupportedDirectoryEntry => "unsupported directory entry",
+        RejectionReason::UnsupportedTreeEntry => "unsupported file type",
+        RejectionReason::MissingDiffSpecAssociation => "selected hunk no longer matches the file",
     }
 }
 
@@ -294,7 +319,7 @@ pub fn absorb_with_checkpoint_with_perm(
             let new_commit = rebase.lookup_pick(commit_selector)?;
             commit_map.add_mapping(commit_id, new_commit);
         }
-        for (_, spec) in rejected_specs {
+        for (rejection_reason, spec) in rejected_specs {
             rejected_groups
                 .entry((
                     absorption.commit_id,
@@ -307,6 +332,7 @@ pub fn absorb_with_checkpoint_with_perm(
                     path: spec.path,
                     hunk_headers: spec.hunk_headers,
                     reason: absorption.reason.clone(),
+                    rejection_reason,
                 });
         }
     }
@@ -3138,7 +3164,9 @@ mod tests {
         assert!(
             diagnostic.contains("shared.txt -18,1 +18,1")
                 && diagnostic.contains("add shared file")
-                && diagnostic.contains("files locked to commit")
+                && diagnostic
+                    .contains("routed by files locked to commit due to hunk range overlap")
+                && diagnostic.contains("rejected because selected hunk no longer matches the file")
                 && diagnostic.contains("no changes were published"),
             "rejection diagnostics identify the selection, target, reason, and atomic outcome: \
              {diagnostic}"
@@ -4066,6 +4094,29 @@ mod tests {
         );
         assert_eq!(ordered[1].commit_summary, "A");
         assert_eq!(ordered[2].commit_summary, "B");
+    }
+
+    #[test]
+    fn rejected_absorption_reports_the_failure_reason() {
+        let outcome = AbsorbExecutionOutcome {
+            rejected: vec![RejectedAbsorption {
+                commit_id: gix::ObjectId::from_hex(b"0000000000000000000000000000000000000000")
+                    .expect("valid object ID"),
+                commit_summary: "target".to_owned(),
+                path: "shared.txt".into(),
+                hunk_headers: Vec::new(),
+                reason: AbsorptionReason::DefaultStack,
+                rejection_reason:
+                    but_core::tree::create_tree::RejectionReason::CherryPickMergeConflict,
+            }],
+        };
+
+        let diagnostic = outcome.to_string();
+        assert!(
+            diagnostic.contains("routed by last commit in the primary lane")
+                && diagnostic.contains("rejected because cherry-pick conflict"),
+            "rejection diagnostics distinguish why the target was chosen from why applying failed: {diagnostic}"
+        );
     }
 
     #[test]
