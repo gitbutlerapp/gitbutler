@@ -342,7 +342,7 @@ pub fn run(
 
     let changes = {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ..) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let repo = ctx.repo.get()?;
 
         // One repo per builder, which is also what keeps `reconcile_worktree_diff_specs`
         // from seeing a spec whose path is not among that checkout's changes.

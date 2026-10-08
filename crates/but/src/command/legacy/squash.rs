@@ -1319,7 +1319,7 @@ pub fn run(
             source: _,
         }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+            let repo = ctx.repo.get()?;
             let mut builder =
                 DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
             for source in &sources {
@@ -1351,7 +1351,7 @@ pub fn run(
             source: _,
         } => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+            let repo = ctx.repo.get()?;
             let mut builder =
                 DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
             builder.push_changes_from_uncommitted_area()?;
@@ -1374,7 +1374,7 @@ pub fn run(
             reword,
         } => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+            let repo = ctx.repo.get()?;
             let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             let mut tree_changes = None;
             for change in sources {
@@ -1444,7 +1444,7 @@ pub fn run(
         },
         SquashOperation::UncommitCommittedChanges(UncommitChangesOperation { source, sources }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+            let repo = ctx.repo.get()?;
             let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             let mut tree_changes = None;
             for change in sources {
