@@ -859,7 +859,7 @@ pub fn apply_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let out = but_workspace::branch::apply(
         existing_branch,
         ws.clone(),
@@ -878,7 +878,9 @@ pub fn apply_only_with_perm(
     )?;
 
     if out.status.persisted_mutation() {
-        *ws = out.workspace.clone();
+        drop(repo);
+        drop(ws);
+        ctx.update_workspace_cache(out.workspace.clone());
     }
     Ok(out)
 }
@@ -1032,7 +1034,7 @@ pub fn branch_create_with_perm(
         DryRun::No,
     );
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let checkout_after_create = checkout_anchor_ref.as_ref().is_some_and(|anchor_ref| {
         repo.head_name()
             .ok()
@@ -1048,11 +1050,12 @@ pub fn branch_create_with_perm(
         &mut meta,
         |_| StackId::generate(),
         order,
-    )?;
-    *ws = new_ws.into_owned();
+    )?
+    .into_owned();
     drop(ws);
     drop(repo);
     drop(meta);
+    ctx.update_workspace_cache(new_ws);
 
     if let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
@@ -1187,7 +1190,7 @@ pub fn branch_remove_with_perm(
     }
 
     let mut meta = ctx.meta()?;
-    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (mut repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let new_ws = if moved_head {
         None
     } else {
@@ -1203,7 +1206,9 @@ pub fn branch_remove_with_perm(
         )?
     };
     let changed = if let Some(new_ws) = new_ws {
-        *ws = new_ws;
+        drop(ws);
+        drop(repo);
+        ctx.update_workspace_cache(new_ws);
         true
     } else {
         // Standalone branches are intentionally absent from the workspace
@@ -1218,14 +1223,16 @@ pub fn branch_remove_with_perm(
                 .graph
                 .redo_traversal_with_overlay(&repo, &meta, Default::default())?
                 .into_workspace()?;
-            *ws = new_ws;
+            drop(ws);
+            drop(repo);
+            ctx.update_workspace_cache(new_ws);
             true
         } else {
+            drop(ws);
+            drop(repo);
             false
         }
     };
-    drop(ws);
-    drop(repo);
     drop(meta);
 
     if changed && let Some(snapshot) = maybe_oplog_entry {
