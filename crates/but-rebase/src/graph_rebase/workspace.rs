@@ -210,13 +210,11 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 all_until_optional_limit(&self.graph, entrypoint_ix, target_ix);
 
             // The workspace commit, if present, lives somewhere in `HEAD ^target`.
-            let workspace_commit = head_not_target_commit.nodes.iter().copied().find_map(|ix| {
-                let Step::Pick(Pick { id, .. }) = &self.graph[ix] else {
-                    return None;
-                };
-                let gix_commit = self.repo.find_commit(*id).ok()?;
-                is_managed_workspace_by_message(gix_commit.message_raw().ok()?).then_some(ix)
-            });
+            let workspace_commit = head_not_target_commit
+                .nodes
+                .iter()
+                .copied()
+                .find(|ix| is_workspace_commit(&self.graph, &self.repo, *ix));
 
             if let Some(workspace_commit_ix) = workspace_commit {
                 let (above_workspace, stacks) = divide_workspace_into_stacks(
@@ -630,6 +628,21 @@ fn combined_push_status<K: Copy + Eq + std::hash::Hash>(
         }
     }
     own
+}
+
+pub(crate) fn is_workspace_commit(
+    graph: &StepGraph,
+    repo: &gix::Repository,
+    ix: StepGraphIndex,
+) -> bool {
+    let Step::Pick(Pick { id, .. }) = &graph[ix] else {
+        return false;
+    };
+    repo.find_commit(*id).is_ok_and(|commit| {
+        commit
+            .message_raw()
+            .is_ok_and(is_managed_workspace_by_message)
+    })
 }
 
 /// All steps in `start ^limit`, or everything reachable from `start` when there
