@@ -12,7 +12,7 @@
 		"@gitbutler/design-core": "10.0.0",
 		"@hono/node-server": "2.0.10",
 		"@modelcontextprotocol/ext-apps": "1.7.4",
-		"@modelcontextprotocol/sdk": "1.30.0",
+		"@modelcontextprotocol/sdk": "1.31.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4"
 	},
