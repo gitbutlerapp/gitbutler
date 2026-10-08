@@ -613,6 +613,16 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
+    fn move_checkouts(&mut self, from: Selector, to: Selector) -> Result<()> {
+        for checkout in &mut self.checkouts {
+            let (Checkout::Head { selector, .. } | Checkout::Worktree { selector, .. }) = checkout;
+            if self.history.normalize_selector(*selector)?.id == from.id {
+                *selector = to;
+            }
+        }
+        Ok(())
+    }
+
     /// Insert a segment relative to a selector.
     ///
     /// `target` - Selector to insert the segment relative to.
@@ -708,13 +718,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                         };
                         self.graph.add_edge(edge_source, child.id, new_weight);
                     }
-                    for checkout in &mut self.checkouts {
-                        let (Checkout::Head { selector, .. } | Checkout::Worktree { selector, .. }) =
-                            checkout;
-                        if self.history.normalize_selector(*selector)?.id == target.id {
-                            *selector = child;
-                        }
-                    }
+                    self.move_checkouts(target, child)?;
                 }
 
                 // Connect the target to the parent-most node in the given segment according to
