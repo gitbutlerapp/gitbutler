@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::Context as _;
 use bstr::ByteSlice;
@@ -894,8 +894,8 @@ fn prepare_commit_absorptions(
     Ok(commit_absorptions)
 }
 
-/// Preserve selectors from one source diff hunk as one amendment so they retain
-/// their shared coordinate space.
+/// Order source-hunk groups bottom-up per path, batching independent paths into
+/// one amendment. Selectors from a source hunk stay adjacent and in caller order.
 fn absorption_steps_for_application(
     absorptions: Vec<CommitAbsorption>,
     source_hunks: &[but_core::SingleHunk],
@@ -904,20 +904,62 @@ fn absorption_steps_for_application(
         .into_iter()
         .flat_map(|absorption| {
             let selected_hunks = absorption.hunks.iter().collect::<Vec<_>>();
-            hunk_groups_by_source(&selected_hunks, source_hunks)
-                .into_iter()
-                .map(move |indices| CommitAbsorption {
-                    stack_id: absorption.stack_id,
-                    commit_id: absorption.commit_id,
-                    blank_commit_ref: absorption.blank_commit_ref.clone(),
-                    source_snapshot_tree: absorption.source_snapshot_tree,
-                    commit_summary: absorption.commit_summary.clone(),
-                    hunks: indices
-                        .into_iter()
-                        .map(|index| absorption.hunks[index].clone())
-                        .collect(),
-                    reason: absorption.reason.clone(),
-                })
+            let mut groups = hunk_groups_by_source(&selected_hunks, source_hunks);
+            groups.sort_by(|left, right| {
+                let source_hunk = |indices: &[usize]| {
+                    let selected = &absorption.hunks[indices[0]];
+                    source_hunks
+                        .iter()
+                        .find(|source| hunk_is_within_source(selected, source))
+                        .unwrap_or(selected)
+                };
+                let left_hunk = source_hunk(left);
+                let right_hunk = source_hunk(right);
+                let start = |hunk: &but_core::SingleHunk| {
+                    hunk.hunk_header.map_or(0, |header| {
+                        if header.new_start == 0 {
+                            header.old_start
+                        } else {
+                            header.new_start
+                        }
+                    })
+                };
+                left_hunk
+                    .path
+                    .cmp(&right_hunk.path)
+                    .then_with(|| start(right_hunk).cmp(&start(left_hunk)))
+            });
+            let mut batches = Vec::<Vec<Vec<usize>>>::new();
+            let mut batch_paths = Vec::<HashSet<bstr::BString>>::new();
+            for group in groups {
+                let group_paths = group
+                    .iter()
+                    .map(|index| absorption.hunks[*index].path.clone())
+                    .collect::<HashSet<_>>();
+                let batch_index = batch_paths
+                    .iter()
+                    .position(|paths| paths.is_disjoint(&group_paths))
+                    .unwrap_or_else(|| {
+                        batch_paths.push(HashSet::new());
+                        batches.push(Vec::new());
+                        batches.len() - 1
+                    });
+                batch_paths[batch_index].extend(group_paths);
+                batches[batch_index].push(group);
+            }
+            batches.into_iter().map(move |groups| CommitAbsorption {
+                stack_id: absorption.stack_id,
+                commit_id: absorption.commit_id,
+                blank_commit_ref: absorption.blank_commit_ref.clone(),
+                source_snapshot_tree: absorption.source_snapshot_tree,
+                commit_summary: absorption.commit_summary.clone(),
+                hunks: groups
+                    .into_iter()
+                    .flatten()
+                    .map(|index| absorption.hunks[index].clone())
+                    .collect(),
+                reason: absorption.reason.clone(),
+            })
         })
         .collect()
 }
@@ -1019,7 +1061,9 @@ fn hunk_groups_by_source(
         let source_index = source_hunks
             .iter()
             .position(|source| hunk_is_within_source(selected, source));
-        if let Some((_, indices)) = groups
+        if source_index.is_none() {
+            groups.push((None, vec![selected_index]));
+        } else if let Some((_, indices)) = groups
             .iter_mut()
             .find(|(group_source, _)| source_index.is_some() && *group_source == source_index)
         {
@@ -3044,7 +3088,7 @@ mod tests {
         );
         let diagnostic = rejected.to_string();
         assert!(
-            diagnostic.contains("shared.txt -5,1 +5,1")
+            diagnostic.contains("shared.txt -18,1 +18,1")
                 && diagnostic.contains("add shared file")
                 && diagnostic.contains("files locked to commit")
                 && diagnostic.contains("no changes were published"),
@@ -3850,9 +3894,11 @@ mod tests {
     }
 
     #[test]
-    fn absorption_steps_preserve_source_hunk_groups() {
+    fn absorption_steps_order_and_batch_source_hunk_groups() {
         let stack_id = StackId::generate();
         let commit_id = gix::ObjectId::from_hex(b"0000000000000000000000000000000000000000")
+            .expect("valid object ID");
+        let next_commit_id = gix::ObjectId::from_hex(b"1111111111111111111111111111111111111111")
             .expect("valid object ID");
         let hunk_at = |path: &str, line| but_core::SingleHunk {
             hunk_header: Some(but_core::HunkHeader {
@@ -3873,51 +3919,105 @@ mod tests {
             hunks,
             reason: AbsorptionReason::HunkDependency,
         };
-        let steps = absorption_steps_for_application(
+        let ordered = absorption_steps_for_application(
             vec![
                 absorption(
                     "A",
                     vec![
                         hunk_at("shared.txt", 10),
                         hunk_at("other.txt", 1),
-                        hunk_at("shared.txt", 100),
+                        but_core::SingleHunk {
+                            hunk_header: Some(but_core::HunkHeader {
+                                old_start: 100,
+                                old_lines: 1,
+                                new_start: 0,
+                                new_lines: 0,
+                            }),
+                            path: "shared.txt".into(),
+                            diff: None,
+                        },
+                        but_core::SingleHunk {
+                            hunk_header: Some(but_core::HunkHeader {
+                                old_start: 0,
+                                old_lines: 0,
+                                new_start: 100,
+                                new_lines: 1,
+                            }),
+                            path: "shared.txt".into(),
+                            diff: None,
+                        },
                     ],
                 ),
-                absorption("B", vec![hunk_at("shared.txt", 50)]),
+                CommitAbsorption {
+                    commit_id: next_commit_id,
+                    ..absorption("B", vec![hunk_at("shared.txt", 50)])
+                },
             ],
             &[
-                but_core::SingleHunk {
-                    hunk_header: Some(but_core::HunkHeader {
-                        old_start: 1,
-                        old_lines: 100,
-                        new_start: 1,
-                        new_lines: 100,
-                    }),
-                    path: "shared.txt".into(),
-                    diff: None,
-                },
+                hunk_at("shared.txt", 10),
+                hunk_at("shared.txt", 50),
+                hunk_at("shared.txt", 100),
                 hunk_at("other.txt", 1),
             ],
         );
 
         assert_eq!(
-            steps.len(),
+            ordered.len(),
             3,
-            "selectors from independent source hunks become separate steps"
+            "same-path source groups stay separate while distinct paths are batched"
         );
-        assert_eq!(steps[0].commit_summary, "A");
         assert_eq!(
-            steps[0].hunks.len(),
-            2,
-            "selectors from one source hunk retain their shared coordinates"
+            ordered[0]
+                .hunks
+                .iter()
+                .map(|hunk| (
+                    hunk.path.to_str_lossy().into_owned(),
+                    hunk.hunk_header.expect("text hunk")
+                ))
+                .collect::<Vec<_>>(),
+            [
+                (
+                    "other.txt".to_owned(),
+                    but_core::HunkHeader {
+                        old_start: 1,
+                        old_lines: 1,
+                        new_start: 1,
+                        new_lines: 1,
+                    }
+                ),
+                (
+                    "shared.txt".to_owned(),
+                    but_core::HunkHeader {
+                        old_start: 100,
+                        old_lines: 1,
+                        new_start: 0,
+                        new_lines: 0,
+                    }
+                ),
+                (
+                    "shared.txt".to_owned(),
+                    but_core::HunkHeader {
+                        old_start: 0,
+                        old_lines: 0,
+                        new_start: 100,
+                        new_lines: 1,
+                    }
+                ),
+            ],
+            "different paths batch together and paired selectors remain adjacent"
         );
-        assert_eq!(steps[1].commit_summary, "A");
         assert_eq!(
-            steps[1].hunks.len(),
-            1,
-            "an independent file remains a separate step"
+            ordered[1].hunks[0].hunk_header,
+            Some(but_core::HunkHeader {
+                old_start: 10,
+                old_lines: 1,
+                new_start: 10,
+                new_lines: 1,
+            }),
+            "the lower shared-file source group runs after the higher group"
         );
-        assert_eq!(steps[2].commit_summary, "B");
+        assert_eq!(ordered[1].commit_summary, "A");
+        assert_eq!(ordered[2].commit_summary, "B");
     }
 
     #[test]
