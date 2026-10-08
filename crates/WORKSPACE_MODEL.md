@@ -130,6 +130,8 @@ Important graph editor concepts:
 - none step (`but_rebase::graph_rebase::Step::None`) — placeholder after removing a pick/ref.
 - `Editor::rebase()` — materializes the edited graph back into Git objects and ref edits.
 
+Materializing also records how local branches stack, read off the step graph by `SuccessfulRebase::branch_stacks()`: the workspace stacks when `HEAD` is on the workspace reference above a workspace commit, and the branch stack order of `HEAD` otherwise and of every linked worktree. `overlayed_graph()` previews with the same stacks. A branch a linked worktree has checked out stacks with that worktree, and the workspace stacks are rebuilt rather than reconciled, keeping only a stack's id and position. An operation that needs something else in metadata still writes it after materializing.
+
 The graph editor is not merely “a rebase command.” It is the in-memory graph mutation layer for history and ref-placement rewrites. It is currently created from a mutable workspace projection, so projection may be involved in editor setup even when the mutation decision should be graph-shaped.
 
 ### What the editor borrows

@@ -14,6 +14,7 @@ fn branch_rename_middle_branch_keeps_head_and_order() -> anyhow::Result<()> {
     let middle = gix::refs::FullName::try_from("refs/heads/middle")?;
     let renamed = gix::refs::FullName::try_from("refs/heads/renamed")?;
     let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
 
     // [tip, middle, main] with HEAD on the empty tip.
     create_empty_branch_above(&mut ctx, &middle, &main)?;
@@ -26,12 +27,13 @@ fn branch_rename_middle_branch_keeps_head_and_order() -> anyhow::Result<()> {
     assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), tip);
     assert!(repo.try_find_reference(middle.as_ref())?.is_none());
     assert!(repo.try_find_reference(renamed.as_ref())?.is_some());
-    // The order keeps the branch in place under the new name.
+    // The order keeps the branch in place under the new name, down to the last local branch
+    // that `HEAD` builds on.
     let order = ctx
         .meta()?
         .branch_stack_order(tip.as_ref())?
         .expect("branch order still persisted");
-    assert_eq!(order, vec![tip, renamed, main]);
+    assert_eq!(order, vec![tip, renamed, main, feature]);
 
     Ok(())
 }
@@ -43,6 +45,7 @@ fn branch_rename_checked_out_branch_moves_head_to_new_name() -> anyhow::Result<(
     let main = gix::refs::FullName::try_from("refs/heads/main")?;
     let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
     let renamed = gix::refs::FullName::try_from("refs/heads/renamed-tip")?;
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
 
     // [tip, main] with HEAD on the empty tip.
     create_empty_branch_above(&mut ctx, &tip, &main)?;
@@ -60,7 +63,7 @@ fn branch_rename_checked_out_branch_moves_head_to_new_name() -> anyhow::Result<(
         .meta()?
         .branch_stack_order(renamed.as_ref())?
         .expect("branch order still persisted");
-    assert_eq!(order, vec![renamed, main]);
+    assert_eq!(order, vec![renamed, main, feature]);
 
     Ok(())
 }
