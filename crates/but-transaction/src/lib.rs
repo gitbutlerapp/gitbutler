@@ -489,7 +489,7 @@ where
         relative_to: RelativeTo,
         side: InsertSide,
     ) -> anyhow::Result<()> {
-        let (ws_meta, new_tip, branch_stack_order) = self.rebase(|editor, commit_mappings| {
+        let (new_tip, branch_stack_order) = self.rebase(|editor, commit_mappings| {
             let relative_to = match relative_to {
                 RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
@@ -497,7 +497,7 @@ where
             let outcome =
                 but_workspace::branch::move_branch(editor, source_branch, relative_to, side)?;
             Ok((
-                (outcome.ws_meta, outcome.new_tip, outcome.branch_stack_order),
+                (outcome.new_tip, outcome.branch_stack_order),
                 MaterializeWithoutCheckout::No,
                 outcome.rebase,
             ))
@@ -511,16 +511,15 @@ where
         if let Some(new_tip) = new_tip {
             self.checkout(new_tip.as_ref())?;
         }
-        self.record_workspace_metadata_update(ws_meta)?;
 
         Ok(())
     }
 
     pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {
-        let (ws_meta, branch_stack_order) = self.rebase(|editor, _| {
+        let branch_stack_order = self.rebase(|editor, _| {
             let outcome = but_workspace::branch::tear_off_branch(editor, source_branch)?;
             Ok((
-                (outcome.ws_meta, outcome.branch_stack_order),
+                outcome.branch_stack_order,
                 MaterializeWithoutCheckout::No,
                 outcome.rebase,
             ))
@@ -531,39 +530,6 @@ where
                 .pending_metadata_updates
                 .push(PendingMetadataUpdate::BranchStackOrder(branches));
         }
-        self.record_workspace_metadata_update(ws_meta)?;
-
-        Ok(())
-    }
-
-    fn record_workspace_metadata_update(
-        &mut self,
-        ws_meta: Option<ref_metadata::Workspace>,
-    ) -> anyhow::Result<()> {
-        let Some(ws_meta) = ws_meta else {
-            return Ok(());
-        };
-
-        let workspace = self
-            .inner
-            .rebase
-            .as_ref()
-            .expect("rebase is always Some(_)")
-            .overlayed_graph()?
-            .into_workspace()?;
-
-        let ref_name = workspace
-            .ref_name()
-            .context("workspace metadata update requires workspace ref")?
-            .to_owned();
-
-        self.inner
-            .pending_metadata_updates
-            .push(PendingMetadataUpdate::Workspace(RecordingMetadataHandle {
-                name: ref_name,
-                value: ws_meta,
-                is_default: false,
-            }));
 
         Ok(())
     }

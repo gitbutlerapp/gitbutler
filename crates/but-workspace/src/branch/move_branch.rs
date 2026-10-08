@@ -8,9 +8,6 @@ use but_rebase::graph_rebase::SuccessfulRebase;
 pub struct Outcome<'ws, 'meta, M: RefMetadata> {
     /// A successful rebase result for continuing operations.
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
-    /// The updated workspace metadata that accompanies the move operation.
-    /// It should replace the actual workspace metadata to configure moved 'virtual' branches segments, if `Some()`.
-    pub ws_meta: Option<but_core::ref_metadata::Workspace>,
     /// In single-branch (ad-hoc) mode, set to the reference that should become the new tip after the
     /// reorder. This can be the subject when it moves above the current tip, or the branch now above
     /// it when the checked-out tip moves down. Materializing moves `HEAD` there only when the
@@ -88,7 +85,6 @@ pub(super) mod function {
             // There's only one branch in the source stack. Nothing to do.
             return Ok(Outcome {
                 rebase: editor.rebase()?,
-                ws_meta: None,
                 new_tip: None,
                 branch_stack_order: None,
             });
@@ -161,7 +157,6 @@ pub(super) mod function {
 
         Ok(Outcome {
             rebase: editor.rebase()?,
-            ws_meta: None,
             new_tip: None,
             branch_stack_order,
         })
@@ -349,7 +344,6 @@ pub(super) mod function {
         if new_order == previous_order {
             return Ok(Outcome {
                 rebase: successful_rebase,
-                ws_meta: None,
                 new_tip,
                 branch_stack_order: Some(new_order),
             });
@@ -377,7 +371,6 @@ pub(super) mod function {
 
             return Ok(Outcome {
                 rebase: editor.rebase()?,
-                ws_meta: None,
                 new_tip,
                 branch_stack_order: Some(new_order),
             });
@@ -385,7 +378,6 @@ pub(super) mod function {
 
         Ok(Outcome {
             rebase: successful_rebase,
-            ws_meta: None,
             new_tip,
             branch_stack_order: Some(new_order),
         })
@@ -467,7 +459,6 @@ pub(super) mod function {
 
         Ok(Outcome {
             rebase: editor.rebase()?,
-            ws_meta: None,
             new_tip: None,
             branch_stack_order: None,
         })

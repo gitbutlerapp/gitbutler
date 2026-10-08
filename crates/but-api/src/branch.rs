@@ -1807,7 +1807,6 @@ pub fn move_branch_with_perm(
             let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
             let but_workspace::branch::move_branch::Outcome {
                 rebase,
-                ws_meta,
                 new_tip,
                 branch_stack_order,
             } = but_workspace::branch::move_branch(editor, subject_branch, relative_to, side)?;
@@ -1815,7 +1814,6 @@ pub fn move_branch_with_perm(
             let result = MoveBranchResult {
                 workspace: branch_workspace_from_rebase(
                     rebase,
-                    ws_meta,
                     new_tip.as_ref(),
                     branch_stack_order.as_deref(),
                     &repo,
@@ -1886,7 +1884,6 @@ pub fn tear_off_branch_with_perm(
             let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
             let but_workspace::branch::move_branch::Outcome {
                 rebase,
-                ws_meta,
                 branch_stack_order,
                 new_tip: _,
             } = but_workspace::branch::tear_off_branch(editor, subject_branch)?;
@@ -1894,7 +1891,6 @@ pub fn tear_off_branch_with_perm(
             Ok(MoveBranchResult {
                 workspace: branch_workspace_from_rebase(
                     rebase,
-                    ws_meta,
                     None,
                     branch_stack_order.as_deref(),
                     &repo,
@@ -1934,7 +1930,6 @@ where
 
 fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     mut rebase: SuccessfulRebase<'_, '_, M>,
-    ws_meta: Option<but_core::ref_metadata::Workspace>,
     new_tip: Option<&gix::refs::FullName>,
     branch_stack_order: Option<&[gix::refs::FullName]>,
     repo: &gix::Repository,
@@ -1972,11 +1967,6 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
             project_meta,
             &mut *materialized.db,
         )?;
-    }
-    if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
-        let mut md = materialized.meta.workspace(ref_name)?;
-        *md = ws_meta;
-        materialized.meta.set_workspace(&md)?;
     }
 
     WorkspaceState::from_materialized(materialized, repo)
