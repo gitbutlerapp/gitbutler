@@ -11,6 +11,8 @@ import {
 	MenuSection,
 	type MenuProps,
 } from "./Menu.tsx";
+import { MetaCount } from "./MetaCount.tsx";
+import { BranchItem } from "./SidebarRow.tsx";
 
 const meta = preview.meta({
 	component: Menu,
@@ -134,5 +136,55 @@ export const OnRightClick = meta.story({
 				<MenuItem icon="undo">Uncommit</MenuItem>
 			</MenuSection>
 		</ContextMenu>
+	),
+});
+
+/** A branch's actions, the same from its ⋯ and from a right-click. */
+const branchActions = (
+	<>
+		<MenuSection>
+			<MenuItem>Send to…</MenuItem>
+			<MenuItem>Copy branch name</MenuItem>
+		</MenuSection>
+		<MenuSection>
+			<MenuItem>Rename…</MenuItem>
+			<MenuItem>Delete branch…</MenuItem>
+		</MenuSection>
+	</>
+);
+
+/**
+ * A row's actions, from its ⋯ and from a right-click anywhere on it: the ⋯ is a `Menu` in the
+ * row's `menu` slot, and the row itself is a `ContextMenu`'s trigger, both with the same rows.
+ * Each menu keeps its own state, so a right-click leaves the ⋯ unpressed.
+ */
+export const OnARow = meta.story({
+	render: () => (
+		<div style={{ width: 334 }}>
+			<ContextMenu
+				aria-label="Branch actions"
+				trigger={
+					<BranchItem
+						title="resume-on-laptop"
+						folded
+						meta={<MetaCount type="unpushed">9</MetaCount>}
+						menu={
+							<Menu
+								aria-label="Branch actions"
+								trigger={
+									<Button variant="ghost" size="small" iconOnly aria-label="More actions">
+										<Icon name="kebab" />
+									</Button>
+								}
+							>
+								{branchActions}
+							</Menu>
+						}
+					/>
+				}
+			>
+				{branchActions}
+			</ContextMenu>
+		</div>
 	),
 });

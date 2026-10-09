@@ -92,6 +92,9 @@ export type MenuProps = {
  * opened it, and is never narrower than that.
  *
  * For a menu raised by a right-click on an area, use {@link ContextMenu}; the rows are the same.
+ * A row offers both: its ⋯ is a `Menu` in the row's `menu` slot, and the row itself is a
+ * `ContextMenu`'s `trigger`, with the same rows. Each keeps its own open state, so a right-click
+ * leaves the ⋯ as it was.
  * For an anchored panel that is not a list of actions (a filter, a notification list), use
  * `Dropdown`.
  *
@@ -151,7 +154,8 @@ export type ContextMenuProps = {
 
 /**
  * The menu a right-click raises on an area, at the pointer: the same rows as {@link Menu}'s, for
- * the same actions the area's ⋯ offers.
+ * the same actions the area's ⋯ offers. On a row, the row itself is the `trigger`, and its ⋯ is a
+ * `Menu` with the same rows.
  *
  * @import import { ContextMenu, MenuItem } from "@gitbutler/ui-react/Menu.tsx";
  */
