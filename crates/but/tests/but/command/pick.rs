@@ -697,13 +697,14 @@ Picked 580bef0 onto branch 'B' to create qnu
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c2cbac1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   630bd11 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | 0f3edd1 (B) add W
-* | d3e2ba3 add B
+| * 0f3edd1 (B) add W
+| * d3e2ba3 add B
 | | * 580bef0 (wt-feature) add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -734,13 +735,14 @@ Picked d3e2ba3 onto branch 'wt-inside' to create olw
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * 7bc6f49 (wt-inside) add B
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -770,13 +772,14 @@ Picked d3e2ba3 onto branch 'wt-inside' to create olw
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * 7bc6f49 (wt-inside) add B
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 

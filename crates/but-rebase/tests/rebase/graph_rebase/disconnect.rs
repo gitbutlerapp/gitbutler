@@ -256,6 +256,56 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
 }
 
 #[test]
+fn disconnect_and_remove_second_parent_of_merge_keeps_parent_order() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+
+    let a = repo.rev_parse_single("A")?.detach();
+    let b = repo.rev_parse_single("B")?.detach();
+    let base = repo.rev_parse_single("base")?.detach();
+    // Without its branch, `b` is a direct parent of the merge rather than of a reference.
+    repo.find_reference("refs/heads/B")?.delete()?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let b_selector = editor
+        .select_commit(b)
+        .context("Failed to find commit b in editor graph")?;
+
+    editor.disconnect_segment_from(
+        mutate::SegmentDelimiter {
+            child: b_selector,
+            parent: b_selector,
+        },
+        mutate::SelectorSet::All,
+        mutate::SelectorSet::All,
+        false,
+    )?;
+    editor.replace_with_none(b_selector)?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    let merge = repo
+        .rev_parse_single("with-inner-merge~1")?
+        .object()?
+        .into_commit();
+    assert_eq!(
+        merge.parent_ids().map(|id| id.detach()).collect::<Vec<_>>(),
+        [a, base],
+        "the bypass edge takes the slot of the removed second parent"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-with-two-children")?;
 
