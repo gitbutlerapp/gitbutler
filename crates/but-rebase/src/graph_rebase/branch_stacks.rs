@@ -51,7 +51,7 @@ impl BranchStacks {
         let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
         let mut workspace = meta.workspace(workspace_ref.as_ref())?;
         let mut kept_ids = HashSet::new();
-        let mut stacks: Vec<_> = stacks
+        workspace.stacks = stacks
             .iter()
             .map(|branches| WorkspaceStack {
                 id: branches
@@ -76,14 +76,6 @@ impl BranchStacks {
                 workspacecommit_relation: WorkspaceCommitRelation::Merged,
             })
             .collect();
-        stacks.sort_by_key(|stack| {
-            workspace
-                .stacks
-                .iter()
-                .position(|previous| previous.id == stack.id)
-                .unwrap_or(usize::MAX)
-        });
-        workspace.stacks = stacks;
         Ok(Some(workspace))
     }
 
