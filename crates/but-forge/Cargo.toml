@@ -14,6 +14,7 @@ export-schema = [
   "but-github/export-schema",
   "but-gitlab/export-schema",
   "but-bitbucket/export-schema",
+  "but-forgejo/export-schema", # forgejo-fork
 ]
 
 [lib]
@@ -25,6 +26,7 @@ but-error.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
 but-bitbucket.workspace = true
+but-forgejo.workspace = true # forgejo-fork
 but-forge-storage.workspace = true
 but-db.workspace = true
 but-path.workspace = true

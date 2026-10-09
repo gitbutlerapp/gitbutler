@@ -997,6 +997,7 @@ dependencies = [
  "but-error",
  "but-forge",
  "but-forge-storage",
+ "but-forgejo",
  "but-gerrit",
  "but-github",
  "but-gitlab",
@@ -1286,6 +1287,7 @@ dependencies = [
  "but-db",
  "but-error",
  "but-forge-storage",
+ "but-forgejo",
  "but-github",
  "but-gitlab",
  "but-path",
@@ -1311,6 +1313,25 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tracing",
+]
+
+[[package]]
+name = "but-forgejo"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-error",
+ "but-forge-storage",
+ "but-schemars",
+ "but-secret",
+ "reqwest",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "urlencoding",
 ]
 
 [[package]]

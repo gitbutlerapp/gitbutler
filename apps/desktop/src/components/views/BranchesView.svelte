@@ -22,6 +22,7 @@
 	import { useBitbucketForgeUser } from "$lib/forge/bitbucket/hooks.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
+	import { useForgejoForgeUser } from "$lib/forge/forgejo/hooks.svelte"; // forgejo-fork
 	import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
 	import { workspacePath } from "$lib/routes/routes.svelte";
 	import { handleApplyOutcome } from "$lib/stacks/stack";
@@ -64,6 +65,7 @@
 	const githubUser = useGitHubForgeUser(projectIdRef);
 	const gitlabUser = useGitLabForgeUser(projectIdRef);
 	const bitbucketUser = useBitbucketForgeUser(projectIdRef);
+	const forgejoUser = useForgejoForgeUser(projectIdRef);
 	const forgeUser = $derived.by(() => {
 		switch (forgeInfo?.name) {
 			case "github":
@@ -72,6 +74,8 @@
 				return gitlabUser.user.current;
 			case "bitbucket":
 				return bitbucketUser.user.current;
+			case "forgejo":
+				return forgejoUser.user.current;
 			default:
 				return undefined;
 		}
