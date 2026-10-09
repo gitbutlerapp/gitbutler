@@ -2294,10 +2294,10 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   780946b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   e5b11e7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 44c9428 (A) add A1
-* | a27415e (B) add B1
+| * a27415e (B) add B1
+* | 44c9428 (A) add A1
 |/  
 * f1e7451 (origin/main) add C1
 * 3183e43 (main) M1
@@ -4101,28 +4101,27 @@ fn worktree_heads_are_collected_as_stack_heads() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 * 3c0fa35 (disjoint) D1
-*   bae1d9b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8935535 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 19f4fc0 (A) A2
-* | 5881e28 (B) B1
+| * 5881e28 (B) B1
+* | 19f4fc0 (A) A2
 | | * d175c00 (top) TOP1
 | | * b743926 (mid) MID2
 | | * 0bc05bf MID1
 | |/  
+|/|   
 | | * 684d673 (wt-below) U1
 | |/  
-|/|   
 | | * 4fcfc93 (wt-outside) O1
 | |/  
-|/|   
 | | * 198b592 (wt-pushed) P2
 | | * 88c9775 (origin/wt-pushed) P1
 | |/  
-|/|   
 | | * fc6f8f5 (wt-stacked) S1
 | | * 6a13321 (wt-inside) W1
 | |/  
-| * 0a62dfe A1
+|/|   
+* | 0a62dfe A1
 |/  
 * cad9051 (origin/main, main) M1
 * d4d66e2 M0
@@ -4206,17 +4205,18 @@ fn integrated_worktree_branches_are_replaced_with_new_ones() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 * 3c0fa35 (disjoint) D1
-*   cb64a93 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   be1f016 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * d4becef (A) A2
-* | 5881e28 (B) B1
+| * 5881e28 (B) B1
+* | d4becef (A) A2
 | | * d74dbcc (top) TOP1
 | | * ccb6c1d (mid) MID2
 | | * 2c3c6a1 MID1
 | |/  
-| * fc6f8f5 (origin/main, amo-branch-2, amo-branch-1) S1
-| * 6a13321 W1
-| * 0a62dfe A1
+|/|   
+* | fc6f8f5 (origin/main, amo-branch-2, amo-branch-1) S1
+* | 6a13321 W1
+* | 0a62dfe A1
 |/  
 | * 53aafe9 (wt-below) U1
 | | * 4fcfc93 (wt-outside) O1

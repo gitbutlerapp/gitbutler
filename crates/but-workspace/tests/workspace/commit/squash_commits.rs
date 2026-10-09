@@ -520,9 +520,9 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   5eaffd7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   99e4ea1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-* | a2dc4c7 (B) B
+| * a2dc4c7 (B) B
 |/  
 * 85efbe4 (origin/main, main, A) M
 
@@ -605,9 +605,9 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   2e7b9b5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   a2bca63 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 80db672 (A) A
+* | 80db672 (A) A
 |/  
 * 85efbe4 (origin/main, main, B) M
 
@@ -746,12 +746,12 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
     snapbox::assert_data_eq!(
         normalized,
         snapbox::str![[r#"
-*   c9040ff (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   ccebfa3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
-| * 56cb644 (D) D
-| * 26e45af (A) A
-* | 356de85 (E, C) C
-* | f25f65c (B) B
+| * 356de85 (E, C) C
+| * f25f65c (B) B
+* | 56cb644 (D) D
+* | 26e45af (A) A
 |/
 * 893d602 (origin/main, main) M
 

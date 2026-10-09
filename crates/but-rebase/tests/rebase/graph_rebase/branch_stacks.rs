@@ -279,27 +279,27 @@ fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
     let workspace = outcome
         .meta
         .workspace("refs/heads/gitbutler/workspace".try_into()?)?;
-    // `stack-b` keeps its id and its place, `stack-a` is new to the metadata, and what isn't a
-    // parent of the workspace commit is gone.
+    // `stack-b` keeps its id, `stack-a` is new to the metadata and precedes it as the first parent
+    // of the workspace commit, and what isn't a parent of the workspace commit is gone.
     snapbox::assert_data_eq!(
         format!("{:#?}", workspace.stacks),
         snapbox::str![[r#"
 [
     WorkspaceStack {
-        id: 00000000-0000-0000-0000-000000000000,
+        id: [..],
         branches: [
             WorkspaceStackBranch {
-                ref_name: "refs/heads/stack-b",
+                ref_name: "refs/heads/stack-a",
                 archived: false,
             },
         ],
         workspacecommit_relation: Merged,
     },
     WorkspaceStack {
-        id: [..],
+        id: 00000000-0000-0000-0000-000000000000,
         branches: [
             WorkspaceStackBranch {
-                ref_name: "refs/heads/stack-a",
+                ref_name: "refs/heads/stack-b",
                 archived: false,
             },
         ],

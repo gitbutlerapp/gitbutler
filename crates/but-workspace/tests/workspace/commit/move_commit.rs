@@ -99,11 +99,11 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   0ffeac6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   bdcbf64 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * f2cc60d (A) C
-| * 09d8e52 A
-* | c813d8d (C, B) B
+| * c813d8d (C, B) B
+* | f2cc60d (A) C
+* | 09d8e52 A
 |/  
 * 85efbe4 (origin/main, main) M
 
@@ -210,11 +210,11 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   9c6a201 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   1229630 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * f9061ed (A) B
-| * 09d8e52 A
-* | 8e00332 (C) C
+| * 8e00332 (C) C
+* | f9061ed (A) B
+* | 09d8e52 A
 |/  
 * 85efbe4 (origin/main, main, B) M
 
@@ -319,11 +319,11 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   b3f0cfc (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b197178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 2506923 (A) A
-| * 8e00332 C
-* | c813d8d (C, B) B
+| * c813d8d (C, B) B
+* | 2506923 (A) A
+* | 8e00332 C
 |/  
 * 85efbe4 (origin/main, main) M
 
@@ -430,11 +430,11 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   2410103 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   0cd9d1e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 4dfe841 (A) A
-| * c813d8d B
-* | 8e00332 (C) C
+| * 8e00332 (C) C
+* | 4dfe841 (A) A
+* | c813d8d B
 |/  
 * 85efbe4 (origin/main, main, B) M
 
@@ -532,11 +532,11 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   3f51cff (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   ce2d156 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-* | 148f8f3 (C) A
-* | 09bc93e C
-* | c813d8d (B) B
+| * 148f8f3 (C) A
+| * 09bc93e C
+| * c813d8d (B) B
 |/  
 * 85efbe4 (origin/main, main, A) M
 
@@ -643,11 +643,11 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   61c8521 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   dda25f3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-* | ad476a8 (C) C
-* | f9061ed (B) B
-* | 09d8e52 A
+| * ad476a8 (C) C
+| * f9061ed (B) B
+| * 09d8e52 A
 |/  
 * 85efbe4 (origin/main, main, A) M
 
@@ -733,9 +733,9 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   e16ce30 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   6d5c23e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-* | 09d8e52 (B) A
+| * 09d8e52 (B) A
 |/  
 * 85efbe4 (origin/main, main, A) M
 

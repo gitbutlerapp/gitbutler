@@ -3515,13 +3515,14 @@ Created commit nuy on branch 'wt-inside'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * efe5cc8 (wt-inside) onto the worktree branch
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -3632,13 +3633,14 @@ Created commit vzp on branch 'wt-feature'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * 7551b20 (wt-feature) note from the worktree
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -3840,12 +3842,13 @@ Created commit lpo on branch 'wt-feature'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * 0a6784b (wt-feature) note from the worktree
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -4189,14 +4192,15 @@ Created commit nuy on branch 'wt-lower'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * d1e317c (wt-inside) add W2
 | | * 83e1b27 (wt-lower) onto the lower branch
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 

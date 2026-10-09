@@ -86,11 +86,11 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   0ffeac6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   bdcbf64 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * f2cc60d (C) C
-| * 09d8e52 (A) A
-* | c813d8d (B) B
+| * c813d8d (B) B
+* | f2cc60d (C) C
+* | 09d8e52 (A) A
 |/  
 * 85efbe4 (origin/main, main) M
 
@@ -211,11 +211,11 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   9c6a201 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   1229630 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * f9061ed (B) B
-| * 09d8e52 (A) A
-* | 8e00332 (C) C
+| * 8e00332 (C) C
+* | f9061ed (B) B
+* | 09d8e52 (A) A
 |/  
 * 85efbe4 (origin/main, main) M
 
@@ -389,11 +389,11 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   c6b8b22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   268bc90 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 09d8e52 (A) A
-* | de0581e (B) B
-* | 8e00332 (C) C
+| * de0581e (B) B
+| * 8e00332 (C) C
+* | 09d8e52 (A) A
 |/  
 * 85efbe4 (origin/main, main) M
 
@@ -2136,14 +2136,15 @@ git worktree add -q -b wt wt-dir A
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&fixture.repo)?,
             snapbox::str![[r#"
-*   c718ffa (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   95c53c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-* | c813d8d (B) B
+| * c813d8d (B) B
 | | * e91ff9e (wt) W2
 | | * fe69d87 W1
 | | * f2cc60d (C) C
 | |/  
-| * 09d8e52 (A) A
+|/|   
+* | 09d8e52 (A) A
 |/  
 * 85efbe4 (origin/main, main) M
 
@@ -2188,14 +2189,15 @@ git worktree add -q -b wt wt-dir A
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&fixture.repo)?,
             snapbox::str![[r#"
-*   6599cf8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   13ae6c5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-* | b9b1c60 (C) C
-* | 3dcf20b (wt-lower) W1
-* | c813d8d (B) B
+| * b9b1c60 (C) C
+| * 3dcf20b (wt-lower) W1
+| * c813d8d (B) B
 | | * 8e94b9e (wt) W2
 | |/  
-| * 09d8e52 (A) A
+|/|   
+* | 09d8e52 (A) A
 |/  
 * 85efbe4 (origin/main, main) M
 
