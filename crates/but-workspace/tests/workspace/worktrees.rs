@@ -384,7 +384,7 @@ fn updated_at_is_the_newest_entry_of_the_head_and_branch_reflogs() -> Result<()>
 }
 
 #[test]
-fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
+fn remove_refuses_dirty_checkouts_without_force() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-listing");
     let path = repo
         .worktree_proxy_by_id(BStr::new("wt-a"))?
@@ -405,6 +405,125 @@ fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
 }
 
 #[test]
+#[ignore = "scheduling-sensitive removal stress; run explicitly with --ignored --nocapture"]
+fn remove_finishes_when_a_bounded_writer_adds_files_during_deletion() -> Result<()> {
+    use std::{
+        fs,
+        sync::atomic::{AtomicBool, Ordering},
+        time::{Duration, Instant},
+    };
+
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let path = repo.common_dir().join("concurrent-removal");
+    let branch = "refs/heads/concurrent-removal".try_into()?;
+    let name = but_workspace::worktrees::add(&repo, &path, branch, repo.head_id()?.detach())?;
+    let git_dir = repo
+        .worktree_proxy_by_id(name.as_bstr())?
+        .expect("registered worktree")
+        .git_dir()
+        .to_owned();
+    let marker = path.join("marker");
+    fs::write(&marker, b"watch for deletion")?;
+    for i in 0..20_000 {
+        fs::write(path.join(format!("padding-{i}")), b"padding")?;
+    }
+    let stop = AtomicBool::new(false);
+    let (removed, writes) = std::thread::scope(|scope| {
+        let writer = scope.spawn(|| -> Result<usize> {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while marker.exists() && !stop.load(Ordering::Relaxed) && Instant::now() < deadline {
+                std::thread::yield_now();
+            }
+            let mut writes = 0;
+            if !marker.exists() {
+                for i in 0..32 {
+                    match fs::write(path.join(format!("late-{i}")), b"late write") {
+                        Ok(()) => writes += 1,
+                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => break,
+                        Err(err) => return Err(err.into()),
+                    }
+                }
+            }
+            Ok(writes)
+        });
+        let removed = but_workspace::worktrees::remove(&repo, &path, true);
+        stop.store(true, Ordering::Relaxed);
+        (removed, writer.join().expect("writer did not panic"))
+    });
+    let writes = writes?;
+    eprintln!(
+        "late writes={writes}, result={removed:?}, checkout={}, administration={}",
+        path.exists(),
+        git_dir.exists()
+    );
+    assert!(
+        writes > 0,
+        "the writer must overlap deletion for this stress test to be meaningful"
+    );
+    removed?;
+    assert!(
+        !path.exists() && !git_dir.exists(),
+        "both removal roots must disappear after the writer stops"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn add_runs_post_checkout_and_retains_the_worktree_if_the_hook_fails() -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let hooks = repo.common_dir().join("hooks");
+    std::fs::create_dir_all(&hooks)?;
+    let hook = hooks.join("post-checkout");
+    std::fs::write(
+        &hook,
+        b"#!/bin/sh\nprintf '%s\\n' \"$@\" > hook-args\nexit 1\n",
+    )?;
+    std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755))?;
+    let path = repo.common_dir().join("hook-worktree");
+    let base = repo.head_id()?.detach();
+    assert!(
+        but_workspace::worktrees::add(&repo, &path, "refs/heads/hook-worktree".try_into()?, base)
+            .is_err(),
+        "hook failure is reported after checkout"
+    );
+    assert_eq!(
+        std::fs::read_to_string(path.join("hook-args"))?,
+        format!("{}\n{base}\n1\n", repo.object_hash().null()),
+        "post-checkout runs in the new worktree with Git's initial-checkout arguments"
+    );
+    assert!(
+        path.join(".git").is_file(),
+        "hook failure retains the completed worktree"
+    );
+    Ok(())
+}
+
+#[test]
+fn add_rejects_existing_branches_and_paths_before_changing_them() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let path = repo.common_dir().join("rejected-worktree");
+    let existing = "refs/heads/main".try_into()?;
+    assert!(
+        but_workspace::worktrees::add(&repo, &path, existing, repo.head_id()?.detach()).is_err(),
+        "an existing branch cannot be reset"
+    );
+    assert!(!path.exists(), "branch refusal leaves no checkout");
+    std::fs::create_dir(&path)?;
+    let new_branch = "refs/heads/rejected-worktree".try_into()?;
+    assert!(
+        but_workspace::worktrees::add(&repo, &path, new_branch, repo.head_id()?.detach()).is_err(),
+        "existing destination is rejected"
+    );
+    assert!(
+        repo.try_find_reference(new_branch)?.is_none(),
+        "destination refusal happens before branch creation"
+    );
+    Ok(())
+}
+
+#[test]
 fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-listing");
     let base = repo.head_id()?.detach();
@@ -414,7 +533,7 @@ fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path
     let name = but_workspace::worktrees::add(&repo, &path, branch, base)?;
     assert_eq!(
         name, "wt-new",
-        "git names the worktree after the last path component"
+        "the worktree name comes from the last path component"
     );
     assert_eq!(
         repo.worktree_proxy_by_id(name.as_bstr())?
