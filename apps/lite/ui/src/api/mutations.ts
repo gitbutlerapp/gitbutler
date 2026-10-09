@@ -203,6 +203,50 @@ export const useApply = () => {
 	});
 };
 
+/**
+ * Apply a pull request by number. The backend declares no invalidations for
+ * it, so the caches its writes touch are refreshed here, before any caller
+ * follows the branch.
+ */
+export const useApplyReview = (projectId: string) => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: (reviewId: number) => window.lite.reviewApply({ projectId, reviewId }),
+		onSuccess: async (outcome, _reviewId, _context, { client }) => {
+			switch (outcome.status) {
+				case "applied":
+					if (outcome.appliedBranches.length > 0) {
+						await invalidateTags(client, ["Branches", "Workspace", "Reviews"], projectId);
+						return;
+					}
+					toastManager.add({
+						type: "error",
+						title: "Failed to apply pull request",
+						description: "No branch came back from applying it, so there is nothing to open.",
+						priority: "high",
+					});
+					return;
+				case "alreadyApplied":
+					// The branch that is already there still gets the review recorded on it.
+					await invalidateTags(client, ["Branches", "Workspace"], projectId);
+					toastManager.add({ type: "info", title: "Pull request already in workspace" });
+					return;
+				case "conflictAborted":
+					toastManager.add({
+						type: "error",
+						title: "Failed to apply pull request",
+						description: `It conflicts with existing stacks in the workspace: ${outcome.conflictingStacks
+							.map((stack) => stack.shortName)
+							.join(", ")}`,
+						priority: "high",
+					});
+			}
+		},
+		meta: { failureTitle: "Failed to apply pull request" },
+	});
+};
+
 export const useApplyBranchIntegration = () => {
 	const dispatch = useAppDispatch();
 	return useMutation({
