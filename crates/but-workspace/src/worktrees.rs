@@ -224,12 +224,39 @@ fn handle_worktreeinclude(
             }
         }
 
+        if !in_inclusion && !toward_inclusion {
+            // We can prune here, there's no chance to encounter an included file after this point.
+            return Ok(false);
+        }
+
         let metadata = match fs::symlink_metadata(path) {
             Ok(meta) => meta,
             Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(false),
             Err(err) => bail!(err),
         };
         let kind = metadata.file_type();
+
+        // Due to case folding quirks in different file systems, we can't rely entirely on index
+        // lookups to determine if a path is tracked (or a "tracked prefix") in practice. We must
+        // check each intermediate destination path, and can only allow further traversal if it
+        // either doesn't exist, or both the source and destination are directories (which are
+        // definitionally not tracked).
+        //
+        // Note that the case-insensitive gix index only supports ASCII folding, so it cannot be
+        // relied upon to spot case aliases that fold in other ways.
+        //
+        // This is very important to protect against accidentally following symlinks in the
+        // destination, and also prevents us from attempting to copy a source file into a path
+        // that's already occupied by a checked out directory.
+        match fs::symlink_metadata(dst_dir.join(relpath)) {
+            Ok(meta) => {
+                if !(meta.is_dir() && kind.is_dir()) {
+                    return Ok(false);
+                }
+            }
+            Err(err) if err.kind() != io::ErrorKind::NotFound => bail!(err),
+            _ => (),
+        }
 
         let mode = if kind.is_dir() {
             return Ok(in_inclusion || toward_inclusion);
@@ -245,14 +272,7 @@ fn handle_worktreeinclude(
             return Ok(false);
         }
 
-        let ignored_in_dst = dst_ignore.at_path(relpath, Some(mode))?.is_excluded();
-
-        // A relpath in the source might be a path prefix of a tracked file in the
-        // destination.
-        let mut index_prefix = index_path.into_owned();
-        index_prefix.push(b'/');
-
-        if ignored_in_dst && dst_index.prefixed_entries(index_prefix.as_bstr()).is_none() {
+        if dst_ignore.at_path(relpath, Some(mode))?.is_excluded() {
             files_to_copy.push(relpath.to_owned());
         }
 
