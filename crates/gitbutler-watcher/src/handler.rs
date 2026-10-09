@@ -1,4 +1,7 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::{Context as _, Result};
 use but_core::{TreeChange, sync::RepoExclusive};
@@ -12,7 +15,8 @@ use but_project_handle::{
 };
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_filemonitor::{
-    FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR, REMOTE_REFS_DIR,
+    Checkout, FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
+    REMOTE_REFS_DIR,
 };
 use gitbutler_operating_modes::operating_mode;
 use gix::bstr::ByteSlice as _;
@@ -50,19 +54,31 @@ impl Handler {
         app_settings: AppSettingsWithDiskSync,
     ) -> Result<()> {
         match event {
-            InternalEvent::ProjectFilesChange(project_id, paths) => {
+            InternalEvent::ProjectFilesChange(project_id, Checkout::Main, paths) => {
                 let mut ctx =
                     self.open_command_context(project_id.clone(), app_settings.get()?.clone())?;
                 let mut guard = ctx.exclusive_worktree_access();
                 self.project_files_change(project_id, paths, &mut ctx, guard.write_permission())
             }
 
-            InternalEvent::GitFilesChange(project_id, paths) => {
+            InternalEvent::ProjectFilesChange(_, Checkout::Linked(_), _) => Ok(()),
+
+            InternalEvent::GitFilesChange(project_id, Checkout::Main, paths) => {
                 let mut ctx =
                     self.open_command_context(project_id.clone(), app_settings.get()?.clone())?;
                 let mut guard = ctx.exclusive_worktree_access();
                 self.git_files_change(project_id, paths, &mut ctx, guard.write_permission())
                     .context("failed to handle git file change event")
+            }
+
+            InternalEvent::GitFilesChange(project_id, Checkout::Linked(_), paths) => {
+                if paths
+                    .iter()
+                    .any(|path| path == Path::new(HEAD) || path == Path::new(HEAD_ACTIVITY))
+                {
+                    self.emit_app_event(Change::WorkspaceActivity { project_id })?;
+                }
+                Ok(())
             }
         }
     }

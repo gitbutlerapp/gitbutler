@@ -9,12 +9,13 @@ use but_project_handle::{
     INVALIDATION_SENTINEL_PATH, ProjectHandleOrLegacyProjectId, REFRESH_SENTINEL_PATH,
 };
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
+use gix::bstr::ByteSlice as _;
 use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
 use tracing::Level;
 
 use crate::{
-    events::InternalEvent,
+    events::{Checkout, InternalEvent, LinkedWorktree},
     watch_plan::{
         build_index_icase_accelerator_if_needed, compute_watch_plan_for_repo, is_tracked_in_index,
         is_watchable_directory, to_repo_relative_path,
@@ -171,12 +172,13 @@ fn setup_watch_plan(
     repo: &gix::Repository,
     worktree_path: &Path,
     git_dir: &Path,
+    linked_git_dirs: &[&Path],
 ) -> Result<()> {
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(watch_backoff_policy(), || {
         let mut paths = debouncer.watcher().paths_mut();
         let mut add_error: Option<(std::path::PathBuf, notify::Error)> = None;
-        compute_watch_plan_for_repo(repo, worktree_path, git_dir, |path, mode| {
+        compute_watch_plan_for_repo(repo, worktree_path, git_dir, linked_git_dirs, |path, mode| {
             if add_error.is_some() {
                 return Ok(std::ops::ControlFlow::Break(()));
             }
@@ -252,6 +254,8 @@ fn setup_legacy_watch(
 /// These are sent through the passed `out` channel, to indicate either **Git** repository changes
 /// or **ProjectWorktree** changes
 /// Use `watch_mode` to control how exactly the directory is watched.
+/// Changes in the git directories of `linked_worktrees` are reported under their own [`Checkout`],
+/// as are changes to their files where these are seen.
 ///
 /// ### Why is this not an iterator?
 ///
@@ -266,6 +270,7 @@ fn setup_legacy_watch(
 pub fn spawn(
     project_id: ProjectHandleOrLegacyProjectId,
     worktree_path: &std::path::Path,
+    linked_worktrees: Vec<LinkedWorktree>,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
     watch_mode: WatchMode,
 ) -> Result<FileMonitorHandle> {
@@ -285,6 +290,14 @@ pub fn spawn(
         worktree_path.display()
     ))?;
     let git_dir = repo.path().to_owned();
+    let linked: Vec<_> = linked_worktrees
+        .into_iter()
+        .map(|worktree| WatchedCheckout::linked(&git_dir, worktree))
+        .collect();
+    let linked_git_dirs: Vec<_> = linked
+        .iter()
+        .map(|checkout| checkout.git_dir.as_path())
+        .collect();
 
     let mut effective_watch_mode = watch_mode;
 
@@ -299,6 +312,7 @@ pub fn spawn(
                 &repo,
                 &worktree_path,
                 &git_dir,
+                &linked_git_dirs,
             ) {
                 tracing::warn!(
                     %project_id,
@@ -317,6 +331,7 @@ pub fn spawn(
                     &repo,
                     &worktree_path,
                     &git_dir,
+                    &linked_git_dirs,
                 ) {
                     Ok(()) => {
                         effective_watch_mode = WatchMode::Modern;
@@ -345,10 +360,12 @@ pub fn spawn(
     );
 
     let dynamic_watch_enabled = matches!(effective_watch_mode, WatchMode::Modern);
-    let checkout = WatchedCheckout {
+    let main = WatchedCheckout {
+        id: Checkout::Main,
         workdir: worktree_path,
         git_dir,
     };
+    let checkouts: Vec<_> = std::iter::once(main).chain(linked).collect();
     task::spawn_blocking(move || {
         let _runtime = tracing::span!(Level::INFO, "file monitor", %project_id ).entered();
         tracing::debug!(%project_id, "file watcher started");
@@ -376,9 +393,7 @@ pub fn spawn(
                 "handle debounced events",
                 ignored = tracing::field::Empty,
                 project = tracing::field::Empty,
-                project_dedup = tracing::field::Empty,
                 git = tracing::field::Empty,
-                git_dedup = tracing::field::Empty,
                 git_noop = tracing::field::Empty,
                 fs_events = tracing::field::Empty,
             )
@@ -389,47 +404,58 @@ pub fn spawn(
                 }
                 Ok(events) => {
                     let num_events = events.len();
-                    let changes = checkout.changes(
+                    let changes_by_checkout = changes_by_checkout(
+                        &checkouts,
                         events
                             .into_iter()
                             .filter(|event| is_interesting_kind(event.kind))
                             .flat_map(|event| event.event.paths),
                     );
-
+                    let count = |count_of: fn(&Changes) -> usize| -> usize {
+                        changes_by_checkout
+                            .iter()
+                            .map(|(_, changes)| count_of(changes))
+                            .sum()
+                    };
                     stats.record("fs_events", num_events);
-                    stats.record("ignored", changes.ignored);
-                    stats.record("git_noop", changes.git_noop);
-                    stats.record("git", changes.git.len());
-                    stats.record("project", changes.worktree.len());
+                    stats.record("ignored", count(|changes| changes.ignored));
+                    stats.record("git_noop", count(|changes| changes.git_noop));
+                    stats.record("git", count(|changes| changes.git.len()));
+                    stats.record("project", count(|changes| changes.worktree.len()));
 
-                    if dynamic_watch_enabled && changes.ignore_filtering_ran {
-                        update_dynamic_watches(
-                            &mut debouncer,
-                            &mut dynamically_watched_dirs,
-                            changes
-                                .worktree
-                                .iter()
-                                .map(|relative_path| checkout.workdir.join(relative_path)),
-                        );
-                    }
-
-                    if !changes.git.is_empty() {
-                        let paths_dedup: Vec<_> = changes.git.into_iter().collect();
-                        stats.record("git_dedup", paths_dedup.len());
-                        let event = InternalEvent::GitFilesChange(project_id.clone(), paths_dedup);
-                        if out.send(event).is_err() {
-                            tracing::info!("channel closed - stopping file watcher");
-                            break 'outer;
+                    for (checkout, changes) in changes_by_checkout {
+                        if dynamic_watch_enabled && changes.ignore_filtering_ran {
+                            update_dynamic_watches(
+                                &mut debouncer,
+                                &mut dynamically_watched_dirs,
+                                changes
+                                    .worktree
+                                    .iter()
+                                    .map(|relative_path| checkout.workdir.join(relative_path)),
+                            );
                         }
-                    }
-                    if !changes.worktree.is_empty() {
-                        let paths_dedup: Vec<_> = changes.worktree.into_iter().collect();
-                        stats.record("project_dedup", paths_dedup.len());
-                        let event =
-                            InternalEvent::ProjectFilesChange(project_id.clone(), paths_dedup);
-                        if out.send(event).is_err() {
-                            tracing::info!("channel closed - stopping file watcher");
-                            break 'outer;
+
+                        if !changes.git.is_empty() {
+                            let event = InternalEvent::GitFilesChange(
+                                project_id.clone(),
+                                checkout.id.clone(),
+                                changes.git.into_iter().collect(),
+                            );
+                            if out.send(event).is_err() {
+                                tracing::info!("channel closed - stopping file watcher");
+                                break 'outer;
+                            }
+                        }
+                        if !changes.worktree.is_empty() {
+                            let event = InternalEvent::ProjectFilesChange(
+                                project_id.clone(),
+                                checkout.id.clone(),
+                                changes.worktree.into_iter().collect(),
+                            );
+                            if out.send(event).is_err() {
+                                tracing::info!("channel closed - stopping file watcher");
+                                break 'outer;
+                            }
                         }
                     }
                 }
@@ -549,6 +575,7 @@ pub const INDEX: &str = "index";
 pub const GB_FLUSH: &str = "GB_FLUSH";
 
 struct WatchedCheckout {
+    id: Checkout,
     workdir: PathBuf,
     git_dir: PathBuf,
 }
@@ -562,7 +589,52 @@ struct Changes {
     ignore_filtering_ran: bool,
 }
 
+fn changes_by_checkout(
+    checkouts: &[WatchedCheckout],
+    paths: impl IntoIterator<Item = PathBuf>,
+) -> Vec<(&WatchedCheckout, Changes)> {
+    let mut paths_by_checkout = vec![Vec::new(); checkouts.len()];
+    for path in paths {
+        let innermost = checkouts
+            .iter()
+            .enumerate()
+            .filter_map(|(index, checkout)| {
+                Some((checkout.depth_of_root_containing(&path)?, index))
+            })
+            .max();
+        if let Some((_, index)) = innermost {
+            paths_by_checkout[index].push(path);
+        }
+    }
+    checkouts
+        .iter()
+        .zip(paths_by_checkout)
+        .map(|(checkout, paths)| (checkout, checkout.changes(paths)))
+        .collect()
+}
+
 impl WatchedCheckout {
+    fn linked(main_git_dir: &Path, worktree: LinkedWorktree) -> Self {
+        WatchedCheckout {
+            git_dir: main_git_dir
+                .join("worktrees")
+                .join(gix::path::from_bstr(worktree.name.as_bstr())),
+            workdir: gix::path::realpath(&worktree.workdir).unwrap_or(worktree.workdir),
+            id: Checkout::Linked(worktree.name),
+        }
+    }
+
+    fn depth_of_root_containing(&self, path: &Path) -> Option<usize> {
+        [&self.git_dir, &self.workdir]
+            .into_iter()
+            .filter(|root| {
+                path.strip_prefix(root)
+                    .is_ok_and(|relative_path| !relative_path.as_os_str().is_empty())
+            })
+            .map(|root| root.components().count())
+            .max()
+    }
+
     fn changes(&self, paths: impl IntoIterator<Item = PathBuf>) -> Changes {
         let mut classified: Vec<_> = paths
             .into_iter()
@@ -584,16 +656,11 @@ impl WatchedCheckout {
                         changes.git.insert(relative_path.to_owned());
                     }
                 }
-                FileKind::Project => match path.strip_prefix(&self.workdir) {
-                    Ok(relative_path) => {
-                        if !relative_path.as_os_str().is_empty() {
-                            changes.worktree.insert(relative_path.to_owned());
-                        }
+                FileKind::Project => {
+                    if let Ok(relative_path) = path.strip_prefix(&self.workdir) {
+                        changes.worktree.insert(relative_path.to_owned());
                     }
-                    Err(_) => {
-                        tracing::warn!(?path, workdir = ?self.workdir, "failed to strip prefix");
-                    }
-                },
+                }
             }
         }
         changes
