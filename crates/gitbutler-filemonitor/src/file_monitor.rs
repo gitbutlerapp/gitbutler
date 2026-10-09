@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::HashSet,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -396,70 +396,21 @@ pub fn spawn(
                             .flat_map(|event| event.event.paths),
                     );
 
-                    #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
-                    enum Mode {
-                        AddWatch,
-                        RemoveWatch,
-                    }
-                    let directories_to_watch_or_unwatch =
-                        if dynamic_watch_enabled && changes.ignore_filtering_ran {
-                            changes
-                                .worktree
-                                .iter()
-                                .filter_map(|relative_path| {
-                                    let path = checkout.workdir.join(relative_path);
-                                    let mode = match path.symlink_metadata() {
-                                        Ok(md) => (is_watchable_directory(md.file_type())
-                                            && !dynamically_watched_dirs.contains(&path))
-                                        .then_some(Mode::AddWatch)?,
-                                        Err(err) => (err.kind() == std::io::ErrorKind::NotFound)
-                                            // We don't care if was dynamically watched, it might be watched during initial computation.
-                                            .then_some(Mode::RemoveWatch)?,
-                                    };
-                                    Some((mode, path))
-                                })
-                                .collect()
-                        } else {
-                            BTreeSet::new()
-                        };
-
                     stats.record("fs_events", num_events);
                     stats.record("ignored", changes.ignored);
                     stats.record("git_noop", changes.git_noop);
                     stats.record("git", changes.git.len());
                     stats.record("project", changes.worktree.len());
 
-                    // NOTE: There is an inherent race condition here where files created in the new
-                    //       directory before the watch is established will be missed.
-                    //       Fortunately that's not a problem right now as we don't really care about the paths.
-                    if !directories_to_watch_or_unwatch.is_empty() {
-                        tracing::trace!(%project_id, ?directories_to_watch_or_unwatch, "adding or removing dynamic watches");
-                        for (mode, path) in directories_to_watch_or_unwatch {
-                            let res = match mode {
-                                Mode::AddWatch => debouncer.watcher().watch(&path, notify::RecursiveMode::NonRecursive),
-                                Mode::RemoveWatch => debouncer.watcher().unwatch(&path),
-                            }
-                            .inspect_err(|err| {
-                                tracing::warn!(
-                                    %project_id,
-                                    ?path,
-                                    ?mode,
-                                    ?err,
-                                    "failed to add or remove watch; changes may be missed until restart"
-                                )
-                            });
-                            match mode {
-                                Mode::AddWatch if res.is_ok() => {
-                                    dynamically_watched_dirs.insert(path);
-                                }
-                                _ => {
-                                    // If adding OR removing a watch didn't work, just remove it from our list.
-                                    // On linux, it seems to manage to remove the watch, but fails to communicate it,
-                                    // so our own tracking list would be stale.
-                                    dynamically_watched_dirs.remove(&path);
-                                }
-                            }
-                        }
+                    if dynamic_watch_enabled && changes.ignore_filtering_ran {
+                        update_dynamic_watches(
+                            &mut debouncer,
+                            &mut dynamically_watched_dirs,
+                            changes
+                                .worktree
+                                .iter()
+                                .map(|relative_path| checkout.workdir.join(relative_path)),
+                        );
                     }
 
                     if !changes.git.is_empty() {
@@ -486,6 +437,62 @@ pub fn spawn(
         }
     });
     Ok(FileMonitorHandle { cmd_tx })
+}
+
+/// Watch the directories among the changed `paths` that aren't watched yet, and stop watching those that are gone.
+///
+/// There is an inherent race condition here where files created in a new directory before the
+/// watch is established will be missed. That's not a problem right now as we don't really care
+/// about the paths.
+fn update_dynamic_watches(
+    debouncer: &mut Debouncer<RecommendedWatcher, NoCache>,
+    dynamically_watched_dirs: &mut HashSet<PathBuf>,
+    paths: impl Iterator<Item = PathBuf>,
+) {
+    #[derive(Debug)]
+    enum Mode {
+        AddWatch,
+        RemoveWatch,
+    }
+    for path in paths {
+        let mode = match path.symlink_metadata() {
+            Ok(md)
+                if is_watchable_directory(md.file_type())
+                    && !dynamically_watched_dirs.contains(&path) =>
+            {
+                Mode::AddWatch
+            }
+            // We don't care if was dynamically watched, it might be watched during initial computation.
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Mode::RemoveWatch,
+            _ => continue,
+        };
+        tracing::trace!(?path, ?mode, "adding or removing dynamic watch");
+        let res = match mode {
+            Mode::AddWatch => debouncer
+                .watcher()
+                .watch(&path, notify::RecursiveMode::NonRecursive),
+            Mode::RemoveWatch => debouncer.watcher().unwatch(&path),
+        }
+        .inspect_err(|err| {
+            tracing::warn!(
+                ?path,
+                ?mode,
+                ?err,
+                "failed to add or remove watch; changes may be missed until restart"
+            )
+        });
+        match mode {
+            Mode::AddWatch if res.is_ok() => {
+                dynamically_watched_dirs.insert(path);
+            }
+            _ => {
+                // If adding OR removing a watch didn't work, just remove it from our list.
+                // On linux, it seems to manage to remove the watch, but fails to communicate it,
+                // so our own tracking list would be stale.
+                dynamically_watched_dirs.remove(&path);
+            }
+        }
+    }
 }
 
 #[cfg(target_family = "unix")]
