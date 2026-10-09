@@ -105,6 +105,12 @@
 	}
 }
 
+/* Where the chevron would be on a row with nothing to unfold. */
+.empty {
+	color: var(--text-3);
+	opacity: 0.5;
+}
+
 .icon {
 	display: flex;
 	flex-shrink: 0;

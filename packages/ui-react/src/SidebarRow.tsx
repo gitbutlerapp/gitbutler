@@ -20,8 +20,10 @@ export type SidebarRowLayout = "compact" | "rich";
 type RowProps = {
 	/** How many levels the row sits below the top of the card, one guide per level. */
 	depth?: number;
-	/** Gives the row a chevron: `true` while its children are hidden. Leave it out on a leaf. */
-	folded?: boolean;
+	/** Gives the row a chevron: `true` while its children are hidden. Leave it out on a leaf.
+	 * `"empty"` on a row that could hold children and has none yet, such as a branch without
+	 * commits: a dot in the chevron's place keeps it in line with the rows that fold. */
+	folded?: boolean | "empty";
 	onToggleFolded?: () => void;
 	/** Selected: the quiet fill, or the solid one while the list holds the selection focus. */
 	selected?: boolean;
@@ -41,7 +43,7 @@ type RowProps = {
 
 const Steps: FC<{
 	depth: number;
-	folded: boolean | undefined;
+	folded: boolean | "empty" | undefined;
 	onToggleFolded: (() => void) | undefined;
 	name: string;
 }> = ({ depth, folded, onToggleFolded, name }) =>
@@ -50,7 +52,12 @@ const Steps: FC<{
 			{Array.from({ length: depth }, (_, level) => (
 				<span key={level} className={classes(styles.step, styles.guide)} aria-hidden />
 			))}
-			{folded !== undefined && (
+			{folded === "empty" && (
+				<span className={classes(styles.step, styles.empty)} aria-hidden>
+					<Icon size={12} name="bullet-disc" />
+				</span>
+			)}
+			{typeof folded === "boolean" && (
 				// A tree moves with the arrow keys, so the chevron stays out of the tab order and takes
 				// its click on its own, leaving the rest of the row to open what it names.
 				<button
@@ -223,7 +230,7 @@ export const RepoItem: FC<
 	<Row
 		{...props}
 		name={name}
-		layout={props.folded ? "compact" : layout}
+		layout={props.folded === true ? "compact" : layout}
 		icon={icon ?? <Icon name="repo" />}
 		label={
 			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
@@ -250,7 +257,7 @@ export const WorktreeItem: FC<
 	<Row
 		{...props}
 		name={name}
-		layout={props.folded ? "compact" : layout}
+		layout={props.folded === true ? "compact" : layout}
 		icon={<Icon name={main ? "folder" : "folder-copy"} />}
 		label={
 			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
@@ -284,8 +291,8 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  *
  * Its `meta` reads in one order: `CiStatus`, then ↓ `behind`, ↑ `unpushed`, `uncommitted`, and
  * `commits`. Show ↑ or ⟜, never both; on an expanded branch drop ⟜, since its commits are listed
- * under it. A branch with no commits yet reads `commits` with "empty" in place of a number, so its
- * row isn't bare. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge),
+ * under it. A branch with no commits yet leads with `empty` saying "empty", and takes
+ * `folded="empty"`, so its row isn't bare and lines up with the branches that fold. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge),
  * then View PR on a branch with a request.
  *
  * In `rich`, an open or draft request takes two lines: its title, which wraps once and then ends in

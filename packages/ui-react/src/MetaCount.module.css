@@ -36,6 +36,11 @@
 	color: var(--text-warn);
 }
 
+.empty,
+.head {
+	color: var(--text-3);
+}
+
 .unpushed {
 	color: var(--text-blue);
 }

@@ -297,7 +297,8 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 					layout={layout}
 					title="offline-cache"
 					depth={2}
-					meta={<MetaCount type="commits">empty</MetaCount>}
+					folded="empty"
+					meta={<MetaCount type="empty">empty</MetaCount>}
 					menu={menu("Branch")}
 				/>
 			</Repository>
@@ -454,6 +455,107 @@ export const UncommittedChanges = meta.story({
 				meta={<MetaCount type="unpushed">4</MetaCount>}
 				menu={menu("Branch")}
 			/>
+		</div>
+	),
+});
+
+/**
+ * Rows that could hold something and hold nothing yet: a branch with no commits, a worktree with
+ * no branches and no changes, and a repository whose only worktree is such a one. Each keeps a dot
+ * where its chevron would be, so it lines up with the rows that fold and nothing offers to open,
+ * and says why first in its state: `empty` for a branch without commits, and for a worktree what it
+ * is on, `empty` with nothing applied or `detached`.
+ */
+export const Empty = meta.story({
+	parameters: { design: { type: "figma", url: core("2746-14577") } },
+	render: () => (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+			<Card label="pavel--macbook-pro-2" header={machine}>
+				<Repository last>
+					<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+					<UncommittedItem count={10} depth={1} menu={menu("Uncommitted changes")} />
+					<BranchItem
+						title="redact-remote-creds"
+						depth={1}
+						folded
+						meta={
+							<>
+								<MetaCount type="commits">11</MetaCount>
+								<MetaCount type="age">1d</MetaCount>
+							</>
+						}
+						menu={menu("Branch")}
+					/>
+					<BranchItem
+						title="offline-cache"
+						depth={1}
+						folded="empty"
+						meta={<MetaCount type="empty">empty</MetaCount>}
+						menu={menu("Branch")}
+					/>
+				</Repository>
+			</Card>
+			<Card label="pavel--macbook-pro-2" header={machine}>
+				<Repository last>
+					<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+					<WorktreeItem
+						main
+						name="Main worktree"
+						depth={1}
+						folded={false}
+						meta={<MetaCount type="behind">2</MetaCount>}
+						menu={menu("Worktree")}
+					/>
+					<UncommittedItem count={9} depth={2} menu={menu("Uncommitted changes")} />
+					<BranchItem
+						title="ios-push-handoff"
+						depth={2}
+						folded
+						meta={<MetaCount type="unpushed">9</MetaCount>}
+						menu={menu("Branch")}
+					/>
+					<WorktreeDivider depth={1} />
+					<WorktreeItem
+						name="scratch"
+						depth={1}
+						folded="empty"
+						meta={
+							<>
+								<MetaCount type="head">detached</MetaCount>
+								<MetaCount type="age">3d</MetaCount>
+							</>
+						}
+						menu={menu("Worktree")}
+					/>
+				</Repository>
+			</Card>
+			<Card label="pavel--macbook-pro-2" header={machine}>
+				<Repository>
+					<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+					<UncommittedItem count={12} depth={1} menu={menu("Uncommitted changes")} />
+					<BranchItem
+						title="ios-push-handoff"
+						depth={1}
+						folded
+						meta={<MetaCount type="unpushed">4</MetaCount>}
+						menu={menu("Branch")}
+					/>
+				</Repository>
+				<Repository last>
+					<RepoItem
+						name="skill-soup"
+						folded="empty"
+						meta={
+							<>
+								<MetaCount type="head">empty</MetaCount>
+								<MetaCount type="behind">2</MetaCount>
+								<MetaCount type="age">3d</MetaCount>
+							</>
+						}
+						menu={menu("Repository")}
+					/>
+				</Repository>
+			</Card>
 		</div>
 	),
 });
