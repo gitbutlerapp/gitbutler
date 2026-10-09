@@ -410,7 +410,7 @@ pub struct Edge {
     /// This limit would only be reached if there is a merge with 4.3 billion commits.
     pub(crate) parent_order: u32,
     /// The position of the stack this edge leads to among the stacks of its workspace,
-    /// in the order the workspace metadata lists them, counted from one.
+    /// in the order the workspace metadata lists them.
     ///
     /// This is `None` unless the edge leaves a workspace segment that has metadata.
     pub(crate) workspace_parent_order: Option<u32>,

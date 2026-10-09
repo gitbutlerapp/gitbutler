@@ -679,21 +679,16 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 if let Some(nodes_to_connect) = nodes_to_connect {
                     // If there were nodes to connect defined, create edges from them into the child node of the segment
                     // being inserted.
-                    for (index, any_selector) in nodes_to_connect.as_slice().iter().enumerate() {
+                    for any_selector in nodes_to_connect.as_slice() {
                         let selector = any_selector.to_selector(self)?;
                         let node = self.history.normalize_selector(selector)?;
-                        // Avoid weight collision by adding the order value of the highest order child plus one,
-                        // accommodating for order 0.
-                        let new_weight = if let Some((_, grand_child_weight, _)) =
-                            chubbiest_grand_child.as_ref()
-                        {
-                            Edge {
-                                order: index + grand_child_weight.order + 1,
-                            }
-                        } else {
-                            Edge { order: index }
-                        };
-                        self.graph.add_edge(node.id, child.id, new_weight);
+                        let order = self
+                            .graph
+                            .edges_directed(node.id, Direction::Outgoing)
+                            .map(|edge| edge.weight().order + 1)
+                            .max()
+                            .unwrap_or(0);
+                        self.graph.add_edge(node.id, child.id, Edge { order });
                     }
                 } else {
                     let edges = self
