@@ -558,7 +558,7 @@ fn resolve(
     } = args;
 
     let context_lines = ctx.settings.context_lines;
-    let (repo, ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
     let resolved_sources = resolve_sources(&repo, context_lines, id_map, sources)?;
 
