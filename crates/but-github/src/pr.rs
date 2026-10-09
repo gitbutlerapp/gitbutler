@@ -613,6 +613,9 @@ mod tests {
                     Err(error) => panic!("failed to accept request: {error}"),
                 }
             };
+            // Accepted sockets inherit nonblocking mode on macOS. The reads below
+            // must wait for the request, bounded by the read timeout.
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(std::time::Duration::from_secs(2)))
                 .unwrap();
