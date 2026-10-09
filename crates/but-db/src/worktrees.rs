@@ -53,7 +53,7 @@ pub struct WorktreeHead {
 /// resolve a worktree's branch or commit here at their point of use instead of
 /// holding on to an eagerly captured snapshot.
 pub fn worktree_head(repo: &gix::Repository, name: &BStr) -> Result<Option<WorktreeHead>> {
-    let Some(proxy) = repo.worktree_proxy_by_id(name) else {
+    let Some(proxy) = repo.worktree_proxy_by_id(name)? else {
         return Ok(None);
     };
     let wt_repo = match proxy.into_repo_with_possibly_inaccessible_worktree() {
@@ -75,15 +75,15 @@ pub fn worktree_head(repo: &gix::Repository, name: &BStr) -> Result<Option<Workt
     if ref_name.as_ref().is_some_and(is_workspace_ref) {
         return Ok(None);
     }
-    match head.peel_to_commit() {
-        Ok(commit) => Ok(Some(WorktreeHead {
+    match head.try_peel_to_id().and_then(|id| match id {
+        Some(id) if id.header()?.kind().is_commit() => Ok(Some(id)),
+        _ => Ok(None),
+    }) {
+        Ok(Some(id)) => Ok(Some(WorktreeHead {
             ref_name,
-            id: commit.id,
+            id: id.into(),
         })),
-        // A worktree on an unborn branch has nothing to see yet.
-        Err(gix::head::peel::to_commit::Error::PeelToObject(
-            gix::head::peel::to_object::Error::Unborn { .. },
-        )) => Ok(None),
+        Ok(_) => Ok(None),
         Err(err) => {
             tracing::warn!(%name, ?err, "Skipping linked worktree whose HEAD cannot be peeled to a commit");
             Ok(None)
@@ -147,7 +147,7 @@ fn enumerate_worktrees(repo: &gix::Repository) -> Result<(Vec<BString>, Vec<Work
     let mut all_names = Vec::new();
     let mut out = Vec::new();
     for proxy in repo.worktrees()? {
-        let name: BString = proxy.id().to_owned();
+        let name: BString = proxy.id()?.to_owned();
         all_names.push(name.clone());
         if proxy.is_prunable() {
             continue;

@@ -111,6 +111,7 @@ impl CommentStore {
                 2500,
             )),
             None,
+            0,
         )?;
         let mut comments = self.read();
         let result = mutate(&mut comments)?;

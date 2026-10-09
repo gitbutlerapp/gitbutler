@@ -387,7 +387,7 @@ fn updated_at_is_the_newest_entry_of_the_head_and_branch_reflogs() -> Result<()>
 fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-listing");
     let path = repo
-        .worktree_proxy_by_id(BStr::new("wt-a"))
+        .worktree_proxy_by_id(BStr::new("wt-a"))?
         .expect("fixture worktree")
         .base()?;
 
@@ -398,7 +398,7 @@ fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
     but_workspace::worktrees::remove(&repo, &path, true)?;
     assert!(!path.exists());
     assert!(
-        repo.worktree_proxy_by_id(BStr::new("wt-a")).is_none(),
+        repo.worktree_proxy_by_id(BStr::new("wt-a"))?.is_none(),
         "the administrative files are gone too"
     );
     Ok(())
@@ -417,7 +417,7 @@ fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path
         "git names the worktree after the last path component"
     );
     assert_eq!(
-        repo.worktree_proxy_by_id(name.as_bstr())
+        repo.worktree_proxy_by_id(name.as_bstr())?
             .expect("registered")
             .base()?,
         gix::path::realpath(&path)?

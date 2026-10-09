@@ -65,7 +65,7 @@ pub enum RepositoryError<
         remote: String,
         /// The configuration lookup error.
         #[source]
-        source: gix::remote::find::existing::Error,
+        source: gix::Error,
     },
     /// The repository could not be opened.
     #[error("failed to open repository at `{}`: {source}", path.display())]
@@ -74,7 +74,7 @@ pub enum RepositoryError<
         path: PathBuf,
         /// The repository open error.
         #[source]
-        source: gix::open::Error,
+        source: gix::Error,
     },
 }
 
@@ -402,7 +402,7 @@ where
     match harness_env {
         HarnessEnv::Repo(repo_path) => Ok(gix::open(repo_path.as_ref())?
             .config_snapshot()
-            .trusted_program(gix::config::tree::Core::SSH_COMMAND)
+            .trusted_program(gix::config::tree::Core::SSH_COMMAND)?
             .and_then(|program| program.to_str().map(String::from))),
         HarnessEnv::Global(_) => Ok(gix::config::File::from_globals()?
             .string(gix::config::tree::Core::SSH_COMMAND)
@@ -434,8 +434,7 @@ where
         source,
     })?;
     let refspecs = fetch_refspecs(&repo, remote).map_err(|source| {
-        let remote_not_found =
-            matches!(source, gix::remote::find::existing::Error::NotFound { .. });
+        let remote_not_found = source.is_not_found();
         let source = Error::<E>::RemoteConfiguration {
             remote: remote.to_owned(),
             source,
@@ -482,10 +481,7 @@ where
     }
 }
 
-fn fetch_refspecs(
-    repo: &gix::Repository,
-    remote: &str,
-) -> Result<Vec<String>, gix::remote::find::existing::Error> {
+fn fetch_refspecs(repo: &gix::Repository, remote: &str) -> gix::Result<Vec<String>> {
     let refspecs: Vec<_> = repo
         .find_remote(remote)?
         .refspecs(gix::remote::Direction::Fetch)
@@ -666,6 +662,41 @@ where
 #[cfg(test)]
 mod tests {
     use std::{ffi::OsString, path::Path};
+
+    #[tokio::test]
+    async fn fetch_distinguishes_missing_remotes_from_invalid_configuration() -> anyhow::Result<()>
+    {
+        let tmp = but_testsupport::gix_testtools::tempfile::tempdir()?;
+        let repo = gix::init(tmp.path())?;
+        let on_prompt = None::<fn(String) -> std::future::Ready<Option<String>>>;
+        let err = super::fetch(tmp.path(), crate::tokio::TokioExecutor, "origin", on_prompt)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err, crate::Error::NoSuchRemote(..)),
+            "a missing remote retains its public error variant"
+        );
+
+        but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+            config.set_raw_value("remote.origin.url", "https://example.com/repo")?;
+            config.set_raw_value(
+                "remote.origin.fetch",
+                "refs/heads/*:refs/remotes/origin/*:extra",
+            )?;
+            Ok(())
+        })?;
+        let err = super::fetch(tmp.path(), crate::tokio::TokioExecutor, "origin", on_prompt)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                crate::Error::Backend(super::RepositoryError::RemoteConfiguration { .. })
+            ),
+            "an existing remote with an invalid refspec remains a configuration error"
+        );
+        Ok(())
+    }
 
     #[test]
     fn askpass_executable_path_honors_override() {

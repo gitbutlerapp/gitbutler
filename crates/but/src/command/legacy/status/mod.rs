@@ -1052,7 +1052,7 @@ fn empty_branch_is_merged_upstream(
     }
 
     repo.merge_base(remote_tip_id, status_ctx.target_tip_id)
-        .is_ok_and(|merge_base| merge_base == remote_tip_id)
+        .is_ok_and(|merge_base| merge_base.is_some_and(|merge_base| merge_base == remote_tip_id))
 }
 
 fn remote_tracking_ref_is_target_branch(

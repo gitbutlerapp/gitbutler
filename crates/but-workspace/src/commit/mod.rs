@@ -663,7 +663,7 @@ impl<'repo> WorkspaceCommit<'repo> {
     /// also rewrite the author and committer time, just to be sure we respect all settings. `new_from_stacks` doesn't have a repo.
     fn fixup_times(ws_commit: &mut gix::objs::Commit, repo: &gix::Repository) {
         fn try_time(
-            sig: Option<Result<gix::actor::SignatureRef<'_>, gix::config::time::Error>>,
+            sig: Option<gix::Result<gix::actor::SignatureRef<'_>>>,
         ) -> Option<gix::date::Time> {
             sig.transpose().ok().flatten().and_then(|s| s.time().ok())
         }

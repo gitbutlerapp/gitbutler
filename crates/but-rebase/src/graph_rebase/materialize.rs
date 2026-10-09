@@ -118,7 +118,7 @@ fn open_linked_checkout_repos(
         .map(|spec| {
             let proxy = proxies
                 .iter()
-                .find(|proxy| proxy.id() == spec.name.as_bstr())
+                .find(|proxy| proxy.id().is_ok_and(|id| id == spec.name.as_bstr()))
                 .with_context(|| format!("Visible worktree {} no longer exists", spec.name))?;
             let worktree_repo = proxy.clone().into_repo()?;
             let actual_ref = worktree_repo.head_name()?;

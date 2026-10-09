@@ -1116,7 +1116,7 @@ export declare function listReviewReactions(projectId: string, reviewId: number)
 export declare function listReviews(projectId: string, cacheConfig: CacheConfig | null): Promise<Array<ForgeReview>>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2530}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2527}
  */
 export declare function listReviewsForBranch(projectId: string, branch: string, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
 
@@ -1641,7 +1641,7 @@ export declare function uploadFile(params: UploadFileParams): Promise<Upload>
  * Additionally, it cleans up stale CI check entries for references that are no longer
  * part of any applied stack.
  *
- * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2564}
+ * {@link ../../../../../crates/but-api/src/legacy/forge.rs:2561}
  */
 export declare function warmCiChecksCache(projectId: string): Promise<void>
 

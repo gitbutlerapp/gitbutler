@@ -1258,7 +1258,10 @@ mod tests {
             .peel_to_id()?
             .detach();
         let current_head = repo.head_id()?.detach();
-        let expected_merge_base = repo.merge_base(current_head, target_tip)?.detach();
+        let expected_merge_base = repo
+            .merge_base(current_head, target_tip)?
+            .expect("the feature branch shares history with main")
+            .detach();
         assert_ne!(expected_merge_base, target_tip);
 
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();

@@ -69,9 +69,8 @@ fn merge_base_with_target(
     target_head: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
     match repo.merge_base(head, target_head) {
-        Ok(id) => Ok(id.detach()),
-        Err(gix::repository::merge_base::Error::FindMergeBase(_))
-        | Err(gix::repository::merge_base::Error::NotFound { .. }) => bail_precondition!(
+        Ok(Some(id)) => Ok(id.detach()),
+        Ok(None) => bail_precondition!(
             "The selected target has no common history with HEAD. Fetch more history or choose another branch."
         ),
         Err(err) => Err(err).context(format!(
@@ -90,9 +89,7 @@ fn target_contains_commit(
         return Ok(false);
     }
     match repo.merge_base(commit, target_head) {
-        Ok(id) => Ok(id.detach() == commit),
-        Err(gix::repository::merge_base::Error::FindMergeBase(_))
-        | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(false),
+        Ok(id) => Ok(id.is_some_and(|id| id.detach() == commit)),
         Err(err) => Err(err).context(format!(
             "Failed to validate existing target commit {commit} against {target_head}"
         )),

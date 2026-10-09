@@ -1634,8 +1634,9 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
         "the empty local branch should be classified through its tracking tip"
     );
     assert_eq!(
-        repo.merge_base(remote_topic_tip, target_tip)?,
-        remote_topic_tip,
+        repo.merge_base(remote_topic_tip, target_tip)?
+            .map(gix::Id::detach),
+        Some(remote_topic_tip),
         "the tracking tip should be reachable from the target"
     );
 

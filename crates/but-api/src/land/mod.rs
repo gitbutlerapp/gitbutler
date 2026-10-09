@@ -646,12 +646,35 @@ fn merge_base_opt(
     a: gix::ObjectId,
     b: gix::ObjectId,
 ) -> anyhow::Result<Option<gix::ObjectId>> {
-    match repo.merge_base(a, b) {
-        Ok(id) => Ok(Some(id.detach())),
-        Err(gix::repository::merge_base::Error::FindMergeBase(_))
-        | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(None),
-        Err(err) => Err(err.into()),
-    }
+    Ok(repo.merge_base(a, b)?.map(gix::Id::detach))
+}
+
+#[test]
+fn merge_base_distinguishes_unrelated_history_from_missing_objects() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    gix::init(tmp.path())?;
+    let repo = but_testsupport::open_repo(tmp.path())?;
+    let root = |name: &str| {
+        repo.commit(
+            name,
+            name,
+            repo.object_hash().empty_tree(),
+            std::iter::empty::<gix::ObjectId>(),
+        )
+        .map(gix::Id::detach)
+    };
+    let first = root("refs/heads/first")?;
+    let second = root("refs/heads/second")?;
+    assert_eq!(
+        merge_base_opt(&repo, first, second)?,
+        None,
+        "unrelated roots have no merge base"
+    );
+    assert!(
+        merge_base_opt(&repo, first, repo.object_hash().null()).is_err(),
+        "a missing object is a traversal failure, not unrelated history"
+    );
+    Ok(())
 }
 
 /// Whether `commit` is contained in the target tip — equal to it, or an ancestor of it (which

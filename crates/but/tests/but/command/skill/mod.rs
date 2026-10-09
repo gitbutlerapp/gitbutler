@@ -944,7 +944,7 @@ fn skill_global_install_and_check_work_inside_an_unreadable_repository() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Failed to load the git configuration
+Error: Repository configuration could not be loaded[..]
 ...
 "#]]);
 }

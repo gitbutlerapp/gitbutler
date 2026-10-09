@@ -80,13 +80,9 @@ pub(super) fn update_local_target_refs(
 
 /// Whether a `repo.edit_references` failure was a compare-and-swap mismatch (the expected previous
 /// value didn't match), i.e. a ref moved concurrently — as opposed to an I/O or lock failure.
-fn is_ref_out_of_date(err: &gix::reference::edit::Error) -> bool {
-    matches!(
-        err,
-        gix::reference::edit::Error::FileTransactionPrepare(
-            gix::refs::file::transaction::prepare::Error::ReferenceOutOfDate { .. }
-        )
-    )
+fn is_ref_out_of_date(err: &gix::Error) -> bool {
+    err.downcast_any_ref::<gix::refs::file::transaction::prepare::ReferenceOutOfDate>()
+        .is_some()
 }
 
 /// Real-remote path: push the landed commit onto the target branch. Fast-forward by default

@@ -82,7 +82,7 @@ pub fn open_worktree_repo(repo: &gix::Repository, name: &BStr) -> anyhow::Result
     let proxy = repo
         .worktrees()?
         .into_iter()
-        .find(|proxy| proxy.id() == name)
+        .find(|proxy| proxy.id().is_ok_and(|id| id == name))
         .with_context(|| format!("Worktree {name} does not exist"))?;
     proxy.into_repo().map_err(Into::into)
 }
@@ -152,7 +152,7 @@ fn add_inner(
     if path.exists() {
         bail!("'{}' already exists", path.display());
     }
-    let short_name = gix::path::from_bstr(branch.shorten());
+    let short_name = gix::path::from_bstr(branch.shorten())?;
     let base = base.to_string();
 
     let mut args = vec![];
@@ -170,7 +170,9 @@ fn add_inner(
     git_worktree(repo, "add", &args)?;
     gix::open(path)?
         .worktree()
-        .and_then(|worktree| worktree.id().map(ToOwned::to_owned))
+        .map(|worktree| worktree.id().map(|id| id.map(ToOwned::to_owned)))
+        .transpose()?
+        .flatten()
         .context("git registered the new checkout as a linked worktree")
 }
 
