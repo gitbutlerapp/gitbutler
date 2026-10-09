@@ -100,9 +100,9 @@ Finalize conflict resolution and return to workspace mode
 Cancel conflict resolution and return to workspace mode
 - `-f, --force` Discard any changes made during resolution
 
-### but unapply <BRANCH_OR_STACK>
+### but unapply <BRANCH_OR_STACK>...
 Remove a branch from the workspace, keeping it to apply again later
-- `<BRANCH_OR_STACK>` The branch or stack to unapply
+- `<BRANCH_OR_STACK>...` The branches or stacks to unapply
 
 ### but apply <BRANCH>
 Apply a branch
@@ -198,9 +198,9 @@ Merge a branch directly onto the target branch, bypassing review
 - `--no-ff` Always create a merge commit, even when the branch can be fast-forwarded
 - `--whole-stack` Merge the entire stack: BRANCH must be the top segment, and the segments below it are published to the target along with it
 
-### but push [BRANCH]
+### but push [BRANCH]...
 Push changes in a branch to remote
-- `[BRANCH]` Branch name or CLI ID to push; the branches below it in its stack are pushed with it. If omitted, a terminal prompts for a selection and a non-interactive run pushes every stack with unpushed commits
+- `[BRANCH]...` Branch names or CLI IDs to push; the branches below each one in its stack are pushed with it. If omitted, a terminal prompts for a selection and a non-interactive run pushes every stack with unpushed commits
 - `-f, --with-force` Force push even if it's not fast-forward
 - `-s, --skip-force-push-protection` Skip force push protection checks
 - `--no-hooks` Bypass pre-push hooks

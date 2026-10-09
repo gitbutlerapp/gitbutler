@@ -52,6 +52,26 @@ fn pushing_a_worktree_branch_pushes_what_it_rests_on_first() {
 }
 
 #[test]
+fn pushes_multiple_branches_given_on_the_command_line() {
+    let env = repo_with_worktree_on_unpushed_branch();
+
+    env.but("push branchB wt")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+✓ Push completed successfully
+
+  branchB -> origin/branchB ((new branch) -> 7566fe0)
+
+✓ Push completed successfully
+
+  wt -> origin/wt ((new branch) -> 9da8421)
+
+"#]]);
+}
+
+#[test]
 fn bare_push_includes_worktree_lanes() {
     let env = repo_with_worktree_on_unpushed_branch();
 

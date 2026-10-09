@@ -29,12 +29,12 @@ pub mod help {
         use std::fmt::Write;
         writeln!(out, "Push a branch/stack to remote")?;
         writeln!(out,)?;
-        writeln!(out, "Usage: but push [OPTIONS] [BRANCH_ID]")?;
+        writeln!(out, "Usage: but push [OPTIONS] [BRANCH_ID]...")?;
         writeln!(out,)?;
         writeln!(out, "Arguments:")?;
         writeln!(
             out,
-            "  [BRANCH_ID]  Branch name or CLI ID to push. If not specified:"
+            "  [BRANCH_ID]...  Branch names or CLI IDs to push. If not specified:"
         )?;
         writeln!(
             out,

@@ -127,12 +127,13 @@ but apply feature-branch  # Activate branch in workspace
 
 Default human output reports whether the branch was applied, was already active, or conflicted. Conflicts are reported as non-zero CLI errors.
 
-### `but unapply <selector>`
+### `but unapply <selector>...`
 
 Deactivate a branch from the workspace.
 
 ```bash
-but unapply <selector> # Deactivate branch from workspace
+but unapply <selector>              # Deactivate branch from workspace
+but unapply <selector1> <selector2> # Deactivate several in one call
 ```
 
 The command also accepts a current CLI ID pointing to a stack or branch, but agents should use the full branch name. The entire stack containing that branch will be unapplied.
@@ -452,12 +453,13 @@ but resolve cancel --force
 
 ## Remote Operations
 
-### `but push <branch>`
+### `but push <branch>...`
 
-Push a selected branch and its ancestors to the remote. To update a whole stack, select its top branch once; never loop over the branches. Always specify which branch to push: without one, `but push` prompts for a selection in interactive terminals (one entry per stack, folding in stack ancestors) and otherwise pushes all unpushed work — one push per stack via its topmost unpushed branch, so output has one entry per stack, not per branch. A batch push exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe since up-to-date stacks are skipped. Accepts a full branch name or a branch CLI ID — prefer the name; it stays valid across mutations.
+Push one or more selected branches and their ancestors to the remote. To update a whole stack, select its top branch once; never loop over the branches of a stack. Pass several branches in one call (`but push <branch1> <branch2>`) rather than running `but push` repeatedly. Always specify which branch to push: without one, `but push` prompts for a selection in interactive terminals (one entry per stack, folding in stack ancestors) and otherwise pushes all unpushed work — one push per stack via its topmost unpushed branch, so output has one entry per stack, not per branch. A batch push exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe since up-to-date stacks are skipped. Accepts a full branch name or a branch CLI ID — prefer the name; it stays valid across mutations.
 
 ```bash
 but push <branch-name>             # Push the selected branch and its ancestors
+but push <branch1> <branch2>       # Push several branches in one call
 but push <branch-name> --dry-run   # Preview what would be pushed
 but push <branch-name> -s          # Skip force push protection checks
 but push <branch-name> --no-hooks  # Bypass pre-push hooks (--no-verify also works)
