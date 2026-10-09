@@ -1685,42 +1685,21 @@ WorktreeChanges {
 
 #[test]
 fn modified_in_index_and_worktree_add_del() -> Result<()> {
+    // Added to the index, then removed from disk: the path exists nowhere but the index,
+    // so there is no change relative to the tree.
     let repo = repo("modified-in-index-and-worktree-add-del")?;
-    let actual = diff::worktree_changes(&repo)?;
     snapbox::assert_data_eq!(
-        actual.to_debug(),
+        diff::worktree_changes(&repo)?.to_debug(),
         snapbox::str![[r#"
 WorktreeChanges {
-    changes: [
-        TreeChange {
-            path: "file",
-            status: Deletion {
-                previous_state: ChangeState {
-                    id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
-                    kind: Blob,
-                },
-            },
-        },
-    ],
+    changes: [],
     ignored_changes: [
         IgnoredWorktreeChange {
             path: "file",
-            status: TreeIndex,
+            status: TreeIndexWorktreeChangeIneffective,
         },
     ],
 }
-
-"#]]
-    );
-
-    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
-        unreachable!("need hunks")
-    };
-    snapbox::assert_data_eq!(
-        hunks[0].diff.to_string(),
-        snapbox::str![[r#"
-@@ -1,1 +1,0 @@
--initial
 
 "#]]
     );
@@ -1807,7 +1786,7 @@ WorktreeChanges {
             path: "file",
             status: Deletion {
                 previous_state: ChangeState {
-                    id: Sha1(983aca27780b0a4bcb122a7d603aad940e694d3d),
+                    id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
                     kind: Blob,
                 },
             },
@@ -1831,9 +1810,8 @@ WorktreeChanges {
     snapbox::assert_data_eq!(
         hunks[0].diff.to_string(),
         snapbox::str![[r#"
-@@ -1,2 +1,0 @@
+@@ -1,1 +1,0 @@
 -initial
--index
 
 "#]]
     );
@@ -2546,6 +2524,7 @@ WorktreeChanges {
 
 #[test]
 fn modified_in_index_and_worktree_add_rename() -> Result<()> {
+    // The rename source was only ever in the index, so the tree sees a plain addition.
     let repo = repo("modified-in-index-and-worktree-add-rename")?;
     let actual = diff::worktree_changes(&repo)?;
     snapbox::assert_data_eq!(
@@ -2555,17 +2534,12 @@ WorktreeChanges {
     changes: [
         TreeChange {
             path: "file-renamed-in-wt",
-            status: Rename {
-                previous_path: "file",
-                previous_state: ChangeState {
-                    id: Sha1(e79c5e8f964493290a409888d5413a737e8e5dd5),
-                    kind: Blob,
-                },
+            status: Addition {
                 state: ChangeState {
                     id: Sha1(0000000000000000000000000000000000000000),
                     kind: Blob,
                 },
-                flags: None,
+                is_untracked: true,
             },
         },
     ],
@@ -2583,10 +2557,129 @@ WorktreeChanges {
     let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
-    assert_eq!(
-        hunks.len(),
-        0,
-        "the file didn't actually change, it's just renamed"
+    // An addition diffs against nothing, so the whole file shows up as added.
+    snapbox::assert_data_eq!(
+        hunks[0].diff.to_string(),
+        snapbox::str![[r#"
+@@ -1,0 +1,1 @@
++initial
+
+"#]]
+    );
+
+    // The same, but the destination has a staged deletion: the addition folds into it
+    // and what's left is a modification of the destination.
+    let repo = crate::diff::worktree_changes::repo(
+        "modified-in-index-and-worktree-add-rename-onto-deleted",
+    )?;
+    snapbox::assert_data_eq!(
+        diff::worktree_changes(&repo)?.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "replaced",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(c452352bbbff3f54ba625e2466377c4c037ca4af),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "file",
+            status: TreeIndex,
+        },
+        IgnoredWorktreeChange {
+            path: "replaced",
+            status: TreeIndex,
+        },
+    ],
+}
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn modified_in_index_and_worktree_rename_rename_roundtrip() -> Result<()> {
+    // Renamed in the index and renamed back in the worktree: the path is where the tree
+    // has it, so with unchanged content there is nothing left.
+    let repo = repo("modified-in-index-and-worktree-rename-rename-roundtrip")?;
+    snapbox::assert_data_eq!(
+        diff::worktree_changes(&repo)?.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "file-renamed-in-index",
+            status: TreeIndexWorktreeChangeIneffective,
+        },
+    ],
+}
+
+"#]]
+    );
+
+    // With the content edited after the round trip, what remains is a modification of
+    // the tree's path; the intermediate index name is only recorded as absorbed.
+    let repo = crate::diff::worktree_changes::repo(
+        "modified-in-index-and-worktree-rename-rename-roundtrip-modified",
+    )?;
+    let actual = diff::worktree_changes(&repo)?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+WorktreeChanges {
+    changes: [
+        TreeChange {
+            path: "file",
+            status: Modification {
+                previous_state: ChangeState {
+                    id: Sha1(f384549cbeb481e437091320de6d1f2e15e11b4a),
+                    kind: Blob,
+                },
+                state: ChangeState {
+                    id: Sha1(0000000000000000000000000000000000000000),
+                    kind: Blob,
+                },
+                flags: None,
+            },
+        },
+    ],
+    ignored_changes: [
+        IgnoredWorktreeChange {
+            path: "file-renamed-in-index",
+            status: TreeIndex,
+        },
+    ],
+}
+
+"#]]
+    );
+    let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
+        unreachable!("need hunks")
+    };
+    // The diff is against the tree's blob, not the index's, so only the edit shows.
+    snapbox::assert_data_eq!(
+        hunks[0].diff.to_string(),
+        snapbox::str![[r#"
+@@ -2,3 +2,4 @@
+ two
+ three
+ four
++wt-change
+
+"#]]
     );
     Ok(())
 }
