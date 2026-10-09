@@ -134,6 +134,13 @@ fn emit_git_dir_watches(
     {
         return Ok(ControlFlow::Break(()));
     }
+    // Watch where linked worktrees are registered so their addition and removal is detected.
+    let linked_worktrees_dir = git_dir.join(crate::LINKED_WORKTREES_DIR);
+    if linked_worktrees_dir.is_dir()
+        && visit_dir(&linked_worktrees_dir, RecursiveMode::NonRecursive)?.is_break()
+    {
+        return Ok(ControlFlow::Break(()));
+    }
     // Watch the default GitButler storage dir so external sentinel writes (e.g.
     // the `but` CLI) reach the UI. A custom `gitbutler.storagePath` isn't watched:
     // the override relocates storage off the git dir (e.g. onto local disk when
