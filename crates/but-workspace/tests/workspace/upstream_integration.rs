@@ -1410,15 +1410,6 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
         }],
     )?;
-    let ws_meta = out
-        .ws_meta
-        .as_ref()
-        .context("workspace metadata should be returned")?;
-    assert_eq!(
-        ws_meta.stacks.len(),
-        1,
-        "non-bottom update selectors should not mark integrated stacks as selected for pruning"
-    );
     out.rebase.materialize(Default::default())?;
 
     assert!(
@@ -2087,6 +2078,8 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
 ├── ≡:anon: on fe9ae6e
 │   └── :anon:
 │       └── ·0d97cc1 (🏘️)
+├── ≡📙:target-sha on fe9ae6e {[..]}
+│   └── 📙:target-sha
 └── ≡📙:A on 20a5ffc {1}
     └── 📙:A
         └── ·c529875 (🏘️)
@@ -2807,14 +2800,6 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
             selector: RelativeTo::Commit(topic_bottom_commit),
         }],
     )?;
-    let ws_meta = out
-        .ws_meta
-        .as_ref()
-        .context("workspace metadata should be returned")?;
-    assert!(
-        ws_meta.stacks.is_empty(),
-        "workspace metadata should no longer expose the integrated empty branch"
-    );
     out.rebase.materialize(Default::default())?;
     let graph =
         but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
@@ -3004,22 +2989,6 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         }],
     )?;
 
-    let ws_meta = out
-        .ws_meta
-        .as_ref()
-        .context("workspace metadata should be returned")?;
-    let branch_names = ws_meta
-        .stacks
-        .iter()
-        .flat_map(|stack| stack.branches.iter())
-        .map(|branch| branch.ref_name.as_ref())
-        .map(|ref_name| ref_name.shorten().to_string())
-        .collect::<Vec<_>>();
-    assert_eq!(
-        branch_names,
-        vec!["top"],
-        "workspace metadata should retain only the unmerged empty top branch"
-    );
     out.rebase.materialize(Default::default())?;
     let graph =
         but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
@@ -3762,21 +3731,10 @@ fn integrate_and_materialize<M: RefMetadata>(
     let current_project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
-        ws_meta,
         project_meta,
-        deleted_refs,
+        ..
     } = integrate_upstream(workspace, meta, current_project_meta, repo, db, updates)?;
     let materialized = rebase.materialize(Default::default())?;
-    if let Some(ref_name) = materialized.workspace.ref_name()
-        && let Some(ws_meta) = ws_meta
-    {
-        let mut md = materialized.meta.workspace(ref_name)?;
-        *md = ws_meta;
-        materialized.meta.set_workspace(&md)?;
-    }
-    for ref_name in deleted_refs {
-        materialized.meta.remove(ref_name.as_ref())?;
-    }
     drop(materialized);
 
     Ok(project_meta)
@@ -3802,9 +3760,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
     let current_project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
-        ws_meta,
         project_meta,
-        deleted_refs,
     } = integrate_upstream_with_hints(
         workspace,
         meta,
@@ -3816,16 +3772,6 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         false,
     )?;
     let materialized = rebase.materialize(Default::default())?;
-    if let Some(ref_name) = materialized.workspace.ref_name()
-        && let Some(ws_meta) = ws_meta
-    {
-        let mut md = materialized.meta.workspace(ref_name)?;
-        *md = ws_meta;
-        materialized.meta.set_workspace(&md)?;
-    }
-    for ref_name in deleted_refs {
-        materialized.meta.remove(ref_name.as_ref())?;
-    }
     drop(materialized);
 
     Ok(project_meta)
@@ -4163,11 +4109,7 @@ fn integrated_worktree_branches_are_replaced_with_new_ones() -> Result<()> {
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    let but_workspace::IntegrateUpstreamOutcome {
-        rebase,
-        deleted_refs,
-        ..
-    } = integrate_upstream(
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -4180,14 +4122,6 @@ fn integrated_worktree_branches_are_replaced_with_new_ones() -> Result<()> {
     )?;
     rebase.materialize(Default::default())?;
 
-    assert_eq!(
-        deleted_refs
-            .iter()
-            .map(|name| name.shorten().to_string())
-            .collect::<std::collections::BTreeSet<_>>(),
-        ["wt-inside".to_string(), "wt-stacked".to_string()].into(),
-        "fully integrated worktree branches are gone"
-    );
     let worktree_head = |name: &str| -> Result<Option<gix::refs::FullName>> {
         Ok(open_repo(&repo.workdir().expect("non-bare").join(name))?.head_name()?)
     };
@@ -4355,11 +4289,7 @@ fn integrated_worktree_leaves_the_direct_checkout_on_its_branch() -> Result<()> 
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    let but_workspace::IntegrateUpstreamOutcome {
-        rebase,
-        deleted_refs,
-        ..
-    } = integrate_upstream(
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -4377,14 +4307,6 @@ fn integrated_worktree_leaves_the_direct_checkout_on_its_branch() -> Result<()> 
     )?;
     rebase.materialize(Default::default())?;
 
-    assert_eq!(
-        deleted_refs
-            .iter()
-            .map(|name| name.shorten().to_string())
-            .collect::<Vec<_>>(),
-        ["wt-outside"],
-        "only the worktree's branch landed upstream"
-    );
     assert_eq!(
         repo.head_name()?.map(|name| name.shorten().to_string()),
         Some("B".into()),
