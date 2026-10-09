@@ -524,9 +524,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 disconnected_parent_edges.push((edge_weight, edge_target));
             }
         }
+        disconnected_parent_edges.sort_by_key(|(edge_weight, _)| edge_weight.order);
 
         // 3. Disconnect children and reconnect to the disconnected parents.
-        for (edge_id, _, edge_source) in incoming_edges {
+        for (edge_id, edge_weight, edge_source) in incoming_edges {
             let should_disconnect = child_ids_to_disconnect
                 .as_ref()
                 .is_none_or(|ids| ids.contains(&edge_source));
@@ -535,7 +536,11 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 self.graph.remove_edge(edge_id);
                 // Reconnect the child node to all the disconnected parents.
                 if !skip_reconnect_step {
-                    self.reconnect_edges_to_parents(&disconnected_parent_edges, edge_source);
+                    self.reconnect_edges_to_parents(
+                        &disconnected_parent_edges,
+                        edge_source,
+                        edge_weight.order,
+                    );
                 }
             }
         }
@@ -543,16 +548,31 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(())
     }
 
-    /// Remove the child edge, and reconnect to the right parents.
+    /// Connect `child_node` to the disconnected parents, which take over the place
+    /// `vacated_order` among its parents while its later parents move behind them.
     fn reconnect_edges_to_parents(
         &mut self,
         disconnected_parent_edges: &[(Edge, petgraph::prelude::NodeIndex)],
         child_node: petgraph::prelude::NodeIndex,
+        vacated_order: usize,
     ) {
-        // Reconnect the child node to all the disconnected parents.
-        for (parent_edge_weight, edge_target) in disconnected_parent_edges {
-            self.graph
-                .add_edge(child_node, *edge_target, parent_edge_weight.clone());
+        let later_parent_edges = self
+            .graph
+            .edges_directed(child_node, Direction::Outgoing)
+            .filter(|edge| edge.weight().order > vacated_order)
+            .map(|edge| edge.id())
+            .collect::<Vec<_>>();
+        for edge_id in later_parent_edges {
+            self.graph[edge_id].order += disconnected_parent_edges.len().saturating_sub(1);
+        }
+        for (offset, (_, edge_target)) in disconnected_parent_edges.iter().enumerate() {
+            self.graph.add_edge(
+                child_node,
+                *edge_target,
+                Edge {
+                    order: vacated_order + offset,
+                },
+            );
         }
     }
 
