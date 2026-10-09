@@ -59,8 +59,8 @@ use super::{
     help::{Help, HelpMessage},
     highlight::Highlights,
     key_bind::{
-        KeyBinds, confirm_key_binds, default_key_binds, fuzzy_picker_key_binds, help_key_binds,
-        normal_with_marks_key_binds,
+        KeyBinds, choice_confirm_key_binds, confirm_key_binds, default_key_binds,
+        fuzzy_picker_key_binds, help_key_binds, normal_with_marks_key_binds,
     },
     mode::{DetailsMode, DetailsReturnMode, Mode},
     operations,
@@ -382,6 +382,7 @@ impl App {
             key_binds: default_key_binds(&ctx.settings.feature_flags),
             normal_with_marks_key_binds: normal_with_marks_key_binds(&ctx.settings.feature_flags),
             confirm_key_binds: confirm_key_binds(),
+            choice_confirm_key_binds: choice_confirm_key_binds(),
         };
 
         let mode = RememberToUpdateBackstack::new(match (run_options, initial_hunk.is_some()) {
@@ -450,6 +451,9 @@ impl App {
 
     pub fn active_key_binds(&self) -> &KeyBinds {
         match &self.modal {
+            Some(Modal::Confirm { confirm }) if confirm.has_choices() => {
+                &self.app_key_binds.choice_confirm_key_binds
+            }
             Some(Modal::Confirm { .. }) => &self.app_key_binds.confirm_key_binds,
             Some(Modal::GotoBranchPicker { key_binds, .. })
             | Some(Modal::ApplyStackPicker { key_binds, .. })
@@ -2167,6 +2171,7 @@ pub struct AppKeyBinds {
     key_binds: KeyBinds,
     normal_with_marks_key_binds: KeyBinds,
     confirm_key_binds: KeyBinds,
+    choice_confirm_key_binds: KeyBinds,
 }
 
 #[derive(Debug)]

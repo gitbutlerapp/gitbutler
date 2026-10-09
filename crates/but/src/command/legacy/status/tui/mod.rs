@@ -630,7 +630,12 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             },
             Message::Confirm(message) => match message {
                 ConfirmMessage::Confirm | ConfirmMessage::Yes => true,
-                ConfirmMessage::Left | ConfirmMessage::Right | ConfirmMessage::No => false,
+                ConfirmMessage::Left
+                | ConfirmMessage::Right
+                | ConfirmMessage::No
+                | ConfirmMessage::Up
+                | ConfirmMessage::Down
+                | ConfirmMessage::Toggle => false,
             },
             Message::Commit(message) => match message {
                 CommitMessage::CreateEmpty

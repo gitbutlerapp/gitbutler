@@ -1,5 +1,6 @@
 use but_ctx::Context;
 use gix::refs::Category;
+use nonempty::NonEmpty;
 use ratatui::{style::Style, text::Span};
 
 use crate::{
@@ -21,7 +22,7 @@ use crate::{
                     App, Modal,
                     mark::{Marks, MarksRef},
                 },
-                confirm::Confirm,
+                confirm::{Choice, Confirm},
                 fuzzy_picker::{Col, FuzzyPicker, FuzzyPickerItem, SearchableToken},
                 key_bind::fuzzy_picker_key_binds,
                 mode::Mode,
@@ -203,7 +204,8 @@ impl App {
 
     /// Land the marked branches — or the branch under the cursor when none are marked — directly
     /// onto the target with a single update, after a confirmation that discloses everything being
-    /// published. A marked branch with segments below it lands its whole stack.
+    /// published. The confirmation has a tickbox per stack, listing the segments that land with it
+    /// bottom-up: a marked branch takes every segment below it along, and unticked stacks stay.
     fn handle_branch_land(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
         let Mode::Branch(branch_mode) = &*self.mode else {
             return Ok(());
@@ -229,7 +231,7 @@ impl App {
         let base_branch = {
             let mut guard = ctx.exclusive_worktree_access();
             but_api::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())?
-                .context("No base branch configured")?
+                .ok_or_else(|| anyhow::anyhow!("No base branch configured"))?
         };
         let push_remote_name = if base_branch.push_remote_name.is_empty() {
             base_branch.remote_name
@@ -238,12 +240,9 @@ impl App {
         };
         let target_display = format!("{push_remote_name}/{}", base_branch.short_name);
 
-        // Look below every branch: one sitting on other segments can only land with its whole
-        // stack, and the confirmation must name what that publishes.
-        let landings = messaging::landings(ctx, &branch_names, true)?;
-        let whole_stack = landings
-            .iter()
-            .any(|landing| !landing.lower.segments.is_empty() || landing.lower.unnamed_commits > 0);
+        let rows = land_rows(ctx, &branch_names)?;
+        let all_names: Vec<String> = rows.iter().flat_map(|row| row.branches.clone()).collect();
+        let landings = messaging::landings(ctx, &all_names, false)?;
         let warning = messaging::direct_target_update_warning(ctx, &landings, &target_display)?;
 
         let mut lines: Vec<ratatui::text::Line<'static>> =
@@ -252,45 +251,67 @@ impl App {
                 .map(|line| line.into_owned().into())
                 .collect();
         lines.push("".into());
-        lines.push(format!("Land {} onto {target_display}?", branch_names.join(", ")).into());
+        lines.push(format!("Land onto {target_display}:").into());
         let Some(lines) = NonEmpty::from_vec(lines) else {
             anyhow::bail!("BUG: the land confirmation must have lines")
         };
+        let choices = rows
+            .iter()
+            .map(|row| {
+                let mut label = row.branches.join(", ");
+                if row.unnamed_commits > 0 {
+                    label.push_str(&format!(
+                        " (can't land: {} commit(s) below it are on deleted branches)",
+                        row.unnamed_commits
+                    ));
+                }
+                Choice {
+                    label: label.into(),
+                    ticked: row.unnamed_commits == 0,
+                    disabled: row.unnamed_commits > 0,
+                }
+            })
+            .collect();
 
-        let confirm = Confirm::new(lines, self.theme, move |ctx, messages| {
-            let result = but_api::land::branch_land(ctx, branch_names.clone(), false, whole_stack)?;
-            let text = match result.landed {
-                but_api::land::BranchLandKind::AlreadyIntegrated => {
-                    format!("Already on {target_display}: {}", branch_names.join(", "))
-                }
-                but_api::land::BranchLandKind::Updated { .. } => {
-                    let landed: Vec<&str> = branch_names
-                        .iter()
-                        .filter(|name| !result.already_integrated.contains(name))
-                        .map(String::as_str)
-                        .collect();
-                    format!("Landed {} onto {target_display}", landed.join(", "))
-                }
-            };
-            messages.push(Message::ShowToast {
-                kind: ToastKind::Info,
-                text: text.into(),
-            });
-            if result.reconcile_skipped {
+        let confirm =
+            Confirm::with_choices(lines, choices, self.theme, move |ctx, messages, ticked| {
+                let branch_names: Vec<String> = ticked
+                    .into_iter()
+                    .flat_map(|idx| rows[idx].branches.clone())
+                    .collect();
+                let result = but_api::land::branch_land(ctx, branch_names.clone(), false, false)?;
+                let text = match result.landed {
+                    but_api::land::BranchLandKind::AlreadyIntegrated => {
+                        format!("Already on {target_display}: {}", branch_names.join(", "))
+                    }
+                    but_api::land::BranchLandKind::Updated { .. } => {
+                        let landed: Vec<&str> = branch_names
+                            .iter()
+                            .filter(|name| !result.already_integrated.contains(name))
+                            .map(String::as_str)
+                            .collect();
+                        format!("Landed {} onto {target_display}", landed.join(", "))
+                    }
+                };
                 messages.push(Message::ShowToast {
-                    kind: ToastKind::Error,
-                    text: "The remaining branches were not updated onto the new target. Run \
-                           `but pull` to finish."
-                        .into(),
+                    kind: ToastKind::Info,
+                    text: text.into(),
                 });
-            }
-            messages.extend([
-                Message::ClearMarks,
-                Message::EnterNormalModeAfterConfirmingOperation,
-                Message::Reload(None, ReloadCause::Mutation),
-            ]);
-            Ok(())
-        });
+                if result.reconcile_skipped {
+                    messages.push(Message::ShowToast {
+                        kind: ToastKind::Error,
+                        text: "The remaining branches were not updated onto the new target. Run \
+                           `but pull` to finish."
+                            .into(),
+                    });
+                }
+                messages.extend([
+                    Message::ClearMarks,
+                    Message::EnterNormalModeAfterConfirmingOperation,
+                    Message::Reload(None, ReloadCause::Mutation),
+                ]);
+                Ok(())
+            });
         self.modal = Some(Modal::Confirm { confirm });
 
         Ok(())
@@ -492,4 +513,44 @@ impl FuzzyPickerItem for SwitchBranchItem {
     fn secondary_style(&self, theme: &Theme) -> Style {
         theme.hint
     }
+}
+
+/// One stack's worth of a TUI land: the confirmation's tickbox for it.
+struct LandRow {
+    /// The segments that land, bottom of the stack first, up to the highest marked branch.
+    branches: Vec<String>,
+    /// Commits below the row's branches on segments without a name. They would be published too,
+    /// but can't be named, so the row can't land.
+    unnamed_commits: usize,
+}
+
+/// Group `branch_names` into one [`LandRow`] per stack, in the order the branches were given. A
+/// branch takes every segment below it along, so a marked branch below another one in the same
+/// stack is covered by the higher one's row.
+fn land_rows(ctx: &mut Context, branch_names: &[String]) -> anyhow::Result<Vec<LandRow>> {
+    let mut rows: Vec<(usize, LandRow)> = Vec::new();
+    for (idx, branch) in branch_names.iter().enumerate() {
+        let lower = but_api::land::lower_stack(ctx, branch)?;
+        let mut branches = lower.segments;
+        branches.reverse();
+        branches.push(branch.clone());
+        rows.push((
+            idx,
+            LandRow {
+                branches,
+                unnamed_commits: lower.unnamed_commits,
+            },
+        ));
+    }
+    // Longest first, so a row whose top branch already lands with a higher one is dropped.
+    rows.sort_by_key(|(_, row)| std::cmp::Reverse(row.branches.len()));
+    let mut kept: Vec<(usize, LandRow)> = Vec::new();
+    for (idx, row) in rows {
+        let top = row.branches.last().expect("a row has its own branch");
+        if !kept.iter().any(|(_, k)| k.branches.contains(top)) {
+            kept.push((idx, row));
+        }
+    }
+    kept.sort_by_key(|(idx, _)| *idx);
+    Ok(kept.into_iter().map(|(_, row)| row).collect())
 }

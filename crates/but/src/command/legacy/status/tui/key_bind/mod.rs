@@ -193,6 +193,15 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
 }
 
 pub fn confirm_key_binds() -> KeyBinds {
+    confirm_key_binds_inner(false)
+}
+
+/// [`confirm_key_binds`] plus moving between and toggling the confirmation's tickboxes.
+pub fn choice_confirm_key_binds() -> KeyBinds {
+    confirm_key_binds_inner(true)
+}
+
+fn confirm_key_binds_inner(with_choices: bool) -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     let mut builder = key_binds.for_all_modes();
@@ -202,6 +211,30 @@ pub fn confirm_key_binds() -> KeyBinds {
             Message::Confirm(ConfirmMessage::Confirm)
         })
         .register();
+
+    if with_choices {
+        builder
+            .key_bind("toggle", press().code(KeyCode::Char(' ')), || {
+                Message::Confirm(ConfirmMessage::Toggle)
+            })
+            .register();
+
+        builder
+            .key_bind(
+                "up",
+                press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
+                || Message::Confirm(ConfirmMessage::Up),
+            )
+            .register();
+
+        builder
+            .key_bind(
+                "down",
+                press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
+                || Message::Confirm(ConfirmMessage::Down),
+            )
+            .register();
+    }
 
     builder
         .key_bind("yes", press().code(KeyCode::Char('y')), || {
