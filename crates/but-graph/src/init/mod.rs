@@ -2374,6 +2374,7 @@ impl Graph {
                 dst: dst_commit,
                 dst_id: dst_id.or_else(|| self[dst].commit_id_by_index(dst_commit)),
                 parent_order,
+                workspace_parent_order: None,
             },
         );
         self.rebuild_outgoing_edges_for_traversal_order(src, new_edge_id);

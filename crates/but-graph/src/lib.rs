@@ -409,9 +409,28 @@ pub struct Edge {
     ///
     /// This limit would only be reached if there is a merge with 4.3 billion commits.
     pub(crate) parent_order: u32,
+    /// The position of the stack this edge leads to among the stacks of its workspace,
+    /// in the order the workspace metadata lists them, counted from one.
+    ///
+    /// This is `None` unless the edge leaves a workspace segment that has metadata.
+    pub(crate) workspace_parent_order: Option<u32>,
 }
 
 impl Edge {
+    /// Return the 0-based position of the stack this edge leads to among the stacks of its
+    /// workspace, in the order the workspace metadata lists them.
+    ///
+    /// This is `None` unless the edge leaves a workspace segment that has metadata.
+    pub fn workspace_parent_order(&self) -> Option<u32> {
+        self.workspace_parent_order
+    }
+
+    /// Place the stack this edge leads to at the 0-based `position` among the stacks of its workspace.
+    pub(crate) fn with_workspace_parent_order(mut self, position: u32) -> anyhow::Result<Self> {
+        self.workspace_parent_order = Some(position);
+        Ok(self)
+    }
+
     /// Return the 0-based position of this edge's destination among the source commit's parents.
     /// For instance, if the source is a merge commit and this edge represents the connection
     /// to the second parent, the output will be `Some(1)`.
