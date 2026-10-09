@@ -15,8 +15,8 @@ use but_project_handle::{
 };
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_filemonitor::{
-    Checkout, FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LINKED_WORKTREES_DIR,
-    LOCAL_REFS_DIR, REMOTE_REFS_DIR,
+    Checkout, FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LINKED_WORKTREE_GITDIR,
+    LINKED_WORKTREES_DIR, LOCAL_REFS_DIR, REMOTE_REFS_DIR,
 };
 use gitbutler_operating_modes::operating_mode;
 use gix::bstr::{BStr, ByteSlice as _};
@@ -79,10 +79,11 @@ impl Handler {
             }
 
             InternalEvent::GitFilesChange(project_id, Checkout::Linked(worktree), paths) => {
-                if paths
-                    .iter()
-                    .any(|path| path == Path::new(HEAD) || path == Path::new(HEAD_ACTIVITY))
-                {
+                if paths.iter().any(|path| {
+                    [HEAD, HEAD_ACTIVITY, LINKED_WORKTREE_GITDIR]
+                        .iter()
+                        .any(|file| path == Path::new(file))
+                }) {
                     self.emit_app_event(Change::WorkspaceActivity {
                         project_id: project_id.clone(),
                     })?;

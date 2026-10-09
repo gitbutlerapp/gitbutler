@@ -256,8 +256,8 @@ fn setup_legacy_watch(
 /// Use `watch_mode` to control how exactly the directory is watched.
 /// `linked_worktrees` lists the linked worktrees to watch besides the main one, whose changes are
 /// reported under their own [`Checkout`]. The list is obtained again whenever a linked worktree is
-/// registered or removed, or when the invalidation sentinel is written, and is left as it was if
-/// that fails.
+/// registered, moved or removed, or when the invalidation sentinel is written, and is left as it
+/// was if that fails.
 ///
 /// ### Why is this not an iterator?
 ///
@@ -659,6 +659,7 @@ pub const HEAD_ACTIVITY: &str = "logs/HEAD";
 pub const INDEX: &str = "index";
 pub const GB_FLUSH: &str = "GB_FLUSH";
 pub const LINKED_WORKTREES_DIR: &str = "worktrees";
+pub const LINKED_WORKTREE_GITDIR: &str = "gitdir";
 
 #[derive(PartialEq)]
 struct WatchedCheckout {
@@ -716,7 +717,9 @@ fn linked_checkouts(
 impl Changes {
     fn linked_worktrees_may_differ(&self) -> bool {
         self.git.iter().any(|path| {
-            path.starts_with(LINKED_WORKTREES_DIR) || path == Path::new(INVALIDATION_SENTINEL_PATH)
+            path.starts_with(LINKED_WORKTREES_DIR)
+                || path == Path::new(LINKED_WORKTREE_GITDIR)
+                || path == Path::new(INVALIDATION_SENTINEL_PATH)
         })
     }
 }
@@ -845,6 +848,7 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
             || check_file_path == Path::new(INDEX)
             || check_file_path == Path::new(REFRESH_SENTINEL_PATH)
             || check_file_path == Path::new(INVALIDATION_SENTINEL_PATH)
+            || check_file_path == Path::new(LINKED_WORKTREE_GITDIR)
             || check_file_path.starts_with(LOCAL_REFS_DIR)
             || check_file_path.starts_with(REMOTE_REFS_DIR)
             || is_linked_worktree_registration(check_file_path)
@@ -859,8 +863,14 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
 }
 
 fn is_linked_worktree_registration(git_dir_relative_path: &Path) -> bool {
-    git_dir_relative_path.starts_with(LINKED_WORKTREES_DIR)
-        && git_dir_relative_path.components().count() <= 2
+    git_dir_relative_path
+        .strip_prefix(LINKED_WORKTREES_DIR)
+        .is_ok_and(|name_and_file| {
+            let mut components = name_and_file.components();
+            components.next();
+            let file = components.as_path();
+            file.as_os_str().is_empty() || file == Path::new(LINKED_WORKTREE_GITDIR)
+        })
 }
 
 #[cfg(test)]
@@ -944,6 +954,23 @@ mod tests {
         assert_eq!(
             classify_file(git_dir(), Path::new("/repo/.git/worktrees/name")),
             FileKind::Git
+        );
+    }
+
+    #[test]
+    fn classify_linked_worktree_location() {
+        assert_eq!(
+            classify_file(git_dir(), Path::new("/repo/.git/worktrees/name/gitdir")),
+            FileKind::Git,
+            "seen from the main git dir, for a linked worktree that isn't watched"
+        );
+        assert_eq!(
+            classify_file(
+                Path::new("/repo/.git/worktrees/name"),
+                Path::new("/repo/.git/worktrees/name/gitdir")
+            ),
+            FileKind::Git,
+            "seen from the git dir of a watched linked worktree"
         );
     }
 
