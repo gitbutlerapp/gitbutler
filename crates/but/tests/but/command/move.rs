@@ -591,11 +591,11 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   3f3b2ac (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   6664315 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * a3830b6 (C) add C
-| * 549c6bf (A) add A
-* | e76feb9 (B) add B
+| * e76feb9 (B) add B
+* | a3830b6 (C) add C
+* | 549c6bf (A) add A
 |/  
 * 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
 * e31e6ca add init
@@ -817,9 +817,9 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   e1a91a3 (gitbutler/workspace) GitButler Workspace Commit
+*   372e55d (gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * 9477ae7 (A) add A
+* | 9477ae7 (A) add A
 |/  
 | * d3e2ba3 (HEAD -> moved) add B
 |/  
@@ -4774,11 +4774,11 @@ Moved nsn to the tip of branch 'B'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   7ca2b42 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   bfc5668 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * 9477ae7 (wt-feature, A) add A
-* | f379d52 (B) add W
-* | d3e2ba3 add B
+| * f379d52 (B) add W
+| * d3e2ba3 add B
+* | 9477ae7 (wt-feature, A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -4792,11 +4792,11 @@ Moved nsn to the tip of branch 'B'
     snapbox::assert_data_eq!(
         but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
         snapbox::str![[r#"
-*   7ca2b42 (gitbutler/workspace) GitButler Workspace Commit
+*   bfc5668 (gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * 9477ae7 (HEAD -> wt-feature, A) add A
-* | f379d52 (B) add W
-* | d3e2ba3 add B
+| * f379d52 (B) add W
+| * d3e2ba3 add B
+* | 9477ae7 (HEAD -> wt-feature, A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -4888,12 +4888,13 @@ Moved lrm to the tip of branch 'wt-inside'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   e1a91a3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   372e55d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
 | | * 4ce1279 (wt-inside) add B
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
 
@@ -4948,12 +4949,13 @@ Moved lrm to the tip of branch 'wt-inside'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   e1a91a3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   372e55d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
 | | * 4ce1279 (wt-inside) add B
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
 
@@ -5501,13 +5503,14 @@ Moved lrm to the tip of branch 'wt-lower'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   e1a91a3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   372e55d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
 | | * 9f6b492 (wt-inside) add W2
 | | * 4ce1279 (wt-lower) add B
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
 
@@ -5633,13 +5636,14 @@ Stacked branch 'wt-lower' on top of branch 'B'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   7ca2b42 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   bfc5668 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-* | f379d52 (wt-lower) add W
-* | d3e2ba3 (B) add B
+| * f379d52 (wt-lower) add W
+| * d3e2ba3 (B) add B
 | | * 109d075 (wt-inside) add W2
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -5726,13 +5730,14 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
         snapbox::str![[r#"
-*   1974aca (gitbutler/workspace) GitButler Workspace Commit
+*   d31f03a (gitbutler/workspace) GitButler Workspace Commit
 |\  
-* | db0b242 (wt-inside) add W2
-* | d3e2ba3 (B) add B
+| * db0b242 (wt-inside) add W2
+| * d3e2ba3 (B) add B
 | | * 580bef0 (HEAD -> wt-lower) add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -5791,11 +5796,11 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
         snapbox::str![[r#"
-*   7ca2b42 (gitbutler/workspace) GitButler Workspace Commit
+*   bfc5668 (gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 9477ae7 (HEAD, A) add A
-* | f379d52 (wt-inside) add W
-* | d3e2ba3 (B) add B
+| * f379d52 (wt-inside) add W
+| * d3e2ba3 (B) add B
+* | 9477ae7 (HEAD, A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
