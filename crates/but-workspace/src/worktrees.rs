@@ -153,6 +153,14 @@ pub fn add(
 /// 4. Is gitignored in the destination
 /// 5. Is NOT a prefix path of a tracked file in the destination worktree
 /// 6. Is matched by any pattern in the source's .worktreeinclude
+///
+/// The destination directory must contain a complete, clean, non-sparse checkout.
+///
+/// IMPORTANT: Several safety properties of the algorithm, especially relating to not following
+/// symlinks, rely on there being no concurrent modifications of the source or destination
+/// directories mid execution. If that for whatever reason becomes relevant, the actualy directory
+/// creation and file copying needs to be revisited. There is no known reason at this moment to have
+/// precautions against concurrent modifications.
 fn handle_worktreeinclude(
     repo: &gix::Repository,
     worktree_repo: gix::Repository,
@@ -237,7 +245,7 @@ fn handle_worktreeinclude(
         let kind = metadata.file_type();
 
         // Due to case folding quirks in different file systems, we can't rely entirely on index
-        // lookups to determine if a path is tracked (or a "tracked prefix") in practice. We must
+        // lookups to determine if a path is tracked (or a prefix of a tracked entry). We must
         // check each intermediate destination path, and can only allow further traversal if it
         // either doesn't exist, or both the source and destination are directories (which are
         // definitionally not tracked).
