@@ -111,3 +111,33 @@ EOF
 
   git tag conflicted-target $conflict_commit
 )
+
+# The edited commit differs from the workspace in every way a checkout can change a path:
+# `aa-created`, `aa-ignored`, `aa-dir/ignored` and `aa-empty/created` are only in the edited
+# commit, `aa-removed` only in the workspace, and `aa-exec` changes its mode. `aa-kept/only`
+# is the only file in its directory. `aa-leaf` and `aa-file/inner` are only in the edited
+# commit, where the user has a directory with content and a file. Files named `aa-*` are
+# checked out before `zz-late/blocked`.
+git clone repo late_destination_lock
+(cd late_destination_lock
+  git config user.name "Author"
+  git config user.email "author@example.com"
+  git checkout -b branchy
+  echo created > aa-created
+  echo created > aa-ignored
+  mkdir aa-dir aa-empty && echo created > aa-dir/ignored && echo created > aa-empty/created
+  mkdir aa-kept && echo kept > aa-kept/only
+  echo leaf > aa-leaf && mkdir aa-file && echo inner > aa-file/inner
+  echo target-aa > aa-earlier
+  echo exec > aa-exec && chmod +x aa-exec
+  echo target-st > aa-staged
+  mkdir zz-late && echo target-zz > zz-late/blocked
+  git add . && git commit -m "target"
+  git tag edit-target
+  git rm -q aa-created aa-ignored aa-dir/ignored aa-empty/created aa-leaf aa-file/inner
+  echo removed > aa-removed
+  chmod -x aa-exec
+  git add . && git commit -m "later"
+  git checkout -b gitbutler/workspace
+  git commit --allow-empty -m "GitButler Workspace Commit"
+)
