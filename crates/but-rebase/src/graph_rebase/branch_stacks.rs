@@ -34,6 +34,8 @@ pub struct BranchStacks {
     /// The stack `HEAD` is on if there is no workspace commit, followed by one
     /// stack per linked worktree.
     pub ad_hoc: Vec<Vec<FullName>>,
+    /// Removed references
+    pub removed_references: Vec<FullName>,
 }
 
 impl BranchStacks {
@@ -96,6 +98,9 @@ impl BranchStacks {
                     changed = true;
                 }
             }
+        }
+        for branch in &self.removed_references {
+            meta.remove(branch.as_ref())?;
         }
         Ok(changed)
     }
@@ -207,7 +212,23 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
             .filter(|stack| !stack.is_empty())
             .collect();
 
-        Ok(BranchStacks { workspace, ad_hoc })
+        let removed_references = self
+            .ref_edits
+            .iter()
+            .filter_map(|r| {
+                if matches!(r.change, gix::refs::transaction::Change::Delete { .. }) {
+                    Some(r.name.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Ok(BranchStacks {
+            workspace,
+            ad_hoc,
+            removed_references,
+        })
     }
 
     fn stacked_branch(&self, ix: StepGraphIndex, base: Option<StepGraphIndex>) -> Option<FullName> {
