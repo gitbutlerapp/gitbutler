@@ -115,7 +115,7 @@ fn merge_bottom_segment_in_single_branch_mode_keeps_checkout() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to merge branch. Refusing to land `B`: it is stacked on top of 1 other segment(s) (A) whose commits would also be published to origin/main. Land the bottom segment `A`, or pass --whole-stack to land `B` together with everything below it.
+Failed to merge branch. Refusing to land `B`: it is stacked on top of 1 other segment(s) (A) whose commits would also be published to origin/main. Land the bottom segment `A`, name the segments below it as well, or pass --whole-stack to land `B` together with everything below it.
 
 "#]]);
     assert_eq!(
@@ -558,6 +558,53 @@ fn merge_refuses_non_bottom_stack_segment() {
         target_before,
         env.invoke_git("rev-parse gb-local/main"),
         "a refused land must not move the target"
+    );
+}
+
+/// Naming every segment below a branch lands them together without `--whole-stack`: nothing is
+/// published that wasn't named.
+#[test]
+fn merge_stacked_segment_with_the_segments_below_it() {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("setup").assert().success();
+
+    env.but("branch new bottom-seg").assert().success();
+    env.file("bottom.txt", "bottom");
+    env.but("commit -b bottom-seg -m 'bottom commit'")
+        .assert()
+        .success();
+    env.but("branch new top-seg --anchor bottom-seg")
+        .assert()
+        .success();
+    env.file("top.txt", "top");
+    env.but("commit -b top-seg -m 'top commit'")
+        .assert()
+        .success();
+    let top_tip = env.invoke_git("rev-parse top-seg");
+
+    // The order doesn't matter: the lower segment only has to be part of the same land.
+    let output = env
+        .but("merge top-seg bottom-seg --yes")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8_lossy(&output);
+    assert!(
+        stdout.contains("Landed top-seg onto gb-local/main"),
+        "the land should report success; got:\n{stdout}"
+    );
+
+    assert_eq!(
+        env.invoke_git("rev-parse gb-local/main"),
+        top_tip,
+        "the target should advance to the top segment's tip"
+    );
+    assert_eq!(
+        status_json(&env)["stacks"].as_array().unwrap().len(),
+        0,
+        "both landed segments should be removed from the workspace"
     );
 }
 

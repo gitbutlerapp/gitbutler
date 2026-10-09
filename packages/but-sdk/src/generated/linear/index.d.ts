@@ -247,7 +247,7 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  * target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
  * workspace state for what to report.
  *
- * {@link ../../../../../crates/but-api/src/land/mod.rs:180}
+ * {@link ../../../../../crates/but-api/src/land/mod.rs:183}
  */
 export declare function branchLand(projectId: string, branches: Array<string>, noFf: boolean, wholeStack: boolean): Promise<BranchLandResult>
 

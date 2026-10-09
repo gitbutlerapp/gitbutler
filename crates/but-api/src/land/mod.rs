@@ -167,9 +167,10 @@ pub mod json {
 /// Land `branches` directly onto the configured target ref with a single target update.
 ///
 /// `branches` are the short names of the branches to land (their `refs/heads/<branch>` refs), in
-/// landing order; duplicates are ignored. Each branch must be the bottom segment of its stack — or,
-/// with `whole_stack`, the top segment, which publishes every segment below it as well — and the
-/// landed segments must be free of conflicted commits. HEAD must be the managed workspace or, in
+/// landing order; duplicates are ignored. Each branch must be the bottom segment of its stack, sit
+/// only on named segments that are landed in the same call, or — with `whole_stack` — be the top
+/// segment, which publishes every segment below it as well. The landed segments must be free of
+/// conflicted commits. HEAD must be the managed workspace or, in
 /// single-branch mode, the checked-out branch (see [`ensure_landable_checkout`]), and the target
 /// remote must be configured and non-triangular.
 ///
@@ -251,9 +252,14 @@ pub fn branch_land(
     // remote copies are deleted after a successful land.
     let mut landed_branch_names = Vec::new();
     for branch in &branches {
-        let lower_segments = validate_branch_landing(ctx, branch, &target_display, whole_stack)?;
+        let lower_segments =
+            validate_branch_landing(ctx, branch, &branches, &target_display, whole_stack)?;
         landed_branch_names.push(branch.clone());
         landed_branch_names.extend(lower_segments);
+    }
+    {
+        let mut seen = std::collections::HashSet::new();
+        landed_branch_names.retain(|name| seen.insert(name.clone()));
     }
     // Landing the target branch's own name must never delete the target on the remote.
     landed_branch_names.retain(|name| *name != target_branch_name);
@@ -430,8 +436,9 @@ pub fn ensure_landable_checkout(
     Ok(())
 }
 
-/// Refuse landing a non-bottom stack segment unless `whole_stack` opts into publishing the lower
-/// segments — and even then only for the top segment, so `--whole-stack` always means "the entire
+/// Refuse landing a non-bottom stack segment unless every segment below it is named and also in
+/// `requested`, or `whole_stack` opts into publishing the lower segments — and even then only for
+/// the top segment, so `--whole-stack` always means "the entire
 /// stack lands", never a partial land that strands the segments above. Also refuse conflicted
 /// commits in any segment that would be published (the same guard `but push` applies before
 /// sending commits to a remote). All computed from the graph workspace, not stack projections.
@@ -441,6 +448,7 @@ pub fn ensure_landable_checkout(
 fn validate_branch_landing(
     ctx: &mut Context,
     branch: &str,
+    requested: &[String],
     target_display: &str,
     whole_stack: bool,
 ) -> anyhow::Result<Vec<String>> {
@@ -468,7 +476,13 @@ fn validate_branch_landing(
     // Key off the commits below, not the segment names: segments whose branch ref was deleted are
     // unnamed but their commits would be published all the same.
     let publishes_below = scan.commits_below > 0 || !scan.lower_segments.is_empty();
-    if publishes_below && !whole_stack {
+    // Lower segments landed in the same call are published on purpose, not dragged along.
+    let lower_requested = scan.unnamed_below_commits == 0
+        && scan
+            .lower_segments
+            .iter()
+            .all(|segment| requested.contains(segment));
+    if publishes_below && !whole_stack && !lower_requested {
         if scan.lower_segments.is_empty() {
             bail!(
                 "Refusing to land `{branch}`: {} commit(s) on unnamed segment(s) below it would \
@@ -480,7 +494,8 @@ fn validate_branch_landing(
         bail!(
             "Refusing to land `{branch}`: it is stacked on top of {} other segment(s) ({}) \
              whose commits would also be published to {target_display}. Land the bottom segment \
-             `{}`, or pass --whole-stack to land `{branch}` together with everything below it.",
+             `{}`, name the segments below it as well, or pass --whole-stack to land `{branch}` \
+             together with everything below it.",
             scan.lower_segments.len(),
             scan.lower_segments.join(", "),
             scan.lower_segments.last().expect("non-empty checked above"),

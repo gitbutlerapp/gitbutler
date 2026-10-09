@@ -343,9 +343,10 @@ pub enum Subcommands {
     /// use `but push` and open a PR (`but pr new`) instead — `but merge` deliberately bypasses that
     /// process. On a real remote, a branch protected against direct pushes will reject the merge.
     ///
-    /// Merging a segment with other segments below it is refused unless `--whole-stack` is
-    /// passed with the stack's top segment, which merges the entire stack. With several branches,
-    /// `--whole-stack` and `--no-ff` apply to each of them.
+    /// Merging a segment with other segments below it is refused unless those segments are
+    /// merged in the same call, or `--whole-stack` is passed with the stack's top segment, which
+    /// merges the entire stack. With several branches, `--whole-stack` and `--no-ff` apply to each
+    /// of them.
     ///
     /// ## Examples
     ///
@@ -365,6 +366,12 @@ pub enum Subcommands {
     ///
     /// ```text
     /// but merge bu fe other-branch
+    /// ```
+    ///
+    /// Merge the bottom two segments of a stack:
+    ///
+    /// ```text
+    /// but merge bottom-branch middle-branch
     /// ```
     ///
     /// Merge an entire stack by naming its top segment:

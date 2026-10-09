@@ -11,7 +11,7 @@ fn land_outside_workspace_requires_single_branch_mode() -> anyhow::Result<()> {
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     ctx.settings.feature_flags.single_branch = false;
 
-    let err = but_api::land::branch_land(&mut ctx, "main".into(), false, false)
+    let err = but_api::land::branch_land(&mut ctx, vec!["main".into()], false, false)
         .expect_err("HEAD is on main, outside the managed workspace");
 
     assert_eq!(
@@ -38,7 +38,7 @@ fn land_refuses_branch_outside_the_workspace() -> anyhow::Result<()> {
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     ctx.settings.feature_flags.single_branch = true;
 
-    let err = but_api::land::branch_land(&mut ctx, "topic".into(), false, false)
+    let err = but_api::land::branch_land(&mut ctx, vec!["topic".into()], false, false)
         .expect_err("topic is not part of the checked-out stack");
 
     assert_eq!(

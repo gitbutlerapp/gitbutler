@@ -538,8 +538,9 @@ but merge <top-branch> --whole-stack --yes   # Merge an entire stack by naming i
 ```
 
 Direct target updates are hard to reverse, so confirmation is required (agents must pass `--yes`).
-A branch stacked on other segments is refused (its tip would also publish them); `--whole-stack`
-is the explicit opt-in, and only the stack's top segment can be named with it.
+A branch stacked on other segments is refused (its tip would also publish them) unless those
+segments are named in the same call; `--whole-stack` is the explicit opt-in for landing everything
+below, and only the stack's top segment can be named with it.
 
 ## Workspace Maintenance
 
