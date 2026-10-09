@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeSet, HashSet},
-    path::Path,
+    path::{Path, PathBuf},
     time::Duration,
 };
 
@@ -9,7 +9,6 @@ use but_project_handle::{
     INVALIDATION_SENTINEL_PATH, ProjectHandleOrLegacyProjectId, REFRESH_SENTINEL_PATH,
 };
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
-use gix::bstr::BStr;
 use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
 use tracing::Level;
@@ -346,7 +345,10 @@ pub fn spawn(
     );
 
     let dynamic_watch_enabled = matches!(effective_watch_mode, WatchMode::Modern);
-    let worktree_path = worktree_path.to_owned();
+    let checkout = WatchedCheckout {
+        workdir: worktree_path,
+        git_dir,
+    };
     task::spawn_blocking(move || {
         let _runtime = tracing::span!(Level::INFO, "file monitor", %project_id ).entered();
         tracing::debug!(%project_id, "file watcher started");
@@ -381,54 +383,18 @@ pub fn spawn(
                 fs_events = tracing::field::Empty,
             )
             .entered();
-            let (mut ignored, mut git_noop) = (0, 0);
             match result {
                 Err(err) => {
                     tracing::error!(?err, "ignored file watcher error");
                 }
                 Ok(events) => {
                     let num_events = events.len();
-                    let mut classified_file_paths: Vec<_> = events
-                        .into_iter()
-                        .filter(|event| is_interesting_kind(event.kind))
-                        .flat_map(|event| event.event.paths)
-                        .map(|file| {
-                            let kind = classify_file(&git_dir, &file);
-                            (file, kind)
-                        })
-                        .collect();
-                    let mut ignore_filtering_ran = false;
-                    if classified_file_paths.iter().any(|(_, kind)| *kind == FileKind::Project)
-                        && let Ok(repo_with_complete_configuration) = gix::open(&worktree_path)
-                        && let Ok(index) = repo_with_complete_configuration.index_or_empty()
-                        && let Ok(mut excludes) = repo_with_complete_configuration.excludes(
-                            &index,
-                            None,
-                            gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
-                        )
-                    {
-                        ignore_filtering_ran = true;
-                        let icase_acc = build_index_icase_accelerator_if_needed(&repo, &index);
-                        let is_untracked = |relative_path: &BStr, is_dir: bool| -> bool {
-                            !is_tracked_in_index(relative_path, is_dir, &index, icase_acc.as_ref())
-                        };
-                        for (file_path, kind) in classified_file_paths
-                            .iter_mut()
-                            .filter(|(_, kind)| *kind == FileKind::Project)
-                        {
-                            if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
-                                let is_dir = file_path.is_dir();
-                                let is_excluded = excludes
-                                    .at_path(relative_path, is_dir.then_some(gix::index::entry::Mode::DIR))
-                                    .map(|platform| platform.is_excluded())
-                                    .unwrap_or(false);
-                                let repo_relative_path = to_repo_relative_path(relative_path);
-                                if is_excluded && is_untracked(&repo_relative_path, is_dir) {
-                                    *kind = FileKind::ProjectIgnored
-                                }
-                            }
-                        }
-                    }
+                    let changes = checkout.changes(
+                        events
+                            .into_iter()
+                            .filter(|event| is_interesting_kind(event.kind))
+                            .flat_map(|event| event.event.paths),
+                    );
 
                     #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
                     enum Mode {
@@ -436,57 +402,32 @@ pub fn spawn(
                         RemoveWatch,
                     }
                     let directories_to_watch_or_unwatch =
-                        if dynamic_watch_enabled && ignore_filtering_ran {
-                            classified_file_paths
+                        if dynamic_watch_enabled && changes.ignore_filtering_ran {
+                            changes
+                                .worktree
                                 .iter()
-                                .filter_map(|(path, kind)| {
-                                    if *kind != FileKind::Project {
-                                        return None;
-                                    };
+                                .filter_map(|relative_path| {
+                                    let path = checkout.workdir.join(relative_path);
                                     let mode = match path.symlink_metadata() {
                                         Ok(md) => (is_watchable_directory(md.file_type())
-                                            && !dynamically_watched_dirs.contains(path))
+                                            && !dynamically_watched_dirs.contains(&path))
                                         .then_some(Mode::AddWatch)?,
                                         Err(err) => (err.kind() == std::io::ErrorKind::NotFound)
                                             // We don't care if was dynamically watched, it might be watched during initial computation.
                                             .then_some(Mode::RemoveWatch)?,
                                     };
-                                    Some((mode, path.clone()))
+                                    Some((mode, path))
                                 })
                                 .collect()
                         } else {
                             BTreeSet::new()
                         };
-                    let (mut stripped_git_paths, mut worktree_relative_paths) =
-                        (HashSet::new(), HashSet::new());
-                    for (file_path, kind) in classified_file_paths {
-                        match kind {
-                            FileKind::ProjectIgnored => ignored += 1,
-                            FileKind::GitUninteresting => git_noop += 1,
-                            FileKind::Git => {
-                                if let Ok(relative_file_path) = file_path.strip_prefix(&git_dir) {
-                                    stripped_git_paths.insert(relative_file_path.to_owned());
-                                }
-                            }
-                            FileKind::Project => match file_path.strip_prefix(&worktree_path) {
-                                Ok(relative_file_path) => {
-                                    if !relative_file_path.as_os_str().is_empty() {
-                                        worktree_relative_paths
-                                            .insert(relative_file_path.to_owned());
-                                    }
-                                }
-                                Err(_) => {
-                                    tracing::warn!(%project_id, ?file_path, ?worktree_path, "failed to strip prefix");
-                                }
-                            },
-                        }
-                    }
 
                     stats.record("fs_events", num_events);
-                    stats.record("ignored", ignored);
-                    stats.record("git_noop", git_noop);
-                    stats.record("git", stripped_git_paths.len());
-                    stats.record("project", worktree_relative_paths.len());
+                    stats.record("ignored", changes.ignored);
+                    stats.record("git_noop", changes.git_noop);
+                    stats.record("git", changes.git.len());
+                    stats.record("project", changes.worktree.len());
 
                     // NOTE: There is an inherent race condition here where files created in the new
                     //       directory before the watch is established will be missed.
@@ -521,8 +462,8 @@ pub fn spawn(
                         }
                     }
 
-                    if !stripped_git_paths.is_empty() {
-                        let paths_dedup: Vec<_> = stripped_git_paths.into_iter().collect();
+                    if !changes.git.is_empty() {
+                        let paths_dedup: Vec<_> = changes.git.into_iter().collect();
                         stats.record("git_dedup", paths_dedup.len());
                         let event = InternalEvent::GitFilesChange(project_id.clone(), paths_dedup);
                         if out.send(event).is_err() {
@@ -530,8 +471,8 @@ pub fn spawn(
                             break 'outer;
                         }
                     }
-                    if !worktree_relative_paths.is_empty() {
-                        let paths_dedup: Vec<_> = worktree_relative_paths.into_iter().collect();
+                    if !changes.worktree.is_empty() {
+                        let paths_dedup: Vec<_> = changes.worktree.into_iter().collect();
                         stats.record("project_dedup", paths_dedup.len());
                         let event =
                             InternalEvent::ProjectFilesChange(project_id.clone(), paths_dedup);
@@ -599,6 +540,102 @@ pub const HEAD: &str = "HEAD";
 pub const HEAD_ACTIVITY: &str = "logs/HEAD";
 pub const INDEX: &str = "index";
 pub const GB_FLUSH: &str = "GB_FLUSH";
+
+struct WatchedCheckout {
+    workdir: PathBuf,
+    git_dir: PathBuf,
+}
+
+#[derive(Default)]
+struct Changes {
+    git: HashSet<PathBuf>,
+    worktree: HashSet<PathBuf>,
+    ignored: usize,
+    git_noop: usize,
+    ignore_filtering_ran: bool,
+}
+
+impl WatchedCheckout {
+    fn changes(&self, paths: impl IntoIterator<Item = PathBuf>) -> Changes {
+        let mut classified: Vec<_> = paths
+            .into_iter()
+            .map(|path| {
+                let kind = classify_file(&self.git_dir, &path);
+                (path, kind)
+            })
+            .collect();
+        let mut changes = Changes {
+            ignore_filtering_ran: self.mark_ignored(&mut classified),
+            ..Default::default()
+        };
+        for (path, kind) in classified {
+            match kind {
+                FileKind::ProjectIgnored => changes.ignored += 1,
+                FileKind::GitUninteresting => changes.git_noop += 1,
+                FileKind::Git => {
+                    if let Ok(relative_path) = path.strip_prefix(&self.git_dir) {
+                        changes.git.insert(relative_path.to_owned());
+                    }
+                }
+                FileKind::Project => match path.strip_prefix(&self.workdir) {
+                    Ok(relative_path) => {
+                        if !relative_path.as_os_str().is_empty() {
+                            changes.worktree.insert(relative_path.to_owned());
+                        }
+                    }
+                    Err(_) => {
+                        tracing::warn!(?path, workdir = ?self.workdir, "failed to strip prefix");
+                    }
+                },
+            }
+        }
+        changes
+    }
+
+    fn mark_ignored(&self, classified: &mut [(PathBuf, FileKind)]) -> bool {
+        if classified
+            .iter()
+            .any(|(_, kind)| *kind == FileKind::Project)
+            && let Ok(repo) = gix::open(&self.workdir)
+            && let Ok(index) = repo.index_or_empty()
+            && let Ok(mut excludes) = repo.excludes(
+                &index,
+                None,
+                gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
+            )
+        {
+            let icase_acc = build_index_icase_accelerator_if_needed(&repo, &index);
+            for (path, kind) in classified
+                .iter_mut()
+                .filter(|(_, kind)| *kind == FileKind::Project)
+            {
+                if let Ok(relative_path) = path.strip_prefix(&self.workdir) {
+                    let is_dir = path.is_dir();
+                    let is_excluded = excludes
+                        .at_path(
+                            relative_path,
+                            is_dir.then_some(gix::index::entry::Mode::DIR),
+                        )
+                        .map(|platform| platform.is_excluded())
+                        .unwrap_or(false);
+                    if is_excluded
+                        && !is_tracked_in_index(
+                            to_repo_relative_path(relative_path).as_ref(),
+                            is_dir,
+                            &index,
+                            icase_acc.as_ref(),
+                        )
+                    {
+                        *kind = FileKind::ProjectIgnored
+                    }
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+}
 
 /// A classification for a changed file.
 #[derive(Debug, Eq, PartialEq)]
