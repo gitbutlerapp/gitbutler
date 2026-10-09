@@ -2472,10 +2472,17 @@ pub async fn get_review_base_repo_url(
                 .await
                 .context("Failed to fetch PR base repo URL")
         }
-        // None tells the UI to fall back to a branch-name-only check.
-        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::Forgejo => {
-            Ok(None)
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo());
+            let pr = but_forgejo::pr::get(preferred_account, owner, repo, review_number, storage)
+                .await?;
+            Ok(pr.base_repository_https_url)
         }
+        // None tells the UI to fall back to a branch-name-only check.
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => Ok(None),
     }
 }
 
