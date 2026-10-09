@@ -111,7 +111,10 @@
 	opacity: 0.5;
 }
 
+/* A row's glyph is drawn at 14, its box's size, as ⚛️ Core's rows draw them; an Icon is 16 unless told. */
 .icon {
+	--icon-size: 14px;
+
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
@@ -267,6 +270,8 @@
 }
 
 .lead {
+	--icon-size: 14px;
+
 	display: inline-flex;
 	column-gap: var(--gap-icon-text);
 	align-items: center;
