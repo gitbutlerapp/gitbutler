@@ -1144,7 +1144,7 @@ pub fn branch_remove_with_perm(
     // than the branch-order metadata on purpose: the metadata is best-effort and
     // may drift, whereas the projection reflects the real segments.
     let move_head_to = {
-        let (repo, ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let is_checked_out = repo
             .head_name()
             .ok()
