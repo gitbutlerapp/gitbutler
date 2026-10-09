@@ -203,12 +203,9 @@ fn handle_worktreeinclude(
         }
 
         let relpath = path.strip_prefix(src_dir)?;
-        let tracked_in_destination = dst_index
-            .entry_by_path(&gix::path::into_bstr(relpath))
-            .is_some();
-        let tracked_in_source = src_index
-            .entry_by_path(&gix::path::into_bstr(relpath))
-            .is_some();
+        let index_path = gix::path::to_unix_separators_on_windows(gix::path::into_bstr(relpath));
+        let tracked_in_destination = dst_index.entry_by_path(&index_path).is_some();
+        let tracked_in_source = src_index.entry_by_path(&index_path).is_some();
 
         if tracked_in_destination || tracked_in_source {
             return Ok(false);
@@ -252,7 +249,7 @@ fn handle_worktreeinclude(
 
         // A relpath in the source might be a path prefix of a tracked file in the
         // destination.
-        let mut index_prefix = gix::path::into_bstr(relpath).into_owned();
+        let mut index_prefix = index_path.into_owned();
         index_prefix.push(b'/');
 
         if ignored_in_dst && dst_index.prefixed_entries(index_prefix.as_bstr()).is_none() {
