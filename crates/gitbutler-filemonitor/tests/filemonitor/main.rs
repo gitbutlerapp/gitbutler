@@ -117,6 +117,33 @@ mod spawn {
     }
 
     #[tokio::test]
+    async fn ignore_rules_do_not_apply_to_the_git_dir() -> anyhow::Result<()> {
+        let generous_timeout_for_ci = Duration::from_secs(10);
+        let (repo, _tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        let workdir = repo.workdir().expect("non-bare").to_owned();
+        std::fs::write(workdir.join(".gitignore"), "HEAD\n")?;
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let monitor =
+            gitbutler_filemonitor::spawn(project_id.clone(), &workdir, tx, WatchMode::Legacy)?;
+
+        std::fs::write(workdir.join("file"), "")?;
+        std::fs::write(workdir.join(".git/HEAD"), "ref: refs/heads/other\n")?;
+        monitor.flush()?;
+        expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
+            InternalEvent::GitFilesChange(id, paths) => {
+                *id == project_id && contains_path(paths, Path::new("HEAD"))
+            }
+            _ => false,
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn git_dir_outside_of_worktree() -> anyhow::Result<()> {
         let generous_timeout_for_ci = Duration::from_secs(10);
         let (_repo, tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
