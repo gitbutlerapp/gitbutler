@@ -268,6 +268,10 @@ impl Controller {
         self.projects_storage.update(project)
     }
 
+    pub(crate) fn update_if_registered(&self, project: UpdateRequest) -> Result<Option<Project>> {
+        self.projects_storage.update_if_registered(project)
+    }
+
     pub(crate) fn get(&self, id: ProjectHandleOrLegacyProjectId) -> Result<Project> {
         self.get_inner(id, false)
     }

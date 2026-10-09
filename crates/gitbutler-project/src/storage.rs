@@ -150,7 +150,17 @@ impl Storage {
         Ok(projects.into_iter().find(|p| p.id == id))
     }
 
-    pub fn update(
+    pub fn update(&self, project: UpdateRequest) -> Result<Project> {
+        let id = project.id.clone();
+        self.update_inner(project)?
+            .with_context(|| format!("project {id} not found for update"))
+    }
+
+    pub fn update_if_registered(&self, project: UpdateRequest) -> Result<Option<Project>> {
+        self.update_inner(project)
+    }
+
+    fn update_inner(
         &self,
         UpdateRequest {
             id,
@@ -172,12 +182,11 @@ impl Storage {
             unset_forge_override,
             preferred_forge_user,
         }: UpdateRequest,
-    ) -> Result<Project> {
+    ) -> Result<Option<Project>> {
         let mut projects = self.list()?;
-        let project = projects
-            .iter_mut()
-            .find(|p| p.id == id)
-            .with_context(|| format!("project {id} not found for update"))?;
+        let Some(project) = projects.iter_mut().find(|p| p.id == id) else {
+            return Ok(None);
+        };
 
         if let Some(title) = title {
             project.title = title;
@@ -246,7 +255,7 @@ impl Storage {
         self.inner
             .write(PROJECTS_FILE, &serde_json::to_string_pretty(&projects)?)?;
 
-        Ok(projects.iter().find(|p| p.id == id).unwrap().clone())
+        Ok(projects.iter().find(|p| p.id == id).cloned())
     }
 
     pub fn purge(&self, id: ProjectHandleOrLegacyProjectId) -> Result<()> {
