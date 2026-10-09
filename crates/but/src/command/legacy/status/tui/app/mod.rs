@@ -1400,6 +1400,31 @@ impl App {
                     ));
                 }
             }
+            gitbutler_watcher::Change::LinkedWorktreeChanges { worktree, .. } => {
+                let details_selection_changed = self.is_details_visible
+                    && self.details.selection().is_some_and(|selection| {
+                        let source = match selection {
+                            CliId::UncommittedHunkOrFile(uncommitted) => &uncommitted.source,
+                            CliId::UncommittedArea { source, .. } => source,
+                            CliId::AnonymousSegment(..)
+                            | CliId::PathPrefix { .. }
+                            | CliId::CommittedFile { .. }
+                            | CliId::CommittedHunk { .. }
+                            | CliId::Branch(..)
+                            | CliId::Commit { .. }
+                            | CliId::Stack { .. } => return false,
+                        };
+                        source
+                            .worktree_name()
+                            .is_some_and(|name| name == worktree.as_str())
+                    });
+                messages.push(Message::Reload(
+                    None,
+                    ReloadCause::Watcher {
+                        details_selection_changed,
+                    },
+                ));
+            }
             gitbutler_watcher::Change::ExternalInvalidation { .. } => {
                 // The TUI keeps no forge caches; workspace changes reach it as activity.
             }

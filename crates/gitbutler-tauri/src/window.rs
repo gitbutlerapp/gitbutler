@@ -60,6 +60,15 @@ pub(crate) mod state {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
                     },
+                    Change::LinkedWorktreeChanges {
+                        project_id,
+                        worktree,
+                        changes,
+                        changed_paths: _,
+                    } => ChangeForFrontend {
+                        name: format!("project://{project_id}/linked_worktree_changes"),
+                        payload: serde_json::json!({ "worktree": worktree, "changes": changes }),
+                    },
                 }
             }
         }

@@ -19,7 +19,7 @@ use gitbutler_filemonitor::{
     LOCAL_REFS_DIR, REMOTE_REFS_DIR,
 };
 use gitbutler_operating_modes::operating_mode;
-use gix::bstr::ByteSlice as _;
+use gix::bstr::{BStr, ByteSlice as _};
 use tracing::instrument;
 
 use crate::Change;
@@ -61,7 +61,14 @@ impl Handler {
                 self.project_files_change(project_id, paths, &mut ctx, guard.write_permission())
             }
 
-            InternalEvent::ProjectFilesChange(_, Checkout::Linked(_), _) => Ok(()),
+            InternalEvent::ProjectFilesChange(project_id, Checkout::Linked(worktree), paths) => {
+                self.emit_linked_worktree_changes(
+                    project_id,
+                    worktree.as_bstr(),
+                    paths,
+                    app_settings.get()?.clone(),
+                )
+            }
 
             InternalEvent::GitFilesChange(project_id, Checkout::Main, paths) => {
                 let mut ctx =
@@ -71,12 +78,22 @@ impl Handler {
                     .context("failed to handle git file change event")
             }
 
-            InternalEvent::GitFilesChange(project_id, Checkout::Linked(_), paths) => {
+            InternalEvent::GitFilesChange(project_id, Checkout::Linked(worktree), paths) => {
                 if paths
                     .iter()
                     .any(|path| path == Path::new(HEAD) || path == Path::new(HEAD_ACTIVITY))
                 {
-                    self.emit_app_event(Change::WorkspaceActivity { project_id })?;
+                    self.emit_app_event(Change::WorkspaceActivity {
+                        project_id: project_id.clone(),
+                    })?;
+                }
+                if paths.iter().any(|path| path == Path::new(INDEX)) {
+                    self.emit_linked_worktree_changes(
+                        project_id,
+                        worktree.as_bstr(),
+                        Vec::new(),
+                        app_settings.get()?.clone(),
+                    )?;
                 }
                 Ok(())
             }
@@ -155,6 +172,34 @@ impl Handler {
             changed_paths: Arc::from(paths),
         });
         Ok(())
+    }
+
+    fn emit_linked_worktree_changes(
+        &self,
+        project_id: ProjectHandleOrLegacyProjectId,
+        worktree: &BStr,
+        paths: Vec<PathBuf>,
+        app_settings: AppSettings,
+    ) -> Result<()> {
+        let ctx = self.open_command_context(project_id.clone(), app_settings)?;
+        let _guard = ctx.shared_worktree_access();
+        let repo = ctx
+            .repo
+            .get()?
+            .worktree_proxy_by_id(worktree)
+            .with_context(|| format!("linked worktree {worktree} does not exist"))?
+            .into_repo()?;
+
+        let mut changes: but_core::ui::WorktreeChanges =
+            but_core::diff::worktree_changes(&repo)?.into();
+        changes.modification_times = but_core::diff::ui::modification_times(&repo, &changes);
+
+        self.emit_app_event(Change::LinkedWorktreeChanges {
+            project_id,
+            worktree: worktree.to_str_lossy().into_owned(),
+            changes: changes.into(),
+            changed_paths: Arc::from(paths),
+        })
     }
 
     pub fn git_files_change(
