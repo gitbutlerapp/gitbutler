@@ -114,7 +114,6 @@ pub fn workspace_recreate_with_perm(
         let mut meta = ctx.meta()?;
         let (repo, mut ws, db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-        let mut skipped_missing_heads = false;
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
             let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
             let workspace_meta = meta.workspace(workspace_ref.as_ref())?;
@@ -127,7 +126,6 @@ pub fn workspace_recreate_with_perm(
                         existing_heads.push(branch.ref_name.clone());
                         break;
                     }
-                    skipped_missing_heads = true;
                 }
             }
             existing_heads
@@ -163,11 +161,7 @@ pub fn workspace_recreate_with_perm(
         }
 
         if previously_applied_stack_heads.is_empty() {
-            if skipped_missing_heads
-                && matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc)
-            {
-                // The old workspace commit still contains the deleted branches' work. Rebuild
-                // at the base rather than restoring that work as anonymous stacks.
+            if matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc) {
                 let workspace_commit_id = create_empty_workspace_commit(&repo, &ws)?;
                 but_core::worktree::safe_checkout_from_head(
                     workspace_commit_id,
