@@ -405,6 +405,70 @@ fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
 }
 
 #[test]
+#[ignore = "scheduling-sensitive removal stress; run explicitly with --ignored --nocapture"]
+fn remove_finishes_when_a_bounded_writer_adds_files_during_deletion() -> Result<()> {
+    use std::{
+        fs,
+        sync::atomic::{AtomicBool, Ordering},
+        time::{Duration, Instant},
+    };
+
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let path = repo.common_dir().join("concurrent-removal");
+    let branch = "refs/heads/concurrent-removal".try_into()?;
+    let name = but_workspace::worktrees::add(&repo, &path, branch, repo.head_id()?.detach())?;
+    let git_dir = repo
+        .worktree_proxy_by_id(name.as_bstr())?
+        .expect("registered worktree")
+        .git_dir()
+        .to_owned();
+    let marker = path.join("marker");
+    fs::write(&marker, b"watch for deletion")?;
+    for i in 0..20_000 {
+        fs::write(path.join(format!("padding-{i}")), b"padding")?;
+    }
+    let stop = AtomicBool::new(false);
+    let (removed, writes) = std::thread::scope(|scope| {
+        let writer = scope.spawn(|| -> Result<usize> {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while marker.exists() && !stop.load(Ordering::Relaxed) && Instant::now() < deadline {
+                std::thread::yield_now();
+            }
+            let mut writes = 0;
+            if !marker.exists() {
+                for i in 0..32 {
+                    match fs::write(path.join(format!("late-{i}")), b"late write") {
+                        Ok(()) => writes += 1,
+                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => break,
+                        Err(err) => return Err(err.into()),
+                    }
+                }
+            }
+            Ok(writes)
+        });
+        let removed = but_workspace::worktrees::remove(&repo, &path, true);
+        stop.store(true, Ordering::Relaxed);
+        (removed, writer.join().expect("writer did not panic"))
+    });
+    let writes = writes?;
+    eprintln!(
+        "late writes={writes}, result={removed:?}, checkout={}, administration={}",
+        path.exists(),
+        git_dir.exists()
+    );
+    assert!(
+        writes > 0,
+        "the writer must overlap deletion for this stress test to be meaningful"
+    );
+    removed?;
+    assert!(
+        !path.exists() && !git_dir.exists(),
+        "both removal roots must disappear after the writer stops"
+    );
+    Ok(())
+}
+
+#[test]
 fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-listing");
     let base = repo.head_id()?.detach();
