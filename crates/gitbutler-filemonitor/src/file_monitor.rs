@@ -460,19 +460,17 @@ pub fn spawn(
                         match kind {
                             FileKind::ProjectIgnored => ignored += 1,
                             FileKind::GitUninteresting => git_noop += 1,
-                            FileKind::Project | FileKind::Git => match file_path
-                                .strip_prefix(&worktree_path)
-                            {
+                            FileKind::Git => {
+                                if let Ok(relative_file_path) = file_path.strip_prefix(&git_dir) {
+                                    stripped_git_paths.insert(relative_file_path.to_owned());
+                                }
+                            }
+                            FileKind::Project => match file_path.strip_prefix(&worktree_path) {
                                 Ok(relative_file_path) => {
-                                    if relative_file_path.as_os_str().is_empty() {
-                                        continue;
-                                    }
-                                    if let Ok(stripped) = relative_file_path.strip_prefix(".git") {
-                                        stripped_git_paths.insert(stripped.to_owned());
-                                    } else {
+                                    if !relative_file_path.as_os_str().is_empty() {
                                         worktree_relative_paths
                                             .insert(relative_file_path.to_owned());
-                                    };
+                                    }
                                 }
                                 Err(_) => {
                                     tracing::warn!(%project_id, ?file_path, ?worktree_path, "failed to strip prefix");

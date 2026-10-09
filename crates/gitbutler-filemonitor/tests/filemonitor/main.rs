@@ -115,6 +115,34 @@ mod spawn {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn git_dir_outside_of_worktree() -> anyhow::Result<()> {
+        let generous_timeout_for_ci = Duration::from_secs(10);
+        let (_repo, tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        but_testsupport::invoke_bash_at_dir("git init --separate-git-dir git-dir wt", tmp.path());
+        let workdir = tmp.path().join("wt");
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
+
+        for watch_mode in [WatchMode::Legacy, WatchMode::Modern] {
+            let (tx, mut rx) = mpsc::unbounded_channel();
+            let monitor =
+                gitbutler_filemonitor::spawn(project_id.clone(), &workdir, tx, watch_mode)?;
+
+            std::fs::write(tmp.path().join("git-dir/FETCH_HEAD"), "")?;
+            monitor.flush()?;
+            expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
+                InternalEvent::GitFilesChange(id, paths) => {
+                    *id == project_id && contains_path(paths, Path::new("FETCH_HEAD"))
+                }
+                _ => false,
+            })
+            .await?;
+        }
+
+        Ok(())
+    }
 }
 
 mod watch_mode {
