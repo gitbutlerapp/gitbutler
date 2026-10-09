@@ -377,7 +377,10 @@ fn remove_requires_force_for_a_dirty_checkout() {
         .failure()
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
-Error: fatal: '[..]/worktrees/wt-dirty' contains modified or untracked files, use --force to delete it
+Error: Worktree contains changes; use --force to discard them
+
+Caused by:
+    The worktree "[..]/worktrees/wt-dirty" contains modified or untracked files, at [..]
 
 "#]]);
     // `wt` is a default alias for `worktree`.

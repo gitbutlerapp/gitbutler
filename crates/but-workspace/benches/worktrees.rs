@@ -65,7 +65,7 @@
 //! macOS. Native APFS measurements favored four over three workers for Git-created,
 //! gix-created, and CoW checkouts. Use native-volume timings to tune worker counts;
 //! the sparse image needed for isolated space accounting can distort deletion costs.
-//! Safety checks and retry limits are unchanged.
+//! Safety checks and the maximum retry count are unchanged.
 //!
 //! Full creation preserves Git's `post-checkout` hook through `git hook run` after
 //! gix completes registration and checkout. No-checkout registration skips it.
@@ -266,20 +266,20 @@ fn main() -> Result<()> {
                     "full" => worktrees::add(&repo, &path, branch, base_id)?,
                     "cow" => worktrees::add_cow(&repo, &path, branch, base_id)?,
                     "registration" => {
-                        git_args(
-                            &seed,
-                            &[
-                                "worktree".as_ref(),
-                                "add".as_ref(),
-                                "--no-checkout".as_ref(),
-                                "-b".as_ref(),
-                                "benchmark".as_ref(),
-                                "--".as_ref(),
-                                path.as_os_str(),
-                                base.as_ref(),
-                            ],
+                        repo.reference(
+                            branch,
+                            base_id,
+                            gix::refs::transaction::PreviousValue::MustNotExist,
+                            "benchmark branch",
                         )?;
-                        gix::open(&path)?
+                        let created = repo
+                            .prepare_add_worktree(
+                                &path,
+                                gix::worktree::add::Head::Attached(branch.to_owned()),
+                                &std::sync::atomic::AtomicBool::default(),
+                            )?
+                            .persist()?;
+                        created
                             .worktree()
                             .expect("linked worktree")
                             .id()?
