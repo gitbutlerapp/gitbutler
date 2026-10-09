@@ -40,6 +40,16 @@ git init only-remote-advanced
   add_main_remote_setup
 )
 
+git init single-branch-local-target
+(cd single-branch-local-target
+  commit M
+)
+
+cp -R single-branch-local-target single-branch-local-target-empty-feature
+(cd single-branch-local-target-empty-feature
+  git checkout -b feature
+)
+
 git init single-branch-in-sync
 (cd single-branch-in-sync
   commit M

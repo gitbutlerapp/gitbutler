@@ -12,31 +12,44 @@ use but_core::{
 };
 use but_error::bail_precondition;
 
-/// Infer a default remote-tracking target from repository configuration without changing state.
-///
-/// The repository's unambiguous default push remote is used. Within that remote, its symbolic
-/// `HEAD` is preferred, followed by `main` and `master`. `None` means there is no unambiguous
-/// remote or none of those references exist.
-pub fn infer_default_target_ref(repo: &gix::Repository) -> Result<Option<gix::refs::FullName>> {
-    let Some(remote_name) = repo.remote_default_name(gix::remote::Direction::Push) else {
-        return Ok(None);
-    };
-    let remote_name = remote_name
-        .to_str()
-        .context("default remote name is not UTF-8")?;
+const FALLBACK_TARGET_BRANCHES: &[&str] = &["main", "master"];
 
-    let remote_head_ref = format!("refs/remotes/{remote_name}/HEAD");
-    if let Ok(head_ref) = repo.find_reference(remote_head_ref.as_str())
-        && let Some(branch_name) = head_ref.target().try_name()
-        && is_existing_branch_on_remote(repo, branch_name, remote_name)?
-    {
-        return Ok(Some(branch_name.to_owned()));
+/// Infer a default target branch without changing repository state.
+///
+/// If the repository has an unambiguous default push remote, prefer its symbolic `HEAD`,
+/// followed by its remote-tracking `main` and `master` branches. If no remote candidate is
+/// found, try local `main`, then local `master`. Candidates must resolve to a commit.
+/// Returns `None` if no suitable branch is found.
+pub fn infer_default_target_ref(repo: &gix::Repository) -> Result<Option<gix::refs::FullName>> {
+    if let Some(remote_name) = repo.remote_default_name(gix::remote::Direction::Push) {
+        let remote_name = remote_name
+            .to_str()
+            .context("default remote name is not UTF-8")?;
+
+        let remote_head_ref = format!("refs/remotes/{remote_name}/HEAD");
+        if let Ok(head_ref) = repo.find_reference(remote_head_ref.as_str())
+            && let Some(branch_name) = head_ref.target().try_name()
+            && is_existing_branch_on_remote(repo, branch_name, remote_name)?
+        {
+            return Ok(Some(branch_name.to_owned()));
+        }
+
+        for branch_name in FALLBACK_TARGET_BRANCHES {
+            let full_name: gix::refs::FullName =
+                format!("refs/remotes/{remote_name}/{branch_name}").try_into()?;
+            if is_existing_branch_on_remote(repo, full_name.as_ref(), remote_name)? {
+                return Ok(Some(full_name));
+            }
+        }
     }
 
-    for branch_name in ["main", "master"] {
-        let full_name: gix::refs::FullName =
-            format!("refs/remotes/{remote_name}/{branch_name}").try_into()?;
-        if is_existing_branch_on_remote(repo, full_name.as_ref(), remote_name)? {
+    for branch_name in FALLBACK_TARGET_BRANCHES {
+        let full_name: gix::refs::FullName = format!("refs/heads/{branch_name}").try_into()?;
+
+        if repo
+            .try_find_reference(full_name.as_ref())?
+            .is_some_and(|mut reference| reference.peel_to_commit().is_ok())
+        {
             return Ok(Some(full_name));
         }
     }
@@ -140,37 +153,15 @@ pub fn set_target_ref_and_init_project(
     let repaired =
         but_core::ref_metadata::repair_target_metadata_for_migration(&project_meta, repo);
 
-    if target_ref.category() != Some(gix::refs::Category::RemoteBranch) {
-        bail!(
-            "target ref '{}' must be a remote tracking branch",
-            target_ref.as_bstr()
-        );
-    }
-
     let target_head = repo
         .try_find_reference(target_ref)?
-        .with_context(|| format!("remote branch '{}' not found", target_ref.as_bstr()))?
+        .with_context(|| format!("target branch '{}' not found", target_ref.as_bstr()))?
         .peel_to_commit()
         .with_context(|| format!("failed to peel branch '{}' to commit", target_ref.as_bstr()))?
         .id;
 
-    // Reject targets whose remote isn't configured - reads like the base-branch data
-    // would fail on them later.
-    let (_upstream_ref, remote) = repo
-        .upstream_branch_and_remote_for_tracking_branch(target_ref)?
-        .with_context(|| {
-            format!(
-                "failed to determine remote for branch '{}'",
-                target_ref.as_bstr()
-            )
-        })?;
-    let remote_name = remote.name().expect("a configured remote is named");
-    remote
-        .url(gix::remote::Direction::Fetch)
-        .with_context(|| format!("failed to get remote url for '{}'", remote_name.as_bstr()))?;
-
     let head = repo.head_id().context("Failed to resolve HEAD")?.detach();
-    let sha = resolve_target_commit(repo, head, target_head, repaired.target_commit_id)?;
+    let target_sha = resolve_target_commit(repo, head, target_head, repaired.target_commit_id)?;
 
     let push_remote = match push_remote {
         Some(name) => {
@@ -183,9 +174,43 @@ pub fn set_target_ref_and_init_project(
         None => repaired.push_remote,
     };
 
+    match target_ref.category() {
+        Some(gix::refs::Category::LocalBranch) => {}
+        Some(gix::refs::Category::RemoteBranch) => {
+            let (_upstream_ref, remote) = repo
+                .upstream_branch_and_remote_for_tracking_branch(target_ref)?
+                .with_context(|| {
+                    format!(
+                        "failed to determine remote for branch '{}'",
+                        target_ref.as_bstr()
+                    )
+                })?;
+            let remote_name = remote.name().expect("a configured remote is named");
+            remote.url(gix::remote::Direction::Fetch).with_context(|| {
+                format!("failed to get remote url for '{}'", remote_name.as_bstr())
+            })?;
+        }
+        Some(
+            gix::refs::Category::Tag
+            | gix::refs::Category::Note
+            | gix::refs::Category::PseudoRef
+            | gix::refs::Category::MainPseudoRef
+            | gix::refs::Category::MainRef
+            | gix::refs::Category::LinkedPseudoRef { .. }
+            | gix::refs::Category::LinkedRef { .. }
+            | gix::refs::Category::Bisect
+            | gix::refs::Category::Rewritten
+            | gix::refs::Category::WorktreePrivate,
+        )
+        | None => bail!(
+            "target ref '{}' must be a local or remote-tracking branch",
+            target_ref.as_bstr()
+        ),
+    }
+
     ProjectMeta {
         target_ref: Some(target_ref.to_owned()),
-        target_commit_id: Some(sha),
+        target_commit_id: Some(target_sha),
         push_remote,
     }
     .persist(repo)?;

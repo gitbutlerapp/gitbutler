@@ -61,6 +61,62 @@ fn inferred_target(repo: &gix::Repository) -> anyhow::Result<Option<String>> {
 }
 
 #[test]
+fn initializes_local_target_without_remote() -> anyhow::Result<()> {
+    let (repo, _tmp) = scenario();
+    repo.find_reference("refs/remotes/origin/main")?.delete()?;
+    edit_config(Some(&repo), gix::config::Source::Local, |config| {
+        config.remove_section("remote", Some("origin".into()));
+        config.remove_section("remote", Some("fork".into()));
+        config.remove_section("branch", Some("main".into()));
+        Ok(())
+    })?;
+    let repo = but_testsupport::open_repo(repo.workdir().expect("fixture has a worktree"))?;
+    let head_name = repo.head_name()?;
+    let head_commit = repo.head_id()?.detach();
+    assert!(
+        repo.remote_names().is_empty(),
+        "the repository has no remotes"
+    );
+
+    let target_ref = but_workspace::init::infer_default_target_ref(&repo)?
+        .expect("local main is inferred without a remote");
+    assert_eq!(
+        target_ref.as_bstr(),
+        "refs/heads/main",
+        "local main is the inferred target"
+    );
+    but_workspace::init::set_target_ref_and_init_project(&repo, target_ref.as_ref(), None)?;
+
+    let repo = but_testsupport::open_repo(repo.workdir().expect("fixture has a worktree"))?;
+    let meta = stored_meta(&repo);
+    assert_eq!(
+        meta.target_ref,
+        Some(target_ref),
+        "the local target is persisted"
+    );
+    assert_eq!(
+        meta.target_commit_id,
+        Some(head_commit),
+        "the initial commit is the target commit"
+    );
+    assert_eq!(
+        meta.push_remote, None,
+        "initialization needs no push remote"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        head_name,
+        "the checked-out branch is unchanged"
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        head_commit,
+        "HEAD remains at the initial commit"
+    );
+    Ok(())
+}
+
+#[test]
 fn infers_symbolic_remote_head_first() -> anyhow::Result<()> {
     let (repo, _tmp) = scenario();
     create_remote_branch(&repo, "refs/remotes/origin/trunk")?;
@@ -114,14 +170,28 @@ fn infers_master_when_main_is_absent() -> anyhow::Result<()> {
 }
 
 #[test]
-fn returns_none_without_a_candidate_branch() -> anyhow::Result<()> {
+fn infers_local_main_without_remote_candidates() -> anyhow::Result<()> {
     let (repo, _tmp) = scenario();
     repo.find_reference("refs/remotes/origin/main")?.delete()?;
 
     assert_eq!(
         inferred_target(&repo)?,
+        Some("refs/heads/main".into()),
+        "a configured remote without candidate refs falls back to local main"
+    );
+    Ok(())
+}
+
+#[test]
+fn returns_none_without_a_candidate_branch() -> anyhow::Result<()> {
+    let (repo, _tmp) = scenario();
+    repo.find_reference("refs/remotes/origin/main")?.delete()?;
+    repo.find_reference("refs/heads/main")?.delete()?;
+
+    assert_eq!(
+        inferred_target(&repo)?,
         None,
-        "a default remote without HEAD, main, or master has no inferred target"
+        "without remote or local candidates there is no inferred target"
     );
     Ok(())
 }
@@ -500,7 +570,7 @@ mod error {
             set_target_ref(&repo, "refs/remotes/origin/missing", None)
                 .unwrap_err()
                 .to_string(),
-            "remote branch 'refs/remotes/origin/missing' not found"
+            "target branch 'refs/remotes/origin/missing' not found"
         );
     }
 
@@ -540,13 +610,20 @@ mod error {
     }
 
     #[test]
-    fn local_branch_rejected() {
+    fn tag_rejected() {
         let (repo, _tmp) = scenario();
+        repo.reference(
+            "refs/tags/main",
+            repo.head_id().unwrap().detach(),
+            PreviousValue::Any,
+            "test tag",
+        )
+        .unwrap();
         assert_eq!(
-            set_target_ref(&repo, "refs/heads/main", None)
+            set_target_ref(&repo, "refs/tags/main", None)
                 .unwrap_err()
                 .to_string(),
-            "target ref 'refs/heads/main' must be a remote tracking branch"
+            "target ref 'refs/tags/main' must be a local or remote-tracking branch"
         );
     }
 

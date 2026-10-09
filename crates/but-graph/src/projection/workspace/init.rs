@@ -492,14 +492,11 @@ impl Graph {
             .as_ref()
             .and_then(|name| self.segment_by_ref_name(name.as_ref()));
 
-        let checked_out_branch_is_the_local_integration_branch = if let Some(integration_target) =
-            target_segment
-            && let Some(sibling_segment_id) = integration_target.sibling_segment_id
-        {
-            checked_out_segment.id == self[sibling_segment_id].id
-        } else {
-            false
-        };
+        let checked_out_branch_is_the_local_integration_branch =
+            target_segment.is_some_and(|target| {
+                checked_out_segment.id == target.id
+                    || target.sibling_segment_id == Some(checked_out_segment.id)
+            });
 
         let keep_first = frame.kind.has_adhoc_ref()
             && !(lane.base.is_some() && checked_out_branch_is_the_local_integration_branch);

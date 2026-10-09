@@ -226,15 +226,16 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
             && !refname.as_bstr().starts_with_str("refs/heads/gitbutler/");
         let is_the_target_branch = base.is_some()
             && first_commit(&self.graph, ix) == base
-            && self.tracks_target(refname.as_ref());
+            && self.is_or_tracks_target(refname.as_ref());
         (is_user_branch && !is_the_target_branch).then(|| refname.clone())
     }
 
-    fn tracks_target(&self, name: &gix::refs::FullNameRef) -> bool {
+    fn is_or_tracks_target(&self, name: &gix::refs::FullNameRef) -> bool {
         let Some(target_ref) = self.workspace.graph.project_meta.target_ref.as_ref() else {
             return false;
         };
-        resolve_tracking_branch_ref_name(name, &self.repo)
-            .is_ok_and(|tracking| tracking.as_ref() == target_ref.as_ref())
+        name == target_ref.as_ref()
+            || resolve_tracking_branch_ref_name(name, &self.repo)
+                .is_ok_and(|tracking| tracking.as_ref() == target_ref.as_ref())
     }
 }
