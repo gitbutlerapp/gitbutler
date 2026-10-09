@@ -175,10 +175,10 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
 
 #[cfg(feature = "graph-workspace")]
 pub fn fresh_graph_workspace(
-    ctx: &mut but_ctx::Context,
+    ctx: &but_ctx::Context,
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
     let mut meta = ctx.meta()?;
-    let (_guard, repo, ws, mut db) = ctx.workspace_mut_and_db_mut()?;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
     let mut ws = ws.clone();
     but_workspace::workspace::detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)
         .map(Into::into)

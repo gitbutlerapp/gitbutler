@@ -18,16 +18,16 @@ fn ctx_with_active_worktree() -> Result<(but_ctx::Context, tempfile::TempDir, te
 
 #[test]
 fn worktree_source_reads_the_linked_checkout() -> Result<()> {
-    let (mut ctx, tmp, linked) = ctx_with_active_worktree()?;
+    let (ctx, tmp, linked) = ctx_with_active_worktree()?;
     write_file(tmp.path(), "file.txt", "main worktree change\n")?;
     write_file(&linked.path().join("wt"), "file.txt", "linked change\n")?;
 
-    let mut guard = ctx.exclusive_worktree_access();
+    let guard = ctx.shared_worktree_access();
     let changes = but_api::diff::changes_in_worktree_with_perm(
-        &mut ctx,
+        &ctx,
         ChangesSource::Worktree("wt".into()),
         false,
-        guard.write_permission(),
+        guard.read_permission(),
     )?;
 
     // Both checkouts modified `file.txt`, so only the source distinguishes them - a
@@ -53,15 +53,15 @@ fn worktree_source_reads_the_linked_checkout() -> Result<()> {
 
 #[test]
 fn worktree_source_ignores_the_computation_flag() -> Result<()> {
-    let (mut ctx, _tmp, linked) = ctx_with_active_worktree()?;
+    let (ctx, _tmp, linked) = ctx_with_active_worktree()?;
     write_file(&linked.path().join("wt"), "file.txt", "linked change\n")?;
 
-    let mut guard = ctx.exclusive_worktree_access();
+    let guard = ctx.shared_worktree_access();
     let changes = but_api::diff::changes_in_worktree_with_perm(
-        &mut ctx,
+        &ctx,
         ChangesSource::Worktree("wt".into()),
         true,
-        guard.write_permission(),
+        guard.read_permission(),
     )?;
 
     assert_eq!(changes.worktree_changes.changes.len(), 1);
@@ -79,12 +79,12 @@ fn worktree_source_requires_the_feature_flag() -> Result<()> {
     let (mut ctx, _tmp, _linked) = ctx_with_active_worktree()?;
     ctx.settings.feature_flags.worktree_manipulation = false;
 
-    let mut guard = ctx.exclusive_worktree_access();
+    let guard = ctx.shared_worktree_access();
     let err = but_api::diff::changes_in_worktree_with_perm(
-        &mut ctx,
+        &ctx,
         ChangesSource::Worktree("wt".into()),
         false,
-        guard.write_permission(),
+        guard.read_permission(),
     )
     .unwrap_err();
     assert!(
@@ -97,16 +97,16 @@ fn worktree_source_requires_the_feature_flag() -> Result<()> {
 
 #[test]
 fn head_source_reads_the_main_worktree() -> Result<()> {
-    let (mut ctx, tmp, linked) = ctx_with_active_worktree()?;
+    let (ctx, tmp, linked) = ctx_with_active_worktree()?;
     write_file(tmp.path(), "main-only.txt", "main worktree change\n")?;
     write_file(&linked.path().join("wt"), "linked-only.txt", "linked\n")?;
 
-    let mut guard = ctx.exclusive_worktree_access();
+    let guard = ctx.shared_worktree_access();
     let changes = but_api::diff::changes_in_worktree_with_perm(
-        &mut ctx,
+        &ctx,
         ChangesSource::Head,
         false,
-        guard.write_permission(),
+        guard.read_permission(),
     )?;
 
     let paths: Vec<_> = changes

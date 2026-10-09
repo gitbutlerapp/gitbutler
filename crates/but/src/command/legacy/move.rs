@@ -1074,7 +1074,7 @@ pub fn run(
     // Restacking can implicitly check out a new tip too, without creating a reference.
     let moves_branch = matches!(move_op, MoveOperation::StackBranch(_));
     let sbm = (creates_independent_branch || creates_stacked_branch || moves_branch || switch)
-        .then(|| SingleBranchMode::new(ctx, perm, switch))
+        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), switch))
         .transpose()?;
     let snapshot_details = match &move_op {
         MoveOperation::CommitsRelativeTo(_) | MoveOperation::CommitsToNewBranch(_) => {

@@ -1909,6 +1909,8 @@ fn run_status_after(
 ) {
     use crate::command::legacy::status::StatusFlags;
 
+    ctx.invalidate_workspace_cache().unwrap();
+
     let agent_skill_notice = (agent_skill_notices && out.format().is_json())
         .then(command::skill::agent_skill_update_notice)
         .flatten();

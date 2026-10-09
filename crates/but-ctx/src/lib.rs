@@ -3,8 +3,7 @@
 #![forbid(unsafe_code)]
 
 use std::{
-    cell,
-    cell::RefCell,
+    cell::{self, RefCell},
     path::{Path, PathBuf},
 };
 
@@ -41,6 +40,14 @@ mod project_handle;
 pub use but_project_handle::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 /// Convenience export as most crates out there refer to `but-ctx`.
 pub use but_utils::OnDemand;
+
+#[derive(Default)]
+enum WorkspaceCache {
+    #[default]
+    Uninitialized,
+    Initialized(Box<but_graph::Workspace>),
+    Consumed,
+}
 
 /// A context specific to a repository, along with commonly used information to make higher-level functions
 /// more convenient to implement.
@@ -133,10 +140,9 @@ pub struct Context {
     #[cfg(feature = "legacy")]
     pub legacy_project: LegacyProject,
 
-    /// A workspace based on any version of `repo`. It's expected to be kept up-to-date
-    /// by anyone who changes it.
-    /// It also can't be public as it needs several of our cached inputs first.
-    workspace: RefCell<Option<but_graph::Workspace>>,
+    /// A workspace based on any version of `repo`.
+    /// It can't be public as it needs several of our cached inputs first.
+    workspace: RefCell<WorkspaceCache>,
 }
 
 /// A structure that can be passed across thread boundaries.
@@ -546,6 +552,26 @@ impl Context {
 
 /// Trampolines that create new uncached instances of major types.
 impl Context {
+    fn try_ensure_initialized(&self) -> anyhow::Result<()> {
+        let must_initialize = match *self.workspace.try_borrow()? {
+            WorkspaceCache::Uninitialized => true,
+            WorkspaceCache::Initialized(_) => false,
+            WorkspaceCache::Consumed => {
+                // TODO: Think about what we should do here. Making this case fatal has been useful
+                // to flush out a lot of code cleanups, but we probably can't do it in production
+                // (at least, we need to allow two API calls in succession using the same ctx, as
+                // some of but-api's tests are doing).
+                true
+            }
+        };
+        if must_initialize {
+            self.workspace.replace(WorkspaceCache::Initialized(Box::new(
+                self.workspace_from_head()?,
+            )));
+        }
+        Ok(())
+    }
+
     /// Create a cached workspace as seen from the current HEAD for editing, and return it,
     /// along with `(guard, &mut repo, &mut ws, &mut db)`.
     /// The guard ensures exclusive process-wide access to the repository.
@@ -555,13 +581,12 @@ impl Context {
     /// * if the workspace was changed, write the new workspace back into `&mut ws`.
     /// * Keep the guard alive like `let (_guard, …) = …`!
     #[instrument(name = "Context::workspace_mut_and_db_mut", level = "debug", skip_all)]
-    #[expect(clippy::type_complexity)]
     pub fn workspace_mut_and_db_mut(
         &mut self,
     ) -> anyhow::Result<(
         RepoExclusiveGuard,
         cell::RefMut<'_, gix::Repository>,
-        cell::RefMut<'_, but_graph::Workspace>,
+        but_graph::Workspace,
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
         let mut guard = self.exclusive_worktree_access();
@@ -586,22 +611,63 @@ impl Context {
         _perm: &mut RepoExclusive,
     ) -> anyhow::Result<(
         cell::RefMut<'_, gix::Repository>,
-        cell::RefMut<'_, but_graph::Workspace>,
+        but_graph::Workspace,
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
-        if let Ok(cached) =
-            cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
-        {
-            return Ok((self.repo.get_mut()?, cached, self.db.get_cache_mut()?));
-        }
-        let ws = self.workspace_from_head()?;
-        {
-            let mut value = self.workspace.try_borrow_mut()?;
-            *value = Some(ws);
-        }
-        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| opt.as_mut())
-            .unwrap_or_else(|_| unreachable!("just set the value"));
-        Ok((self.repo.get_mut()?, ws, self.db.get_cache_mut()?))
+        self.try_ensure_initialized()?;
+        let WorkspaceCache::Initialized(ws) =
+            RefCell::replace(&self.workspace, WorkspaceCache::Consumed)
+        else {
+            unreachable!("just set the value");
+        };
+        Ok((self.repo.get_mut()?, *ws, self.db.get_cache_mut()?))
+    }
+
+    /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
+    /// along with `(guard, &repo, &ws, &mut db)`.
+    /// The `db` is writable as this is more useful and naturally synced.
+    /// The guard is for shared access to the repository.
+    ///
+    /// # IMPORTANT
+    /// * Keep the guard alive like `let (_guard, …) = …`!
+    #[instrument(name = "Context::workspace_and_db_mut", level = "debug", skip_all)]
+    #[expect(clippy::type_complexity)]
+    pub fn workspace_and_db_mut(
+        &self,
+    ) -> anyhow::Result<(
+        RepoSharedGuard,
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
+        let guard = self.shared_worktree_access();
+        let (repo, ws, db) = self.workspace_and_db_mut_with_perm(guard.read_permission())?;
+        Ok((guard, repo, ws, db))
+    }
+
+    /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
+    /// along with `(&repo, &ws, &mut db)`, given a read-`perm`ission.
+    /// The `db` is writable as this is more useful and naturally synced.
+    #[instrument(
+        name = "Context::workspace_and_db_mut_with_perm",
+        level = "debug",
+        skip_all
+    )]
+    pub fn workspace_and_db_mut_with_perm(
+        &self,
+        _perm: &RepoShared,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
+        self.try_ensure_initialized()?;
+        let ws = cell::Ref::filter_map(self.workspace.try_borrow()?, |cache| match cache {
+            WorkspaceCache::Initialized(workspace) => Some(workspace.as_ref()),
+            _ => None,
+        })
+        .unwrap_or_else(|_| unreachable!("just set the value"));
+        Ok((self.repo.get()?, ws, self.db.get_cache_mut()?))
     }
 
     /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
@@ -642,17 +708,12 @@ impl Context {
         cell::Ref<'_, but_graph::Workspace>,
         cell::Ref<'_, but_db::DbHandle>,
     )> {
-        if let Ok(cached) = cell::Ref::filter_map(self.workspace.try_borrow()?, |opt| opt.as_ref())
-        {
-            return Ok((self.repo.get()?, cached, self.db.get_cache()?));
-        }
-        let ws = self.workspace_from_head()?;
-        {
-            let mut value = self.workspace.try_borrow_mut()?;
-            *value = Some(ws);
-        }
-        let ws = cell::Ref::filter_map(self.workspace.borrow(), |opt| opt.as_ref())
-            .unwrap_or_else(|_| unreachable!("just set the value"));
+        self.try_ensure_initialized()?;
+        let ws = cell::Ref::filter_map(self.workspace.try_borrow()?, |cache| match cache {
+            WorkspaceCache::Initialized(workspace) => Some(workspace.as_ref()),
+            _ => None,
+        })
+        .unwrap_or_else(|_| unreachable!("just set the value"));
         Ok((self.repo.get()?, ws, self.db.get_cache()?))
     }
 
@@ -773,13 +834,18 @@ impl Context {
     }
 
     /// Drop the cached workspace projection so the next read re-projects from the current repository
-    /// and metadata state. *Use this when the metadata state changed*.
-    ///
-    /// Don't use this if you already know the new materialised state - instead, set the new workspace
-    /// directly into the mutable cache already present in scope.
+    /// and metadata state.
     pub fn invalidate_workspace_cache(&self) -> anyhow::Result<()> {
-        *self.workspace.try_borrow_mut()? = None;
+        *self.workspace.try_borrow_mut()? = WorkspaceCache::Uninitialized;
         Ok(())
+    }
+
+    /// Update the workspace cache. This is meant for legacy operations that update the workspace,
+    /// expecting code that runs later to pick up the cache and materialize it. New code should
+    /// avoid using this method if possible.
+    pub fn update_workspace_cache(&mut self, ws: but_graph::Workspace) {
+        self.workspace
+            .replace(WorkspaceCache::Initialized(Box::new(ws)));
     }
 
     /// Return a read/write metadata handle for the project, backed by `virtual_branches.toml` and

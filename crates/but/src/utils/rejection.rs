@@ -91,6 +91,10 @@ pub fn explain_after_rollback(
         Err(other) => return other,
     };
 
+    // The failed operation may have consumed the workspace cache. Invalidate it so that we can
+    // re-obtain it.
+    ctx.invalidate_workspace_cache().unwrap();
+
     // Explaining a failure must never mask it: without a workspace projection,
     // fall back to the plain rejection count.
     let (repo, ws, _db) = match ctx.workspace_and_db_with_perm(perm.read_permission()) {

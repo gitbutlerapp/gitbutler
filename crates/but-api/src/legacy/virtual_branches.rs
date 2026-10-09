@@ -54,7 +54,7 @@ pub fn create_virtual_branch(
             .map_err(anyhow::Error::from)?;
 
         let mut meta = ctx.meta()?;
-        let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db_mut()?;
+        let (guard, repo, ws, _) = ctx.workspace_mut_and_db_mut()?;
         let new_ws = but_workspace::branch::create_reference(
             new_ref.as_ref(),
             None,
@@ -63,7 +63,8 @@ pub fn create_virtual_branch(
             &mut meta,
             |_| StackId::generate(),
             branch.order,
-        )?;
+        )?
+        .into_owned();
 
         let (stack_idx, segment_idx) = new_ws
             .find_segment_owner_indexes_by_refname(new_ref.as_ref())
@@ -92,7 +93,10 @@ pub fn create_virtual_branch(
             is_checked_out: false,
         };
 
-        *ws = new_ws.into_owned();
+        drop(guard);
+        drop(repo);
+        drop(ws);
+        ctx.update_workspace_cache(new_ws);
         out
     };
     Ok(stack_entry)
@@ -131,7 +135,9 @@ pub fn delete_local_branch(
             keep_metadata: false,
         },
     )? {
-        *ws = new_ws;
+        drop(repo);
+        drop(ws);
+        ctx.update_workspace_cache(new_ws);
     } else {
         but_workspace::branch::remove_reference::delete_local_branch(
             &mut repo,
@@ -486,12 +492,12 @@ pub fn unapply_stack_with_perm(
 /// keeps only assignments owned by `stack_id`, and flattens them into the
 /// diffspec list consumed by unapply implementations.
 fn assigned_diffspec_for_stack(
-    ctx: &mut Context,
+    ctx: &Context,
     stack_id: StackId,
-    perm: &mut RepoExclusive,
+    perm: &RepoShared,
 ) -> Result<Vec<DiffSpec>> {
     let context_lines = ctx.settings.context_lines;
-    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
         &repo,
@@ -547,7 +553,7 @@ fn unapply_stack_v3_with_perm(
             .context("Unapplying a stack requires open workspace mode")?;
     }
 
-    let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm)?;
+    let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm.read_permission())?;
     let stack_branches = stack_branch_names(ctx, stack_id, perm.read_permission())?;
     let Some(branch_to_unapply) = stack_branches.first().cloned() else {
         return Ok(());
@@ -562,7 +568,7 @@ fn unapply_stack_v3_with_perm(
     commit_assigned_diffspec(ctx, branch_to_unapply.as_ref(), assigned_diffspec, perm)?;
 
     let mut meta = ctx.legacy_meta_mut(perm)?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let was_ad_hoc = matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc);
     let workspace_disposition = if single_branch {
         WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
@@ -578,7 +584,7 @@ fn unapply_stack_v3_with_perm(
             workspace_disposition,
         },
     )?;
-    *ws = outcome.workspace.into_owned();
+    let new_ws = outcome.workspace.into_owned();
     if was_ad_hoc {
         // Collapsing a managed workspace retains its metadata after deleting its ref.
         // Don't resurrect the last unapplied branch when switching back to that workspace.
@@ -607,6 +613,9 @@ fn unapply_stack_v3_with_perm(
     // Keeping the workspace merge commit can make legacy reconciliation infer the
     // removed stack as applied again, so persist the explicit workspace metadata.
     meta.write_unreconciled()?;
+    drop(repo);
+    drop(ws);
+    ctx.update_workspace_cache(new_ws);
     Ok(())
 }
 

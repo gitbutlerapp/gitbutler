@@ -337,7 +337,7 @@ pub fn run(
     let source_repo = ChangeSourceRepo::open(ctx, &commit_selection.source())?;
 
     let sbm = (commit_op.will_create_reference() || commit_op.switch())
-        .then(|| SingleBranchMode::new(ctx, perm, commit_op.switch()))
+        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
         .transpose()?;
 
     let changes = {

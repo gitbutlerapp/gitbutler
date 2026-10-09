@@ -11,7 +11,7 @@ use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{
     DryRun, RefMetadata, extract_remote_name_and_short_name, is_workspace_ref_name,
-    sync::RepoExclusive,
+    sync::{RepoExclusive, RepoShared},
 };
 use but_error::AnyhowContextExt as _;
 use but_forge::ForgeReview;
@@ -115,7 +115,7 @@ pub fn workspace_recreate_with_perm(
         Vec::new()
     } else {
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let (repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
         let mut skipped_missing_heads = false;
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
@@ -156,7 +156,7 @@ pub fn workspace_recreate_with_perm(
                 },
             )?;
             if outcome.status.persisted_mutation() {
-                *ws = outcome.workspace.clone();
+                ws = outcome.workspace;
             } else {
                 anyhow::bail!(
                     "BUG: failed to apply head ref ({head_name}). Failed with {:?}",
@@ -165,7 +165,7 @@ pub fn workspace_recreate_with_perm(
             }
         }
 
-        if previously_applied_stack_heads.is_empty() {
+        let result = if previously_applied_stack_heads.is_empty() {
             if skipped_missing_heads
                 && matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc)
             {
@@ -187,7 +187,7 @@ pub fn workspace_recreate_with_perm(
                     "Restore workspace without deleted branches",
                 )?;
             }
-            drop((repo, ws, db));
+            drop(repo);
             crate::branch::workspace_checkout_with_perm_only(ctx, perm)?;
             Vec::new()
         } else {
@@ -208,12 +208,17 @@ pub fn workspace_recreate_with_perm(
                 }
 
                 if apply_outcome.status.persisted_mutation() {
-                    *ws = apply_outcome.workspace.clone();
+                    ws = apply_outcome.workspace;
                 }
             }
+            drop(repo);
 
             conflicting_stacks
-        }
+        };
+
+        ctx.update_workspace_cache(ws);
+
+        result
     };
 
     if let Some(snapshot) = maybe_oplog_entry {
@@ -470,11 +475,11 @@ pub fn workspace_fetch_status(ctx: &but_ctx::Context) -> anyhow::Result<Workspac
 #[but_api(napi)]
 #[instrument(skip_all, err(Debug))]
 pub fn get_workspace(
-    ctx: &mut but_ctx::Context,
-    perm: &mut RepoExclusive,
+    ctx: &but_ctx::Context,
+    perm: &RepoShared,
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
     let mut meta = ctx.meta()?;
-    let (repo, workspace, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (repo, workspace, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let mut workspace = workspace.clone();
     but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo, &mut db)
         .map(Into::into)

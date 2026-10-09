@@ -516,7 +516,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             )
         } else {
             (
-                &mut *ws,
+                &mut ws,
                 BTreeMap::new(),
                 Vec::new(),
                 &*repo,
@@ -536,7 +536,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         )
     } else {
         (
-            &mut *ws,
+            &mut ws,
             BTreeMap::new(),
             Vec::new(),
             &*repo,
