@@ -1,6 +1,6 @@
 use std::{
-    collections::{BTreeSet, HashSet},
-    path::Path,
+    collections::HashSet,
+    path::{Path, PathBuf},
     time::Duration,
 };
 
@@ -9,13 +9,13 @@ use but_project_handle::{
     INVALIDATION_SENTINEL_PATH, ProjectHandleOrLegacyProjectId, REFRESH_SENTINEL_PATH,
 };
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
-use gix::bstr::BStr;
+use gix::bstr::ByteSlice as _;
 use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
 use tracing::Level;
 
 use crate::{
-    events::InternalEvent,
+    events::{Checkout, InternalEvent, LinkedWorktree},
     watch_plan::{
         build_index_icase_accelerator_if_needed, compute_watch_plan_for_repo, is_tracked_in_index,
         is_watchable_directory, to_repo_relative_path,
@@ -172,12 +172,13 @@ fn setup_watch_plan(
     repo: &gix::Repository,
     worktree_path: &Path,
     git_dir: &Path,
+    linked_git_dirs: &[&Path],
 ) -> Result<()> {
     // Start the watcher, but retry if there are transient errors.
     backoff::retry(watch_backoff_policy(), || {
         let mut paths = debouncer.watcher().paths_mut();
         let mut add_error: Option<(std::path::PathBuf, notify::Error)> = None;
-        compute_watch_plan_for_repo(repo, worktree_path, git_dir, |path, mode| {
+        compute_watch_plan_for_repo(repo, worktree_path, git_dir, linked_git_dirs, |path, mode| {
             if add_error.is_some() {
                 return Ok(std::ops::ControlFlow::Break(()));
             }
@@ -253,6 +254,10 @@ fn setup_legacy_watch(
 /// These are sent through the passed `out` channel, to indicate either **Git** repository changes
 /// or **ProjectWorktree** changes
 /// Use `watch_mode` to control how exactly the directory is watched.
+/// `linked_worktrees` lists the linked worktrees to watch besides the main one, whose changes are
+/// reported under their own [`Checkout`]. The list is obtained again whenever a linked worktree is
+/// registered, moved or removed, or when the invalidation sentinel is written, and is left as it
+/// was if that fails.
 ///
 /// ### Why is this not an iterator?
 ///
@@ -267,6 +272,7 @@ fn setup_legacy_watch(
 pub fn spawn(
     project_id: ProjectHandleOrLegacyProjectId,
     worktree_path: &std::path::Path,
+    linked_worktrees: impl Fn() -> Result<Vec<LinkedWorktree>> + Send + 'static,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
     watch_mode: WatchMode,
 ) -> Result<FileMonitorHandle> {
@@ -286,6 +292,11 @@ pub fn spawn(
         worktree_path.display()
     ))?;
     let git_dir = repo.path().to_owned();
+    let mut linked = linked_checkouts(&git_dir, &linked_worktrees).unwrap_or_default();
+    let linked_git_dirs: Vec<_> = linked
+        .iter()
+        .map(|checkout| checkout.git_dir.as_path())
+        .collect();
 
     let mut effective_watch_mode = watch_mode;
 
@@ -300,6 +311,7 @@ pub fn spawn(
                 &repo,
                 &worktree_path,
                 &git_dir,
+                &linked_git_dirs,
             ) {
                 tracing::warn!(
                     %project_id,
@@ -318,6 +330,7 @@ pub fn spawn(
                     &repo,
                     &worktree_path,
                     &git_dir,
+                    &linked_git_dirs,
                 ) {
                     Ok(()) => {
                         effective_watch_mode = WatchMode::Modern;
@@ -346,7 +359,20 @@ pub fn spawn(
     );
 
     let dynamic_watch_enabled = matches!(effective_watch_mode, WatchMode::Modern);
-    let worktree_path = worktree_path.to_owned();
+    for checkout in &linked {
+        watch_linked_workdir(
+            &mut debouncer,
+            &project_id,
+            &worktree_path,
+            checkout,
+            dynamic_watch_enabled,
+        );
+    }
+    let main = WatchedCheckout {
+        id: Checkout::Main,
+        workdir: worktree_path,
+        git_dir,
+    };
     task::spawn_blocking(move || {
         let _runtime = tracing::span!(Level::INFO, "file monitor", %project_id ).entered();
         tracing::debug!(%project_id, "file watcher started");
@@ -374,176 +400,210 @@ pub fn spawn(
                 "handle debounced events",
                 ignored = tracing::field::Empty,
                 project = tracing::field::Empty,
-                project_dedup = tracing::field::Empty,
                 git = tracing::field::Empty,
-                git_dedup = tracing::field::Empty,
                 git_noop = tracing::field::Empty,
                 fs_events = tracing::field::Empty,
             )
             .entered();
-            let (mut ignored, mut git_noop) = (0, 0);
             match result {
                 Err(err) => {
                     tracing::error!(?err, "ignored file watcher error");
                 }
                 Ok(events) => {
                     let num_events = events.len();
-                    let mut classified_file_paths: Vec<_> = events
-                        .into_iter()
-                        .filter(|event| is_interesting_kind(event.kind))
-                        .flat_map(|event| event.event.paths)
-                        .map(|file| {
-                            let kind = classify_file(&git_dir, &file);
-                            (file, kind)
-                        })
-                        .collect();
-                    let mut ignore_filtering_ran = false;
-                    if classified_file_paths.iter().any(|(_, kind)| *kind == FileKind::Project)
-                        && let Ok(repo_with_complete_configuration) = gix::open(&worktree_path)
-                        && let Ok(index) = repo_with_complete_configuration.index_or_empty()
-                        && let Ok(mut excludes) = repo_with_complete_configuration.excludes(
-                            &index,
-                            None,
-                            gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
-                        )
-                    {
-                        ignore_filtering_ran = true;
-                        let icase_acc = build_index_icase_accelerator_if_needed(&repo, &index);
-                        let is_untracked = |relative_path: &BStr, is_dir: bool| -> bool {
-                            !is_tracked_in_index(relative_path, is_dir, &index, icase_acc.as_ref())
-                        };
-                        for (file_path, kind) in classified_file_paths.iter_mut() {
-                            if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
-                                let is_dir = file_path.is_dir();
-                                let is_excluded = excludes
-                                    .at_path(relative_path, is_dir.then_some(gix::index::entry::Mode::DIR))
-                                    .map(|platform| platform.is_excluded())
-                                    .unwrap_or(false);
-                                let repo_relative_path = to_repo_relative_path(relative_path);
-                                if is_excluded && is_untracked(&repo_relative_path, is_dir) {
-                                    *kind = FileKind::ProjectIgnored
-                                }
-                            }
-                        }
-                    }
-
-                    #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
-                    enum Mode {
-                        AddWatch,
-                        RemoveWatch,
-                    }
-                    let directories_to_watch_or_unwatch =
-                        if dynamic_watch_enabled && ignore_filtering_ran {
-                            classified_file_paths
-                                .iter()
-                                .filter_map(|(path, kind)| {
-                                    if *kind != FileKind::Project {
-                                        return None;
-                                    };
-                                    let mode = match path.symlink_metadata() {
-                                        Ok(md) => (is_watchable_directory(md.file_type())
-                                            && !dynamically_watched_dirs.contains(path))
-                                        .then_some(Mode::AddWatch)?,
-                                        Err(err) => (err.kind() == std::io::ErrorKind::NotFound)
-                                            // We don't care if was dynamically watched, it might be watched during initial computation.
-                                            .then_some(Mode::RemoveWatch)?,
-                                    };
-                                    Some((mode, path.clone()))
-                                })
-                                .collect()
-                        } else {
-                            BTreeSet::new()
-                        };
-                    let (mut stripped_git_paths, mut worktree_relative_paths) =
-                        (HashSet::new(), HashSet::new());
-                    for (file_path, kind) in classified_file_paths {
-                        match kind {
-                            FileKind::ProjectIgnored => ignored += 1,
-                            FileKind::GitUninteresting => git_noop += 1,
-                            FileKind::Project | FileKind::Git => match file_path
-                                .strip_prefix(&worktree_path)
-                            {
-                                Ok(relative_file_path) => {
-                                    if relative_file_path.as_os_str().is_empty() {
-                                        continue;
-                                    }
-                                    if let Ok(stripped) = relative_file_path.strip_prefix(".git") {
-                                        stripped_git_paths.insert(stripped.to_owned());
-                                    } else {
-                                        worktree_relative_paths
-                                            .insert(relative_file_path.to_owned());
-                                    };
-                                }
-                                Err(_) => {
-                                    tracing::warn!(%project_id, ?file_path, ?worktree_path, "failed to strip prefix");
-                                }
-                            },
-                        }
-                    }
-
+                    let changes_by_checkout = changes_by_checkout(
+                        std::iter::once(&main).chain(&linked),
+                        events
+                            .into_iter()
+                            .filter(|event| is_interesting_kind(event.kind))
+                            .flat_map(|event| event.event.paths),
+                    );
+                    let count = |count_of: fn(&Changes) -> usize| -> usize {
+                        changes_by_checkout
+                            .iter()
+                            .map(|(_, changes)| count_of(changes))
+                            .sum()
+                    };
                     stats.record("fs_events", num_events);
-                    stats.record("ignored", ignored);
-                    stats.record("git_noop", git_noop);
-                    stats.record("git", stripped_git_paths.len());
-                    stats.record("project", worktree_relative_paths.len());
-
-                    // NOTE: There is an inherent race condition here where files created in the new
-                    //       directory before the watch is established will be missed.
-                    //       Fortunately that's not a problem right now as we don't really care about the paths.
-                    if !directories_to_watch_or_unwatch.is_empty() {
-                        tracing::trace!(%project_id, ?directories_to_watch_or_unwatch, "adding or removing dynamic watches");
-                        for (mode, path) in directories_to_watch_or_unwatch {
-                            let res = match mode {
-                                Mode::AddWatch => debouncer.watcher().watch(&path, notify::RecursiveMode::NonRecursive),
-                                Mode::RemoveWatch => debouncer.watcher().unwatch(&path),
-                            }
-                            .inspect_err(|err| {
-                                tracing::warn!(
-                                    %project_id,
-                                    ?path,
-                                    ?mode,
-                                    ?err,
-                                    "failed to add or remove watch; changes may be missed until restart"
-                                )
-                            });
-                            match mode {
-                                Mode::AddWatch if res.is_ok() => {
-                                    dynamically_watched_dirs.insert(path);
-                                }
-                                _ => {
-                                    // If adding OR removing a watch didn't work, just remove it from our list.
-                                    // On linux, it seems to manage to remove the watch, but fails to communicate it,
-                                    // so our own tracking list would be stale.
-                                    dynamically_watched_dirs.remove(&path);
-                                }
+                    stats.record("ignored", count(|changes| changes.ignored));
+                    stats.record("git_noop", count(|changes| changes.git_noop));
+                    stats.record("git", count(|changes| changes.git.len()));
+                    stats.record("project", count(|changes| changes.worktree.len()));
+                    let relisted = changes_by_checkout
+                        .iter()
+                        .any(|(_, changes)| changes.linked_worktrees_may_differ())
+                        .then(|| linked_checkouts(&main.git_dir, &linked_worktrees))
+                        .flatten();
+                    if let Some(relisted) = &relisted {
+                        if dynamic_watch_enabled {
+                            update_dynamic_watches(
+                                &mut debouncer,
+                                &mut dynamically_watched_dirs,
+                                std::iter::once(main.git_dir.join(LINKED_WORKTREES_DIR)),
+                            );
+                        }
+                        for added in relisted
+                            .iter()
+                            .filter(|checkout| !linked.contains(checkout))
+                        {
+                            watch_linked_workdir(
+                                &mut debouncer,
+                                &project_id,
+                                &main.workdir,
+                                added,
+                                dynamic_watch_enabled,
+                            );
+                        }
+                        for removed in linked
+                            .iter()
+                            .filter(|checkout| !relisted.contains(checkout))
+                        {
+                            if removed.has_own_recursive_watch(&main.workdir, dynamic_watch_enabled)
+                            {
+                                debouncer.watcher().unwatch(&removed.workdir).ok();
                             }
                         }
                     }
 
-                    if !stripped_git_paths.is_empty() {
-                        let paths_dedup: Vec<_> = stripped_git_paths.into_iter().collect();
-                        stats.record("git_dedup", paths_dedup.len());
-                        let event = InternalEvent::GitFilesChange(project_id.clone(), paths_dedup);
-                        if out.send(event).is_err() {
-                            tracing::info!("channel closed - stopping file watcher");
-                            break 'outer;
+                    for (checkout, changes) in changes_by_checkout {
+                        if dynamic_watch_enabled && changes.ignore_filtering_ran {
+                            update_dynamic_watches(
+                                &mut debouncer,
+                                &mut dynamically_watched_dirs,
+                                changes
+                                    .worktree
+                                    .iter()
+                                    .map(|relative_path| checkout.workdir.join(relative_path)),
+                            );
+                        }
+
+                        if !changes.git.is_empty() {
+                            let event = InternalEvent::GitFilesChange(
+                                project_id.clone(),
+                                checkout.id.clone(),
+                                changes.git.into_iter().collect(),
+                            );
+                            if out.send(event).is_err() {
+                                tracing::info!("channel closed - stopping file watcher");
+                                break 'outer;
+                            }
+                        }
+                        if !changes.worktree.is_empty() {
+                            let event = InternalEvent::ProjectFilesChange(
+                                project_id.clone(),
+                                checkout.id.clone(),
+                                changes.worktree.into_iter().collect(),
+                            );
+                            if out.send(event).is_err() {
+                                tracing::info!("channel closed - stopping file watcher");
+                                break 'outer;
+                            }
                         }
                     }
-                    if !worktree_relative_paths.is_empty() {
-                        let paths_dedup: Vec<_> = worktree_relative_paths.into_iter().collect();
-                        stats.record("project_dedup", paths_dedup.len());
-                        let event =
-                            InternalEvent::ProjectFilesChange(project_id.clone(), paths_dedup);
-                        if out.send(event).is_err() {
-                            tracing::info!("channel closed - stopping file watcher");
-                            break 'outer;
-                        }
+
+                    if let Some(relisted) = relisted {
+                        linked = relisted;
                     }
                 }
             }
         }
     });
     Ok(FileMonitorHandle { cmd_tx })
+}
+
+/// Watch the files of the `linked` worktree: with its own watch plan if `use_watch_plan` is set, and
+/// recursively otherwise, unless the recursive watch of `main_workdir` already covers it.
+fn watch_linked_workdir(
+    debouncer: &mut Debouncer<RecommendedWatcher, NoCache>,
+    project_id: &ProjectHandleOrLegacyProjectId,
+    main_workdir: &Path,
+    linked: &WatchedCheckout,
+    use_watch_plan: bool,
+) {
+    let res = if use_watch_plan {
+        gix::open_opts(&linked.workdir, gix::open::Options::isolated())
+            .map_err(anyhow::Error::from)
+            .and_then(|repo| {
+                setup_watch_plan(
+                    debouncer,
+                    project_id.clone(),
+                    &repo,
+                    &linked.workdir,
+                    &linked.git_dir,
+                    &[],
+                )
+            })
+    } else if linked.has_own_recursive_watch(main_workdir, use_watch_plan) {
+        debouncer
+            .watcher()
+            .watch(&linked.workdir, notify::RecursiveMode::Recursive)
+            .map_err(Into::into)
+    } else {
+        Ok(())
+    };
+    if let Err(err) = res {
+        tracing::warn!(
+            ?err,
+            workdir = ?linked.workdir,
+            "failed to watch linked worktree; changes to its files will be missed"
+        );
+    }
+}
+
+/// Watch the directories among the changed `paths` that aren't watched yet, and stop watching those that are gone.
+///
+/// There is an inherent race condition here where files created in a new directory before the
+/// watch is established will be missed. That's not a problem right now as we don't really care
+/// about the paths.
+fn update_dynamic_watches(
+    debouncer: &mut Debouncer<RecommendedWatcher, NoCache>,
+    dynamically_watched_dirs: &mut HashSet<PathBuf>,
+    paths: impl Iterator<Item = PathBuf>,
+) {
+    #[derive(Debug)]
+    enum Mode {
+        AddWatch,
+        RemoveWatch,
+    }
+    for path in paths {
+        let mode = match path.symlink_metadata() {
+            Ok(md)
+                if is_watchable_directory(md.file_type())
+                    && !dynamically_watched_dirs.contains(&path) =>
+            {
+                Mode::AddWatch
+            }
+            // We don't care if was dynamically watched, it might be watched during initial computation.
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Mode::RemoveWatch,
+            _ => continue,
+        };
+        tracing::trace!(?path, ?mode, "adding or removing dynamic watch");
+        let res = match mode {
+            Mode::AddWatch => debouncer
+                .watcher()
+                .watch(&path, notify::RecursiveMode::NonRecursive),
+            Mode::RemoveWatch => debouncer.watcher().unwatch(&path),
+        }
+        .inspect_err(|err| {
+            tracing::warn!(
+                ?path,
+                ?mode,
+                ?err,
+                "failed to add or remove watch; changes may be missed until restart"
+            )
+        });
+        match mode {
+            Mode::AddWatch if res.is_ok() => {
+                dynamically_watched_dirs.insert(path);
+            }
+            _ => {
+                // If adding OR removing a watch didn't work, just remove it from our list.
+                // On linux, it seems to manage to remove the watch, but fails to communicate it,
+                // so our own tracking list would be stale.
+                dynamically_watched_dirs.remove(&path);
+            }
+        }
+    }
 }
 
 #[cfg(target_family = "unix")]
@@ -598,6 +658,173 @@ pub const HEAD: &str = "HEAD";
 pub const HEAD_ACTIVITY: &str = "logs/HEAD";
 pub const INDEX: &str = "index";
 pub const GB_FLUSH: &str = "GB_FLUSH";
+pub const LINKED_WORKTREES_DIR: &str = "worktrees";
+pub const LINKED_WORKTREE_GITDIR: &str = "gitdir";
+
+#[derive(PartialEq)]
+struct WatchedCheckout {
+    id: Checkout,
+    workdir: PathBuf,
+    git_dir: PathBuf,
+}
+
+#[derive(Default)]
+struct Changes {
+    git: HashSet<PathBuf>,
+    worktree: HashSet<PathBuf>,
+    ignored: usize,
+    git_noop: usize,
+    ignore_filtering_ran: bool,
+}
+
+fn changes_by_checkout<'a>(
+    checkouts: impl Iterator<Item = &'a WatchedCheckout>,
+    paths: impl IntoIterator<Item = PathBuf>,
+) -> Vec<(&'a WatchedCheckout, Changes)> {
+    let mut paths_by_checkout: Vec<_> = checkouts.map(|checkout| (checkout, Vec::new())).collect();
+    for path in paths {
+        let innermost = paths_by_checkout
+            .iter_mut()
+            .filter_map(|(checkout, paths)| {
+                Some((checkout.depth_of_root_containing(&path)?, paths))
+            })
+            .max_by_key(|(depth, _)| *depth);
+        if let Some((_, paths)) = innermost {
+            paths.push(path);
+        }
+    }
+    paths_by_checkout
+        .into_iter()
+        .map(|(checkout, paths)| (checkout, checkout.changes(paths)))
+        .collect()
+}
+
+fn linked_checkouts(
+    main_git_dir: &Path,
+    linked_worktrees: &impl Fn() -> Result<Vec<LinkedWorktree>>,
+) -> Option<Vec<WatchedCheckout>> {
+    let worktrees = linked_worktrees()
+        .inspect_err(|err| tracing::warn!(?err, "failed to list linked worktrees"))
+        .ok()?;
+    Some(
+        worktrees
+            .into_iter()
+            .map(|worktree| WatchedCheckout::linked(main_git_dir, worktree))
+            .collect(),
+    )
+}
+
+impl Changes {
+    fn linked_worktrees_may_differ(&self) -> bool {
+        self.git.iter().any(|path| {
+            path.starts_with(LINKED_WORKTREES_DIR)
+                || path == Path::new(LINKED_WORKTREE_GITDIR)
+                || path == Path::new(INVALIDATION_SENTINEL_PATH)
+        })
+    }
+}
+
+impl WatchedCheckout {
+    fn linked(main_git_dir: &Path, worktree: LinkedWorktree) -> Self {
+        WatchedCheckout {
+            git_dir: main_git_dir
+                .join(LINKED_WORKTREES_DIR)
+                .join(gix::path::from_bstr(worktree.name.as_bstr())),
+            workdir: gix::path::realpath(&worktree.workdir).unwrap_or(worktree.workdir),
+            id: Checkout::Linked(worktree.name),
+        }
+    }
+
+    fn has_own_recursive_watch(&self, main_workdir: &Path, use_watch_plan: bool) -> bool {
+        !use_watch_plan && !self.workdir.starts_with(main_workdir)
+    }
+
+    fn depth_of_root_containing(&self, path: &Path) -> Option<usize> {
+        [&self.git_dir, &self.workdir]
+            .into_iter()
+            .filter(|root| {
+                path.strip_prefix(root)
+                    .is_ok_and(|relative_path| !relative_path.as_os_str().is_empty())
+            })
+            .map(|root| root.components().count())
+            .max()
+    }
+
+    fn changes(&self, paths: impl IntoIterator<Item = PathBuf>) -> Changes {
+        let mut classified: Vec<_> = paths
+            .into_iter()
+            .map(|path| {
+                let kind = classify_file(&self.git_dir, &path);
+                (path, kind)
+            })
+            .collect();
+        let mut changes = Changes {
+            ignore_filtering_ran: self.mark_ignored(&mut classified),
+            ..Default::default()
+        };
+        for (path, kind) in classified {
+            match kind {
+                FileKind::ProjectIgnored => changes.ignored += 1,
+                FileKind::GitUninteresting => changes.git_noop += 1,
+                FileKind::Git => {
+                    if let Ok(relative_path) = path.strip_prefix(&self.git_dir) {
+                        changes.git.insert(relative_path.to_owned());
+                    }
+                }
+                FileKind::Project => {
+                    if let Ok(relative_path) = path.strip_prefix(&self.workdir) {
+                        changes.worktree.insert(relative_path.to_owned());
+                    }
+                }
+            }
+        }
+        changes
+    }
+
+    fn mark_ignored(&self, classified: &mut [(PathBuf, FileKind)]) -> bool {
+        if classified
+            .iter()
+            .any(|(_, kind)| *kind == FileKind::Project)
+            && let Ok(repo) = gix::open(&self.workdir)
+            && let Ok(index) = repo.index_or_empty()
+            && let Ok(mut excludes) = repo.excludes(
+                &index,
+                None,
+                gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
+            )
+        {
+            let icase_acc = build_index_icase_accelerator_if_needed(&repo, &index);
+            for (path, kind) in classified
+                .iter_mut()
+                .filter(|(_, kind)| *kind == FileKind::Project)
+            {
+                if let Ok(relative_path) = path.strip_prefix(&self.workdir) {
+                    let is_dir = path.is_dir();
+                    let is_excluded = excludes
+                        .at_path(
+                            relative_path,
+                            is_dir.then_some(gix::index::entry::Mode::DIR),
+                        )
+                        .map(|platform| platform.is_excluded())
+                        .unwrap_or(false);
+                    if is_excluded
+                        && !is_tracked_in_index(
+                            to_repo_relative_path(relative_path).as_ref(),
+                            is_dir,
+                            &index,
+                            icase_acc.as_ref(),
+                        )
+                    {
+                        *kind = FileKind::ProjectIgnored
+                    }
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+}
 
 /// A classification for a changed file.
 #[derive(Debug, Eq, PartialEq)]
@@ -621,8 +848,10 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
             || check_file_path == Path::new(INDEX)
             || check_file_path == Path::new(REFRESH_SENTINEL_PATH)
             || check_file_path == Path::new(INVALIDATION_SENTINEL_PATH)
+            || check_file_path == Path::new(LINKED_WORKTREE_GITDIR)
             || check_file_path.starts_with(LOCAL_REFS_DIR)
             || check_file_path.starts_with(REMOTE_REFS_DIR)
+            || is_linked_worktree_registration(check_file_path)
         {
             FileKind::Git
         } else {
@@ -631,6 +860,17 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
     } else {
         FileKind::Project
     }
+}
+
+fn is_linked_worktree_registration(git_dir_relative_path: &Path) -> bool {
+    git_dir_relative_path
+        .strip_prefix(LINKED_WORKTREES_DIR)
+        .is_ok_and(|name_and_file| {
+            let mut components = name_and_file.components();
+            components.next();
+            let file = components.as_path();
+            file.as_os_str().is_empty() || file == Path::new(LINKED_WORKTREE_GITDIR)
+        })
 }
 
 #[cfg(test)]
@@ -706,6 +946,39 @@ mod tests {
         assert_eq!(
             classify_file(git_dir(), Path::new("/repo/.git/gitbutler/INVALIDATE")),
             FileKind::Git
+        );
+    }
+
+    #[test]
+    fn classify_linked_worktree_registration() {
+        assert_eq!(
+            classify_file(git_dir(), Path::new("/repo/.git/worktrees/name")),
+            FileKind::Git
+        );
+    }
+
+    #[test]
+    fn classify_linked_worktree_location() {
+        assert_eq!(
+            classify_file(git_dir(), Path::new("/repo/.git/worktrees/name/gitdir")),
+            FileKind::Git,
+            "seen from the main git dir, for a linked worktree that isn't watched"
+        );
+        assert_eq!(
+            classify_file(
+                Path::new("/repo/.git/worktrees/name"),
+                Path::new("/repo/.git/worktrees/name/gitdir")
+            ),
+            FileKind::Git,
+            "seen from the git dir of a watched linked worktree"
+        );
+    }
+
+    #[test]
+    fn classify_linked_worktree_contents_as_uninteresting() {
+        assert_eq!(
+            classify_file(git_dir(), Path::new("/repo/.git/worktrees/name/HEAD")),
+            FileKind::GitUninteresting
         );
     }
 

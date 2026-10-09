@@ -12,27 +12,33 @@ const eventTags: Record<string, ReadonlyArray<string>> = watcherInvalidates;
 const react = (event: string) => {
 	const invalidated: Array<unknown> = [];
 	const pushed: Array<unknown> = [];
+	const pushedKeys: Array<ReadonlyArray<unknown>> = [];
 	const client = {
 		invalidateQueries: ({ queryKey }: { queryKey: ReadonlyArray<unknown> }) => {
 			invalidated.push(queryKey[1]);
 			return Promise.resolve();
 		},
-		setQueryData: (queryKey: ReadonlyArray<unknown>) => pushed.push(queryKey[1]),
+		setQueryData: (queryKey: ReadonlyArray<unknown>) => {
+			pushed.push(queryKey[1]);
+			pushedKeys.push(queryKey);
+		},
 		fetchQuery: () => Promise.reject(new Error("offline")),
 	} as unknown as QueryClient;
 
 	const subject =
 		event === "worktreeChanges"
 			? { changes: {} }
-			: event === "externalInvalidation"
-				? { tags: ["Reviews", "NotATag"] }
-				: null;
+			: event === "linkedWorktreeChanges"
+				? { worktree: "linked", changes: {} }
+				: event === "externalInvalidation"
+					? { tags: ["Reviews", "NotATag"] }
+					: null;
 	handleProjectEvent(
 		{ name: event, payload: { type: event, subject } } as WatcherEvent,
 		"p1",
 		client,
 	);
-	return { invalidated, pushed };
+	return { invalidated, pushed, pushedKeys };
 };
 
 describe("tags declared in Rust", () => {
@@ -71,6 +77,12 @@ describe("handled separately", () => {
 	it("pushes worktree changes rather than invalidating them", () => {
 		const { invalidated, pushed } = react("worktreeChanges");
 		expect(pushed).toEqual(["changesInWorktree"]);
+		expect(invalidated).not.toContain("changesInWorktree");
+	});
+
+	it("pushes a linked worktree's changes to that worktree alone", () => {
+		const { invalidated, pushedKeys } = react("linkedWorktreeChanges");
+		expect(pushedKeys).toEqual([["p1", "changesInWorktree", { worktree: "linked" }]]);
 		expect(invalidated).not.toContain("changesInWorktree");
 	});
 

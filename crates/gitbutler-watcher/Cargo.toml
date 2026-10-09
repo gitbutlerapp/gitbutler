@@ -31,3 +31,9 @@ serde-error = "0.1.3"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+but-testsupport.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }

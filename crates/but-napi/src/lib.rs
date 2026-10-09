@@ -26,8 +26,8 @@ use but_api::{
     self as _,
     watcher::{
         WatcherExternalInvalidationPayload, WatcherGitActivityPayload, WatcherGitFetchPayload,
-        WatcherGitHeadPayload, WatcherPayload, WatcherWorkspaceActivityPayload,
-        WatcherWorktreeChangesPayload,
+        WatcherGitHeadPayload, WatcherLinkedWorktreeChangesPayload, WatcherPayload,
+        WatcherWorkspaceActivityPayload, WatcherWorktreeChangesPayload,
     },
 };
 
@@ -343,6 +343,24 @@ fn event_from_change(change: gitbutler_watcher::Change) -> WatcherEvent {
             name: format!("project://{project_id}/worktree_changes"),
             payload: serde_json::json!(WatcherPayload::WorktreeChanges(
                 WatcherWorktreeChangesPayload {
+                    changes,
+                    changed_paths: changed_paths
+                        .iter()
+                        .map(|path| path.to_string_lossy().into_owned())
+                        .collect(),
+                }
+            )),
+        },
+        gitbutler_watcher::Change::LinkedWorktreeChanges {
+            project_id,
+            worktree,
+            changes,
+            changed_paths,
+        } => WatcherEvent {
+            name: format!("project://{project_id}/linked_worktree_changes"),
+            payload: serde_json::json!(WatcherPayload::LinkedWorktreeChanges(
+                WatcherLinkedWorktreeChangesPayload {
+                    worktree,
                     changes,
                     changed_paths: changed_paths
                         .iter()
