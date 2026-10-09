@@ -24,6 +24,7 @@ const TEST_PR_REVIEW_KEY: &str = "pull-request:ref:refs/heads/main#1";
 const TEST_CHANGE_KEY: &str = "gitbutler-change:change-1";
 
 fn setup_repo() -> TempDir {
+    crate::hide_global_git_config();
     let dir = TempDir::new().expect("temp repo");
     gix::ThreadSafeRepository::init_opts(
         dir.path(),
@@ -37,6 +38,7 @@ fn setup_repo() -> TempDir {
 }
 
 fn setup_local_repo() -> TempDir {
+    crate::hide_global_git_config();
     let dir = TempDir::new().expect("temp repo");
     gix::ThreadSafeRepository::init_opts(
         dir.path(),
