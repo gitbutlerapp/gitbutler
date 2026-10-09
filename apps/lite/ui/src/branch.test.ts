@@ -6,6 +6,7 @@ import {
 	branchIsEmpty,
 	branchOwnCommits,
 	searchStacks,
+	targetLabel,
 	unappliedStacks,
 } from "./branch.ts";
 import type { ListedBranch, ListedStack } from "@gitbutler/but-sdk";
@@ -38,6 +39,17 @@ const names = (stacks: Array<ListedStack>): Array<Array<string>> =>
 	stacks.map((s) => s.branches.map((b) => b.displayName));
 
 const allFilters = { showEmpty: false, onlyLocal: false, onlyStacks: false };
+
+describe("targetLabel", () => {
+	it("shows local targets without a remote prefix", () => {
+		expect(targetLabel({ fullNameBytes: [], displayName: "main", remoteName: null })).toBe("main");
+	});
+	it("preserves remote-tracking target labels", () => {
+		expect(targetLabel({ fullNameBytes: [], displayName: "main", remoteName: "origin" })).toBe(
+			"origin/main",
+		);
+	});
+});
 
 describe("activeBranchFilterCount", () => {
 	it("counts the options switched on", () => {

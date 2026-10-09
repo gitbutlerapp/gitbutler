@@ -57,7 +57,7 @@ import {
 } from "#ui/review-seen.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import type { ForgeReview, TargetCommitReview, UnifiedPatch } from "@gitbutler/but-sdk";
-import { branchDetailsParams } from "#ui/branch.ts";
+import { branchDetailsParams, targetLabel } from "#ui/branch.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
@@ -3148,9 +3148,7 @@ const useBranchMeta = ({
 		select: ({ aggregate }) => checksPhrase(aggregate),
 	});
 
-	const targetName = target
-		? `${target.remoteTrackingRef.remoteName}/${target.remoteTrackingRef.displayName}`
-		: null;
+	const targetName = target ? targetLabel(target.refName) : null;
 	const parts = [
 		ahead != null &&
 			`${ahead} ${ahead === 1 ? "commit" : "commits"} ahead${targetName !== null ? ` of ${targetName}` : ""}`,
