@@ -179,6 +179,7 @@ Graph {
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 parent_order: 0,
+                workspace_parent_order: None,
             },
         },
         free_node: NodeIndex(4294967295),

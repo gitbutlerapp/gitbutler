@@ -226,18 +226,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             };
         }
 
-        // An edge into an empty segment carries no parent order. Every other commit has its
-        // parents checked against the commit itself further down; the workspace commit is
-        // exempt from that check, so its order is resolved from the commit here.
-        let workspace_commit_parent_order = |source: SegmentIndex, target: SegmentIndex| {
-            let commit = workspace.graph[source].commits.last()?;
-            if Some(commit.id) != workspace_commit_id {
-                return None;
-            }
-            let parent = workspace.graph.tip_skip_empty(target)?;
-            commit.parent_ids.iter().position(|id| *id == parent.id)
-        };
-
         for sidx in segments.keys() {
             let Some(source) = segments.get(sidx).and_then(|n| n.nodes.last()) else {
                 continue;
@@ -269,9 +257,9 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
 
                 let order = edge
                     .weight()
-                    .parent_order()
+                    .workspace_parent_order()
+                    .or_else(|| edge.weight().parent_order())
                     .map(|order| order as usize)
-                    .or_else(|| workspace_commit_parent_order(*sidx, edge.target()))
                     .unwrap_or(0);
                 graph.add_edge(*source, *target, Edge { order });
             }

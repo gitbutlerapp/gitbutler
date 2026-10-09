@@ -142,10 +142,10 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   c718ffa (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   95c53c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 09d8e52 (A) A
-* | c813d8d (C, B) B
+| * c813d8d (C, B) B
+* | 09d8e52 (A) A
 |/  
 * 85efbe4 (origin/main, main) M
 
@@ -239,10 +239,10 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   d990652 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   bae0ee9 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 09d8e52 (A) A
-* | 8e00332 (C) C
+| * 8e00332 (C) C
+* | 09d8e52 (A) A
 |/  
 * 85efbe4 (origin/main, main, B) M
 
