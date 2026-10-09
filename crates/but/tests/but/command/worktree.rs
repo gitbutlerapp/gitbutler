@@ -980,6 +980,79 @@ fn new_worktreeinclude_skips_files_beneath_tracked_destination_symlink() {
     );
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn new_worktreeinclude_skips_case_alias_of_tracked_destination_symlink() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    enable_worktree_manipulation(&env);
+
+    // Probe where linked worktrees are created, not the source repository's filesystem.
+    std::fs::create_dir_all(env.home_dir()).unwrap();
+    let probe = tempfile::tempdir_in(env.home_dir()).unwrap();
+    std::fs::write(probe.path().join("case-probe"), "probe").unwrap();
+    if !probe.path().join("CASE-PROBE").exists() {
+        eprintln!("Skipping case-alias regression: destination filesystem is case-sensitive");
+        return;
+    }
+
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(
+        outside.path().join("sentinel"),
+        "outside contents must not change\n",
+    )
+    .unwrap();
+    env.file(".gitignore", "/cache/artifact\n");
+    std::os::unix::fs::symlink(outside.path(), env.projects_root().join("Cache")).unwrap();
+    env.but("commit -b my-branch -m 'Track uppercase symlink to outside directory'")
+        .assert()
+        .success();
+    let destination_base = env.invoke_git("rev-parse my-branch");
+
+    env.remove_file("Cache");
+    env.but("commit -m 'Remove symlink from source'")
+        .assert()
+        .success();
+    env.file("cache/artifact", "source ignored artifact\n");
+
+    for (name, pattern) in [
+        ("case-alias-file", "cache/artifact\n"),
+        ("case-alias-directory", "cache/\n"),
+    ] {
+        env.file(".worktreeinclude", pattern);
+        env.but(format!(
+            "worktree new {name} --above {}",
+            destination_base.trim()
+        ))
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+
+        let checkout = env.linked_worktree_root(name);
+        assert_eq!(
+            std::fs::read_link(checkout.join("Cache")).unwrap(),
+            outside.path(),
+            "tracked destination symlink must remain intact"
+        );
+        // Leave this leaf absent initially: clonefile would reject an existing leaf,
+        // masking the unintended traversal with an EEXIST error instead of copying.
+        assert!(
+            std::fs::symlink_metadata(outside.path().join("artifact"))
+                .is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound),
+            "copying through lowercase cache must not follow tracked Cache symlink outside worktree"
+        );
+        assert_eq!(
+            std::fs::read_to_string(outside.path().join("sentinel")).unwrap(),
+            "outside contents must not change\n",
+            "external contents must remain unchanged"
+        );
+    }
+    assert_eq!(
+        env.read_file("cache/artifact").unwrap(),
+        "source ignored artifact\n",
+        "skipping a destination case alias must leave source artifact intact"
+    );
+}
+
 #[test]
 fn new_worktreeinclude_copies_only_destination_ignored_files_untracked_in_both_indexes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
