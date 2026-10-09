@@ -15,12 +15,14 @@ mod tests;
 /// Traverse all unignored or tracked directories in `worktree_path` and pass them to `visit_dir(path, notify-mode)`,
 /// which can decide to stop the iteration by returning `ControlFlow::Break`.
 /// `git_dir` is used to select specific directories for recursive watching first,
-/// and other contained `.git` directories are watched similarly.
+/// and other contained `.git` directories are watched similarly, as are the `linked_git_dirs`
+/// of linked worktrees.
 #[tracing::instrument(skip(repo, visit_dir), level = "debug", err)]
 pub(crate) fn compute_watch_plan_for_repo(
     repo: &gix::Repository,
     worktree_path: &Path,
     git_dir: &Path,
+    linked_git_dirs: &[&Path],
     mut visit_dir: impl FnMut(&Path, notify::RecursiveMode) -> anyhow::Result<ControlFlow<()>>,
 ) -> anyhow::Result<()> {
     let index = repo.index_or_empty()?;
@@ -41,6 +43,11 @@ pub(crate) fn compute_watch_plan_for_repo(
     }
     if emit_git_dir_watches(git_dir, &mut visit_dir)?.is_break() {
         return Ok(());
+    }
+    for linked_git_dir in linked_git_dirs.iter().filter(|dir| dir.is_dir()) {
+        if emit_git_dir_watches(linked_git_dir, &mut visit_dir)?.is_break() {
+            return Ok(());
+        }
     }
 
     seen.insert(worktree_path.to_owned());

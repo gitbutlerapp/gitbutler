@@ -5,7 +5,7 @@
 mod watch_plan;
 
 mod events;
-pub use events::InternalEvent;
+pub use events::{Checkout, InternalEvent, LinkedWorktree};
 
 mod file_monitor;
 pub use file_monitor::{

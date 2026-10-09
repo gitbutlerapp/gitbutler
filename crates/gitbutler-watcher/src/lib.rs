@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use anyhow::Result;
-use but_ctx::ProjectHandleOrLegacyProjectId;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_settings::AppSettingsWithDiskSync;
 pub use handler::Handler;
 use tokio::{sync::mpsc::unbounded_channel, task};
@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 mod events;
 
 pub use events::Change;
-use gitbutler_filemonitor::{FileMonitorHandle, InternalEvent};
+use gitbutler_filemonitor::{FileMonitorHandle, InternalEvent, LinkedWorktree};
 
 mod handler;
 
@@ -74,9 +74,15 @@ pub fn watch_in_background(
 ) -> Result<WatcherHandle, anyhow::Error> {
     let (events_out, mut events_in) = unbounded_channel();
 
+    let linked_worktrees = active_linked_worktrees(project_id.clone(), &app_settings)
+        .unwrap_or_else(|err| {
+            tracing::warn!(%project_id, ?err, "linked worktrees are not watched as they could not be listed");
+            Vec::new()
+        });
     let file_monitor = gitbutler_filemonitor::spawn(
         project_id.clone(),
         worktree_path.as_ref(),
+        linked_worktrees,
         events_out.clone(),
         watch_mode,
     )?;
@@ -114,4 +120,21 @@ pub fn watch_in_background(
     });
 
     Ok(handle)
+}
+
+fn active_linked_worktrees(
+    project_id: ProjectHandleOrLegacyProjectId,
+    app_settings: &AppSettingsWithDiskSync,
+) -> Result<Vec<LinkedWorktree>> {
+    let mut ctx: Context = project_id.try_into()?;
+    ctx.settings = app_settings.get()?.clone();
+    Ok(ctx
+        .worktrees_with_state()?
+        .into_iter()
+        .filter(|worktree| !worktree.archived)
+        .map(|worktree| LinkedWorktree {
+            name: worktree.name,
+            workdir: worktree.path,
+        })
+        .collect())
 }
