@@ -137,6 +137,12 @@ impl WizardAnswers {
 /// the cleanup learns that wording as another retired variant.
 pub(super) const FAST_PATH_BULLET: &str = "For commit just/only/specific changes on a new branch (selected-change requests), use the two-command fast path from the GitButler skill: `but diff`, then `but commit -b <branch> -m \"message\" <id> <id>`.";
 
+pub(super) const SKILL_BULLET: &str = "Use the installed GitButler skill for command recipes and syntax when it is available. If it is unavailable, use `but --help` rather than guessing. The GitButler-specific rules below apply only when `but` is configured for the repository. If `but` reports `Setup required`, use plain Git equivalents and do not run `but setup` unless the user asks.";
+pub(super) const SESSION_BRANCH_BULLET: &str = "Use a dedicated branch for each agent session, unless the user asks for a different branch structure. Commit only changes that belong to that session.";
+pub(super) const FOLD_FIXES_BULLET: &str = "Fold small follow-up fixes into the unpublished commit they belong to; ask before rewriting pushed, reviewed, shared, or ambiguous history.";
+pub(super) const SUGGEST_SPLITS_BULLET: &str =
+    "Suggest splitting unrelated changes into separate commits.";
+
 /// Render the GitButler steering as a managed block. Mirrors the published
 /// guidance: an always-on `## Version control` baseline (see the docs "Getting
 /// started" page) followed by one `###` section per selected preference (see
@@ -151,13 +157,9 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
     write_bullets(
         &mut body,
         &[
-            "Use GitButler (`but`) for version-control inspection and write operations, including status, diffs, branching, committing, pushing, and history edits.",
             "Assume multiple agents may be working in this repository. Do not move, amend, squash, discard, commit, push, or otherwise modify another agent's work unless the user asks.",
-            FAST_PATH_BULLET,
-            "For that fast path, after the commit succeeds, stop and summarize; do not run separate branch, staging, status, or diff commands unless the commit output is missing information you need.",
-            "Use the installed GitButler skill for command recipes and syntax before guessing flags, using `--help`, or translating Git habits directly.",
-            "Mutation commands report their result without appending workspace status. Add `--status-after` only when the next step needs resulting workspace IDs or details; otherwise do not rerun status or diff to verify success.",
-            "Use a dedicated GitButler branch for each agent session, unless the user asks for a different branch structure. Commit only changes that belong to that session.",
+            SKILL_BULLET,
+            SESSION_BRANCH_BULLET,
             "Do not push or open pull requests unless the user asks.",
             "Keep commit messages and pull request descriptions succinct: explain what changed, why it changed, and any important decision.",
         ],
@@ -167,24 +169,14 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
         write_section(
             &mut body,
             "Amend local fixes into the right commits",
-            &[
-                "For small cleanup or follow-up fixes, amend an unpublished local commit when the change clearly belongs with that commit's intent.",
-                "Do not create tiny fixup commits unless the user asks.",
-                "Use GitButler to move the relevant changes into the commit where they belong.",
-                "Ask before rewriting pushed, reviewed, shared, or ambiguous history.",
-            ],
+            &[FOLD_FIXES_BULLET],
         );
     }
     if answers.has(WorkflowOption::SuggestSplits) {
         write_section(
             &mut body,
             "Split unrelated changes into separate commits",
-            &[
-                "If one file contains unrelated changes, split them by hunk instead of committing the whole file.",
-                "Keep tests with the behavior they verify.",
-                "Split generated output, docs-only edits, or mechanical cleanup into separate commits when each commit remains coherent on its own.",
-                "If the split is ambiguous, summarize the options before committing.",
-            ],
+            &[SUGGEST_SPLITS_BULLET],
         );
     }
     if answers.has(WorkflowOption::StackedBranches) {
@@ -237,7 +229,7 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
         write_section_header(&mut body, "Publish on a shortcut phrase");
         writeln!(
             &mut body,
-            "- When the user says `{}`, commit this session's changes on its dedicated GitButler branch, creating one if needed.",
+            "- When the user says `{}`, commit this session's changes on its dedicated branch, creating one if needed.",
             answers.publish_phrase
         )
         .expect("write to string");
@@ -266,7 +258,7 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
         write_section_header(&mut body, "Branch naming");
         writeln!(
             &mut body,
-            "- When creating a GitButler branch for an agent session, use `{pattern}`."
+            "- When creating a branch for an agent session, use `{pattern}`."
         )
         .expect("write to string");
     }
