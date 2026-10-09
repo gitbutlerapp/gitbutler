@@ -17,6 +17,7 @@ export enum ReduxTag {
 	GitHubUserList = "GitHubUserList",
 	GitLabUserList = "GitLabUserList",
 	BitbucketUserList = "BitbucketUserList",
+	ForgejoUserList = "ForgejoUserList", // forgejo-fork
 	PullRequests = "PullRequests",
 	Checks = "Checks",
 	RepoInfo = "RepoInfo",

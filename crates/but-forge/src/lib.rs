@@ -49,6 +49,9 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
         Some(ForgeName::Bitbucket)
     } else if host.contains("azure.com") {
         Some(ForgeName::Azure)
+    } else if host.contains("codeberg.org") || host.starts_with("forgejo.") {
+        // forgejo-fork: self-hosted instances resolve through their account's host.
+        Some(ForgeName::Forgejo)
     } else {
         None
     }
@@ -166,6 +169,17 @@ pub fn current_forge_login(
             }
             .map(|account| account.username().to_string()))
         }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let accounts = but_forgejo::list_known_forgejo_accounts(storage)?;
+            let preferred = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo())
+                .filter(|preferred| accounts.contains(preferred));
+            Ok(preferred
+                .or(accounts.first())
+                .map(|account| account.username().to_string()))
+        }
         _ => Ok(None),
     }
 }
@@ -184,6 +198,13 @@ pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
     for gl_account in gl_accounts {
         forge_users.push(ForgeUser::GitLab(gl_account));
     }
+
+    // forgejo-fork
+    forge_users.extend(
+        but_forgejo::list_known_forgejo_accounts(&storage)?
+            .into_iter()
+            .map(ForgeUser::Forgejo),
+    );
 
     Ok(forge_users)
 }
@@ -474,6 +495,19 @@ mod tests {
         assert_eq!(
             match_host_to_accounts_custom_host("gl.example.com", &accounts),
             Some(ForgeName::GitLab)
+        );
+    }
+
+    #[test]
+    fn matches_forgejo_instance_host() {
+        let accounts = vec![ForgeUser::Forgejo(
+            but_forgejo::ForgejoAccountIdentifier::new("alice", "git.example.com"),
+        )];
+
+        assert_eq!(
+            match_host_to_accounts_custom_host("git.example.com", &accounts),
+            Some(ForgeName::Forgejo),
+            "any host a Forgejo account was added for is a Forgejo remote"
         );
     }
 

@@ -34,6 +34,15 @@ pub async fn get_repo_info(
                 .await
                 .map(RepoInfo::from)
         }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo());
+            but_forgejo::fetch_repo(preferred_account, owner, repo, storage)
+                .await
+                .map(RepoInfo::from)
+        }
         ForgeName::Azure => Err(anyhow::anyhow!(
             "Fetching repo info for forge {:?} is not implemented yet.",
             forge_repo_info.forge
@@ -137,6 +146,29 @@ impl From<but_bitbucket::BitbucketRepo> for RepoInfo {
             // Bitbucket has no per-repo "delete source branch after merge" flag
             // exposed on the repository object.
             delete_branch_on_merge: None,
+        }
+    }
+}
+
+// forgejo-fork
+impl From<but_forgejo::ForgejoRepo> for RepoInfo {
+    fn from(value: but_forgejo::ForgejoRepo) -> Self {
+        // Forgejo only reports admin/push/pull; the finer GitHub roles follow
+        // from the nearest of those.
+        let permissions = value.permissions.map(|p| RepoPermissions {
+            admin: p.admin,
+            maintain: p.admin,
+            push: p.push,
+            triage: p.push,
+            pull: p.pull,
+        });
+        RepoInfo {
+            permissions,
+            fork: value.fork,
+            // Forgejo's repo payload carries `private`; an instance too old to
+            // report it yields `None`, like Azure.
+            private: value.private,
+            delete_branch_on_merge: value.delete_branch_after_merge,
         }
     }
 }

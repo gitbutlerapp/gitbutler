@@ -102,6 +102,19 @@ pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFu
             is_valid_review_template_path: is_valid_review_template_path_bitbucket,
             supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
         },
+        // forgejo-fork
+        ForgeName::Forgejo => ReviewTemplateFunctions {
+            is_review_template: is_review_template_forgejo,
+            get_root: get_forgejo_directory_path,
+            is_valid_review_template_path: is_valid_review_template_path_forgejo,
+            supported_template_directories: &[
+                SupportedTemplateDirectory::ForgeRoot,
+                SupportedTemplateDirectory::ProjectRoot,
+                SupportedTemplateDirectory::Custom(".gitea"),
+                SupportedTemplateDirectory::Custom(".github"),
+                SupportedTemplateDirectory::Custom("docs"),
+            ],
+        },
         ForgeName::Azure => ReviewTemplateFunctions {
             is_review_template: is_review_template_azure,
             get_root: get_azure_directory_path,
@@ -165,6 +178,26 @@ fn is_valid_review_template_path_bitbucket(_path: &path::Path) -> bool {
     false
 }
 
+// forgejo-fork
+fn get_forgejo_directory_path(root_path: &path::Path) -> path::PathBuf {
+    root_path.join(".forgejo")
+}
+
+/// Forgejo reads `pull_request_template.md` (any case) from the repository
+/// root or from `.forgejo/`, `.gitea/`, `.github/` or `docs/`.
+fn is_review_template_forgejo(path_str: &str) -> bool {
+    let normalized_path = path_str.replace('\\', "/");
+    let (dir, file) = normalized_path
+        .rsplit_once('/')
+        .unwrap_or(("", normalized_path.as_str()));
+    file.eq_ignore_ascii_case("pull_request_template.md")
+        && matches!(dir, "" | ".forgejo" | ".gitea" | ".github" | "docs")
+}
+
+fn is_valid_review_template_path_forgejo(path: &path::Path) -> bool {
+    is_review_template_forgejo(path.to_str().unwrap_or_default())
+}
+
 fn get_azure_directory_path(root_path: &path::Path) -> path::PathBuf {
     // TODO: implement
     root_path.to_path_buf()
@@ -208,6 +241,17 @@ impl From<but_gitlab::GitLabLabel> for ForgeReviewLabel {
             name: label.name,
             description: None,
             color: None,
+        }
+    }
+}
+
+// forgejo-fork
+impl From<but_forgejo::ForgejoLabel> for ForgeReviewLabel {
+    fn from(label: but_forgejo::ForgejoLabel) -> Self {
+        ForgeReviewLabel {
+            name: label.name,
+            description: label.description.filter(|d| !d.is_empty()),
+            color: label.color.filter(|c| !c.is_empty()),
         }
     }
 }
@@ -270,6 +314,20 @@ impl From<but_gitlab::GitLabUser> for ForgeReviewUser {
             email: user.email,
             avatar_url: user.avatar_url,
             is_bot: user.is_bot,
+        }
+    }
+}
+
+// forgejo-fork
+impl From<but_forgejo::ForgejoUser> for ForgeReviewUser {
+    fn from(user: but_forgejo::ForgejoUser) -> Self {
+        ForgeReviewUser {
+            id: user.id,
+            login: user.login,
+            name: user.name,
+            email: user.email,
+            avatar_url: user.avatar_url,
+            is_bot: false,
         }
     }
 }
@@ -453,6 +511,43 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
                 .collect(),
             auto_merge_enabled: mr.auto_merge_enabled,
             unit_symbol: "!".to_string(),
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
+// forgejo-fork
+impl From<but_forgejo::ForgejoPullRequest> for ForgeReview {
+    fn from(pr: but_forgejo::ForgejoPullRequest) -> Self {
+        ForgeReview {
+            html_url: pr.html_url,
+            number: pr.number,
+            title: pr.title,
+            body: pr.body,
+            author: pr.author.map(ForgeReviewUser::from),
+            labels: pr.labels.into_iter().map(ForgeReviewLabel::from).collect(),
+            draft: pr.draft,
+            source_branch: pr.source_branch,
+            target_branch: pr.target_branch,
+            sha: pr.sha,
+            integration_commit_shas: pr.merge_commit_sha.into_iter().collect(),
+            created_at: pr.created_at,
+            modified_at: pr.updated_at,
+            merged_at: pr.merged_at,
+            closed_at: pr.closed_at,
+            repository_ssh_url: pr.repository_ssh_url,
+            repository_https_url: pr.repository_https_url,
+            repo_owner: pr.repo_owner,
+            head_repo_is_fork: pr.head_repo_is_fork,
+            reviewers: pr
+                .requested_reviewers
+                .into_iter()
+                .map(ForgeReviewUser::from)
+                .collect(),
+            // ponytail: Forgejo's PR payload doesn't say whether an auto-merge is
+            // scheduled; always reports off until an endpoint exposes it.
+            auto_merge_enabled: false,
+            unit_symbol: "#".to_string(),
             last_sync_at: chrono::Local::now().naive_local(),
         }
     }
@@ -736,6 +831,34 @@ fn list_recently_settled_reviews(
 
             prs.into_iter().map(ForgeReview::from).collect()
         }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo().cloned());
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let storage = storage.clone();
+
+            let prs = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .map_err(|e| {
+                        anyhow::anyhow!(
+                            "Failed to create a runtime for the settled-review sweep: {e}"
+                        )
+                    })?
+                    .block_on(but_forgejo::pr::list_recently_closed(
+                        preferred_account.as_ref(),
+                        &owner,
+                        &repo,
+                        &storage,
+                    ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+
+            prs.into_iter().map(ForgeReview::from).collect()
+        }
         _ => Vec::new(),
     };
     Ok(reviews)
@@ -789,6 +912,19 @@ impl From<but_bitbucket::CredentialCheckResult> for ForgeAccountValidity {
                 ForgeAccountValidity::NoCredentials
             }
             but_bitbucket::CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
+        }
+    }
+}
+
+// forgejo-fork
+impl From<but_forgejo::CredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: but_forgejo::CredentialCheckResult) -> Self {
+        match value {
+            but_forgejo::CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
+            but_forgejo::CredentialCheckResult::NoCredentials => {
+                ForgeAccountValidity::NoCredentials
+            }
+            but_forgejo::CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
         }
     }
 }
@@ -860,6 +996,23 @@ pub async fn check_forge_account_is_valid(
             };
 
             but_bitbucket::check_credentials(&preferred_account, storage)
+                .await
+                .map(Into::into)
+        }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = match preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo().cloned())
+            {
+                Some(account) => account,
+                None => match but_forgejo::list_known_forgejo_accounts(storage)?.first() {
+                    Some(account) => account.clone(),
+                    None => return Ok(ForgeAccountValidity::NoCredentials),
+                },
+            };
+
+            but_forgejo::check_credentials(&preferred_account, storage)
                 .await
                 .map(Into::into)
         }
@@ -959,6 +1112,32 @@ fn list_forge_reviews(
                 .map(ForgeReview::from)
                 .collect::<Vec<ForgeReview>>()
         }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo().cloned());
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let storage = storage.clone();
+
+            let prs = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(but_forgejo::pr::list(
+                        preferred_account.as_ref(),
+                        &owner,
+                        &repo,
+                        &storage,
+                    ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+
+            prs.into_iter()
+                .map(ForgeReview::from)
+                .collect::<Vec<ForgeReview>>()
+        }
         _ => {
             return Err(Error::msg(format!(
                 "Listing reviews for forge {forge:?} is not implemented yet.",
@@ -1040,6 +1219,25 @@ pub async fn list_forge_reviews_for_branch(
             .await?;
             let prs = filter_bb_prs(prs, &filter);
             Ok(prs.into_iter().map(ForgeReview::from).collect())
+        }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo().cloned());
+            let prs = but_forgejo::pr::list_all_for_target(
+                preferred_account.as_ref(),
+                owner,
+                repo,
+                branch,
+                storage,
+            )
+            .await?;
+            Ok(prs
+                .into_iter()
+                .filter(|pr| merged_within(pr.merged_at.as_deref(), &filter))
+                .map(ForgeReview::from)
+                .collect())
         }
         _ => Err(Error::msg(format!(
             "Listing reviews for forge {forge:?} is not implemented yet.",
@@ -1162,6 +1360,28 @@ fn filter_bb_prs(
         .collect()
 }
 
+// forgejo-fork
+/// Whether a review merged at `merged_at` (RFC 3339) falls within `filter`.
+fn merged_within(merged_at: Option<&str>, filter: &ForgeReviewFilter) -> bool {
+    let Some(merged_at) = merged_at.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+    else {
+        return false;
+    };
+    let now = chrono::Utc::now();
+    match filter {
+        ForgeReviewFilter::Today => merged_at.date_naive() == now.date_naive(),
+        ForgeReviewFilter::ThisWeek => {
+            let week_start =
+                now - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
+            merged_at.date_naive() >= week_start.date_naive()
+        }
+        ForgeReviewFilter::ThisMonth => {
+            merged_at.year() == now.year() && merged_at.month() == now.month()
+        }
+        ForgeReviewFilter::All => true,
+    }
+}
+
 async fn get_forge_review_inner(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
@@ -1190,6 +1410,15 @@ async fn get_forge_review_inner(
                 .as_ref()
                 .and_then(|user| user.bitbucket());
             let pr = but_bitbucket::pr::get(preferred_account, owner, repo, review_number, storage)
+                .await?;
+            Ok(ForgeReview::from(pr))
+        }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo());
+            let pr = but_forgejo::pr::get(preferred_account, owner, repo, review_number, storage)
                 .await?;
             Ok(ForgeReview::from(pr))
         }
@@ -2244,7 +2473,9 @@ pub async fn get_review_base_repo_url(
                 .context("Failed to fetch PR base repo URL")
         }
         // None tells the UI to fall back to a branch-name-only check.
-        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => Ok(None),
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::Forgejo => {
+            Ok(None)
+        }
     }
 }
 
@@ -2308,6 +2539,22 @@ pub async fn get_review_merge_status(
                 // leave it unset rather than feed a value it can't interpret.
                 mergeable_state: None,
                 comments_count: pr.comment_count,
+            })
+        }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo());
+            let pr = but_forgejo::pr::get(preferred_account, owner, repo, review_number, storage)
+                .await?;
+            let is_open = pr.is_open();
+            Ok(ReviewMergeStatus {
+                is_mergeable: is_open && pr.mergeable,
+                // Forgejo only says "mergeable" or not; not mergeable means conflicts,
+                // which the UI knows as GitHub's `dirty`.
+                mergeable_state: (is_open && !pr.mergeable).then(|| "dirty".to_string()),
+                comments_count: pr.comments,
             })
         }
         _ => Err(anyhow::anyhow!(
@@ -2493,6 +2740,25 @@ pub async fn update_review(
             }
             Ok(())
         }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo());
+            let params = but_forgejo::UpdatePullRequestParams {
+                owner,
+                repo,
+                number: review_number
+                    .try_into()
+                    .context("PR: Failed to cast usize to i64, somehow")?,
+                title: title.as_deref(),
+                body: body.as_deref(),
+                base: target_base.as_deref(),
+                state: state.as_ref().map(|s| s.as_github_str()),
+            };
+            but_forgejo::pr::update(preferred_account, params, storage).await?;
+            Ok(())
+        }
         _ => Err(anyhow::anyhow!(
             "Updating pull requests for forge {forge:?} is not implemented yet."
         )),
@@ -2587,6 +2853,26 @@ pub async fn merge_review(
             };
             but_bitbucket::pr::merge(preferred_account, params, storage).await
         }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo());
+            let style = match merge_method {
+                Some(ReviewMergeMethod::Squash) => but_forgejo::MergeStyle::Squash,
+                Some(ReviewMergeMethod::Rebase) => but_forgejo::MergeStyle::Rebase,
+                Some(ReviewMergeMethod::Merge) | None => but_forgejo::MergeStyle::Merge,
+            };
+            but_forgejo::pr::merge(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                style,
+                storage,
+            )
+            .await
+        }
         _ => Err(Error::msg(format!(
             "Merging reviews for forge {forge:?} is not implemented yet.",
         ))),
@@ -2635,6 +2921,21 @@ pub async fn set_review_auto_merge_state(
         ForgeName::Bitbucket => Err(Error::msg(
             "Bitbucket Cloud does not support auto-merge for pull requests.",
         )),
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo());
+            but_forgejo::pr::set_auto_merge(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                enable,
+                storage,
+            )
+            .await
+        }
         _ => Err(Error::msg(format!(
             "Setting the auto-merge state of reviews for forge {forge:?} is not implemented yet.",
         ))),
@@ -2694,6 +2995,21 @@ pub async fn set_review_draftiness(
                 is_draft: draft,
             };
             but_bitbucket::pr::set_draft_state(preferred_account, params, storage).await
+        }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo());
+            but_forgejo::pr::set_draft_state(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                draft,
+                storage,
+            )
+            .await
         }
         _ => Err(Error::msg(format!(
             "Setting the draftiness of reviews for forge {forge:?} is not implemented yet.",
@@ -2809,6 +3125,28 @@ pub async fn create_forge_review(
                 draft: params.draft,
             };
             let pr = but_bitbucket::pr::create(preferred_account, pr_params, storage).await?;
+            Ok(ForgeReview::from(pr))
+        }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo());
+            // Forgejo opens a pull request from a fork with an `owner:branch` head.
+            let head = match github_head_owner_and_repo(forge_repo_info, forge_push_repo_info) {
+                (fork_owner, Some(_)) => format!("{fork_owner}:{}", params.source_branch),
+                (_, None) => params.source_branch.clone(),
+            };
+            let pr_params = but_forgejo::CreatePullRequestParams {
+                owner,
+                repo,
+                title: &params.title,
+                body: &params.body,
+                head: &head,
+                base: &params.target_branch,
+                draft: params.draft,
+            };
+            let pr = but_forgejo::pr::create(preferred_account, pr_params, storage).await?;
             Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(
@@ -3399,6 +3737,58 @@ pub async fn sync_reviews(
 
                 if let Err(err) =
                     but_bitbucket::pr::update(preferred_account, params, storage).await
+                {
+                    errors.push(format!("PR #{}: {err}", review.number));
+                }
+            }
+        }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo());
+            let pr_numbers: Vec<i64> = reviews.iter().map(|r| r.number).collect();
+
+            for review in reviews {
+                let current_body = if review.update_description {
+                    Some(review.body.clone())
+                } else {
+                    match but_forgejo::pr::get(
+                        preferred_account,
+                        owner,
+                        repo,
+                        review.number.try_into()?,
+                        storage,
+                    )
+                    .await
+                    {
+                        Ok(pr) => Some(pr.body),
+                        Err(err) => {
+                            errors.push(format!("PR #{} description: {err}", review.number));
+                            None
+                        }
+                    }
+                };
+                let updated_body = current_body.map(|body| {
+                    update_body_with_mode(
+                        body.as_deref(),
+                        review.number,
+                        &pr_numbers,
+                        "#",
+                        description_mode,
+                    )
+                });
+
+                let params = but_forgejo::UpdatePullRequestParams {
+                    owner,
+                    repo,
+                    number: review.number,
+                    title: None,
+                    body: updated_body.as_deref(),
+                    base: review.target_branch.as_deref(),
+                    state: None,
+                };
+                if let Err(err) = but_forgejo::pr::update(preferred_account, params, storage).await
                 {
                     errors.push(format!("PR #{}: {err}", review.number));
                 }
@@ -4044,6 +4434,41 @@ mod tests {
         let root_path = p("/path/to/project");
         let gitlab_path = get_gitlab_directory_path(root_path);
         assert_eq!(gitlab_path, p("/path/to/project/.gitlab"));
+    }
+
+    #[test]
+    fn forgejo_review_templates_match_the_paths_forgejo_reads() {
+        for path in [
+            "pull_request_template.md",
+            "PULL_REQUEST_TEMPLATE.md",
+            ".forgejo/pull_request_template.md",
+            ".gitea/PULL_REQUEST_TEMPLATE.md",
+            ".github/pull_request_template.md",
+            "docs\\pull_request_template.md",
+        ] {
+            assert!(is_review_template_forgejo(path), "{path:?} is a template");
+        }
+        for path in [
+            "README.md",
+            "src/pull_request_template.md",
+            ".forgejo/issue_template.md",
+        ] {
+            assert!(!is_review_template_forgejo(path), "{path:?} is not");
+        }
+    }
+
+    #[test]
+    fn merged_within_ignores_unmerged_reviews() {
+        assert!(!merged_within(None, &ForgeReviewFilter::All));
+        assert!(!merged_within(Some("not a date"), &ForgeReviewFilter::All));
+        assert!(merged_within(
+            Some("2020-01-01T00:00:00Z"),
+            &ForgeReviewFilter::All
+        ));
+        assert!(
+            !merged_within(Some("2020-01-01T00:00:00Z"), &ForgeReviewFilter::Today),
+            "an old merge is not today's"
+        );
     }
 
     #[test]
