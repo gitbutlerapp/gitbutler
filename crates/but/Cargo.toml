@@ -64,6 +64,7 @@ but-rebase.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
 but-bitbucket.workspace = true
+but-forgejo.workspace = true # forgejo-fork
 but-forge.workspace = true
 but-forge-storage.workspace = true
 but-workspace = { workspace = true }
