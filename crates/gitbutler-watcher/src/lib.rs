@@ -74,15 +74,14 @@ pub fn watch_in_background(
 ) -> Result<WatcherHandle, anyhow::Error> {
     let (events_out, mut events_in) = unbounded_channel();
 
-    let linked_worktrees = active_linked_worktrees(project_id.clone(), &app_settings)
-        .unwrap_or_else(|err| {
-            tracing::warn!(%project_id, ?err, "linked worktrees are not watched as they could not be listed");
-            Vec::new()
-        });
     let file_monitor = gitbutler_filemonitor::spawn(
         project_id.clone(),
         worktree_path.as_ref(),
-        linked_worktrees,
+        {
+            let project_id = project_id.clone();
+            let app_settings = app_settings.clone();
+            move || active_linked_worktrees(project_id.clone(), &app_settings)
+        },
         events_out.clone(),
         watch_mode,
     )?;

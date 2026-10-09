@@ -254,8 +254,10 @@ fn setup_legacy_watch(
 /// These are sent through the passed `out` channel, to indicate either **Git** repository changes
 /// or **ProjectWorktree** changes
 /// Use `watch_mode` to control how exactly the directory is watched.
-/// Changes in the git directories of `linked_worktrees` are reported under their own [`Checkout`],
-/// as are changes to their files where these are seen.
+/// `linked_worktrees` lists the linked worktrees to watch besides the main one. Changes in their
+/// git directories are reported under their own [`Checkout`], as are changes to their files where
+/// these are seen. The list is obtained again whenever a linked worktree is registered or removed,
+/// or when the invalidation sentinel is written, and is left as it was if that fails.
 ///
 /// ### Why is this not an iterator?
 ///
@@ -270,7 +272,7 @@ fn setup_legacy_watch(
 pub fn spawn(
     project_id: ProjectHandleOrLegacyProjectId,
     worktree_path: &std::path::Path,
-    linked_worktrees: Vec<LinkedWorktree>,
+    linked_worktrees: impl Fn() -> Result<Vec<LinkedWorktree>> + Send + 'static,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
     watch_mode: WatchMode,
 ) -> Result<FileMonitorHandle> {
@@ -290,10 +292,7 @@ pub fn spawn(
         worktree_path.display()
     ))?;
     let git_dir = repo.path().to_owned();
-    let linked: Vec<_> = linked_worktrees
-        .into_iter()
-        .map(|worktree| WatchedCheckout::linked(&git_dir, worktree))
-        .collect();
+    let mut linked = linked_checkouts(&git_dir, &linked_worktrees).unwrap_or_default();
     let linked_git_dirs: Vec<_> = linked
         .iter()
         .map(|checkout| checkout.git_dir.as_path())
@@ -365,7 +364,6 @@ pub fn spawn(
         workdir: worktree_path,
         git_dir,
     };
-    let checkouts: Vec<_> = std::iter::once(main).chain(linked).collect();
     task::spawn_blocking(move || {
         let _runtime = tracing::span!(Level::INFO, "file monitor", %project_id ).entered();
         tracing::debug!(%project_id, "file watcher started");
@@ -405,7 +403,7 @@ pub fn spawn(
                 Ok(events) => {
                     let num_events = events.len();
                     let changes_by_checkout = changes_by_checkout(
-                        &checkouts,
+                        std::iter::once(&main).chain(&linked),
                         events
                             .into_iter()
                             .filter(|event| is_interesting_kind(event.kind))
@@ -422,6 +420,24 @@ pub fn spawn(
                     stats.record("git_noop", count(|changes| changes.git_noop));
                     stats.record("git", count(|changes| changes.git.len()));
                     stats.record("project", count(|changes| changes.worktree.len()));
+                    let relisted = changes_by_checkout
+                        .iter()
+                        .any(|(_, changes)| changes.linked_worktrees_may_differ())
+                        .then(|| linked_checkouts(&main.git_dir, &linked_worktrees))
+                        .flatten();
+                    if dynamic_watch_enabled && let Some(relisted) = &relisted {
+                        update_dynamic_watches(
+                            &mut debouncer,
+                            &mut dynamically_watched_dirs,
+                            linked
+                                .iter()
+                                .chain(relisted)
+                                .flat_map(|checkout| {
+                                    [checkout.git_dir.clone(), checkout.git_dir.join("logs")]
+                                })
+                                .chain([main.git_dir.join(LINKED_WORKTREES_DIR)]),
+                        );
+                    }
 
                     for (checkout, changes) in changes_by_checkout {
                         if dynamic_watch_enabled && changes.ignore_filtering_ran {
@@ -457,6 +473,10 @@ pub fn spawn(
                                 break 'outer;
                             }
                         }
+                    }
+
+                    if let Some(relisted) = relisted {
+                        linked = relisted;
                     }
                 }
             }
@@ -573,6 +593,7 @@ pub const HEAD: &str = "HEAD";
 pub const HEAD_ACTIVITY: &str = "logs/HEAD";
 pub const INDEX: &str = "index";
 pub const GB_FLUSH: &str = "GB_FLUSH";
+pub const LINKED_WORKTREES_DIR: &str = "worktrees";
 
 struct WatchedCheckout {
     id: Checkout,
@@ -589,35 +610,56 @@ struct Changes {
     ignore_filtering_ran: bool,
 }
 
-fn changes_by_checkout(
-    checkouts: &[WatchedCheckout],
+fn changes_by_checkout<'a>(
+    checkouts: impl Iterator<Item = &'a WatchedCheckout>,
     paths: impl IntoIterator<Item = PathBuf>,
-) -> Vec<(&WatchedCheckout, Changes)> {
-    let mut paths_by_checkout = vec![Vec::new(); checkouts.len()];
+) -> Vec<(&'a WatchedCheckout, Changes)> {
+    let mut paths_by_checkout: Vec<_> = checkouts.map(|checkout| (checkout, Vec::new())).collect();
     for path in paths {
-        let innermost = checkouts
-            .iter()
-            .enumerate()
-            .filter_map(|(index, checkout)| {
-                Some((checkout.depth_of_root_containing(&path)?, index))
+        let innermost = paths_by_checkout
+            .iter_mut()
+            .filter_map(|(checkout, paths)| {
+                Some((checkout.depth_of_root_containing(&path)?, paths))
             })
-            .max();
-        if let Some((_, index)) = innermost {
-            paths_by_checkout[index].push(path);
+            .max_by_key(|(depth, _)| *depth);
+        if let Some((_, paths)) = innermost {
+            paths.push(path);
         }
     }
-    checkouts
-        .iter()
-        .zip(paths_by_checkout)
+    paths_by_checkout
+        .into_iter()
         .map(|(checkout, paths)| (checkout, checkout.changes(paths)))
         .collect()
+}
+
+fn linked_checkouts(
+    main_git_dir: &Path,
+    linked_worktrees: &impl Fn() -> Result<Vec<LinkedWorktree>>,
+) -> Option<Vec<WatchedCheckout>> {
+    let worktrees = linked_worktrees()
+        .inspect_err(|err| tracing::warn!(?err, "failed to list linked worktrees"))
+        .ok()?;
+    Some(
+        worktrees
+            .into_iter()
+            .map(|worktree| WatchedCheckout::linked(main_git_dir, worktree))
+            .collect(),
+    )
+}
+
+impl Changes {
+    fn linked_worktrees_may_differ(&self) -> bool {
+        self.git.iter().any(|path| {
+            path.starts_with(LINKED_WORKTREES_DIR) || path == Path::new(INVALIDATION_SENTINEL_PATH)
+        })
+    }
 }
 
 impl WatchedCheckout {
     fn linked(main_git_dir: &Path, worktree: LinkedWorktree) -> Self {
         WatchedCheckout {
             git_dir: main_git_dir
-                .join("worktrees")
+                .join(LINKED_WORKTREES_DIR)
                 .join(gix::path::from_bstr(worktree.name.as_bstr())),
             workdir: gix::path::realpath(&worktree.workdir).unwrap_or(worktree.workdir),
             id: Checkout::Linked(worktree.name),
@@ -735,6 +777,7 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
             || check_file_path == Path::new(INVALIDATION_SENTINEL_PATH)
             || check_file_path.starts_with(LOCAL_REFS_DIR)
             || check_file_path.starts_with(REMOTE_REFS_DIR)
+            || is_linked_worktree_registration(check_file_path)
         {
             FileKind::Git
         } else {
@@ -743,6 +786,11 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
     } else {
         FileKind::Project
     }
+}
+
+fn is_linked_worktree_registration(git_dir_relative_path: &Path) -> bool {
+    git_dir_relative_path.starts_with(LINKED_WORKTREES_DIR)
+        && git_dir_relative_path.components().count() <= 2
 }
 
 #[cfg(test)]
@@ -818,6 +866,22 @@ mod tests {
         assert_eq!(
             classify_file(git_dir(), Path::new("/repo/.git/gitbutler/INVALIDATE")),
             FileKind::Git
+        );
+    }
+
+    #[test]
+    fn classify_linked_worktree_registration() {
+        assert_eq!(
+            classify_file(git_dir(), Path::new("/repo/.git/worktrees/name")),
+            FileKind::Git
+        );
+    }
+
+    #[test]
+    fn classify_linked_worktree_contents_as_uninteresting() {
+        assert_eq!(
+            classify_file(git_dir(), Path::new("/repo/.git/worktrees/name/HEAD")),
+            FileKind::GitUninteresting
         );
     }
 

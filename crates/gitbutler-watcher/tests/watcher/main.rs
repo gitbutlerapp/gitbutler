@@ -26,12 +26,16 @@ impl Watched {
         Ok(ctx)
     }
 
-    async fn settle(&mut self) -> anyhow::Result<()> {
+    async fn change_before_quiet(&mut self) -> anyhow::Result<Option<Change>> {
         self.watcher.flush()?;
-        while tokio::time::timeout(QUIET, self.changes.recv())
+        Ok(tokio::time::timeout(QUIET, self.changes.recv())
             .await
-            .is_ok()
-        {}
+            .ok()
+            .flatten())
+    }
+
+    async fn settle(&mut self) -> anyhow::Result<()> {
+        while self.change_before_quiet().await?.is_some() {}
         Ok(())
     }
 
@@ -95,4 +99,58 @@ async fn linked_worktree_head_moves_are_workspace_activity() -> anyhow::Result<(
     watched
         .expect(|change| matches!(change, Change::WorkspaceActivity { .. }))
         .await
+}
+
+#[tokio::test]
+async fn linked_worktrees_added_while_watching_are_watched() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    invoke_bash_at_dir(
+        "git init main && cd main && git commit --allow-empty -m init",
+        tmp.path(),
+    );
+    let main = tmp.path().join("main");
+    let mut watched = watch(&main, &tmp.path().join("config"))?;
+    watched.ctx()?.worktrees_with_state()?;
+
+    invoke_bash_at_dir("git worktree add --detach ../linked", &main);
+    watched
+        .expect(|change| matches!(change, Change::WorkspaceActivity { .. }))
+        .await?;
+    watched.settle().await?;
+
+    invoke_bash_at_dir(
+        "git commit --allow-empty -m detached",
+        &tmp.path().join("linked"),
+    );
+    watched
+        .expect(|change| matches!(change, Change::WorkspaceActivity { .. }))
+        .await
+}
+
+#[tokio::test]
+async fn linked_worktrees_archived_while_watching_are_not_watched() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    invoke_bash_at_dir(
+        "git init main && cd main && git commit --allow-empty -m init",
+        tmp.path(),
+    );
+    let main = tmp.path().join("main");
+    let mut watched = watch(&main, &tmp.path().join("config"))?;
+    let ctx = watched.ctx()?;
+    ctx.worktrees_with_state()?;
+
+    invoke_bash_at_dir("git worktree add ../linked", &main);
+    watched.settle().await?;
+
+    ctx.set_worktree_archived("linked".into(), true)?;
+    but_project_handle::write_invalidation_sentinel(&ctx.project_data_dir, &["Worktrees"]);
+    watched.settle().await?;
+
+    invoke_bash_at_dir("git switch --detach", &tmp.path().join("linked"));
+    let change = watched.change_before_quiet().await?;
+    assert!(
+        change.is_none(),
+        "nothing is reported about an archived worktree, got {change:?}"
+    );
+    Ok(())
 }

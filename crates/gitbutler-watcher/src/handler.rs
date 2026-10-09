@@ -15,8 +15,8 @@ use but_project_handle::{
 };
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_filemonitor::{
-    Checkout, FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
-    REMOTE_REFS_DIR,
+    Checkout, FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LINKED_WORKTREES_DIR,
+    LOCAL_REFS_DIR, REMOTE_REFS_DIR,
 };
 use gitbutler_operating_modes::operating_mode;
 use gix::bstr::ByteSlice as _;
@@ -186,9 +186,12 @@ impl Handler {
                         saw_workspace_activity = true;
                     }
                 }
-                // Remote-ref updates and the refresh sentinel both mean "re-read
-                // workspace state"; coalesce into one emission after the loop.
-                _ if file_name.starts_with(REMOTE_REFS_DIR) => {
+                // Remote-ref updates, linked worktrees coming or going and the refresh
+                // sentinel all mean "re-read workspace state"; coalesce into one emission
+                // after the loop.
+                _ if file_name.starts_with(REMOTE_REFS_DIR)
+                    || path.starts_with(LINKED_WORKTREES_DIR) =>
+                {
                     saw_workspace_activity = true;
                 }
                 REFRESH_SENTINEL_PATH => {

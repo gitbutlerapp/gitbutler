@@ -43,7 +43,7 @@ mod spawn {
         let monitor = gitbutler_filemonitor::spawn(
             project_id.clone(),
             &workdir,
-            Vec::new(),
+            || Ok(Vec::new()),
             tx,
             WatchMode::Modern,
         )?;
@@ -134,7 +134,7 @@ mod spawn {
         let monitor = gitbutler_filemonitor::spawn(
             project_id.clone(),
             &workdir,
-            Vec::new(),
+            || Ok(Vec::new()),
             tx,
             WatchMode::Legacy,
         )?;
@@ -167,7 +167,7 @@ mod spawn {
             let monitor = gitbutler_filemonitor::spawn(
                 project_id.clone(),
                 &workdir,
-                Vec::new(),
+                || Ok(Vec::new()),
                 tx,
                 watch_mode,
             )?;
@@ -204,10 +204,15 @@ mod spawn {
             let monitor = gitbutler_filemonitor::spawn(
                 project_id.clone(),
                 &workdir,
-                vec![LinkedWorktree {
-                    name: "nested".into(),
-                    workdir: workdir.join("nested"),
-                }],
+                {
+                    let workdir = workdir.clone();
+                    move || {
+                        Ok(vec![LinkedWorktree {
+                            name: "nested".into(),
+                            workdir: workdir.join("nested"),
+                        }])
+                    }
+                },
                 tx,
                 watch_mode,
             )?;
@@ -234,6 +239,68 @@ mod spawn {
                     *id == project_id
                         && *checkout == nested
                         && contains_path(paths, Path::new("file"))
+                }
+                _ => false,
+            })
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn linked_worktrees_are_listed_again_once_one_is_registered() -> anyhow::Result<()> {
+        let generous_timeout_for_ci = Duration::from_secs(10);
+        let (repo, _tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        but_testsupport::invoke_bash("git commit --allow-empty -m init", &repo);
+        let workdir = repo.workdir().expect("non-bare").to_owned();
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
+
+        for (watch_mode, name) in [(WatchMode::Legacy, "first"), (WatchMode::Modern, "second")] {
+            let (tx, mut rx) = mpsc::unbounded_channel();
+            let monitor = gitbutler_filemonitor::spawn(
+                project_id.clone(),
+                &workdir,
+                {
+                    let workdir = workdir.clone();
+                    move || {
+                        Ok(workdir
+                            .join(name)
+                            .is_dir()
+                            .then(|| LinkedWorktree {
+                                name: name.into(),
+                                workdir: workdir.join(name),
+                            })
+                            .into_iter()
+                            .collect())
+                    }
+                },
+                tx,
+                watch_mode,
+            )?;
+
+            but_testsupport::invoke_bash(&format!("git worktree add {name}"), &repo);
+            monitor.flush()?;
+            let registration = Path::new("worktrees").join(name);
+            expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
+                InternalEvent::GitFilesChange(id, Checkout::Main, paths) => {
+                    *id == project_id && contains_path(paths, &registration)
+                }
+                _ => false,
+            })
+            .await?;
+
+            std::fs::write(
+                workdir.join(".git/worktrees").join(name).join("HEAD"),
+                "ref: refs/heads/other\n",
+            )?;
+            monitor.flush()?;
+            expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
+                InternalEvent::GitFilesChange(id, checkout, paths) => {
+                    *id == project_id
+                        && *checkout == Checkout::Linked(name.into())
+                        && contains_path(paths, Path::new("HEAD"))
                 }
                 _ => false,
             })
