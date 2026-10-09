@@ -1348,6 +1348,7 @@ mod tests {
     }
 
     fn setup_repo() -> TempDir {
+        crate::hide_global_git_config();
         let dir = TempDir::new().expect("temp repo");
         gix::ThreadSafeRepository::init_opts(
             dir.path(),
@@ -1374,6 +1375,7 @@ mod tests {
     }
 
     fn setup_bare_repo() -> TempDir {
+        crate::hide_global_git_config();
         let dir = TempDir::new().expect("temp bare repo");
         gix::init_bare(dir.path()).expect("gitoxide bare repo init");
         dir
