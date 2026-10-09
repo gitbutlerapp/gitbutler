@@ -56,3 +56,11 @@ Before migration, 32 writes arriving after deletion of the marker reproduced
 `Directory not empty`: checkout remained, while administration was already gone.
 This stress is scheduling-sensitive; upstream gix also has deterministic coverage
 injecting one late write after scanning each root.
+
+On macOS, production removal uses one worker. The default gix removal pilot
+showed APFS contention with concurrent unlink calls; the single-worker option
+keeps the same safety checks and bounded retry policy.
+
+Full creation preserves Git's `post-checkout` hook through `git hook run` after
+gix completes registration and checkout. No-checkout registration skips it.
+A hook error retains the completed worktree, matching Git.

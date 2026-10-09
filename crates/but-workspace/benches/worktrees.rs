@@ -188,20 +188,20 @@ fn main() -> Result<()> {
                     "full" => worktrees::add(&repo, &path, branch, base.parse()?)?,
                     "cow" => worktrees::add_cow(&repo, &path, branch, base.parse()?)?,
                     "registration" => {
-                        git(
-                            &seed,
-                            &[
-                                "worktree".as_ref(),
-                                "add".as_ref(),
-                                "--no-checkout".as_ref(),
-                                "-b".as_ref(),
-                                "benchmark".as_ref(),
-                                "--".as_ref(),
-                                path.as_os_str(),
-                                base.as_ref(),
-                            ],
+                        repo.reference(
+                            branch,
+                            base.parse::<gix::ObjectId>()?,
+                            gix::refs::transaction::PreviousValue::MustNotExist,
+                            "benchmark branch",
                         )?;
-                        gix::open(&path)?
+                        let created = repo
+                            .prepare_add_worktree(
+                                &path,
+                                gix::worktree::add::Head::Attached(branch.to_owned()),
+                                &std::sync::atomic::AtomicBool::default(),
+                            )?
+                            .persist()?;
+                        created
                             .worktree()
                             .expect("linked worktree")
                             .id()?

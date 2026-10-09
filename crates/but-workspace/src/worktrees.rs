@@ -7,7 +7,7 @@
 
 #[cfg(feature = "worktree-cow")]
 use std::fs;
-use std::{ffi::OsStr, path::Path};
+use std::{path::Path, sync::atomic::AtomicBool};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString};
@@ -116,16 +116,36 @@ pub fn updated_at(repo: &gix::Repository, name: &BStr) -> anyhow::Result<Option<
 
 /// Remove the linked worktree checked out at `path` the way `git worktree remove` does, which
 /// refuses a dirty checkout unless `force`, and a locked one until it is unlocked.
-///
-/// Git is invoked directly as it has the only implementation of this, and its own error
-/// message is surfaced on failure.
+/// Uses gix's bounded retries to handle files created during deletion.
 pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> anyhow::Result<()> {
-    let mut args = Vec::new();
-    if force {
-        args.push(OsStr::new("--force"));
+    use gix::worktree::remove::{Error, Force};
+    let target = repo.prepare_remove_worktree(path)?;
+    #[cfg(target_os = "macos")]
+    let target = target.options(gix::worktree::remove::Options {
+        // APFS-image measurements favor a single worker over concurrent unlink calls.
+        thread_limit: Some(1),
+        ..Default::default()
+    });
+    let result = target.remove(
+        if force {
+            Force::DiscardChanges
+        } else {
+            Force::Never
+        },
+        gix::progress::Discard,
+    );
+    match result {
+        Err(err)
+            if matches!(
+                err.downcast_any_ref::<Error>(),
+                Some(Error::Dirty { .. } | Error::ContainsSubmodule { .. })
+            ) =>
+        {
+            Err(anyhow::Error::from(err))
+                .context("Worktree contains changes; use --force to discard them")
+        }
+        result => result.map_err(Into::into),
     }
-    args.extend([OsStr::new("--"), path.as_os_str()]);
-    git_worktree(repo, "remove", &args)
 }
 
 /// Create a linked worktree at `path` on the new branch `branch` starting at `base`, the way
@@ -152,28 +172,72 @@ fn add_inner(
     if path.exists() {
         bail!("'{}' already exists", path.display());
     }
-    let short_name = gix::path::from_bstr(branch.shorten())?;
-    let base = base.to_string();
-
-    let mut args = vec![];
-    if no_checkout {
-        args.push(OsStr::new("--no-checkout"));
-    }
-    args.extend([
-        OsStr::new("-b"),
-        short_name.as_os_str(),
-        OsStr::new("--"),
-        path.as_os_str(),
-        OsStr::new(&base),
-    ]);
-
-    git_worktree(repo, "add", &args)?;
-    gix::open(path)?
+    anyhow::ensure!(
+        branch.category() == Some(gix::refs::Category::LocalBranch),
+        "Worktree branch must be a local branch"
+    );
+    let mut source = repo.clone();
+    source.clear_namespace();
+    source
+        .find_commit(base)
+        .context("Worktree base must be an existing commit")?;
+    source.reference(
+        branch,
+        base,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "branch: Created for linked worktree",
+    )?;
+    let prepared = source.prepare_add_worktree(
+        path,
+        gix::worktree::add::Head::Attached(branch.to_owned()),
+        &AtomicBool::default(),
+    )?;
+    let created = if no_checkout {
+        prepared.persist()?
+    } else {
+        let (created, outcome) =
+            prepared.checkout(gix::progress::Discard, &AtomicBool::default())?;
+        if !outcome.collisions.is_empty()
+            || !outcome.errors.is_empty()
+            || !outcome.delayed_paths_unknown.is_empty()
+            || !outcome.delayed_paths_unprocessed.is_empty()
+        {
+            let checkout_error = anyhow::anyhow!(
+                "Worktree checkout was incomplete: {} collisions, {} errors",
+                outcome.collisions.len(),
+                outcome.errors.len()
+            );
+            return match remove(&source, path, true) {
+                Ok(()) => Err(checkout_error),
+                Err(cleanup) => Err(checkout_error.context(cleanup)),
+            };
+        }
+        // Git's post-checkout hook runs after registration succeeds, and failure retains the worktree.
+        let output = std::process::Command::new(gix::path::env::exe_invocation())
+            .env_remove("GIT_DIR")
+            .env_remove("GIT_WORK_TREE")
+            .env_remove("GIT_INDEX_FILE")
+            .arg("-C")
+            .arg(path)
+            .args(["hook", "run", "--ignore-missing", "post-checkout", "--"])
+            .arg(repo.object_hash().null().to_string())
+            .arg(base.to_string())
+            .arg("1")
+            .output()
+            .context("Failed to run the worktree post-checkout hook")?;
+        anyhow::ensure!(
+            output.status.success(),
+            "Worktree post-checkout hook failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+        created
+    };
+    created
         .worktree()
-        .map(|worktree| worktree.id().map(|id| id.map(ToOwned::to_owned)))
-        .transpose()?
-        .flatten()
-        .context("git registered the new checkout as a linked worktree")
+        .context("created linked worktree")?
+        .id()?
+        .map(ToOwned::to_owned)
+        .context("gix registered the new checkout as a linked worktree")
 }
 
 /// Create a linked worktree by cloning the main worktree.
@@ -216,7 +280,7 @@ pub fn add_cow(
 
         clone_worktree_files(&source_directory, &destination, &worktree_root_tree)?;
 
-        // As the worktree is built with --no-checkout, the index is empty. Rebuilding the index for
+        // As the worktree is registered without checkout, the index is absent. Rebuilding the index for
         // the target tree is important to prevent libgit2 from forcibly overwriting all cloned
         // files.
         let mut index = worktree_repo.index_from_tree(&worktree_repo.head_tree_id_or_empty()?)?;
@@ -440,25 +504,6 @@ fn clone_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
         return Err(std::io::Error::last_os_error()).context(
             "clonefile(2) failed; source and destination must share a filesystem supporting copy-on-write cloning (no full-copy fallback)",
         );
-    }
-    Ok(())
-}
-
-fn git_worktree(repo: &gix::Repository, subcommand: &str, args: &[&OsStr]) -> anyhow::Result<()> {
-    let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
-    // These would override `-C`.
-    for var in ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] {
-        cmd.env_remove(var);
-    }
-    let output = cmd
-        .arg("-C")
-        .arg(repo.workdir().unwrap_or(repo.common_dir()))
-        .args(["worktree", subcommand])
-        .args(args)
-        .output()
-        .with_context(|| format!("Failed to run `git worktree {subcommand}`"))?;
-    if !output.status.success() {
-        anyhow::bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }
     Ok(())
 }
