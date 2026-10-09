@@ -606,6 +606,8 @@ pub struct ForgejoPullRequest {
     /// Owner of the head repository; the fork owner for fork pull requests.
     pub repo_owner: Option<String>,
     pub head_repo_is_fork: bool,
+    /// HTTPS clone URL of the repository the pull request targets.
+    pub base_repository_https_url: Option<String>,
     pub requested_reviewers: Vec<ForgejoUser>,
     pub comments: i64,
     /// Whether Forgejo considers the pull request mergeable (no conflicts).
@@ -686,6 +688,11 @@ impl From<ForgejoApiPullRequest> for ForgejoPullRequest {
             (head_repo_id, base_repo_id),
             (Some(head), Some(base)) if head != 0 && base != 0 && head != base
         );
+        let base_repository_https_url = pr
+            .base
+            .as_ref()
+            .and_then(|base| base.repo.as_ref())
+            .and_then(|repo| non_empty(repo.clone_url.clone()));
         let (source_branch, sha, head_repo) = match pr.head {
             Some(head) => (head.reference, head.sha, head.repo),
             None => (String::new(), String::new(), None),
@@ -721,6 +728,7 @@ impl From<ForgejoApiPullRequest> for ForgejoPullRequest {
             repository_https_url,
             repo_owner,
             head_repo_is_fork,
+            base_repository_https_url,
             requested_reviewers: pr.requested_reviewers.into_iter().map(Into::into).collect(),
             comments: pr.comments,
             mergeable: pr.mergeable,
@@ -940,7 +948,8 @@ mod tests {
             "comments": 3,
             "head": {"ref": "feature", "sha": "deadbeef", "repo_id": head_repo_id,
                      "repo": {"ssh_url": "git@git.example.com:bob/repo.git", "clone_url": "https://git.example.com/bob/repo.git", "owner": {"id": 2, "login": "bob"}}},
-            "base": {"ref": "main", "sha": "cafef00d", "repo_id": 10},
+            "base": {"ref": "main", "sha": "cafef00d", "repo_id": 10,
+                     "repo": {"ssh_url": "git@git.example.com:alice/repo.git", "clone_url": "https://git.example.com/alice/repo.git", "owner": {"id": 1, "login": "alice"}}},
             "merge_commit_sha": if merged { serde_json::json!("abc123") } else { serde_json::Value::Null },
             "merged_at": if merged { serde_json::json!("2026-09-01T00:00:00Z") } else { serde_json::Value::Null },
             "closed_at": closed_at,
@@ -970,6 +979,11 @@ mod tests {
             "head and base live in different repos"
         );
         assert_eq!(pr.repo_owner.as_deref(), Some("bob"));
+        assert_eq!(
+            pr.base_repository_https_url.as_deref(),
+            Some("https://git.example.com/alice/repo.git"),
+            "the base URL is the target repo, not the fork"
+        );
         assert_eq!(pr.requested_reviewers[0].login, "carol");
         assert_eq!((pr.comments, pr.mergeable), (3, true));
     }
