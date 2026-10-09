@@ -1580,7 +1580,10 @@ impl Graph {
         }
 
         for (commit_id, matching_refs) in same_tip_groups {
-            if matching_refs.len() < 2 {
+            // At the target, even a single ordered ref must name its segment so the
+            // base-splitting below can retain it. Other refs with metadata at that
+            // commit can make the traversal's name selection ambiguous.
+            if matching_refs.len() < 2 && Some(commit_id) != self.project_meta.target_commit_id {
                 continue;
             }
             let bottom_ref = matching_refs
@@ -2036,10 +2039,6 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
     let Some((bottom_ref, empty_refs)) = matching_refs.split_last() else {
         return Ok(());
     };
-    if empty_refs.is_empty() {
-        return Ok(());
-    }
-
     let mut empty_segment_by_ref = BTreeMap::new();
     for segment in graph.node_weights() {
         if segment.commits.is_empty()
@@ -2065,14 +2064,33 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
     if let Some(ref_info) = bottom_segment.ref_info.as_mut() {
         ref_info.commit_id = bottom_commit_id;
     }
-    graph[bottom_segment_id].ref_info = bottom_segment.ref_info;
+    let displaced_ref = std::mem::replace(
+        &mut graph[bottom_segment_id].ref_info,
+        bottom_segment.ref_info,
+    );
     graph[bottom_segment_id].metadata = bottom_segment.metadata;
     if let Some(commit) = graph[bottom_segment_id].commits.first_mut() {
+        // Traversal excluded the old segment owner from the commit's refs. Keep it
+        // reachable unless the ordered chain already gives it its own segment.
+        if let Some(displaced_ref) = displaced_ref
+            && !matching_refs.contains(&displaced_ref.ref_name)
+            && !commit
+                .refs
+                .iter()
+                .any(|ri| ri.ref_name == displaced_ref.ref_name)
+        {
+            commit.refs.push(displaced_ref);
+        }
         commit.refs.retain(|ri| {
             !matching_refs
                 .iter()
                 .any(|ref_name| ref_name == &ri.ref_name)
         });
+    }
+
+    // A singleton only needs its explicit name restored, not its edges rebuilt.
+    if empty_refs.is_empty() {
+        return Ok(());
     }
 
     let mut ordered_segment_ids = Vec::new();

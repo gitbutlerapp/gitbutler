@@ -1841,3 +1841,60 @@ Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 }
+
+#[test]
+fn creating_a_new_branch_below_the_checked_out_branch_with_metadata_for_main() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    // Both main and the new bottom branch have metadata and point at the common base.
+    env.setup_metadata(&["main"]);
+
+    env.but("commit -b top -m 'on top'").assert().success();
+    env.but("branch new bottom --below top").assert().success();
+
+    // Persisted ordering must keep bottom visible despite the other branch's metadata.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   lsm on top (no changes)
+┊│
+┊├┄ bo [bottom] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn creating_a_new_branch_below_the_checked_out_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b top -m 'on top'").assert().success();
+    env.but("branch new bottom --below top").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   lsm on top (no changes)
+┊│
+┊├┄ bo [bottom] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
