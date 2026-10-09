@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::{ffi::OsStr, path::Path};
 
 use anyhow::{Context as _, bail};
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BStr, BString};
 use but_core::{DiffSpec, RepositoryExt};
 pub use but_graph::workspace::WorktreeBase;
 
@@ -158,9 +158,20 @@ pub fn add(
 ///
 /// IMPORTANT: Several safety properties of the algorithm, especially relating to not following
 /// symlinks, rely on there being no concurrent modifications of the source or destination
-/// directories mid execution. If that for whatever reason becomes relevant, the actualy directory
-/// creation and file copying needs to be revisited. There is no known reason at this moment to have
-/// precautions against concurrent modifications.
+/// directories mid execution.
+///
+/// There are two main issues related to symlinks:
+///
+/// 1. A leaf node (file) change from a file into a symlink between metadata lookup and copying.
+///    This is a minor risk in practice as the time between metadata lookup and file copying is
+///    small.
+/// 2. An ancestor node of the currently visited node might be replaced by a symlink mid-traversal,
+///    which invalidates the invariant that no ancestors are symlinks. Copying a descendant of that
+///    tree would follow the symlink.
+///
+/// It's difficult to get this bulletproof across operating systems, and most likely, the current
+/// setup will work well in practice. If it turns out to be a larger issue we'll have to invest some
+/// more time into making this concurrency safe.
 fn handle_worktreeinclude(
     repo: &gix::Repository,
     worktree_repo: gix::Repository,
@@ -198,9 +209,10 @@ fn handle_worktreeinclude(
         gix::worktree::stack::state::ignore::Source::IdMapping,
     )?;
 
-    // Note: May result in high memory usage with 100s of thousands of files to copy, consider
-    // making lazy instead.
-    let mut files_to_copy = vec![];
+    #[cfg(target_os = "macos")]
+    let cloning_supported = is_cloning_supported(src_dir, dst_dir);
+
+    let mut destination_dir_is_created = HashSet::new();
     let mut visit = |path: &Path| {
         let is_special_git_file = path
             .file_name()
@@ -280,28 +292,17 @@ fn handle_worktreeinclude(
             return Ok(false);
         }
 
-        if dst_ignore.at_path(relpath, Some(mode))?.is_excluded() {
-            files_to_copy.push(relpath.to_owned());
+        if !dst_ignore.at_path(relpath, Some(mode))?.is_excluded() {
+            return Ok(false);
         }
 
-        Ok(false)
-    };
-
-    walk(src_dir, &mut visit)?;
-
-    #[cfg(target_os = "macos")]
-    let cloning_supported = is_cloning_supported(src_dir, dst_dir);
-
-    let mut dir_is_created = HashSet::new();
-    for relpath in files_to_copy {
-        let src_path = src_dir.join(&relpath);
-        let src_parent = src_path.parent().context("Source path must have parent")?;
-        let dst_path = dst_dir.join(&relpath);
+        let src_parent = path.parent().context("Source path must have parent")?;
+        let dst_path = dst_dir.join(relpath);
         let dst_parent = dst_path
             .parent()
             .context("Destination path must have parent")?;
 
-        if !dir_is_created.contains(dst_parent) {
+        if !destination_dir_is_created.contains(dst_parent) {
             fs::create_dir_all(dst_parent)?;
             let permissions = fs::metadata(src_parent)?.permissions();
 
@@ -310,18 +311,22 @@ fn handle_worktreeinclude(
             // the correct permissions for any directory that contains files that we copy (which may
             // or may not be sensitive).
             fs::set_permissions(dst_parent, permissions)?;
-            dir_is_created.insert(dst_parent.to_owned());
+            destination_dir_is_created.insert(dst_parent.to_owned());
         }
 
         #[cfg(not(target_os = "macos"))]
-        copy_file(&src_path, &dst_path)?;
+        copy_file(path, &dst_path)?;
         #[cfg(target_os = "macos")]
         if cloning_supported {
-            clone_file(&src_path, &dst_path)?;
+            clone_file(path, &dst_path)?;
         } else {
-            copy_file(&src_path, &dst_path)?;
+            copy_file(path, &dst_path)?;
         }
-    }
+
+        Ok(false)
+    };
+
+    walk(src_dir, &mut visit)?;
 
     Ok(())
 }
