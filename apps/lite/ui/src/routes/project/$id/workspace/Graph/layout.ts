@@ -1,7 +1,7 @@
 import { addressEquals, commitAddress, type Address } from "#ui/addresses.ts";
 import { assert } from "#ui/assert.ts";
 import { pullHasWork } from "#ui/api/stack.ts";
-import { remoteTrackingLabel } from "#ui/branch.ts";
+import { targetLabel } from "#ui/branch.ts";
 import { GRAPH_LANE_WIDTH, GRAPH_TRUNK_INSET } from "#ui/components/graph-spacing.ts";
 import type { RefInfo, Stack, TargetCommit, TargetCommitPage, Worktree } from "@gitbutler/but-sdk";
 
@@ -234,7 +234,7 @@ export const layout = (
 			target === null || listing === undefined
 				? null
 				: {
-						label: remoteTrackingLabel(target.remoteTrackingRef),
+						label: targetLabel(target.refName),
 						incoming: commits.filter((entry) => !entry.inWorkspace).length,
 						// Counting incoming commits misses the case where a lane already holds
 						// them, and the one where an update left a lane behind.

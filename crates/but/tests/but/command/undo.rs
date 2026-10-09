@@ -8,18 +8,19 @@ mod undo_redo;
 mod undo_squash;
 mod undo_uncommit;
 
-/// Run an undo test tests a roundtrip `mutate` -> `but undo`, and asserts that the status output is
-/// the same before and after the roundtrip.
+/// Run `mutate` -> `but undo`, asserting that undo restores the original status.
 #[track_caller]
-fn run_mutate_undo_roundtrip_test<F>(env: &Sandbox, mutate: F)
+pub fn run_mutate_undo_roundtrip_test<F>(env: &Sandbox, mutate: F)
 where
     F: FnOnce(&Sandbox),
 {
     run_mutate_undo_roundtrip_test_with_options(env, Options::default(), mutate)
 }
 
+/// Check undo and optionally redo. With redo enabled, leaves the repository in the
+/// post-mutation state; otherwise leaves it in the undone state.
 #[track_caller]
-fn run_mutate_undo_roundtrip_test_with_options<F>(env: &Sandbox, options: Options, mutate: F)
+pub fn run_mutate_undo_roundtrip_test_with_options<F>(env: &Sandbox, options: Options, mutate: F)
 where
     F: FnOnce(&Sandbox),
 {
@@ -84,16 +85,40 @@ Undid [..] (2000-01-02 00:00:00): [..]
         .success()
         .stdout_eq(status_output_before.stdout)
         .stderr_eq(status_output_before.stderr);
+
+    if !options.redo {
+        return;
+    }
+
+    env.but("redo")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Redid [..] (2000-01-02 00:00:00): [..]
+
+"#]]);
+
+    env.but("status")
+        .args(["--verbose", "--files"])
+        .assert()
+        .success()
+        .stdout_eq(status_output_after_mutate.stdout)
+        .stderr_eq(status_output_after_mutate.stderr);
 }
 
-struct Options {
-    require_status_changing_after_mutation: bool,
+#[derive(Clone, Copy)]
+pub struct Options {
+    /// Require the mutation to visibly change the status output.
+    pub require_status_changing_after_mutation: bool,
+    /// Also check that redo restores the post-mutation status.
+    pub redo: bool,
 }
 
 impl Default for Options {
-    fn default() -> Self {
-        Self {
+    fn default() -> Options {
+        Options {
             require_status_changing_after_mutation: true,
+            redo: false,
         }
     }
 }
@@ -811,6 +836,7 @@ Hint: run `but help` for all commands
         &env,
         Options {
             require_status_changing_after_mutation: false,
+            ..Default::default()
         },
         |env| {
             env.but("switch --workspace").assert().success();

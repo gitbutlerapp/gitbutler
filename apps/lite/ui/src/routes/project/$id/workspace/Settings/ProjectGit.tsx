@@ -56,7 +56,12 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 	// Credentials are tested against the target's remote, the same pair a push uses.
 	const { data: target } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: (info) => info.target?.remoteTrackingRef ?? null,
+		select: (info) => {
+			const ref = info.target?.refName;
+			return ref?.remoteName != null
+				? { remoteName: ref.remoteName, displayName: ref.displayName }
+				: null;
+		},
 	});
 	const [credentials, setCredentials] = useState<CredentialCheckState>({ _tag: "Idle" });
 	const project = assert(projects.find((candidate) => candidate.id === projectId));
@@ -95,7 +100,7 @@ export const ProjectGit: FC<{ projectId: string }> = ({ projectId }) => {
 		save(format === "openpgp" ? { gpgProgram: program } : { gpgSshProgram: program });
 
 	const checkCredentials = async () => {
-		if (target === null || target === undefined) return;
+		if (target?.remoteName == null) return;
 		const { remoteName, displayName: branchName } = target;
 
 		setCredentials({ _tag: "Running", checks: [{ name: "Fetch" }] });

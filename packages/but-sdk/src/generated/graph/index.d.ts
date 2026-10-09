@@ -1005,7 +1005,7 @@ export declare function installCliV2(cliPath: string, symlinkPolicy: ExistingSym
 export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:708}
+ * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:711}
  */
 export declare function listBranches(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
 
@@ -1573,7 +1573,7 @@ export declare function treeChangeDiffsFromSource(projectId: string, changesSour
  * See [`unapply_stack_with_perm()`] for how assigned changes are collected before
  * delegating to the underlying mutation.
  *
- * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:463}
+ * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:466}
  */
 export declare function unapplyStack(projectId: string, stackId: string): Promise<void>
 
@@ -2105,10 +2105,10 @@ export type Author = {
 
 export type BaseBranch = {
   branchName: string;
-  remoteName: string;
-  remoteUrl: string;
-  pushRemoteName: string;
-  pushRemoteUrl: string;
+  remoteName: string | null;
+  remoteUrl: string | null;
+  pushRemoteName: string | null;
+  pushRemoteUrl: string | null;
   baseSha: string;
   currentSha: string;
   behind: number;
@@ -4438,8 +4438,8 @@ export type StackReference = {
 
 /** Information about the target reference, the one we want to integrate with. */
 export type Target = {
-  /** The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`. */
-  remoteTrackingRef: RemoteTrackingReference;
+  /** The local or remote-tracking branch to integrate with. */
+  refName: TargetReference;
   /** The amount of commits that aren't reachable by any segment in the workspace, they are in its future. */
   commitsAhead: number;
   /**
@@ -4504,6 +4504,16 @@ export type TargetCommitReview = {
   sourceBranch: string;
   /** Labels attached to the review, when available in the forge cache. */
   labels: Array<ForgeReviewLabel>;
+};
+
+/** A local or remote-tracking reference used as the integration target. */
+export type TargetReference = {
+  /** The full ref name, preserving the local or remote-tracking namespace. */
+  fullNameBytes: Array<number>;
+  /** The branch name for display, without the remote name. */
+  displayName: string;
+  /** The remote name for a remote-tracking target, or `None` for a local target. */
+  remoteName: string | null;
 };
 
 export type TelemetrySettings = {

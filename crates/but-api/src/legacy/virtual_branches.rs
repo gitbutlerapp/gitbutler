@@ -183,7 +183,10 @@ pub fn switch_back_to_workspace_with_perm(
         gitbutler_branch_actions::base::get_base_branch_data(ctx, perm.read_permission())
             .context("Failed to get base branch data")?;
 
-    let branch_name = format!("refs/remotes/{}", base_branch.branch_name)
+    let branch_name = ctx
+        .project_meta()?
+        .target_ref_or_err()?
+        .to_string()
         .parse()
         .context("Invalid branch name")?;
 
@@ -747,7 +750,7 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
         let guard = ctx.shared_worktree_access();
         gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())
             .ok()
-            .map(|base| base.remote_name)
+            .and_then(|base| base.remote_name)
             .filter(|name| !name.is_empty())
     };
     let askpass = Some(action.unwrap_or_else(|| "unknown".to_string()));

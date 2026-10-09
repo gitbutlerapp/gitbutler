@@ -1832,12 +1832,9 @@ async fn target_config(
                             t.config_value.paint(&target_branch.branch_name)
                         )?;
                         writeln!(out)?;
-                        writeln!(
-                            out,
-                            "  {}: {}",
-                            t.hint.paint("Remote"),
-                            target_branch.remote_url
-                        )?;
+                        if let Some(remote_url) = &target_branch.remote_url {
+                            writeln!(out, "  {}: {}", t.hint.paint("Remote"), remote_url)?;
+                        }
                         writeln!(
                             out,
                             "  {}:    {}",

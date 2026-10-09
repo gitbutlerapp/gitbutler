@@ -1,6 +1,9 @@
 use snapbox::IntoData;
 
-use crate::utils::Sandbox;
+use crate::{
+    command::undo::{Options, run_mutate_undo_roundtrip_test_with_options},
+    utils::Sandbox,
+};
 
 #[test]
 fn status_with_main_and_origin_main_in_sync() {
@@ -670,4 +673,185 @@ Hint: run `but help` for all commands
 Hint: run `but help` for all commands
 
 "#]]);
+}
+
+#[test]
+fn status_and_committing_without_a_remote_target() {
+    let env = Sandbox::open_with_default_settings("first-commit");
+
+    env.file("file", "content");
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 85efbe4 (HEAD -> main) M
+
+"#]]
+    );
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   qs A file
+┊
+┴ 85efbe4 (common base, main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    let options = Options {
+        redo: true,
+        ..Default::default()
+    };
+
+    run_mutate_undo_roundtrip_test_with_options(&env, options, |env| {
+        env.but("commit -b feature -m 'work'").assert().success();
+
+        env.but("status")
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ at [feature] [HEAD]
+┊●   qqo work
+├╯
+┊
+┴ 85efbe4 (common base, main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    });
+
+    env.file("new-file", "new content");
+
+    run_mutate_undo_roundtrip_test_with_options(&env, options, |env| {
+        env.but("commit -b other-feature -m 'more work'")
+            .assert()
+            .success();
+
+        env.but("status")
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ot [other-feature]
+┊●   rpq more work
+├╯
+┊
+┊╭┄ at [feature]
+┊●   qqo work
+├╯
+┊
+┴ 85efbe4 (common base, main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    });
+}
+
+#[test]
+fn creating_new_independent_branches_without_remote() {
+    let env = Sandbox::open_with_default_settings("first-commit");
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 85efbe4 (HEAD -> main) M
+
+"#]]
+    );
+
+    env.but("branch new feature").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ at [feature] [HEAD] (no commits)
+├╯
+┊
+┴ 85efbe4 (common base, main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    let options = Options {
+        redo: true,
+        ..Default::default()
+    };
+
+    run_mutate_undo_roundtrip_test_with_options(&env, options, |env| {
+        env.but("branch new other-feature").assert().success();
+
+        env.but("status")
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ot [other-feature] (no commits)
+├╯
+┊
+┊╭┄ at [feature] (no commits)
+├╯
+┊
+┴ 85efbe4 (common base, main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    });
+}
+
+#[test]
+fn switching_to_workspace_without_remote() {
+    let env = Sandbox::open_with_default_settings("first-commit");
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 85efbe4 (HEAD -> main) M
+
+"#]]
+    );
+
+    let options = Options {
+        redo: true,
+        ..Default::default()
+    };
+
+    run_mutate_undo_roundtrip_test_with_options(&env, options, |env| {
+        env.but("switch --workspace").assert().success();
+
+        env.but("status")
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 85efbe4 (common base, main) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+        snapbox::assert_data_eq!(
+            env.git_log(),
+            snapbox::str![[r#"
+* a73e2f5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 85efbe4 (main, gitbutler/target) M
+
+"#]]
+        );
+    });
 }

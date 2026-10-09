@@ -78,7 +78,7 @@ beforeEach(async () => {
 				stacks: [],
 				worktrees: [],
 				target: {
-					remoteTrackingRef: { displayName: "main", remoteName: "origin", fullNameBytes: [] },
+					refName: { displayName: "main", remoteName: "origin", fullNameBytes: [] },
 					isCurrent: false,
 					hasLanesBehind: false,
 					commitsAhead: 1,

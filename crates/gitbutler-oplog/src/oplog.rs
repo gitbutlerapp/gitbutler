@@ -94,8 +94,8 @@ impl TryFrom<SnapshotProjectMeta> for ProjectMeta {
                 let name: gix::refs::FullName = name
                     .try_into()
                     .context("invalid targetRef in project_meta.toml")?;
-                if name.category() != Some(gix::refs::Category::RemoteBranch) {
-                    bail!("targetRef in project_meta.toml is not a remote-tracking branch");
+                if !matches!(name.category(), Some(gix::refs::Category::RemoteBranch | gix::refs::Category::LocalBranch)) {
+                    bail!("targetRef in project_meta.toml is not a local branch or remote-tracking branch");
                 }
                 Ok(name)
             })

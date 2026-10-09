@@ -1222,16 +1222,25 @@ mod tests {
     }
 
     #[test]
-    fn set_target_ref_rejects_local_branch_refs() -> anyhow::Result<()> {
+    fn set_target_ref_accepts_local_branch_refs() -> anyhow::Result<()> {
         let (repo, _tmp) = repo_with_feature_branch()?;
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
         let target_ref = gix::refs::FullName::try_from("refs/heads/feature")?;
 
-        let err = super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)
-            .expect_err("local branches are not valid default targets");
+        super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
+        let stored = ctx.project_meta()?;
         assert_eq!(
-            err.to_string(),
-            "target ref 'refs/heads/feature' must be a remote tracking branch"
+            stored.target_ref.as_ref(),
+            Some(&target_ref),
+            "the local target is persisted"
+        );
+        assert!(
+            stored.target_commit_id.is_some(),
+            "the local target has a validated base"
+        );
+        assert_eq!(
+            stored.push_remote, None,
+            "a local target does not require a push remote"
         );
 
         Ok(())

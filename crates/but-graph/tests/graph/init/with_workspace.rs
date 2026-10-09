@@ -24,6 +24,76 @@ use crate::init::{
 use crate::support::graph_dag;
 
 #[test]
+fn checked_out_local_target_has_no_empty_stack() -> anyhow::Result<()> {
+    let (repo, meta, mut db) = read_only_in_memory_scenario("single-branch-local-target")?;
+    let target_commit = repo.head_id()?.detach();
+    let ws = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta {
+            target_ref: Some("refs/heads/main".try_into()?),
+            target_commit_id: Some(target_commit),
+            push_remote: None,
+        },
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+
+    // The checked-out integration target is the base, not an empty working stack.
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:main[🌳] <> ✓refs/heads/main on 85efbe4
+
+"#]]
+    );
+    assert!(
+        ws.stacks.is_empty(),
+        "the local target has no working stack"
+    );
+    Ok(())
+}
+
+#[test]
+fn empty_feature_on_local_target_remains_visible() -> anyhow::Result<()> {
+    let (repo, meta, mut db) =
+        read_only_in_memory_scenario("single-branch-local-target-empty-feature")?;
+    let target_commit = repo.head_id()?.detach();
+    let ws = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta {
+            target_ref: Some("refs/heads/main".try_into()?),
+            target_commit_id: Some(target_commit),
+            push_remote: None,
+        },
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+
+    // Sharing the target commit does not make a distinct feature branch the target.
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:feature[🌳] <> ✓refs/heads/main on 85efbe4
+└── ≡:feature[🌳] on 85efbe4 {1}
+    └── :feature[🌳]
+
+"#]]
+    );
+    assert_eq!(
+        ws.stacks.len(),
+        1,
+        "the empty feature branch remains visible"
+    );
+    Ok(())
+}
+
+#[test]
 fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(

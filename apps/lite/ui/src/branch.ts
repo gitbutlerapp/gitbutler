@@ -1,5 +1,5 @@
 import type { PayloadFor } from "#electron/ipc.ts";
-import type { ListedBranch, ListedStack, RemoteTrackingReference } from "@gitbutler/but-sdk";
+import type { ListedBranch, ListedStack, TargetReference } from "@gitbutler/but-sdk";
 import Fuse from "fuse.js";
 
 /**
@@ -13,9 +13,9 @@ import Fuse from "fuse.js";
  */
 export const branchIsEmpty = (branch: ListedBranch): boolean => branch.commitCount === 0;
 
-/** A remote-tracking ref as shown: `origin/main`. */
-export const remoteTrackingLabel = (ref: RemoteTrackingReference): string =>
-	`${ref.remoteName}/${ref.displayName}`;
+/** A local or remote-tracking integration target as shown in the workspace. */
+export const targetLabel = (ref: TargetReference): string =>
+	ref.remoteName === null ? ref.displayName : `${ref.remoteName}/${ref.displayName}`;
 
 /**
  * The commits the branch contributes itself, taken from a branch-details commit

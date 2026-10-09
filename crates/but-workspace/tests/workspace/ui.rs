@@ -1,3 +1,63 @@
+use snapbox::IntoJson;
+
+#[test]
+fn head_info_with_local_target_converts_for_ui() -> anyhow::Result<()> {
+    let repo = crate::utils::read_only_in_memory_scenario_named("one-commit-detached", "")?;
+    let meta = std::mem::ManuallyDrop::new(but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?);
+    let mut db = but_testsupport::in_memory_db();
+    assert!(repo.remote_names().is_empty(), "the fixture has no remotes");
+    let ref_info = but_workspace::head_info(
+        &repo,
+        &*meta,
+        &mut db,
+        but_workspace::ref_info::Options {
+            project_meta: but_core::ref_metadata::ProjectMeta {
+                target_ref: Some("refs/heads/main".try_into()?),
+                target_commit_id: Some(repo.rev_parse_single("refs/heads/main")?.detach()),
+                push_remote: None,
+            },
+            ..Default::default()
+        },
+    )?;
+    let ui_info: but_workspace::ui::RefInfo = ref_info.try_into()?;
+    let target = ui_info.target.expect("local target is retained");
+    // The transport preserves the local namespace without inventing a remote.
+    snapbox::assert_data_eq!(
+        (&target).into_json(),
+        snapbox::str![[r#"
+{
+  "refName": {
+    "fullNameBytes": [
+      114,
+      101,
+      102,
+      115,
+      47,
+      104,
+      101,
+      97,
+      100,
+      115,
+      47,
+      109,
+      97,
+      105,
+      110
+    ],
+    "displayName": "main",
+    "remoteName": null
+  },
+  "commitsAhead": 0,
+  "isCurrent": true,
+  "hasLanesBehind": false
+}
+"#]]
+    );
+    Ok(())
+}
+
 mod changes_in_branch {
     use but_graph::init::Options;
     use but_testsupport::visualize_commit_graph_all;
@@ -279,7 +339,7 @@ TreeChanges {
     }
   ],
   "target": {
-    "remoteTrackingRef": {
+    "refName": {
       "fullNameBytes": [
         114,
         101,

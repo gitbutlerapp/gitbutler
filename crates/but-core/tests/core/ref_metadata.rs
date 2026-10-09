@@ -788,7 +788,7 @@ mod project_meta {
     }
 
     #[test]
-    fn non_remote_target_ref_reads_as_none() -> anyhow::Result<()> {
+    fn local_target_ref_is_read() -> anyhow::Result<()> {
         let config = gix::config::File::try_from(
             "[gitbutler \"project\"]\n\
              \ttargetRef = refs/heads/main\n",
@@ -796,9 +796,21 @@ mod project_meta {
 
         let actual = ProjectMeta::try_from_config(&config)?;
         assert_eq!(
+            actual.target_ref,
+            Some("refs/heads/main".try_into()?),
+            "local branches are valid integration targets"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tag_target_ref_reads_as_none() -> anyhow::Result<()> {
+        let config =
+            gix::config::File::try_from("[gitbutler \"project\"]\n\ttargetRef = refs/tags/main\n")?;
+        let actual = ProjectMeta::try_from_config(&config)?;
+        assert_eq!(
             actual.target_ref, None,
-            "a target ref that isn't a remote tracking branch would wrongly be seeded as remote \
-             target tip, so it's ignored"
+            "tags are not valid integration targets"
         );
         Ok(())
     }

@@ -85,13 +85,54 @@ impl RemoteTrackingReference {
     }
 }
 
+/// A local or remote-tracking reference used as the integration target.
+#[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct TargetReference {
+    /// The full ref name, preserving the local or remote-tracking namespace.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes")
+    )]
+    pub full_name_bytes: BString,
+    /// The branch name for display, without the remote name.
+    pub display_name: String,
+    /// The remote name for a remote-tracking target, or `None` for a local target.
+    pub remote_name: Option<String>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TargetReference);
+
+impl TargetReference {
+    fn for_ui(
+        ref_name: gix::refs::FullName,
+        remote_names: &gix::remote::Names,
+    ) -> anyhow::Result<TargetReference> {
+        if ref_name.category() == Some(Category::LocalBranch) {
+            let branch = BranchReference::from(ref_name);
+            return Ok(TargetReference {
+                full_name_bytes: branch.full_name_bytes,
+                display_name: branch.display_name,
+                remote_name: None,
+            });
+        }
+        let remote = RemoteTrackingReference::for_ui(ref_name, remote_names)?;
+        Ok(TargetReference {
+            full_name_bytes: remote.full_name_bytes,
+            display_name: remote.display_name,
+            remote_name: Some(remote.remote_name),
+        })
+    }
+}
+
 /// Information about the target reference, the one we want to integrate with.
 #[derive(serde::Serialize, Debug, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Target {
-    /// The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`.
-    pub remote_tracking_ref: RemoteTrackingReference,
+    /// The local or remote-tracking branch to integrate with.
+    pub ref_name: TargetReference,
     /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
     /// Whether the stored target commit is where the target ref points right now.
@@ -120,7 +161,7 @@ impl Target {
         has_lanes_behind: bool,
     ) -> anyhow::Result<Self> {
         Ok(Target {
-            remote_tracking_ref: RemoteTrackingReference::for_ui(ref_name, remote_names)?,
+            ref_name: TargetReference::for_ui(ref_name, remote_names)?,
             commits_ahead,
             is_current,
             has_lanes_behind,

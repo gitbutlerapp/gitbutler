@@ -86,7 +86,7 @@ const worktree = (name: string, base: Worktree["base"], commits: Array<string>):
 });
 
 const target = (isCurrent: boolean, hasLanesBehind = false): Target => ({
-	remoteTrackingRef: { fullNameBytes: [], displayName: "master", remoteName: "origin" },
+	refName: { fullNameBytes: [], displayName: "master", remoteName: "origin" },
 	commitsAhead: 0,
 	isCurrent,
 	hasLanesBehind,
@@ -121,6 +121,14 @@ const incomingAbove = (ids: Array<string>): TargetCommitPage => ({
 });
 
 describe("layout", () => {
+	it("labels a local target without a remote prefix", () => {
+		const localTarget: Target = {
+			...target(true),
+			refName: { fullNameBytes: [], displayName: "main", remoteName: null },
+		};
+		expect(layout([], localTarget, listing, folded).header?.label).toBe("main");
+	});
+
 	it("keeps History independent of the incoming fold and includes the base commit", () => {
 		const closed = layout([stack("deep")], target(false), listing, folded);
 		expect(closed.history).toEqual([]);
