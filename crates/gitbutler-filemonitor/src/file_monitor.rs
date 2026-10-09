@@ -412,7 +412,10 @@ pub fn spawn(
                         let is_untracked = |relative_path: &BStr, is_dir: bool| -> bool {
                             !is_tracked_in_index(relative_path, is_dir, &index, icase_acc.as_ref())
                         };
-                        for (file_path, kind) in classified_file_paths.iter_mut() {
+                        for (file_path, kind) in classified_file_paths
+                            .iter_mut()
+                            .filter(|(_, kind)| *kind == FileKind::Project)
+                        {
                             if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
                                 let is_dir = file_path.is_dir();
                                 let is_excluded = excludes
