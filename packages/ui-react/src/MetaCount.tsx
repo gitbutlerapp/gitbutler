@@ -9,6 +9,8 @@ export type MetaCountType =
 	| "behind"
 	| "unpushed"
 	| "commits"
+	| "empty"
+	| "head"
 	| "uncommitted"
 	| "clean"
 	| "age"
@@ -22,6 +24,8 @@ const glyph: Record<MetaCountType, IconName> = {
 	behind: "arrow-down",
 	unpushed: "arrow-up",
 	commits: "commit",
+	empty: "commit",
+	head: "branch",
 	uncommitted: "diff",
 	clean: "diff",
 	age: "clock",
@@ -35,7 +39,9 @@ const glyph: Record<MetaCountType, IconName> = {
 /**
  * A glyph and a short value in a row's meta: a count, an age, a branch's name. The type sets both.
  * Amber is work waiting on you (`behind`, `uncommitted`, `agent-waiting`), blue is work to send
- * (`unpushed`), green is an agent at work (`agent-working`); the rest are neutral.
+ * (`unpushed`), green is an agent at work (`agent-working`); the rest are neutral. Quietest of all
+ * are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
+ * (`empty`, `detached`); a row shows either first, ahead of its counts.
  *
  * The value is the children, so a host formats it (`12`, `3d`, `retry-transfers`). The glyph says
  * nothing to a screen reader: wrap the count in a `Tooltip` saying what it counts, or give it an
