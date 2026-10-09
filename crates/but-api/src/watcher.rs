@@ -31,6 +31,20 @@ pub enum WatcherPayload {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WatcherPayload);
 
+impl WatcherPayload {
+    /// Which event this payload belongs to, so that a new payload cannot go without a kind.
+    pub fn kind(&self) -> WatcherEventKind {
+        match self {
+            WatcherPayload::GitFetch(_) => WatcherEventKind::GitFetch,
+            WatcherPayload::GitHead(_) => WatcherEventKind::GitHead,
+            WatcherPayload::GitActivity(_) => WatcherEventKind::GitActivity,
+            WatcherPayload::WorktreeChanges(_) => WatcherEventKind::WorktreeChanges,
+            WatcherPayload::WorkspaceActivity(_) => WatcherEventKind::WorkspaceActivity,
+            WatcherPayload::ExternalInvalidation(_) => WatcherEventKind::ExternalInvalidation,
+        }
+    }
+}
+
 /// Which watcher event happened, without the payload it carried.
 ///
 /// Each kind declares the tags it makes stale in [`WatcherEventKind::invalidates`];
