@@ -309,6 +309,88 @@ mod spawn {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn linked_worktree_files_are_watched() -> anyhow::Result<()> {
+        let generous_timeout_for_ci = Duration::from_secs(10);
+        let (_repo, tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        but_testsupport::invoke_bash_at_dir(
+            "git init main && cd main && git commit --allow-empty -m init",
+            tmp.path(),
+        );
+        let workdir = tmp.path().join("main");
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
+
+        for (watch_mode, name) in [(WatchMode::Legacy, "first"), (WatchMode::Modern, "second")] {
+            let linked_workdir = tmp.path().join(name);
+            let spawn = || {
+                let (tx, rx) = mpsc::unbounded_channel();
+                let linked_workdir = linked_workdir.clone();
+                gitbutler_filemonitor::spawn(
+                    project_id.clone(),
+                    &workdir,
+                    move || {
+                        Ok(linked_workdir
+                            .is_dir()
+                            .then(|| LinkedWorktree {
+                                name: name.into(),
+                                workdir: linked_workdir.clone(),
+                            })
+                            .into_iter()
+                            .collect())
+                    },
+                    tx,
+                    watch_mode,
+                )
+                .map(|monitor| (monitor, rx))
+            };
+            let file_changed_in = |file: &'static str| {
+                let project_id = project_id.clone();
+                move |event: &InternalEvent| match event {
+                    InternalEvent::ProjectFilesChange(id, checkout, paths) => {
+                        *id == project_id
+                            && *checkout == Checkout::Linked(name.into())
+                            && contains_path(paths, Path::new(file))
+                    }
+                    _ => false,
+                }
+            };
+
+            let (monitor, mut rx) = spawn()?;
+            but_testsupport::invoke_bash_at_dir(&format!("git worktree add ../{name}"), &workdir);
+            monitor.flush()?;
+            let registration = Path::new("worktrees").join(name);
+            expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
+                InternalEvent::GitFilesChange(_, Checkout::Main, paths) => {
+                    contains_path(paths, &registration)
+                }
+                _ => false,
+            })
+            .await?;
+            std::fs::write(linked_workdir.join("added-while-watching"), "")?;
+            monitor.flush()?;
+            expect_matching_event(
+                &mut rx,
+                generous_timeout_for_ci,
+                file_changed_in("added-while-watching"),
+            )
+            .await?;
+            drop(monitor);
+
+            let (monitor, mut rx) = spawn()?;
+            std::fs::write(linked_workdir.join("present-from-the-start"), "")?;
+            monitor.flush()?;
+            expect_matching_event(
+                &mut rx,
+                generous_timeout_for_ci,
+                file_changed_in("present-from-the-start"),
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
 }
 
 mod watch_mode {

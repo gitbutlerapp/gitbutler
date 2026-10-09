@@ -254,10 +254,10 @@ fn setup_legacy_watch(
 /// These are sent through the passed `out` channel, to indicate either **Git** repository changes
 /// or **ProjectWorktree** changes
 /// Use `watch_mode` to control how exactly the directory is watched.
-/// `linked_worktrees` lists the linked worktrees to watch besides the main one. Changes in their
-/// git directories are reported under their own [`Checkout`], as are changes to their files where
-/// these are seen. The list is obtained again whenever a linked worktree is registered or removed,
-/// or when the invalidation sentinel is written, and is left as it was if that fails.
+/// `linked_worktrees` lists the linked worktrees to watch besides the main one, whose changes are
+/// reported under their own [`Checkout`]. The list is obtained again whenever a linked worktree is
+/// registered or removed, or when the invalidation sentinel is written, and is left as it was if
+/// that fails.
 ///
 /// ### Why is this not an iterator?
 ///
@@ -359,6 +359,15 @@ pub fn spawn(
     );
 
     let dynamic_watch_enabled = matches!(effective_watch_mode, WatchMode::Modern);
+    for checkout in &linked {
+        watch_linked_workdir(
+            &mut debouncer,
+            &project_id,
+            &worktree_path,
+            checkout,
+            dynamic_watch_enabled,
+        );
+    }
     let main = WatchedCheckout {
         id: Checkout::Main,
         workdir: worktree_path,
@@ -425,18 +434,35 @@ pub fn spawn(
                         .any(|(_, changes)| changes.linked_worktrees_may_differ())
                         .then(|| linked_checkouts(&main.git_dir, &linked_worktrees))
                         .flatten();
-                    if dynamic_watch_enabled && let Some(relisted) = &relisted {
-                        update_dynamic_watches(
-                            &mut debouncer,
-                            &mut dynamically_watched_dirs,
-                            linked
-                                .iter()
-                                .chain(relisted)
-                                .flat_map(|checkout| {
-                                    [checkout.git_dir.clone(), checkout.git_dir.join("logs")]
-                                })
-                                .chain([main.git_dir.join(LINKED_WORKTREES_DIR)]),
-                        );
+                    if let Some(relisted) = &relisted {
+                        if dynamic_watch_enabled {
+                            update_dynamic_watches(
+                                &mut debouncer,
+                                &mut dynamically_watched_dirs,
+                                std::iter::once(main.git_dir.join(LINKED_WORKTREES_DIR)),
+                            );
+                        }
+                        for added in relisted
+                            .iter()
+                            .filter(|checkout| !linked.contains(checkout))
+                        {
+                            watch_linked_workdir(
+                                &mut debouncer,
+                                &project_id,
+                                &main.workdir,
+                                added,
+                                dynamic_watch_enabled,
+                            );
+                        }
+                        for removed in linked
+                            .iter()
+                            .filter(|checkout| !relisted.contains(checkout))
+                        {
+                            if removed.has_own_recursive_watch(&main.workdir, dynamic_watch_enabled)
+                            {
+                                debouncer.watcher().unwatch(&removed.workdir).ok();
+                            }
+                        }
                     }
 
                     for (checkout, changes) in changes_by_checkout {
@@ -483,6 +509,45 @@ pub fn spawn(
         }
     });
     Ok(FileMonitorHandle { cmd_tx })
+}
+
+/// Watch the files of the `linked` worktree: with its own watch plan if `use_watch_plan` is set, and
+/// recursively otherwise, unless the recursive watch of `main_workdir` already covers it.
+fn watch_linked_workdir(
+    debouncer: &mut Debouncer<RecommendedWatcher, NoCache>,
+    project_id: &ProjectHandleOrLegacyProjectId,
+    main_workdir: &Path,
+    linked: &WatchedCheckout,
+    use_watch_plan: bool,
+) {
+    let res = if use_watch_plan {
+        gix::open_opts(&linked.workdir, gix::open::Options::isolated())
+            .map_err(anyhow::Error::from)
+            .and_then(|repo| {
+                setup_watch_plan(
+                    debouncer,
+                    project_id.clone(),
+                    &repo,
+                    &linked.workdir,
+                    &linked.git_dir,
+                    &[],
+                )
+            })
+    } else if linked.has_own_recursive_watch(main_workdir, use_watch_plan) {
+        debouncer
+            .watcher()
+            .watch(&linked.workdir, notify::RecursiveMode::Recursive)
+            .map_err(Into::into)
+    } else {
+        Ok(())
+    };
+    if let Err(err) = res {
+        tracing::warn!(
+            ?err,
+            workdir = ?linked.workdir,
+            "failed to watch linked worktree; changes to its files will be missed"
+        );
+    }
 }
 
 /// Watch the directories among the changed `paths` that aren't watched yet, and stop watching those that are gone.
@@ -595,6 +660,7 @@ pub const INDEX: &str = "index";
 pub const GB_FLUSH: &str = "GB_FLUSH";
 pub const LINKED_WORKTREES_DIR: &str = "worktrees";
 
+#[derive(PartialEq)]
 struct WatchedCheckout {
     id: Checkout,
     workdir: PathBuf,
@@ -664,6 +730,10 @@ impl WatchedCheckout {
             workdir: gix::path::realpath(&worktree.workdir).unwrap_or(worktree.workdir),
             id: Checkout::Linked(worktree.name),
         }
+    }
+
+    fn has_own_recursive_watch(&self, main_workdir: &Path, use_watch_plan: bool) -> bool {
+        !use_watch_plan && !self.workdir.starts_with(main_workdir)
     }
 
     fn depth_of_root_containing(&self, path: &Path) -> Option<usize> {
