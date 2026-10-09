@@ -5,7 +5,14 @@ import { Popup, PopupItem, PopupSection } from "./Popup.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 import { ContextMenu as BaseContextMenu, Menu as BaseMenu } from "@base-ui/react";
 import type { HotkeySequence } from "@tanstack/react-hotkeys";
-import { useMemo, type ComponentProps, type FC, type ReactElement, type ReactNode } from "react";
+import {
+	useMemo,
+	useState,
+	type ComponentProps,
+	type FC,
+	type ReactElement,
+	type ReactNode,
+} from "react";
 
 /** Where a menu without a trigger hangs: under an element, or at a point (where a click landed). */
 export type MenuAnchor = Element | { x: number; y: number };
@@ -17,7 +24,7 @@ export type MenuAnchor = Element | { x: number; y: number };
  *   shows only while its menu is open (a row's ⋯) measures as nothing once the menu starts to
  *   close.
  * Either way, a menu fading out after a click elsewhere would otherwise jump to the corner of the
- * page. */
+ * page. A menu with a trigger is measured as an element anchor too, its trigger being that ⋯. */
 const useAnchor = (anchor: MenuAnchor | null | undefined) => {
 	const point = anchor != null && !(anchor instanceof Element) ? anchor : null;
 	const element = anchor instanceof Element ? anchor : null;
@@ -92,6 +99,9 @@ export type MenuProps = {
  * opened it, and is never narrower than that.
  *
  * For a menu raised by a right-click on an area, use {@link ContextMenu}; the rows are the same.
+ * A row offers both: its ⋯ is a `Menu` in the row's `menu` slot, and the row itself is a
+ * `ContextMenu`'s `trigger`, with the same rows. Each keeps its own open state, so a right-click
+ * leaves the ⋯ as it was.
  * For an anchored panel that is not a list of actions (a filter, a notification list), use
  * `Dropdown`.
  *
@@ -111,7 +121,9 @@ export const Menu: FC<MenuProps> = ({
 	sideOffset = 4,
 	...props
 }) => {
-	const at = useAnchor(anchor);
+	// The trigger, measured through the anchor's stand-in so a ⋯ that hides as its menu closes keeps it in place.
+	const [triggerEl, setTriggerEl] = useState<Element | null>(null);
+	const at = useAnchor(anchor ?? (trigger !== undefined ? triggerEl : undefined));
 	return (
 		<BaseMenu.Root
 			open={open}
@@ -127,7 +139,7 @@ export const Menu: FC<MenuProps> = ({
 				onOpenChange?.(next);
 			}}
 		>
-			{trigger !== undefined && <BaseMenu.Trigger render={trigger} />}
+			{trigger !== undefined && <BaseMenu.Trigger ref={setTriggerEl} render={trigger} />}
 			<MenuPopup
 				{...props}
 				popup={<BaseMenu.Popup />}
@@ -151,7 +163,8 @@ export type ContextMenuProps = {
 
 /**
  * The menu a right-click raises on an area, at the pointer: the same rows as {@link Menu}'s, for
- * the same actions the area's ⋯ offers.
+ * the same actions the area's ⋯ offers. On a row, the row itself is the `trigger`, and its ⋯ is a
+ * `Menu` with the same rows.
  *
  * @import import { ContextMenu, MenuItem } from "@gitbutler/ui-react/Menu.tsx";
  */
