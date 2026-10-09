@@ -199,3 +199,38 @@ async fn linked_worktree_changes_are_reported_for_that_worktree() -> anyhow::Res
     invoke_bash_at_dir("git add file", &linked);
     watched.expect(|change| reports_file(change, &[])).await
 }
+
+#[tokio::test]
+async fn moved_linked_worktrees_are_followed() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    invoke_bash_at_dir(
+        "git init main && cd main && git commit --allow-empty -m init && git worktree add ../linked",
+        tmp.path(),
+    );
+    let main = tmp.path().join("main");
+    let config_dir = tmp.path().join("config");
+    watch(&main, &config_dir)?
+        .ctx()?
+        .set_worktree_archived("linked".into(), false)?;
+
+    let mut watched = watch(&main, &config_dir)?;
+    watched.settle().await?;
+
+    invoke_bash_at_dir("git worktree move ../linked ../moved", &main);
+    watched
+        .expect(|change| matches!(change, Change::WorkspaceActivity { .. }))
+        .await?;
+    watched.settle().await?;
+
+    std::fs::write(tmp.path().join("moved/file"), "content")?;
+    watched
+        .expect(|change| match change {
+            Change::LinkedWorktreeChanges {
+                worktree,
+                changed_paths,
+                ..
+            } => worktree == "linked" && changed_paths.iter().eq([Path::new("file")]),
+            _ => false,
+        })
+        .await
+}
