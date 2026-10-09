@@ -9,10 +9,7 @@ use crate::WorkspaceState;
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
-use but_core::{
-    DryRun, RefMetadata, extract_remote_name_and_short_name, is_workspace_ref_name,
-    sync::RepoExclusive,
-};
+use but_core::{DryRun, RefMetadata, extract_remote_name_and_short_name, sync::RepoExclusive};
 use but_error::AnyhowContextExt as _;
 use but_forge::ForgeReview;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
@@ -117,7 +114,6 @@ pub fn workspace_recreate_with_perm(
         let mut meta = ctx.meta()?;
         let (repo, mut ws, db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-        let mut skipped_missing_heads = false;
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
             let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
             let workspace_meta = meta.workspace(workspace_ref.as_ref())?;
@@ -130,7 +126,6 @@ pub fn workspace_recreate_with_perm(
                         existing_heads.push(branch.ref_name.clone());
                         break;
                     }
-                    skipped_missing_heads = true;
                 }
             }
             existing_heads
@@ -166,11 +161,7 @@ pub fn workspace_recreate_with_perm(
         }
 
         if previously_applied_stack_heads.is_empty() {
-            if skipped_missing_heads
-                && matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc)
-            {
-                // The old workspace commit still contains the deleted branches' work. Rebuild
-                // at the base rather than restoring that work as anonymous stacks.
+            if matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc) {
                 let workspace_commit_id = create_empty_workspace_commit(&repo, &ws)?;
                 but_core::worktree::safe_checkout_from_head(
                     workspace_commit_id,
@@ -913,9 +904,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
         let cached_target = ws.graph.project_meta.target_commit_id;
         let IntegrateUpstreamOutcome {
             mut rebase,
-            ws_meta,
             project_meta,
-            deleted_refs,
         } = but_workspace::integrate_upstream_with_hints(
             &mut ws,
             &mut meta,
@@ -948,19 +937,6 @@ pub fn workspace_integrate_upstream_only_with_perm(
             project_meta.target_commit_id_or_err()?,
         ) {
             warn!(?err, "failed to fast-forward local target branch");
-        }
-
-        if let Some(ref_name) = materialized.workspace.ref_name()
-            && let Some(ws_meta) = ws_meta
-            && is_workspace_ref_name(ref_name)
-        {
-            let mut md = materialized.meta.workspace(ref_name)?;
-            *md = ws_meta;
-            materialized.meta.set_workspace(&md)?;
-        }
-        // Only discard metadata once the corresponding Git refs have been removed successfully.
-        for ref_name in deleted_refs {
-            materialized.meta.remove(ref_name.as_ref())?;
         }
 
         let workspace_state = WorkspaceState::from_materialized(materialized, &repo)?;
