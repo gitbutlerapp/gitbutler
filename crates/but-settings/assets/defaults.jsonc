@@ -22,7 +22,7 @@
 	},
 	"featureFlags": {
 		/// Enable single branch mode.
-		"singleBranch": false,
+		"singleBranch": true,
 		/// Control how the filesystem watch should be established.
 		/// Possible values: "auto", "legacy", "modern".
 		"watchMode": "auto",

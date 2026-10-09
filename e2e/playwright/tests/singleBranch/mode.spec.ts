@@ -16,6 +16,15 @@ import { test } from "../../src/test.ts";
 import { getByTestId, waitForTestId, waitForTestIdToNotExist } from "../../src/util.ts";
 
 test.describe("single-branch mode disabled", () => {
+	test.use({
+		gitbutlerOptions: {
+			config: {
+				onboardingComplete: true,
+				featureFlags: { singleBranch: false },
+			},
+		},
+	});
+
 	test("does not show the current-branch chip after leaving gitbutler/workspace", async ({
 		page,
 		gitbutler,
