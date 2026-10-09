@@ -846,6 +846,7 @@ dependencies = [
  "but-error",
  "but-forge",
  "but-forge-storage",
+ "but-forgejo",
  "but-gerrit",
  "but-github",
  "but-gitlab",
