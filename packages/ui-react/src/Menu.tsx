@@ -5,7 +5,14 @@ import { Popup, PopupItem, PopupSection } from "./Popup.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 import { ContextMenu as BaseContextMenu, Menu as BaseMenu } from "@base-ui/react";
 import type { HotkeySequence } from "@tanstack/react-hotkeys";
-import { useMemo, type ComponentProps, type FC, type ReactElement, type ReactNode } from "react";
+import {
+	useMemo,
+	useState,
+	type ComponentProps,
+	type FC,
+	type ReactElement,
+	type ReactNode,
+} from "react";
 
 /** Where a menu without a trigger hangs: under an element, or at a point (where a click landed). */
 export type MenuAnchor = Element | { x: number; y: number };
@@ -17,7 +24,7 @@ export type MenuAnchor = Element | { x: number; y: number };
  *   shows only while its menu is open (a row's ⋯) measures as nothing once the menu starts to
  *   close.
  * Either way, a menu fading out after a click elsewhere would otherwise jump to the corner of the
- * page. */
+ * page. A menu with a trigger is measured as an element anchor too, its trigger being that ⋯. */
 const useAnchor = (anchor: MenuAnchor | null | undefined) => {
 	const point = anchor != null && !(anchor instanceof Element) ? anchor : null;
 	const element = anchor instanceof Element ? anchor : null;
@@ -114,7 +121,9 @@ export const Menu: FC<MenuProps> = ({
 	sideOffset = 4,
 	...props
 }) => {
-	const at = useAnchor(anchor);
+	// The trigger, measured through the anchor's stand-in so a ⋯ that hides as its menu closes keeps it in place.
+	const [triggerEl, setTriggerEl] = useState<Element | null>(null);
+	const at = useAnchor(anchor ?? (trigger !== undefined ? triggerEl : undefined));
 	return (
 		<BaseMenu.Root
 			open={open}
@@ -130,7 +139,7 @@ export const Menu: FC<MenuProps> = ({
 				onOpenChange?.(next);
 			}}
 		>
-			{trigger !== undefined && <BaseMenu.Trigger render={trigger} />}
+			{trigger !== undefined && <BaseMenu.Trigger ref={setTriggerEl} render={trigger} />}
 			<MenuPopup
 				{...props}
 				popup={<BaseMenu.Popup />}
