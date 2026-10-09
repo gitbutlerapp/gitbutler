@@ -4801,6 +4801,22 @@ export type WatcherGitHeadPayload = {
   operatingMode: OperatingMode;
 };
 
+/** Linked worktree files changes. */
+export type WatcherLinkedWorktreeChangesPayload = {
+  /**
+   * The stable name of the linked worktree, as
+   * [`ChangesSource::Worktree`](crate::commit::json::ChangesSource::Worktree) carries it.
+   */
+  worktree: string;
+  /**
+   * Paths relative to the linked worktree that triggered the event, using the same lossy
+   * encoding as UI change paths. Empty for index changes.
+   */
+  changedPaths: Array<string>;
+  /** The file changes in the linked worktree, which have neither assignments nor dependencies. */
+  changes: WorktreeChanges;
+};
+
 /** The type of payloads a watcher event can have */
 export type WatcherPayload = {
   type: "gitFetch";
@@ -4814,6 +4830,9 @@ export type WatcherPayload = {
 } | {
   type: "worktreeChanges";
   subject: WatcherWorktreeChangesPayload;
+} | {
+  type: "linkedWorktreeChanges";
+  subject: WatcherLinkedWorktreeChangesPayload;
 } | {
   type: "workspaceActivity";
   subject: WatcherWorkspaceActivityPayload;

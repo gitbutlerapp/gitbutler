@@ -89,6 +89,15 @@ impl ActiveProjects {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
                     },
+                    Change::LinkedWorktreeChanges {
+                        project_id,
+                        ref worktree,
+                        ref changes,
+                        changed_paths: _,
+                    } => FrontendEvent {
+                        name: format!("project://{project_id}/linked_worktree_changes"),
+                        payload: serde_json::json!({ "worktree": worktree, "changes": changes }),
+                    },
                 };
 
                 let broadcaster = broadcaster.clone();

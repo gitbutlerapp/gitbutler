@@ -154,3 +154,48 @@ async fn linked_worktrees_archived_while_watching_are_not_watched() -> anyhow::R
     );
     Ok(())
 }
+
+#[tokio::test]
+async fn linked_worktree_changes_are_reported_for_that_worktree() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    invoke_bash_at_dir(
+        "git init main && cd main && git commit --allow-empty -m init && git worktree add ../linked",
+        tmp.path(),
+    );
+    let main = tmp.path().join("main");
+    let linked = tmp.path().join("linked");
+    let config_dir = tmp.path().join("config");
+    watch(&main, &config_dir)?
+        .ctx()?
+        .set_worktree_archived("linked".into(), false)?;
+
+    let mut watched = watch(&main, &config_dir)?;
+    watched.settle().await?;
+
+    let reports_file = |change: &Change, because_of: &[&str]| match change {
+        Change::LinkedWorktreeChanges {
+            worktree,
+            changes,
+            changed_paths,
+            ..
+        } => {
+            worktree == "linked"
+                && changes
+                    .worktree_changes
+                    .changes
+                    .iter()
+                    .any(|change| change.path_bytes == "file")
+                && changed_paths.iter().eq(because_of.iter().map(Path::new))
+        }
+        _ => false,
+    };
+
+    std::fs::write(linked.join("file"), "content")?;
+    watched
+        .expect(|change| reports_file(change, &["file"]))
+        .await?;
+    watched.settle().await?;
+
+    invoke_bash_at_dir("git add file", &linked);
+    watched.expect(|change| reports_file(change, &[])).await
+}

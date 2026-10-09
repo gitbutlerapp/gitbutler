@@ -91,8 +91,7 @@ export const changesInWorktreeQueryOptions = (projectId: string) =>
 
 /**
  * The uncommitted changes of a linked worktree, keyed under the main
- * worktree's endpoint so the same tags refresh both. Nothing watches a
- * linked checkout, so this is as fresh as the last workspace activity.
+ * worktree's endpoint so the same tags refresh both.
  */
 export const worktreeChangesQueryOptions = (projectId: string, worktree: string) =>
 	queryOptions({

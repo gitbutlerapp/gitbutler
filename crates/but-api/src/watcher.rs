@@ -20,6 +20,8 @@ pub enum WatcherPayload {
     GitActivity(WatcherGitActivityPayload),
     /// There were changes in the files inside of the repository.
     WorktreeChanges(WatcherWorktreeChangesPayload),
+    /// There were changes in the files of a linked worktree.
+    LinkedWorktreeChanges(WatcherLinkedWorktreeChangesPayload),
     /// External activity requiring the UI to re-read workspace state (stacks,
     /// branches, PR numbers) — remote-ref updates or external metadata writes.
     WorkspaceActivity(WatcherWorkspaceActivityPayload),
@@ -39,6 +41,7 @@ impl WatcherPayload {
             WatcherPayload::GitHead(_) => WatcherEventKind::GitHead,
             WatcherPayload::GitActivity(_) => WatcherEventKind::GitActivity,
             WatcherPayload::WorktreeChanges(_) => WatcherEventKind::WorktreeChanges,
+            WatcherPayload::LinkedWorktreeChanges(_) => WatcherEventKind::LinkedWorktreeChanges,
             WatcherPayload::WorkspaceActivity(_) => WatcherEventKind::WorkspaceActivity,
             WatcherPayload::ExternalInvalidation(_) => WatcherEventKind::ExternalInvalidation,
         }
@@ -59,6 +62,8 @@ pub enum WatcherEventKind {
     GitActivity,
     /// See [`WatcherPayload::WorktreeChanges`].
     WorktreeChanges,
+    /// See [`WatcherPayload::LinkedWorktreeChanges`].
+    LinkedWorktreeChanges,
     /// See [`WatcherPayload::WorkspaceActivity`].
     WorkspaceActivity,
     /// See [`WatcherPayload::ExternalInvalidation`].
@@ -72,6 +77,7 @@ impl WatcherEventKind {
         WatcherEventKind::GitHead,
         WatcherEventKind::GitActivity,
         WatcherEventKind::WorktreeChanges,
+        WatcherEventKind::LinkedWorktreeChanges,
         WatcherEventKind::WorkspaceActivity,
         WatcherEventKind::ExternalInvalidation,
     ];
@@ -83,6 +89,7 @@ impl WatcherEventKind {
             WatcherEventKind::GitHead => "gitHead",
             WatcherEventKind::GitActivity => "gitActivity",
             WatcherEventKind::WorktreeChanges => "worktreeChanges",
+            WatcherEventKind::LinkedWorktreeChanges => "linkedWorktreeChanges",
             WatcherEventKind::WorkspaceActivity => "workspaceActivity",
             WatcherEventKind::ExternalInvalidation => "externalInvalidation",
         }
@@ -115,6 +122,8 @@ impl WatcherEventKind {
             WatcherEventKind::WorktreeChanges => {
                 &[T::Diffs, T::WorktreeChanges, T::AbsorptionPlan, T::Comments]
             }
+            // A linked worktree is not part of the workspace: nothing absorbs from it.
+            WatcherEventKind::LinkedWorktreeChanges => &[T::Diffs, T::WorktreeChanges],
             // The tags ride in the payload; the table cannot know them.
             WatcherEventKind::ExternalInvalidation => &[],
         }
@@ -185,3 +194,20 @@ pub struct WatcherWorktreeChangesPayload {
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WatcherWorktreeChangesPayload);
+
+/// Linked worktree files changes.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WatcherLinkedWorktreeChangesPayload {
+    /// The stable name of the linked worktree, as
+    /// [`ChangesSource::Worktree`](crate::commit::json::ChangesSource::Worktree) carries it.
+    pub worktree: String,
+    /// Paths relative to the linked worktree that triggered the event, using the same lossy
+    /// encoding as UI change paths. Empty for index changes.
+    pub changed_paths: Vec<String>,
+    /// The file changes in the linked worktree, which have neither assignments nor dependencies.
+    pub changes: WorktreeChanges,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(WatcherLinkedWorktreeChangesPayload);
