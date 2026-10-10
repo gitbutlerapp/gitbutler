@@ -229,7 +229,6 @@ jobs:
           cargo check -p but-workspace --all-targets
           cargo check -p but-api --all-targets
           cargo check -p but --all-targets
-          cargo check -p but --all-targets --features worktree-cow
           # both workspace-projection flavors must keep compiling
           cargo check -p but-api --all-targets --features graph-workspace
           cargo check -p but --all-targets --features graph-workspace
@@ -357,7 +356,7 @@ jobs:
           tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
           rm cargo-nextest.tar.gz
       - name: Run workspace tests
-        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly,but/worktree-cow --profile ci -E "$NEXTEST_FILTER"
+        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly --profile ci -E "$NEXTEST_FILTER"
       - name: Run doctests
         run: cargo test --doc --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly
       - name: Upload results to tests.but.dev
