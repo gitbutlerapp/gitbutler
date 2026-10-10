@@ -200,6 +200,42 @@ fn ci_checks_for_ref(
                     .collect()
             }))
         }
+        // forgejo-fork
+        ForgeName::Forgejo => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.forgejo().cloned());
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let storage = storage.clone();
+            let reference = reference.to_string();
+            let reference_for_checks = reference.clone();
+
+            let statuses = std::thread::spawn(move || -> anyhow::Result<_> {
+                let runtime = tokio::runtime::Runtime::new()
+                    .map_err(|err| anyhow::anyhow!("Failed to create tokio runtime: {err}"))?;
+                runtime.block_on(but_forgejo::checks::list_for_ref(
+                    preferred_account.as_ref(),
+                    &owner,
+                    &repo,
+                    &reference,
+                    &storage,
+                ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+
+            Ok(statuses.map(|statuses| {
+                statuses
+                    .into_iter()
+                    .map(|status| {
+                        let mut ci_check = CiCheck::from(status);
+                        ci_check.reference = reference_for_checks.to_string();
+                        ci_check
+                    })
+                    .collect()
+            }))
+        }
         _ => Err(anyhow::anyhow!(
             "Listing ci checks for forge {forge:?} is not implemented yet."
         )),
@@ -427,6 +463,47 @@ impl From<but_github::CheckRun> for CiCheck {
             details_url: value.details_url.or(value.html_url).unwrap_or_default(),
             pull_requests: Vec::new(),
             reference: String::new(), // Will be set by the caller
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
+// forgejo-fork
+impl From<but_forgejo::ForgejoCommitStatus> for CiCheck {
+    fn from(status: but_forgejo::ForgejoCommitStatus) -> Self {
+        let parse_time = |time: Option<&str>| {
+            time.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+        };
+        let completed_at = parse_time(status.updated_at.as_deref());
+        let complete = |conclusion| CiStatus::Complete {
+            conclusion,
+            completed_at,
+        };
+        let ci_status = match status.state.as_str() {
+            "success" => complete(CiConclusion::Success),
+            "failure" | "error" => complete(CiConclusion::Failure),
+            "warning" => complete(CiConclusion::Neutral),
+            // Forgejo doesn't tell queued from running.
+            "pending" => CiStatus::InProgress,
+            _ => CiStatus::Unknown,
+        };
+        let url = status.target_url.unwrap_or_default();
+        CiCheck {
+            id: status.id,
+            name: status.context,
+            output: CiOutput {
+                summary: status.description.unwrap_or_default(),
+                ..Default::default()
+            },
+            started_at: parse_time(status.created_at.as_deref()),
+            status: ci_status,
+            head_sha: status.sha,
+            url: url.clone(),
+            html_url: url.clone(),
+            details_url: url,
+            pull_requests: Vec::new(),
+            reference: String::new(),
             last_sync_at: chrono::Local::now().naive_local(),
         }
     }

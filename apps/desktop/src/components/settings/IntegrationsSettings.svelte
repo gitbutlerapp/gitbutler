@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BitbucketIntegration from "$components/settings/BitbucketIntegration.svelte";
+	import ForgejoIntegration from "$components/settings/ForgejoIntegration.svelte"; // forgejo-fork
 	import GithubIntegration from "$components/settings/GithubIntegration.svelte";
 	import GitlabIntegration from "$components/settings/GitlabIntegration.svelte";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
@@ -19,6 +20,7 @@
 <GithubIntegration />
 <GitlabIntegration />
 <BitbucketIntegration />
+<ForgejoIntegration />
 <Spacer />
 <CardGroup>
 	<CardGroup.Item labelFor="autoFillPrDescription">

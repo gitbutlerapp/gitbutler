@@ -28,7 +28,7 @@ pub fn merged_review_from_message<'a>(
 ) -> Option<MergedReviewFromMessage<'a>> {
     match forge {
         ForgeName::GitHub => github_merged_review(message),
-        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => None,
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::Forgejo => None,
     }
 }
 

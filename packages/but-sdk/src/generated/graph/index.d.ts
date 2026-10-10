@@ -725,6 +725,17 @@ export declare function forgeProvider(projectId: string): Promise<ForgeName | nu
 export declare function forgetBitbucketAccount(account: BitbucketAccountIdentifier): Promise<void>
 
 /**
+ * Removes stored credentials for a specific Forgejo account.
+ *
+ * # Returns
+ *
+ * * `Ok(())` - Always succeeds, even if no token was found
+ *
+ * {@link ../../../../../crates/but-api/src/forgejo.rs:38}
+ */
+export declare function forgetForgejoAccount(account: ForgejoAccountIdentifier): Promise<void>
+
+/**
  * Removes stored credentials for a specific GitHub account.
  *
  * Deletes the access token associated with the specified GitHub account identifier.
@@ -797,6 +808,19 @@ export declare function getBbUser(account: BitbucketAccountIdentifier): Promise<
  * {@link ../../../../../crates/but-api/src/legacy/repo.rs:127}
  */
 export declare function getBlobFile(projectId: string, relativePath: string, blobId: string): Promise<FileInfo>
+
+/**
+ * Retrieves the profile of a stored Forgejo account.
+ *
+ * # Returns
+ *
+ * * `Ok(Some(_))` - The user's profile (cached when the instance is unreachable)
+ * * `Ok(None)` - No credentials stored for this account
+ * * `Err(_)` - If the instance rejects the token or the request fails
+ *
+ * {@link ../../../../../crates/but-api/src/forgejo.rs:61}
+ */
+export declare function getFjUser(account: ForgejoAccountIdentifier): Promise<ForgejoAuthenticatedUser | null>
 
 /**
  * {@link ../../../../../crates/but-api/src/legacy/config.rs:9}
@@ -1039,6 +1063,13 @@ export declare function listEditors(): Promise<Array<Editor>>
  * {@link ../../../../../crates/but-api/src/bitbucket.rs:88}
  */
 export declare function listKnownBitbucketAccounts(): Promise<Array<BitbucketAccountIdentifier>>
+
+/**
+ * Lists all Forgejo accounts with stored credentials.
+ *
+ * {@link ../../../../../crates/but-api/src/forgejo.rs:71}
+ */
+export declare function listKnownForgejoAccounts(): Promise<Array<ForgejoAccountIdentifier>>
 
 /**
  * Lists all GitHub accounts with stored credentials.
@@ -1492,6 +1523,26 @@ export declare function setTargetRefAndInitProject(projectId: string, targetRef:
  * {@link ../../../../../crates/but-api/src/bitbucket.rs:22}
  */
 export declare function storeBitbucketApiToken(email: string, accessToken: string): Promise<BitbucketAuthStatusResponse>
+
+/**
+ * Stores a Forgejo Personal Access Token (PAT) for the instance at `host`.
+ *
+ * The token is validated against the instance before it is stored, and the
+ * authenticated user is returned.
+ *
+ * # Arguments
+ *
+ * * `access_token` - The Forgejo PAT (needs `read:user`, `write:repository`, `write:issue`)
+ * * `host` - The instance address, e.g. `codeberg.org` or `https://git.example.com`
+ *
+ * # Returns
+ *
+ * * `Ok(_)` - The token is valid and stored
+ * * `Err(_)` - If the token is rejected, the host is unreachable, or storage fails
+ *
+ * {@link ../../../../../crates/but-api/src/forgejo.rs:23}
+ */
+export declare function storeForgejoPat(accessToken: string, host: string): Promise<ForgejoAuthStatusResponse>
 
 /**
  * Stores a GitHub Personal Access Token (PAT) for github.com.
@@ -2707,6 +2758,8 @@ export type ConflictingStack = {
   shortName: string;
 };
 
+export type CredentialCheckResult = "Valid" | "Invalid" | "NoCredentials";
+
 /** A linear run of detailed graph rows. */
 export type DetailedGraphLinearSegment = {
   /** The reference row that starts this run, if any. */
@@ -2984,7 +3037,7 @@ export type ForgeInfo = {
 };
 
 /** Supported git forge types */
-export type ForgeName = "github" | "gitlab" | "bitbucket" | "azure";
+export type ForgeName = "github" | "gitlab" | "bitbucket" | "azure" | "forgejo";
 
 /**
  * Represents a review (pull request/merge request) from a forge platform (GitHub, GitLab, etc.).
@@ -3255,6 +3308,36 @@ export type ForgeUser = {
 } | {
   provider: "bitbucket";
   details: BitbucketAccountIdentifier;
+} | {
+  provider: "forgejo";
+  details: ForgejoAccountIdentifier;
+};
+
+/**
+ * A Forgejo account: one user on one instance.
+ *
+ * Forgejo has no canonical hosted instance (Codeberg is just one of many), so
+ * unlike the GitLab identifier there is no host-less variant.
+ */
+export type ForgejoAccountIdentifier = {
+  username: string;
+  /** The instance base URL as normalized by [`normalize_host`]. */
+  host: string;
+};
+
+export type ForgejoAuthStatusResponse = {
+  username: string;
+  name: string | null;
+  email: string | null;
+  host: string;
+};
+
+export type ForgejoAuthenticatedUser = {
+  username: string;
+  host: string;
+  avatarUrl: string | null;
+  name: string | null;
+  email: string | null;
 };
 
 /**

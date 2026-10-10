@@ -64,6 +64,7 @@ export declare const apiInvalidates: {
 	readonly deleteReviewComment: readonly ["ReviewComments"];
 	readonly enterEditMode: readonly ["OperatingMode"];
 	readonly forgetBitbucketAccount: readonly ["ForgeAccounts", "ForgeLogin"];
+	readonly forgetForgejoAccount: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly forgetGithubAccount: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly forgetGitlabAccount: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly mergeReview: readonly ["Reviews", "MergeStatus", "Checks", "Branches"];
@@ -80,6 +81,7 @@ export declare const apiInvalidates: {
 	readonly setReviewDraftiness: readonly ["Reviews", "MergeStatus"];
 	readonly setReviewThreadResolved: readonly ["ReviewThreads"];
 	readonly storeBitbucketApiToken: readonly ["ForgeAccounts", "ForgeLogin"];
+	readonly storeForgejoPat: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly storeGithubPat: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly storeGitlabPat: readonly ["ForgeAccounts", "ForgeLogin"];
 	readonly updateAiConfiguration: readonly ["AiConfiguration"];

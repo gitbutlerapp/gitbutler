@@ -698,10 +698,13 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
     let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts()?;
     let known_bb_accounts = but_api::bitbucket::list_known_bitbucket_accounts()?;
+    // forgejo-fork
+    let known_fj_accounts = but_api::forgejo::list_known_forgejo_accounts()?;
 
     let no_accounts = known_gh_accounts.is_empty()
         && known_gl_accounts.is_empty()
-        && known_bb_accounts.is_empty();
+        && known_bb_accounts.is_empty()
+        && known_fj_accounts.is_empty();
 
     if let Some(out) = out.for_human() {
         if no_accounts {
@@ -709,7 +712,7 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
             writeln!(out)?;
             writeln!(
                 out,
-                "Run {} to authenticate with GitHub, GitLab or Bitbucket.",
+                "Run {} to authenticate with GitHub, GitLab, Bitbucket or Forgejo.",
                 t.command_suggestion.paint("but config forge auth")
             )?;
         } else {
@@ -719,6 +722,9 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
                 display_authenticated_gitlab_accounts(&known_gl_accounts, out).await?;
             some_accounts_invalid |=
                 display_authenticated_bitbucket_accounts(&known_bb_accounts, out).await?;
+            // forgejo-fork
+            some_accounts_invalid |=
+                display_authenticated_forgejo_accounts(&known_fj_accounts, out).await?;
 
             if some_accounts_invalid {
                 writeln!(
@@ -749,8 +755,12 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
             )?;
         }
     } else if let Some(out) = out.for_json() {
-        let accounts =
-            extract_account_details(known_gh_accounts, known_gl_accounts, known_bb_accounts);
+        let accounts = extract_account_details(
+            known_gh_accounts,
+            known_gl_accounts,
+            known_bb_accounts,
+            known_fj_accounts,
+        );
 
         out.write_value(serde_json::json!({ "accounts": accounts }))?;
     }
@@ -765,11 +775,13 @@ struct ForgeAccount {
     account_type: String,
 }
 
-/// Extract account details for JSON output, combining GitHub, GitLab and Bitbucket accounts into a unified format
+/// Extract account details for JSON output, combining GitHub, GitLab, Bitbucket and Forgejo accounts into a unified format
 fn extract_account_details(
     known_gh_accounts: Vec<but_github::GithubAccountIdentifier>,
     known_gl_accounts: Vec<but_gitlab::GitlabAccountIdentifier>,
     known_bb_accounts: Vec<but_bitbucket::BitbucketAccountIdentifier>,
+    // forgejo-fork
+    known_fj_accounts: Vec<but_forgejo::ForgejoAccountIdentifier>,
 ) -> Vec<ForgeAccount> {
     let mut accounts: Vec<ForgeAccount> = Vec::new();
 
@@ -825,6 +837,15 @@ fn extract_account_details(
             account_type,
         });
     }
+
+    // Add Forgejo accounts // forgejo-fork
+    for account in &known_fj_accounts {
+        accounts.push(ForgeAccount {
+            provider: "Forgejo".to_string(),
+            username: account.to_string(),
+            account_type: "Personal Access Token".to_string(),
+        });
+    }
     accounts
 }
 
@@ -835,6 +856,8 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
         GitHub,
         GitLab,
         Bitbucket,
+        // forgejo-fork
+        Forgejo,
     }
 
     impl From<ForgeProvider> for String {
@@ -843,6 +866,7 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
                 ForgeProvider::GitHub => "GitHub".to_string(),
                 ForgeProvider::GitLab => "GitLab".to_string(),
                 ForgeProvider::Bitbucket => "Bitbucket".to_string(),
+                ForgeProvider::Forgejo => "Forgejo".to_string(),
             }
         }
     }
@@ -850,7 +874,8 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
     let auth_options = nonempty::nonempty![
         ("GitHub", ForgeProvider::GitHub),
         ("GitLab", ForgeProvider::GitLab),
-        ("Bitbucket", ForgeProvider::Bitbucket)
+        ("Bitbucket", ForgeProvider::Bitbucket),
+        ("Forgejo", ForgeProvider::Forgejo)
     ];
     let selected_option = {
         let mut input = out
@@ -871,6 +896,7 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
         ForgeProvider::GitHub => github_auth(out).await,
         ForgeProvider::GitLab => gitlab_auth(out).await,
         ForgeProvider::Bitbucket => bitbucket_auth(out).await,
+        ForgeProvider::Forgejo => forgejo_auth(out).await, // forgejo-fork
     }
 }
 
@@ -1099,11 +1125,62 @@ async fn github_oauth(mut inout: InputOutputChannel<'_>) -> Result<()> {
     Ok(())
 }
 
+/// Authenticate with Forgejo using a Personal Access Token (PAT) on any instance.
+// forgejo-fork
+async fn forgejo_auth(out: &mut OutputChannel) -> Result<()> {
+    use but_forgejo::AuthStatusResponse;
+
+    let t = theme::get();
+    let mut inout = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal")?;
+    let host = inout
+        .prompt(
+            "Please enter your Forgejo instance URL (e.g., https://codeberg.org) and hit enter:",
+        )?
+        .context("No instance URL provided. Aborting authentication.")?;
+
+    let token_page = {
+        let trimmed_host = host.trim().trim_end_matches('/');
+        let origin = if trimmed_host.contains("://") {
+            trimmed_host.to_string()
+        } else {
+            format!("https://{trimmed_host}")
+        };
+        format!("{origin}/user/settings/applications")
+    };
+    writeln!(
+        inout,
+        "Create a personal access token at {} granting the read:user, write:repository and write:issue scopes.",
+        t.command_suggestion.paint(token_page),
+    )?;
+    writeln!(inout)?;
+
+    let token = inout
+        .prompt_secret("Now, please enter your Forgejo personal access token and hit enter:")?
+        .context("No token provided. Aborting authentication.")?;
+
+    let AuthStatusResponse { username, host, .. } =
+        but_api::forgejo::store_forgejo_pat(token, host)
+            .await
+            .map_err(|err| err.context("Authentication failed"))?;
+
+    writeln!(
+        inout,
+        "Authentication successful! Welcome, {username} ({host})."
+    )?;
+    Ok(())
+}
+
 async fn display_authenticated_github_accounts(
     known_gh_accounts: &Vec<but_github::GithubAccountIdentifier>,
     out: &mut dyn Write,
 ) -> Result<bool, anyhow::Error> {
     let t = theme::get();
+    // Match the GitLab/Bitbucket sections: don't print an empty header.
+    if known_gh_accounts.is_empty() {
+        return Ok(false);
+    }
     writeln!(
         out,
         "\n{}:",
@@ -1227,11 +1304,58 @@ async fn display_authenticated_bitbucket_accounts(
     Ok(some_accounts_invalid)
 }
 
+// forgejo-fork
+async fn display_authenticated_forgejo_accounts(
+    known_fj_accounts: &Vec<but_forgejo::ForgejoAccountIdentifier>,
+    out: &mut dyn Write,
+) -> Result<bool, anyhow::Error> {
+    let t = theme::get();
+    if known_fj_accounts.is_empty() {
+        return Ok(false);
+    }
+
+    writeln!(
+        out,
+        "\n{}:",
+        t.important.paint("Authenticated Forgejo accounts")
+    )?;
+    writeln!(out)?;
+
+    let mut some_accounts_invalid = false;
+
+    for account in known_fj_accounts {
+        let account_status = but_api::forgejo::check_forgejo_credentials(account.clone())
+            .await
+            .ok();
+
+        let message = match account_status {
+            Some(but_forgejo::CredentialCheckResult::Valid) => {
+                t.success.paint("(valid credentials)")
+            }
+            Some(but_forgejo::CredentialCheckResult::Invalid) => {
+                some_accounts_invalid = true;
+                t.attention.paint("(invalid credentials)")
+            }
+            Some(but_forgejo::CredentialCheckResult::NoCredentials) => {
+                some_accounts_invalid = true;
+                t.attention.paint("(no credentials)")
+            }
+            None => t.error.paint("(unknown status)"),
+        };
+
+        writeln!(out, "  • {account} {message}")?;
+    }
+    writeln!(out)?;
+    Ok(some_accounts_invalid)
+}
+
 #[derive(Debug, Clone)]
 enum AccountToForget {
     GitHub(but_github::GithubAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
     Bitbucket(but_bitbucket::BitbucketAccountIdentifier),
+    // forgejo-fork
+    Forgejo(but_forgejo::ForgejoAccountIdentifier),
 }
 
 impl Display for AccountToForget {
@@ -1240,6 +1364,7 @@ impl Display for AccountToForget {
             AccountToForget::GitHub(account) => write!(f, "GitHub account '{account}'"),
             AccountToForget::GitLab(account) => write!(f, "GitLab account '{account}'"),
             AccountToForget::Bitbucket(account) => write!(f, "Bitbucket account '{account}'"),
+            AccountToForget::Forgejo(account) => write!(f, "Forgejo account '{account}'"),
         }
     }
 }
@@ -1255,6 +1380,9 @@ fn forget_account(account: &AccountToForget) -> Result<()> {
         AccountToForget::Bitbucket(bb_account) => {
             but_api::bitbucket::forget_bitbucket_account(bb_account.clone())
         }
+        AccountToForget::Forgejo(fj_account) => {
+            but_api::forgejo::forget_forgejo_account(fj_account.clone())
+        }
     }
 }
 
@@ -1263,6 +1391,8 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
     let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts()?;
     let known_bb_accounts = but_api::bitbucket::list_known_bitbucket_accounts()?;
+    // forgejo-fork
+    let known_fj_accounts = but_api::forgejo::list_known_forgejo_accounts()?;
 
     // Gather all potential accounts to delete based on the provided username (or all if no username provided)
     let mut accounts_to_delete: Vec<AccountToForget> = Vec::new();
@@ -1282,6 +1412,13 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
     for account in known_bb_accounts {
         if username.as_ref().is_none_or(|u| account.email() == u) {
             accounts_to_delete.push(AccountToForget::Bitbucket(account.clone()));
+        }
+    }
+
+    // forgejo-fork
+    for account in known_fj_accounts {
+        if username.as_ref().is_none_or(|u| account.username() == u) {
+            accounts_to_delete.push(AccountToForget::Forgejo(account.clone()));
         }
     }
 
