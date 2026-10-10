@@ -489,7 +489,7 @@ where
         relative_to: RelativeTo,
         side: InsertSide,
     ) -> anyhow::Result<()> {
-        let (new_tip, branch_stack_order) = self.rebase(|editor, commit_mappings| {
+        let new_tip = self.rebase(|editor, commit_mappings| {
             let relative_to = match relative_to {
                 RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
@@ -497,17 +497,12 @@ where
             let outcome =
                 but_workspace::branch::move_branch(editor, source_branch, relative_to, side)?;
             Ok((
-                (outcome.new_tip, outcome.branch_stack_order),
+                outcome.new_tip,
                 MaterializeWithoutCheckout::No,
                 outcome.rebase,
             ))
         })?;
 
-        if let Some(branches) = branch_stack_order {
-            self.inner
-                .pending_metadata_updates
-                .push(PendingMetadataUpdate::BranchStackOrder(branches));
-        }
         if let Some(new_tip) = new_tip {
             self.checkout(new_tip.as_ref())?;
         }
@@ -516,20 +511,10 @@ where
     }
 
     pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {
-        let branch_stack_order = self.rebase(|editor, _| {
+        self.rebase(|editor, _| {
             let outcome = but_workspace::branch::tear_off_branch(editor, source_branch)?;
-            Ok((
-                (outcome.branch_stack_order),
-                MaterializeWithoutCheckout::No,
-                outcome.rebase,
-            ))
+            Ok(((), MaterializeWithoutCheckout::No, outcome.rebase))
         })?;
-
-        if let Some(branches) = branch_stack_order {
-            self.inner
-                .pending_metadata_updates
-                .push(PendingMetadataUpdate::BranchStackOrder(branches));
-        }
 
         Ok(())
     }

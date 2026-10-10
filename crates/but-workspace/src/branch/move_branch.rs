@@ -15,11 +15,6 @@ pub struct Outcome<'ws, 'meta, M: RefMetadata> {
     /// checking this out to keep the whole reordered stack projected (mirroring
     /// [`create_reference`](crate::branch::create_reference())). `None` when the tip is unchanged.
     pub new_tip: Option<gix::refs::FullName>,
-    /// In single-branch (ad-hoc) mode, the reordered tip-to-base branch chain that the caller should
-    /// persist with [`RefMetadata::set_branch_stack_order`].
-    /// It is returned rather than written here so callers can apply it only for real runs and skip
-    /// persistence for dry-run previews. `None` outside single-branch mode.
-    pub branch_stack_order: Option<Vec<gix::refs::FullName>>,
 }
 
 pub(super) mod function {
@@ -56,14 +51,8 @@ pub(super) mod function {
         editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
     ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
-        let mut successful_rebase = editor.rebase()?;
+        let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
-        let existing_order = if matches!(workspace.kind, WorkspaceKind::AdHoc) {
-            let (_, meta) = successful_rebase.repo_and_meta_mut();
-            meta.branch_stack_order(subject_branch_name)?
-        } else {
-            None
-        };
         let mut editor = successful_rebase.into_editor();
         let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
             bail!(
@@ -86,7 +75,6 @@ pub(super) mod function {
             return Ok(Outcome {
                 rebase: editor.rebase()?,
                 new_tip: None,
-                branch_stack_order: None,
             });
         }
 
@@ -131,7 +119,7 @@ pub(super) mod function {
             false,
         )?;
 
-        let branch_stack_order = if let Some(workspace_head) = workspace_head {
+        if let Some(workspace_head) = workspace_head {
             let head_selector = editor.select_commit(workspace_head)?;
             let selectors = SomeSelectors::new(Vec::from([head_selector]))?;
             editor.insert_segment_into(
@@ -141,24 +129,15 @@ pub(super) mod function {
                 Some(selectors),
                 but_rebase::graph_rebase::mutate::ParentReparentingOrder::Prepend,
             )?;
-            None
         } else {
             // There is no workspace commit to connect to the torn-off branch. Attach only
             // its first parent at the target, leaving the remaining stack independent.
             editor.add_edge(subject_delimiter.parent, target_selector, 0)?;
-            Some(
-                existing_order
-                    .unwrap_or_else(|| stack_branch_order(source_stack))
-                    .into_iter()
-                    .filter(|name| name.as_ref() != subject_branch_name)
-                    .collect(),
-            )
-        };
+        }
 
         Ok(Outcome {
             rebase: editor.rebase()?,
             new_tip: None,
-            branch_stack_order,
         })
     }
 
@@ -288,17 +267,6 @@ pub(super) mod function {
         if !subject_segment.commits.is_empty() && !same_stack(source_stack, destination_stack) {
             bail!("Moving a non-empty branch in single-branch mode is not yet supported");
         }
-        // Reordering same-target empty refs only changes which empty segment is displayed first.
-        // If their targets differ, however, the subject crosses commit-owning segments and its ref
-        // must move with it or those commits would be projected as belonging to the empty branch.
-        let move_requires_graph_update = !subject_segment.commits.is_empty()
-            || match &relative_to {
-                RelativeTo::Reference(name) => {
-                    successful_rebase.reference_target(subject_branch_name)?
-                        != successful_rebase.reference_target(name.as_ref())?
-                }
-                RelativeTo::Commit(_) => true,
-            };
         let existing_order = {
             let (_repo, meta) = successful_rebase.repo_and_meta_mut();
             if !meta.can_persist_branch_stack_order() {
@@ -324,7 +292,6 @@ pub(super) mod function {
                 },
             }
         };
-        let previous_order = existing_order.clone();
         let new_order = reorder_branch_in_stack_order(
             existing_order,
             anchor_branch_name,
@@ -341,46 +308,29 @@ pub(super) mod function {
             &new_order,
         );
 
-        if new_order == previous_order {
-            return Ok(Outcome {
-                rebase: successful_rebase,
-                new_tip,
-                branch_stack_order: Some(new_order),
-            });
-        }
+        let mut editor = successful_rebase.into_editor();
+        let target_selector = relative_to
+            .to_selector(&editor)
+            .context("Failed to find target in graph.")?;
 
-        if move_requires_graph_update {
-            let mut editor = successful_rebase.into_editor();
-            let target_selector = relative_to
-                .to_selector(&editor)
-                .context("Failed to find target in graph.")?;
+        let DisconnectParameters {
+            delimiter: subject_delimiter,
+            children_to_disconnect,
+            parents_to_disconnect,
+        } = get_disconnect_parameters(&editor, &source_stack.segments, subject_segment, None)?;
 
-            let DisconnectParameters {
-                delimiter: subject_delimiter,
-                children_to_disconnect,
-                parents_to_disconnect,
-            } = get_disconnect_parameters(&editor, &source_stack.segments, subject_segment, None)?;
+        editor.disconnect_segment_from(
+            subject_delimiter.clone(),
+            children_to_disconnect,
+            parents_to_disconnect,
+            false,
+        )?;
+        editor.insert_segment(target_selector, subject_delimiter, side)?;
 
-            editor.disconnect_segment_from(
-                subject_delimiter.clone(),
-                children_to_disconnect,
-                parents_to_disconnect,
-                false,
-            )?;
-            editor.insert_segment(target_selector, subject_delimiter, side)?;
-
-            return Ok(Outcome {
-                rebase: editor.rebase()?,
-                new_tip,
-                branch_stack_order: Some(new_order),
-            });
-        }
-
-        Ok(Outcome {
-            rebase: successful_rebase,
+        return Ok(Outcome {
+            rebase: editor.rebase()?,
             new_tip,
-            branch_stack_order: Some(new_order),
-        })
+        });
     }
 
     /// Move a branch within a managed workspace (one backed by a workspace commit).
@@ -461,7 +411,6 @@ pub(super) mod function {
         Ok(Outcome {
             rebase: editor.rebase()?,
             new_tip: None,
-            branch_stack_order: None,
         })
     }
 

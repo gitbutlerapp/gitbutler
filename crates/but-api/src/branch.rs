@@ -1812,20 +1812,11 @@ pub fn move_branch_with_perm(
             let mut meta = ctx.meta()?;
             let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
             let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-            let but_workspace::branch::move_branch::Outcome {
-                rebase,
-                new_tip,
-                branch_stack_order,
-            } = but_workspace::branch::move_branch(editor, subject_branch, relative_to, side)?;
+            let but_workspace::branch::move_branch::Outcome { rebase, new_tip } =
+                but_workspace::branch::move_branch(editor, subject_branch, relative_to, side)?;
 
             let result = MoveBranchResult {
-                workspace: branch_workspace_from_rebase(
-                    rebase,
-                    new_tip.as_ref(),
-                    branch_stack_order.as_deref(),
-                    &repo,
-                    dry_run,
-                )?,
+                workspace: branch_workspace_from_rebase(rebase, new_tip.as_ref(), &repo, dry_run)?,
             };
             Ok((result, new_tip))
         },
@@ -1889,20 +1880,11 @@ pub fn tear_off_branch_with_perm(
             let mut meta = ctx.meta()?;
             let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
             let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-            let but_workspace::branch::move_branch::Outcome {
-                rebase,
-                branch_stack_order,
-                new_tip: _,
-            } = but_workspace::branch::tear_off_branch(editor, subject_branch)?;
+            let but_workspace::branch::move_branch::Outcome { rebase, new_tip: _ } =
+                but_workspace::branch::tear_off_branch(editor, subject_branch)?;
 
             Ok(MoveBranchResult {
-                workspace: branch_workspace_from_rebase(
-                    rebase,
-                    None,
-                    branch_stack_order.as_deref(),
-                    &repo,
-                    dry_run,
-                )?,
+                workspace: branch_workspace_from_rebase(rebase, None, &repo, dry_run)?,
             })
         },
     )
@@ -1938,7 +1920,6 @@ where
 fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     mut rebase: SuccessfulRebase<'_, '_, M>,
     new_tip: Option<&gix::refs::FullName>,
-    branch_stack_order: Option<&[gix::refs::FullName]>,
     repo: &gix::Repository,
     dry_run: DryRun,
 ) -> anyhow::Result<WorkspaceState> {
@@ -1951,7 +1932,7 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
         let replaced_commits = rebase.history.commit_mappings();
         let conflicted_commits = rebase.history.conflicted_commits.clone();
         let workspace = rebase
-            .overlayed_graph_with_workspace_overrides(entrypoint, branch_stack_order)?
+            .overlayed_graph_with_workspace_overrides(entrypoint, None)?
             .into_workspace()?;
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         return WorkspaceState::from_workspace_with_db(
@@ -1965,16 +1946,5 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     }
 
     let materialized = rebase.materialize(Default::default())?;
-    if let Some(order) = branch_stack_order {
-        materialized.meta.set_branch_stack_order(order)?;
-        let project_meta = materialized.workspace.graph.project_meta.clone();
-        materialized.workspace.refresh_from_head(
-            repo,
-            &*materialized.meta,
-            project_meta,
-            &mut *materialized.db,
-        )?;
-    }
-
     WorkspaceState::from_materialized(materialized, repo)
 }
