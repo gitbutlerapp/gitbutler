@@ -56,9 +56,56 @@ export const MetaCount: FC<{ type: MetaCountType } & ComponentProps<"span">> = (
 	...props
 }) => (
 	<span {...props} className={classes(props.className, "text-13", styles.count, styles[type])}>
-		<Icon name={glyph[type]} size={12} className={styles.glyph} />
+		{type === "agent-working" ? (
+			<WorkingRobot />
+		) : (
+			<Icon name={glyph[type]} size={12} className={styles.glyph} />
+		)}
 		<span className={styles.value}>{children}</span>
 	</span>
+);
+
+/**
+ * The robot of an agent at work, on a loop: after a second of its face, its eyes become two bars
+ * that wave out of step while the smile draws in, then settle back to the face. Drawn here rather
+ * than as an icon, as its parts move apart; it holds still under reduced motion.
+ */
+const WorkingRobot: FC = () => (
+	<svg
+		width="12"
+		height="12"
+		viewBox="0 0 12 12"
+		fill="none"
+		aria-hidden="true"
+		className={styles.glyph}
+	>
+		<rect x="1.5" y="1.5" width="9" height="9" stroke="currentColor" strokeWidth="1.5" />
+		<rect x="0" y="3.75" width="1.5" height="3.75" fill="currentColor" />
+		<rect x="10.5" y="3.75" width="1.5" height="3.75" fill="currentColor" />
+		<rect
+			className={classes(styles["robot-eye"], styles["robot-eye-left"])}
+			x="3.75"
+			y="3.5"
+			width="1.5"
+			height="2"
+			fill="currentColor"
+		/>
+		<rect
+			className={classes(styles["robot-eye"], styles["robot-eye-right"])}
+			x="6.75"
+			y="3.5"
+			width="1.5"
+			height="2"
+			fill="currentColor"
+		/>
+		<path
+			className={styles["robot-smile"]}
+			d="M3.375 7C4.987 7.708 6.868 7.772 8.625 7"
+			pathLength="1"
+			stroke="currentColor"
+			strokeWidth="1.5"
+		/>
+	</svg>
 );
 
 /** The state of a branch's checks, as {@link CiStatus} shows it. */
