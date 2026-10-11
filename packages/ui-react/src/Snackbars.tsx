@@ -1,5 +1,5 @@
-import { Toast, type ToastManager } from "@base-ui/react";
-import type { FC } from "react";
+import { Toast, type ToastManager, type ToastManagerEvent } from "@base-ui/react";
+import { type FC, useEffect, useEffectEvent, useState } from "react";
 import { classes } from "./classes.ts";
 import type { IconName } from "./iconNames.ts";
 import { Snackbar, type SnackbarVariant } from "./Snackbar.tsx";
@@ -29,11 +29,68 @@ export type SnackbarData = {
 const variant = (type: string | undefined): SnackbarVariant =>
 	type === "warning" || type === "danger" || type === "safe" ? type : "info";
 
-const Stack: FC<{ className?: string }> = ({ className }) => {
+/** Where a snackbar's own `timeout` goes once it is taken off Base UI. */
+type Timed = { lifetime?: number };
+
+// Base UI pauses every timer while the window is out of focus, so a snackbar raised just before
+// switching away is still there, frozen, on the way back: news that should have gone keeps
+// waiting. The stack hands Base UI each snackbar with no timer and keeps the time itself.
+const untimed = (event: ToastManagerEvent): ToastManagerEvent => {
+	// Base UI types the event's options as `any`; an add or an update carries a toast's fields.
+	const options = event.options as { timeout?: number };
+	if ((event.action !== "add" && event.action !== "update") || !Object.hasOwn(options, "timeout"))
+		return event;
+	const { timeout: lifetime, ...rest } = options;
+	return { action: event.action, options: { ...rest, lifetime } };
+};
+
+const relays = new WeakMap<ToastManager<SnackbarData>, ToastManager<SnackbarData>>();
+
+const relay = (manager: ToastManager<SnackbarData>): ToastManager<SnackbarData> => {
+	let relayed = relays.get(manager);
+	if (relayed === undefined) {
+		relayed = {
+			...manager,
+			" subscribe": (listener) => manager[" subscribe"]((event) => listener(untimed(event))),
+		};
+		relays.set(manager, relayed);
+	}
+	return relayed;
+};
+
+/** Lets a snackbar go once `duration` has run without a pause; each pause starts it over. */
+const Countdown: FC<{ duration: number; paused: boolean; restart: unknown; onEnd: () => void }> = ({
+	duration,
+	paused,
+	restart,
+	onEnd,
+}) => {
+	const end = useEffectEvent(onEnd);
+	useEffect(() => {
+		if (paused || duration <= 0) return;
+		const timer = setTimeout(end, duration);
+		return () => clearTimeout(timer);
+	}, [duration, paused, restart]);
+	return null;
+};
+
+const Stack: FC<{ timeout: number; className?: string }> = ({ timeout, className }) => {
 	const { toasts, close } = Toast.useToastManager<SnackbarData>();
+	const [hovered, setHovered] = useState(false);
+	// Base UI paused on focus inside the stack too, which its timers no longer see: a snackbar
+	// reached with the keyboard stays while its button is focused.
+	const [focused, setFocused] = useState(false);
 	return (
 		<Toast.Portal>
-			<Toast.Viewport className={classes(styles.viewport, className)}>
+			<Toast.Viewport
+				className={classes(styles.viewport, className)}
+				onMouseEnter={() => setHovered(true)}
+				onMouseLeave={() => setHovered(false)}
+				onFocus={() => setFocused(true)}
+				onBlur={(event) => {
+					if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+				}}
+			>
 				{toasts.map((snackbar, index) => (
 					<Toast.Root
 						key={snackbar.id}
@@ -46,6 +103,14 @@ const Stack: FC<{ className?: string }> = ({ className }) => {
 						// click lands here.
 						onClick={() => close(snackbar.id)}
 					>
+						<Countdown
+							duration={snackbar.type === "loading" ? 0 : ((snackbar as Timed).lifetime ?? timeout)}
+							paused={hovered || focused}
+							// A busy one turned into its result, or news raised again under the same id, gets
+							// the whole time again.
+							restart={snackbar.updateKey}
+							onEnd={() => close(snackbar.id)}
+						/>
 						<Snackbar
 							// The root announces it, through the title; the snackbar itself stays quiet.
 							role="none"
@@ -70,7 +135,9 @@ const Stack: FC<{ className?: string }> = ({ className }) => {
  *
  * They stack one below another, 8px apart, the newest at the bottom. Each rises in as it arrives and
  * sinks out as it goes while the rest close the gap, and a click anywhere on one lets it go early.
- * Snackbars on a timer pause while the stack is hovered.
+ * One on a timer leaves after `timeout`, or its own `add({ timeout })`, and starts over while the
+ * pointer or keyboard focus is on the stack. Unlike toasts, it keeps going while the window is out
+ * of focus.
  *
  * @public
  * @import import { Snackbars } from "@gitbutler/ui-react/Snackbars.tsx";
@@ -82,7 +149,7 @@ export const Snackbars: FC<{
 	/** On the stack, for a host that lifts it with `--snackbars-bottom`. */
 	className?: string;
 }> = ({ manager, timeout = 5000, className }) => (
-	<Toast.Provider toastManager={manager} timeout={timeout}>
-		<Stack className={className} />
+	<Toast.Provider toastManager={relay(manager)} timeout={0}>
+		<Stack timeout={timeout} className={className} />
 	</Toast.Provider>
 );

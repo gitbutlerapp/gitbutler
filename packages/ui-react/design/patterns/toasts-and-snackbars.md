@@ -35,7 +35,9 @@ needs the corner and a title; errors from mutations and the React root always
 take the corner.
 
 **Pick by whether it needs reading twice.** A snackbar goes after about five
-seconds, or early on a click anywhere on it. A toast can hold a paragraph, a
+seconds, or early on a click anywhere on it. The pointer or keyboard focus on
+the stack holds it and starts the five seconds over; switching to another
+window doesn't, so news from before the switch is gone on the way back. A toast can hold a paragraph, a
 bulleted breakdown and a retry, and waits. Anything to copy, act on or reread
 is a toast.
 
