@@ -87,8 +87,3 @@ libc = { workspace = true, optional = true }
 
 [lints]
 workspace = true
-
-[[bench]]
-name = "worktrees"
-harness = false
-required-features = ["worktree-cow"]
