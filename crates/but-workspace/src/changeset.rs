@@ -156,6 +156,14 @@ impl RefInfo {
                                           changeset_identifier(repo, expensive.then_some(rc), &mut time_used).ok().flatten().as_ref(),
                                           ChangeIdMode::Skip).is_none()
                 });
+
+                // A forge merging the target into the pushed branch ("Update branch") while the
+                // local branch was rebased onto that same target leaves nothing to integrate.
+                if !segment.commits_on_remote.is_empty()
+                    && remote_tip_is_merge_with_local_tree(graph, repo, segment)?
+                {
+                    segment.commits_on_remote.clear();
+                }
             }
 
             if !expensive {
@@ -343,6 +351,29 @@ fn first_parent_contains_commit(
         found
     });
     found
+}
+
+/// Return `true` if the tip of the remote-tracking branch of `segment` is a merge commit with
+/// the same tree as the local tip of `segment`.
+///
+/// Merges are required so a remote commit that is merely empty, like one to re-trigger CI,
+/// still shows up as something a force-push would drop.
+fn remote_tip_is_merge_with_local_tree(
+    graph: &but_graph::Graph,
+    repo: &gix::Repository,
+    segment: &crate::ref_info::Segment,
+) -> anyhow::Result<bool> {
+    let (Some(local_tip), Some(remote_tip_id)) = (
+        segment.commits.first(),
+        segment
+            .remote_tracking_branch_segment_id
+            .and_then(|sidx| graph.tip_skip_empty(sidx))
+            .map(|commit| commit.id),
+    ) else {
+        return Ok(false);
+    };
+    let remote_tip = repo.find_commit(remote_tip_id)?;
+    Ok(remote_tip.parent_ids().count() > 1 && remote_tip.tree_id()? == local_tip.tree_id)
 }
 
 fn is_similarity_candidate(commit: &crate::ref_info::LocalCommit) -> bool {
