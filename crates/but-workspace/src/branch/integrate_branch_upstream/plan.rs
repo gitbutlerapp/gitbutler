@@ -44,17 +44,25 @@ pub enum BranchIntegrationStrategy {
 /// `local_commits` and `upstream_commits` are ordered child-to-parent from the
 /// graph traversal. The returned steps are ordered parent-to-child for
 /// execution by the integration editor.
+///
+/// `rewritten_upstream_commits` are upstream commits that a local commit is a
+/// newer version of. Pull-rebase leaves them out, as replaying both versions
+/// applies the same change twice.
 pub(super) fn initial_integration_steps(
     strategy: BranchIntegrationStrategy,
     local_commits: &[gix::ObjectId],
     upstream_commits: &[gix::ObjectId],
+    rewritten_upstream_commits: &HashSet<gix::ObjectId>,
     target_relations: &HashMap<gix::ObjectId, TargetCommitRelation>,
     change_ids: &HashMap<gix::ObjectId, ChangeId>,
 ) -> Vec<InteractiveIntegrationStep> {
     match strategy {
-        BranchIntegrationStrategy::PullRebase => {
-            pull_rebase_steps(local_commits, upstream_commits, target_relations)
-        }
+        BranchIntegrationStrategy::PullRebase => pull_rebase_steps(
+            local_commits,
+            upstream_commits,
+            rewritten_upstream_commits,
+            target_relations,
+        ),
         BranchIntegrationStrategy::Merge => {
             let mut steps = editable_local_commits(local_commits, target_relations)
                 .map(|commit_id| InteractiveIntegrationStep::Pick { commit_id })
@@ -75,6 +83,7 @@ pub(super) fn initial_integration_steps(
         BranchIntegrationStrategy::SmartSquash => smart_squash_steps(
             local_commits,
             upstream_commits,
+            rewritten_upstream_commits,
             target_relations,
             change_ids,
         ),
@@ -84,12 +93,14 @@ pub(super) fn initial_integration_steps(
 fn pull_rebase_steps(
     local_commits: &[gix::ObjectId],
     upstream_commits: &[gix::ObjectId],
+    rewritten_upstream_commits: &HashSet<gix::ObjectId>,
     target_relations: &HashMap<gix::ObjectId, TargetCommitRelation>,
 ) -> Vec<InteractiveIntegrationStep> {
     upstream_commits
         .iter()
         .rev()
         .copied()
+        .filter(|commit_id| !rewritten_upstream_commits.contains(commit_id))
         .map(|commit_id| InteractiveIntegrationStep::Pick { commit_id })
         .chain(
             editable_local_commits(local_commits, target_relations)
@@ -112,6 +123,7 @@ pub(super) fn editable_local_commits<'a>(
 fn smart_squash_steps(
     local_commits: &[gix::ObjectId],
     upstream_commits: &[gix::ObjectId],
+    rewritten_upstream_commits: &HashSet<gix::ObjectId>,
     target_relations: &HashMap<gix::ObjectId, TargetCommitRelation>,
     change_ids: &HashMap<gix::ObjectId, ChangeId>,
 ) -> Vec<InteractiveIntegrationStep> {
@@ -134,7 +146,12 @@ fn smart_squash_steps(
 
     // If there are no local commits that have change IDs, fallback to returning pull-rebase steps.
     if local_targets_by_change_id.is_empty() {
-        return pull_rebase_steps(local_commits, upstream_commits, target_relations);
+        return pull_rebase_steps(
+            local_commits,
+            upstream_commits,
+            rewritten_upstream_commits,
+            target_relations,
+        );
     }
 
     // Step 2: Figure out which upstream-commits to squash into which local commits.
@@ -160,7 +177,12 @@ fn smart_squash_steps(
 
     // If there are no upstream commits tha have matched change IDs, fallback to returning the pull-rebase steps.
     if matched_upstream_commits.is_empty() {
-        return pull_rebase_steps(local_commits, upstream_commits, target_relations);
+        return pull_rebase_steps(
+            local_commits,
+            upstream_commits,
+            rewritten_upstream_commits,
+            target_relations,
+        );
     }
 
     // Step 3: Return the steps in the right order.

@@ -4,12 +4,17 @@ use std::{
 };
 
 use anyhow::{Result, bail};
-use but_core::{RefMetadata, commit::Headers};
+use but_core::{
+    RefMetadata,
+    changeset::{ChangeIdMode, create_similarity_lut, lookup_similar},
+    commit::Headers,
+};
 use but_error::bail_precondition;
 use but_rebase::graph_rebase::{
     Editor, LookupStep, SuccessfulRebase, ToSelector,
     mutate::{SegmentDelimiter, SelectorSet},
 };
+use gix::prelude::ObjectIdExt;
 
 use crate::graph_manipulation::{EdgeSelection, connect_segment_to_edges, selected_edges_from_set};
 use crate::{
@@ -328,10 +333,17 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
     } else {
         HashMap::new()
     };
+    let rewritten_upstream_commits = match strategy {
+        BranchIntegrationStrategy::PullRebase | BranchIntegrationStrategy::SmartSquash => {
+            upstream_commits_rewritten_locally(repo, &local_commits, &upstream_commits)?
+        }
+        BranchIntegrationStrategy::Merge | BranchIntegrationStrategy::PickRemote => HashSet::new(),
+    };
     let initial_steps = initial_integration_steps(
         strategy,
         &local_commits,
         &upstream_commits,
+        &rewritten_upstream_commits,
         &target_relations,
         &change_ids,
     );
@@ -399,6 +411,35 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
         integration,
         divergence,
     })
+}
+
+/// Return the `upstream_commits` that one of `local_commits` is a newer version of.
+///
+/// Commits are paired by change-id, or by author and message, like the workspace
+/// status does when deciding which remote commits are still missing locally.
+fn upstream_commits_rewritten_locally(
+    repo: &gix::Repository,
+    local_commits: &[gix::ObjectId],
+    upstream_commits: &[gix::ObjectId],
+) -> Result<HashSet<gix::ObjectId>> {
+    let upstream_lut = create_similarity_lut(
+        repo,
+        upstream_commits
+            .iter()
+            .map(|id| but_core::Commit::from_id(id.attach(repo)))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter(),
+        (upstream_commits.len(), 0),
+        false,
+    )?;
+    let mut rewritten = HashSet::new();
+    for local_id in local_commits {
+        let local = but_core::Commit::from_id(local_id.attach(repo))?;
+        if let Some(upstream_id) = lookup_similar(&upstream_lut, &local, None, ChangeIdMode::Use) {
+            rewritten.insert(*upstream_id);
+        }
+    }
+    Ok(rewritten)
 }
 
 fn explicit_change_ids(
