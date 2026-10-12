@@ -219,9 +219,10 @@ pub fn worktree_set_archived_with_perm(
 }
 
 /// Remove the linked worktree named `name` from disk the way `git worktree remove` does,
-/// which refuses a dirty checkout unless `force` and a locked one until it is unlocked, and
-/// forget its archived state so a worktree created under the same name later starts out
-/// active.
+/// which refuses a dirty checkout unless `force`, and forget its archived state so a
+/// worktree created under the same name later starts out active.
+///
+/// A locked worktree is removed like any other.
 ///
 /// This works on archived worktrees as well.
 #[but_api(napi, invalidates = [Worktrees, Workspace])]
@@ -252,7 +253,7 @@ pub fn worktree_remove_with_perm(
         .find(|worktree| worktree.name == name)
         .with_context(|| format!("Worktree {name} does not exist"))?;
     let repo = ctx.repo.get()?;
-    but_workspace::worktrees::remove(&repo, &worktree.path, force)?;
+    but_workspace::worktrees::remove(&repo, worktree.name.as_ref(), force)?;
     ctx.db
         .get_cache_mut()?
         .worktree_meta_mut()

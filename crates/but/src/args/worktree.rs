@@ -69,7 +69,8 @@ pub enum Subcommands {
     },
     /// Remove a worktree from disk, like `git worktree remove`.
     ///
-    /// This works on archived worktrees too, and keeps the branch the worktree had checked out.
+    /// This works on archived and locked worktrees too, and keeps the branch the worktree had
+    /// checked out.
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(visible_alias = "rm")]
     Remove {

@@ -1761,19 +1761,20 @@ export declare function workspaceTargetCommits(projectId: string, from: string |
  * the main worktree and the slug of the short branch name also names the worktree.
  * This fails without a target to base the worktree on, and refuses an existing branch or directory.
  *
- * {@link ../../../../../crates/but-api/src/worktrees.rs:301}
+ * {@link ../../../../../crates/but-api/src/worktrees.rs:302}
  */
 export declare function worktreeNew(projectId: string, newRef: MaybeLossyFullNameRef): Promise<NewWorktree>
 
 /**
  * Remove the linked worktree named `name` from disk the way `git worktree remove` does,
- * which refuses a dirty checkout unless `force` and a locked one until it is unlocked, and
- * forget its archived state so a worktree created under the same name later starts out
- * active.
+ * which refuses a dirty checkout unless `force`, and forget its archived state so a
+ * worktree created under the same name later starts out active.
+ *
+ * A locked worktree is removed like any other.
  *
  * This works on archived worktrees as well.
  *
- * {@link ../../../../../crates/but-api/src/worktrees.rs:227}
+ * {@link ../../../../../crates/but-api/src/worktrees.rs:228}
  */
 export declare function worktreeRemove(projectId: string, name: string, force: boolean): Promise<void>
 
