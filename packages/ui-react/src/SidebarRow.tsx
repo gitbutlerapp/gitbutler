@@ -496,9 +496,8 @@ export const StackCaption: FC<
 
 /**
  * The last row of a long list, which shows twelve at a time: "12 more" opens the next page, and
- * once everything shows it reads "Show fewer" (`expanded`). A row that needs you never hides in the
- * tail; when one would, put its mark in `attention`, such as an `agent-waiting` `MetaCount`. It is
- * a button by default.
+ * once everything shows it reads "Show fewer" (`expanded`). The selected row never hides in the
+ * tail. It is a button by default.
  *
  * @import import { MoreItem } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
@@ -506,10 +505,9 @@ export const MoreItem: FC<
 	{
 		label: string;
 		expanded?: boolean;
-		attention?: ReactNode;
 		depth?: number;
 	} & useRender.ComponentProps<"button">
-> = ({ label, expanded = false, attention, depth = 0, render, ...props }) =>
+> = ({ label, expanded = false, depth = 0, render, ...props }) =>
 	useRender({
 		// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
 		render: render ?? <button type="button" />,
@@ -520,10 +518,9 @@ export const MoreItem: FC<
 				<>
 					<Steps depth={depth} folded={undefined} onToggleFolded={undefined} name={label} />
 					<span className={styles.icon}>
-						<Icon size={12} name={expanded ? "chevron-down" : "chevron-right"} />
+						<Icon size={12} name={expanded ? "chevron-up" : "kebab"} />
 					</span>
 					<span className={classes("text-13", styles.label, styles.name)}>{label}</span>
-					{attention}
 				</>
 			),
 		}),
