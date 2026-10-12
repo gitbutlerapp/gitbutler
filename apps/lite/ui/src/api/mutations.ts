@@ -1497,7 +1497,7 @@ export const useWorktreeSetArchived = (projectId: string) =>
 export const useWorktreeRemove = (projectId: string) =>
 	useMutation({
 		mutationKey: [projectId, "worktreeRemove"],
-		mutationFn: window.lite.worktreeRemove,
+		mutationFn: (name: string) => window.lite.worktreeRemove({ projectId, name, force: true }),
 		meta: { failureTitle: "Failed to remove the worktree" },
 	});
 

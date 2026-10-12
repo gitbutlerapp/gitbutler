@@ -81,7 +81,7 @@ const WorktreeList: FC<{ projectId: string }> = ({ projectId }) => {
 								nativeMenuItem({
 									label: "Remove Worktree",
 									enabled: !busy,
-									onSelect: () => remove({ projectId, name: worktree.name, force: false }),
+									onSelect: () => remove(worktree.name),
 								}),
 							])
 						}
