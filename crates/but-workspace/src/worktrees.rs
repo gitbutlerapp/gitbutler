@@ -10,7 +10,7 @@ use std::fs;
 use std::{ffi::OsStr, path::Path};
 
 use anyhow::{Context as _, bail};
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice as _};
 use but_core::{DiffSpec, RepositoryExt};
 pub use but_graph::workspace::WorktreeBase;
 
@@ -115,7 +115,10 @@ pub fn updated_at(repo: &gix::Repository, name: &BStr) -> anyhow::Result<Option<
 }
 
 /// Remove the linked worktree named `name` the way `git worktree remove` does, which
-/// refuses a dirty checkout unless `force`, and a locked one until it is unlocked.
+/// refuses a dirty checkout unless `force`.
+///
+/// A lock never stands in the way: it is released first, and put back with its reason if
+/// git then refuses the removal.
 ///
 /// Git is invoked directly as it has the only implementation of this, and its own error
 /// message is surfaced on failure.
@@ -124,12 +127,27 @@ pub fn remove(repo: &gix::Repository, name: &BStr, force: bool) -> anyhow::Resul
         .worktree_proxy_by_id(name)?
         .with_context(|| format!("Worktree {name} does not exist"))?;
     let path = worktree.base()?;
+    let checkout = [OsStr::new("--"), path.as_os_str()];
     let mut args = Vec::new();
     if force {
         args.push(OsStr::new("--force"));
     }
-    args.extend([OsStr::new("--"), path.as_os_str()]);
-    git_worktree(repo, "remove", &args)
+    args.extend(checkout);
+
+    let Some(lock_reason) = worktree.lock_reason() else {
+        return git_worktree(repo, "remove", &args);
+    };
+    let relock = [
+        OsStr::new("--reason"),
+        lock_reason.to_os_str()?,
+        OsStr::new("--"),
+        path.as_os_str(),
+    ];
+    git_worktree(repo, "unlock", &checkout)?;
+    git_worktree(repo, "remove", &args).map_err(|err| match git_worktree(repo, "lock", &relock) {
+        Ok(()) => err,
+        Err(relock_err) => err.context(relock_err),
+    })
 }
 
 /// Create a linked worktree at `path` on the new branch `branch` starting at `base`, the way

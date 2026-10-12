@@ -405,6 +405,42 @@ fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
 }
 
 #[test]
+fn remove_overrides_a_lock_and_restores_it_when_git_refuses() -> Result<()> {
+    use but_testsupport::CommandExt as _;
+
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    for name in ["wt-a", "wt-detached"] {
+        but_testsupport::git(&repo)
+            .args(["worktree", "lock", "--reason", "kept", name])
+            .run();
+    }
+    let worktree = |name: &str| repo.worktree_proxy_by_id(BStr::new(name));
+
+    but_workspace::worktrees::remove(&repo, BStr::new("wt-detached"), false)?;
+    assert!(
+        worktree("wt-detached")?.is_none(),
+        "a lock does not keep a clean checkout from being removed"
+    );
+
+    let err = but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), false).unwrap_err();
+    assert!(err.to_string().contains("--force"), "{err}");
+    assert_eq!(
+        worktree("wt-a")?
+            .expect("removal was refused")
+            .lock_reason(),
+        Some("kept".into()),
+        "a refused removal leaves the lock as it was"
+    );
+
+    but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), true)?;
+    assert!(
+        worktree("wt-a")?.is_none(),
+        "a lock does not keep a dirty checkout from being removed forcibly"
+    );
+    Ok(())
+}
+
+#[test]
 fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-listing");
     let base = repo.head_id()?.detach();
