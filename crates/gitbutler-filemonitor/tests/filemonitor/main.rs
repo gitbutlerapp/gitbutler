@@ -2,6 +2,10 @@
 mod spawn {
     use std::{
         path::{Path, PathBuf},
+        sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        },
         time::Duration,
     };
 
@@ -448,6 +452,89 @@ mod spawn {
             })
             .await?;
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn unlisted_linked_worktrees_are_watched_afresh_when_listed_again() -> anyhow::Result<()>
+    {
+        let generous_timeout_for_ci = Duration::from_secs(10);
+        let (_repo, tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        but_testsupport::invoke_bash_at_dir(
+            "git init main && cd main && git commit --allow-empty -m init && git worktree add ../linked && mkdir .git/gitbutler",
+            tmp.path(),
+        );
+        let workdir = tmp.path().join("main");
+        let linked_workdir = tmp.path().join("linked");
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
+
+        let is_listed = Arc::new(AtomicBool::new(true));
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let monitor = gitbutler_filemonitor::spawn(
+            project_id,
+            &workdir,
+            {
+                let is_listed = is_listed.clone();
+                let linked_workdir = linked_workdir.clone();
+                move || {
+                    Ok(is_listed
+                        .load(Ordering::Relaxed)
+                        .then(|| LinkedWorktree {
+                            name: "linked".into(),
+                            workdir: linked_workdir.clone(),
+                        })
+                        .into_iter()
+                        .collect())
+                }
+            },
+            tx,
+            WatchMode::Modern,
+        )?;
+        let changed_in_linked = |path: &'static str| {
+            move |event: &InternalEvent| match event {
+                InternalEvent::ProjectFilesChange(_, checkout, paths) => {
+                    *checkout == Checkout::Linked("linked".into())
+                        && contains_path(paths, Path::new(path))
+                }
+                _ => false,
+            }
+        };
+        let listed_again = |event: &InternalEvent| match event {
+            InternalEvent::GitFilesChange(_, Checkout::Main, paths) => {
+                contains_path(paths, Path::new("gitbutler/INVALIDATE"))
+            }
+            _ => false,
+        };
+        let sentinel = workdir.join(".git/gitbutler/INVALIDATE");
+
+        std::fs::create_dir(linked_workdir.join("dir"))?;
+        monitor.flush()?;
+        expect_matching_event(&mut rx, generous_timeout_for_ci, changed_in_linked("dir")).await?;
+
+        is_listed.store(false, Ordering::Relaxed);
+        std::fs::write(&sentinel, "unlisted")?;
+        monitor.flush()?;
+        expect_matching_event(&mut rx, generous_timeout_for_ci, listed_again).await?;
+        std::fs::remove_dir(linked_workdir.join("dir"))?;
+
+        is_listed.store(true, Ordering::Relaxed);
+        std::fs::write(&sentinel, "listed")?;
+        monitor.flush()?;
+        expect_matching_event(&mut rx, generous_timeout_for_ci, listed_again).await?;
+
+        std::fs::create_dir(linked_workdir.join("dir"))?;
+        monitor.flush()?;
+        expect_matching_event(&mut rx, generous_timeout_for_ci, changed_in_linked("dir")).await?;
+        std::fs::write(linked_workdir.join("dir/file"), "")?;
+        monitor.flush()?;
+        expect_matching_event(
+            &mut rx,
+            generous_timeout_for_ci,
+            changed_in_linked("dir/file"),
+        )
+        .await?;
 
         Ok(())
     }

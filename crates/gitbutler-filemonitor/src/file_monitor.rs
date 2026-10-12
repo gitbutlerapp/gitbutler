@@ -449,10 +449,13 @@ pub fn spawn(
                             .iter()
                             .filter(|checkout| !relisted.contains(checkout))
                         {
-                            if removed.has_own_recursive_watch(&main.workdir, dynamic_watch_enabled)
-                            {
-                                debouncer.watcher().unwatch(&removed.workdir).ok();
-                            }
+                            unwatch_linked_workdir(
+                                &mut debouncer,
+                                &mut dynamically_watched_dirs,
+                                &main.workdir,
+                                removed,
+                                dynamic_watch_enabled,
+                            );
                         }
                         for added in relisted
                             .iter()
@@ -551,6 +554,48 @@ fn watch_linked_workdir(
             "failed to watch linked worktree; changes to its files will be missed"
         );
     }
+}
+
+/// Stop watching the files of the `linked` worktree, undoing [`watch_linked_workdir()`] and
+/// forgetting the directories that were dynamically watched since.
+///
+/// With a watch plan, the directories to stop watching are those the plan yields now. One that
+/// became ignored in the meantime remains watched.
+fn unwatch_linked_workdir(
+    debouncer: &mut Debouncer<RecommendedWatcher, NoCache>,
+    dynamically_watched_dirs: &mut HashSet<PathBuf>,
+    main_workdir: &Path,
+    linked: &WatchedCheckout,
+    use_watch_plan: bool,
+) {
+    if linked.has_own_recursive_watch(main_workdir, use_watch_plan) {
+        debouncer.watcher().unwatch(&linked.workdir).ok();
+    }
+    if !use_watch_plan {
+        return;
+    }
+    let mut paths = debouncer.watcher().paths_mut();
+    dynamically_watched_dirs.retain(|dir| {
+        let is_in_workdir = dir.starts_with(&linked.workdir);
+        if is_in_workdir {
+            paths.remove(dir).ok();
+        }
+        !is_in_workdir
+    });
+    if let Ok(repo) = gix::open_opts(&linked.workdir, gix::open::Options::isolated()) {
+        compute_watch_plan_for_repo(
+            &repo,
+            &linked.workdir,
+            &linked.git_dir,
+            &[],
+            |path, _mode| {
+                paths.remove(path).ok();
+                Ok(std::ops::ControlFlow::Continue(()))
+            },
+        )
+        .ok();
+    }
+    paths.commit().ok();
 }
 
 /// Watch the directories among the changed `paths` that aren't watched yet, and stop watching those that are gone.
