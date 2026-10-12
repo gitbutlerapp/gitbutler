@@ -391,11 +391,11 @@ fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
         .expect("fixture worktree")
         .base()?;
 
-    let err = but_workspace::worktrees::remove(&repo, &path, false).unwrap_err();
+    let err = but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), false).unwrap_err();
     assert!(err.to_string().contains("--force"), "{err}");
     assert!(path.is_dir(), "a refused removal leaves the checkout alone");
 
-    but_workspace::worktrees::remove(&repo, &path, true)?;
+    but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), true)?;
     assert!(!path.exists());
     assert!(
         repo.worktree_proxy_by_id(BStr::new("wt-a"))?.is_none(),

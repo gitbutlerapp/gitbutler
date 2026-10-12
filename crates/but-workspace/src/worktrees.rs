@@ -114,12 +114,16 @@ pub fn updated_at(repo: &gix::Repository, name: &BStr) -> anyhow::Result<Option<
     Ok(newest)
 }
 
-/// Remove the linked worktree checked out at `path` the way `git worktree remove` does, which
+/// Remove the linked worktree named `name` the way `git worktree remove` does, which
 /// refuses a dirty checkout unless `force`, and a locked one until it is unlocked.
 ///
 /// Git is invoked directly as it has the only implementation of this, and its own error
 /// message is surfaced on failure.
-pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> anyhow::Result<()> {
+pub fn remove(repo: &gix::Repository, name: &BStr, force: bool) -> anyhow::Result<()> {
+    let worktree = repo
+        .worktree_proxy_by_id(name)?
+        .with_context(|| format!("Worktree {name} does not exist"))?;
+    let path = worktree.base()?;
     let mut args = Vec::new();
     if force {
         args.push(OsStr::new("--force"));
@@ -248,7 +252,7 @@ pub fn add_cow(
     if let Err(err) = fill_worktree() {
         let err = err.context("Failed to clone files into worktree");
 
-        let err = if let Err(remove_err) = remove(repo, path, true) {
+        let err = if let Err(remove_err) = remove(repo, worktree_name.as_ref(), true) {
             err.context(remove_err)
         } else {
             err

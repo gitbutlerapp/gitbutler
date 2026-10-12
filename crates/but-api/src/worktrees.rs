@@ -252,7 +252,7 @@ pub fn worktree_remove_with_perm(
         .find(|worktree| worktree.name == name)
         .with_context(|| format!("Worktree {name} does not exist"))?;
     let repo = ctx.repo.get()?;
-    but_workspace::worktrees::remove(&repo, &worktree.path, force)?;
+    but_workspace::worktrees::remove(&repo, worktree.name.as_ref(), force)?;
     ctx.db
         .get_cache_mut()?
         .worktree_meta_mut()
