@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import type { FC, ReactNode } from "react";
+import { useState, type FC, type ReactNode } from "react";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { CiStatus, MetaCount } from "./MetaCount.tsx";
@@ -558,6 +558,168 @@ export const Empty = meta.story({
 					/>
 				</Repository>
 			</Card>
+		</div>
+	),
+});
+
+const PAGE = 12;
+const tail = [
+	"mesh-archive",
+	"review-cards",
+	"daemon-idle-cpu",
+	"redact-remote-creds",
+	"offline-cache",
+	"docs-mesh-setup",
+	"android-paging",
+	"stale-worktree",
+	"ios-share-sheet",
+	"cursor-api",
+	"archive-api",
+	"retry-transfers",
+	"push-handoff",
+	"entry-avatar-pic",
+	"hunk-separator",
+	"agent-elapsed",
+	"skill-soup",
+	"ci-state",
+	"pr-state-after-merge",
+	"resume-on-laptop",
+];
+
+/** A repository's twenty branches: the five most recent, then the rest a page at a time. */
+const PagedBranches: FC = () => {
+	const [pages, setPages] = useState(0);
+	const shown = Math.min(tail.length, 5 + pages * PAGE);
+	const left = tail.length - shown;
+	return (
+		<Card label="pavel--macbook-pro-2" header={machine}>
+			<Repository last>
+				<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+				<UncommittedItem count={10} depth={1} menu={menu("Uncommitted changes")} />
+				{tail.slice(0, shown).map((title, i) => (
+					<BranchItem
+						key={title}
+						title={title}
+						depth={1}
+						folded
+						meta={
+							<>
+								<MetaCount type="commits">{(i % 7) + 1}</MetaCount>
+								<MetaCount type="age">{i + 1}h</MetaCount>
+							</>
+						}
+						menu={menu("Branch")}
+					/>
+				))}
+				<MoreItem
+					depth={1}
+					label={left > 0 ? `${Math.min(left, PAGE)} more branches` : "Show fewer branches"}
+					expanded={left === 0}
+					onClick={() => setPages(left > 0 ? pages + 1 : 0)}
+				/>
+			</Repository>
+		</Card>
+	);
+};
+
+const moreRepos = [
+	"skill-soup",
+	"figma-plugin",
+	"gitbutler",
+	"mesh-lab",
+	"dotfiles",
+	"blog",
+	"photo-sorter",
+	"tiny-ci",
+	"notes",
+	"pnpm-patches",
+	"ui-kit",
+	"playground",
+];
+
+/** A machine's repositories: the recent two open, the other twelve behind a row of their own. */
+const PagedRepos: FC = () => {
+	const [pages, setPages] = useState(0);
+	const shown = Math.min(moreRepos.length, pages * PAGE);
+	const left = moreRepos.length - shown;
+	return (
+		<Card label="pavel--macbook-pro-2" header={machine}>
+			<Repository>
+				<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+				<UncommittedItem count={10} depth={1} menu={menu("Uncommitted changes")} />
+				<BranchItem
+					title="mesh-archive"
+					depth={1}
+					folded
+					meta={
+						<>
+							<MetaCount type="unpushed">2</MetaCount>
+							<MetaCount type="age">8m</MetaCount>
+						</>
+					}
+					menu={menu("Branch")}
+				/>
+			</Repository>
+			<Repository>
+				<RepoItem
+					name="berlin-brutalism"
+					folded={false}
+					meta={
+						<>
+							<MetaCount type="behind">1</MetaCount>
+							<MetaCount type="age">1h</MetaCount>
+						</>
+					}
+					menu={menu("Repository")}
+				/>
+				<UncommittedItem count={6} depth={1} menu={menu("Uncommitted changes")} />
+				<BranchItem
+					title="Upgrade to Next 16, React 19 and three r186; reduce GPU usage"
+					pr={{ number: 1, state: "merged" }}
+					depth={1}
+					folded
+					meta={
+						<>
+							<MetaCount type="commits">2</MetaCount>
+							<MetaCount type="age">1d</MetaCount>
+						</>
+					}
+					menu={menu("Branch")}
+				/>
+			</Repository>
+			{moreRepos.slice(0, shown).map((name, i) => (
+				<Repository key={name}>
+					<RepoItem
+						name={name}
+						folded
+						meta={<MetaCount type="age">{i + 2}d</MetaCount>}
+						menu={menu("Repository")}
+					/>
+				</Repository>
+			))}
+			<Repository last>
+				<MoreItem
+					label={left > 0 ? `${Math.min(left, PAGE)} more repos` : "Show fewer repos"}
+					expanded={left === 0}
+					onClick={() => setPages(left > 0 ? pages + 1 : 0)}
+				/>
+			</Repository>
+		</Card>
+	);
+};
+
+/**
+ * A long list ends in a row that pages through the rest: "12 more" opens the next twelve, and once
+ * everything shows it reads "Show fewer" and folds the list back. Click it to step through. Under
+ * a repository it sits at the branches' depth; a machine's repositories end in one at the top
+ * level, ruled off like a repository of its own.
+ */
+export const Paging = meta.story({
+	parameters: { design: { type: "figma", url: core("2585-8164") } },
+	render: () => (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+			<PagedBranches />
+			<PagedRepos />
 		</div>
 	),
 });
