@@ -1142,3 +1142,35 @@ fn materialize_checks_out_what_head_checkout_is_set_to() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn materialize_checks_out_another_branch_on_the_same_commit() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let other = gix::refs::FullName::try_from("refs/heads/other")?;
+    let head = repo.head_id()?.detach();
+    repo.reference(
+        other.as_ref(),
+        head,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "other branch on HEAD",
+    )?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let other_selector = editor.select_reference(other.as_ref())?;
+    editor.set_head_checkout(other_selector)?;
+
+    editor.rebase()?.materialize(Default::default())?;
+    assert_eq!(repo.head_name()?, Some(other));
+    assert_eq!(repo.head_id()?.detach(), head);
+
+    Ok(())
+}

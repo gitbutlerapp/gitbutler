@@ -536,9 +536,14 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         for co in &self.checkouts {
             match co {
                 Checkout::Head { selector, .. } => {
-                    let target = self.checkout_target(*selector)?.map(|t| t.0);
+                    let target = self.checkout_target(*selector)?;
+                    let head = self
+                        .repo()
+                        .head_id()
+                        .ok()
+                        .map(|id| (id.detach(), self.repo().head_name().ok().flatten()));
 
-                    if target != self.repo().head_id().ok().map(|id| id.detach()) {
+                    if target != head {
                         return Ok(true);
                     }
                 }
