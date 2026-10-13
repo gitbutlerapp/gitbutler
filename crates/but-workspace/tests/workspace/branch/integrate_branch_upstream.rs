@@ -2118,7 +2118,7 @@ pick remote-commit
     Ok(())
 }
 
-struct PullRebasedBranchA {
+struct IntegratedBranchA {
     _tmp: TempDir,
     repo: gix::Repository,
     meta: but_meta::VirtualBranchesTomlMetadata,
@@ -2127,7 +2127,7 @@ struct PullRebasedBranchA {
     plan: String,
 }
 
-impl PullRebasedBranchA {
+impl IntegratedBranchA {
     fn parents(&self, spec: &str) -> Result<Vec<gix::ObjectId>> {
         Ok(self
             .repo
@@ -2182,10 +2182,25 @@ impl PullRebasedBranchA {
 fn pull_rebase_branch_a(
     scenario: &str,
     labels: &[(&str, &'static str)],
-) -> Result<PullRebasedBranchA> {
+) -> Result<IntegratedBranchA> {
+    integrate_branch_a(scenario, BranchIntegrationStrategy::PullRebase, &[], labels)
+}
+
+/// Integrate `origin/A` into `A` of `scenario` with the initial plan of `strategy`.
+/// `A` is the first stack in the workspace, followed by one stack per name in `other_stacks`.
+/// `labels` name revisions resolved before the integration, for snapshots.
+fn integrate_branch_a(
+    scenario: &str,
+    strategy: BranchIntegrationStrategy,
+    other_stacks: &[&str],
+    labels: &[(&str, &'static str)],
+) -> Result<IntegratedBranchA> {
     let (tmp, graph, mut repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(scenario, |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            for (stack_id, name) in (2..).zip(other_stacks) {
+                add_stack_with_segments(meta, stack_id, name, StackState::InWorkspace, &[]);
+            }
         })?;
     let labels = labels
         .iter()
@@ -2196,7 +2211,7 @@ fn pull_rebase_branch_a(
     configure_tracking_for_branch_a(&mut repo)?;
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/A"),
-        BranchIntegrationStrategy::PullRebase,
+        strategy,
         &mut ws,
         &mut meta,
         &repo,
@@ -2213,7 +2228,7 @@ fn pull_rebase_branch_a(
     )?
     .materialize(Default::default())?;
 
-    Ok(PullRebasedBranchA {
+    Ok(IntegratedBranchA {
         _tmp: tmp,
         repo,
         meta,
@@ -2385,6 +2400,232 @@ pick local-merge
         out.parents("A")?,
         vec![remote_commit, side],
         "the local merge is rebased onto the remote commit and keeps its side parent"
+    );
+    // The tip has the remote change and the side branch's file.
+    snapbox::assert_data_eq!(
+        out.tree("A")?,
+        snapbox::str![[r#"
+d43de54
+├── remote-file:100644:29cb857 "remote-file\n"
+└── side-file:100644:c08fdf2 "side-file\n"
+"#]]
+        .raw()
+    );
+    Ok(())
+}
+
+#[test]
+fn integrate_upstream_merge_of_target_when_remote_is_ahead_of_local() -> Result<()> {
+    let mut out = pull_rebase_branch_a(
+        "remote-advanced-by-target-merge-with-workspace",
+        &[
+            ("origin/A", "remote-merge"),
+            ("origin/main", "target"),
+            ("A", "local"),
+        ],
+    )?;
+    let (remote_merge, target, local) = (out.labels[0].0, out.labels[1].0, out.labels[2].0);
+
+    // A forge's "update branch" merged the target into `origin/A`; `A` fast-forwards onto it.
+    snapbox::assert_data_eq!(
+        out.graph()?,
+        snapbox::str![[r#"
+* bfaae65 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   remote-merge (origin/A, A) Merge main into A
+|\
+| * target (origin/main, main) add target-file
+* | local local change in A 1
+|/
+* cfbcc20 init-integration
+"#]]
+        .raw()
+    );
+    assert_eq!(
+        out.repo.rev_parse_single("A")?.detach(),
+        remote_merge,
+        "a branch that is only behind takes the remote merge as is"
+    );
+    assert_eq!(
+        out.parents("A")?,
+        vec![local, target],
+        "the merge keeps the target as its second parent"
+    );
+    // The target's change arrives with the merge.
+    snapbox::assert_data_eq!(
+        out.tree("A")?,
+        snapbox::str![[r#"
+b0913ec
+└── target-file:100644:b9969fd "target-file\n"
+"#]]
+        .raw()
+    );
+    assert_eq!(
+        out.next_plan_step_count()?,
+        0,
+        "once `A` is at `origin/A` there is nothing left to integrate"
+    );
+    Ok(())
+}
+
+#[test]
+fn integrate_upstream_octopus_merge_when_remote_is_ahead_of_local() -> Result<()> {
+    let out = pull_rebase_branch_a(
+        "remote-advanced-by-octopus-merge-with-workspace",
+        &[
+            ("origin/A", "octopus"),
+            ("origin/A^2", "feat1"),
+            ("origin/A^3", "feat2"),
+            ("A", "local"),
+        ],
+    )?;
+    let (octopus, feat1, feat2, local) = (
+        out.labels[0].0,
+        out.labels[1].0,
+        out.labels[2].0,
+        out.labels[3].0,
+    );
+
+    // `A` fast-forwards onto the octopus merge.
+    snapbox::assert_data_eq!(
+        out.graph()?,
+        snapbox::str![[r#"
+* 11117be (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*-.   octopus (origin/A, A) Merge feat1 and feat2 into A
+|\ \
+| | * feat2 add feat2-file
+| |/
+|/|
+| * feat1 add feat1-file
+|/
+* local local change in A 1
+* cfbcc20 (origin/main, main) init-integration
+"#]]
+        .raw()
+    );
+    assert_eq!(
+        out.repo.rev_parse_single("A")?.detach(),
+        octopus,
+        "a branch that is only behind takes the octopus merge as is"
+    );
+    assert_eq!(
+        out.parents("A")?,
+        vec![local, feat1, feat2],
+        "the octopus merge keeps all its parents in their original order"
+    );
+    Ok(())
+}
+
+#[test]
+fn integrate_upstream_merge_commit_next_to_another_stack() -> Result<()> {
+    let out = integrate_branch_a(
+        "remote-advanced-by-merge-next-to-another-stack-with-workspace",
+        BranchIntegrationStrategy::PullRebase,
+        &["B"],
+        &[
+            ("origin/A", "remote-merge"),
+            ("origin/A^2", "feat"),
+            ("A", "local"),
+            ("B", "b"),
+        ],
+    )?;
+    let (remote_merge, feat, local, b) = (
+        out.labels[0].0,
+        out.labels[1].0,
+        out.labels[2].0,
+        out.labels[3].0,
+    );
+
+    // `A` fast-forwards onto the remote merge, the workspace commit still merges both stacks.
+    snapbox::assert_data_eq!(
+        out.graph()?,
+        snapbox::str![[r#"
+*   a1e3271 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\
+| * b (B) add b-file
+* |   remote-merge (origin/A, A) Merge feat into A
+|\ \
+| * | feat add feat-file
+|/ /
+* / local local change in A 1
+|/
+* cfbcc20 (origin/main, main) init-integration
+"#]]
+        .raw()
+    );
+    assert_eq!(
+        out.parents("A")?,
+        vec![local, feat],
+        "the merge keeps both parents in their original order"
+    );
+    assert_eq!(
+        out.parents("gitbutler/workspace")?,
+        vec![remote_merge, b],
+        "the workspace commit follows `A` to the remote merge and keeps `B` unchanged"
+    );
+    Ok(())
+}
+
+#[test]
+fn integrate_with_merge_strategy_keeps_local_merge_below_the_upstream_merge() -> Result<()> {
+    let out = integrate_branch_a(
+        "local-merge-with-remote-advanced-with-workspace",
+        BranchIntegrationStrategy::Merge,
+        &[],
+        &[
+            ("origin/A", "remote-commit"),
+            ("A^2", "side"),
+            ("A", "local-merge"),
+            ("A~1", "base"),
+        ],
+    )?;
+    let (remote_commit, side, local_merge, base) = (
+        out.labels[0].0,
+        out.labels[1].0,
+        out.labels[2].0,
+        out.labels[3].0,
+    );
+
+    // The local merge is kept, then the upstream tip is merged on top of it.
+    snapbox::assert_data_eq!(
+        out.plan.as_str(),
+        snapbox::str![[r#"
+merge-base base
+pick local-merge
+merge remote-commit
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        normalized_graph_snapshot(&out.repo)?,
+        snapbox::str![[r#"
+* 4319bbd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   85fbbc6 (A) Merge 0b9028f512ce7fe2878959478a0d0867007bb757 into previous commit
+|\
+| * 0b9028f (origin/A) add remote-file
+* |   41dbfd9 Merge side into A
+|\ \
+| |/
+|/|
+| * 723dd13 add side-file
+|/
+* f01c4f5 local change in A 1
+* cfbcc20 (origin/main, main) init-integration
+"#]]
+        .raw()
+    );
+    assert_eq!(
+        out.parents("A~1")?,
+        vec![base, side],
+        "the local merge keeps the base as first parent and its side branch"
+    );
+    assert_eq!(
+        out.repo.rev_parse_single("A~1")?.detach(),
+        local_merge,
+        "the local merge is unchanged below the new merge"
+    );
+    assert_eq!(
+        out.parents("A")?,
+        vec![local_merge, remote_commit],
+        "the upstream tip is merged into the previous commit"
     );
     // The tip has the remote change and the side branch's file.
     snapbox::assert_data_eq!(
