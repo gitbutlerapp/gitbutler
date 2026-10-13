@@ -1496,9 +1496,17 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Teardown { checkout_to } => {
-            command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
-                .map_err(|err| err.context("Failed to teardown GitButler project."))?;
+        Subcommands::Teardown {
+            checkout_to,
+            remove_hooks,
+        } => {
+            if remove_hooks {
+                let outcome = command::legacy::teardown::remove_hooks(&mut ctx)?;
+                out.print_cli_output(outcome)?;
+            } else {
+                command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
+                    .map_err(|err| err.context("Failed to teardown GitButler project."))?;
+            }
             None
         }
         #[cfg(feature = "legacy")]

@@ -3,6 +3,192 @@ use snapbox::str;
 
 use crate::utils::{CommandExt, Sandbox};
 
+#[test]
+fn remove_hooks_only_preserves_workspace() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    let hooks_dir = env.projects_root().join(".git/hooks");
+    std::fs::create_dir_all(&hooks_dir).unwrap();
+    let managed = "#!/bin/sh\n# GITBUTLER_MANAGED_HOOK_V1\nexit 0\n";
+    std::fs::write(hooks_dir.join("pre-commit"), managed).unwrap();
+    std::fs::write(hooks_dir.join("post-checkout"), managed).unwrap();
+    env.file("dirty.txt", "keep this");
+    let head_before = env.invoke_git("rev-parse HEAD");
+    let refs_before = env.invoke_git("show-ref");
+    let status_before = env.invoke_git("status --porcelain");
+
+    env.but("teardown --remove-hooks")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Removed GitButler-managed hooks.
+
+"#]]);
+
+    assert!(
+        !hooks_dir.join("pre-commit").exists(),
+        "managed pre-commit is removed"
+    );
+    assert!(
+        !hooks_dir.join("post-checkout").exists(),
+        "managed post-checkout is removed"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse HEAD"),
+        head_before,
+        "HEAD is unchanged"
+    );
+    assert_eq!(
+        env.invoke_git("show-ref"),
+        refs_before,
+        "refs, including oplog, are unchanged"
+    );
+    assert_eq!(
+        env.invoke_git("status --porcelain"),
+        status_before,
+        "dirty files are unchanged"
+    );
+    assert_eq!(
+        env.invoke_git("branch --show-current"),
+        "gitbutler/workspace",
+        "no checkout occurs"
+    );
+}
+
+#[test]
+fn remove_hooks_on_regular_branch_restores_user_hooks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.invoke_git("checkout main");
+    let hooks_dir = env.projects_root().join(".git/hooks");
+    std::fs::create_dir_all(&hooks_dir).unwrap();
+    let managed = "#!/bin/sh\n# GITBUTLER_MANAGED_HOOK_V1\nexit 0\n";
+    let user = "#!/bin/sh\necho user hook\n";
+    std::fs::write(hooks_dir.join("pre-commit"), managed).unwrap();
+    std::fs::write(hooks_dir.join("pre-commit-user"), user).unwrap();
+    std::fs::write(hooks_dir.join("post-checkout"), user).unwrap();
+
+    env.but("--json teardown --remove-hooks")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+{
+  "removedHooks": true
+}
+
+"#]]);
+
+    assert_eq!(
+        std::fs::read_to_string(hooks_dir.join("pre-commit")).unwrap(),
+        user,
+        "original hook is restored"
+    );
+    assert_eq!(
+        std::fs::read_to_string(hooks_dir.join("post-checkout")).unwrap(),
+        user,
+        "unmanaged hook is preserved"
+    );
+    assert!(
+        !hooks_dir.join("pre-commit-user").exists(),
+        "backup has been restored"
+    );
+    assert_eq!(
+        env.invoke_git("branch --show-current"),
+        "main",
+        "regular branch is unchanged"
+    );
+
+    // Removing already-removed hooks is safe.
+    env.but("teardown --remove-hooks")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Removed GitButler-managed hooks.
+
+"#]]);
+}
+
+#[test]
+fn remove_hooks_cleans_config_registrations() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    let scripts_dir = env.projects_root().join(".git/gitbutler/hooks");
+    std::fs::create_dir_all(&scripts_dir).unwrap();
+    let managed = "#!/bin/sh\n# GITBUTLER_MANAGED_HOOK_V1\nexit 0\n";
+    std::fs::write(scripts_dir.join("pre-commit"), managed).unwrap();
+    std::fs::write(scripts_dir.join("post-checkout"), managed).unwrap();
+    env.invoke_git("config hook.gitbutler-pre-commit.event pre-commit");
+    env.invoke_git("config hook.gitbutler-pre-commit.command managed-pre-commit");
+    env.invoke_git("config hook.gitbutler-post-checkout.event post-checkout");
+    env.invoke_git("config hook.gitbutler-post-checkout.command managed-post-checkout");
+    env.invoke_git("config hook.user.event pre-commit");
+    env.invoke_git("config hook.user.command user-hook");
+
+    env.but("teardown --remove-hooks")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Removed GitButler-managed hooks.
+
+"#]]);
+
+    assert!(!scripts_dir.exists(), "managed scripts are removed");
+    // Only the user's config hook remains.
+    snapbox::assert_data_eq!(
+        env.invoke_git("config --get-regexp ^hook\\."),
+        str![[r#"
+hook.user.event pre-commit
+hook.user.command user-hook
+"#]]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn remove_hooks_reports_cleanup_failure() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    let hooks_dir = env.projects_root().join(".git/hooks");
+    std::fs::create_dir_all(&hooks_dir).unwrap();
+    let managed = "#!/bin/sh\n# GITBUTLER_MANAGED_HOOK_V1\nexit 0\n";
+    std::fs::write(hooks_dir.join("pre-commit"), managed).unwrap();
+    std::fs::write(hooks_dir.join("post-checkout"), managed).unwrap();
+    std::fs::set_permissions(&hooks_dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+
+    env.but("teardown --remove-hooks")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Could not remove all GitButler-managed hooks:
+Failed to uninstall pre-commit: [..]
+Failed to uninstall post-checkout: [..]
+
+"#]]);
+
+    std::fs::set_permissions(&hooks_dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+#[test]
+fn remove_hooks_conflicts_with_checkout_to() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.but("teardown --remove-hooks --checkout-to main")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: the argument '--remove-hooks' cannot be used with '--checkout-to <LOCAL_BRANCH>'
+
+Usage: but teardown --remove-hooks
+
+For more information, try '--help'.
+
+"#]]);
+}
+
 /// Test 1: Simple case of a single branch
 /// - Teardown should return HEAD to that branch
 #[test]
