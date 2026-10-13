@@ -36,7 +36,7 @@
 
 .icon {
 	display: flex;
-	opacity: 0.5;
+	opacity: 0.7;
 
 	/* Only on a tab that isn't selected: the selected one doesn't answer the pointer. */
 	.tab:hover:not([data-active], [data-disabled]) & {
@@ -53,7 +53,7 @@
 	display: inline-flex;
 	column-gap: 3px;
 	align-items: center;
-	opacity: 0.5;
+	opacity: 0.7;
 
 	:is(.tab:hover:not([data-disabled]), .tab[data-active]) & {
 		opacity: 1;
