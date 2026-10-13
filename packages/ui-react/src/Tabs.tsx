@@ -12,8 +12,8 @@ import styles from "./Tabs.module.css";
  *
  * - Controlled with `value` and `onValueChange`, or left to itself with `defaultValue`.
  * - The arrow keys move between the tabs, as a tab list does.
- * - The underline runs under the selected tab's content and hangs outside the row, 8px below it
- *   and 4px thick, so the header holding the tabs leaves 12px below them: the underline then
+ * - The underline runs under the selected tab's content and hangs outside the row, 4px below it
+ *   and 4px thick, so the header holding the tabs leaves 8px below them: the underline then
  *   sits on the header's divider.
  *
  * @public
