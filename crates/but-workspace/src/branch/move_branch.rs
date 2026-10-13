@@ -1,22 +1,3 @@
-use but_core::RefMetadata;
-use but_rebase::graph_rebase::SuccessfulRebase;
-
-/// Outcome of moving branches between or out of stacks.
-///
-/// Returned by [function::move_branch()].
-#[derive(Debug)]
-pub struct Outcome<'ws, 'meta, M: RefMetadata> {
-    /// A successful rebase result for continuing operations.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
-    /// In single-branch (ad-hoc) mode, set to the reference that should become the new tip after the
-    /// reorder. This can be the subject when it moves above the current tip, or the branch now above
-    /// it when the checked-out tip moves down. Materializing moves `HEAD` there only when the
-    /// subject was inserted directly above the checked-out branch, so the caller is responsible for
-    /// checking this out to keep the whole reordered stack projected (mirroring
-    /// [`create_reference`](crate::branch::create_reference())). `None` when the tip is unchanged.
-    pub new_tip: Option<gix::refs::FullName>,
-}
-
 pub(super) mod function {
 
     use but_core::RefMetadata;
@@ -26,7 +7,6 @@ pub(super) mod function {
     use crate::graph_manipulation::get_disconnect_parameters;
     use crate::graph_manipulation::traverse_nodes;
 
-    use super::Outcome;
     use anyhow::Context;
     use anyhow::bail;
     use but_graph::workspace::{Lane, StackSegment, WorkspaceKind};
@@ -46,11 +26,11 @@ pub(super) mod function {
     ///
     /// `subject_branch_name` - The branch to take out of a stack.
     ///
-    /// Returns the in memory update [outcome](Outcome) that can then used for materialisation.
+    /// Returns the in memory rebase that can then used for materialisation.
     pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
         editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
         let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
         let mut editor = successful_rebase.into_editor();
@@ -72,10 +52,7 @@ pub(super) mod function {
 
         if source_stack.segments.len() == 1 {
             // There's only one branch in the source stack. Nothing to do.
-            return Ok(Outcome {
-                rebase: editor.rebase()?,
-                new_tip: None,
-            });
+            return editor.rebase();
         }
 
         let workspace_head = if managed {
@@ -135,10 +112,7 @@ pub(super) mod function {
             editor.add_edge(subject_delimiter.parent, target_selector, 0)?;
         }
 
-        Ok(Outcome {
-            rebase: editor.rebase()?,
-            new_tip: None,
-        })
+        editor.rebase()
     }
 
     /// Move a branch to `side` of `relative_to`, within its lane or into another one.
@@ -184,13 +158,13 @@ pub(super) mod function {
     /// the concept of a segment might not hold, and hence we'll have to figure out a better way of determining
     /// what to cut (e.g. letting the clients decide what to cut).
     ///
-    /// Returns an [outcome](Outcome) for potential materialisation.
+    /// Returns the in memory rebase for potential materialisation.
     pub fn move_branch<'ws, 'meta, M: RefMetadata>(
         editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
         let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
 
@@ -233,13 +207,7 @@ pub(super) mod function {
 
     /// Move a branch in a single-branch (ad-hoc) workspace, where `HEAD` is on a plain local branch.
     ///
-    /// In single-branch (ad-hoc) mode there is no workspace commit, and the tip-to-base order of
-    /// branches lives in the `branch_order` metadata table rather than in workspace metadata. Empty
-    /// branches can therefore move through metadata alone when their refs already share a target,
-    /// while branches with commits or empty branches crossing commits also require a graph rewrite.
-    /// The reordered chain is returned in [`Outcome::branch_stack_order`] for the caller to persist
-    /// (via [`RefMetadata::set_branch_stack_order`]) rather than being written here, so callers can
-    /// skip persistence for dry-run previews.
+    /// `HEAD` follows the top of the reordered stack, so the whole stack stays projected.
     fn move_branch_in_single_branch_mode<'ws, 'meta, M: RefMetadata>(
         mut successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
         workspace: &but_graph::Workspace,
@@ -248,7 +216,7 @@ pub(super) mod function {
         subject_branch_name: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
         let ((Lane::Stack(source_stack), subject_segment), Lane::Stack(destination_stack)) =
             (source, anchor.lane)
         else {
@@ -326,11 +294,12 @@ pub(super) mod function {
             false,
         )?;
         editor.insert_segment(target_selector, subject_delimiter, side)?;
+        if let Some(new_tip) = new_tip {
+            let new_tip = editor.select_reference(new_tip.as_ref())?;
+            editor.set_head_checkout(new_tip)?;
+        }
 
-        return Ok(Outcome {
-            rebase: editor.rebase()?,
-            new_tip,
-        });
+        editor.rebase()
     }
 
     /// Move a branch within a managed workspace (one backed by a workspace commit).
@@ -342,7 +311,7 @@ pub(super) mod function {
         subject_branch_name: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
         let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
             bail!("Couldn't find workspace head.")
         };
@@ -408,10 +377,7 @@ pub(super) mod function {
         }
         editor.insert_segment(target_selector, subject_delimiter, side)?;
 
-        Ok(Outcome {
-            rebase: editor.rebase()?,
-            new_tip: None,
-        })
+        editor.rebase()
     }
 
     /// A segment and the lane holding it.

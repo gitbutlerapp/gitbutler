@@ -17,7 +17,7 @@ fn move_branch_above<'ws, 'meta, M: RefMetadata>(
     editor: Editor<'ws, 'meta, M>,
     subject: &gix::refs::FullNameRef,
     target: &gix::refs::FullNameRef,
-) -> anyhow::Result<but_workspace::branch::move_branch::Outcome<'ws, 'meta, M>> {
+) -> anyhow::Result<but_rebase::graph_rebase::SuccessfulRebase<'ws, 'meta, M>> {
     but_workspace::branch::move_branch(
         editor,
         subject,
@@ -69,7 +69,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put C on top of A
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/C".try_into()?,
         "refs/heads/A".try_into()?,
@@ -191,7 +191,7 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -279,7 +279,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of C
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/C".try_into()?,
@@ -363,7 +363,7 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put B on top of C
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/C".try_into()?,
@@ -451,7 +451,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of B, and below C
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -527,7 +527,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put B on top of A
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -597,7 +597,7 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of B
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -658,7 +658,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
 "#]]
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -710,7 +710,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
 "#]]
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -786,7 +786,7 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
     // Move non-empty C on top of non-empty A.
     // This rewrites metadata and keeps display + metadata aligned.
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/C".try_into()?,
         "refs/heads/A".try_into()?,
@@ -885,7 +885,7 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
     // Move empty B on top of non-empty A.
     // This path rewrites metadata and keeps display + metadata aligned.
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -966,7 +966,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Move B on top of A — the base segment at the old fork point has no ref name.
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -1049,7 +1049,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put empty B on top of non-empty A.
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -1127,7 +1127,7 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put non-empty A on top of empty B.
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -1251,13 +1251,8 @@ mod single_branch_mode {
         let mut ws = but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())?
             .into_workspace()?;
         let editor = Editor::create(&mut ws, meta, repo, db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase, new_tip, ..
-        } = move_branch_above(editor, subject, target)?;
+        let rebase = move_branch_above(editor, subject, target)?;
         rebase.materialize(Default::default())?;
-        if let Some(new_tip) = new_tip {
-            invoke_bash(&format!("git checkout {}\n", new_tip.shorten()), repo);
-        }
         Ok(())
     }
 
@@ -1381,10 +1376,8 @@ mod single_branch_mode {
         Ok((tmp, repo, meta, project_meta, db))
     }
 
-    /// Moving a branch on top of the checked-out tip reports it as `new_tip` so the caller can check
-    /// it out; the operation itself does not move `HEAD`.
     #[test]
-    fn reorder_above_checked_out_tip_returns_new_tip() -> anyhow::Result<()> {
+    fn reorder_above_checked_out_tip_checks_out_the_subject() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
@@ -1400,17 +1393,13 @@ mod single_branch_mode {
         assert_eq!(ws.ref_name(), Some(main_ref));
 
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase, new_tip, ..
-        } = move_branch_above(editor, r("refs/heads/empty-bottom"), main_ref)?;
+        let rebase = move_branch_above(editor, r("refs/heads/empty-bottom"), main_ref)?;
         rebase.materialize(Default::default())?;
 
         assert_eq!(
-            new_tip.as_ref().map(|n| n.as_ref()),
+            repo.head_name()?.as_ref().map(|n| n.as_ref()),
             Some(r("refs/heads/empty-bottom"))
         );
-
-        invoke_bash("git checkout empty-bottom\n", &repo);
         snapbox::assert_data_eq!(
             projected_workspace(&repo, &meta, project_meta, &mut db)?,
             snapbox::str![[r#"
@@ -1428,9 +1417,8 @@ mod single_branch_mode {
         Ok(())
     }
 
-    /// A reorder that does not touch the tip leaves `new_tip` unset.
     #[test]
-    fn reorder_below_tip_has_no_new_tip() -> anyhow::Result<()> {
+    fn reorder_below_tip_keeps_head() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;
 
@@ -1438,9 +1426,7 @@ mod single_branch_mode {
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
                 .into_workspace()?;
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase, new_tip, ..
-        } = move_branch_above(
+        let rebase = move_branch_above(
             editor,
             r("refs/heads/empty-bottom"),
             r("refs/heads/empty-top"),
@@ -1448,7 +1434,8 @@ mod single_branch_mode {
         rebase.materialize(Default::default())?;
 
         assert_eq!(
-            new_tip, None,
+            repo.head_name()?.as_ref().map(|n| n.as_ref()),
+            Some(r("refs/heads/main")),
             "target isn't the tip, so the tip is unchanged"
         );
         Ok(())
@@ -1485,7 +1472,7 @@ mod single_branch_mode {
         );
 
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+        let rebase = move_branch_above(
             editor,
             r("refs/heads/empty-bottom"),
             r("refs/heads/empty-top"),
@@ -1700,12 +1687,9 @@ mod single_branch_mode {
         .into_workspace()?;
 
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase, new_tip, ..
-        } = move_branch_above(editor, r("refs/heads/empty-top"), r("refs/heads/base"))?;
+        let rebase = move_branch_above(editor, r("refs/heads/empty-top"), r("refs/heads/base"))?;
         rebase.materialize(Default::default())?;
 
-        assert_eq!(new_tip, None, "base isn't the checked-out tip");
         snapbox::assert_data_eq!(
             projected_workspace(&repo, &meta, project_meta, &mut db)?,
             snapbox::str![[r#"
@@ -1758,12 +1742,9 @@ mod single_branch_mode {
 "#]]
         );
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase, new_tip, ..
-        } = move_branch_above(editor, r("refs/heads/y"), r("refs/heads/x"))?;
+        let rebase = move_branch_above(editor, r("refs/heads/y"), r("refs/heads/x"))?;
         rebase.materialize(Default::default())?;
 
-        assert_eq!(new_tip, None, "neither is the checked-out tip");
         snapbox::assert_data_eq!(
             projected_workspace(&repo, &meta, project_meta, &mut db)?,
             snapbox::str![[r#"
@@ -1870,13 +1851,12 @@ git worktree add -q -b wt wt-dir A
             (relative_to, side): (RelativeTo, InsertSide),
         ) -> anyhow::Result<()> {
             let editor = Editor::create(&mut self.ws, &mut self.meta, &self.repo, &mut self.db)?;
-            let but_workspace::branch::move_branch::Outcome { rebase, .. } =
-                but_workspace::branch::move_branch(
-                    editor,
-                    format!("refs/heads/{subject}").as_str().try_into()?,
-                    relative_to,
-                    side,
-                )?;
+            let rebase = but_workspace::branch::move_branch(
+                editor,
+                format!("refs/heads/{subject}").as_str().try_into()?,
+                relative_to,
+                side,
+            )?;
             rebase.materialize(Default::default())?;
             let project_meta = self.ws.graph.project_meta.clone();
             self.ws

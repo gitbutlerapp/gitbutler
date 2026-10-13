@@ -482,39 +482,28 @@ where
 
     /// Move `source_branch` to `side` of `relative_to` within the transaction's workspace.
     ///
-    /// In single-branch mode, record the reordered branches and defer checkout of the new tip
-    /// until the transaction is materialized, just like reference creation.
+    /// In single-branch mode, `HEAD` follows the top of the reordered stack when materialized.
     pub fn move_branch(
         &mut self,
         source_branch: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
     ) -> anyhow::Result<()> {
-        let new_tip = self.rebase(|editor, commit_mappings| {
+        self.rebase(|editor, commit_mappings| {
             let relative_to = match relative_to {
                 RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
             };
-            let outcome =
+            let rebase =
                 but_workspace::branch::move_branch(editor, source_branch, relative_to, side)?;
-            Ok((
-                outcome.new_tip,
-                MaterializeWithoutCheckout::No,
-                outcome.rebase,
-            ))
-        })?;
-
-        if let Some(new_tip) = new_tip {
-            self.checkout(new_tip.as_ref())?;
-        }
-
-        Ok(())
+            Ok(((), MaterializeWithoutCheckout::No, rebase))
+        })
     }
 
     pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {
         self.rebase(|editor, _| {
-            let outcome = but_workspace::branch::tear_off_branch(editor, source_branch)?;
-            Ok(((), MaterializeWithoutCheckout::No, outcome.rebase))
+            let rebase = but_workspace::branch::tear_off_branch(editor, source_branch)?;
+            Ok(((), MaterializeWithoutCheckout::No, rebase))
         })?;
 
         Ok(())
