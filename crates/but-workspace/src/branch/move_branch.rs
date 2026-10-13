@@ -8,9 +8,6 @@ use but_rebase::graph_rebase::SuccessfulRebase;
 pub struct Outcome<'ws, 'meta, M: RefMetadata> {
     /// A successful rebase result for continuing operations.
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
-    /// The updated workspace metadata that accompanies the move operation.
-    /// It should replace the actual workspace metadata to configure moved 'virtual' branches segments, if `Some()`.
-    pub ws_meta: Option<but_core::ref_metadata::Workspace>,
     /// In single-branch (ad-hoc) mode, set to the reference that should become the new tip after the
     /// reorder. This can be the subject when it moves above the current tip, or the branch now above
     /// it when the checked-out tip moves down. Materializing moves `HEAD` there only when the
@@ -28,7 +25,6 @@ pub struct Outcome<'ws, 'meta, M: RefMetadata> {
 pub(super) mod function {
 
     use but_core::RefMetadata;
-    use but_core::ref_metadata::StackId;
     use but_rebase::graph_rebase::mutate::SomeSelectors;
 
     use crate::graph_manipulation::DisconnectParameters;
@@ -55,14 +51,10 @@ pub(super) mod function {
     ///
     /// `subject_branch_name` - The branch to take out of a stack.
     ///
-    /// `stack_id_override` - Optionally, the ID to use for the newly created stack.
-    ///     Mainly used for testing purposes.
-    ///
     /// Returns the in memory update [outcome](Outcome) that can then used for materialisation.
     pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
         editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
-        stack_id_override: Option<StackId>,
     ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
         let mut successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
@@ -87,15 +79,12 @@ pub(super) mod function {
             WorkspaceKind::AdHoc => false,
         };
 
-        let mut ws_meta = workspace.metadata.clone();
-
         let (source_stack, subject_segment) = source;
 
         if source_stack.segments.len() == 1 {
             // There's only one branch in the source stack. Nothing to do.
             return Ok(Outcome {
                 rebase: editor.rebase()?,
-                ws_meta,
                 new_tip: None,
                 branch_stack_order: None,
             });
@@ -166,21 +155,8 @@ pub(super) mod function {
             )
         };
 
-        // Update the workspace meta in order to create a new stack containing the
-        // torn-off branch.
-        if let Some(ws_meta) = ws_meta.as_mut() {
-            ws_meta.remove_segment(subject_branch_name);
-            ws_meta.add_or_insert_new_stack_if_not_present(
-                subject_branch_name,
-                None,
-                but_core::ref_metadata::WorkspaceCommitRelation::Merged,
-                |_| stack_id_override.unwrap_or_else(StackId::generate),
-            );
-        };
-
         Ok(Outcome {
             rebase: editor.rebase()?,
-            ws_meta,
             new_tip: None,
             branch_stack_order,
         })
@@ -368,7 +344,6 @@ pub(super) mod function {
         if new_order == previous_order {
             return Ok(Outcome {
                 rebase: successful_rebase,
-                ws_meta: None,
                 new_tip,
                 branch_stack_order: Some(new_order),
             });
@@ -396,7 +371,6 @@ pub(super) mod function {
 
             return Ok(Outcome {
                 rebase: editor.rebase()?,
-                ws_meta: None,
                 new_tip,
                 branch_stack_order: Some(new_order),
             });
@@ -404,7 +378,6 @@ pub(super) mod function {
 
         Ok(Outcome {
             rebase: successful_rebase,
-            ws_meta: None,
             new_tip,
             branch_stack_order: Some(new_order),
         })
@@ -424,8 +397,6 @@ pub(super) mod function {
             bail!("Couldn't find workspace head.")
         };
 
-        let mut ws_meta = workspace.metadata.clone();
-
         let (source_lane, subject_segment) = source;
         if let Lane::Worktree(worktree) = anchor.lane
             && subject_segment.commits.is_empty()
@@ -435,23 +406,6 @@ pub(super) mod function {
                 subject_branch_name.shorten(),
                 worktree.name
             );
-        }
-        if matches!(
-            (source_lane, anchor.lane, &relative_to),
-            (Lane::Stack(_), Lane::Stack(_), RelativeTo::Reference(_))
-        ) && subject_segment.commits.is_empty()
-            && anchor.segment.commits.is_empty()
-            && ws_meta.is_some()
-        {
-            if let Some(ws_meta) = ws_meta.as_mut() {
-                move_branch_in_metadata(ws_meta, subject_branch_name, &anchor);
-            }
-            return Ok(Outcome {
-                rebase: successful_rebase,
-                ws_meta,
-                new_tip: None,
-                branch_stack_order: None,
-            });
         }
 
         let mut editor = successful_rebase.into_editor();
@@ -504,21 +458,8 @@ pub(super) mod function {
         }
         editor.insert_segment(target_selector, subject_delimiter, side)?;
 
-        // Keep workspace metadata aligned with the graph move outcome for all move cases.
-        // We remove the subject branch from its current location and reinsert it next to the anchor,
-        // unless it left for a worktree, which workspace metadata doesn't describe.
-        if let Some(ws_meta) = ws_meta.as_mut() {
-            match anchor.lane {
-                Lane::Stack(_) => move_branch_in_metadata(ws_meta, subject_branch_name, &anchor),
-                Lane::Worktree(_) => {
-                    ws_meta.remove_segment(subject_branch_name);
-                }
-            }
-        };
-
         Ok(Outcome {
             rebase: editor.rebase()?,
-            ws_meta,
             new_tip: None,
             branch_stack_order: None,
         })
@@ -660,37 +601,6 @@ pub(super) mod function {
             subject_branch_name.to_owned(),
         );
         order
-    }
-
-    fn move_branch_in_metadata(
-        ws_meta: &mut but_core::ref_metadata::Workspace,
-        subject_branch_name: &FullNameRef,
-        anchor: &Anchor<'_>,
-    ) {
-        ws_meta.remove_segment(subject_branch_name);
-        let inserted = anchor
-            .segment
-            .ref_name()
-            .and_then(|anchor_branch_name| match anchor.side {
-                InsertSide::Above => ws_meta.insert_new_segment_above_anchor_if_not_present(
-                    subject_branch_name,
-                    anchor_branch_name,
-                ),
-                InsertSide::Below => ws_meta.insert_new_segment_below_anchor_if_not_present(
-                    subject_branch_name,
-                    anchor_branch_name,
-                ),
-            });
-        if inserted.is_none() {
-            // If metadata doesn't know the anchor (stale metadata),
-            // keep the moved branch represented as a stack tip.
-            ws_meta.add_or_insert_new_stack_if_not_present(
-                subject_branch_name,
-                None,
-                but_core::ref_metadata::WorkspaceCommitRelation::Merged,
-                |_| StackId::generate(),
-            );
-        }
     }
 
     #[cfg(test)]
