@@ -79,3 +79,14 @@ export const Kinds = meta.story({
 		</div>
 	),
 });
+
+/** Checks with how far they got, as a pull request's tab shows them: 2 of 14 done, or failed. */
+export const CiProgress = meta.story({
+	render: () => (
+		<div style={{ display: "flex", gap: 12 }}>
+			<CiStatus status="working">CI 2/14</CiStatus>
+			<CiStatus status="failed">CI 2/14</CiStatus>
+			<CiStatus status="passed" />
+		</div>
+	),
+});

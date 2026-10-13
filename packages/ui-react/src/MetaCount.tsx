@@ -130,20 +130,28 @@ const ciLabel: Record<CiStatusType, string> = {
  * The state of a branch's pull request checks, as "CI" in amber while they run, green once they
  * pass and red if one fails. It sits in a row's meta beside the {@link MetaCount}s.
  *
+ * Its words are "CI" unless given others: where there is room, as a pull request's tab, how far
+ * the checks got, "CI 2/14".
+ *
  * @import import { CiStatus } from "@gitbutler/ui-react/MetaCount.tsx";
  */
 export const CiStatus: FC<{ status: CiStatusType } & ComponentProps<"span">> = ({
 	status,
+	children = "CI",
 	...props
 }) => (
 	<span
 		// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph and a word with one name, not a picture with a source.
 		role="img"
-		aria-label={ciLabel[status]}
+		aria-label={
+			typeof children === "string" && children !== "CI"
+				? `${ciLabel[status]}, ${children}`
+				: ciLabel[status]
+		}
 		{...props}
 		className={classes(props.className, "text-13", styles.count, styles[status])}
 	>
 		<Icon name={ciGlyph[status]} size={12} className={styles.glyph} />
-		<span className={styles.value}>CI</span>
+		<span className={styles.value}>{children}</span>
 	</span>
 );
