@@ -17,6 +17,7 @@ import {
 import {
 	AnthropicModelName,
 	ModelKind,
+	MessageRole,
 	OpenAIModelName,
 	type AIClient,
 	type Prompt,
@@ -390,6 +391,30 @@ describe("AIService", () => {
 			expect(
 				await aiService.summarizeCommit({ diffInput: exampleDiffs, useExtraConciseStyle: true }),
 			).toStrictEqual("one");
+		});
+
+		test("It substitutes %{branch_name} into a custom prompt", async () => {
+			const { aiService } = buildDefaultServices();
+
+			let capturedPrompt: Prompt | undefined;
+			const capturingClient: AIClient = {
+				defaultCommitTemplate: SHORT_DEFAULT_COMMIT_TEMPLATE,
+				defaultBranchTemplate: SHORT_DEFAULT_BRANCH_TEMPLATE,
+				defaultPRTemplate: SHORT_DEFAULT_PR_TEMPLATE,
+				async evaluate(prompt: Prompt): Promise<string> {
+					capturedPrompt = prompt;
+					return "a message";
+				},
+			};
+			vi.spyOn(aiService, "buildClient").mockReturnValue(Promise.resolve(capturingClient));
+
+			await aiService.summarizeCommit({
+				diffInput: exampleDiffs,
+				commitTemplate: [{ role: MessageRole.User, content: "on branch %{branch_name}" }],
+				branchName: "my-branch",
+			});
+
+			expect(capturedPrompt?.[0]?.content).toBe("on branch my-branch");
 		});
 	});
 
