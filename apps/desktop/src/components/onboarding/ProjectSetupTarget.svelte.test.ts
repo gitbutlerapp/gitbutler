@@ -1,11 +1,9 @@
 import ProjectSetupTarget from "$components/onboarding/ProjectSetupTarget.svelte";
 import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 import { POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import { writable } from "svelte/store";
 import { expect, test, vi } from "vitest";
 
 function renderTarget(
@@ -29,7 +27,6 @@ function renderTarget(
 				fetchProjects: vi.fn(),
 			},
 		],
-		[SETTINGS_SERVICE._key, { appSettings: writable(undefined) }],
 		[POSTHOG_WRAPPER._key, { captureOnboarding: vi.fn() }],
 	]);
 
@@ -44,6 +41,11 @@ function renderTarget(
 		context,
 	});
 }
+
+test("does not promise an automatic workspace checkout", () => {
+	renderTarget(vi.fn());
+	expect(screen.queryByText(/GitButler switches your active branch/)).not.toBeInTheDocument();
+});
 
 test("allows only one target submission while the request is pending", async () => {
 	let resolvePending!: () => void;

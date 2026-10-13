@@ -14,7 +14,7 @@ fn merge_in_edit_mode_is_refused_before_confirmation() {
         .failure()
         .stdout_eq(str![])
         .stderr_eq(str![[r#"
-Failed to merge branch. `but merge` requires the GitButler workspace or, in single-branch mode, a checked-out branch.
+Failed to merge branch. `but merge` requires the GitButler workspace or a checked-out branch.
 
 "#]]);
 }
@@ -34,7 +34,7 @@ fn merge_in_single_branch_mode_refuses_detached_head() {
         .failure()
         .stdout_eq(str![])
         .stderr_eq(str![[r#"
-Failed to merge branch. `but merge` requires the GitButler workspace or, in single-branch mode, a checked-out branch.
+Failed to merge branch. `but merge` requires the GitButler workspace or a checked-out branch.
 
 "#]]);
 

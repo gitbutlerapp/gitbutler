@@ -163,15 +163,11 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     db: &'meta mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
-    integrate_upstream_with_hints(workspace, meta, project_meta, repo, db, updates, &[], false)
+    integrate_upstream_with_hints(workspace, meta, project_meta, repo, db, updates, &[])
 }
 
 /// Like [`integrate_upstream()`], but accepts merged-review-derived integration
 /// anchors to classify additional integrated history.
-///
-/// With `single_branch_mode`, a managed workspace whose applied stacks were all integrated is
-/// replaced by a checked-out canned branch at the target tip. Otherwise the emptied managed
-/// workspace stays checked out, reparented onto the target.
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     workspace: &'ws mut but_graph::Workspace,
@@ -181,7 +177,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     db: &'meta mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
     review_hints: &[ReviewIntegrationHint],
-    single_branch_mode: bool,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
     if matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc)
         && workspace.ref_name().is_none()
@@ -474,10 +469,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     *parent_order,
                 )?;
             }
-            [] if !fully_integrated_workspace_parents.is_empty()
-                && stacks.len() > 1
-                && single_branch_mode =>
-            {
+            [] if !fully_integrated_workspace_parents.is_empty() && stacks.len() > 1 => {
                 // In single-branch mode a managed workspace must not become empty. Prefer the
                 // local target for its checkout, falling back to a uniquely named canned branch,
                 // just like a fully integrated direct checkout.

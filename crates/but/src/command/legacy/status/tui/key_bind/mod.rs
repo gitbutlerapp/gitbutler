@@ -81,11 +81,9 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
             }
             ModeDiscriminant::Branch => {
                 builder.branch_new().register();
-                if feature_flags.single_branch {
-                    builder.branch_new_and_switch().register();
-                    builder.branch_pick_and_switch().register();
-                    builder.branch_switch_to_selection().register();
-                }
+                builder.branch_new_and_switch().register();
+                builder.branch_pick_and_switch().register();
+                builder.branch_switch_to_selection().register();
                 builder.branch_toggle_insert_side().register();
                 builder.discard().register();
                 builder.mark().register();

@@ -5,27 +5,6 @@ use super::util::{
 use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
-fn switch_requires_single_branch_feature() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    env.setup_metadata(&["A", "B"]);
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
-    env.file("new.txt", "content\n");
-
-    env.but("commit --switch -b new-branch -m test")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: `--switch` requires the `single-branch` feature to be enabled
-
-Hint: Enable the feature with `but config feature single-branch enable`
-
-"#]]);
-}
-
-#[test]
 fn rejects_unnamed_segment_as_target() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
@@ -53,9 +32,6 @@ Hint: Name it with `but reword g0` first! Note that the short ID is likely to ch
 #[test]
 fn commits_a_dirty_file_on_a_new_branch_in_single_branch_mode() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
     env.file("ad-hoc.txt", "content\n");
 
     env.but("status --files")
@@ -151,9 +127,6 @@ Hint: run `but help` for all commands
 #[test]
 fn commits_on_the_checked_out_branch_in_single_branch_mode() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
     let old_head = env.invoke_git("rev-parse HEAD");
     env.file("existing.txt", "content\n");
 
@@ -225,9 +198,6 @@ Hint: run `but help` for all commands
 #[test]
 fn commits_at_each_branch_in_an_existing_single_branch_stack() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
 
     env.but("branch new middle").assert().success();
     env.but("commit --empty -b middle -m 'middle base'")

@@ -8,7 +8,6 @@ use but_api::open::program::ProgramSpec;
 use but_ctx::Context;
 use but_settings::AppSettingsWithDiskSync;
 use crossterm::event::{Event, MouseButton, MouseEventKind};
-use gitbutler_operating_modes::OperatingMode;
 use gix::refs::FullName;
 use ratatui::prelude::*;
 
@@ -86,7 +85,6 @@ const DETAILS_MAX_SIZE_PERCENTAGE: u16 = 90;
 pub fn render_tui(
     ctx: &mut Context,
     out: &mut InputOutputChannel<'_>,
-    operating_mode: OperatingMode,
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
     launch_options: TuiLaunchOptions,
@@ -107,7 +105,6 @@ pub fn render_tui(
         Vec::from([watcher_rx]),
         head_sha,
         Clipboard::live(),
-        operating_mode,
     )?;
 
     let messages = Vec::new();

@@ -152,10 +152,6 @@ pub fn in_single_branch_mode(ctx: &Context) -> anyhow::Result<bool> {
 
 #[cfg(feature = "legacy")]
 pub fn in_single_branch_mode_with_perm(ctx: &Context, perm: &RepoShared) -> anyhow::Result<bool> {
-    if !ctx.settings.feature_flags.single_branch {
-        return Ok(false);
-    }
-
     let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
 
     Ok(match &ws.kind {

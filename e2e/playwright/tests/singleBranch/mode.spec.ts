@@ -15,32 +15,11 @@ import { openWorkspace } from "../../src/setup.ts";
 import { test } from "../../src/test.ts";
 import { getByTestId, waitForTestId, waitForTestIdToNotExist } from "../../src/util.ts";
 
-test.describe("single-branch mode disabled", () => {
-	test("does not show the current-branch chip after leaving gitbutler/workspace", async ({
-		page,
-		gitbutler,
-	}) => {
-		await gitbutler.runScript("project-with-remote-branches.sh");
-		await openWorkspace(page);
-
-		const localClone = gitbutler.pathInWorkdir("local-clone");
-		await assertBranch("gitbutler/workspace", localClone);
-
-		await gitbutler.runScript("project-with-remote-branches__checkout-master.sh", ["local-clone"]);
-		await assertBranch("master", localClone);
-
-		await expect(getByTestId(page, "workspace-view")).toBeVisible();
-		await expect(getByTestId(page, "chrome-header-switch-back-to-workspace-button")).toBeVisible();
-		await expect(getByTestId(page, "chrome-header-current-branch")).toHaveCount(0);
-	});
-});
-
-test.describe("single-branch mode enabled", () => {
+test.describe("single-branch mode", () => {
 	test.use({
 		gitbutlerOptions: {
 			config: {
 				onboardingComplete: true,
-				featureFlags: { singleBranch: true },
 			},
 		},
 	});

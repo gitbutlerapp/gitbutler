@@ -240,13 +240,6 @@ pub fn r#move(
 
     let allow_merged = args.allow_merged;
     let switch = args.switch;
-    if switch && !ctx.settings.feature_flags.single_branch {
-        return Err(
-            bad_input("`--switch` requires the `single-branch` feature to be enabled")
-                .hint("Enable the feature with `but config feature single-branch enable`")
-                .into(),
-        );
-    }
     let move_op = resolve(ctx, &mut out, guard.write_permission(), args, &id_map)?;
     ensure_not_touching_merged_upstream(&move_op, &MergedUpstream::from_ctx(ctx, allow_merged)?)?;
 

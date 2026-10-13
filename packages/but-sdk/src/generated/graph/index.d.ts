@@ -1005,7 +1005,7 @@ export declare function installCliV2(cliPath: string, symlinkPolicy: ExistingSym
 export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:717}
+ * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:710}
  */
 export declare function listBranches(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
 
@@ -2902,8 +2902,6 @@ export type ExtraCsp = {
 };
 
 export type FeatureFlags = {
-  /** Enable single branch mode. */
-  singleBranch: boolean;
   /**
    * Control how the filesystem watch should be established.
    * Possible values: "auto", "legacy", "modern".
@@ -2922,7 +2920,6 @@ export type FeatureFlags = {
 
 /** Update request for [`crate::app_settings::FeatureFlags`]. */
 export type FeatureFlagsUpdate = {
-  singleBranch?: boolean | null;
   worktreeManipulation?: boolean | null;
 };
 

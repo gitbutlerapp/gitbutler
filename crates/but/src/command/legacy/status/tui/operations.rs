@@ -6,7 +6,6 @@
 
 use anyhow::Context as _;
 use but_ctx::Context;
-use gitbutler_operating_modes::OperatingMode;
 use gix::prelude::ObjectIdExt;
 
 use crate::{
@@ -32,7 +31,6 @@ pub fn head_sha(ctx: &mut Context) -> anyhow::Result<String> {
 pub fn reload_legacy(
     ctx: &mut Context,
     out: &mut dyn WriteWithUtils,
-    mode: &OperatingMode,
     flags: StatusFlags,
     options: TuiLaunchOptions,
 ) -> anyhow::Result<Vec<StatusOutputLine>> {
@@ -47,7 +45,6 @@ pub fn reload_legacy(
         guard.write_permission(),
         out,
         OutputFormat::Human { agent: false },
-        mode,
         flags,
         StatusRenderMode::Tui(options),
     )?;

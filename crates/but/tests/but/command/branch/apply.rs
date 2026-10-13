@@ -60,9 +60,6 @@ Hint: run `but help` for all commands
 #[test]
 fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
     env.but("branch new A").assert().success();
     env.but("branch new B --above A").assert().success();
     env.but("branch new C --above B").assert().success();
