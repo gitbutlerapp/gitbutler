@@ -1673,6 +1673,41 @@ mod single_branch_mode {
     }
 
     #[test]
+    fn head_stays_on_the_tip_when_the_persisted_order_is_stale() -> anyhow::Result<()> {
+        let (_tmp, repo, mut meta, project_meta, mut db) =
+            ad_hoc_workspace_with_three_non_empty_branches("C")?;
+        meta.set_branch_stack_order(&[
+            r("refs/heads/A").to_owned(),
+            r("refs/heads/B").to_owned(),
+            r("refs/heads/C").to_owned(),
+            r("refs/heads/main").to_owned(),
+        ])?;
+
+        move_branch_and_apply(
+            &repo,
+            &mut meta,
+            project_meta,
+            &mut db,
+            r("refs/heads/A"),
+            r("refs/heads/B"),
+        )?;
+
+        assert_head(&repo, "C");
+        // `C` is still on top of the reordered commits, whatever order was persisted before.
+        snapbox::assert_data_eq!(
+            normalized_graph_snapshot(&repo)?,
+            snapbox::str![[r#"
+* [C1] (HEAD -> C) add c
+* [C2] (A) add a
+* [C3] (B) add b
+* [C4] (main) add main
+"#]]
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn reorder_empty_branch_onto_commit_owning_base() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;

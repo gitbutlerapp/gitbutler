@@ -173,7 +173,7 @@ pub(super) mod function {
                 "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
             );
         };
-        let anchor = Anchor::resolve(&workspace, &relative_to, side)?;
+        let anchor = Anchor::resolve(&workspace, &relative_to)?;
         if anchor.segment.id == source.1.id {
             bail!("Cannot move branch {subject_branch_name} onto itself");
         }
@@ -183,7 +183,6 @@ pub(super) mod function {
         match &workspace.kind {
             WorkspaceKind::AdHoc => move_branch_in_single_branch_mode(
                 successful_rebase,
-                &workspace,
                 source,
                 anchor,
                 subject_branch_name,
@@ -210,7 +209,6 @@ pub(super) mod function {
     /// `HEAD` follows the top of the reordered stack, so the whole stack stays projected.
     fn move_branch_in_single_branch_mode<'ws, 'meta, M: RefMetadata>(
         mut successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
-        workspace: &but_graph::Workspace,
         source: SegmentInLane<'_>,
         anchor: Anchor<'_>,
         subject_branch_name: &FullNameRef,
@@ -224,57 +222,18 @@ pub(super) mod function {
                 "Moving a branch between a worktree and the workspace in single-branch mode is not yet supported"
             );
         };
-        let anchor_branch_name = anchor
-            .segment
-            .ref_name()
-            .context("Target segment doesn't have a ref")?;
-        let entrypoint = workspace.ref_name().map(ToOwned::to_owned);
         // A branch that owns commits can only be reordered within its current stack in
         // single-branch mode. Moving it across stacks would change commit ownership and needs a
         // real rebase.
         if !subject_segment.commits.is_empty() && !same_stack(source_stack, destination_stack) {
             bail!("Moving a non-empty branch in single-branch mode is not yet supported");
         }
-        let existing_order = {
-            let (_repo, meta) = successful_rebase.repo_and_meta_mut();
-            if !meta.can_persist_branch_stack_order() {
-                bail!(
-                    "Cannot reorder '{subject_branch_name}' in single-branch mode without branch order metadata"
-                );
-            }
-            // Reorder against the existing chain. A movable subject is always part of `branch_order`
-            // (that's what makes it a projected segment), so the first lookup normally succeeds. The
-            // target and entrypoint lookups are defensive fallbacks so that, should the projection ever
-            // surface a segment that isn't tracked yet, we extend the real chain instead of clobbering
-            // it down to just the moved refs.
-            match meta.branch_stack_order(subject_branch_name)? {
-                Some(order) => order,
-                None => match meta.branch_stack_order(anchor_branch_name)? {
-                    Some(order) => order,
-                    None => entrypoint
-                        .as_ref()
-                        .map(|entrypoint| meta.branch_stack_order(entrypoint.as_ref()))
-                        .transpose()?
-                        .flatten()
-                        .unwrap_or_else(|| stack_branch_order(source_stack)),
-                },
-            }
-        };
-        let new_order = reorder_branch_in_stack_order(
-            existing_order,
-            anchor_branch_name,
-            anchor.side,
-            subject_branch_name,
-        );
-
-        // Keep HEAD at the top of the reordered portion of the stack. This is the subject when it
-        // moves above the current entrypoint, or the branch that moves above the subject when the
-        // checked-out top branch moves down.
-        let new_tip = reordered_entrypoint(
-            entrypoint.as_ref().map(|name| name.as_ref()),
-            source_stack,
-            &new_order,
-        );
+        let (_repo, meta) = successful_rebase.repo_and_meta_mut();
+        if !meta.can_persist_branch_stack_order() {
+            bail!(
+                "Cannot reorder '{subject_branch_name}' in single-branch mode without branch order metadata"
+            );
+        }
 
         let mut editor = successful_rebase.into_editor();
         let target_selector = relative_to
@@ -293,11 +252,16 @@ pub(super) mod function {
             parents_to_disconnect,
             false,
         )?;
-        editor.insert_segment(target_selector, subject_delimiter, side)?;
-        if let Some(new_tip) = new_tip {
-            let new_tip = editor.select_reference(new_tip.as_ref())?;
-            editor.set_head_checkout(new_tip)?;
+        if is_tip_of(Lane::Stack(source_stack), subject_segment)
+            && let Some(branch_below) = source_stack
+                .segments
+                .get(1)
+                .and_then(|below| below.ref_name())
+        {
+            let branch_below = editor.select_reference(branch_below)?;
+            editor.set_head_checkout(branch_below)?;
         }
+        editor.insert_segment(target_selector, subject_delimiter, side)?;
 
         editor.rebase()
     }
@@ -389,48 +353,30 @@ pub(super) mod function {
             .is_some_and(|tip| tip.id == segment.id)
     }
 
-    /// The segment a moved branch is placed next to, and the side of it the branch ends up on
-    /// among the segments of its lane.
-    ///
-    /// On either side of a commit, the branch sits below what remains of that commit's segment.
+    /// The segment a moved branch is placed next to, and the lane holding it.
     struct Anchor<'a> {
         lane: Lane<'a>,
         segment: &'a StackSegment,
-        side: InsertSide,
     }
 
     impl<'a> Anchor<'a> {
         fn resolve(
             workspace: &'a but_graph::Workspace,
             relative_to: &RelativeTo,
-            side: InsertSide,
         ) -> anyhow::Result<Self> {
-            match relative_to {
-                RelativeTo::Reference(name) => {
-                    let (lane, segment) = workspace
-                        .find_segment_and_lane_by_refname(name.as_ref())
-                        .with_context(|| {
-                            format!(
-                                "Couldn't find target branch to move in workspace with reference name: {name}"
-                            )
-                        })?;
-                    Ok(Anchor {
-                        lane,
-                        segment,
-                        side,
-                    })
-                }
-                RelativeTo::Commit(id) => {
-                    let (lane, segment) = workspace
-                        .find_segment_and_lane_by_commit_id(*id)
-                        .with_context(|| format!("Commit {id} isn't part of the workspace"))?;
-                    Ok(Anchor {
-                        lane,
-                        segment,
-                        side: InsertSide::Below,
-                    })
-                }
-            }
+            let (lane, segment) = match relative_to {
+                RelativeTo::Reference(name) => workspace
+                    .find_segment_and_lane_by_refname(name.as_ref())
+                    .with_context(|| {
+                        format!(
+                            "Couldn't find target branch to move in workspace with reference name: {name}"
+                        )
+                    })?,
+                RelativeTo::Commit(id) => workspace
+                    .find_segment_and_lane_by_commit_id(*id)
+                    .with_context(|| format!("Commit {id} isn't part of the workspace"))?,
+            };
+            Ok(Anchor { lane, segment })
         }
     }
 
@@ -457,148 +403,5 @@ pub(super) mod function {
                 .iter()
                 .zip(&right.segments)
                 .all(|(left, right)| left.id == right.id)
-    }
-
-    fn stack_branch_order(stack: &but_graph::workspace::Stack) -> Vec<gix::refs::FullName> {
-        stack
-            .segments
-            .iter()
-            .filter_map(|segment| segment.ref_name().map(ToOwned::to_owned))
-            .collect()
-    }
-
-    fn reordered_entrypoint(
-        entrypoint: Option<&FullNameRef>,
-        stack: &but_graph::workspace::Stack,
-        new_order: &[gix::refs::FullName],
-    ) -> Option<gix::refs::FullName> {
-        let entrypoint = entrypoint?;
-        let new_entrypoint = new_order.iter().find(|candidate| {
-            stack
-                .segments
-                .iter()
-                .any(|segment| segment.ref_name() == Some(candidate.as_ref()))
-        })?;
-        (new_entrypoint.as_ref() != entrypoint).then(|| new_entrypoint.clone())
-    }
-
-    /// Reorder `subject` to sit directly on `side` of `target` in the tip-to-base ad-hoc `order`.
-    ///
-    /// Mirrors `create_reference`'s `insert_into_branch_stack_order`: `subject` is removed and
-    /// re-inserted at `target`'s slot, pushing `target` (and everything below it) down, or right
-    /// after it.
-    ///
-    /// If `target` isn't tracked yet (stale or empty metadata) it is appended first, so that a move
-    /// where *both* branches are missing adds them both - `subject` next to `target` - instead of
-    /// silently clobbering the rest of the ordering down to just `subject`.
-    fn reorder_branch_in_stack_order(
-        mut order: Vec<gix::refs::FullName>,
-        target_branch_name: &FullNameRef,
-        side: InsertSide,
-        subject_branch_name: &FullNameRef,
-    ) -> Vec<gix::refs::FullName> {
-        order.retain(|branch| branch.as_ref() != subject_branch_name);
-        let target_idx = match order
-            .iter()
-            .position(|branch| branch.as_ref() == target_branch_name)
-        {
-            Some(idx) => idx,
-            None => {
-                order.push(target_branch_name.to_owned());
-                order.len() - 1
-            }
-        };
-        order.insert(
-            match side {
-                InsertSide::Above => target_idx,
-                InsertSide::Below => target_idx + 1,
-            },
-            subject_branch_name.to_owned(),
-        );
-        order
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::{InsertSide, reorder_branch_in_stack_order};
-
-        fn r(name: &str) -> gix::refs::FullName {
-            gix::refs::FullName::try_from(name).expect("valid ref name")
-        }
-
-        fn names(order: &[gix::refs::FullName]) -> Vec<String> {
-            order.iter().map(|n| n.to_string()).collect()
-        }
-
-        #[test]
-        fn moves_subject_on_top_of_target_when_both_present() {
-            let order = vec![r("refs/heads/main"), r("refs/heads/a"), r("refs/heads/b")];
-            let new = reorder_branch_in_stack_order(
-                order,
-                r("refs/heads/main").as_ref(),
-                InsertSide::Above,
-                r("refs/heads/b").as_ref(),
-            );
-            // `b` moves directly above `main`, `a` shifts down.
-            assert_eq!(
-                names(&new),
-                ["refs/heads/b", "refs/heads/main", "refs/heads/a"]
-            );
-        }
-
-        #[test]
-        fn moves_subject_right_below_target() {
-            let order = vec![r("refs/heads/a"), r("refs/heads/b"), r("refs/heads/main")];
-            let new = reorder_branch_in_stack_order(
-                order,
-                r("refs/heads/b").as_ref(),
-                InsertSide::Below,
-                r("refs/heads/a").as_ref(),
-            );
-            assert_eq!(
-                names(&new),
-                ["refs/heads/b", "refs/heads/a", "refs/heads/main"]
-            );
-        }
-
-        #[test]
-        fn adds_subject_above_target_when_only_target_is_present() {
-            let order = vec![r("refs/heads/main")];
-            let new = reorder_branch_in_stack_order(
-                order,
-                r("refs/heads/main").as_ref(),
-                InsertSide::Above,
-                r("refs/heads/new").as_ref(),
-            );
-            assert_eq!(names(&new), ["refs/heads/new", "refs/heads/main"]);
-        }
-
-        #[test]
-        fn adds_both_in_order_when_neither_is_present() {
-            // Stale/empty metadata: neither branch is tracked yet. Both are added, subject on top of
-            // target, without dropping any pre-existing ordering.
-            let order = vec![r("refs/heads/main")];
-            let new = reorder_branch_in_stack_order(
-                order,
-                r("refs/heads/target").as_ref(),
-                InsertSide::Above,
-                r("refs/heads/subject").as_ref(),
-            );
-            assert_eq!(
-                names(&new),
-                ["refs/heads/main", "refs/heads/subject", "refs/heads/target"]
-            );
-        }
-
-        #[test]
-        fn adds_both_in_order_from_empty_metadata() {
-            let new = reorder_branch_in_stack_order(
-                Vec::new(),
-                r("refs/heads/target").as_ref(),
-                InsertSide::Above,
-                r("refs/heads/subject").as_ref(),
-            );
-            assert_eq!(names(&new), ["refs/heads/subject", "refs/heads/target"]);
-        }
     }
 }
