@@ -185,21 +185,18 @@ impl TuiLaunchOptions {
         args
     }
 
-    #[cfg(feature = "tui-profiling")]
+    #[cfg(any(feature = "nightly", feature = "tui-profiling"))]
     fn resolve_dev_flags(&mut self, flags: args::tui::DevFlags) {
-        let args::tui::DevFlags {
-            debug,
-            quit_after,
-            headless,
-            skip_status_after,
-        } = flags;
-        self.debug = debug;
-        self.quit_after = quit_after;
-        self.headless = headless;
-        self.skip_status_after = skip_status_after;
+        self.quit_after = flags.quit_after;
+        #[cfg(feature = "tui-profiling")]
+        {
+            self.debug = flags.debug;
+            self.headless = flags.headless;
+            self.skip_status_after = flags.skip_status_after;
+        }
     }
 
-    #[cfg(not(feature = "tui-profiling"))]
+    #[cfg(not(any(feature = "nightly", feature = "tui-profiling")))]
     fn resolve_dev_flags(&mut self, _: args::tui::DevFlags) {}
 }
 
