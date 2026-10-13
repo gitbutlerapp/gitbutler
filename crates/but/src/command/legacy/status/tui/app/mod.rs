@@ -242,6 +242,10 @@ impl Tui for App {
                 break;
             }
             for msg in messages.drain(..) {
+                // Fatal startup errors must bypass recoverable message error handling.
+                if let Message::FatalError(err) = msg {
+                    return Err(err);
+                }
                 if matches!(msg, Message::Reload(..)) {
                     if did_reload && cfg!(feature = "tui-profiling") && !cfg!(test) {
                         self.toasts
@@ -665,6 +669,7 @@ impl App {
             Message::Reload(select_after_reload, cause) => {
                 self.handle_reload(ctx, out, select_after_reload, cause)?
             }
+            Message::FatalError(err) => messages.push(Message::FatalError(err)),
             Message::ShowError(err) => self.handle_show_error(err, messages),
             Message::Commit(commit_message) => {
                 self.handle_commit(commit_message, ctx, terminal_guard, messages)?
