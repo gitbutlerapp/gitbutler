@@ -4234,7 +4234,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
     let ws = Graph::from_head(
         &repo,
         &meta,
-        ref_metadata::ProjectMeta::default(),
+        project_meta(&repo)?,
         &mut db,
         standard_traversal_options(),
     )?
