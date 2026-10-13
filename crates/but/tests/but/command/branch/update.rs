@@ -179,6 +179,43 @@ Updated branch A.
 }
 
 #[test]
+fn integrate_remote_merge_brings_its_merged_files_into_the_worktree() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-remote-merge");
+
+    env.but("branch update A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Updated branch A.
+
+"#]]);
+
+    // `A` was only behind `origin/A`, so it now points at the remote merge itself.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   f444733 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| *   15e2a6d (origin/A, A) Merge feat into A
+| |\  
+| | * 20c2b59 (origin/feat) add guard
+| |/  
+| * 4f93c21 add lane
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+    assert!(
+        env.projects_root().join("guard").is_file(),
+        "the file brought in by the remote merge is checked out"
+    );
+}
+
+#[test]
 fn integrate_smart_squash_applies_matching_change_ids() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-smart-squash");
