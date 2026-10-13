@@ -137,31 +137,85 @@ fn ci_checks_for_ref(
             // Clone owned data for thread
             let project_id = but_gitlab::GitLabProjectId::new(owner, repo);
             let storage = storage.clone();
-            let reference = reference.to_string();
-            let reference_for_checks = reference.clone();
+            let branch = reference.to_string();
+            let reference_for_checks = branch.clone();
 
-            let pipelines = std::thread::spawn(move || -> anyhow::Result<_> {
+            let checks = std::thread::spawn(move || -> anyhow::Result<Option<Vec<CiCheck>>> {
                 let runtime = tokio::runtime::Runtime::new()
                     .map_err(|err| anyhow::anyhow!("Failed to create tokio runtime: {err}"))?;
-                runtime.block_on(but_gitlab::checks::list_pipeline_jobs_for_ref(
-                    preferred_account.as_ref(),
-                    project_id,
-                    &reference,
-                    &storage,
-                ))
+                let (lookup, failed_jobs) =
+                    runtime.block_on(but_gitlab::checks::latest_pipeline_for_branch(
+                        preferred_account.as_ref(),
+                        project_id,
+                        &branch,
+                        &storage,
+                    ))?;
+                Ok({
+                    let pipeline = match lookup {
+                        but_gitlab::PipelineLookup::Unresolved => return Ok(None),
+                        but_gitlab::PipelineLookup::Resolved(None) => return Ok(Some(Vec::new())),
+                        but_gitlab::PipelineLookup::Resolved(Some(pipeline)) => pipeline,
+                    };
+
+                    // Once a blocking job names the failure, the pipeline check must not repeat
+                    // it; it stays failing only when nothing else can carry it, such as a
+                    // failure inside a child pipeline the jobs endpoint does not return.
+                    let named = failed_jobs.iter().any(|job| !job.allow_failure);
+                    let mut pipeline_check = CiCheck::from(&pipeline);
+                    if named
+                        && let CiStatus::Complete {
+                            conclusion: conclusion @ CiConclusion::Failure,
+                            ..
+                        } = &mut pipeline_check.status
+                    {
+                        *conclusion = CiConclusion::Neutral;
+                    }
+
+                    let mut checks = vec![pipeline_check];
+                    checks.extend(failed_jobs.into_iter().map(|job| {
+                        let completed_at = parse_gitlab_timestamp(job.finished_at.as_deref());
+                        let conclusion = if job.allow_failure {
+                            CiConclusion::Neutral
+                        } else {
+                            CiConclusion::Failure
+                        };
+                        let url = job
+                            .web_url
+                            .or_else(|| pipeline.web_url.clone())
+                            .unwrap_or_default();
+                        CiCheck {
+                            id: job.id,
+                            name: job.name,
+                            output: CiOutput::default(),
+                            started_at: parse_gitlab_timestamp(job.started_at.as_deref()),
+                            status: CiStatus::Complete {
+                                conclusion,
+                                completed_at,
+                            },
+                            head_sha: pipeline.sha.clone(),
+                            url: url.clone(),
+                            html_url: url.clone(),
+                            details_url: url,
+                            pull_requests: Vec::new(),
+                            reference: String::new(),
+                            last_sync_at: chrono::Local::now().naive_local(),
+                        }
+                    }));
+                    Some(checks)
+                })
             })
             .join()
             .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
-            Ok(Some(
-                pipelines
+
+            Ok(checks.map(|checks| {
+                checks
                     .into_iter()
-                    .map(|pipeline| {
-                        let mut ci_check = CiCheck::from(pipeline);
-                        ci_check.reference = reference_for_checks.to_string();
-                        ci_check
+                    .map(|mut check| {
+                        check.reference = reference_for_checks.clone();
+                        check
                     })
-                    .collect(),
-            ))
+                    .collect()
+            }))
         }
         ForgeName::Bitbucket => {
             let preferred_account = preferred_forge_user
@@ -206,6 +260,11 @@ fn ci_checks_for_ref(
     }
 }
 
+fn parse_gitlab_timestamp(value: Option<&str>) -> Option<chrono::DateTime<chrono::Utc>> {
+    value
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&chrono::Utc))
+}
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
@@ -297,31 +356,22 @@ pub struct PullRequestMinimal {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(PullRequestMinimal);
 
-impl From<but_gitlab::GitLabPipelineJob> for CiCheck {
-    fn from(job: but_gitlab::GitLabPipelineJob) -> Self {
-        let started_at = job
-            .started_at
-            .as_deref()
-            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-            .map(|dt| dt.with_timezone(&chrono::Utc));
-
-        let completed_at = job
-            .finished_at
-            .as_deref()
-            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-            .map(|dt| dt.with_timezone(&chrono::Utc));
-
-        let status = match job.status.as_str() {
+/// The pipeline-level check that carries a GitLab branch's aggregate CI state.
+///
+/// GitLab computes this status across every job and child pipeline and already
+/// discounts allowed failures, so it is more faithful than re-deriving an
+/// aggregate from a job list — and it is correct for pipelines whose real work
+/// happens in child pipelines, whose jobs the jobs endpoint does not return.
+impl From<&but_gitlab::GitLabPipeline> for CiCheck {
+    fn from(pipeline: &but_gitlab::GitLabPipeline) -> Self {
+        let completed_at = parse_gitlab_timestamp(pipeline.updated_at.as_deref());
+        let status = match pipeline.status.as_str() {
             "success" => CiStatus::Complete {
                 conclusion: CiConclusion::Success,
                 completed_at,
             },
             "failed" => CiStatus::Complete {
-                conclusion: if job.allow_failure {
-                    CiConclusion::Neutral
-                } else {
-                    CiConclusion::Failure
-                },
+                conclusion: CiConclusion::Failure,
                 completed_at,
             },
             "canceled" => CiStatus::Complete {
@@ -333,11 +383,7 @@ impl From<but_gitlab::GitLabPipelineJob> for CiCheck {
                 completed_at,
             },
             "manual" => CiStatus::Complete {
-                conclusion: if job.allow_failure {
-                    CiConclusion::Neutral
-                } else {
-                    CiConclusion::ActionRequired
-                },
+                conclusion: CiConclusion::ActionRequired,
                 completed_at,
             },
             "running" | "canceling" => CiStatus::InProgress,
@@ -350,23 +396,18 @@ impl From<but_gitlab::GitLabPipelineJob> for CiCheck {
             _ => CiStatus::Unknown,
         };
 
-        let job_url = job.web_url.clone().unwrap_or_default();
-        let pipeline_url = job
-            .pipeline
-            .web_url
-            .clone()
-            .unwrap_or_else(|| job_url.clone());
+        let url = pipeline.web_url.clone().unwrap_or_default();
 
         CiCheck {
-            id: job.id,
-            name: job.name,
+            id: pipeline.id,
+            name: format!("Pipeline #{}", pipeline.id),
             output: CiOutput::default(),
-            started_at,
+            started_at: parse_gitlab_timestamp(pipeline.created_at.as_deref()),
             status,
-            head_sha: String::new(),
-            url: job_url.clone(),
-            html_url: job_url.clone(),
-            details_url: pipeline_url,
+            head_sha: pipeline.sha.clone(),
+            url: url.clone(),
+            html_url: url.clone(),
+            details_url: url,
             pull_requests: Vec::new(),
             reference: String::new(),
             last_sync_at: chrono::Local::now().naive_local(),
@@ -490,6 +531,66 @@ impl From<but_bitbucket::BitbucketBuildStatus> for CiCheck {
 mod tests {
     use super::{CiCheck, CiConclusion, CiOutput, CiStatus, refresh_cache_with_fetched};
 
+    fn parse_gitlab_timestamp(value: Option<&str>) -> Option<chrono::DateTime<chrono::Utc>> {
+        value
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+    }
+
+    fn checks_from_lookup(
+        lookup: but_gitlab::PipelineLookup,
+        failed_jobs: Vec<but_gitlab::GitLabPipelineJob>,
+    ) -> Option<Vec<CiCheck>> {
+        let pipeline = match lookup {
+            but_gitlab::PipelineLookup::Unresolved => return None,
+            but_gitlab::PipelineLookup::Resolved(None) => return Some(Vec::new()),
+            but_gitlab::PipelineLookup::Resolved(Some(pipeline)) => pipeline,
+        };
+
+        let named = failed_jobs.iter().any(|job| !job.allow_failure);
+        let mut pipeline_check = CiCheck::from(&pipeline);
+        if named
+            && let CiStatus::Complete {
+                conclusion: conclusion @ CiConclusion::Failure,
+                ..
+            } = &mut pipeline_check.status
+        {
+            *conclusion = CiConclusion::Neutral;
+        }
+
+        let mut checks = vec![pipeline_check];
+        checks.extend(failed_jobs.into_iter().map(|job| {
+            let completed_at = parse_gitlab_timestamp(job.finished_at.as_deref());
+            let conclusion = if job.allow_failure {
+                CiConclusion::Neutral
+            } else {
+                CiConclusion::Failure
+            };
+            let url = job
+                .web_url
+                .or_else(|| pipeline.web_url.clone())
+                .unwrap_or_default();
+            CiCheck {
+                id: job.id,
+                name: job.name,
+                output: CiOutput::default(),
+                started_at: parse_gitlab_timestamp(job.started_at.as_deref()),
+                status: CiStatus::Complete {
+                    conclusion,
+                    completed_at,
+                },
+                head_sha: pipeline.sha.clone(),
+                url: url.clone(),
+                html_url: url.clone(),
+                details_url: url,
+                pull_requests: Vec::new(),
+                reference: String::new(),
+                last_sync_at: chrono::Local::now().naive_local(),
+            }
+        }));
+        Some(checks)
+    }
+
     const REFERENCE: &str = "refs/heads/feature";
 
     fn cache_check(id: i64) -> CiCheck {
@@ -573,80 +674,187 @@ mod tests {
         );
     }
 
-    fn job(status: &str, web_url: Option<&str>) -> but_gitlab::GitLabPipelineJob {
+    fn pipeline(status: &str) -> but_gitlab::GitLabPipeline {
+        but_gitlab::GitLabPipeline {
+            id: 7,
+            sha: "deadbeef".into(),
+            status: status.into(),
+            created_at: Some("2026-05-01T12:00:00Z".into()),
+            updated_at: Some("2026-05-01T12:05:00Z".into()),
+            web_url: Some("https://gitlab.example/-/pipelines/7".into()),
+        }
+    }
+
+    fn job(allow_failure: bool) -> but_gitlab::GitLabPipelineJob {
         but_gitlab::GitLabPipelineJob {
             id: 42,
-            name: "job".into(),
-            status: status.into(),
-            allow_failure: false,
+            name: "rspec".into(),
+            allow_failure,
             started_at: Some("2026-05-01T12:00:00Z".into()),
             finished_at: Some("2026-05-01T12:05:00Z".into()),
-            web_url: web_url.map(str::to_owned),
-            pipeline: but_gitlab::GitLabPipelineRef {
-                id: 7,
-                web_url: None,
-                status: None,
-            },
+            web_url: None,
         }
     }
 
     #[test]
-    fn maps_manual_jobs_to_action_required_complete_status() {
-        let check = CiCheck::from(job("manual", Some("https://example.com/job")));
+    fn maps_every_gitlab_pipeline_status() {
+        let conclusion_of = |status: &str| match CiCheck::from(&pipeline(status)).status {
+            CiStatus::Complete { conclusion, .. } => format!("{conclusion:?}"),
+            other => format!("{other:?}"),
+        };
 
-        assert!(matches!(
-            check.status,
-            CiStatus::Complete {
-                conclusion: CiConclusion::ActionRequired,
-                ..
-            }
-        ));
+        assert_eq!(
+            conclusion_of("success"),
+            "Success",
+            "a green pipeline passes"
+        );
+        assert_eq!(conclusion_of("failed"), "Failure", "a red pipeline fails");
+        assert_eq!(
+            conclusion_of("canceled"),
+            "Cancelled",
+            "a cancelled pipeline is finished, not failed"
+        );
+        assert_eq!(
+            conclusion_of("skipped"),
+            "Skipped",
+            "a skipped pipeline ran nothing to judge"
+        );
+        assert_eq!(
+            conclusion_of("manual"),
+            "ActionRequired",
+            "only a blocked pipeline is manual"
+        );
+        for running in ["running", "canceling"] {
+            assert_eq!(
+                conclusion_of(running),
+                "InProgress",
+                "{running} has not settled"
+            );
+        }
+        for queued in [
+            "created",
+            "pending",
+            "preparing",
+            "scheduled",
+            "waiting_for_resource",
+            "waiting_for_callback",
+        ] {
+            assert_eq!(conclusion_of(queued), "Queued", "{queued} has not started");
+        }
+        assert_eq!(
+            conclusion_of("something-new"),
+            "Unknown",
+            "an unrecognised status must not be guessed into a verdict"
+        );
     }
 
     #[test]
-    fn maps_allowed_failure_jobs_to_neutral_complete_status() {
-        let mut job = job("failed", Some("https://example.com/job"));
-        job.allow_failure = true;
+    fn pipeline_check_links_to_the_pipeline() {
+        let check = CiCheck::from(&pipeline("success"));
 
-        let check = CiCheck::from(job);
-
-        assert!(matches!(
-            check.status,
-            CiStatus::Complete {
-                conclusion: CiConclusion::Neutral,
-                ..
-            }
-        ));
+        assert_eq!(
+            check.details_url, "https://gitlab.example/-/pipelines/7",
+            "clicking the badge opens the pipeline"
+        );
     }
 
     #[test]
-    fn maps_optional_manual_jobs_to_neutral_complete_status() {
-        let mut job = job("manual", Some("https://example.com/job"));
-        job.allow_failure = true;
+    fn unresolved_lookup_preserves_the_cache() {
+        let checks = checks_from_lookup(but_gitlab::PipelineLookup::Unresolved, Vec::new());
 
-        let check = CiCheck::from(job);
-
-        assert!(matches!(
-            check.status,
-            CiStatus::Complete {
-                conclusion: CiConclusion::Neutral,
-                ..
-            }
-        ));
+        assert!(
+            checks.is_none(),
+            "an unresolved branch must not clear the checks cache"
+        );
     }
 
     #[test]
-    fn maps_canceling_jobs_to_in_progress_status() {
-        let check = CiCheck::from(job("canceling", Some("https://example.com/job")));
+    fn resolved_lookup_with_no_pipeline_clears_the_cache() {
+        let checks = checks_from_lookup(but_gitlab::PipelineLookup::Resolved(None), Vec::new());
 
-        assert!(matches!(check.status, CiStatus::InProgress));
+        assert!(
+            checks.is_some_and(|checks| checks.is_empty()),
+            "a branch that resolved with no pipeline authoritatively has no checks"
+        );
     }
 
     #[test]
-    fn maps_waiting_for_callback_jobs_to_queued_status() {
-        let check = CiCheck::from(job("waiting_for_callback", Some("https://example.com/job")));
+    fn green_pipeline_produces_one_passing_check() {
+        let checks = checks_from_lookup(
+            but_gitlab::PipelineLookup::Resolved(Some(pipeline("success"))),
+            Vec::new(),
+        )
+        .expect("a resolved pipeline produces checks");
 
-        assert!(matches!(check.status, CiStatus::Queued));
+        assert_eq!(
+            checks.len(),
+            1,
+            "a green pipeline needs no job-level detail"
+        );
+        assert!(
+            matches!(
+                checks[0].status,
+                CiStatus::Complete {
+                    conclusion: CiConclusion::Success,
+                    ..
+                }
+            ),
+            "the pipeline check carries the aggregate"
+        );
+    }
+
+    #[test]
+    fn failed_pipeline_names_its_failed_jobs() {
+        let checks = checks_from_lookup(
+            but_gitlab::PipelineLookup::Resolved(Some(pipeline("failed"))),
+            vec![job(false)],
+        )
+        .expect("a resolved pipeline produces checks");
+
+        assert_eq!(checks.len(), 2, "the pipeline check plus the named job");
+        assert!(
+            matches!(
+                checks[0].status,
+                CiStatus::Complete {
+                    conclusion: CiConclusion::Neutral,
+                    ..
+                }
+            ),
+            "the named job owns the failure, so the aggregate must not repeat it"
+        );
+        assert_eq!(
+            checks[1].name, "rspec",
+            "the failed job is named for the UI"
+        );
+        assert_eq!(
+            checks[1].head_sha, "deadbeef",
+            "job checks inherit the pipeline commit"
+        );
+    }
+
+    #[test]
+    fn failed_pipeline_keeps_the_failure_when_no_job_names_it() {
+        // A failure inside a child pipeline leaves nothing for `/jobs` to
+        // return, and an allowed failure is neutral -- in both cases the
+        // aggregate is the only thing that can report the failure.
+        for jobs in [Vec::new(), vec![job(true)]] {
+            let checks = checks_from_lookup(
+                but_gitlab::PipelineLookup::Resolved(Some(pipeline("failed"))),
+                jobs,
+            )
+            .expect("a resolved pipeline produces checks");
+
+            assert!(
+                matches!(
+                    checks[0].status,
+                    CiStatus::Complete {
+                        conclusion: CiConclusion::Failure,
+                        ..
+                    }
+                ),
+                "the aggregate must keep the failure when nothing else carries it"
+            );
+        }
     }
 
     fn bb_status(state: &str) -> but_bitbucket::BitbucketBuildStatus {
