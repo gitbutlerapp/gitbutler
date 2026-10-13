@@ -1,13 +1,9 @@
-import { useMergeReadiness } from "#ui/pr.ts";
 import {
 	type PushBeforePublish,
 	useAddReviewReaction,
 	useGeneratePrDescription,
-	useMergeReview,
 	usePublishReview,
 	useRemoveReviewReaction,
-	useSetReviewAutoMerge,
-	useSetReviewDraftiness,
 	useUpdateReview,
 	useWorkspaceBranchAndAncestorsPush,
 } from "#ui/api/mutations.ts";
@@ -26,7 +22,6 @@ import {
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Clamped } from "#ui/components/Clamped.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
-import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
 import { FieldControlStyles, FieldRootStyles } from "@gitbutler/ui-react/Field.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Markdown } from "#ui/components/Markdown.tsx";
@@ -40,21 +35,10 @@ import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { pullRequestHotkeys } from "#ui/hotkeys.ts";
 import { prDescriptionGenerationButtonState } from "#ui/pr-description-generation.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
-import {
-	nativeMenuItem,
-	nativeMenuItemsFromGroups,
-	showNativeMenuFromTrigger,
-} from "#ui/native-menu.ts";
-import {
-	draftPRQueryOptions,
-	mergeMethodQueryOptions,
-	useDeleteDraftPR,
-	usePersistDraftPR,
-	usePersistMergeMethod,
-} from "#ui/pr.ts";
+import { draftPRQueryOptions, useDeleteDraftPR, usePersistDraftPR } from "#ui/pr.ts";
 import { type FocusScope, useAutofocusScope } from "#ui/focus-scopes.ts";
 import { Field } from "@base-ui/react";
-import type { ForgeReview, ReviewMergeMethod } from "@gitbutler/but-sdk";
+import type { ForgeReview } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -77,8 +61,6 @@ import styles from "./PullRequestForm.module.css";
  *   branches without a PR yet)
  * - {@link PullRequestDescription} — the rendered title/body view that
  *   flips into the form when edit mode is on
- * - {@link PullRequestPrimaryAction} — the Edit/auto-merge/Merge button
- *   row; note it mounts in the details *header*, not the tab body
  *
  * `BranchDetails` (Details.tsx) owns the tab switching and edit-mode state
  * and composes these with `PullRequestPanel` and `PullRequestComments`.
@@ -665,160 +647,6 @@ export const PullRequestDescription: FC<{
 					onToggle={toggleReaction}
 				/>
 			)}
-		</div>
-	);
-};
-
-/** The choice persists per project (see mergeMethodQueryOptions). */
-const mergeMethods = [
-	"merge",
-	"squash",
-	"rebase",
-] as const satisfies ReadonlyArray<ReviewMergeMethod>;
-
-const mergeMethodLabels: Record<ReviewMergeMethod, string> = {
-	merge: "Merge",
-	squash: "Squash and merge",
-	rebase: "Rebase and merge",
-};
-
-/**
- * Edit / auto-merge / merge-with-method / overflow actions. Draft toggling
- * and closing live in the overflow menu.
- * Rendered in the details header row (next to the Diff|PR tab toggle),
- * only while the PR tab is showing.
- */
-export const PullRequestPrimaryAction: FC<{
-	projectId: string;
-	review: ForgeReview;
-	isEditing: boolean;
-	onStartEdit: () => void;
-}> = ({ projectId, review, isEditing, onStartEdit }) => {
-	const { number: reviewId, draft: isDraft, autoMergeEnabled } = review;
-	// A merged review is closed too, so merge wins when both timestamps are set.
-	const isMerged = review.mergedAt !== null;
-	const isClosed = !isMerged && review.closedAt !== null;
-
-	const readiness = useMergeReadiness(projectId, review);
-	const { data: storedMergeMethod } = useQuery(mergeMethodQueryOptions(projectId));
-	const mergeMethod = storedMergeMethod ?? "merge";
-	const { mutate: persistMergeMethod } = usePersistMergeMethod();
-
-	const { isPending: isUpdateReviewPending, mutate: updateReview } = useUpdateReview(projectId);
-	const { isPending: isMergeReviewPending, mutate: mergeReview } = useMergeReview(projectId);
-	const { isPending: isSetReviewDraftinessPending, mutate: setReviewDraftiness } =
-		useSetReviewDraftiness(projectId);
-	const { isPending: isSetReviewAutoMergePending, mutate: setReviewAutoMerge } =
-		useSetReviewAutoMerge(projectId);
-
-	const isAnyPending =
-		isUpdateReviewPending ||
-		isMergeReviewPending ||
-		isSetReviewDraftinessPending ||
-		isSetReviewAutoMergePending;
-
-	const blockedReason = readiness.blocker;
-
-	// A merged review can be neither drafted nor reopened, so its menu is the
-	// browser link alone; `nativeMenuItemsFromGroups` would otherwise trail a
-	// separator after an empty group.
-	const stateItems = isMerged
-		? []
-		: [
-				...(isClosed
-					? []
-					: [
-							nativeMenuItem({
-								label: isDraft ? "Mark as ready for review" : "Convert to draft",
-								onSelect: () => setReviewDraftiness({ projectId, reviewId, draft: !isDraft }),
-							}),
-						]),
-				nativeMenuItem({
-					label: isClosed ? "Reopen pull request" : "Close pull request",
-					onSelect: () =>
-						updateReview({
-							projectId,
-							reviewId,
-							state: isClosed ? "open" : "closed",
-							title: null,
-							body: null,
-							targetBase: null,
-						}),
-				}),
-			];
-
-	const menuItems = nativeMenuItemsFromGroups(
-		[
-			[
-				nativeMenuItem({
-					label: "Open pull request in browser",
-					onSelect: () => window.lite.openInWebBrowser(review.htmlUrl),
-				}),
-			],
-			stateItems,
-		].filter((group) => group.length > 0),
-	);
-
-	return (
-		<div className={styles.prActions}>
-			{/* One-way: the form's own Cancel and Save leave edit mode. */}
-			<Button variant="ghost" disabled={isAnyPending || isEditing} onClick={onStartEdit}>
-				Edit
-				<Icon name="edit" />
-			</Button>
-
-			{!isDraft && (
-				<>
-					{/* Optimistic: the cache patch flips `checked` instantly, so no
-					    spinner — but like its neighbors it locks while any of the
-					    row's mutations are in flight. */}
-					<SwitchButton
-						label="Auto-merge"
-						variant="outline"
-						checked={autoMergeEnabled}
-						disabled={isAnyPending}
-						onCheckedChange={(enable) => setReviewAutoMerge({ projectId, reviewId, enable })}
-					/>
-
-					<DropdownButton
-						variant="pop"
-						disabled={isAnyPending || blockedReason !== null}
-						onClick={() => mergeReview({ projectId, reviewId, mergeMethod })}
-						actionTooltip={!isAnyPending && blockedReason !== null ? blockedReason : undefined}
-						menuLabel="Merge method"
-						menuDisabled={isAnyPending}
-						onMenuTrigger={(trigger) =>
-							void showNativeMenuFromTrigger(
-								trigger,
-								mergeMethods.map((method) =>
-									nativeMenuItem({
-										label: mergeMethodLabels[method],
-										checked: method === mergeMethod,
-										onSelect: () => persistMergeMethod({ projectId, method }),
-									}),
-								),
-							)
-						}
-					>
-						{isMergeReviewPending && <Icon name="spinner" />}
-						{mergeMethodLabels[mergeMethod]}
-					</DropdownButton>
-				</>
-			)}
-
-			<Button
-				aria-label="More pull request actions"
-				variant="ghost"
-				iconOnly
-				disabled={isAnyPending}
-				onClick={(evt) => void showNativeMenuFromTrigger(evt.currentTarget, menuItems)}
-			>
-				{isUpdateReviewPending || isSetReviewDraftinessPending ? (
-					<Icon name="spinner" />
-				) : (
-					<Icon name="kebab" />
-				)}
-			</Button>
 		</div>
 	);
 };

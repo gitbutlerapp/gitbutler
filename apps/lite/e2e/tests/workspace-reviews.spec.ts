@@ -97,7 +97,7 @@ test.beforeEach(async ({ appWindow, electronApp, reviewState }) => {
 
 const selectBranch = (page: Page, name: string) =>
 	page.getByRole("treeitem", { name, exact: true }).getByTitle(name, { exact: true }).click();
-const branchTabs = (page: Page) => page.getByRole("group", { name: "Branch tab", exact: true });
+const branchTabs = (page: Page) => page.getByRole("tablist", { name: "Branch tab", exact: true });
 
 test("shows PR titles and labels on workspace branches without hover shifts", async ({
 	appWindow,
@@ -167,14 +167,14 @@ for (const { reviewState, defaultTab } of [
 		test(`defaults to ${defaultTab} and remembers a tab change`, async ({ appWindow }) => {
 			await selectBranch(appWindow, "C");
 			const tabs = branchTabs(appWindow);
-			await expect(tabs.getByRole("button", { name: defaultTab, pressed: true })).toBeVisible();
+			await expect(tabs.getByRole("tab", { name: defaultTab, selected: true })).toBeVisible();
 			await expect(appWindow.getByPlaceholder("PR title")).toBeHidden();
 
 			const chosenTab = defaultTab === "Diff" ? "Pull Request" : "Diff";
-			await tabs.getByRole("button", { name: chosenTab, exact: true }).click();
+			await tabs.getByRole("tab", { name: chosenTab, exact: true }).click();
 			await selectBranch(appWindow, "B");
 			await selectBranch(appWindow, "C");
-			await expect(tabs.getByRole("button", { name: chosenTab, pressed: true })).toBeVisible();
+			await expect(tabs.getByRole("tab", { name: chosenTab, selected: true })).toBeVisible();
 		});
 	});
 }
@@ -184,7 +184,7 @@ test.describe("creating a PR", () => {
 	test("opens the form from the branch header", async ({ appWindow }) => {
 		await selectBranch(appWindow, "C");
 		await expect(appWindow.getByPlaceholder("PR title")).toBeHidden();
-		await branchTabs(appWindow).getByRole("button", { name: "Pull Request", exact: true }).click();
+		await branchTabs(appWindow).getByRole("tab", { name: "Pull Request", exact: true }).click();
 		await expect(appWindow.getByPlaceholder("PR title")).toBeVisible();
 	});
 });
