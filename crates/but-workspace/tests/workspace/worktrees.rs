@@ -543,10 +543,13 @@ exit 1
     std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755))?;
     let path = repo.common_dir().join("hook-worktree");
     let base = repo.head_id()?.detach();
-    assert!(
+    let err =
         but_workspace::worktrees::add(&repo, &path, "refs/heads/hook-worktree".try_into()?, base)
-            .is_err(),
-        "hook failure is reported after checkout"
+            .expect_err("hook failure is reported after checkout");
+    assert!(
+        err.to_string()
+            .contains("Worktree post-checkout hook failed (exit status: 1)"),
+        "the exit status explains failure even when the hook writes nothing to stderr: {err}"
     );
     assert!(
         path.join(".git").is_file(),

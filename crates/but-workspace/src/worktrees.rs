@@ -213,12 +213,7 @@ fn add_inner(
             || !outcome.delayed_paths_unknown.is_empty()
             || !outcome.delayed_paths_unprocessed.is_empty()
         {
-            let checkout_error = anyhow::anyhow!(
-                "Worktree checkout was incomplete: {} errors, {} unknown delayed paths, {} unprocessed delayed paths",
-                outcome.errors.len(),
-                outcome.delayed_paths_unknown.len(),
-                outcome.delayed_paths_unprocessed.len()
-            );
+            let checkout_error = incomplete_checkout_error(&outcome);
             let worktree = created.worktree().context("created linked worktree")?;
             let name = worktree
                 .id()?
@@ -243,7 +238,8 @@ fn add_inner(
             .context("Failed to run the worktree post-checkout hook")?;
         anyhow::ensure!(
             output.status.success(),
-            "Worktree post-checkout hook failed: {}",
+            "Worktree post-checkout hook failed ({}): {}",
+            output.status,
             String::from_utf8_lossy(&output.stderr).trim()
         );
         created
@@ -254,6 +250,34 @@ fn add_inner(
         .id()?
         .map(ToOwned::to_owned)
         .context("gix registered the new checkout as a linked worktree")
+}
+
+fn incomplete_checkout_error(outcome: &gix::worktree::state::checkout::Outcome) -> anyhow::Error {
+    let mut message = format!(
+        "Worktree checkout was incomplete: {} errors, {} unknown delayed paths, {} unprocessed delayed paths",
+        outcome.errors.len(),
+        outcome.delayed_paths_unknown.len(),
+        outcome.delayed_paths_unprocessed.len()
+    );
+    if !outcome.errors.is_empty() {
+        message.push_str("\nCheckout errors:");
+        for record in &outcome.errors {
+            message.push_str(&format!("\n{:?}: {:#}", record.path, record.error));
+        }
+    }
+    if !outcome.delayed_paths_unknown.is_empty() {
+        message.push_str(&format!(
+            "\nUnknown delayed paths: {:?}",
+            outcome.delayed_paths_unknown
+        ));
+    }
+    if !outcome.delayed_paths_unprocessed.is_empty() {
+        message.push_str(&format!(
+            "\nUnprocessed delayed paths: {:?}",
+            outcome.delayed_paths_unprocessed
+        ));
+    }
+    anyhow::anyhow!(message)
 }
 
 /// Create a linked worktree by cloning the main worktree.
@@ -609,4 +633,48 @@ pub fn move_uncommitted_changes(
     Ok(MoveUncommittedChangesOutcome {
         conflict_occurred: destination_outcome.conflict_occurred,
     })
+}
+
+#[cfg(test)]
+mod checkout_tests {
+    use gix::error::ErrorExt as _;
+    use gix::worktree::state::checkout::{ErrorRecord, Outcome};
+    use snapbox::IntoData as _;
+
+    #[test]
+    fn incomplete_checkout_reports_paths_and_error_causes() {
+        let outcome = Outcome {
+            errors: vec![
+                ErrorRecord {
+                    path: "filtered.txt".into(),
+                    error: gix::error::message("smudge filter failed").raise(),
+                },
+                ErrorRecord {
+                    path: "unwritable.txt".into(),
+                    error: std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "write denied",
+                    )
+                    .and_raise(gix::error::message("Could not write file")),
+                },
+            ],
+            delayed_paths_unknown: vec!["unknown.txt".into()],
+            delayed_paths_unprocessed: vec!["unprocessed.txt".into(), b"non-utf8-\xff.txt".into()],
+            ..Default::default()
+        };
+
+        // Checkout diagnostics must survive removal of the incomplete worktree.
+        snapbox::assert_data_eq!(
+            super::incomplete_checkout_error(&outcome).to_string(),
+            snapbox::str![[r#"
+Worktree checkout was incomplete: 2 errors, 1 unknown delayed paths, 2 unprocessed delayed paths
+Checkout errors:
+"filtered.txt": smudge filter failed
+"unwritable.txt": Could not write file: I/O error (PermissionDenied): write denied
+Unknown delayed paths: ["unknown.txt"]
+Unprocessed delayed paths: ["unprocessed.txt", "non-utf8-\xff.txt"]
+"#]]
+            .raw()
+        );
+    }
 }
