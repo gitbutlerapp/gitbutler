@@ -552,6 +552,7 @@ pub fn route_commit_operation(
 
                 Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
             } else {
+                reject_workspace_target(repo, ws, &cli_id, "to")?;
                 let branch = BranchArg(cli_id.0);
                 let branch_name = branch
                     .resolve_for_creation(repo, ws)
@@ -696,6 +697,25 @@ impl From<BadInput> for RouteCommitOperationError {
     }
 }
 
+fn reject_workspace_target(
+    repo: &gix::Repository,
+    ws: &but_graph::Workspace,
+    target: &CliIdArg,
+    position: &str,
+) -> CliResult<()> {
+    // Only replace the normal resolution error when this names the workspace target.
+    if let Ok(Some(reference)) = repo.try_find_reference(target.0.as_str())
+        && ws.is_branch_the_target_or_its_local_tracking_branch(reference.name())
+    {
+        return Err(bad_input(format!(
+            "Cannot commit {position} '{target}': it is the workspace target branch."
+        ))
+        .hint("Commit to a feature branch instead: `but commit -b <branch>` and merge with `but merge <branch>`.")
+        .into());
+    }
+    Ok(())
+}
+
 enum PickerItem<'a> {
     Branch(&'a FullName),
     NewStack,
@@ -729,7 +749,15 @@ fn route_commit_above_or_below(
         .resolve_in_workspace(repo, id_map, Purpose::Target, None)
         .hint(
             "Target must be an applied branch or commit. Run `but status` for applicable targets.",
-        )?;
+        )
+        .or_else(|err| {
+            let position = match side {
+                Side::Above => "above",
+                Side::Below => "below",
+            };
+            reject_workspace_target(repo, ws, &target, position)?;
+            Err(err)
+        })?;
     let target = match resolved {
         ResolvedCliIdArg::AnonymousSegment(segment) => {
             return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
