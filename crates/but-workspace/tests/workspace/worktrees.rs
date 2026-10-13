@@ -607,6 +607,21 @@ fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path
 
     let err = but_workspace::worktrees::add(&repo, &path, branch, base).unwrap_err();
     assert!(err.to_string().contains("already exists"), "{err}");
+    assert!(
+        err.is::<but_workspace::worktrees::DestinationExists>(),
+        "occupied destinations are safe to retry at a different path"
+    );
+
+    let other_path = path.with_file_name("other");
+    let err = but_workspace::worktrees::add(&repo, &other_path, branch, base).unwrap_err();
+    assert!(
+        !err.is::<but_workspace::worktrees::DestinationExists>(),
+        "an existing branch is not a retryable destination collision"
+    );
+    assert!(
+        !other_path.exists(),
+        "branch refusal leaves no checkout behind"
+    );
     Ok(())
 }
 
