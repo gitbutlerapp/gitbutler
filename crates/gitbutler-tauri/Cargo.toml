@@ -91,8 +91,6 @@ default = ["custom-protocol", "devtools", "opener"]
 builtin-but = ["dep:but", "but-action/builtin-but"]
 ## Enable experimental CLI commands and features for nightly releases only.
 nightly = ["but?/nightly"]
-## Enable COW worktrees, including the bundled CLI.
-worktree-cow = ["but-api/worktree-cow", "but?/worktree-cow"]
 ## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
 packaged-but-distribution = ["but?/packaged-but-distribution"]
 ## Disable the auto-updater in the frontend.
