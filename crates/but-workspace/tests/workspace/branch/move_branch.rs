@@ -1196,7 +1196,7 @@ mod single_branch_mode {
     use std::collections::HashMap;
 
     use but_core::RefMetadata;
-    use but_core::ref_metadata::StackId;
+
     use but_graph::init::Options;
     use but_meta::BranchOrderMetadata;
     use but_rebase::graph_rebase::Editor;
@@ -1206,11 +1206,6 @@ mod single_branch_mode {
     use super::move_branch_above;
     use crate::ref_info::with_workspace_commit::utils::named_writable_scenario;
     use crate::utils::r;
-
-    fn stack_id_for_name(rn: &gix::refs::FullNameRef) -> StackId {
-        use bstr::ByteSlice;
-        StackId::from_number_for_testing(rn.shorten().chars().map(|c| c as u128).sum())
-    }
 
     fn branch_order_meta(repo: &gix::Repository) -> anyhow::Result<BranchOrderMetadata> {
         BranchOrderMetadata::from_paths(repo.path().join("virtual-branches.toml"), repo.path())
@@ -1372,16 +1367,15 @@ mod single_branch_mode {
             "refs/heads/empty-bottom",
             "refs/heads/empty-top",
         ] {
-            ws = but_workspace::branch::create_reference(
+            ws = crate::utils::create_reference(
+                &repo,
+                &mut ws,
+                &mut meta,
+                &mut db,
                 r(name),
                 Anchor::at_reference(main_ref, Position::Below),
-                &repo,
-                &ws,
-                &mut meta,
-                stack_id_for_name,
                 None,
-            )?
-            .into_owned();
+            )?;
         }
 
         Ok((tmp, repo, meta, project_meta, db))
@@ -1421,11 +1415,11 @@ mod single_branch_mode {
             projected_workspace(&repo, &meta, project_meta, &mut db)?,
             snapbox::str![[r#"
 ⌂:empty-bottom[🌳] <> ✓! on 3d57fc1
-└── ≡📙:empty-bottom[🌳] on 3d57fc1 {1}
-    ├── 📙:empty-bottom[🌳]
+└── ≡:empty-bottom[🌳] on 3d57fc1 {1}
+    ├── :empty-bottom[🌳]
     ├── :main
-    ├── 📙:empty-top
-    └── 📙:base
+    ├── :empty-top
+    └── :base
         ├── ·281da94
         └── ·12995d7
 
@@ -1481,9 +1475,9 @@ mod single_branch_mode {
 ⌂:main[🌳] <> ✓! on 3d57fc1
 └── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
-    ├── 📙:empty-top
-    ├── 📙:empty-bottom
-    └── 📙:base
+    ├── :empty-top
+    ├── :empty-bottom
+    └── :base
         ├── ·281da94
         └── ·12995d7
 
@@ -1504,9 +1498,9 @@ mod single_branch_mode {
 ⌂:main[🌳] <> ✓! on 3d57fc1
 └── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
-    ├── 📙:empty-bottom
-    ├── 📙:empty-top
-    └── 📙:base
+    ├── :empty-bottom
+    ├── :empty-top
+    └── :base
         ├── ·281da94
         └── ·12995d7
 
@@ -1718,9 +1712,9 @@ mod single_branch_mode {
 ⌂:main[🌳] <> ✓! on 3d57fc1
 └── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
-    ├── 📙:empty-bottom
-    ├── 📙:empty-top
-    └── 📙:base
+    ├── :empty-bottom
+    ├── :empty-top
+    └── :base
         ├── ·281da94
         └── ·12995d7
 
@@ -1755,9 +1749,9 @@ mod single_branch_mode {
 ⌂:main[🌳] <> ✓! on 3d57fc1
 └── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
-    ├── 📙:empty-top
-    ├── 📙:empty-bottom
-    └── 📙:base
+    ├── :empty-top
+    ├── :empty-bottom
+    └── :base
         ├── ·281da94 ►x, ►y
         └── ·12995d7
 
@@ -1776,9 +1770,9 @@ mod single_branch_mode {
 ⌂:main[🌳] <> ✓! on 3d57fc1
 └── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
-    ├── 📙:empty-top
-    ├── 📙:empty-bottom
-    ├── 📙:base
+    ├── :empty-top
+    ├── :empty-bottom
+    ├── :base
     ├── :y
     │   ├── ·281da94
     │   └── ·12995d7

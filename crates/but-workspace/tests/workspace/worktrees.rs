@@ -665,16 +665,19 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
     );
 
     let p1 = repo.rev_parse_single("wt-pushed~1")?.detach();
-    let ws = but_workspace::branch::create_reference(
+    let mut db = but_testsupport::in_memory_db();
+    db.worktree_meta_mut().mark_adopted()?;
+    let mut ws = ws;
+    let ws = crate::utils::create_reference(
+        &repo,
+        &mut ws,
+        &mut meta,
+        &mut db,
         crate::utils::r("refs/heads/below-pushed"),
         Anchor::AtCommit {
             commit_id: p1,
             position: Above,
         },
-        &repo,
-        &ws,
-        &mut meta,
-        |_| unreachable!("worktree lanes have no stack"),
         None,
     )?;
     snapbox::assert_data_eq!(
@@ -708,7 +711,7 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
 ├── 📁wt-pushed on cad9051
 │   ├── :wt-pushed[📁] <> origin/wt-pushed⇡1
 │   │   └── ·198b592
-│   └── 📙:below-pushed
+│   └── :below-pushed
 │       └── ❄88c9775
 ├── 📁wt-stacked on 6a13321 (🏘️)
 │   └── :wt-stacked[📁]
@@ -731,8 +734,6 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
         "worktree lanes have no applied stack to record the new branch in"
     );
 
-    // Without metadata to order them, a new branch can't share a commit with a lane's branch or
-    // detached `HEAD`, which placing it relative to a branch always does.
     for (anchor, what) in [
         (
             Anchor::AtCommit {
@@ -750,13 +751,14 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
             "below a branch, onto a detached HEAD",
         ),
     ] {
-        let err = but_workspace::branch::create_reference(
+        let mut ws = ws.clone();
+        let err = crate::utils::create_reference(
+            &repo,
+            &mut ws,
+            &mut meta,
+            &mut db,
             crate::utils::r("refs/heads/refused"),
             anchor,
-            &repo,
-            &ws,
-            &mut meta,
-            |_| unreachable!("worktree lanes have no stack"),
             None,
         )
         .expect_err(what);

@@ -7,7 +7,6 @@ use but_api_macros::but_api;
 use but_core::{
     DryRun, RefMetadata, WORKSPACE_REF_NAME,
     branch::unique_canned_refname,
-    ref_metadata::StackId,
     sync::{RepoExclusive, RepoShared},
     ui::TreeChanges,
     update_head_reference,
@@ -1009,16 +1008,6 @@ pub fn branch_create_with_perm(
         }
     };
 
-    let checkout_anchor_ref = match &anchor {
-        Some(Anchor::AtReference { ref_name, position })
-            if matches!(position, Position::Above)
-                && ref_name.category() == Some(gix::refs::Category::LocalBranch) =>
-        {
-            Some(ref_name.as_ref().to_owned())
-        }
-        _ => None,
-    };
-
     let new_ref = if let Some(new_ref) = new_ref {
         new_ref
     } else {
@@ -1034,28 +1023,12 @@ pub fn branch_create_with_perm(
         DryRun::No,
     );
     let mut meta = ctx.meta()?;
-    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let checkout_after_create = checkout_anchor_ref.as_ref().is_some_and(|anchor_ref| {
-        repo.head_name()
-            .ok()
-            .flatten()
-            .as_ref()
-            .is_some_and(|head_ref| head_ref == anchor_ref)
-    });
-    let new_ws = but_workspace::branch::create_reference(
-        new_ref.as_ref(),
-        anchor,
-        &repo,
-        &ws,
-        &mut meta,
-        |_| StackId::generate(),
-        order,
-    )?
-    .into_owned();
-    drop(ws);
-    drop(repo);
-    drop(meta);
-    ctx.update_workspace_cache(new_ws);
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    but_workspace::branch::create_reference(editor, new_ref.as_ref(), anchor, order)?
+        .materialize(Default::default())?;
+    drop((repo, db, meta));
+    ctx.update_workspace_cache(ws);
 
     if let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
@@ -1072,13 +1045,6 @@ pub fn branch_create_with_perm(
         &mut db,
     )?;
     drop((ws, repo, db, meta));
-    if checkout_after_create {
-        let checkout = branch_checkout_with_perm_only(ctx, new_ref.clone(), perm)?;
-        return Ok(BranchCreateResult {
-            workspace: checkout.workspace,
-            new_ref,
-        });
-    }
     Ok(BranchCreateResult { workspace, new_ref })
 }
 

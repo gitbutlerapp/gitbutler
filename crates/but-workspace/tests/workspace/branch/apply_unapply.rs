@@ -23,7 +23,6 @@ use but_testsupport::{
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{OutcomeStatus, WorkspaceMerge, WorkspaceReferenceNaming},
-    create_reference::{Anchor, Position::Above},
     unapply::WorkspaceDisposition,
 };
 use gix::refs::{Category, transaction::PreviousValue};
@@ -310,20 +309,25 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
 
     let branch = Category::LocalBranch.to_full_name("on-A1")?;
     let first_id = id_by_rev(&repo, "A1");
-    let ws = but_workspace::branch::create_reference(
+    repo.reference(
         branch.as_ref(),
-        Anchor::AtCommit {
-            commit_id: first_id.detach(),
-            position: Above,
-        },
-        &repo,
-        &ws,
-        &mut meta,
-        stack_id_for_name,
-        None,
+        first_id,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "on-A1 with branch metadata",
+    )?;
+    let mut branch_md = meta.branch(branch.as_ref())?;
+    branch_md.update_times(true);
+    meta.set_branch(&branch_md)?;
+    let ws = but_graph::Graph::from_commit_traversal(
+        a2_tip,
+        a2_ref.to_owned(),
+        &meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        but_graph::init::Options::default(),
     )?
-    .into_owned();
-    // creating a branch in the ad-hoc workspace gives unapply a visible segment to reject, it has its own ref-metadata
+    .into_workspace()?;
+    // a branch with its own ref-metadata gives unapply a visible segment to reject
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
