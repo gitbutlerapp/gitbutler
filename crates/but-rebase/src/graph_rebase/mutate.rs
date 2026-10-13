@@ -922,6 +922,44 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(())
     }
 
+    /// Connect `parent` to `child` as its parent at `position`, shifting later parents along,
+    /// or as its last parent if `position` is `None` or past the end.
+    pub fn insert_parent(
+        &mut self,
+        child: impl ToSelector,
+        parent: impl ToSelector,
+        position: Option<usize>,
+    ) -> Result<()> {
+        let child = self.history.normalize_selector(child.to_selector(self)?)?;
+        let parent = self.history.normalize_selector(parent.to_selector(self)?)?;
+
+        if has_path_connecting(&self.graph, parent.id, child.id, None) {
+            bail!("BUG: Inserting a parent introduces a cycle");
+        }
+
+        let mut parents = self
+            .graph
+            .edges_directed(child.id, Direction::Outgoing)
+            .map(|edge| (edge.id(), edge.weight().order, edge.target()))
+            .collect::<Vec<_>>();
+        parents.sort_by_key(|(_, order, _)| *order);
+        for (edge, _, _) in &parents {
+            self.graph.remove_edge(*edge);
+        }
+
+        let mut parents = parents
+            .into_iter()
+            .map(|(_, _, parent)| parent)
+            .collect::<Vec<_>>();
+        let position = position.map_or(parents.len(), |position| position.min(parents.len()));
+        parents.insert(position, parent.id);
+        for (order, parent) in parents.into_iter().enumerate() {
+            self.graph.add_edge(child.id, parent, Edge { order });
+        }
+
+        Ok(())
+    }
+
     /// Removes all edges between a child and parent, returning the orders of the removed edges.
     pub fn remove_edges(
         &mut self,
