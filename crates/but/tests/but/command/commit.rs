@@ -1918,6 +1918,21 @@ Hint: Target must be an applied branch or commit. Run `but status` for applicabl
 }
 
 #[test]
+fn cannot_commit_to_main() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b main --no-message")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot commit to 'main': it is the workspace target branch.
+
+Hint: Commit to a feature branch instead: `but commit -b <branch>` and merge with `but merge <branch>`.
+
+"#]]);
+}
+
+#[test]
 fn cannot_commit_above_or_below_main() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
 
@@ -1925,9 +1940,9 @@ fn cannot_commit_above_or_below_main() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find target: 'main'
+Error: Cannot commit above 'main': it is the workspace target branch.
 
-Hint: Target must be an applied branch or commit. Run `but status` for applicable targets.
+Hint: Commit to a feature branch instead: `but commit -b <branch>` and merge with `but merge <branch>`.
 
 "#]]);
 
@@ -1935,9 +1950,9 @@ Hint: Target must be an applied branch or commit. Run `but status` for applicabl
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find target: 'main'
+Error: Cannot commit below 'main': it is the workspace target branch.
 
-Hint: Target must be an applied branch or commit. Run `but status` for applicable targets.
+Hint: Commit to a feature branch instead: `but commit -b <branch>` and merge with `but merge <branch>`.
 
 "#]]);
 
@@ -1946,10 +1961,9 @@ Hint: Target must be an applied branch or commit. Run `but status` for applicabl
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Failed to apply branch
+Error: Cannot apply 'main': it is the workspace target branch.
 
-Caused by:
-    Cannot add the target 'refs/heads/main' branch to its own workspace
+Hint: Apply a feature branch instead.
 
 "#]]);
 }
