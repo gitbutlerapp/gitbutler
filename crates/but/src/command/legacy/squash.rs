@@ -190,6 +190,8 @@ fn resolve_args(
         sources,
         message,
         no_message,
+        // Read into `message` by the caller.
+        file: _,
         use_target_message,
         use_source_message,
         // Consumed by the caller when building the `MergedUpstream` guard.
@@ -255,7 +257,7 @@ fn resolve_args(
                         bad_input("--no-message cannot be used when uncommitting").into()
                     }
                     ResolveTargetError::MessageUnavailable => {
-                        bad_input("--message cannot be used when uncommitting").into()
+                        bad_input("--message and --file cannot be used when uncommitting").into()
                     }
                     ResolveTargetError::AnonymousSegment(id) => {
                         crate::args::atoms::anonymous_segment_error(&id)

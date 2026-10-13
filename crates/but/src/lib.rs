@@ -1282,8 +1282,17 @@ async fn dispatch_subcommand(
             ));
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Commit(commit_args) => {
+        Subcommands::Commit(mut commit_args) => {
             use crate::utils::IntermediateChannel;
+
+            if let Some(file) = commit_args.file.take() {
+                commit_args.message = Some(vec![
+                    command::legacy::commit_message_prep::read_commit_message(
+                        &file,
+                        &args.current_dir,
+                    )?,
+                ]);
+            }
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
@@ -1302,8 +1311,17 @@ async fn dispatch_subcommand(
             Some(ws)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Squash(squash_args) => {
+        Subcommands::Squash(mut squash_args) => {
             use crate::utils::IntermediateChannel;
+
+            if let Some(file) = squash_args.file.take() {
+                squash_args.message = Some(vec![
+                    command::legacy::commit_message_prep::read_commit_message(
+                        &file,
+                        &args.current_dir,
+                    )?,
+                ]);
+            }
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
@@ -1534,12 +1552,7 @@ async fn dispatch_subcommand(
                     let draft = top_level_draft || draft;
                     // Read message content from file or inline
                     let message_content = match &file {
-                        Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
-                            format!(
-                                "Failed to read forge review message from file: {}",
-                                path.display()
-                            )
-                        })?),
+                        Some(file) => Some(file.read(&args.current_dir)?),
                         None => message.clone(),
                     };
                     // Parse early to fail fast on invalid content

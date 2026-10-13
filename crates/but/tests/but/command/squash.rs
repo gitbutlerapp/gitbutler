@@ -3657,3 +3657,47 @@ Hint: Run `but worktree list` to see the worktrees GitButler manages
 
 "#]]);
 }
+
+#[test]
+fn squash_whole_branch_with_message_from_stdin() {
+    let env = one_branch_three_commits();
+
+    env.but("squash a-branch-1 -F -")
+        .stdin("squashed a branch\n\nwith a body\n")
+        .assert()
+        .success();
+
+    // `-` reads the message from stdin, with surrounding whitespace trimmed.
+    env.but("show unl").assert().success().stdout_eq(str![[r#"
+Commit:    f644bc04b0cc83e4e27c0f30ab163021ea2a9c9a
+Change-ID: unllrlqkktorzunwnukvtrnwtunkoktw
+Author:    author <author@example.com>
+Date:      2000-01-02 00:00:00 +0000 (26y ago)
+Committer: committer <committer@example.com>
+
+squashed a branch
+
+with a body
+
+Files changed:
+  A one
+  A three
+  A two
+
+"#]]);
+}
+
+#[test]
+fn message_file_cannot_be_used_when_uncommitting() {
+    let env = one_branch_three_commits();
+
+    // `@` keeps no message, so a message from a file is rejected like `-m`.
+    env.but("squash unl -t @ -F -")
+        .stdin("unused\n")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: --message and --file cannot be used when uncommitting
+
+"#]]);
+}

@@ -173,6 +173,7 @@ fn resolve(
     let Platform {
         no_message,
         message,
+        file: _,
         branch,
         empty,
         above,

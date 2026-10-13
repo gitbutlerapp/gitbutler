@@ -4738,3 +4738,109 @@ error: the argument '--switch' cannot be used with '--above <BRANCH_OR_COMMIT>'
 ...
 "#]]);
 }
+
+#[test]
+fn message_from_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("file.txt", "Some text");
+    // Outside the worktree, as a message file inside it would be committed too.
+    let message_dir = tempfile::tempdir()?;
+    let message_file = message_dir.path().join("msg.txt");
+    std::fs::write(&message_file, "subject\n\nbody line\n\n")?;
+
+    env.but("commit -F").arg(&message_file).assert().success();
+
+    // Surrounding blank lines are trimmed, and the message file is not part of the commit.
+    env.but("show ssv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Commit:    59f9100b55ead469f581c03150de0cf0bddb10f0
+Change-ID: ssvtnomvyusxrxwspzwsqkssnkmsnylz
+Author:    author <author@example.com>
+Date:      2000-01-02 00:00:00 +0000 (26y ago)
+Committer: committer <committer@example.com>
+
+subject
+
+body line
+
+Files changed:
+  A file.txt
+
+"#]]);
+    Ok(())
+}
+
+#[test]
+fn message_from_stdin() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("file.txt", "Some text");
+
+    env.but("commit -F -")
+        .stdin("from stdin\n")
+        .assert()
+        .success();
+
+    // `-` reads the message from stdin.
+    env.but("show ssv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Commit:    502eb89b82cb51905d5532aaf6df58f4f1ba991e
+Change-ID: ssvtnomvyusxrxwspzwsqkssnkmsnylz
+Author:    author <author@example.com>
+Date:      2000-01-02 00:00:00 +0000 (26y ago)
+Committer: committer <committer@example.com>
+
+from stdin
+
+Files changed:
+  A file.txt
+
+"#]]);
+}
+
+#[test]
+fn message_file_missing_is_bad_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("file.txt", "Some text");
+
+    // The path is shown as typed; the OS error text varies by platform.
+    env.but("commit -F nope.txt")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '--file'
+
+Could not read message from 'nope.txt': [..]
+
+"#]]);
+}
+
+#[test]
+fn message_file_conflicts_with_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    // Like `git commit`, only one message source may be given.
+    env.but("commit -F msg.txt -m x")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--file <FILE>' cannot be used with '--message <MESSAGE>'
+
+Usage: but commit --file <FILE> [CHANGES]...
+
+For more information, try '--help'.
+
+Examples:
+  but commit -b <branch> -m "message"                    # commit onto a branch (created if needed)
+  but commit -b <branch> -m "message" <file-or-hunk>...  # commit only the given changes
+  but commit -m "message"                                # commit when only one stack is applied
+
+"#]]);
+}
