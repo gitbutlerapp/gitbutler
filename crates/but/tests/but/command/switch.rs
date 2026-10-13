@@ -828,7 +828,7 @@ Hint: run `but branch new` to create a new branch to work on
     assert_data_eq!(
         env.git_log(),
         str![[r#"
-* b34435b (gitbutler/workspace) GitButler Workspace Commit
+* bdda79c (gitbutler/workspace) GitButler Workspace Commit
 * 72aceac (one) add one
 * 0dc3733 (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) add M
 

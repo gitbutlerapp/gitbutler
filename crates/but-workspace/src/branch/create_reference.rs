@@ -130,6 +130,11 @@ pub(super) mod function {
                         ref_name.shorten()
                     );
                 };
+                if workspace.stacks.is_empty() {
+                    for (placeholder, _) in editor.direct_parents(workspace_commit)? {
+                        editor.remove_edges(workspace_commit, placeholder)?;
+                    }
+                }
                 let reference = editor.add_step(reference)?;
                 editor.add_edge(reference, base, 0)?;
                 editor.insert_parent(workspace_commit, reference, order.into())?;
