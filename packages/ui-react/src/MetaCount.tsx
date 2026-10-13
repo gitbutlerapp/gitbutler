@@ -18,7 +18,8 @@ export type MetaCountType =
 	| "worktrees"
 	| "repos"
 	| "agent-working"
-	| "agent-waiting";
+	| "agent-waiting"
+	| "stack";
 
 const glyph: Record<MetaCountType, IconName> = {
 	behind: "arrow-down",
@@ -34,12 +35,14 @@ const glyph: Record<MetaCountType, IconName> = {
 	repos: "repo",
 	"agent-working": "robot",
 	"agent-waiting": "robot",
+	stack: "stack",
 };
 
 /**
  * A glyph and a short value in a row's meta: a count, an age, a branch's name. The type sets both.
  * Amber is work waiting on you (`behind`, `uncommitted`, `agent-waiting`), blue is work to send
- * (`unpushed`), green is an agent at work (`agent-working`); the rest are neutral. Quietest of all
+ * (`unpushed`), green is an agent at work (`agent-working`); the rest are neutral, `stack` among
+ * them: where a branch sits in its stack, "1/3 in stack". Quietest of all
  * are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
  * (`empty`, `detached`); a row shows either first, ahead of its counts.
  *
