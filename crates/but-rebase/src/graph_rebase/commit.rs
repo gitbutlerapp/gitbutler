@@ -88,6 +88,21 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         bail!("Worktree {worktree_name} has no checkout recorded in the editor")
     }
 
+    /// Make `HEAD` check out `target` instead of what it had checked out: a reference keeps it
+    /// attached to that branch, a commit detaches it there.
+    ///
+    /// Fails if `HEAD` has no checkout recorded in this editor.
+    pub fn set_head_checkout(&mut self, target: impl ToSelector) -> Result<()> {
+        let target = target.to_selector(self)?;
+        for checkout in &mut self.checkouts {
+            if let super::Checkout::Head { selector, .. } = checkout {
+                *selector = target;
+                return Ok(());
+            }
+        }
+        bail!("HEAD has no checkout recorded in the editor")
+    }
+
     /// Finds a commit from inside the editor's in memory repository.
     pub fn find_commit(&self, id: gix::ObjectId) -> Result<but_core::CommitOwned> {
         but_core::Commit::from_id(id.attach(&self.repo)).map(|c| c.detach())

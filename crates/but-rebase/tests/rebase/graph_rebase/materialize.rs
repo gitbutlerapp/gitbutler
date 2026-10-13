@@ -1114,3 +1114,31 @@ fn an_attached_worktree_follows_its_branch_into_and_out_of_a_nested_name() -> Re
     );
     Ok(())
 }
+
+#[test]
+fn materialize_checks_out_what_head_checkout_is_set_to() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let other = gix::refs::FullName::try_from("refs/heads/other")?;
+    let parent = repo.rev_parse_single("HEAD~")?.detach();
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let reference = editor.add_step(Step::new_reference(other.clone()))?;
+    editor.add_edge(reference, parent, 0)?;
+    editor.set_head_checkout(reference)?;
+
+    editor.rebase()?.materialize(Default::default())?;
+    assert_eq!(repo.head_name()?, Some(other));
+    assert_eq!(repo.head_id()?.detach(), parent);
+
+    Ok(())
+}
