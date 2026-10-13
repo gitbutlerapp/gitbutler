@@ -51,7 +51,7 @@ export const Tab: FC<
 	<BaseTabs.Tab {...props} className={classes(className, "text-13", "text-semibold", styles.tab)}>
 		{icon !== undefined && <span className={styles.icon}>{icon}</span>}
 		<span className={styles.label}>
-			{children}
+			<span className={styles.text}>{children}</span>
 			{kbd !== undefined && <Kbd hotkey={kbd} variant="button" />}
 		</span>
 		{count !== undefined && <Badge variant="lightGray">{count}</Badge>}
