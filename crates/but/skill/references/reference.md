@@ -387,7 +387,7 @@ When commits have conflicts (history-editing commands warn about newly conflicte
 
 ### `but resolve <commit>`
 
-Enter resolution mode for a conflicted commit.
+Enter resolution mode for a conflicted commit. Requires a GitButler workspace; when a branch is checked out, the error directs you to `but switch --workspace`. Agents can use `but resolve apply` instead to resolve conflicts without changing HEAD.
 
 ```bash
 but resolve <commit-id>

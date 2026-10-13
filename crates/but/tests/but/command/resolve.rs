@@ -825,7 +825,7 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 Error: `but resolve` does not support a checked-out branch. A GitButler workspace is required.
 
-Hint: Enter workspace with `but apply A` then re-run `but resolve rou`
+Hint: Enter workspace with `but switch --workspace` then re-run `but resolve rou`
 
 "#]]);
 
@@ -837,7 +837,7 @@ Hint: Enter workspace with `but apply A` then re-run `but resolve rou`
         .stderr_eq(snapbox::str![[r#"
 Error: `but resolve` does not support a checked-out branch. A GitButler workspace is required.
 
-Hint: Use `but resolve apply` to resolve conflicts without changing HEAD. As a fallback use `but apply A`
+Hint: Use `but resolve apply` to resolve conflicts without changing HEAD. As a fallback use `but switch --workspace`
 
 "#]]);
 

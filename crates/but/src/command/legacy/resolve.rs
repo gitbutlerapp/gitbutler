@@ -218,7 +218,7 @@ fn enter_resolution(
     commit_id_str: &str,
 ) -> CliResult<()> {
     if crate::utils::in_single_branch_mode(ctx)? {
-        return unsupported_in_single_branch_mode_error(ctx, out, commit_id_str);
+        return unsupported_in_single_branch_mode_error(out, commit_id_str);
     }
 
     let t = theme::get();
@@ -1797,16 +1797,10 @@ fn show_workflow_help(out: &mut OutputChannel) -> Result<()> {
 }
 
 fn unsupported_in_single_branch_mode_error<T>(
-    ctx: &mut Context,
     out: &mut OutputChannel,
     commit_id_str: &str,
 ) -> CliResult<T> {
-    let repo = ctx.repo.get()?;
-    let workspace_command = if let Some(head_ref) = repo.head_ref().ok().flatten() {
-        format!("but apply {}", head_ref.inner.name.shorten())
-    } else {
-        "but switch --workspace".to_string()
-    };
+    let workspace_command = "but switch --workspace";
     let hint = if out.is_agent() {
         format!(
             "Use `but resolve apply` to resolve conflicts without changing HEAD. \
