@@ -1,7 +1,11 @@
 use std::borrow::Cow;
 
 use anyhow::Context as _;
-use but_core::{DryRun, RefMetadata, ref_metadata::ProjectMeta, sync::RepoExclusive};
+use but_core::{
+    DryRun, RefMetadata,
+    ref_metadata::ProjectMeta,
+    sync::{RepoExclusive, RepoShared},
+};
 use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
 use but_transaction::Transaction;
@@ -25,8 +29,8 @@ pub struct SingleBranchMode {
 }
 
 impl SingleBranchMode {
-    pub fn new(ctx: &mut Context, perm: &mut RepoExclusive, switch: bool) -> anyhow::Result<Self> {
-        let in_single_branch_mode = in_single_branch_mode_with_perm(ctx, perm.read_permission())?;
+    pub fn new(ctx: &Context, perm: &RepoShared, switch: bool) -> anyhow::Result<Self> {
+        let in_single_branch_mode = in_single_branch_mode_with_perm(ctx, perm)?;
 
         let repo = ctx.repo.get()?;
 
@@ -157,7 +161,7 @@ impl SingleBranchMode {
             meta.set_workspace(&workspace)?;
         }
 
-        let (repo, mut ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         // Also apply an empty branch, which set_base_branch doesn't apply itself.
         // Non-empty branches may already have been applied by set_base_branch.
         let outcome = but_workspace::branch::apply(
@@ -176,7 +180,8 @@ impl SingleBranchMode {
                 but_workspace::branch::apply::OutcomeStatus::AlreadyApplied
             )
         {
-            *ws = outcome.workspace;
+            drop(repo);
+            ctx.update_workspace_cache(outcome.workspace);
         } else {
             anyhow::bail!(
                 "BUG: failed to apply head ref ({}). Failed with {:?}",

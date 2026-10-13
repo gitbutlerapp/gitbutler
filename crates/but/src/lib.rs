@@ -1896,6 +1896,11 @@ fn run_status_after(
 ) {
     use crate::command::legacy::status::StatusFlags;
 
+    if let Err(err) = ctx.invalidate_workspace_cache() {
+        eprintln!("warning: failed to write status after mutation: {err}");
+        return;
+    }
+
     let agent_skill_notice = (agent_skill_notices && out.format().is_json())
         .then(command::skill::agent_skill_update_notice)
         .flatten();
