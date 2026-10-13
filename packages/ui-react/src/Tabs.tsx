@@ -15,6 +15,8 @@ import styles from "./Tabs.module.css";
  * - The underline runs under the selected tab's content and hangs outside the row, 4px below it
  *   and 4px thick, so the header holding the tabs leaves 8px below them: the underline then
  *   sits on the header's divider.
+ * - The row starts a tab's padding to the left of where it is placed, so the first tab's label
+ *   lines up with the text above and below it rather than sitting 10px in.
  *
  * @public
  * @import import { Tabs, Tab } from "@gitbutler/ui-react/Tabs.tsx";
@@ -38,6 +40,9 @@ export const Tabs: FC<
  * it, for how many things the tab holds. `kbd` names the shortcut that selects it, faint after
  * the label. Faded until it is hovered or selected.
  *
+ * `status` follows the label, unfaded, for a state the tab's contents are in: a pull request's
+ * checks as a `CiStatus`. When something in the tab needs the user, give `count` instead.
+ *
  * @public
  */
 export const Tab: FC<
@@ -46,14 +51,16 @@ export const Tab: FC<
 		icon?: ReactNode;
 		count?: number;
 		kbd?: string | HotkeySequence;
+		status?: ReactNode;
 	}
-> = ({ className, icon, count, kbd, children, ...props }) => (
+> = ({ className, icon, count, kbd, status, children, ...props }) => (
 	<BaseTabs.Tab {...props} className={classes(className, "text-13", "text-semibold", styles.tab)}>
 		{icon !== undefined && <span className={styles.icon}>{icon}</span>}
 		<span className={styles.label}>
 			<span className={styles.text}>{children}</span>
 			{kbd !== undefined && <Kbd hotkey={kbd} variant="button" />}
 		</span>
+		{status !== undefined && <span className={styles.status}>{status}</span>}
 		{count !== undefined && <Badge variant="lightGray">{count}</Badge>}
 	</BaseTabs.Tab>
 );

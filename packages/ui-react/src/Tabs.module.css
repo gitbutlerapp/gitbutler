@@ -6,6 +6,9 @@
 	position: relative;
 	column-gap: 2px;
 	align-items: center;
+
+	/* The first tab's label, not its hover ground, lines up with the text around the row. */
+	margin-inline-start: calc(-1 * var(--tab-padding-inline));
 }
 
 .tab {
@@ -58,6 +61,12 @@
 	:is(.tab:hover:not([data-disabled]), .tab[data-active]) & {
 		opacity: 1;
 	}
+}
+
+/* A state after the label keeps its own colours: it is read, not faded with the label. */
+.status {
+	display: inline-flex;
+	align-items: center;
 }
 
 /* The text alone, so the shortcut beside it keeps its own fade. */
