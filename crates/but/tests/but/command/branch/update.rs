@@ -334,6 +334,132 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn integrate_remote_branch_that_merged_a_newer_target_below_a_local_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "branch-integrate-remote-merged-newer-target-with-local-commit",
+    );
+    env.setup_metadata_at_target(&["A", "B"], "main");
+
+    // `A` has a commit the remote lacks, and `origin/A` has the merge of a newer `main`.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊╭┄┄ (upstream: on origin/A)
+┊●   200e51e add A2-by-collaborator
+┊●   db3fa13 Merge newer main into A
+┊●   c39f3a2 add main3
+┊●   9f62045 add main2
+┊-
+┊●   qul add A-local
+┊●   zpl add A1
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   kvk add B1
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("branch update A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Updated branch A.
+
+"#]]);
+
+    // The local commit is rebased on top of the remote history, which arrives as is.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   qul add A-local
+┊●   mtx add A2-by-collaborator
+┊●   mun Merge newer main into A
+┊●   zpl add A1
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   kvk add B1
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    let below_local_after_update = env.invoke_git("rev-parse A~1");
+    let origin_a = env.invoke_git("rev-parse origin/A");
+    let local_message = env.invoke_git("log -1 --format=%s A");
+    let files_after_update =
+        ["main2", "main3", "A-local"].map(|file| env.projects_root().join(file).is_file());
+
+    env.but("pull").assert().success();
+
+    // The base moves to the newer `main`; the merge and the local commit stay in `A`.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ma [main] (no commits)
+├╯
+┊
+┊╭┄ g0 [A]
+┊●   qul add A-local
+┊◐   mtx add A2-by-collaborator
+┊◐   mun Merge newer main into A (no changes)
+┊◐   zpl add A1
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   kvk add B1
+├╯
+┊
+┴ c39f3a2 (common base, origin/main) 2000-01-02 add main3
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    assert_eq!(
+        below_local_after_update, origin_a,
+        "the local commit sits directly on the unchanged remote history"
+    );
+    assert_eq!(
+        local_message, "add A-local",
+        "the local commit stays at the tip of `A`"
+    );
+    assert_eq!(
+        files_after_update,
+        [true, true, true],
+        "the newer main's files arrive and the local change is kept"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse A~2^2"),
+        env.invoke_git("rev-parse origin/main"),
+        "after the pull, the merge still merges the newer main, now the base"
+    );
+}
+
+#[test]
 fn integrate_smart_squash_applies_matching_change_ids() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-smart-squash");
