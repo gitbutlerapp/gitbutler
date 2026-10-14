@@ -88,8 +88,9 @@ nothing, and `but unapply` refuses it — remove the worktree instead. `<worktre
 scopes a filename to it — `@:<path>` keeps meaning the main worktree. A filename dirty in several
 worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file ID or
 `<worktree>:@` works as a `but commit` change and a `but amend` or `but squash`
-source: the change lands on the target and leaves that worktree's uncommitted area. Without a
-target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
+source: the change lands on the target and leaves that worktree's uncommitted area. `but discard`
+on one discards it in that worktree, and isn't recorded in the oplog, so `but undo` can't bring
+it back. Without a target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one worktree
 at a time — a selection mixing worktrees is refused. A worktree's branches are also targets:
 `but commit`, `but move`, and `but pick` with `-b <branch>` place the commit on that branch's tip,
@@ -107,9 +108,9 @@ IDs are the same whichever checkout `but` runs in, and `@` always means the main
 area. Only what a command falls back to when no location is named depends on it: run from
 inside a linked worktree, a bare `but commit` and `but diff`, and `but amend`/`but squash`
 with `-t` but no sources, take that worktree's changes, while `but commit --empty` and `but pick`
-without a target go on its branch. `but discard`, `but absorb`, and `but branch new` without
-`--above`/`--below` refuse there instead of acting on the main worktree, and every such default
-is refused in a worktree GitButler doesn't manage (the flag is off, it is archived, or its `HEAD`
+without a target go on its branch, and a bare `but discard` discards that worktree's changes.
+`but absorb` and `but branch new` without `--above`/`--below` refuse there instead of acting on
+the main worktree, and every such default is refused in a worktree GitButler doesn't manage (the flag is off, it is archived, or its `HEAD`
 is unusable).
 
 ## Parallel vs Stacked Branches

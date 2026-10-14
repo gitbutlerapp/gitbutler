@@ -659,12 +659,20 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			transformResponse: (response: CommitInsertBlankResult) => response.newCommit,
 			invalidatesTags: [invalidatesList(ReduxTag.HeadSha)],
 		}),
-		discardChanges: build.mutation<DiffSpec[], { projectId: string; worktreeChanges: DiffSpec[] }>({
+		discardChanges: build.mutation<
+			DiffSpec[],
+			{
+				projectId: string;
+				worktreeChanges: DiffSpec[];
+				/** The linked worktree the changes are in, the main checkout when unset. */
+				worktree?: string;
+			}
+		>({
 			extraOptions: {
 				command: "discard_worktree_changes",
 				actionName: "Discard Changes",
 			},
-			query: (args) => args,
+			query: ({ worktree, ...args }) => ({ ...args, changesSource: checkoutOf({ worktree }) }),
 			invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)],
 		}),
 		commitMoveChangesBetween: build.mutation<

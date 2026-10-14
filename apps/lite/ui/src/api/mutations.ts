@@ -39,7 +39,7 @@ import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { commitAddress, type Address, type FileParent } from "#ui/addresses.ts";
+import { changesSourceOf, commitAddress, type Address, type FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
@@ -1163,8 +1163,12 @@ export const useDiscardFileChanges = ({
 				Commit: ({ commitId }) => {
 					commitDiscardChanges({ projectId, commitId, changes, dryRun: false });
 				},
-				UncommittedChanges: () => {
-					discardWorktreeChanges({ projectId, worktreeChanges: changes });
+				UncommittedChanges: (parent) => {
+					discardWorktreeChanges({
+						projectId,
+						changesSource: changesSourceOf(parent),
+						worktreeChanges: changes,
+					});
 				},
 				Branch: () => {},
 			}),

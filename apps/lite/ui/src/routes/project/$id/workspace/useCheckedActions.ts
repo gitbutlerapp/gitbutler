@@ -10,6 +10,7 @@ import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/que
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
 	addressIdentityKey,
+	changesSourceOf,
 	commitAddress,
 	uncommittedChangesFileParent,
 	type Address,
@@ -202,7 +203,11 @@ export const useCheckedActions = ({
 								dryRun: false,
 							});
 						} else {
-							discardWorktreeChanges({ projectId, worktreeChanges: changes });
+							discardWorktreeChanges({
+								projectId,
+								changesSource: changesSourceOf(parent),
+								worktreeChanges: changes,
+							});
 						}
 					}),
 			};

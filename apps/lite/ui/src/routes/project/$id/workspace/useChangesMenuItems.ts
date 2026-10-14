@@ -4,7 +4,7 @@ import {
 	useDiscardWorktreeChanges,
 } from "#ui/api/mutations.ts";
 import { nativeMenuItem, nativeMenuItemsFromGroups, type NativeMenuItem } from "#ui/native-menu.ts";
-import type { FileParent } from "#ui/addresses.ts";
+import { changesSourceOf, type FileParent } from "#ui/addresses.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
@@ -61,12 +61,17 @@ export const useChangesMenuItems = ({
 						}),
 					],
 				],
-				UncommittedChanges: () => [
+				UncommittedChanges: (parent) => [
 					[
 						nativeMenuItem({
 							label: "Discard Changes",
 							enabled: changes.length > 0 && !isDiscardWorktreeChangesPending,
-							onSelect: () => discardWorktreeChanges({ projectId, worktreeChanges: diffSpecs() }),
+							onSelect: () =>
+								discardWorktreeChanges({
+									projectId,
+									changesSource: changesSourceOf(parent),
+									worktreeChanges: diffSpecs(),
+								}),
 						}),
 					],
 				],

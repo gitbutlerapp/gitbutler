@@ -91,8 +91,8 @@
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const [, absorbingChanges] = stackService.absorb;
 
-	// Discarding, stashing and absorbing work on the main checkout only.
-	const isUncommitted = $derived(
+	// Stashing and absorbing work on the main checkout only.
+	const inMainCheckout = $derived(
 		selectionId.type === "worktree" && selectionId.worktree === undefined,
 	);
 
@@ -195,7 +195,7 @@
 			{#if item.changes.length > 0 && !editMode}
 				<ContextMenuSection>
 					{@const changes = item.changes}
-					{#if isUncommitted}
+					{#if selectionId.type === "worktree"}
 						<ContextMenuItem
 							label="Discard changes…"
 							testId={TestId.FileListItemContextMenu_DiscardChanges}
@@ -205,6 +205,8 @@
 								menuOpen = false;
 							}}
 						/>
+					{/if}
+					{#if inMainCheckout}
 						<ContextMenuItem
 							label="Stash into branch…"
 							icon="branch-bottom-up-arrow"

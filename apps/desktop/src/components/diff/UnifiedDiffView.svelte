@@ -73,7 +73,7 @@
 	);
 
 	const isUncommittedChange = $derived(selectionId.type === "worktree");
-	// Dependencies and discarding work on the main checkout only.
+	// Dependencies work on the main checkout only.
 	const inMainCheckout = $derived(selectionId.worktree === undefined);
 
 	const uncommittedServices = inject(UNCOMMITTED_SERVICE);
@@ -375,7 +375,7 @@
 			{stackId}
 			{commitId}
 			{selectionId}
-			discardable={isUncommittedChange && inMainCheckout}
+			discardable={isUncommittedChange}
 			{selectable}
 			{selectAllHunkLines}
 			{unselectAllHunkLines}

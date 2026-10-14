@@ -61,10 +61,10 @@ export const fileSetMenuItems = ({
 		Match.withReturnType<Array<Array<NativeMenuItem>>>(),
 		Match.tagsExhaustive({
 			Commit: () => [[cut], [uncommit, discard]],
-			// A linked worktree's files cut into the workspace like any other, but absorb and
-			// discard act on the project's own checkout, so they are offered neither.
+			// A linked worktree's files cut and discard like any other, but absorb acts on the
+			// project's own checkout, so it isn't offered.
 			UncommittedChanges: ({ worktree }) =>
-				worktree === undefined ? [[cut], [absorb, discard]] : [[cut]],
+				worktree === undefined ? [[cut], [absorb, discard]] : [[cut], [discard]],
 			// We currently don't support any operations on branch files.
 			Branch: () => [],
 		}),
