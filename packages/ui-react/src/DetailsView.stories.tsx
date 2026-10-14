@@ -12,6 +12,7 @@ import { LocationBar, LocationBarDivider } from "./LocationBar.tsx";
 import { MetaCount } from "./MetaCount.tsx";
 import { ScrollArea } from "./ScrollArea.tsx";
 import { SwitchButton } from "./SwitchButton.tsx";
+import { Tab, Tabs } from "./Tabs.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
 import {
 	ViewHeader,
@@ -237,8 +238,8 @@ const Frame: FC<{ crumbs: Array<Crumb>; state: ReactNode; header: ReactNode }> =
 );
 
 /**
- * A branch on its Pull Request view: the views and the commit filter lead the header's toolbar and
- * its buttons end it. Under it, the file list and the diff, each 12px in from the pane.
+ * A branch: its tabs and the commit filter make the header's toolbar, and its buttons stand beside
+ * the title. Under it, the file list and the diff, each 12px in from the pane.
  */
 export const Branch = meta.story({
 	render: () => (
@@ -260,18 +261,14 @@ export const Branch = meta.story({
 					}
 					toolbar={
 						<>
-							<ToggleGroup
-								render={<ToggleGroupStyles />}
-								defaultValue={["pr"]}
-								aria-label="Branch view"
-							>
-								<Toggle render={<ToggleStyles />} value="diff">
+							<Tabs defaultValue="diff" aria-label="Branch tab">
+								<Tab value="diff" icon={<Icon name="diff" />}>
 									Diff
-								</Toggle>
-								<Toggle render={<ToggleStyles />} value="pr">
+								</Tab>
+								<Tab value="pr" icon={<Icon name="pr" />}>
 									Pull Request
-								</Toggle>
-							</ToggleGroup>
+								</Tab>
+							</Tabs>
 							<ViewHeaderDivider />
 							<Button>
 								<Icon name="commit" />

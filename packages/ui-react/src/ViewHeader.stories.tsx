@@ -1,5 +1,4 @@
 import preview from "#storybook/preview";
-import { Toggle, ToggleGroup } from "@base-ui/react";
 import { Avatar } from "./Avatar.tsx";
 import { Badge } from "./Badge.tsx";
 import { Button } from "./Button.tsx";
@@ -10,7 +9,6 @@ import { machinePictures } from "./story-assets/machines.ts";
 import { Icon } from "./Icon.tsx";
 import { SwitchButton } from "./SwitchButton.tsx";
 import { Tab, Tabs } from "./Tabs.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
 import {
 	ViewHeader,
 	ViewHeaderButton,
@@ -54,17 +52,10 @@ const BranchTabs: FC<{ tab?: "diff" | "pr"; prDisabled?: boolean }> = ({
 	</Tabs>
 );
 
-/** but.dev's branch views as a segmented control, then the commit filter after a divider. */
-const BranchViews: FC = () => (
+/** but.dev's branch tabs, then the commit filter after a divider. */
+const BranchTabsAndFilter: FC = () => (
 	<>
-		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["pr"]} aria-label="Branch view">
-			<Toggle render={<ToggleStyles />} value="diff">
-				Diff
-			</Toggle>
-			<Toggle render={<ToggleStyles />} value="pr">
-				Pull Request
-			</Toggle>
-		</ToggleGroup>
+		<BranchTabs />
 		<ViewHeaderDivider />
 		<Button>
 			<Icon name="commit" />
@@ -187,8 +178,8 @@ export const SpelledOut = meta.story({
 });
 
 /**
- * but.dev's branch on its Pull Request view: the views and the commit filter lead the toolbar, and
- * the buttons end it, the pull request's own Auto-merge first.
+ * but.dev's branch: its tabs and the commit filter make the toolbar, and its buttons stand beside
+ * the title, the pull request's Auto-merge first.
  */
 export const BranchWithButtons = meta.story({
 	parameters: {
@@ -209,7 +200,7 @@ export const BranchWithButtons = meta.story({
 				<MetaCount type="agent-working">Agent working 12m</MetaCount>
 			</>
 		),
-		toolbar: <BranchViews />,
+		toolbar: <BranchTabsAndFilter />,
 		actions: (
 			<>
 				<SwitchButton label="Auto-merge" variant="outline" />

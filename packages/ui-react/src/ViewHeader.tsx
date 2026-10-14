@@ -45,14 +45,15 @@ type Props = {
 	 */
 	children?: ReactNode;
 	/**
-	 * The row under the title block: the view's tabs, a divider, the commit filter. The actions
-	 * end it. Omit it when the view has no tabs, and the header is the title block alone.
+	 * The row under the title block: the view's tabs, a divider, the commit filter. Omit it when
+	 * the view has no tabs, and the header is the title block alone.
 	 */
 	toolbar?: ReactNode;
 	/**
 	 * Every button the view has, at the header's end: Send to, Update, Apply to workspace,
-	 * previous and next, and on a pull request tab its own. They end the toolbar when there is one,
-	 * and stand beside the title block when there isn't. Each is a {@link ViewHeaderButton}; the
+	 * previous and next, and on a pull request tab its own. They stand beside the title block,
+	 * level with the title when tabs follow and with the meta line when the header ends there.
+	 * Each is a {@link ViewHeaderButton}; the
 	 * menu last, ghost and icon-only. Never the diff's own controls; those sit in the bar over the
 	 * diff.
 	 */
@@ -83,8 +84,6 @@ export const ViewHeader: FC<Props> = ({
 	const [bodyOpen, setBodyOpen] = useState(false);
 	const bodyId = useId();
 	const hasBody = present(children);
-	const hasToolbar = present(toolbar);
-	const buttons = present(actions) && <div className={styles.actions}>{actions}</div>;
 
 	return (
 		<header {...props} className={classes(props.className, styles.header)}>
@@ -141,22 +140,17 @@ export const ViewHeader: FC<Props> = ({
 					)}
 				</div>
 
-				{!hasToolbar && buttons}
+				{present(actions) && <div className={styles.actions}>{actions}</div>}
 			</div>
 
-			{hasToolbar && (
-				<div className={styles.toolbar}>
-					{toolbar}
-					{buttons}
-				</div>
-			)}
+			{present(toolbar) && <div className={styles.toolbar}>{toolbar}</div>}
 		</header>
 	);
 };
 
 /**
- * A button in a header's `actions`: a regular {@link Button}, the toolbar's height, so the
- * buttons line up with the tabs beside them; an icon-only one is square. `outline` for the next
+ * A button in a header's `actions`: a regular {@link Button}, the height of the toolbar's
+ * controls under it; an icon-only one is square. `outline` for the next
  * step, `ghost` and `iconOnly` for the menu.
  * @import import { ViewHeaderButton } from "@gitbutler/ui-react/ViewHeader.tsx";
  */

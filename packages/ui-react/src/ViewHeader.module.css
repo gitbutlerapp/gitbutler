@@ -162,18 +162,13 @@
 	background-color: var(--border-2);
 }
 
-/* The view's buttons, at the end: of the toolbar when there is one, else beside the title block,
-   level with its last line, so they sit on the meta line rather than float between it and the
-   title. */
+/* The view's buttons, beside the title block and level with its meta line, so they don't float
+   between it and the title. */
 .actions {
 	display: flex;
 	column-gap: var(--gap-buttons-compact);
 	flex-shrink: 0;
 	align-items: center;
-	align-self: center;
+	align-self: flex-end;
 	margin-inline-start: auto;
-
-	.top > & {
-		align-self: flex-end;
-	}
 }
