@@ -1174,3 +1174,52 @@ fn materialize_checks_out_another_branch_on_the_same_commit() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn materialize_moves_a_detached_head_along_with_its_rewritten_commit() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let b = repo.rev_parse_single("HEAD~")?.detach();
+    repo.reference(
+        "HEAD",
+        b,
+        gix::refs::transaction::PreviousValue::Any,
+        "detach at b",
+    )?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let a = repo.rev_parse_single("HEAD~")?;
+    let mut reworded = but_core::Commit::from_id(a)?;
+    reworded.message = "a reworded".into();
+    let reworded = repo.write_object(reworded.inner)?.detach();
+    let a_selector = editor.select_commit(a.detach())?;
+    editor.amend_pick(a_selector, reworded)?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    assert_eq!(repo.head_name()?, None, "HEAD stays detached");
+    // HEAD follows b onto the reworded a, while main is out of reach of HEAD and stays.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 120e3a9 (main) c
+* a96434e b
+* d591dfe a
+| * 95e95fa (HEAD) b
+| * 256cb20 a reworded
+|/  
+* 35b8235 base
+
+"#]]
+    );
+
+    Ok(())
+}

@@ -112,7 +112,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         let mut commit_to_pick_ix = HashMap::<gix::ObjectId, StepGraphIndex>::new();
         let mut reference_to_ix = HashMap::<gix::refs::FullName, StepGraphIndex>::new();
         let mut graph = StepGraph::new();
-        let mut head_selectors = vec![];
         let mut references = vec![];
         struct NodeSegment {
             nodes: Vec<StepGraphIndex>,
@@ -146,12 +145,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     mutable: reference_mutable,
                 });
                 reference_to_ix.insert(refname.clone(), ix);
-                if Some(refname.as_ref()) == entrypoint.segment.ref_name() {
-                    head_selectors.push(Selector {
-                        id: ix,
-                        revision: 0,
-                    });
-                }
                 nodes.push(ix);
             }
 
@@ -364,9 +357,16 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
         }
 
+        let head_selector = match entrypoint.segment.ref_name() {
+            Some(ref_name) => reference_to_ix.get(ref_name),
+            None => entrypoint
+                .commit()
+                .and_then(|commit| commit_to_pick_ix.get(&commit.id)),
+        }
+        .map(|&id| Selector { id, revision: 0 });
         let checkouts = worktree_checkouts
             .into_values()
-            .chain(head_selectors.into_iter().map(|selector| Checkout::Head {
+            .chain(head_selector.map(|selector| Checkout::Head {
                 selector,
                 merge_base_override: None,
             }))
