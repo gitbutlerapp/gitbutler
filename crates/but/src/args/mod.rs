@@ -15,6 +15,7 @@ use crate::args::atoms::CliIdArg;
 use crate::utils::envs;
 
 pub mod atoms;
+pub mod init;
 
 #[derive(Debug, clap::Parser)]
 #[clap(
@@ -181,6 +182,9 @@ impl HelpTopic {
     name(SubcommandDiscriminant)
 )]
 pub enum Subcommands {
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Init(init::Platform),
+
     /// Show an overview of the workspace state.
     ///
     /// This shows uncommitted files, all applied branches (stacked or

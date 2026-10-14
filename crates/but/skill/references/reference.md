@@ -12,7 +12,7 @@ Agent-focused reference for useful `but` commands.
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`, `worktree`
 - [History & Undo](#history--undo) - `undo`, `oplog`
-- [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`
+- [Setup & Configuration](#setup--configuration) - `init`, `setup`, `teardown`, `config`, `update`, `skill`
 - [Selected Options](#selected-options)
 
 ## Inspection (Understanding State)
@@ -618,6 +618,15 @@ but oplog restore <snapshot-id>
 ```
 
 ## Setup & Configuration
+
+### `but init`
+
+Create an empty Git repository.
+
+```bash
+but init                     # Initialize the current directory
+but -C path/to/repo init      # Create and initialize another directory
+```
 
 ### `but setup`
 

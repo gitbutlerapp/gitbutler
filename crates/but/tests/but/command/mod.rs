@@ -30,6 +30,7 @@ mod external;
 mod format;
 mod gui;
 mod help;
+mod init;
 #[cfg(feature = "legacy")]
 mod merge;
 #[cfg(feature = "legacy")]
