@@ -2,6 +2,7 @@ import styles from "./ViewHeader.module.css";
 import { Button, type ButtonProps } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 import type { IconName } from "./iconNames.ts";
 import { useId, useState, type ComponentProps, type FC, type ReactNode } from "react";
 
@@ -40,8 +41,7 @@ type Props = {
 	metaTabs?: ReactNode;
 	/**
 	 * The rest of what the title begins, as a commit's message body. It stays folded behind a
-	 * Full message button, the first of the actions, and opens under the title, above the meta
-	 * line.
+	 * small icon button right after the title, and opens under the title, above the meta line.
 	 */
 	children?: ReactNode;
 	/**
@@ -84,22 +84,7 @@ export const ViewHeader: FC<Props> = ({
 	const bodyId = useId();
 	const hasBody = present(children);
 	const hasToolbar = present(toolbar);
-	const buttons = (hasBody || present(actions)) && (
-		<div className={styles.actions}>
-			{hasBody && (
-				<ViewHeaderButton
-					data-pressed={bodyOpen || undefined}
-					aria-controls={bodyId}
-					aria-expanded={bodyOpen}
-					onClick={() => setBodyOpen(!bodyOpen)}
-				>
-					<Icon name="text-block" />
-					Full message
-				</ViewHeaderButton>
-			)}
-			{actions}
-		</div>
-	);
+	const buttons = present(actions) && <div className={styles.actions}>{actions}</div>;
 
 	return (
 		<header {...props} className={classes(props.className, styles.header)}>
@@ -111,9 +96,27 @@ export const ViewHeader: FC<Props> = ({
 						{present(leading) && <div className={styles.leading}>{leading}</div>}
 						<div className={styles.name}>
 							{typeof icon === "string" ? <Icon name={icon as IconName} /> : icon}
-							<h2 className={classes("text-16", "text-semibold", styles.title)}>
-								{typeof title === "string" ? <span>{title}</span> : title}
-							</h2>
+							<div className={styles.heading}>
+								<h2 className={classes("text-16", "text-semibold", styles.title)}>
+									{typeof title === "string" ? <span>{title}</span> : title}
+								</h2>
+								{hasBody && (
+									<Tooltip side="bottom" content={bodyOpen ? "Hide full message" : "Full message"}>
+										<Button
+											variant="ghost"
+											size="small"
+											iconOnly
+											aria-label="Full message"
+											data-pressed={bodyOpen || undefined}
+											aria-controls={bodyId}
+											aria-expanded={bodyOpen}
+											onClick={() => setBodyOpen(!bodyOpen)}
+										>
+											<Icon name="text-block" />
+										</Button>
+									</Tooltip>
+								)}
+							</div>
 						</div>
 					</div>
 

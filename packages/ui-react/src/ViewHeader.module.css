@@ -61,6 +61,19 @@
 	min-width: 0;
 }
 
+/* The title and the button that unfolds a commit's body, which stays its size while the title
+   gives way. */
+.heading {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+	min-width: 0;
+
+	> button {
+		flex-shrink: 0;
+	}
+}
+
 .title {
 	display: flex;
 	column-gap: 8px;
