@@ -169,8 +169,10 @@ export const Breadcrumbs: FC<Props> = ({ items, className, ...props }) => {
 												onClick={h.onClick}
 												closeOnClick
 												render={(itemProps) => (
-													// oxlint-disable-next-line jsx_a11y/anchor-has-content, jsx_a11y/control-has-associated-label -- The row renders as this link, and PopupItem fills it with the label.
-													<PopupItem {...itemProps} render={<a href={h.href} />}>
+													// The item's props are a link's: they go on the <a> the row renders as, not on
+													// PopupItem, which is typed as a button.
+													// oxlint-disable-next-line jsx_a11y/anchor-has-content -- The row renders as this link, and PopupItem fills it with the label.
+													<PopupItem render={<a {...itemProps} href={h.href} />}>
 														{h.label}
 													</PopupItem>
 												)}
