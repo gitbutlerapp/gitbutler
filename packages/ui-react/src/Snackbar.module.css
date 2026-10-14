@@ -16,7 +16,7 @@
 	border: 1px solid transparent;
 	/* It floats over the page, so it wears the popup radius. */
 	border-radius: var(--radius-popup);
-	background-color: var(--fill-gray-bg);
+	background-color: var(--scale-gray-10);
 	box-shadow: var(--shadow-md);
 	color: var(--text-1-invert);
 	white-space: nowrap;
