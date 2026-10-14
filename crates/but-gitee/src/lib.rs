@@ -119,22 +119,17 @@ pub async fn get_gitee_user(
         };
         let gl = GiteeClient::with_base_url(&access_token, &base)
             .context("Failed to create Gitee client")?;
-        match gl.get_authenticated().await {
-            Ok(user) => Ok(Some(AuthenticatedUser {
-                access_token,
-                username: user.login,
-                name: user.name,
-                email: user.email,
-                avatar_url: user.avatar_url,
-            })),
-            Err(_) => Ok(Some(AuthenticatedUser {
-                access_token,
-                username: account.username().to_owned(),
-                name: None,
-                email: None,
-                avatar_url: None,
-            })),
-        }
+        let user = gl
+            .get_authenticated()
+            .await
+            .map_err(classify_pat_validation_error)?;
+        Ok(Some(AuthenticatedUser {
+            access_token,
+            username: user.login,
+            name: user.name,
+            email: user.email,
+            avatar_url: user.avatar_url,
+        }))
     } else {
         Ok(None)
     }

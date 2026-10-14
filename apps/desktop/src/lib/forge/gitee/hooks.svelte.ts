@@ -5,6 +5,7 @@ import {
 import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 import { inject } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import type { ForgeUserQuery } from "$lib/forge/interface/types";
 import type { GiteeAccountIdentifier } from "@gitbutler/but-sdk";
 import type { Reactive } from "@gitbutler/shared/storeUtils";
 
@@ -49,5 +50,29 @@ export function usePreferredGiteeUsername(projectId: Reactive<string>): GiteePre
 	return {
 		preferredGiteeAccount: reactive(() => preferredUser),
 		giteeAccounts: reactive(() => giteeAccounts),
+	};
+}
+
+/** Resolve a project's Gitee account as a verified, display-ready forge user. */
+export function useGiteeForgeUser(projectId: Reactive<string>): ForgeUserQuery {
+	const giteeUserService = inject(GITEE_USER_SERVICE);
+	const { preferredGiteeAccount } = usePreferredGiteeUsername(projectId);
+	const userQuery = $derived.by(() => {
+		const account = preferredGiteeAccount.current;
+		if (account === undefined) return undefined;
+		return giteeUserService.authenticatedUser(account, {
+			transform: (result) =>
+				result
+					? {
+							login: result.username,
+							name: result.name ?? result.username,
+							srcUrl: result.avatarUrl ?? "",
+						}
+					: undefined,
+		});
+	});
+	return {
+		user: reactive(() => (userQuery?.result.isError ? undefined : userQuery?.response)),
+		isLoading: reactive(() => userQuery?.result.isLoading ?? false),
 	};
 }

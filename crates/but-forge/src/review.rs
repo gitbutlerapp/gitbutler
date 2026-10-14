@@ -484,8 +484,27 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
 
 impl From<but_gitee::GiteePullRequest> for ForgeReview {
     fn from(pr: but_gitee::GiteePullRequest) -> Self {
-        let merged_at = pr.merged_at.clone();
-        let closed_at = pr.closed_at.clone();
+        let merged_at = pr.merged_at.clone().or_else(|| {
+            pr.is_merged()
+                .then(|| pr.updated_at.clone().unwrap_or_else(|| pr.created_at.clone()))
+        });
+        let closed_at = pr.closed_at.clone().or_else(|| {
+            (!pr.is_open())
+                .then(|| pr.updated_at.clone().unwrap_or_else(|| pr.created_at.clone()))
+        });
+        let remote = crate::remote_url::RemoteUrl::parse(&pr.html_url);
+        let repository_https_url = remote.as_ref().and_then(|remote| {
+            let repo = pr.base.as_ref()?.repo.as_ref()?;
+            let port = remote.port.map(|port| format!(":{port}")).unwrap_or_default();
+            Some(format!(
+                "{}://{}{port}/{}.git",
+                remote.protocol, remote.host, repo.full_name
+            ))
+        });
+        let repository_ssh_url = remote.as_ref().and_then(|remote| {
+            let repo = pr.base.as_ref()?.repo.as_ref()?;
+            Some(format!("git@{}:{}.git", remote.host, repo.full_name))
+        });
         ForgeReview {
             html_url: pr.html_url,
             number: pr.number,
@@ -515,16 +534,8 @@ impl From<but_gitee::GiteePullRequest> for ForgeReview {
             modified_at: pr.updated_at,
             merged_at,
             closed_at,
-            repository_ssh_url: pr
-                .base
-                .as_ref()
-                .and_then(|b| b.repo.as_ref())
-                .map(|r| format!("git@gitee.com:{}.git", r.full_name)),
-            repository_https_url: pr
-                .base
-                .as_ref()
-                .and_then(|b| b.repo.as_ref())
-                .map(|r| format!("https://gitee.com/{}.git", r.full_name)),
+            repository_ssh_url,
+            repository_https_url,
             repo_owner: pr
                 .base
                 .as_ref()
@@ -871,7 +882,7 @@ fn list_recently_settled_reviews(
             .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
 
             prs.into_iter()
-                .filter(|pr| pr.is_merged())
+                .filter(|pr| !pr.is_open())
                 .map(ForgeReview::from)
                 .collect()
         }
@@ -3911,6 +3922,46 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+
+    #[test]
+    fn gitee_review_preserves_host_and_terminal_state() {
+        for (state, expected_open, expected_merged) in [
+            ("open", true, false),
+            ("closed", false, false),
+            ("rejected", false, false),
+            ("merged", false, true),
+        ] {
+            let pr: but_gitee::GiteePullRequest = serde_json::from_value(serde_json::json!({
+                "id": 1, "number": 2, "title": "Example", "state": state,
+                "created_at": "2026-10-14T00:00:00Z",
+                "updated_at": "2026-10-15T00:00:00Z",
+                "html_url": "https://code.example.com:8443/team/repo/pulls/2",
+                "base": { "label": "main", "ref": "main", "sha": "abc", "repo": {
+                    "id": 1, "full_name": "team/repo", "private": true
+                }}
+            }))
+            .unwrap();
+            let review = ForgeReview::from(pr);
+            assert_eq!(
+                review.is_open(), expected_open,
+                "terminal states must close cached reviews"
+            );
+            assert_eq!(
+                review.is_merged(), expected_merged,
+                "rejected reviews must not become merged"
+            );
+            assert_eq!(
+                review.repository_https_url.as_deref(),
+                Some("https://code.example.com:8443/team/repo.git"),
+                "HTTPS clone URLs preserve the instance origin"
+            );
+            assert_eq!(
+                review.repository_ssh_url.as_deref(),
+                Some("git@code.example.com:team/repo.git"),
+                "SSH clone URLs use the instance host"
+            );
+        }
+    }
 
     fn p(path: &str) -> &Path {
         Path::new(path)
