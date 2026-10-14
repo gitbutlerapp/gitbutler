@@ -45,15 +45,16 @@ type Props = {
 	 */
 	children?: ReactNode;
 	/**
-	 * The row under the title block: the view's tabs, a divider, the commit filter. Omit it when
-	 * the view has no tabs, and the header is the title block alone.
+	 * The row under the title block: the view's tabs, a divider, the commit filter. The actions
+	 * end it. Omit it when the view has no tabs, and the header is the title block alone.
 	 */
 	toolbar?: ReactNode;
 	/**
-	 * Every button the view has, right after the title: Send to, Update, Apply to workspace,
-	 * previous and next, and on a pull request tab its own. Each is a {@link ViewHeaderButton};
-	 * the menu last, ghost and icon-only. Never the diff's own controls; those sit in the bar over
-	 * the diff.
+	 * Every button the view has, at the header's end: Send to, Update, Apply to workspace,
+	 * previous and next, and on a pull request tab its own. They end the toolbar when there is one,
+	 * and stand beside the title block when there isn't. Each is a {@link ViewHeaderButton}; the
+	 * menu last, ghost and icon-only. Never the diff's own controls; those sit in the bar over the
+	 * diff.
 	 */
 	actions?: ReactNode;
 } & Omit<ComponentProps<"header">, "title" | "children">;
@@ -63,7 +64,7 @@ const present = (node: ReactNode) => node !== undefined && node !== null && node
 /**
  * The header of a details view: what is shown, a line about it, and the controls for it. Layout
  * only; what goes in each slot is the app's. One component for every view, rather than one per
- * view, so the rules that keep the views alike live here: the buttons follow the title, and the
+ * view, so the rules that keep the views alike live here: the buttons stand at the end, and the
  * meta line never wraps.
  * @import import { ViewHeader } from "@gitbutler/ui-react/ViewHeader.tsx";
  */
@@ -82,6 +83,23 @@ export const ViewHeader: FC<Props> = ({
 	const [bodyOpen, setBodyOpen] = useState(false);
 	const bodyId = useId();
 	const hasBody = present(children);
+	const hasToolbar = present(toolbar);
+	const buttons = (hasBody || present(actions)) && (
+		<div className={styles.actions}>
+			{hasBody && (
+				<ViewHeaderButton
+					data-pressed={bodyOpen || undefined}
+					aria-controls={bodyId}
+					aria-expanded={bodyOpen}
+					onClick={() => setBodyOpen(!bodyOpen)}
+				>
+					<Icon name="text-block" />
+					Full message
+				</ViewHeaderButton>
+			)}
+			{actions}
+		</div>
+	);
 
 	return (
 		<header {...props} className={classes(props.className, styles.header)}>
@@ -97,22 +115,6 @@ export const ViewHeader: FC<Props> = ({
 								{typeof title === "string" ? <span>{title}</span> : title}
 							</h2>
 						</div>
-						{(hasBody || present(actions)) && (
-							<div className={styles.actions}>
-								{hasBody && (
-									<ViewHeaderButton
-										data-pressed={bodyOpen || undefined}
-										aria-controls={bodyId}
-										aria-expanded={bodyOpen}
-										onClick={() => setBodyOpen(!bodyOpen)}
-									>
-										<Icon name="text-block" />
-										Full message
-									</ViewHeaderButton>
-								)}
-								{actions}
-							</div>
-						)}
 					</div>
 
 					{/* Always there once there is a body, so it can slide open: what is under the header moves
@@ -135,36 +137,27 @@ export const ViewHeader: FC<Props> = ({
 						</div>
 					)}
 				</div>
+
+				{!hasToolbar && buttons}
 			</div>
 
-			{present(toolbar) && <div className={styles.toolbar}>{toolbar}</div>}
+			{hasToolbar && (
+				<div className={styles.toolbar}>
+					{toolbar}
+					{buttons}
+				</div>
+			)}
 		</header>
 	);
 };
 
 /**
- * A button in a header's `actions`: a small {@link Button} a step taller, 22px, to sit beside the
- * 16px title; an icon-only one is square. `outline` for the next step, `ghost` and `iconOnly` for
- * the menu.
+ * A button in a header's `actions`: a regular {@link Button}, the toolbar's height, so the
+ * buttons line up with the tabs beside them; an icon-only one is square. `outline` for the next
+ * step, `ghost` and `iconOnly` for the menu.
  * @import import { ViewHeaderButton } from "@gitbutler/ui-react/ViewHeader.tsx";
  */
-export const ViewHeaderButton: FC<Omit<ButtonProps, "size">> = ({
-	className,
-	iconOnly,
-	...props
-}) => (
-	<Button
-		{...props}
-		size="small"
-		iconOnly={iconOnly}
-		className={(state) =>
-			classes(
-				iconOnly ? styles.iconButton : styles.button,
-				typeof className === "function" ? className(state) : className,
-			)
-		}
-	/>
-);
+export const ViewHeaderButton: FC<Omit<ButtonProps, "size">> = (props) => <Button {...props} />;
 
 /**
  * The dim " · " between two parts of a header's meta line.
