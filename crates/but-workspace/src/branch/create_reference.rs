@@ -84,13 +84,12 @@ pub(super) mod function {
     use but_core::{RefMetadata, branch::find_unique_refname_excluding};
     use but_error::bail_precondition;
     use but_rebase::graph_rebase::{
-        Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, mutate::InsertSide,
+        Editor, LookupStep, Selector, Step, SuccessfulRebase, mutate::InsertSide,
     };
 
     use crate::{
-        WorkspaceCommit,
         branch::create_reference::{Anchor, Position},
-        commit::Stack,
+        editor_workspace::ensure_workspace_commit,
     };
 
     enum Placement {
@@ -118,9 +117,10 @@ pub(super) mod function {
         }
         let rebase = editor.rebase()?;
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
-        let mut editor = rebase.into_editor();
+        let editor = rebase.into_editor();
         let placement = placement(&editor, &workspace, ref_name, anchor.into())?;
-        let workspace_commit = ensure_workspace_commit(&mut editor)?;
+        let mut editor = ensure_workspace_commit(editor)?.into_editor();
+        let workspace_commit = editor.workspace_commit();
         let reference = Step::new_reference(ref_name.to_owned());
         match placement {
             Placement::Independent { base } => {
@@ -319,28 +319,5 @@ pub(super) mod function {
             Position::Above => InsertSide::Above,
             Position::Below => InsertSide::Below,
         }
-    }
-
-    fn ensure_workspace_commit<M: RefMetadata>(
-        editor: &mut Editor<'_, '_, M>,
-    ) -> anyhow::Result<Option<Selector>> {
-        if let Some(workspace_commit) = editor.workspace_commit() {
-            return Ok(Some(workspace_commit));
-        }
-        let Some(workspace_reference) = editor.workspace_reference() else {
-            return Ok(None);
-        };
-        let (_, below) = editor.find_reference_target(workspace_reference)?;
-        let mut commit =
-            WorkspaceCommit::new_from_stacks(Vec::<Stack>::new(), editor.repo().object_hash());
-        commit.tree = below.inner.tree;
-        commit.parents = vec![below.id].into();
-        WorkspaceCommit::fixup_times(&mut commit, editor.repo());
-        let commit = editor.repo().write_object(&commit)?.detach();
-        Ok(Some(editor.insert(
-            workspace_reference,
-            Step::Pick(Pick::new_workspace_pick(commit)),
-            InsertSide::Below,
-        )?))
     }
 }
