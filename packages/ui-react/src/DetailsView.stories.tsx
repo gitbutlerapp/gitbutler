@@ -238,10 +238,11 @@ const Frame: FC<{ crumbs: Array<Crumb>; state: ReactNode; header: ReactNode }> =
 );
 
 /**
- * A branch: its tabs and the commit filter make the header's toolbar, and its buttons stand beside
- * the title. Under it, the file list and the diff, each 12px in from the pane.
+ * A branch, the view with the most in it: its tabs and the commit filter make the header's
+ * toolbar, and its buttons stand beside the title. Under it, the file list and the diff, each
+ * 12px in from the pane.
  */
-export const Branch = meta.story({
+export const Default = meta.story({
 	render: () => (
 		<Frame
 			crumbs={[{ label: "mesh", href: "#mesh" }]}
