@@ -1005,7 +1005,7 @@ export declare function installCliV2(cliPath: string, symlinkPolicy: ExistingSym
 export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:702}
+ * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:707}
  */
 export declare function listBranches(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
 
@@ -1573,7 +1573,7 @@ export declare function treeChangeDiffsFromSource(projectId: string, changesSour
  * See [`unapply_stack_with_perm()`] for how assigned changes are collected before
  * delegating to the underlying mutation.
  *
- * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:461}
+ * {@link ../../../../../crates/but-api/src/legacy/virtual_branches.rs:466}
  */
 export declare function unapplyStack(projectId: string, stackId: string): Promise<void>
 

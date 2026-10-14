@@ -55,9 +55,14 @@ pub fn create_virtual_branch(
 
         let mut meta = ctx.meta()?;
         let (guard, repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut()?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        but_workspace::branch::create_reference(editor, new_ref.as_ref(), None, branch.order)?
-            .materialize(Default::default())?;
+        if ws
+            .find_segment_owner_indexes_by_refname(new_ref.as_ref())
+            .is_none()
+        {
+            let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+            but_workspace::branch::create_reference(editor, new_ref.as_ref(), None, branch.order)?
+                .materialize(Default::default())?;
+        }
         let new_ws = &ws;
 
         let (stack_idx, segment_idx) = new_ws
