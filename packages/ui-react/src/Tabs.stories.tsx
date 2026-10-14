@@ -98,8 +98,8 @@ export const Shortcuts = meta.story({
 });
 
 /**
- * In a pane's header, controlled by the pane. The header leaves 8px below the row, the underline's
- * 4px gap and its 4px, so the underline sits on the divider rather than across it.
+ * In a pane's header, controlled by the pane. The header leaves 10px below the row, the underline's
+ * 6px gap and its 4px, so the underline sits on the divider rather than across it.
  */
 export const InAHeader = meta.story({
 	render: function Render() {
@@ -109,7 +109,7 @@ export const InAHeader = meta.story({
 				<div
 					style={{
 						paddingInline: 12,
-						paddingBlock: "6px 8px",
+						paddingBlock: "6px 10px",
 						borderBlockEnd: "1px solid var(--border-2)",
 					}}
 				>

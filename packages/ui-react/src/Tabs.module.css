@@ -1,10 +1,9 @@
 .list {
 	/* The tab's inset, which the underline keeps too, so it runs under the tab's content. */
-	--tab-padding-inline: 10px;
+	--tab-padding-inline: 8px;
 
 	display: flex;
 	position: relative;
-	column-gap: 2px;
 	align-items: center;
 
 	/* The first tab's label, not its hover ground, lines up with the text around the row. */
@@ -74,11 +73,11 @@
 	opacity: 0.9;
 }
 
-/* Under the selected tab's content, 4px below it; moves and resizes to the next as the
+/* Under the selected tab's content, 6px below it; moves and resizes to the next as the
    selection moves. */
 .indicator {
 	position: absolute;
-	top: calc(var(--active-tab-top) + var(--active-tab-height) + 4px);
+	top: calc(var(--active-tab-top) + var(--active-tab-height) + 6px);
 	left: 0;
 	width: calc(var(--active-tab-width) - 2 * var(--tab-padding-inline));
 	height: 4px;
