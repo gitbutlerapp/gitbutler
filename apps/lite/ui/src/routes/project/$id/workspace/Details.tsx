@@ -85,6 +85,7 @@ import { DiffStats } from "@gitbutler/ui-react/DiffStats.tsx";
 import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { CiStatus, type CiStatusType, MetaCount } from "@gitbutler/ui-react/MetaCount.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -2919,16 +2920,18 @@ const CommitDetails: FC<{
 				metaTabs={review && <BranchTabs branchTab={tab} setBranchTab={setTab} />}
 				meta={
 					<>
-						<Avatar
-							src={commitDetails.commit.author.gravatarUrl}
-							seed={commitDetails.commit.author.email}
-							alt="Commit author avatar"
-						/>
-						<span>
-							<span title={commitDetails.commit.author.email}>
-								{commitDetails.commit.author.name}
-							</span>{" "}
-							at {fmtDate}
+						<span className={styles.commitAuthor}>
+							<Avatar
+								src={commitDetails.commit.author.gravatarUrl}
+								seed={commitDetails.commit.author.email}
+								alt="Commit author avatar"
+							/>
+							<span>
+								<span title={commitDetails.commit.author.email}>
+									{commitDetails.commit.author.name}
+								</span>{" "}
+								at {fmtDate}
+							</span>
 						</span>
 						<CopyableId
 							label="Copy change ID"
@@ -3095,22 +3098,33 @@ const checksPhrase = (aggregate: AggregateCIChecks | null): string | null => {
 	}
 };
 
+const ciStatusOf = (aggregate: AggregateCIChecks | null): CiStatusType | null => {
+	switch (aggregate?.status) {
+		case "failure":
+			return "failed";
+		case "in_progress":
+			return "working";
+		case "success":
+			return "passed";
+		default:
+			return null;
+	}
+};
+
 /**
- * Where the branch stands, in one line under its name: how far it is ahead of the target, how far
- * the workspace has fallen behind it, and its review. Each part shows only once it is known.
+ * Where the branch stands, under its name: how far it is ahead of the target and how far the
+ * workspace has fallen behind it, each led by its glyph. Each part shows only once it is known.
  */
 const useBranchMeta = ({
 	projectId,
 	branchName,
-	review,
 	applied,
 }: {
 	projectId: string;
 	branchName: string;
-	review: ForgeReview | null | undefined;
 	/** Only an applied branch sits on the workspace's base, so only it is behind with it. */
 	applied: boolean;
-}): string | null => {
+}): ReactNode => {
 	const { data: target } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: (headInfo) => headInfo.target,
@@ -3123,24 +3137,52 @@ const useBranchMeta = ({
 				.flatMap((stack) => stack.branches)
 				.find((listed) => listed.displayName === branchName)?.commitsAheadOfTarget ?? null,
 	});
-	const { data: checks } = useQuery({
-		...listCIChecksQueryOptions({ projectId, reference: branchName, polling: "passive" }),
-		enabled: !!review,
-		select: ({ aggregate }) => checksPhrase(aggregate),
-	});
 
 	const targetName = target
 		? `${target.remoteTrackingRef.remoteName}/${target.remoteTrackingRef.displayName}`
 		: null;
-	const parts = [
-		ahead != null &&
-			`${ahead} ${ahead === 1 ? "commit" : "commits"} ahead${targetName !== null ? ` of ${targetName}` : ""}`,
-		applied && target && target.commitsAhead > 0 && `${target.commitsAhead} behind`,
-		review && `${review.draft ? "draft " : ""}#${review.number}`,
-		review ? checks : null,
-	].filter((part): part is string => typeof part === "string");
+	const behind = applied && target ? target.commitsAhead : 0;
+	if (ahead == null && behind === 0) return null;
 
-	return parts.length === 0 ? null : parts.join(" · ");
+	return (
+		<>
+			{ahead != null && (
+				<MetaCount
+					type="commits"
+					title={targetName !== null ? `Ahead of ${targetName}` : undefined}
+				>
+					{ahead} {ahead === 1 ? "commit" : "commits"} ahead
+				</MetaCount>
+			)}
+			{behind > 0 && <MetaCount type="behind">{behind} behind</MetaCount>}
+		</>
+	);
+};
+
+/** A branch's pull request as its tab says it: its number for the label, its checks for a status. */
+const useReviewTab = ({
+	projectId,
+	branchName,
+	review,
+}: {
+	projectId: string;
+	branchName: string;
+	review: ForgeReview | null | undefined;
+}): { prLabel?: string; prStatus?: ReactNode } => {
+	const { data: checks } = useQuery({
+		...listCIChecksQueryOptions({ projectId, reference: branchName, polling: "passive" }),
+		enabled: !!review,
+		select: ({ aggregate }) => aggregate,
+	});
+	if (!review) return {};
+	const status = ciStatusOf(checks ?? null);
+	return {
+		prLabel: `${review.draft ? "Draft" : "PR"} #${review.number}`,
+		prStatus:
+			status !== null ? (
+				<CiStatus status={status} title={checksPhrase(checks ?? null) ?? undefined} />
+			) : undefined,
+	};
 };
 
 /**
@@ -3154,8 +3196,10 @@ const BranchTabs: FC<{
 	branchTab: BranchTab;
 	setBranchTab: (tab: BranchTab) => void;
 	prDisabled?: boolean;
+	prLabel?: string;
+	prStatus?: ReactNode;
 	className?: string;
-}> = ({ branchTab, setBranchTab, prDisabled = false, className }) => (
+}> = ({ branchTab, setBranchTab, prDisabled = false, prLabel, prStatus, className }) => (
 	<Tabs
 		className={className}
 		value={branchTab}
@@ -3165,8 +3209,13 @@ const BranchTabs: FC<{
 		<Tab value={"diff" satisfies BranchTab} icon={<Icon name="diff" />}>
 			Diff
 		</Tab>
-		<Tab value={"pr" satisfies BranchTab} icon={<Icon name="pr" />} disabled={prDisabled}>
-			{prDisabled ? "No pull request" : "Pull Request"}
+		<Tab
+			value={"pr" satisfies BranchTab}
+			icon={<Icon name="pr" />}
+			disabled={prDisabled}
+			status={prStatus}
+		>
+			{prDisabled ? "No pull request" : (prLabel ?? "Pull Request")}
 		</Tab>
 	</Tabs>
 );
@@ -3436,7 +3485,8 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 
 	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
-	const branchMeta = useBranchMeta({ projectId, branchName, review, applied: false });
+	const branchMeta = useBranchMeta({ projectId, branchName, applied: false });
+	const prTab = useReviewTab({ projectId, branchName, review });
 	// A branch checked out in a linked worktree cannot be applied while it is; its
 	// commits show up in the worktree's lane instead.
 	const { data: worktreeName } = useQuery({
@@ -3461,6 +3511,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 						branchTab={branchTab}
 						setBranchTab={setBranchTab}
 						prDisabled={reviewTab === null}
+						{...prTab}
 					/>
 				}
 				actions={
@@ -3572,7 +3623,8 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref });
 
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
-	const branchMeta = useBranchMeta({ projectId, branchName, review: openReview, applied: true });
+	const branchMeta = useBranchMeta({ projectId, branchName, applied: true });
+	const prTab = useReviewTab({ projectId, branchName, review: openReview });
 
 	// A forge only opens a review on a branch it has, so a new PR pushes the
 	// branch and its ancestors first when any of them still has something to
@@ -3590,7 +3642,7 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 				icon="branch"
 				title={branchName}
 				meta={branchMeta}
-				toolbar={<BranchTabs branchTab={branchTab} setBranchTab={setBranchTab} />}
+				toolbar={<BranchTabs branchTab={branchTab} setBranchTab={setBranchTab} {...prTab} />}
 			/>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
