@@ -178,7 +178,7 @@ fn merge_first_branch_into_origin() {
     env.invoke_git(&format!("remote set-url origin {}", remote.display()));
     env.invoke_git("push origin main:main");
     env.invoke_git("fetch origin");
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
 
     assert_eq!(
         env.invoke_git("rev-parse --abbrev-ref HEAD"),
@@ -305,7 +305,7 @@ Renamed branch 'next-branch' to 'my-branch'
 fn merge_fast_forwards_self_remote() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
 
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
     env.but("branch new first-branch").assert().success();
     env.file("file1.txt", "content1");
     env.but("commit -b first-branch -m 'first commit on branch A'")
@@ -375,7 +375,7 @@ fn merge_fast_forwards_self_remote() {
 #[test]
 fn merge_refuses_self_remote_target_checked_out_in_worktree() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
     env.but("branch new first-branch").assert().success();
     env.file("file1.txt", "content1");
     env.but("commit -b first-branch -m 'first'")
@@ -412,7 +412,7 @@ Failed to merge branch. Cannot land onto `main`: it is checked out in [..]main-w
 fn merge_no_ff_creates_signed_merge_commit() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
 
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
 
     // Configure SSH commit signing, keeping the key outside the worktree so it can't pollute status.
     let key_path = env
@@ -492,7 +492,7 @@ fn merge_no_ff_creates_signed_merge_commit() {
 #[test]
 fn merge_ignores_unreachable_unrelated_remote() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
     env.invoke_git("remote add broken /nonexistent/path/broken.git");
 
     env.but("branch new first-branch").assert().success();
@@ -516,7 +516,7 @@ fn merge_ignores_unreachable_unrelated_remote() {
 #[test]
 fn merge_refuses_non_bottom_stack_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
 
     // Build a 2-segment stack: bottom-seg, then top-seg stacked on top of it.
     env.but("branch new bottom-seg").assert().success();
@@ -566,7 +566,7 @@ fn merge_refuses_non_bottom_stack_segment() {
 #[test]
 fn merge_whole_stack_lands_top_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
 
     env.but("branch new bottom-seg").assert().success();
     env.file("bottom.txt", "bottom");
@@ -652,7 +652,7 @@ fn merge_whole_stack_refuses_conflicted_lower_segment() {
 #[test]
 fn merge_whole_stack_refuses_non_top_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
 
     env.but("branch new bottom-seg").assert().success();
     env.file("bottom.txt", "bottom");
@@ -699,7 +699,7 @@ fn merge_whole_stack_refuses_non_top_segment() {
 #[test]
 fn merge_rename_no_silent_mismerge() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
 
     // Seed a shared base file on the target via a clean fast-forward land.
     let base = "l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\n";
@@ -767,7 +767,7 @@ fn merge_rename_no_silent_mismerge() {
 #[test]
 fn merge_without_yes_refuses_non_interactively() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
     env.but("branch new first-branch").assert().success();
     env.file("file1.txt", "content1");
     env.but("commit -b first-branch -m 'first commit on branch A'")
@@ -928,7 +928,7 @@ fn merge_never_deletes_a_differently_named_upstream() {
 /// the shape the remote-copy cleanup tests need to observe deletions on the remote side.
 fn sandbox_with_bare_origin() -> (Sandbox, std::path::PathBuf) {
     let (env, remote) = sandbox_from_with_bare_origin("repo-with-remote-and-head");
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
     (env, remote)
 }
 

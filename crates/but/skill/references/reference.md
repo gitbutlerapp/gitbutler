@@ -12,7 +12,7 @@ Agent-focused reference for useful `but` commands.
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`, `worktree`
 - [History & Undo](#history--undo) - `undo`, `oplog`
-- [Setup & Configuration](#setup--configuration) - `init`, `setup`, `teardown`, `config`, `update`, `skill`
+- [Configuration](#configuration) - `init`, `teardown`, `config`, `update`, `skill`
 - [Selected Options](#selected-options)
 
 ## Inspection (Understanding State)
@@ -201,7 +201,7 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 
 **Important:** `but commit -b <branch> -m "msg"` with no IDs commits ALL uncommitted changes. Pass IDs to commit only specific files or hunks.
 
-Running `but commit` from inside a worktree acts on the main workspace, exactly as from the main worktree: bare `but commit` takes the main worktree's changes, and `but commit <worktree>:@` takes that worktree's own changes. Worktrees require the experimental worktree flag. `but setup` refuses to run from a worktree.
+Running `but commit` from inside a worktree acts on the main workspace, exactly as from the main worktree: bare `but commit` takes the main worktree's changes, and `but commit <worktree>:@` takes that worktree's own changes. Worktrees require the experimental worktree flag.
 
 **Committing specific files or hunks:** Start with `but diff` for selective dirty commits, then pass CLI IDs as positional arguments:
 - **File IDs** from `but diff` or `but status -fv`: commits entire files
@@ -617,7 +617,7 @@ Restore to a specific oplog snapshot.
 but oplog restore <snapshot-id>
 ```
 
-## Setup & Configuration
+## Configuration
 
 ### `but init`
 
@@ -627,25 +627,6 @@ Create an empty Git repository.
 but init                     # Initialize the current directory
 but -C path/to/repo init      # Create and initialize another directory
 ```
-
-### `but setup`
-
-Initialize GitButler in current git repository.
-
-```bash
-but setup
-but setup --init              # Also initialize a new git repo if none exists
-```
-
-Converts a regular Git repository to the managed GitButler workspace model. Use `--init` in
-non-interactive environments (CI/CD) to ensure a Git repository exists before setup. When the
-experimental single-branch feature is enabled, normal CLI use does not require this command: the
-repository is registered and its target is inferred lazily without checking out
-`gitbutler/workspace` or installing setup hooks.
-
-Rerunning `but setup` on an already-configured project also repairs a missing default target — for
-example if `virtual_branches.toml` was reset while the target survived in Git config — so it is the
-recovery path when target configuration looks broken.
 
 ### `but teardown`
 

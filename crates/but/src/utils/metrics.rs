@@ -156,8 +156,6 @@ impl Subcommands {
                 Some(forge::pr::Subcommands::SetReady { .. }) => SetReviewReady,
             },
             #[cfg(feature = "legacy")]
-            Subcommands::Setup { .. } => Setup,
-            #[cfg(feature = "legacy")]
             Subcommands::Teardown { .. } => Teardown,
             Subcommands::Config(config::Platform { cmd }) => match cmd {
                 Some(config::Subcommands::Forge {

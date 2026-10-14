@@ -313,9 +313,6 @@ pub(crate) fn teardown(
                 .paint(format!("You are now on branch: {target_branch_name}"))
         )?;
         writeln!(out)?;
-        writeln!(out, "{}", t.info.paint("To return to GitButler mode, run:"))?;
-        writeln!(out, "  {}", t.command_suggestion.paint("but setup"))?;
-        writeln!(out)?;
     }
 
     // Output JSON if requested

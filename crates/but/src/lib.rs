@@ -814,36 +814,6 @@ async fn dispatch_subcommand(
                 tui::editor::edit_file(&path).map_err(Into::into),
             ));
         }
-        #[cfg(feature = "legacy")]
-        Subcommands::Setup { init } => {
-            let repo = match but_api::legacy::projects::add_project_best_effort(
-                args.current_dir.clone(),
-            )? {
-                gitbutler_project::AddProjectOutcome::Added(project)
-                | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => {
-                    gix::open(project.git_dir())?
-                }
-                gitbutler_project::AddProjectOutcome::ReftableRefFormatUnsupported => {
-                    return Err(anyhow::anyhow!(
-                            "The repository at {} uses the currently unsupported reftable reference format.",
-                            args.current_dir.display()
-                        )
-                        .into());
-                }
-                _ => command::legacy::setup::find_or_initialize_repo(&args.current_dir, out, init)?,
-            };
-            let mut ctx = but_ctx::Context::from_repo_with_settings(repo, app_settings.clone())?;
-            let mut guard = ctx.exclusive_worktree_access();
-            return command::legacy::setup::repo(
-                &mut ctx,
-                &args.current_dir,
-                out,
-                guard.write_permission(),
-            )
-            .context("Failed to set up GitButler project.")
-            .map(|()| DispatchOutcome::Return)
-            .map_err(CliError::from);
-        }
         #[cfg(feature = "nightly")]
         Subcommands::_Open { .. } => setup::init_ctx(
             &args,
@@ -854,7 +824,9 @@ async fn dispatch_subcommand(
             out,
         ),
         #[cfg(feature = "nightly")]
-        Subcommands::_Expand { .. } => but_ctx::Context::discover(&args.current_dir),
+        Subcommands::_Expand { .. } => {
+            but_ctx::Context::discover(&args.current_dir).map_err(CliError::from)
+        }
         Subcommands::Branch(branch::Platform { ref cmd }) => setup::init_ctx(
             &args,
             match cmd {
@@ -944,7 +916,8 @@ async fn dispatch_subcommand(
     };
     let mut ctx = match ctx {
         Ok(ctx) => ctx,
-        Err(err) => return Err(CliError::Initialization(err)),
+        Err(CliError::Internal(err)) => return Err(CliError::Initialization(err)),
+        Err(err) => return Err(err),
     };
 
     // If `Some`, and if result is `Ok`, this is passed to
@@ -973,10 +946,6 @@ async fn dispatch_subcommand(
         | Subcommands::Edit { .. }
         | Subcommands::AgentLog { .. }
         | Subcommands::External(..) => {
-            unreachable!("handled above")
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Setup { .. } => {
             unreachable!("handled above")
         }
         #[cfg(feature = "nightly")]

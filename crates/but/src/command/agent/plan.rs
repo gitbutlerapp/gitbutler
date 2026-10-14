@@ -221,7 +221,6 @@ pub(super) struct Plan {
     pub(super) skill_installs: Vec<SkillInstallPlan>,
     pub(super) instruction_writes: Vec<InstructionWritePlan>,
     pub(super) print_only_notes: Vec<String>,
-    pub(super) setup_needed: bool,
 }
 
 impl Plan {
@@ -234,14 +233,12 @@ impl Plan {
         let skill_installs = collect_skill_installs(&agents, scope, repo)?;
         let (instruction_writes, print_only_notes) =
             collect_instruction_writes(&agents, scope, repo)?;
-        let setup_needed = repository_setup_needed(repo, scope);
         Ok(Self {
             scope,
             policy,
             skill_installs,
             instruction_writes,
             print_only_notes,
-            setup_needed,
         })
     }
 }
@@ -290,10 +287,6 @@ pub(super) fn collect_skill_installs(
         }
     }
     Ok(installs)
-}
-
-pub(super) fn repository_setup_needed(repo: Option<&RepoInfo>, scope: Scope) -> bool {
-    repo.is_some_and(|repo| repo.needs_setup && matches!(scope, Scope::Repository | Scope::Both))
 }
 
 pub(super) fn collect_instruction_writes(

@@ -249,10 +249,10 @@ perf_create_gitbutler_workspace() {
     "$GIT_BIN" -C "$destination" config gc.auto 0
     "$GIT_BIN" -C "$destination" config maintenance.auto false
 
-    setup_log=$PERF_RUN_ROOT/but-setup.log
-    if ! "$BUT_BIN" -C "$destination" setup >"$setup_log" 2>&1; then
+    setup_log=$PERF_RUN_ROOT/but-workspace.log
+    if ! "$BUT_BIN" -C "$destination" switch --workspace >"$setup_log" 2>&1; then
         cat "$setup_log" >&2
-        perf_die "but setup failed"
+        perf_die "entering managed workspace failed"
     fi
 }
 

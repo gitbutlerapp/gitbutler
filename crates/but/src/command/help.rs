@@ -175,8 +175,6 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 SubcommandDiscriminant::Completions => Group::OtherCommands,
 
                 #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Setup => Group::OtherCommands,
-                #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Teardown => Group::OtherCommands,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Tui => Group::OtherCommands,
@@ -421,7 +419,6 @@ Server Interactions:
 
 Other Commands:
   init         Create an empty Git repository in the current directory
-  setup        Set up a GitButler project from the git repository in the curre…
   teardown     Exit GitButler mode and return to normal Git workflow
   gui          Open the GitButler GUI for the current project
   tui          Open a live terminal workspace for branches, commits, changes, …

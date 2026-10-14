@@ -247,10 +247,6 @@ Configure the template to use for review descriptions
 ### but init
 Create an empty Git repository in the current directory
 
-### but setup
-Set up a GitButler project from the git repository in the current directory
-- `--init` Initialize a new git repository with an empty commit if one doesn't exist. Useful in non-interactive environments such as CI, where a repository may not exist yet.
-
 ### but update check
 Check if a new version of the GitButler CLI is available
 

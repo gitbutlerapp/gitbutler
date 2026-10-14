@@ -612,37 +612,6 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Redo(redo::Platform),
 
-    /// Set up a GitButler project from the git repository in the current directory.
-    ///
-    /// This command will:
-    /// - Add the repository to the global GitButler project registry
-    /// - Switch to the gitbutler/workspace branch (if not already on it)
-    /// - Set up a default target branch (the remote's HEAD)
-    /// - Add a gb-local remote if no push remote exists
-    ///
-    /// If you have an existing Git repository and want to start using GitButler
-    /// with it, you can run this command to set up the necessary configuration
-    /// and data structures.
-    ///
-    /// ## Examples
-    ///
-    /// Initialize a new git repository and set up GitButler:
-    ///
-    /// ```text
-    /// but setup --init
-    /// ```
-    ///
-    #[cfg(feature = "legacy")]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Setup {
-        /// Initialize a new git repository with an empty commit if one doesn't exist.
-        ///
-        /// Useful in non-interactive environments such as CI, where a repository may not exist yet.
-        #[clap(long)]
-        #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-        init: bool,
-    },
-
     /// Exit GitButler mode and return to normal Git workflow.
     ///
     /// This command:

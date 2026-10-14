@@ -73,8 +73,9 @@ fn github_stacks_configuration_requires_a_repository() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: No git repository found at .
-Please run 'but setup' to initialize the project.
+Error: No git repository found at .git
+
+Hint: Run `but init` to initialize a Git repository.
 
 "#]]);
 }
@@ -83,7 +84,6 @@ Please run 'but setup' to initialize the project.
 #[test]
 fn target_configures_distinct_push_remote_for_fork() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
-    env.but("setup").assert().success();
     env.invoke_git("remote add upstream .");
     env.invoke_git("update-ref refs/remotes/upstream/main refs/remotes/origin/main");
 
@@ -301,9 +301,6 @@ fn ai_openai_defaults_to_global_config() {
 fn ai_ollama_local_writes_repo_config() {
     let env = Sandbox::empty();
     env.invoke_bash("git init repo");
-    #[cfg(feature = "legacy")]
-    env.but("-C repo setup").assert().success();
-
     env.but("-C repo config ai --local ollama --endpoint localhost:11434 --model llama3.1")
         .assert()
         .success();
@@ -373,9 +370,6 @@ fn ai_show_outputs_current_global_configuration_json() {
 fn ai_show_outputs_current_local_configuration_json() {
     let env = Sandbox::empty();
     env.invoke_bash("git init repo");
-    #[cfg(feature = "legacy")]
-    env.but("-C repo setup").assert().success();
-
     env.but("-C repo config ai --local ollama --endpoint localhost:11434 --model llama3.1")
         .assert()
         .success();

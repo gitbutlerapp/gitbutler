@@ -227,9 +227,6 @@ Exiting GitButler mode...
 
 You are now on branch: A
 
-To return to GitButler mode, run:
-  but setup
-
 
 "#]]);
 
@@ -281,9 +278,6 @@ Exiting GitButler mode...
 ✓ Successfully exited GitButler mode!
 
 You are now on branch: A
-
-To return to GitButler mode, run:
-  but setup
 
 
 "#]]);
@@ -363,9 +357,6 @@ Attempting to fix workspace stacks...
 ✓ Successfully exited GitButler mode!
 
 You are now on branch: A
-
-To return to GitButler mode, run:
-  but setup
 
 
 "#]]);
@@ -635,9 +626,6 @@ Exiting GitButler mode...
 ⚠ Exited GitButler mode, but some GitButler hooks could not be removed (see warnings above).
 
 You are now on branch: A
-
-To return to GitButler mode, run:
-  but setup
 
 
 "#]]);
