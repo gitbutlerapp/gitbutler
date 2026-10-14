@@ -1,8 +1,10 @@
 import { Avatar } from "@gitbutler/ui-react/Avatar.tsx";
 import {
 	useAddReviewLabels,
+	useMergeReview,
 	useRemoveReviewLabel,
 	useRequestReview,
+	useSetReviewAutoMerge,
 	useSetReviewDraftiness,
 	useUpdateReview,
 	useWithdrawReviewRequest,
@@ -18,6 +20,7 @@ import {
 import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
+import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
 import { FieldTextareaStyles } from "@gitbutler/ui-react/Field.tsx";
 import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
@@ -28,6 +31,7 @@ import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
+import { SwitchButton } from "@gitbutler/ui-react/SwitchButton.tsx";
 import {
 	type NativeMenuItem,
 	nativeMenuItem,
@@ -42,7 +46,9 @@ import {
 	reviewerRows,
 	useMergeReadiness,
 	branchChecklistQueryOptions,
+	mergeMethodQueryOptions,
 	useUpdateBranchChecklist,
+	usePersistMergeMethod,
 } from "#ui/pr.ts";
 import {
 	formatAbsoluteTime,
@@ -51,7 +57,7 @@ import {
 } from "@gitbutler/ui-react/time.ts";
 import { useCopied } from "#ui/components/useCopied.ts";
 import { sameLogin } from "#ui/review-users.ts";
-import type { CiCheck, ForgeReview, ForgeReviewUser } from "@gitbutler/but-sdk";
+import type { CiCheck, ForgeReview, ForgeReviewUser, ReviewMergeMethod } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type FC, type MouseEvent, type ReactNode, useId, useState } from "react";
@@ -739,12 +745,91 @@ const ReviewChecklist: FC<{ projectId: string; branchName: string; review: Forge
 	return <Checklist projectId={projectId} branchName={branchName} readiness={readiness} />;
 };
 
+/** The choice persists per project (see mergeMethodQueryOptions). */
+const mergeMethods = [
+	"merge",
+	"squash",
+	"rebase",
+] as const satisfies ReadonlyArray<ReviewMergeMethod>;
+
+const mergeMethodLabels: Record<ReviewMergeMethod, string> = {
+	merge: "Merge",
+	squash: "Squash and merge",
+	rebase: "Rebase and merge",
+};
+
+/**
+ * Auto-merge and Merge, with its method, in a section of their own under the checklist that says
+ * whether it can; Merge says why not on hover. A draft, a merged or a closed pull request has
+ * neither.
+ */
+const MergeSection: FC<{ projectId: string; review: ForgeReview }> = ({ projectId, review }) => {
+	const { number: reviewId, autoMergeEnabled } = review;
+	const readiness = useMergeReadiness(projectId, review);
+	const { data: storedMergeMethod } = useQuery(mergeMethodQueryOptions(projectId));
+	const mergeMethod = storedMergeMethod ?? "merge";
+	const { mutate: persistMergeMethod } = usePersistMergeMethod();
+	const { isPending: isMergeReviewPending, mutate: mergeReview } = useMergeReview(projectId);
+	const { isPending: isSetReviewAutoMergePending, mutate: setReviewAutoMerge } =
+		useSetReviewAutoMerge(projectId);
+	const isAnyPending = isMergeReviewPending || isSetReviewAutoMergePending;
+	const blockedReason = readiness.blocker;
+
+	if (review.draft || review.mergedAt !== null || review.closedAt !== null) return null;
+
+	return (
+		<Section
+			heading="Merge"
+			action={
+				<div className={styles.statusActions}>
+					{/* Optimistic: the cache patch flips `checked` instantly, so no spinner — but like Merge
+			    it locks while either mutation is in flight. */}
+					<SwitchButton
+						label="Auto-merge"
+						variant="outline"
+						checked={autoMergeEnabled}
+						disabled={isAnyPending}
+						onCheckedChange={(enable) => setReviewAutoMerge({ projectId, reviewId, enable })}
+					/>
+					<DropdownButton
+						variant="pop"
+						disabled={isAnyPending || blockedReason !== null}
+						onClick={() => mergeReview({ projectId, reviewId, mergeMethod })}
+						actionTooltip={!isAnyPending && blockedReason !== null ? blockedReason : undefined}
+						menuLabel="Merge method"
+						menuDisabled={isAnyPending}
+						onMenuTrigger={(trigger) =>
+							void showNativeMenuFromTrigger(
+								trigger,
+								mergeMethods.map((method) =>
+									nativeMenuItem({
+										label: mergeMethodLabels[method],
+										checked: method === mergeMethod,
+										onSelect: () => persistMergeMethod({ projectId, method }),
+									}),
+								),
+							)
+						}
+					>
+						{isMergeReviewPending && <Icon name="spinner" />}
+						{mergeMethodLabels[mergeMethod]}
+					</DropdownButton>
+				</div>
+			}
+		>
+			{null}
+		</Section>
+	);
+};
+
 export const PullRequestPanel: FC<{
 	projectId: string;
 	/** The local branch; the forge's name for it, `review.sourceBranch`, can differ. */
 	sourceBranch: string;
 	review: ForgeReview;
-}> = ({ projectId, sourceBranch, review }) => {
+	/** Edit, in Status: it opens the title and description in place. Left out while editing. */
+	editing?: { active: boolean; onStart: () => void };
+}> = ({ projectId, sourceBranch, review, editing }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const { data: reviewers } = useQuery({
 		...listReviewSubmissionsQueryOptions({ projectId, reviewId: review.number }),
@@ -902,6 +987,7 @@ export const PullRequestPanel: FC<{
 				review={review}
 			/>
 			<div className={styles.panelSections}>
+				<MergeSection projectId={projectId} review={review} />
 				<Section
 					heading="Status"
 					action={
@@ -911,6 +997,17 @@ export const PullRequestPanel: FC<{
 								{review.unitSymbol}
 								{review.number}
 							</TextLink>
+							{editing !== undefined && review.mergedAt === null && (
+								<Button
+									variant="ghost"
+									size="small"
+									disabled={editing.active}
+									onClick={editing.onStart}
+								>
+									Edit
+									<Icon name="edit" />
+								</Button>
+							)}
 							{canSwitchStatus && (
 								<Button
 									aria-label="Change status"

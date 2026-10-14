@@ -81,8 +81,8 @@ test("keeps to-dos with the branch, before its pull request and across a rename"
 	// A branch without a pull request yet keeps its own list, on the create form.
 	await selectBranch(appWindow, "B");
 	await appWindow
-		.getByRole("group", { name: "Branch tab", exact: true })
-		.getByRole("button", { name: "Pull Request", exact: true })
+		.getByRole("tablist", { name: "Branch tab", exact: true })
+		.getByRole("tab", { name: "Pull Request", exact: true })
 		.click();
 	await expect(checklist.getByRole("checkbox")).toHaveCount(0);
 	await addTodo(appWindow, "Write the description");
@@ -96,8 +96,8 @@ test("keeps to-dos with the branch, before its pull request and across a rename"
 	await branchName.press("Enter");
 	await selectBranch(appWindow, "B-renamed");
 	await appWindow
-		.getByRole("group", { name: "Branch tab", exact: true })
-		.getByRole("button", { name: "Pull Request", exact: true })
+		.getByRole("tablist", { name: "Branch tab", exact: true })
+		.getByRole("tab", { name: "Pull Request", exact: true })
 		.click();
 	await expect(description).toBeVisible();
 });

@@ -30,7 +30,6 @@ import {
 	blobFileQueryOptions,
 	branchDiffQueryOptions,
 	branchListQueryOptions,
-	commitRangeDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commentsQueryOptions,
 	commitConflictsQueryOptions,
@@ -98,14 +97,12 @@ import {
 	PullRequestDescription,
 	PullRequestMeta,
 	PullRequestForm,
-	PullRequestPrimaryAction,
 } from "#ui/routes/project/$id/workspace/PullRequestForm.tsx";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import { Toggle, ToggleGroup, Toolbar } from "@base-ui/react";
 import type {
-	Commit,
 	CommitDetails as CommitDetailsData,
 	ConflictedFile,
 	ManualConflict,
@@ -164,7 +161,8 @@ import {
 } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
-import { ViewHeader, ViewHeaderDivider } from "@gitbutler/ui-react/ViewHeader.tsx";
+import { ViewHeader, ViewHeaderButton } from "@gitbutler/ui-react/ViewHeader.tsx";
+import { Tab, Tabs } from "@gitbutler/ui-react/Tabs.tsx";
 import { CopyableId } from "@gitbutler/ui-react/CopyableId.tsx";
 import {
 	changeFileRowItem,
@@ -194,15 +192,9 @@ import {
 } from "#ui/hunk.ts";
 import {
 	nativeMenuItem,
-	nativeMenuItemsFromGroups,
 	showNativeContextMenu,
 	showNativeMenuFromTrigger,
 } from "#ui/native-menu.ts";
-import {
-	filterSpan,
-	toggleCommit,
-	unpushedCount,
-} from "#ui/routes/project/$id/workspace/commitFilter.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
@@ -269,7 +261,6 @@ export type DiffViewerHandle = CodeViewHandle<Annotation>;
 // stored in local storage.
 type PanelId = "files-panel" | "diff-panel";
 
-const EMPTY_COMMITS: ReadonlyArray<Commit> = [];
 const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
 const EMPTY_THREADS_BY_PATH: ThreadsByPath = new Map();
 const EMPTY_CONFLICTS: Array<ConflictedFile> = [];
@@ -2925,7 +2916,7 @@ const CommitDetails: FC<{
 						{commitDetails.commit.hasConflicts && <Badge variant="danger">Conflicted</Badge>}
 					</>
 				}
-				metaTabs={review && <BranchTabToggle branchTab={tab} setBranchTab={setTab} />}
+				metaTabs={review && <BranchTabs branchTab={tab} setBranchTab={setTab} />}
 				meta={
 					<>
 						<Avatar
@@ -3041,19 +3032,13 @@ const LandedReviewView: FC<{ projectId: string; reviewId: number; branchName?: s
 };
 
 /** A branch's own changes, whatever the branch's standing. */
-const BranchDiff: FC<
-	BranchDetailsProps & {
-		/** Part of the branch to show, oldest and newest commit included; the whole of it if `null`. */
-		range?: { oldest: string; newest: string } | null;
-	}
-> = ({
+const BranchDiff: FC<BranchDetailsProps> = ({
 	branch,
 	projectId,
 	onActiveFileSelection,
 	viewerRef,
 	didScrollToViaFileRef,
 	pendingFileRef,
-	range = null,
 }) => {
 	const filesVisibleState = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
@@ -3087,14 +3072,10 @@ const BranchDiff: FC<
 		/>
 	);
 
-	return range === null ? (
+	return (
 		<SuspenseQuery
 			{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branch.branchRef) })}
 		>
-			{renderDiff}
-		</SuspenseQuery>
-	) : (
-		<SuspenseQuery {...commitRangeDiffQueryOptions({ projectId, ...range })}>
 			{renderDiff}
 		</SuspenseQuery>
 	);
@@ -3169,103 +3150,26 @@ const useBranchMeta = ({
  * rather than a tooltip: it is the whole story of this tab, so it has to be
  * readable without hover (ui-react's design/patterns/blocked-states.md).
  */
-const BranchTabToggle: FC<{
+const BranchTabs: FC<{
 	branchTab: BranchTab;
 	setBranchTab: (tab: BranchTab) => void;
 	prDisabled?: boolean;
 	className?: string;
 }> = ({ branchTab, setBranchTab, prDisabled = false, className }) => (
-	<ToggleGroup
-		render={<ToggleGroupStyles className={className} />}
-		value={[branchTab]}
-		onValueChange={(value: Array<BranchTab>) => {
-			const head = value[0];
-			if (head === undefined) return;
-			setBranchTab(head);
-		}}
+	<Tabs
+		className={className}
+		value={branchTab}
+		onValueChange={(value: BranchTab) => setBranchTab(value)}
 		aria-label="Branch tab"
 	>
-		<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
+		<Tab value={"diff" satisfies BranchTab} icon={<Icon name="diff" />}>
 			Diff
-		</Toggle>
-		<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab} disabled={prDisabled}>
+		</Tab>
+		<Tab value={"pr" satisfies BranchTab} icon={<Icon name="pr" />} disabled={prDisabled}>
 			{prDisabled ? "No pull request" : "Pull Request"}
-		</Toggle>
-	</ToggleGroup>
+		</Tab>
+	</Tabs>
 );
-
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
-
-/**
- * Narrows the branch's diff to some of its commits: all of them, the ones not pushed yet, or a
- * run ticked in the list. Its menu is native, so the run is kept unbroken by `toggleCommit`
- * rather than by the menu.
- */
-const CommitFilterButton: FC<{
-	projectId: string;
-	branchName: string;
-	/** The branch's own commits, newest first. */
-	commits: ReadonlyArray<Commit>;
-}> = ({ projectId, branchName, commits }) => {
-	const dispatch = useAppDispatch();
-	const filter = useAppSelector((state) =>
-		projectSlice.selectors.selectBranchCommitFilter(state, projectId, branchName),
-	);
-	const span = filterSpan(filter, commits);
-	const unpushed = unpushedCount(commits);
-	const setFilter = (next: typeof filter): void => {
-		dispatch(projectSlice.actions.setBranchCommitFilter({ projectId, branchName, filter: next }));
-	};
-
-	const label =
-		span === null
-			? commits.length === 1
-				? "1 commit"
-				: `All ${commits.length} commits`
-			: filter._tag === "Unpushed"
-				? plural(span[1] - span[0] + 1, "unpushed commit")
-				: plural(span[1] - span[0] + 1, "commit");
-
-	const openMenu = (trigger: HTMLElement) => {
-		void showNativeMenuFromTrigger(
-			trigger,
-			nativeMenuItemsFromGroups([
-				[
-					nativeMenuItem({ label: "Show changes from", enabled: false }),
-					nativeMenuItem({
-						label: `All ${plural(commits.length, "commit")}`,
-						checked: span === null,
-						onSelect: () => setFilter({ _tag: "All" }),
-					}),
-					nativeMenuItem({
-						label: unpushed === 0 ? "No unpushed commits" : plural(unpushed, "unpushed commit"),
-						checked: span !== null && filter._tag === "Unpushed",
-						enabled: unpushed > 0 && unpushed < commits.length,
-						onSelect: () => setFilter({ _tag: "Unpushed" }),
-					}),
-				],
-				[
-					nativeMenuItem({ label: "Specific commits", enabled: false }),
-					...commits.map((commit, index) =>
-						nativeMenuItem({
-							label: commitTitle(commit.message) ?? "(no message)",
-							checked:
-								span !== null && filter._tag === "Range" && index >= span[0] && index <= span[1],
-							onSelect: () => setFilter(toggleCommit(filter, commits, commit.id)),
-						}),
-					),
-				],
-			]),
-		);
-	};
-
-	return (
-		<Button aria-haspopup="menu" onClick={(event) => openMenu(event.currentTarget)}>
-			<Icon name="commit" />
-			{label}
-		</Button>
-	);
-};
 
 /** `[` and `]` step between a branch's tabs; with two of them, either key toggles. */
 const useBranchTabHotkeys = ({
@@ -3345,7 +3249,12 @@ const ReviewLayout: FC<{
 				{hasConversation && <PullRequestComments projectId={projectId} review={review} />}
 			</div>
 
-			<PullRequestPanel projectId={projectId} sourceBranch={sourceBranch} review={review} />
+			<PullRequestPanel
+				projectId={projectId}
+				sourceBranch={sourceBranch}
+				review={review}
+				editing={editing}
+			/>
 		</div>
 	);
 };
@@ -3548,7 +3457,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 				title={branchName}
 				meta={branchMeta}
 				toolbar={
-					<BranchTabToggle
+					<BranchTabs
 						branchTab={branchTab}
 						setBranchTab={setBranchTab}
 						prDisabled={reviewTab === null}
@@ -3556,14 +3465,14 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 				}
 				actions={
 					worktreeName === undefined ? (
-						<Button
+						<ViewHeaderButton
 							variant="gray"
 							disabled={isApplyPending}
 							onClick={() => apply(decodeBytes(branch.branchRef))}
 						>
 							{isApplyPending && <Icon name="spinner" />}
 							Apply to workspace
-						</Button>
+						</ViewHeaderButton>
 					) : (
 						<span className={classes("text-12", rowStyles.fadedText)}>
 							Checked out in worktree {worktreeName}
@@ -3674,16 +3583,6 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 		: null;
 	const canSubmit = pushFirst === null || !downstack?.anyHasConflicts;
 
-	const commits = laneBranch?.segment.commits ?? EMPTY_COMMITS;
-	const commitFilter = useAppSelector((state) =>
-		projectSlice.selectors.selectBranchCommitFilter(state, projectId, branchName),
-	);
-	const span = filterSpan(commitFilter, commits);
-	const range =
-		span === null
-			? null
-			: { newest: assert(commits[span[0]]).id, oldest: assert(commits[span[1]]).id };
-
 	return (
 		<div className={styles.container} ref={ref}>
 			<ViewHeader
@@ -3691,50 +3590,7 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 				icon="branch"
 				title={branchName}
 				meta={branchMeta}
-				toolbar={
-					<>
-						<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
-
-						{branchTab === "diff" && commits.length > 1 && (
-							<>
-								<ViewHeaderDivider />
-								<CommitFilterButton
-									projectId={projectId}
-									branchName={branchName}
-									commits={commits}
-								/>
-							</>
-						)}
-					</>
-				}
-				actions={
-					branchTab === "pr" &&
-					supportsPullRequests &&
-					canUseForge && (
-						<Suspense>
-							<SuspenseQuery
-								{...listReviewsQueryOptions({
-									projectId,
-									cacheConfig: "noCache",
-								})}
-							>
-								{({ data }) => {
-									const review = data.reviewsBySourceBranch.get(branchName);
-									if (!review) return null;
-
-									return (
-										<PullRequestPrimaryAction
-											projectId={projectId}
-											review={review}
-											isEditing={prEditing}
-											onStartEdit={startPrEdit}
-										/>
-									);
-								}}
-							</SuspenseQuery>
-						</Suspense>
-					)
-				}
+				toolbar={<BranchTabs branchTab={branchTab} setBranchTab={setBranchTab} />}
 			/>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
@@ -3804,7 +3660,6 @@ const LaneBranchDetails: FC<BranchDetailsProps> = ({
 						viewerRef={viewerRef}
 						didScrollToViaFileRef={didScrollToViaFileRef}
 						pendingFileRef={pendingFileRef}
-						range={range}
 					/>
 				)}
 			</Suspense>
