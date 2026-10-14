@@ -250,17 +250,37 @@ Updated branch A.
         .stdout_eq(snapbox::file![
             "snapshots/update/remote-merged-newer-target-after.stdout.term.svg"
         ]);
+    let a_after_update = env.invoke_git("rev-parse A");
+    let origin_a = env.invoke_git("rev-parse origin/A");
+    let newer_main_files_after_update =
+        ["main2", "main3"].map(|file| env.projects_root().join(file).is_file());
+
+    env.but("pull").assert().success();
+
+    // The base moves to the newer `main` and `A` is rebased onto it, keeping its merge.
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/update/remote-merged-newer-target-after-pull.stdout.term.svg"
+        ]);
+
     assert_eq!(
-        env.invoke_git("rev-parse A"),
-        env.invoke_git("rev-parse origin/A"),
+        a_after_update, origin_a,
         "a branch that is only behind takes the remote history as is"
     );
-    for file in ["main2", "main3"] {
-        assert!(
-            env.projects_root().join(file).is_file(),
-            "{file} from the newer main arrives through the merge"
-        );
-    }
+    assert_eq!(
+        newer_main_files_after_update,
+        [true, true],
+        "main2 and main3 from the newer main arrive through the merge"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse A~1^2"),
+        env.invoke_git("rev-parse origin/main"),
+        "after the pull, the merge still merges the newer main, now the base"
+    );
 }
 
 #[test]
