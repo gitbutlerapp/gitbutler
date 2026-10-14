@@ -224,13 +224,32 @@ fn integrate_remote_branch_that_merged_a_newer_target() {
 
     // The merge of a newer `main` and the commit on top exist only on `origin/A`.
     env.but("status")
-        .with_color_for_svg()
         .assert()
         .success()
         .stderr_eq(str![])
-        .stdout_eq(snapbox::file![
-            "snapshots/update/remote-merged-newer-target-before.stdout.term.svg"
-        ]);
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊╭┄┄ (upstream: on origin/A)
+┊●   200e51e add A2-by-collaborator
+┊●   db3fa13 Merge newer main into A
+┊●   c39f3a2 add main3
+┊●   9f62045 add main2
+┊-
+┊●   zpl add A1
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   kvk add B1
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 
     env.but("branch update A")
         .assert()
@@ -243,13 +262,27 @@ Updated branch A.
 
     // `A` is level with `origin/A`, while the workspace base stays at the old `main`.
     env.but("status")
-        .with_color_for_svg()
         .assert()
         .success()
         .stderr_eq(str![])
-        .stdout_eq(snapbox::file![
-            "snapshots/update/remote-merged-newer-target-after.stdout.term.svg"
-        ]);
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   mtx add A2-by-collaborator
+┊●   mun Merge newer main into A
+┊●   zpl add A1
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   kvk add B1
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
     let a_after_update = env.invoke_git("rev-parse A");
     let origin_a = env.invoke_git("rev-parse origin/A");
     let newer_main_files_after_update =
@@ -259,13 +292,30 @@ Updated branch A.
 
     // The base moves to the newer `main` and `A` is rebased onto it, keeping its merge.
     env.but("status")
-        .with_color_for_svg()
         .assert()
         .success()
         .stderr_eq(str![])
-        .stdout_eq(snapbox::file![
-            "snapshots/update/remote-merged-newer-target-after-pull.stdout.term.svg"
-        ]);
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ma [main] (no commits)
+├╯
+┊
+┊╭┄ g0 [A]
+┊◐   mtx add A2-by-collaborator
+┊◐   mun Merge newer main into A (no changes)
+┊◐   zpl add A1
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   kvk add B1
+├╯
+┊
+┴ c39f3a2 (common base, origin/main) 2000-01-02 add main3
+
+Hint: run `but help` for all commands
+
+"#]]);
 
     assert_eq!(
         a_after_update, origin_a,
