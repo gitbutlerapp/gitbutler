@@ -4000,14 +4000,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
         .run();
     git(&repo).args(["reset", "--hard", "normal"]).run();
 
-    let ws = Graph::from_head(
-        &repo,
-        &meta,
-        ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_traversal_options(),
-    )?
-    .into_workspace()?;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     let out = but_workspace::branch::apply(
         r("refs/heads/tip-conflicted"),
         ws,
@@ -4023,9 +4016,9 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
 📕🏘️:gitbutler/workspace[🌳] <> ✓!
 └── ≡📙:tip-conflicted {595}
     ├── 📙:tip-conflicted
-    │   └── ·8450331 (🏘️) ►tags/conflicted
+    │   └── ·8450331 (🏘️)
     └── 📙:main
-        └── ·a047f81 (🏘️) ►tags/normal
+        └── ·a047f81 (🏘️)
 
 "#]]
     );
