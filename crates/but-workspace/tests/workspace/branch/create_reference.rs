@@ -2443,6 +2443,61 @@ fn existing_git_ref_is_rejected() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn detached_head() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-with-3-commits")?;
+    repo.reference(
+        "HEAD",
+        id_by_rev(&repo, "main~1"),
+        PreviousValue::Any,
+        "detach below main",
+    )?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&repo)?,
+        &mut db,
+        Options::limited(),
+    )?;
+    let mut ws = graph.into_workspace()?;
+
+    crate::utils::create_reference(
+        &repo,
+        &mut ws,
+        &mut meta,
+        &mut db,
+        rc("refs/heads/first"),
+        Anchor::at_id(id_by_rev(&repo, "main~2"), Above),
+        None,
+    )?;
+    let err = crate::utils::create_reference(
+        &repo,
+        &mut ws,
+        &mut meta,
+        &mut db,
+        rc("refs/heads/independent"),
+        None,
+        None,
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Cannot create independent branch 'independent' outside of a workspace",
+        "a detached HEAD has no workspace commit to parent an independent branch"
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 281da94 (main) 3
+* 12995d7 (HEAD) 2
+* 3d57fc1 (first) 1
+
+"#]]
+    );
+
+    Ok(())
+}
+
 /// [`Anchor::AtReference`] in an ad-hoc (single-branch) workspace, where the tip-to-base order of
 /// same-commit branches lives in the `branch_order` table rather than workspace metadata.
 mod ad_hoc_at_reference {
