@@ -163,6 +163,7 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Redo => Group::OperationHistory,
 
+                SubcommandDiscriminant::Init => Group::OtherCommands,
                 SubcommandDiscriminant::Gui => Group::OtherCommands,
                 SubcommandDiscriminant::Update => Group::OtherCommands,
                 SubcommandDiscriminant::Alias => Group::OtherCommands,
@@ -419,6 +420,7 @@ Server Interactions:
   pr           Commands for creating and managing reviews on a forge, e.g. Git…
 
 Other Commands:
+  init         Create an empty Git repository in the current directory
   setup        Set up a GitButler project from the git repository in the curre…
   teardown     Exit GitButler mode and return to normal Git workflow
   gui          Open the GitButler GUI for the current project
@@ -447,7 +449,6 @@ Options:
 Environment variables:
   BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options:…
   BUT_PAGER  Sets the pager for large outputs. [default: less]
-  BUT_THEME  Sets the theme for but. Options: dark, light. [default: detected f…
 ...
 
 "#]]
@@ -500,6 +501,7 @@ Branching and Committing:
   worktree     Manage worktrees (experimental, requires the worktreeManipulati…
 
 Other Commands:
+  init         Create an empty Git repository in the current directory
   gui          Open the GitButler GUI for the current project
   update       Manage GitButler CLI and app updates
   alias        Manage command aliases
@@ -525,7 +527,6 @@ Options:
 Environment variables:
   BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options:…
   BUT_PAGER  Sets the pager for large outputs. [default: less]
-  BUT_THEME  Sets the theme for but. Options: dark, light. [default: detected f…
 ...
 
 "#]]

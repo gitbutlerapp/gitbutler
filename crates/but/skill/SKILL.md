@@ -61,6 +61,8 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 
 ## Command Patterns
 
+- Initialize a Git repository: `but init` (current directory) or `but -C <path> init`. Non-interactive; creates no commits, remotes, or GitButler workspace. Existing repositories are left unchanged.
+
 - Commit: `but commit -b <branch> -m "<msg>" <id> <id>` — `-b <branch>` creates the branch if it does not exist
 - Commit everything uncommitted: `but commit -b <branch> -m "<msg>"` (omit the IDs)
 - Several commits from one diff: chain `but commit` calls with `&&` (commits stack oldest-first)

@@ -803,6 +803,11 @@ async fn dispatch_subcommand(
             })
             .map(|()| DispatchOutcome::Return);
         }
+        Subcommands::Init(_) => {
+            let outcome = command::init::run(&args.current_dir)?;
+            out.print_cli_output(outcome)?;
+            return Ok(DispatchOutcome::Return);
+        }
         Subcommands::Edit { file } => {
             let path = args.current_dir.join(&file);
             return Ok(DispatchOutcome::ExitWithoutDestructors(
@@ -959,6 +964,7 @@ async fn dispatch_subcommand(
         | Subcommands::Update(..)
         | Subcommands::Help { .. }
         | Subcommands::Onboarding
+        | Subcommands::Init(..)
         | Subcommands::Config(..)
         | Subcommands::Alias(..)
         | Subcommands::Skill(..)
