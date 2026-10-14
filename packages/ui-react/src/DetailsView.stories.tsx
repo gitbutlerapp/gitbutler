@@ -14,12 +14,7 @@ import { ScrollArea } from "./ScrollArea.tsx";
 import { SwitchButton } from "./SwitchButton.tsx";
 import { Tab, Tabs } from "./Tabs.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
-import {
-	ViewHeader,
-	ViewHeaderButton,
-	ViewHeaderDivider,
-	ViewHeaderMetaSeparator,
-} from "./ViewHeader.tsx";
+import { ViewHeader, ViewHeaderButton, ViewHeaderDivider } from "./ViewHeader.tsx";
 
 const meta = preview.meta({
 	title: "Preview/Details view",
@@ -253,10 +248,7 @@ export const Default = meta.story({
 					title="ios-push-handoff"
 					meta={
 						<>
-							<span>Pushed</span>
-							<ViewHeaderMetaSeparator />
 							<MetaCount type="commits">3 commits ahead</MetaCount>
-							<ViewHeaderMetaSeparator />
 							<MetaCount type="agent-working">Agent working 12m</MetaCount>
 						</>
 					}
@@ -313,13 +305,8 @@ export const Worktree = meta.story({
 					meta={
 						<>
 							<MetaCount type="behind">3 upstream</MetaCount>
-							<ViewHeaderMetaSeparator />
-							<MetaCount type="branch">2 branches</MetaCount>
-							<ViewHeaderMetaSeparator />
 							<MetaCount type="uncommitted">3 files</MetaCount>
-							<ViewHeaderMetaSeparator />
 							<MetaCount type="agent-working">3 agents working</MetaCount>
-							<ViewHeaderMetaSeparator />
 							<MetaCount type="age">3d</MetaCount>
 						</>
 					}

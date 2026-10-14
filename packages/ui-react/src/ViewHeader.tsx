@@ -30,8 +30,9 @@ type Props = {
 	leading?: ReactNode;
 	/**
 	 * One line under the title, cut short with an ellipsis rather than wrapped. Its parts stand
-	 * 6px apart with a {@link ViewHeaderMetaSeparator} between them, or are joined with " · " in
-	 * one string; the last part is the one that gives way.
+	 * 12px apart with nothing between them, each led by its own glyph (a `MetaCount`, a
+	 * `CopyableId`), so a part is told from the next by where its glyph starts; the last part is
+	 * the one that gives way. Keep it to what needs the user, one fact and an age.
 	 */
 	meta?: ReactNode;
 	/**
@@ -157,7 +158,8 @@ export const ViewHeader: FC<Props> = ({
 export const ViewHeaderButton: FC<Omit<ButtonProps, "size">> = (props) => <Button {...props} />;
 
 /**
- * The dim " · " between two parts of a header's meta line.
+ * The dim " · " between two words of a status that have no glyphs to set them apart, as
+ * "offline · seen 2m". A header's meta line needs none: its parts lead with their glyphs.
  * @import import { ViewHeaderMetaSeparator } from "@gitbutler/ui-react/ViewHeader.tsx";
  */
 export const ViewHeaderMetaSeparator: FC = () => (

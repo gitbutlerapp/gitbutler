@@ -115,9 +115,11 @@
 	}
 }
 
+/* Its parts lead with their glyphs, so the gap alone parts them: three or four times the room
+   inside a part. */
 .meta {
 	display: flex;
-	column-gap: 6px;
+	column-gap: 12px;
 	align-items: center;
 	min-width: 0;
 	overflow: hidden;

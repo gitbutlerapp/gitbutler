@@ -9,12 +9,7 @@ import { machinePictures } from "./story-assets/machines.ts";
 import { Icon } from "./Icon.tsx";
 import { SwitchButton } from "./SwitchButton.tsx";
 import { Tab, Tabs } from "./Tabs.tsx";
-import {
-	ViewHeader,
-	ViewHeaderButton,
-	ViewHeaderDivider,
-	ViewHeaderMetaSeparator,
-} from "./ViewHeader.tsx";
+import { ViewHeader, ViewHeaderButton, ViewHeaderDivider } from "./ViewHeader.tsx";
 import { MetaCount } from "./MetaCount.tsx";
 import type { FC } from "react";
 
@@ -138,7 +133,7 @@ export const Branch = meta.story({
 
 /**
  * but.dev's branch header without tabs: its buttons at the end, centred on the title block, the
- * meta line spelling out each count with a dim dot between them.
+ * meta line spelling out each count, each led by its glyph.
  */
 export const SpelledOut = meta.story({
 	parameters: {
@@ -152,10 +147,7 @@ export const SpelledOut = meta.story({
 		title: "ios-push-handoff",
 		meta: (
 			<>
-				<MetaCount type="stack">1/3 in stack</MetaCount>
-				<ViewHeaderMetaSeparator />
 				<MetaCount type="unpushed">4 unpushed</MetaCount>
-				<ViewHeaderMetaSeparator />
 				<MetaCount type="behind">3 behind</MetaCount>
 			</>
 		),
@@ -193,10 +185,7 @@ export const BranchWithButtons = meta.story({
 		title: "ios-push-handoff",
 		meta: (
 			<>
-				<span>Pushed</span>
-				<ViewHeaderMetaSeparator />
 				<MetaCount type="commits">3 commits ahead</MetaCount>
-				<ViewHeaderMetaSeparator />
 				<MetaCount type="agent-working">Agent working 12m</MetaCount>
 			</>
 		),
