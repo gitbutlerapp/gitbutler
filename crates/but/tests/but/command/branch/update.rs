@@ -216,6 +216,54 @@ Updated branch A.
 }
 
 #[test]
+fn integrate_remote_branch_that_merged_a_newer_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "branch-integrate-remote-merged-newer-target",
+    );
+    env.setup_metadata_at_target(&["A", "B"], "main");
+
+    // The merge of a newer `main` and the commit on top exist only on `origin/A`.
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/update/remote-merged-newer-target-before.stdout.term.svg"
+        ]);
+
+    env.but("branch update A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Updated branch A.
+
+"#]]);
+
+    // `A` is level with `origin/A`, while the workspace base stays at the old `main`.
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/update/remote-merged-newer-target-after.stdout.term.svg"
+        ]);
+    assert_eq!(
+        env.invoke_git("rev-parse A"),
+        env.invoke_git("rev-parse origin/A"),
+        "a branch that is only behind takes the remote history as is"
+    );
+    for file in ["main2", "main3"] {
+        assert!(
+            env.projects_root().join(file).is_file(),
+            "{file} from the newer main arrives through the merge"
+        );
+    }
+}
+
+#[test]
 fn integrate_smart_squash_applies_matching_change_ids() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-smart-squash");
