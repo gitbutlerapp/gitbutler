@@ -1,7 +1,5 @@
 use std::borrow::Cow;
 
-use anyhow::Context as _;
-
 /// For use in [`Anchor`].
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum Position {
@@ -9,50 +7,6 @@ pub enum Position {
     Above,
     /// The new dependent branch will appear below its anchor.
     Below,
-}
-
-struct MinimalCommit<'a> {
-    id: gix::ObjectId,
-    parent_ids: &'a [gix::ObjectId],
-}
-
-impl<'a> From<&'a but_graph::Commit> for MinimalCommit<'a> {
-    fn from(value: &'a but_graph::Commit) -> Self {
-        MinimalCommit {
-            id: value.id,
-            parent_ids: &value.parent_ids,
-        }
-    }
-}
-
-impl<'a> From<&'a but_graph::workspace::StackCommit> for MinimalCommit<'a> {
-    fn from(value: &'a but_graph::workspace::StackCommit) -> Self {
-        MinimalCommit {
-            id: value.id,
-            parent_ids: &value.parent_ids,
-        }
-    }
-}
-
-impl Position {
-    fn resolve_commit(
-        &self,
-        commit: MinimalCommit<'_>,
-        ws_base: Option<gix::ObjectId>,
-    ) -> anyhow::Result<gix::ObjectId> {
-        if Some(commit.id) == ws_base {
-            return Ok(commit.id);
-        }
-        Ok(match self {
-            Position::Above => commit.id,
-            Position::Below => commit.parent_ids.iter().cloned().next().with_context(|| {
-                format!(
-                    "Commit {id} is the first in history and no branch can point below it",
-                    id = commit.id
-                )
-            })?,
-        })
-    }
 }
 
 /// For use in [`super::create_reference()`].
@@ -88,8 +42,6 @@ pub enum Anchor<'a> {
     /// same commit as the reference named `ref_name`.
     /// Unlike [`Anchor::AtSegment`], `position` never affects which commit is used - it only
     /// determines the ordering of the two references.
-    /// This requires a managed workspace, as only its metadata can order multiple references
-    /// on the same commit.
     AtReference {
         /// The name of the reference to use as reference point for `position`.
         ref_name: Cow<'a, gix::refs::FullNameRef>,
@@ -127,679 +79,85 @@ impl<'a> Anchor<'a> {
 }
 
 pub(super) mod function {
-    #![expect(clippy::indexing_slicing)]
-
-    use std::borrow::{Borrow, Cow};
-
-    use anyhow::{Context as _, bail};
-    use bstr::ByteSlice;
-    use but_core::{
-        RefMetadata, ref_metadata,
-        ref_metadata::{
-            StackId, StackKind::AppliedAndUnapplied, WorkspaceCommitRelation::Merged,
-            WorkspaceStack, WorkspaceStackBranch,
-        },
-    };
+    use anyhow::Context as _;
+    use bstr::ByteSlice as _;
+    use but_core::{RefMetadata, branch::find_unique_refname_excluding};
     use but_error::bail_precondition;
-    use gix::refs::transaction::PreviousValue;
+    use but_rebase::graph_rebase::{
+        Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, mutate::InsertSide,
+    };
 
-    use crate::branch::create_reference::{Anchor, Position};
+    use crate::{
+        WorkspaceCommit,
+        branch::create_reference::{Anchor, Position},
+        commit::Stack,
+    };
 
-    /// The resolved placement of a new reference, produced by matching on the [`Anchor`].
-    ///
-    /// Splitting this out keeps each match arm declarative: it states only the fields that differ
-    /// from the common case (see [`AnchorResolution::positioned`]).
-    struct AnchorResolution<'a> {
-        /// The commit the new reference will point at.
-        target_id: gix::ObjectId,
-        /// Whether to assert `target_id` is inside the workspace before re-projecting.
-        validate_in_workspace: bool,
-        /// Workspace-metadata mutation to apply. Managed workspaces only; `None` in ad-hoc mode,
-        /// where ordering lives in `branch_stack_order` instead.
-        instruction: Option<Instruction<'a>>,
-        /// Tip-to-base ad-hoc branch order to persist, when this placement changes it.
-        branch_stack_order: Option<Vec<gix::refs::FullName>>,
-        /// In ad-hoc mode, the reference that should become the projection entrypoint (the new
-        /// tip). Set when creating a branch above the checked-out branch, so it is projected
-        /// rather than rejected as unprojected. `HEAD` is *not* moved here; see
-        /// [`create_reference`] — the caller is responsible for the checkout.
-        new_tip: Option<gix::refs::FullName>,
+    enum Placement {
+        Independent { base: gix::ObjectId },
+        Relative { target: Selector, side: InsertSide },
     }
 
-    impl<'a> AnchorResolution<'a> {
-        /// A placement that merely points the new reference at `target_id`, with no ad-hoc branch
-        /// order to persist and no change of entrypoint.
-        fn positioned(
-            target_id: gix::ObjectId,
-            validate_in_workspace: bool,
-            instruction: Option<Instruction<'a>>,
-        ) -> Self {
-            AnchorResolution {
-                target_id,
-                validate_in_workspace,
-                instruction,
-                branch_stack_order: None,
-                new_tip: None,
-            }
-        }
-    }
-
-    /// Create a new reference named `ref_name` to point at a commit relative to `anchor`.
-    /// If `anchor` is `None` this means the branch should be placed above the lower bound of the workspace, effectively
-    /// creating an independent branch.
-    /// The resulting reference will be created in `repo` and `meta` will be updated for `ref_name` so the workspace
-    /// contains it, but only if it's a managed workspace, along with branch metadata.
-    /// Use `new_stack_id` just with `Stack::generate()`, it's mainly used to be able to control the stack-id when needed in testing.
-    /// The `order` parameter specifies where to insert a new independent stack (ignored for dependent branches).
-    /// If `None`, appends to the end (using push). If `Some(n)`, inserts at position `n`.
+    /// Insert a new reference named `ref_name` into the step graph of `editor` relative to `anchor`,
+    /// or as a new independent branch on the workspace base if `anchor` is `None`.
     ///
-    /// Fail if the reference already exists *and* points somewhere else.
+    /// An independent branch becomes a parent of the workspace commit at `order`, or its last parent
+    /// if `order` is `None`, and can't be created outside of a workspace. A workspace commit is
+    /// created if `HEAD` is on the workspace reference without one.
     ///
-    ///  - if there is no managed workspace, then dependent branches must be exclusive on each commit to identify ordering
-    ///  - if there is a workspace, we store the order in workspace metadata and expect an `anchor` that names a segment.
-    ///
-    /// # Ad-hoc (single-branch) workspaces
-    ///
-    /// With [`Anchor::AtReference`] and no managed workspace, the new branch is positioned relative
-    /// to a *local* branch by writing the tip-to-base order to `branch_stack_order`. This requires a
-    /// backend where [`RefMetadata::can_persist_branch_stack_order`] is `true`.
-    ///
-    /// When the new branch is placed [`Position::Above`] the *currently checked-out* branch it
-    /// becomes the new tip, and the returned workspace is projected **as if it were already checked
-    /// out**. This function does *not* move `HEAD`; the caller is responsible for checking the new
-    /// branch out so the real `HEAD` matches the projection (the API layer does this via
-    /// checkout-after-create). Placing above a branch that is not the entrypoint leaves the
-    /// entrypoint untouched.
-    ///
-    /// Return a regenerated Graph that contains the new reference, and from which a new workspace can be derived.
-    pub fn create_reference<'ws, 'name, T: RefMetadata>(
-        ref_name: impl Borrow<gix::refs::FullNameRef>,
-        anchor: impl Into<Option<Anchor<'name>>>,
-        repo: &gix::Repository,
-        workspace: &'ws but_graph::Workspace,
-        meta: &mut T,
-        new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
+    /// Fail if `ref_name` is already taken, in the repository or in the editor.
+    pub fn create_reference<'ws, 'meta, 'anchor, M: RefMetadata>(
+        editor: Editor<'ws, 'meta, M>,
+        ref_name: &gix::refs::FullNameRef,
+        anchor: impl Into<Option<Anchor<'anchor>>>,
         order: impl Into<Option<usize>>,
-    ) -> anyhow::Result<Cow<'ws, but_graph::Workspace>> {
-        let anchor = anchor.into();
-        let order = order.into();
-
-        let ws_base = workspace.lower_bound;
-        // Only update workspace metadata when the projection came from a persisted record.
-        let existing_ws_meta = workspace
-            .ref_name()
-            .filter(|_| workspace.has_metadata())
-            .map(|ws_ref| meta.workspace(ws_ref))
-            .transpose()?;
-        let ref_name = ref_name.borrow();
-        let existing_ref_target_id = repo
-            .try_find_reference(ref_name)?
-            .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
-            .transpose()?;
-        let existing_ref_target_in_workspace =
-            existing_ref_target_id.filter(|id| workspace.find_commit(*id).is_some());
-
-        if let Some(
-            Anchor::AtSegment {
-                ref_name: anchor_ref,
-                ..
-            }
-            | Anchor::AtReference {
-                ref_name: anchor_ref,
-                ..
-            },
-        ) = &anchor
-            && workspace
-                .find_segment_and_stack_by_refname(anchor_ref.as_ref())
-                .is_none()
-            && workspace.refname_is_segment(anchor_ref.as_ref())
-        {
-            bail_precondition!(
-                "Cannot place '{}' relative to worktree branch '{}': branches can't be ordered in worktrees yet",
-                ref_name.shorten(),
-                anchor_ref.shorten()
-            );
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+        ensure_name_is_available(&editor, ref_name)?;
+        if editor.repo().head()?.is_unborn() {
+            bail_precondition!("Cannot create reference on unborn branch");
         }
-
-        let AnchorResolution {
-            target_id: ref_target_id,
-            validate_in_workspace: check_if_id_in_workspace,
-            instruction,
-            branch_stack_order,
-            new_tip: ad_hoc_new_tip,
-        } = match anchor {
-            None => {
-                // The new ref exists already in the workspace, do nothing.
-                if workspace.refname_is_segment(ref_name) {
-                    return Ok(Cow::Borrowed(workspace));
-                }
-                if let Some(existing_ref_target_id) = existing_ref_target_in_workspace {
-                    let instruction = existing_ws_meta.as_ref().and_then(|_| {
-                        instruction_by_named_anchor_for_commit(workspace, existing_ref_target_id)
-                    });
-                    // Expect the target id to be in the workspace.
-                    AnchorResolution::positioned(existing_ref_target_id, true, instruction)
-                } else {
-                    let base = workspace.highest_base().with_context(|| {
-                        format!(
-                            "workspace at {} is missing a base",
-                            workspace.ref_name_display()
-                        )
-                    })?;
-                    // Don't validate: the base sits on the target's history, not in a segment.
-                    AnchorResolution::positioned(base, false, Some(Instruction::Independent))
-                }
-            }
-            Some(Anchor::AtCommit {
-                commit_id,
-                position,
-            }) => {
-                // The workspace base is a valid boundary anchor, but isn't a stack commit.
-                let ref_target_id = if Some(commit_id) == ws_base {
-                    commit_id
-                } else {
-                    position
-                        .resolve_commit(workspace.try_find_commit(commit_id)?.into(), ws_base)?
+        let rebase = editor.rebase()?;
+        let workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let mut editor = rebase.into_editor();
+        let placement = placement(&editor, &workspace, ref_name, anchor.into())?;
+        let workspace_commit = ensure_workspace_commit(&mut editor)?;
+        let reference = Step::new_reference(ref_name.to_owned());
+        match placement {
+            Placement::Independent { base } => {
+                let Some(workspace_commit) = workspace_commit else {
+                    bail_precondition!(
+                        "Cannot create independent branch '{}' outside of a workspace",
+                        ref_name.shorten()
+                    );
                 };
-                let id_out_of_workspace = Some(ref_target_id) == ws_base;
-
-                let instruction = existing_ws_meta
-                    .as_ref()
-                    .filter(|_| !id_out_of_workspace)
-                    .and_then(|_| instruction_by_named_anchor_for_commit(workspace, commit_id))
-                    .or_else(|| {
-                        let (stack_idx, _seg_idx, _cidx) =
-                            workspace.find_owner_indexes_by_commit_id(commit_id)?;
-                        workspace.stacks[stack_idx]
-                            .id
-                            .map(Instruction::DependentInStack)
-                    })
-                    .or_else(|| id_out_of_workspace.then_some(Instruction::Independent));
-
-                AnchorResolution::positioned(ref_target_id, !id_out_of_workspace, instruction)
-            }
-            Some(Anchor::AtSegment {
-                ref_name: anchor_ref,
-                position,
-            }) => {
-                let segment = workspace.try_find_segment_by_refname(anchor_ref.as_ref())?;
-                let ref_target_id = if workspace.has_metadata() {
-                    workspace
-                        .tip_commit_by_segment_id(segment.id)
-                        .map(|commit| position.resolve_commit(commit.into(), ws_base))
-                        .context(
-                            "BUG: we should always see through to the base or eligible commits",
-                        )??
-                } else {
-                    position.resolve_commit(
-                        segment
-                            .commits
-                            .first()
-                            .context("Cannot create reference on unborn branch")?
-                            .into(),
-                        ws_base,
-                    )?
-                };
-                let points_to_workspace_base = Some(ref_target_id) == ws_base;
-                // The lower bound owns no commits, so an ad-hoc workspace needs explicit ref
-                // ordering to project the new empty segment at that boundary.
-                let branch_stack_order = if !workspace.has_metadata() && points_to_workspace_base {
-                    if !meta.can_persist_branch_stack_order() {
-                        bail_precondition!(
-                            "Cannot position '{new}' relative to local reference '{anchor}' at the workspace base without branch order metadata",
-                            new = ref_name.shorten(),
-                            anchor = anchor_ref.shorten()
-                        );
+                if workspace.stacks.is_empty() {
+                    for (placeholder, _) in editor.direct_parents(workspace_commit)? {
+                        editor.remove_edges(workspace_commit, placeholder)?;
                     }
-                    let existing_order = meta
-                        .branch_stack_order(anchor_ref.as_ref())?
-                        .unwrap_or_default();
-                    Some(insert_into_branch_stack_order(
-                        existing_order,
-                        anchor_ref.as_ref(),
-                        ref_name,
-                        position,
-                    ))
-                } else {
-                    None
-                };
-                let mut resolution = AnchorResolution::positioned(
-                    ref_target_id,
-                    !points_to_workspace_base,
-                    Some(Instruction::Dependent {
-                        ref_name: anchor_ref,
-                        position,
-                    }),
-                );
-                resolution.branch_stack_order = branch_stack_order;
-                resolution
-            }
-            // Position relative to another *reference* on the same commit. Managed workspaces
-            // order these in workspace metadata; ad-hoc workspaces record the order in the
-            // `branch_order` table (see `resolve_ad_hoc_at_reference`).
-            Some(Anchor::AtReference {
-                ref_name: anchor_ref,
-                position,
-            }) => {
-                if ref_name == anchor_ref.as_ref() {
-                    bail_precondition!(
-                        "Cannot position '{new}' relative to itself",
-                        new = ref_name.shorten()
-                    );
                 }
-                if workspace.has_metadata() {
-                    let segment = workspace.try_find_segment_by_refname(anchor_ref.as_ref())?;
-                    let ref_target_id = workspace
-                        .tip_commit_by_segment_id(segment.id)
-                        .map(|commit| commit.id)
-                        .context(
-                            "BUG: we should always see through to the base or eligible commits",
-                        )?;
-                    AnchorResolution::positioned(
-                        ref_target_id,
-                        Some(ref_target_id) != ws_base,
-                        Some(Instruction::Dependent {
-                            ref_name: anchor_ref,
-                            position,
-                        }),
-                    )
-                } else if anchor_ref.category() == Some(gix::refs::Category::LocalBranch) {
-                    resolve_ad_hoc_at_reference(
-                        ref_name,
-                        anchor_ref.as_ref(),
-                        position,
-                        repo,
-                        workspace,
-                        meta,
-                    )?
-                } else {
-                    bail_precondition!(
-                        "Cannot position '{new}' relative to non-local reference '{anchor}' without a managed workspace",
-                        new = ref_name.shorten(),
-                        anchor = anchor_ref.shorten()
-                    );
-                }
+                let reference = editor.add_step(reference)?;
+                editor.add_edge(reference, base, 0)?;
+                editor.insert_parent(workspace_commit, reference, order.into())?;
             }
-        };
-
-        let updated_ws_meta = existing_ws_meta
-            .zip(instruction)
-            .map(|(mut existing, instruction)| {
-                update_workspace_metadata(&mut existing, ref_name, instruction, new_stack_id, order)
-                    .map(|()| existing)
-            })
-            .transpose()?;
-        // Assure this commit is in the workspace as well.
-        if check_if_id_in_workspace {
-            workspace.try_find_commit(ref_target_id)?;
+            Placement::Relative { target, side } => {
+                editor.insert(target, reference, side)?;
+            }
         }
-        if starts_worktree_segment(workspace, ref_target_id) {
+        let rebase = editor.rebase()?;
+        let target = rebase.reference_target(ref_name)?;
+        if starts_worktree_segment(&workspace, target) {
             bail_precondition!(
-                "Cannot place '{}' at {ref_target_id}: a worktree branch or checkout already points there, \
+                "Cannot place '{}' at {target}: a worktree branch or checkout already points there, \
                  and branches can't be ordered in worktrees yet",
                 ref_name.shorten()
             );
         }
-
-        let graph_with_new_ref = {
-            // Always update the metadata, this may help disambiguating.
-            let mut branch_md = meta.branch(ref_name)?;
-            update_branch_metadata(ref_name, repo, &mut branch_md)?;
-
-            let mut overlay = but_graph::init::Overlay::default()
-                .with_references_if_new(Some(gix::refs::Reference {
-                    name: ref_name.into(),
-                    target: gix::refs::Target::Object(ref_target_id),
-                    peeled: None,
-                }))
-                .with_branch_metadata_override(Some((
-                    branch_md.as_ref().to_owned(),
-                    (*branch_md).clone(),
-                )))
-                .with_workspace_metadata_override(
-                    updated_ws_meta
-                        .as_ref()
-                        .map(|ws| (ws.as_ref().to_owned(), (*ws).clone())),
-                );
-            if let Some(branch_stack_order) = branch_stack_order.clone() {
-                overlay = overlay.with_branch_stack_order_override(branch_stack_order);
-            }
-            if let Some(new_tip) = ad_hoc_new_tip {
-                overlay = overlay.with_entrypoint(ref_target_id, Some(new_tip));
-            }
-
-            workspace
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
-        };
-
-        let updated_workspace = graph_with_new_ref.into_workspace()?;
-        let has_new_ref_as_standalone_segment = updated_workspace.refname_is_segment(ref_name);
-        let existing_ref_is_in_workspace = existing_ref_target_in_workspace.is_some();
-        if !has_new_ref_as_standalone_segment {
-            if existing_ref_target_id.is_some()
-                && !existing_ref_is_in_workspace
-                && !workspace.refname_is_segment(ref_name)
-                && workspace.ref_name() != Some(ref_name)
-            {
-                bail_precondition!(
-                    "Reference '{}' already exists and is outside the workspace",
-                    ref_name.shorten()
-                );
-            }
-            bail!(
-                "Branch '{}' cannot be created: the target commit ({}) already \
-                 belongs to another branch in the workspace. Each commit can only \
-                 belong to one branch at a time.",
-                ref_name.shorten(),
-                ref_target_id,
-            )
-        }
-
-        // Actually apply the changes
-        repo.reference(
-            ref_name,
-            ref_target_id,
-            PreviousValue::ExistingMustMatch(gix::refs::Target::Object(ref_target_id)),
-            "Dependent branch by GitButler",
-        )
-        .map_err(|err| {
-            if is_not_a_directory_ref_edit_error(&err)
-                && let Ok(Some(colliding_ref)) = find_colliding_ref_ancestor(repo, ref_name)
-            {
-                return anyhow::anyhow!(
-                    "Branch name '{}' collides with existing branch '{}'",
-                    ref_name.shorten(),
-                    colliding_ref.shorten()
-                );
-            }
-            let code = err
-                .downcast_any_ref::<gix::refs::file::log::create_or_update::MissingCommitter>()
-                .map(|_| but_error::Code::AuthorMissing);
-            let err = anyhow::Error::from(err);
-            if let Some(code) = code {
-                err.context(code)
-            } else {
-                err
-            }
-        })?;
-        // Important to first update the workspace so we have the correct stack setup.
-        if let Some(ws_meta) = updated_ws_meta {
-            meta.set_workspace(&ws_meta)?;
-        }
-        if let Some(branch_stack_order) = branch_stack_order
-            && let Err(err) = meta.set_branch_stack_order(&branch_stack_order)
-        {
-            // Keep the operation atomic from the caller's perspective: if we just created the ref
-            // but can't persist its ordering, roll the ref back (best-effort) so we don't leave an
-            // unordered same-commit branch that can't be projected consistently.
-            if existing_ref_target_id.is_none()
-                && let Ok(Some(reference)) = repo.try_find_reference(ref_name)
-            {
-                reference.delete().ok();
-            }
-            return Err(err);
-        }
-
-        // Always re-obtain the branch as `set_workspace` has created another version of it, possibly.
-        // To avoid duplication, fetch the 'real' one and do the update again.
-        // TODO: remove this in favor of keeping the previous handle once we have a sane `meta` impl
-        let mut branch_md = meta.branch(ref_name)?;
-        update_branch_metadata(ref_name, repo, &mut branch_md)?;
-        meta.set_branch(&branch_md)?;
-
-        Ok(Cow::Owned(updated_workspace))
+        Ok(rebase)
     }
 
-    /// Resolve an [`Anchor::AtReference`] in an ad-hoc (single-branch) workspace against a local
-    /// `anchor_ref`, recording the tip-to-base order in `branch_stack_order`.
-    ///
-    /// The new reference points at the same commit as `anchor_ref`. See [`create_reference`] for
-    /// the `new_tip` / checkout contract.
-    fn resolve_ad_hoc_at_reference<'a, T: RefMetadata>(
-        new_ref: &gix::refs::FullNameRef,
-        anchor_ref: &gix::refs::FullNameRef,
-        position: Position,
-        repo: &gix::Repository,
-        workspace: &but_graph::Workspace,
-        meta: &T,
-    ) -> anyhow::Result<AnchorResolution<'a>> {
-        // Callers (the `AtReference` arm) guarantee `new_ref != anchor_ref`, which keeps the
-        // `insert_into_branch_stack_order` invariant (the anchor survives `retain`) sound.
-        if !meta.can_persist_branch_stack_order() {
-            bail_precondition!(
-                "Cannot position '{new}' relative to local reference '{anchor}' without branch order metadata",
-                new = new_ref.shorten(),
-                anchor = anchor_ref.shorten()
-            );
-        }
-        let Some(mut anchor_reference) = repo.try_find_reference(anchor_ref)? else {
-            bail_precondition!(
-                "Cannot position '{new}' relative to '{anchor}': the anchor reference does not exist",
-                new = new_ref.shorten(),
-                anchor = anchor_ref.shorten()
-            );
-        };
-        let target_id = anchor_reference.peel_to_id()?.detach();
-        let existing_order = meta.branch_stack_order(anchor_ref)?.unwrap_or_default();
-        let branch_stack_order =
-            insert_into_branch_stack_order(existing_order, anchor_ref, new_ref, position);
-
-        // Creating a branch above the checked-out branch makes it the new tip. The workspace only
-        // projects the entrypoint and the segments below it, so without moving the entrypoint the
-        // new ref would sit above it, fall outside the projection, and be rejected as unprojected.
-        // Anchor the validating re-traversal at the new tip instead; the caller checks it out to
-        // make this real (mirroring the API's checkout-after-create).
-        let new_tip = (matches!(position, Position::Above)
-            && workspace.ref_name() == Some(anchor_ref))
-        .then(|| new_ref.to_owned());
-
-        Ok(AnchorResolution {
-            target_id,
-            validate_in_workspace: false,
-            instruction: None,
-            branch_stack_order: Some(branch_stack_order),
-            new_tip,
-        })
-    }
-
-    /// Insert `new_ref` into the ad-hoc, tip-to-base `order` relative to `anchor`.
-    ///
-    /// - `anchor` is seeded into the order if it isn't there yet (a first ordering only has the
-    ///   anchor).
-    /// - If `new_ref` is already present it is moved (removed then re-inserted), so re-creating or
-    ///   reordering the same branch is idempotent.
-    /// - [`Position::Above`] takes the anchor's slot, pushing the anchor down; [`Position::Below`]
-    ///   goes right after the anchor. This only affects *ordering* — unlike [`Anchor::AtSegment`],
-    ///   it never changes which branch owns the commit.
-    fn insert_into_branch_stack_order(
-        mut order: Vec<gix::refs::FullName>,
-        anchor: &gix::refs::FullNameRef,
-        new_ref: &gix::refs::FullNameRef,
-        position: Position,
-    ) -> Vec<gix::refs::FullName> {
-        if !order.iter().any(|branch| branch.as_ref() == anchor) {
-            order.push(anchor.to_owned());
-        }
-        order.retain(|branch| branch.as_ref() != new_ref);
-        // `anchor` was pushed above if it was missing, and `retain` only drops `new_ref`, so the
-        // anchor is guaranteed to still be present here.
-        let anchor_idx = order
-            .iter()
-            .position(|branch| branch.as_ref() == anchor)
-            .expect("anchor is always present in the order at this point");
-        let insert_idx = match position {
-            Position::Above => anchor_idx,
-            Position::Below => anchor_idx + 1,
-        };
-        order.insert(insert_idx, new_ref.to_owned());
-        order
-    }
-
-    fn is_not_a_directory_ref_edit_error(err: &gix::Error) -> bool {
-        err.downcast_any_ref::<std::io::Error>()
-            .is_some_and(|err| err.kind() == std::io::ErrorKind::NotADirectory)
-    }
-
-    fn find_colliding_ref_ancestor(
-        repo: &gix::Repository,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Option<gix::refs::FullName>> {
-        let full_name = ref_name.as_bstr().to_str_lossy();
-        // Skip the `refs` and `heads` separators so candidates start at branch components.
-        for slash_idx in full_name.match_indices('/').map(|(idx, _)| idx).skip(2) {
-            let ancestor_ref = gix::refs::FullName::try_from(full_name[..slash_idx].to_owned())?;
-            if repo.try_find_reference(ancestor_ref.as_ref())?.is_some() {
-                return Ok(Some(ancestor_ref));
-            }
-        }
-        Ok(None)
-    }
-
-    fn update_branch_metadata(
-        ref_name: &gix::refs::FullNameRef,
-        repo: &gix::Repository,
-        md: &mut ref_metadata::Branch,
-    ) -> anyhow::Result<()> {
-        let is_new_ref = repo.try_find_reference(ref_name)?.is_none();
-        md.update_times(is_new_ref);
-        Ok(())
-    }
-
-    fn update_workspace_metadata(
-        ws_meta: &mut ref_metadata::Workspace,
-        new_ref: &gix::refs::FullNameRef,
-        instruction: Instruction<'_>,
-        new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
-        order: Option<usize>,
-    ) -> anyhow::Result<()> {
-        if let Some((stack_idx, _)) =
-            ws_meta.find_owner_indexes_by_name(new_ref, AppliedAndUnapplied)
-        {
-            // Just pretend its applied, and if it really is reachable, this will assure the
-            // created ref name can be found.
-            ws_meta.stacks[stack_idx].workspacecommit_relation = Merged;
-            return Ok(());
-        }
-        match instruction {
-            // Create new in known stack
-            Instruction::DependentInStack(stack_id) => {
-                ws_meta
-                    .stacks
-                    .iter_mut()
-                    .find(|s| s.id == stack_id)
-                    .with_context(|| {
-                        format!(
-                            "Couldn't find stack with id {stack_id} to place '{}' in",
-                            new_ref.as_bstr()
-                        )
-                    })?
-                    .branches
-                    .push(WorkspaceStackBranch {
-                        ref_name: new_ref.to_owned(),
-                        archived: false,
-                    });
-            }
-            // create new
-            Instruction::Independent => {
-                let new_stack = WorkspaceStack {
-                    id: new_stack_id(new_ref),
-                    workspacecommit_relation: Merged,
-                    branches: vec![WorkspaceStackBranch {
-                        ref_name: new_ref.to_owned(),
-                        archived: false,
-                    }],
-                };
-
-                match order {
-                    None => ws_meta.stacks.push(new_stack),
-                    Some(index) => {
-                        let insertion_index = index.min(ws_meta.stacks.len());
-                        ws_meta.stacks.insert(insertion_index, new_stack);
-                    }
-                }
-            }
-            // insert dependent branch at anchor
-            Instruction::Dependent {
-                ref_name: anchor_ref,
-                position,
-            } => {
-                let (stack_idx, branch_idx) = ws_meta
-                    .find_owner_indexes_by_name(anchor_ref.as_ref(), AppliedAndUnapplied)
-                    .with_context(|| {
-                        format!(
-                            "Couldn't find anchor '{}' in workspace metadata - it's not consolidated",
-                            anchor_ref.shorten()
-                        )
-                    })?;
-                let stack = &mut ws_meta.stacks[stack_idx];
-                // Just assure it's there, to facilitate the new branch actually shows up.
-                stack.workspacecommit_relation = Merged;
-                let branches = &mut stack.branches;
-                branches.insert(
-                    match position {
-                        Position::Above => branch_idx,
-                        Position::Below => branch_idx + 1,
-                    },
-                    WorkspaceStackBranch {
-                        ref_name: new_ref.to_owned(),
-                        archived: false,
-                    },
-                );
-            }
-        };
-        Ok(())
-    }
-
-    /// Create the instruction that would be needed to insert the new ref-name into workspace data
-    /// so that it represents the `position` of `anchor_id`.
-    /// `position` indicates where, in relation to `anchor_id`, the ref name should be inserted.
-    /// The first name that is also in `ws_meta` will be used.
-    /// Return `None` if no stack holds `anchor_id`, as worktree lanes have no workspace metadata.
-    fn instruction_by_named_anchor_for_commit(
-        ws: &but_graph::Workspace,
-        anchor_id: gix::ObjectId,
-    ) -> Option<Instruction<'static>> {
-        use Position::*;
-        let (anchor_stack_idx, anchor_seg_idx, _anchor_commit_idx) =
-            ws.find_owner_indexes_by_commit_id(anchor_id)?;
-
-        let stack = &ws.stacks[anchor_stack_idx];
-        // Find first non-empty segment in this stack upward and downward.
-        let instruction = (0..anchor_seg_idx + 1)
-            .rev()
-            .find_map(|seg_idx| {
-                let s = &stack.segments[seg_idx];
-                s.ref_name()
-                    .map(|rn| (rn, Below))
-                    .filter(|_| s.metadata.is_some())
-            })
-            .or_else(|| {
-                (anchor_seg_idx + 1..stack.segments.len()).find_map(|seg_idx| {
-                    let s = &stack.segments[seg_idx];
-                    s.ref_name()
-                        .map(|rn| (rn, Above))
-                        .filter(|_| s.metadata.is_some())
-                })
-            })
-            .map(|(anchor_ref, position)| Instruction::Dependent {
-                ref_name: Cow::Owned(anchor_ref.to_owned()),
-                position,
-            })
-            .unwrap_or(
-                // Not a single name? It's empty, or branch metadata is missing.
-                // Create the first branch (then with metadata) directly.
-                match stack.id {
-                    None => Instruction::Independent,
-                    Some(id) => Instruction::DependentInStack(id),
-                },
-            );
-        Some(instruction)
-    }
-
-    /// Return `true` if `id` is where a branch or a detached `HEAD` of a worktree lane points.
-    fn starts_worktree_segment(ws: &but_graph::Workspace, id: gix::ObjectId) -> bool {
-        ws.worktrees
+    fn starts_worktree_segment(workspace: &but_graph::Workspace, id: gix::ObjectId) -> bool {
+        workspace
+            .worktrees
             .iter()
             .flat_map(|worktree| &worktree.segments)
             .any(|segment| {
@@ -810,83 +168,179 @@ pub(super) mod function {
             })
     }
 
-    #[derive(Debug)]
-    enum Instruction<'a> {
-        Independent,
-        DependentInStack(StackId),
-        Dependent {
-            ref_name: Cow<'a, gix::refs::FullNameRef>,
-            position: Position,
-        },
+    fn ensure_name_is_available<M: RefMetadata>(
+        editor: &Editor<'_, '_, M>,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()> {
+        let available = find_unique_refname_excluding(editor.repo(), ref_name, |name| {
+            editor.try_select_reference(name).is_some()
+        })?;
+        if available.as_ref() != ref_name {
+            bail_precondition!("Reference '{}' already exists", ref_name.shorten());
+        }
+        if let Some(colliding) = colliding_ref_ancestor(editor.repo(), ref_name)? {
+            bail_precondition!(
+                "Branch name '{}' collides with existing branch '{}'",
+                ref_name.shorten(),
+                colliding.shorten()
+            );
+        }
+        Ok(())
     }
 
-    #[cfg(test)]
-    mod tests {
-        use super::{Position, insert_into_branch_stack_order};
-
-        fn full(name: &str) -> gix::refs::FullName {
-            gix::refs::FullName::try_from(name).expect("valid ref name")
+    fn colliding_ref_ancestor(
+        repo: &gix::Repository,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<gix::refs::FullName>> {
+        let full_name = ref_name.as_bstr().to_str_lossy();
+        for slash_idx in full_name.match_indices('/').map(|(idx, _)| idx).skip(2) {
+            let ancestor = gix::refs::FullName::try_from(full_name[..slash_idx].to_owned())?;
+            if repo.try_find_reference(ancestor.as_ref())?.is_some() {
+                return Ok(Some(ancestor));
+            }
         }
+        Ok(None)
+    }
 
-        fn names(order: &[gix::refs::FullName]) -> Vec<String> {
-            order.iter().map(|r| r.as_bstr().to_string()).collect()
+    fn placement<M: RefMetadata>(
+        editor: &Editor<'_, '_, M>,
+        workspace: &but_graph::Workspace,
+        new_ref: &gix::refs::FullNameRef,
+        anchor: Option<Anchor<'_>>,
+    ) -> anyhow::Result<Placement> {
+        let independent = || {
+            let base = workspace.highest_base().with_context(|| {
+                format!(
+                    "workspace at {} is missing a base",
+                    workspace.ref_name_display()
+                )
+            })?;
+            anyhow::Ok(Placement::Independent { base })
+        };
+        let placement = match anchor {
+            None => independent()?,
+            Some(Anchor::AtCommit { commit_id, .. })
+                if Some(commit_id) == workspace.lower_bound =>
+            {
+                independent()?
+            }
+            Some(Anchor::AtCommit {
+                commit_id,
+                position,
+            }) => {
+                let Some(target) = editor.try_select_commit(commit_id) else {
+                    bail_precondition!("Commit {commit_id} isn't part of the workspace");
+                };
+                Placement::Relative {
+                    target,
+                    side: side(position),
+                }
+            }
+            Some(
+                Anchor::AtReference { ref_name, position }
+                | Anchor::AtSegment {
+                    ref_name,
+                    position: position @ Position::Above,
+                },
+            ) => Placement::Relative {
+                target: select_anchor(editor, workspace, new_ref, &ref_name)?,
+                side: side(position),
+            },
+            Some(Anchor::AtSegment {
+                ref_name,
+                position: Position::Below,
+            }) => {
+                let anchor = select_anchor(editor, workspace, new_ref, &ref_name)?;
+                let oldest_commit = workspace
+                    .try_find_segment_by_refname(&ref_name)?
+                    .commits
+                    .last()
+                    .map(|commit| commit.id);
+                Placement::Relative {
+                    target: match oldest_commit {
+                        Some(commit) => editor.select_commit(commit)?,
+                        None => anchor,
+                    },
+                    side: InsertSide::Below,
+                }
+            }
+        };
+        if let Placement::Relative { target, side } = &placement {
+            ensure_commit_below(editor, *target, *side)?;
         }
+        Ok(placement)
+    }
 
-        #[test]
-        fn above_on_empty_order_seeds_the_anchor_below_the_new_ref() {
-            let order = insert_into_branch_stack_order(
-                Vec::new(),
-                full("refs/heads/main").as_ref(),
-                full("refs/heads/top").as_ref(),
-                Position::Above,
-            );
-            assert_eq!(names(&order), ["refs/heads/top", "refs/heads/main"]);
-        }
-
-        #[test]
-        fn below_on_empty_order_seeds_the_anchor_above_the_new_ref() {
-            let order = insert_into_branch_stack_order(
-                Vec::new(),
-                full("refs/heads/main").as_ref(),
-                full("refs/heads/bottom").as_ref(),
-                Position::Below,
-            );
-            assert_eq!(names(&order), ["refs/heads/main", "refs/heads/bottom"]);
-        }
-
-        #[test]
-        fn above_takes_the_anchor_slot_in_an_existing_order() {
-            let order = insert_into_branch_stack_order(
-                vec![full("refs/heads/top"), full("refs/heads/main")],
-                full("refs/heads/main").as_ref(),
-                full("refs/heads/middle").as_ref(),
-                Position::Above,
-            );
-            assert_eq!(
-                names(&order),
-                ["refs/heads/top", "refs/heads/middle", "refs/heads/main"]
+    fn select_anchor<M: RefMetadata>(
+        editor: &Editor<'_, '_, M>,
+        workspace: &but_graph::Workspace,
+        new_ref: &gix::refs::FullNameRef,
+        anchor: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Selector> {
+        if workspace
+            .find_segment_and_stack_by_refname(anchor)
+            .is_none()
+            && workspace.refname_is_segment(anchor)
+        {
+            bail_precondition!(
+                "Cannot place '{}' relative to worktree branch '{}': branches can't be ordered in worktrees yet",
+                new_ref.shorten(),
+                anchor.shorten()
             );
         }
-
-        #[test]
-        fn reinserting_an_existing_ref_moves_it_and_is_idempotent() {
-            // `top` already sits above `main`; re-inserting it below `main` moves it there.
-            let order = insert_into_branch_stack_order(
-                vec![full("refs/heads/top"), full("refs/heads/main")],
-                full("refs/heads/main").as_ref(),
-                full("refs/heads/top").as_ref(),
-                Position::Below,
-            );
-            assert_eq!(names(&order), ["refs/heads/main", "refs/heads/top"]);
-
-            // Applying the same insertion again is a no-op.
-            let order = insert_into_branch_stack_order(
-                order,
-                full("refs/heads/main").as_ref(),
-                full("refs/heads/top").as_ref(),
-                Position::Below,
-            );
-            assert_eq!(names(&order), ["refs/heads/main", "refs/heads/top"]);
+        match editor.try_select_reference(anchor) {
+            Some(selector) => Ok(selector),
+            None => bail_precondition!(
+                "The anchor reference '{}' isn't part of the workspace",
+                anchor.shorten()
+            ),
         }
+    }
+
+    fn ensure_commit_below<M: RefMetadata>(
+        editor: &Editor<'_, '_, M>,
+        target: Selector,
+        side: InsertSide,
+    ) -> anyhow::Result<()> {
+        if matches!(side, InsertSide::Below) && editor.direct_parents(target)?.is_empty() {
+            let id = editor.lookup_pick(target)?;
+            match editor.find_commit(id)?.inner.parents.first() {
+                Some(parent) => bail_precondition!("Commit {parent} isn't part of the workspace"),
+                None => bail_precondition!(
+                    "Commit {id} is the first in history and no branch can point below it"
+                ),
+            }
+        }
+        Ok(())
+    }
+
+    fn side(position: Position) -> InsertSide {
+        match position {
+            Position::Above => InsertSide::Above,
+            Position::Below => InsertSide::Below,
+        }
+    }
+
+    fn ensure_workspace_commit<M: RefMetadata>(
+        editor: &mut Editor<'_, '_, M>,
+    ) -> anyhow::Result<Option<Selector>> {
+        if let Some(workspace_commit) = editor.workspace_commit() {
+            return Ok(Some(workspace_commit));
+        }
+        let Some(workspace_reference) = editor.workspace_reference() else {
+            return Ok(None);
+        };
+        let (_, below) = editor.find_reference_target(workspace_reference)?;
+        let mut commit =
+            WorkspaceCommit::new_from_stacks(Vec::<Stack>::new(), editor.repo().object_hash());
+        commit.tree = below.inner.tree;
+        commit.parents = vec![below.id].into();
+        WorkspaceCommit::fixup_times(&mut commit, editor.repo());
+        let commit = editor.repo().write_object(&commit)?.detach();
+        Ok(Some(editor.insert(
+            workspace_reference,
+            Step::Pick(Pick::new_workspace_pick(commit)),
+            InsertSide::Below,
+        )?))
     }
 }

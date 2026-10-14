@@ -582,54 +582,41 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         new_parent_nodes: impl IntoIterator<Item = petgraph::prelude::NodeIndex>,
         parent_reparenting_order: ParentReparentingOrder,
     ) {
-        let mut existing_parent_edges = self
+        let position = match parent_reparenting_order {
+            // Insertion-location parents define the first-parent lane. Existing parents stay
+            // attached after them as merge-side parents.
+            ParentReparentingOrder::Prepend => Some(0),
+            ParentReparentingOrder::Append => None,
+        };
+        self.insert_parents(child_node, new_parent_nodes, position);
+    }
+
+    fn insert_parents(
+        &mut self,
+        child_node: petgraph::prelude::NodeIndex,
+        new_parent_nodes: impl IntoIterator<Item = petgraph::prelude::NodeIndex>,
+        position: Option<usize>,
+    ) {
+        let mut parent_edges = self
             .graph
             .edges_directed(child_node, Direction::Outgoing)
             .map(|edge| (edge.id(), edge.weight().order, edge.target()))
             .collect::<Vec<_>>();
-        existing_parent_edges.sort_by_key(|(_, order, _)| *order);
-
-        for (edge_id, _, _) in &existing_parent_edges {
+        parent_edges.sort_by_key(|(_, order, _)| *order);
+        for (edge_id, _, _) in &parent_edges {
             self.graph.remove_edge(*edge_id);
         }
 
-        let new_parent_nodes = new_parent_nodes.into_iter().collect::<Vec<_>>();
-        match parent_reparenting_order {
-            ParentReparentingOrder::Prepend => {
-                for (order, parent_node) in new_parent_nodes.iter().enumerate() {
-                    self.graph
-                        .add_edge(child_node, *parent_node, Edge { order });
-                }
-
-                // Insertion-location parents define the first-parent lane. Existing parents stay
-                // attached after them as merge-side parents.
-                let shifted_by = new_parent_nodes.len();
-                for (offset, (_, _, parent_node)) in existing_parent_edges.into_iter().enumerate() {
-                    self.graph.add_edge(
-                        child_node,
-                        parent_node,
-                        Edge {
-                            order: shifted_by + offset,
-                        },
-                    );
-                }
-            }
-            ParentReparentingOrder::Append => {
-                let shifted_by = existing_parent_edges.len();
-                for (order, (_, _, parent_node)) in existing_parent_edges.into_iter().enumerate() {
-                    self.graph.add_edge(child_node, parent_node, Edge { order });
-                }
-
-                for (offset, parent_node) in new_parent_nodes.into_iter().enumerate() {
-                    self.graph.add_edge(
-                        child_node,
-                        parent_node,
-                        Edge {
-                            order: shifted_by + offset,
-                        },
-                    );
-                }
-            }
+        let mut parent_nodes = parent_edges
+            .into_iter()
+            .map(|(_, _, parent_node)| parent_node)
+            .collect::<Vec<_>>();
+        let position = position.map_or(parent_nodes.len(), |position| {
+            position.min(parent_nodes.len())
+        });
+        parent_nodes.splice(position..position, new_parent_nodes);
+        for (order, parent_node) in parent_nodes.into_iter().enumerate() {
+            self.graph.add_edge(child_node, parent_node, Edge { order });
         }
     }
 
@@ -918,6 +905,26 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 order: desired_order,
             },
         );
+
+        Ok(())
+    }
+
+    /// Connect `parent` to `child` as its parent at `position`, shifting later parents along,
+    /// or as its last parent if `position` is `None` or past the end.
+    pub fn insert_parent(
+        &mut self,
+        child: impl ToSelector,
+        parent: impl ToSelector,
+        position: Option<usize>,
+    ) -> Result<()> {
+        let child = self.history.normalize_selector(child.to_selector(self)?)?;
+        let parent = self.history.normalize_selector(parent.to_selector(self)?)?;
+
+        if has_path_connecting(&self.graph, parent.id, child.id, None) {
+            bail!("BUG: Inserting a parent introduces a cycle");
+        }
+
+        self.insert_parents(child.id, [parent.id], position);
 
         Ok(())
     }

@@ -5,7 +5,6 @@ use but_api::{
 };
 use but_core::{
     DiffSpec, DryRun, RefMetadata,
-    ref_metadata::StackId,
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
@@ -953,10 +952,10 @@ impl CommitToNewBranchOperation {
             .how_to_create_unstacked_reference()
         {
             HowToCreateUnstackedReference::Normally => {
-                tx.create_reference(new_ref.as_ref(), None, |_| StackId::generate(), Some(0))?;
+                tx.create_reference(new_ref.as_ref(), None, Some(0))?;
             }
             HowToCreateUnstackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
-                tx.create_reference(new_ref.as_ref(), anchor, |_| StackId::generate(), Some(0))?;
+                tx.create_reference(new_ref.as_ref(), anchor, Some(0))?;
                 tx.checkout(new_ref.as_ref())?;
             }
             HowToCreateUnstackedReference::CreateRefAtCommitThenCheckout { target_commit_id } => {
@@ -1042,20 +1041,10 @@ impl CommitAtOperation {
                     .how_to_create_stacked_reference(name.as_ref(), *side)
                 {
                     HowToCreateStackedReference::Normally(anchor) => {
-                        tx.create_reference(
-                            new_branch_name.as_ref(),
-                            Some(anchor),
-                            |_| StackId::generate(),
-                            Some(0),
-                        )?;
+                        tx.create_reference(new_branch_name.as_ref(), Some(anchor), Some(0))?;
                     }
                     HowToCreateStackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
-                        tx.create_reference(
-                            new_branch_name.as_ref(),
-                            Some(anchor),
-                            |_| StackId::generate(),
-                            Some(0),
-                        )?;
+                        tx.create_reference(new_branch_name.as_ref(), Some(anchor), Some(0))?;
                         tx.checkout(new_branch_name.as_ref())?;
                     }
                 }

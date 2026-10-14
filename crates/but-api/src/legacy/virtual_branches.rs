@@ -54,17 +54,16 @@ pub fn create_virtual_branch(
             .map_err(anyhow::Error::from)?;
 
         let mut meta = ctx.meta()?;
-        let (guard, repo, ws, _) = ctx.workspace_mut_and_db_mut()?;
-        let new_ws = but_workspace::branch::create_reference(
-            new_ref.as_ref(),
-            None,
-            &repo,
-            &ws,
-            &mut meta,
-            |_| StackId::generate(),
-            branch.order,
-        )?
-        .into_owned();
+        let (guard, repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut()?;
+        if ws
+            .find_segment_owner_indexes_by_refname(new_ref.as_ref())
+            .is_none()
+        {
+            let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+            but_workspace::branch::create_reference(editor, new_ref.as_ref(), None, branch.order)?
+                .materialize(Default::default())?;
+        }
+        let new_ws = &ws;
 
         let (stack_idx, segment_idx) = new_ws
             .find_segment_owner_indexes_by_refname(new_ref.as_ref())
@@ -93,10 +92,8 @@ pub fn create_virtual_branch(
             is_checked_out: false,
         };
 
-        drop(guard);
-        drop(repo);
-        drop(ws);
-        ctx.update_workspace_cache(new_ws);
+        drop((guard, repo, db));
+        ctx.update_workspace_cache(ws);
         out
     };
     Ok(stack_entry)

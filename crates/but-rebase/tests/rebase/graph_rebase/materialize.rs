@@ -1114,3 +1114,112 @@ fn an_attached_worktree_follows_its_branch_into_and_out_of_a_nested_name() -> Re
     );
     Ok(())
 }
+
+#[test]
+fn materialize_checks_out_what_head_checkout_is_set_to() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let other = gix::refs::FullName::try_from("refs/heads/other")?;
+    let parent = repo.rev_parse_single("HEAD~")?.detach();
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let reference = editor.add_step(Step::new_reference(other.clone()))?;
+    editor.add_edge(reference, parent, 0)?;
+    editor.set_head_checkout(reference)?;
+
+    editor.rebase()?.materialize(Default::default())?;
+    assert_eq!(repo.head_name()?, Some(other));
+    assert_eq!(repo.head_id()?.detach(), parent);
+
+    Ok(())
+}
+
+#[test]
+fn materialize_checks_out_another_branch_on_the_same_commit() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let other = gix::refs::FullName::try_from("refs/heads/other")?;
+    let head = repo.head_id()?.detach();
+    repo.reference(
+        other.as_ref(),
+        head,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "other branch on HEAD",
+    )?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let other_selector = editor.select_reference(other.as_ref())?;
+    editor.set_head_checkout(other_selector)?;
+
+    editor.rebase()?.materialize(Default::default())?;
+    assert_eq!(repo.head_name()?, Some(other));
+    assert_eq!(repo.head_id()?.detach(), head);
+
+    Ok(())
+}
+
+#[test]
+fn materialize_moves_a_detached_head_along_with_its_rewritten_commit() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let b = repo.rev_parse_single("HEAD~")?.detach();
+    repo.reference(
+        "HEAD",
+        b,
+        gix::refs::transaction::PreviousValue::Any,
+        "detach at b",
+    )?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let a = repo.rev_parse_single("HEAD~")?;
+    let mut reworded = but_core::Commit::from_id(a)?;
+    reworded.message = "a reworded".into();
+    let reworded = repo.write_object(reworded.inner)?.detach();
+    let a_selector = editor.select_commit(a.detach())?;
+    editor.amend_pick(a_selector, reworded)?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    assert_eq!(repo.head_name()?, None, "HEAD stays detached");
+    // HEAD follows b onto the reworded a, while main is out of reach of HEAD and stays.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 120e3a9 (main) c
+* a96434e b
+* d591dfe a
+| * 95e95fa (HEAD) b
+| * 256cb20 a reworded
+|/  
+* 35b8235 base
+
+"#]]
+    );
+
+    Ok(())
+}

@@ -196,11 +196,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         //   If we find a workspace commit, we have stacks that reach the full history.
         //   If we don't find a workspace commit, all commits from HEAD are considered above the workspace.
 
-        let ws_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-        let on_workspace = matches!(
-            &self.graph[entrypoint_ix],
-            Step::Reference { refname, .. } if *refname == ws_ref
-        );
+        let on_workspace = self.workspace_reference().is_some();
 
         let target_ix = self.target_selector().map(|s| s.id);
         let revision = self.history.current_revision();
@@ -266,6 +262,25 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 .map(|s| s.id),
             Checkout::Worktree { .. } => None,
         })
+    }
+
+    /// The workspace reference, if `HEAD` is on it.
+    pub fn workspace_reference(&self) -> Option<Selector> {
+        let head = self.head_index()?;
+        matches!(
+            &self.graph[head],
+            Step::Reference { refname, .. } if refname.as_bstr() == WORKSPACE_REF_NAME
+        )
+        .then(|| self.new_selector(head))
+    }
+
+    /// The workspace commit beneath the [workspace reference](Self::workspace_reference), if any.
+    pub fn workspace_commit(&self) -> Option<Selector> {
+        let head = self.workspace_reference()?;
+        let target = self.target_selector().map(|s| s.id);
+        traverse::all_until_optional_limit(&self.graph, head.id, target)
+            .find(|ix| is_workspace_commit(&self.graph, &self.repo, *ix))
+            .map(|ix| self.new_selector(ix))
     }
 
     /// The target commit's node, if a target is configured and present.

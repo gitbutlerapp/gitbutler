@@ -17,7 +17,7 @@ fn move_branch_above<'ws, 'meta, M: RefMetadata>(
     editor: Editor<'ws, 'meta, M>,
     subject: &gix::refs::FullNameRef,
     target: &gix::refs::FullNameRef,
-) -> anyhow::Result<but_workspace::branch::move_branch::Outcome<'ws, 'meta, M>> {
+) -> anyhow::Result<but_rebase::graph_rebase::SuccessfulRebase<'ws, 'meta, M>> {
     but_workspace::branch::move_branch(
         editor,
         subject,
@@ -69,7 +69,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put C on top of A
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/C".try_into()?,
         "refs/heads/A".try_into()?,
@@ -191,7 +191,7 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -279,7 +279,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of C
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/C".try_into()?,
@@ -363,7 +363,7 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put B on top of C
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/C".try_into()?,
@@ -451,7 +451,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of B, and below C
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -527,7 +527,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put B on top of A
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -597,7 +597,7 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put A on top of B
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -658,7 +658,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
 "#]]
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -710,7 +710,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
 "#]]
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -786,7 +786,7 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
     // Move non-empty C on top of non-empty A.
     // This rewrites metadata and keeps display + metadata aligned.
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/C".try_into()?,
         "refs/heads/A".try_into()?,
@@ -885,7 +885,7 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
     // Move empty B on top of non-empty A.
     // This path rewrites metadata and keeps display + metadata aligned.
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -966,7 +966,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Move B on top of A — the base segment at the old fork point has no ref name.
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -1049,7 +1049,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put empty B on top of non-empty A.
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
@@ -1127,7 +1127,7 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Put non-empty A on top of empty B.
-    let but_workspace::branch::move_branch::Outcome { rebase, .. } = move_branch_above(
+    let rebase = move_branch_above(
         editor,
         "refs/heads/A".try_into()?,
         "refs/heads/B".try_into()?,
@@ -1196,7 +1196,7 @@ mod single_branch_mode {
     use std::collections::HashMap;
 
     use but_core::RefMetadata;
-    use but_core::ref_metadata::StackId;
+
     use but_graph::init::Options;
     use but_meta::BranchOrderMetadata;
     use but_rebase::graph_rebase::Editor;
@@ -1206,11 +1206,6 @@ mod single_branch_mode {
     use super::move_branch_above;
     use crate::ref_info::with_workspace_commit::utils::named_writable_scenario;
     use crate::utils::r;
-
-    fn stack_id_for_name(rn: &gix::refs::FullNameRef) -> StackId {
-        use bstr::ByteSlice;
-        StackId::from_number_for_testing(rn.shorten().chars().map(|c| c as u128).sum())
-    }
 
     fn branch_order_meta(repo: &gix::Repository) -> anyhow::Result<BranchOrderMetadata> {
         BranchOrderMetadata::from_paths(repo.path().join("virtual-branches.toml"), repo.path())
@@ -1245,18 +1240,6 @@ mod single_branch_mode {
         Ok((tmp, repo, meta, project_meta, db))
     }
 
-    /// `move_branch` returns the reordered chain instead of persisting it (so callers can skip
-    /// persistence for dry runs); persist it here to mimic a real, non-dry-run caller.
-    fn persist_order(
-        meta: &mut BranchOrderMetadata,
-        order: &Option<Vec<gix::refs::FullName>>,
-    ) -> anyhow::Result<()> {
-        if let Some(order) = order {
-            meta.set_branch_stack_order(order)?;
-        }
-        Ok(())
-    }
-
     fn move_branch_and_apply(
         repo: &gix::Repository,
         meta: &mut BranchOrderMetadata,
@@ -1264,22 +1247,24 @@ mod single_branch_mode {
         db: &mut but_db::DbHandle,
         subject: &gix::refs::FullNameRef,
         target: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
+    ) -> anyhow::Result<()> {
         let mut ws = but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())?
             .into_workspace()?;
         let editor = Editor::create(&mut ws, meta, repo, db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase,
-            new_tip,
-            branch_stack_order,
-            ..
-        } = move_branch_above(editor, subject, target)?;
+        let rebase = move_branch_above(editor, subject, target)?;
         rebase.materialize(Default::default())?;
-        persist_order(meta, &branch_stack_order)?;
-        if let Some(new_tip) = new_tip {
-            invoke_bash(&format!("git checkout {}\n", new_tip.shorten()), repo);
-        }
-        Ok(branch_stack_order)
+        Ok(())
+    }
+
+    fn projected_workspace(
+        repo: &gix::Repository,
+        meta: &BranchOrderMetadata,
+        project_meta: but_core::ref_metadata::ProjectMeta,
+        db: &mut but_db::DbHandle,
+    ) -> anyhow::Result<String> {
+        let ws = but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())?
+            .into_workspace()?;
+        Ok(graph_workspace(&ws).to_string())
     }
 
     fn assert_head(repo: &gix::Repository, branch_name: &str) {
@@ -1377,66 +1362,63 @@ mod single_branch_mode {
             "refs/heads/empty-bottom",
             "refs/heads/empty-top",
         ] {
-            ws = but_workspace::branch::create_reference(
+            ws = crate::utils::create_reference(
+                &repo,
+                &mut ws,
+                &mut meta,
+                &mut db,
                 r(name),
                 Anchor::at_reference(main_ref, Position::Below),
-                &repo,
-                &ws,
-                &mut meta,
-                stack_id_for_name,
                 None,
-            )?
-            .into_owned();
+            )?;
         }
 
         Ok((tmp, repo, meta, project_meta, db))
     }
 
-    /// Moving a branch on top of the checked-out tip reports it as `new_tip` so the caller can check
-    /// it out; the operation itself does not move `HEAD`.
     #[test]
-    fn reorder_above_checked_out_tip_returns_new_tip() -> anyhow::Result<()> {
+    fn reorder_above_checked_out_tip_checks_out_the_subject() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
 
-        let mut ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
-        // `main` is the checked-out entrypoint (the projected tip).
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta.clone(),
+            &mut db,
+            Options::limited(),
+        )?
+        .into_workspace()?;
         assert_eq!(ws.ref_name(), Some(main_ref));
 
-        // Move empty `empty-bottom` on top of the checked-out `main`, which makes it the new tip.
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase,
-            new_tip,
-            branch_stack_order,
-            ..
-        } = move_branch_above(editor, r("refs/heads/empty-bottom"), main_ref)?;
+        let rebase = move_branch_above(editor, r("refs/heads/empty-bottom"), main_ref)?;
         rebase.materialize(Default::default())?;
 
-        // The subject is reported as the new tip so the caller can check it out.
         assert_eq!(
-            new_tip.as_ref().map(|n| n.as_ref()),
+            repo.head_name()?.as_ref().map(|n| n.as_ref()),
             Some(r("refs/heads/empty-bottom"))
         );
-        // The reordered chain is returned (for the caller to persist), placing the subject on top.
-        assert_eq!(
-            branch_stack_order,
-            Some(vec![
-                r("refs/heads/empty-bottom").to_owned(),
-                r("refs/heads/main").to_owned(),
-                r("refs/heads/empty-top").to_owned(),
-                r("refs/heads/base").to_owned(),
-            ]),
+        snapbox::assert_data_eq!(
+            projected_workspace(&repo, &meta, project_meta, &mut db)?,
+            snapbox::str![[r#"
+⌂:empty-bottom[🌳] <> ✓! on 3d57fc1
+└── ≡:empty-bottom[🌳] on 3d57fc1 {1}
+    ├── :empty-bottom[🌳]
+    ├── :main
+    ├── :empty-top
+    └── :base
+        ├── ·281da94
+        └── ·12995d7
+
+"#]]
         );
         Ok(())
     }
 
-    /// A reorder that does not touch the tip leaves `new_tip` unset.
     #[test]
-    fn reorder_below_tip_has_no_new_tip() -> anyhow::Result<()> {
+    fn reorder_below_tip_keeps_head() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;
 
@@ -1444,12 +1426,7 @@ mod single_branch_mode {
             but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
                 .into_workspace()?;
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase,
-            new_tip,
-            branch_stack_order,
-            ..
-        } = move_branch_above(
+        let rebase = move_branch_above(
             editor,
             r("refs/heads/empty-bottom"),
             r("refs/heads/empty-top"),
@@ -1457,23 +1434,17 @@ mod single_branch_mode {
         rebase.materialize(Default::default())?;
 
         assert_eq!(
-            new_tip, None,
+            repo.head_name()?.as_ref().map(|n| n.as_ref()),
+            Some(r("refs/heads/main")),
             "target isn't the tip, so the tip is unchanged"
-        );
-        assert!(
-            branch_stack_order.is_some(),
-            "the reorder is still computed and returned"
         );
         Ok(())
     }
 
-    /// `move_branch` reorders two empty branches in single-branch (ad-hoc) mode by rewriting the
-    /// `branch_order` metadata, without any graph rewrite.
     #[test]
-    fn reorder_empty_branches_updates_branch_order() -> anyhow::Result<()> {
+    fn reorder_empty_branches_updates_workspace_order() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;
-        let main_ref = r("refs/heads/main");
 
         let mut ws = but_graph::Graph::from_head(
             &repo,
@@ -1491,63 +1462,32 @@ mod single_branch_mode {
 ⌂:main[🌳] <> ✓! on 3d57fc1
 └── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
-    ├── 📙:empty-top
-    ├── 📙:empty-bottom
-    └── 📙:base
+    ├── :empty-top
+    ├── :empty-bottom
+    └── :base
         ├── ·281da94
         └── ·12995d7
 
 "#]]
         );
-        assert_eq!(
-            meta.branch_stack_order(main_ref)?,
-            Some(vec![
-                r("refs/heads/main").to_owned(),
-                r("refs/heads/empty-top").to_owned(),
-                r("refs/heads/empty-bottom").to_owned(),
-                r("refs/heads/base").to_owned(),
-            ]),
-        );
 
-        // Move `empty-bottom` on top of `empty-top` (both empty) - a pure metadata reorder.
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase,
-            branch_stack_order,
-            ..
-        } = move_branch_above(
+        let rebase = move_branch_above(
             editor,
             r("refs/heads/empty-bottom"),
             r("refs/heads/empty-top"),
         )?;
         rebase.materialize(Default::default())?;
-        // A real (non-dry-run) caller persists the returned order.
-        persist_order(&mut meta, &branch_stack_order)?;
 
-        // The ad-hoc order is updated: `empty-bottom` now sits above `empty-top`.
-        assert_eq!(
-            meta.branch_stack_order(main_ref)?,
-            Some(vec![
-                r("refs/heads/main").to_owned(),
-                r("refs/heads/empty-bottom").to_owned(),
-                r("refs/heads/empty-top").to_owned(),
-                r("refs/heads/base").to_owned(),
-            ]),
-        );
-
-        // Re-projecting from the reloaded metadata reflects the new order, and no commit was moved.
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
         snapbox::assert_data_eq!(
-            graph_workspace(&ws).to_string(),
+            projected_workspace(&repo, &meta, project_meta, &mut db)?,
             snapbox::str![[r#"
 ⌂:main[🌳] <> ✓! on 3d57fc1
 └── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
-    ├── 📙:empty-bottom
-    ├── 📙:empty-top
-    └── 📙:base
+    ├── :empty-bottom
+    ├── :empty-top
+    └── :base
         ├── ·281da94
         └── ·12995d7
 
@@ -1571,7 +1511,7 @@ mod single_branch_mode {
 * [C4] (main) add main"#]]
         );
 
-        let branch_stack_order = move_branch_and_apply(
+        move_branch_and_apply(
             &repo,
             &mut meta,
             project_meta,
@@ -1581,15 +1521,6 @@ mod single_branch_mode {
         )?;
 
         assert_head(&repo, "B");
-        assert_eq!(
-            branch_stack_order,
-            Some(vec![
-                r("refs/heads/B").to_owned(),
-                r("refs/heads/C").to_owned(),
-                r("refs/heads/A").to_owned(),
-                r("refs/heads/main").to_owned(),
-            ])
-        );
         snapbox::assert_data_eq!(
             normalized_graph_snapshot(&repo)?,
             snapbox::str![[r#"
@@ -1617,7 +1548,7 @@ mod single_branch_mode {
 * [C4] (main) add main"#]]
         );
 
-        let branch_stack_order = move_branch_and_apply(
+        move_branch_and_apply(
             &repo,
             &mut meta,
             project_meta,
@@ -1627,15 +1558,6 @@ mod single_branch_mode {
         )?;
 
         assert_head(&repo, "A");
-        assert_eq!(
-            branch_stack_order,
-            Some(vec![
-                r("refs/heads/A").to_owned(),
-                r("refs/heads/C").to_owned(),
-                r("refs/heads/B").to_owned(),
-                r("refs/heads/main").to_owned(),
-            ])
-        );
         snapbox::assert_data_eq!(
             normalized_graph_snapshot(&repo)?,
             snapbox::str![[r#"
@@ -1654,7 +1576,7 @@ mod single_branch_mode {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_three_non_empty_branches("C")?;
 
-        let branch_stack_order = move_branch_and_apply(
+        move_branch_and_apply(
             &repo,
             &mut meta,
             project_meta,
@@ -1664,16 +1586,6 @@ mod single_branch_mode {
         )?;
 
         assert_head(&repo, "B");
-        assert_eq!(
-            branch_stack_order,
-            Some(vec![
-                r("refs/heads/B").to_owned(),
-                r("refs/heads/C").to_owned(),
-                r("refs/heads/A").to_owned(),
-                r("refs/heads/main").to_owned(),
-            ]),
-            "moving the checked-out tip down should make the branch above it the new tip"
-        );
         // The same commits are reordered to match the branch order, with the new tip checked out.
         snapbox::assert_data_eq!(
             normalized_graph_snapshot(&repo)?,
@@ -1694,7 +1606,7 @@ mod single_branch_mode {
             ad_hoc_workspace_with_three_non_empty_branches("C")?;
         let tips_before = ["A", "B", "C"].map(|branch| branch_tip(&repo, branch));
 
-        let branch_stack_order = move_branch_and_apply(
+        move_branch_and_apply(
             &repo,
             &mut meta,
             project_meta,
@@ -1704,16 +1616,6 @@ mod single_branch_mode {
         )?;
 
         assert_head(&repo, "C");
-        assert_eq!(
-            branch_stack_order,
-            Some(vec![
-                r("refs/heads/C").to_owned(),
-                r("refs/heads/B").to_owned(),
-                r("refs/heads/A").to_owned(),
-                r("refs/heads/main").to_owned(),
-            ]),
-            "placing the tip above its current parent should preserve branch order"
-        );
         assert_eq!(
             ["A", "B", "C"].map(|branch| branch_tip(&repo, branch)),
             tips_before,
@@ -1739,7 +1641,7 @@ mod single_branch_mode {
 * [C4] (main) add main"#]]
         );
 
-        let branch_stack_order = move_branch_and_apply(
+        move_branch_and_apply(
             &repo,
             &mut meta,
             project_meta,
@@ -1753,15 +1655,6 @@ mod single_branch_mode {
             branch_tip(&repo, "C"),
             c_tip_before,
             "C should stay untouched when it is above the checked-out entrypoint"
-        );
-        assert_eq!(
-            branch_stack_order,
-            Some(vec![
-                r("refs/heads/C").to_owned(),
-                r("refs/heads/A").to_owned(),
-                r("refs/heads/B").to_owned(),
-                r("refs/heads/main").to_owned(),
-            ])
         );
         snapbox::assert_data_eq!(
             normalized_graph_snapshot(&repo)?,
@@ -1779,44 +1672,76 @@ mod single_branch_mode {
         Ok(())
     }
 
-    /// Moving an *empty* branch onto the commit-owning base is a metadata-only reorder and must be
-    /// allowed - only a non-empty *subject* needs a real rebase, so a non-empty *target* is fine.
+    #[test]
+    fn head_stays_on_the_tip_when_the_persisted_order_is_stale() -> anyhow::Result<()> {
+        let (_tmp, repo, mut meta, project_meta, mut db) =
+            ad_hoc_workspace_with_three_non_empty_branches("C")?;
+        meta.set_branch_stack_order(&[
+            r("refs/heads/A").to_owned(),
+            r("refs/heads/B").to_owned(),
+            r("refs/heads/C").to_owned(),
+            r("refs/heads/main").to_owned(),
+        ])?;
+
+        move_branch_and_apply(
+            &repo,
+            &mut meta,
+            project_meta,
+            &mut db,
+            r("refs/heads/A"),
+            r("refs/heads/B"),
+        )?;
+
+        assert_head(&repo, "C");
+        // `C` is still on top of the reordered commits, whatever order was persisted before.
+        snapbox::assert_data_eq!(
+            normalized_graph_snapshot(&repo)?,
+            snapbox::str![[r#"
+* [C1] (HEAD -> C) add c
+* [C2] (A) add a
+* [C3] (B) add b
+* [C4] (main) add main
+"#]]
+        );
+
+        Ok(())
+    }
+
     #[test]
     fn reorder_empty_branch_onto_commit_owning_base() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;
 
-        let mut ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta.clone(),
+            &mut db,
+            Options::limited(),
+        )?
+        .into_workspace()?;
 
-        // `base` owns the stack's commits; moving the empty `empty-top` on top of it is still just a
-        // metadata reorder and must succeed (previously rejected because the target owns commits).
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase,
-            new_tip,
-            branch_stack_order,
-            ..
-        } = move_branch_above(editor, r("refs/heads/empty-top"), r("refs/heads/base"))?;
+        let rebase = move_branch_above(editor, r("refs/heads/empty-top"), r("refs/heads/base"))?;
         rebase.materialize(Default::default())?;
 
-        assert_eq!(new_tip, None, "base isn't the checked-out tip");
-        // `empty-top` is placed directly above `base`; the rest of the order is preserved.
-        assert_eq!(
-            branch_stack_order,
-            Some(vec![
-                r("refs/heads/main").to_owned(),
-                r("refs/heads/empty-bottom").to_owned(),
-                r("refs/heads/empty-top").to_owned(),
-                r("refs/heads/base").to_owned(),
-            ]),
+        snapbox::assert_data_eq!(
+            projected_workspace(&repo, &meta, project_meta, &mut db)?,
+            snapbox::str![[r#"
+⌂:main[🌳] <> ✓! on 3d57fc1
+└── ≡:main[🌳] on 3d57fc1 {1}
+    ├── :main[🌳]
+    ├── :empty-bottom
+    ├── :empty-top
+    └── :base
+        ├── ·281da94
+        └── ·12995d7
+
+"#]]
         );
         Ok(())
     }
 
-    /// Refs created outside GitButler stack like any other local branch: the editor reads the order
-    /// off the graph, so they can be moved without the persisted order losing anything.
     #[test]
     fn refs_created_outside_gitbutler_are_movable_and_keep_the_order() -> anyhow::Result<()> {
         use gix::refs::transaction::PreviousValue;
@@ -1829,86 +1754,47 @@ mod single_branch_mode {
         repo.reference(r("refs/heads/x"), tip, PreviousValue::Any, "test")?;
         repo.reference(r("refs/heads/y"), tip, PreviousValue::Any, "test")?;
 
-        let mut ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
-        // Nothing was materialized since they were created, so they aren't in the persisted order yet.
+        let mut ws = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            project_meta.clone(),
+            &mut db,
+            Options::limited(),
+        )?
+        .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 ⌂:main[🌳] <> ✓! on 3d57fc1
 └── ≡:main[🌳] on 3d57fc1 {1}
     ├── :main[🌳]
-    ├── 📙:empty-top
-    ├── 📙:empty-bottom
-    └── 📙:base
+    ├── :empty-top
+    ├── :empty-bottom
+    └── :base
         ├── ·281da94 ►x, ►y
         └── ·12995d7
 
 "#]]
         );
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            new_tip,
-            branch_stack_order,
-            ..
-        } = move_branch_above(editor, r("refs/heads/y"), r("refs/heads/x"))?;
-
-        assert_eq!(new_tip, None, "neither is the checked-out tip");
-        assert_eq!(
-            branch_stack_order,
-            Some(vec![
-                r("refs/heads/main").to_owned(),
-                r("refs/heads/empty-top").to_owned(),
-                r("refs/heads/empty-bottom").to_owned(),
-                r("refs/heads/base").to_owned(),
-                r("refs/heads/y").to_owned(),
-                r("refs/heads/x").to_owned(),
-            ]),
-        );
-        Ok(())
-    }
-
-    /// `move_branch` computes the reorder but must not persist it on its own: the caller applies it,
-    /// which is what lets the API skip persistence for dry-run previews without corrupting metadata.
-    #[test]
-    fn move_branch_does_not_persist_branch_order() -> anyhow::Result<()> {
-        let (_tmp, repo, mut meta, project_meta, mut db) =
-            ad_hoc_workspace_with_two_empty_branches()?;
-        let main_ref = r("refs/heads/main");
-        let order_before = meta.branch_stack_order(main_ref)?;
-
-        let mut ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        let but_workspace::branch::move_branch::Outcome {
-            rebase,
-            branch_stack_order,
-            ..
-        } = move_branch_above(
-            editor,
-            r("refs/heads/empty-bottom"),
-            r("refs/heads/empty-top"),
-        )?;
+        let rebase = move_branch_above(editor, r("refs/heads/y"), r("refs/heads/x"))?;
         rebase.materialize(Default::default())?;
 
-        // The preview order is computed and returned...
-        assert_eq!(
-            branch_stack_order,
-            Some(vec![
-                r("refs/heads/main").to_owned(),
-                r("refs/heads/empty-bottom").to_owned(),
-                r("refs/heads/empty-top").to_owned(),
-                r("refs/heads/base").to_owned(),
-            ]),
-            "the caller should receive the exact reordered chain"
-        );
-        // ...but nothing is written to metadata until the caller persists it.
-        assert_eq!(
-            meta.branch_stack_order(main_ref)?,
-            order_before,
-            "move_branch must not persist branch order on its own"
+        snapbox::assert_data_eq!(
+            projected_workspace(&repo, &meta, project_meta, &mut db)?,
+            snapbox::str![[r#"
+⌂:main[🌳] <> ✓! on 3d57fc1
+└── ≡:main[🌳] on 3d57fc1 {1}
+    ├── :main[🌳]
+    ├── :empty-top
+    ├── :empty-bottom
+    ├── :base
+    ├── :y
+    │   ├── ·281da94
+    │   └── ·12995d7
+    └── :x
+
+"#]]
         );
         Ok(())
     }
@@ -2000,13 +1886,12 @@ git worktree add -q -b wt wt-dir A
             (relative_to, side): (RelativeTo, InsertSide),
         ) -> anyhow::Result<()> {
             let editor = Editor::create(&mut self.ws, &mut self.meta, &self.repo, &mut self.db)?;
-            let but_workspace::branch::move_branch::Outcome { rebase, .. } =
-                but_workspace::branch::move_branch(
-                    editor,
-                    format!("refs/heads/{subject}").as_str().try_into()?,
-                    relative_to,
-                    side,
-                )?;
+            let rebase = but_workspace::branch::move_branch(
+                editor,
+                format!("refs/heads/{subject}").as_str().try_into()?,
+                relative_to,
+                side,
+            )?;
             rebase.materialize(Default::default())?;
             let project_meta = self.ws.graph.project_meta.clone();
             self.ws

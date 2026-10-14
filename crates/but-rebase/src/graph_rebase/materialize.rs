@@ -188,8 +188,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         Ok(specs)
     }
 
-    /// The editor's own `HEAD` checkout, or `None` when `HEAD` wasn't on a ref
-    /// at editor creation and thus has nothing to follow.
+    /// The editor's own `HEAD` checkout, if it recorded one.
     fn head_checkout(&self) -> Result<Option<HeadCheckout>> {
         let Some((selector, merge_base_override)) =
             self.checkouts.iter().find_map(|checkout| match checkout {

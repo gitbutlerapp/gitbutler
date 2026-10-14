@@ -1,7 +1,6 @@
 use anyhow::Context as _;
 use but_core::{
     RefMetadata,
-    ref_metadata::StackId,
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
@@ -224,20 +223,10 @@ impl NewUnstackedBranchOperation {
 
                 match sbm.how_to_create_unstacked_reference() {
                     HowToCreateUnstackedReference::Normally => {
-                        tx.create_reference(
-                            new_ref.as_ref(),
-                            None,
-                            |_| StackId::generate(),
-                            Some(0),
-                        )?;
+                        tx.create_reference(new_ref.as_ref(), None, Some(0))?;
                     }
                     HowToCreateUnstackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
-                        tx.create_reference(
-                            new_ref.as_ref(),
-                            anchor,
-                            |_| StackId::generate(),
-                            Some(0),
-                        )?;
+                        tx.create_reference(new_ref.as_ref(), anchor, Some(0))?;
                         tx.checkout(new_ref.as_ref())?;
                     }
                     HowToCreateUnstackedReference::CreateRefAtCommitThenCheckout {
@@ -307,15 +296,12 @@ impl NewStackedBranchOperation {
                     }
                 };
 
-                tx.create_reference(
-                    new_ref.as_ref(),
-                    anchor.clone(),
-                    |_| StackId::generate(),
-                    Some(0),
-                )
-                .with_context(|| {
-                    format!("failed to create reference. anchor={anchor:?}; new_ref={new_ref:?}")
-                })?;
+                tx.create_reference(new_ref.as_ref(), anchor.clone(), Some(0))
+                    .with_context(|| {
+                        format!(
+                            "failed to create reference. anchor={anchor:?}; new_ref={new_ref:?}"
+                        )
+                    })?;
 
                 if checkout_after_create || switch {
                     tx.checkout(new_ref.as_ref())?;

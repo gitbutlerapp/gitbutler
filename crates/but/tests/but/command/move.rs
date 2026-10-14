@@ -233,7 +233,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   b6449da (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   3f3b2ac (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * a3830b6 (C) add C
 | * 549c6bf (B, A) add A
@@ -261,6 +261,10 @@ fn single_branch_move_commit_above_checkout() {
 ┊│
 ┊├┄ g0 [C]
 ┊●   vuw add C
+┊│
+┊├┄ h0 [B] (no commits)
+┊│
+┊├┄ i0 [A]
 ┊●   nmq add A
 ├╯
 ┊
@@ -470,7 +474,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   2d18278 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   01440ff (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * c753d5e (C) add C
 | * ff3d67f (B) add B
@@ -494,13 +498,15 @@ fn single_branch_move_above_lower_branch_preserves_checkout() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C] [HEAD]
+┊╭┄ g0 [C] [HEAD] (no commits)
+┊│
+┊├┄ h0 [B]
 ┊●   myy add B
 ┊│
 ┊├┄ mo [moved]
 ┊●   vuw add C
 ┊│
-┊├┄ h0 [A]
+┊├┄ i0 [A]
 ┊●   nmq add A
 ├╯
 ┊

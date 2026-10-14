@@ -1049,7 +1049,7 @@ fn failed_commit_switch_preserves_selected_changes_in_workspace_mode() {
 
     // sy selects only new.txt; the modification to foo's file blocks checkout.
     env.but("commit --switch -b bar -m test sy").assert().failure().stderr_eq(snapbox::str![[r#"
-Error: Could not safely check out 'refs/heads/bar' from 3fcc02f2c0cb1879458235e2f9d9e624126a428e to 87d6a1a51a0607ab42894ed0af2df2a2c1a0a6f6
+Error: Could not safely check out 'refs/heads/bar' from 54743c4a9f97bd3ab109061a5a6c95fbe855ea9d to 87d6a1a51a0607ab42894ed0af2df2a2c1a0a6f6
 
 Caused by:
     Uncommitted files would be overwritten by checkout: "first"
@@ -1103,7 +1103,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   3fcc02f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   54743c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (foo) add first
 |/  
@@ -1181,7 +1181,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   3fcc02f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   54743c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (foo) add first
 |/  
@@ -1370,7 +1370,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   3fcc02f (gitbutler/workspace) GitButler Workspace Commit
+*   54743c4 (gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (HEAD -> foo) add first
 |/  
@@ -4409,7 +4409,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   6c30ea2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   f2a31b0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 2388a3a (top) on top
 | * 1c81de8 (middle) also on middle
