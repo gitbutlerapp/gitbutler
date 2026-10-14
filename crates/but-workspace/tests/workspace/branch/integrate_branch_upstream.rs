@@ -2566,6 +2566,103 @@ fn integrate_upstream_merge_commit_next_to_another_stack() -> Result<()> {
 }
 
 #[test]
+fn integrate_upstream_merge_of_another_stack_that_is_behind_locally() -> Result<()> {
+    let mut out = integrate_branch_a(
+        "remote-advanced-by-merge-of-another-stack-with-workspace",
+        BranchIntegrationStrategy::PullRebase,
+        &["C"],
+        &[
+            ("origin/A", "remote-merge"),
+            ("origin/C", "c2"),
+            ("C", "c1"),
+            ("A", "local"),
+        ],
+    )?;
+    let (remote_merge, c2, c1, local) = (
+        out.labels[0].0,
+        out.labels[1].0,
+        out.labels[2].0,
+        out.labels[3].0,
+    );
+
+    assert_eq!(
+        out.repo.rev_parse_single("A")?.detach(),
+        remote_merge,
+        "`A` takes the merge of `C` as it is on the remote"
+    );
+    assert_eq!(
+        out.parents("A")?,
+        vec![local, c2],
+        "the merge brings in `C`'s commit that local `C` lacks"
+    );
+    assert_eq!(
+        out.repo.rev_parse_single("C")?.detach(),
+        c1,
+        "local `C` is not touched by updating `A`"
+    );
+    // `A` has both of `C`'s files through the merge.
+    snapbox::assert_data_eq!(
+        out.tree("A")?,
+        snapbox::str![[r#"
+6c6614d
+├── c1-file:100644:1c6a34b "c1-file\n"
+└── c2-file:100644:88e4add "c2-file\n"
+"#]]
+        .raw()
+    );
+
+    configure_tracking_for_branch(&mut out.repo, "C")?;
+    let mut workspace = but_graph::Graph::from_head(
+        &out.repo,
+        &out.meta,
+        Default::default(),
+        &mut out.db,
+        Options::limited(),
+    )?
+    .into_workspace()?;
+    let initial = get_initial_integration_steps_for_branch(
+        r("refs/heads/C"),
+        BranchIntegrationStrategy::PullRebase,
+        &mut workspace,
+        &mut out.meta,
+        &out.repo,
+        &mut out.db,
+    )?;
+    integrate_branch_with_steps(
+        r("refs/heads/C"),
+        initial.integration,
+        &mut workspace,
+        &mut out.meta,
+        &out.repo,
+        &mut out.db,
+    )?
+    .materialize(Default::default())?;
+
+    // Updating `C` afterwards fast-forwards it; both stacks then share `C`'s commits.
+    snapbox::assert_data_eq!(
+        out.graph()?,
+        snapbox::str![[r#"
+*   af352c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\
+* | remote-merge (origin/A, A) Merge C into A
+|\|
+| * c2 (origin/C, C) add c2-file
+| * c1 add c1-file
+* | local local change in A 1
+|/
+* cfbcc20 (origin/main, main) init-integration
+"#]]
+        .raw()
+    );
+    assert_eq!(
+        out.repo.rev_parse_single("C")?.detach(),
+        c2,
+        "`C` catches up with `origin/C` when it is updated"
+    );
+    Ok(())
+}
+
+#[test]
 fn integrate_with_merge_strategy_keeps_local_merge_below_the_upstream_merge() -> Result<()> {
     let out = integrate_branch_a(
         "local-merge-with-remote-advanced-with-workspace",
