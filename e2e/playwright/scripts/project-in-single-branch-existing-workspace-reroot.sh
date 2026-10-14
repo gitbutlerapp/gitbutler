@@ -30,7 +30,11 @@ git add C.txt
 git commit -m "Add C.txt"
 
 git checkout main
-"$BUT" setup
+# Recreate the self-remote previously provisioned by `but setup`.
+git remote add gb-local "$PWD"
+git update-ref refs/remotes/gb-local/main HEAD
+git symbolic-ref refs/remotes/gb-local/HEAD refs/remotes/gb-local/main
+"$BUT" switch --workspace
 
 "$BUT" apply A
 "$BUT" apply B
