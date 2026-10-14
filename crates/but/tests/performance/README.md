@@ -265,6 +265,7 @@ symbolization troubleshooting (including lld/mold's `--no-rosegment` requirement
 - `status-many-uncommitted-changes`: time `but status` after directly modifying 240 tracked Rust files with `core.autocrlf=input`.
 - `status-many-uncommitted-changes-fragmented-odb`: same status workload with 200 additional small local packs. Reproduces [the null-ID object database rescan fixed by GitButler PR #15746](https://github.com/gitbutlerapp/gitbutler/pull/15746): with automatic text conversion enabled, each changed worktree file could trigger a guaranteed-miss null-ID lookup and rescan every pack.
 - `worktree-new`: time `but worktree new` in a clean GitButler workspace.
+- `tui-startup`: time full first-render cycle (startup, render, shutdown etc) of the TUI in a clean GitButler workspace.
 
 ## Measurement and fixture rules
 
