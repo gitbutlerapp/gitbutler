@@ -3559,7 +3559,7 @@ pub(crate) mod utils {
 
     pub fn blank_project_meta_graph(
         repo: &gix::Repository,
-        meta: &VirtualBranchesTomlMetadata,
+        meta: &impl but_core::RefMetadata,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<but_graph::Graph> {
         but_graph::Graph::from_head(repo, meta, ProjectMeta::default(), db, Options::limited())

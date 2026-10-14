@@ -985,7 +985,10 @@ Outcome {
 
 #[test]
 fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
-    let (_tmp, mut repo, meta, mut db) = named_writable_scenario("main-with-advanced-remote")?;
+    let (_tmp, mut repo, _meta, mut db) = named_writable_scenario("main-with-advanced-remote")?;
+    // Because VirtualBranchesTomlMetadata does not support remotes, use InMemoryRefMetadata for
+    // this test instead.
+    let mut meta = InMemoryRefMetadata::default();
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1017,8 +1020,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
     })?;
     repo.reload()?;
 
-    let mut ref_meta = InMemoryRefMetadata::default();
-    ref_meta.workspaces.push((
+    meta.workspaces.push((
         "refs/heads/gitbutler/workspace".try_into()?,
         ref_metadata::Workspace::default(),
     ));
@@ -1040,7 +1042,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         r("refs/remotes/origin/main"),
         ws.clone(),
         &repo,
-        &mut ref_meta,
+        &mut meta,
         apply_options(),
     )?;
     // nothing was actually applied as the `main` branch is already in the workspace
@@ -1061,7 +1063,7 @@ Outcome {
         r("refs/remotes/origin/feature"),
         ws,
         &repo,
-        &mut ref_meta,
+        &mut meta,
         apply_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -1075,7 +1077,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     // both branches, main and feature, are available in the newly created workspace ref.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -5830,7 +5832,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
     // so a comment is used as reference.
     // snapbox::assert_data_eq!(visualize_commit_graph_all(&repo)?, snapbox::str!["* 3183e43 (orphan/main) M1"]);
 
-    let graph = blank_project_meta_graph(&repo, &meta, &mut db)?;
+    let graph = blank_project_meta_graph(&repo, &*meta, &mut db)?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -5885,7 +5887,7 @@ Outcome {
 "#]]
     );
 
-    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
+    let ws = blank_project_meta_graph(&repo, &*meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
