@@ -57,7 +57,7 @@ async fn fetch_gitee_repo_info(
         .or_else(|| {
             but_gitee::list_known_gitee_accounts(storage)
                 .ok()
-                .and_then(|mut a| a.pop())
+                .and_then(|accounts| accounts.into_iter().next())
         })
         .ok_or_else(|| anyhow::anyhow!("No Gitee account is signed in."))?;
     let Some(access_token) = but_gitee::token_access_token(&account, storage)? else {

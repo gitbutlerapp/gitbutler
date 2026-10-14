@@ -173,7 +173,7 @@ pub fn current_forge_login(
             let preferred = preferred_forge_user.as_ref().and_then(|user| user.gitee());
             Ok(match preferred {
                 Some(preferred) => accounts.iter().find(|account| *account == preferred),
-                None => accounts.last(),
+                None => accounts.first(),
             }
             .map(|account| account.username().to_string()))
         }
@@ -231,6 +231,12 @@ mod tests {
                 access_token_key: "test-key".into(),
             })
             .unwrap();
+        storage
+            .add_gitee_account(&but_forge_storage::settings::GiteeAccount::Pat {
+                username: "bob".into(),
+                access_token_key: "second-test-key".into(),
+            })
+            .unwrap();
         let repo = ForgeRepoInfo {
             forge: ForgeName::Gitee,
             owner: "team".into(),
@@ -240,12 +246,22 @@ mod tests {
         assert_eq!(
             current_forge_login(&None, &repo, &storage).unwrap(),
             Some("alice".into()),
-            "Gitee projects expose the stored default login"
+            "Gitee projects default to the first account even when multiple accounts exist"
         );
         assert_eq!(
             current_forge_login(&Some(ForgeUser::Gitee(account)), &repo, &storage).unwrap(),
             Some("alice".into()),
             "Gitee projects expose the preferred login"
+        );
+        assert_eq!(
+            current_forge_login(
+                &Some(ForgeUser::Gitee(but_gitee::GiteeAccountIdentifier::pat("bob"))),
+                &repo,
+                &storage,
+            )
+            .unwrap(),
+            Some("bob".into()),
+            "an explicit preference overrides the first-account default"
         );
         let missing = ForgeUser::Gitee(but_gitee::GiteeAccountIdentifier::pat("missing"));
         assert_eq!(

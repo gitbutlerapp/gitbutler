@@ -240,7 +240,7 @@ async fn client_for_account(
         .or_else(|| {
             token::list_known_gitee_accounts(storage)
                 .ok()
-                .and_then(|mut accounts| accounts.pop())
+                .and_then(|accounts| accounts.into_iter().next())
         })
         .ok_or_else(|| anyhow::anyhow!("No Gitee account is signed in."))?;
     let Some(access_token) = token::get_gitee_access_token(&account, storage)? else {
