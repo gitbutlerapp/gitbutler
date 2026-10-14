@@ -16,7 +16,7 @@ import en from "$lib/i18n/locales/en.json";
 import zhCN from "$lib/i18n/locales/zh-CN.json";
 import zhTW from "$lib/i18n/locales/zh-TW.json";
 import { setUiLocale } from "@gitbutler/ui-svelte/utils/timeAgo";
-import { get, writable } from "svelte/store";
+import { fromStore, writable } from "svelte/store";
 
 export type AppLocale = "en" | "zh-CN" | "zh-TW";
 
@@ -36,12 +36,14 @@ const dictionaries: Record<AppLocale, Record<string, string>> = {
 /** Current locale store. Persisted by the uiState slice; `setLocale` syncs it. */
 export const locale: Writable<AppLocale> = writable<AppLocale>("en");
 
+const reactiveLocale = fromStore(locale);
+
 /**
  * Translate a message key with optional `{placeholder}` interpolation.
  * Falls back to the English entry, then to the key itself.
  */
 export function t(key: string, params?: Record<string, string | number>): string {
-	const active = get(locale);
+	const active = reactiveLocale.current;
 	const message = dictionaries[active]?.[key] ?? dictionaries.en[key] ?? key;
 	if (!params) return message;
 	return message.replace(/\{(\w+)\}/g, (match, name) =>

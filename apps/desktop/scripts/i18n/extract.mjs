@@ -163,7 +163,7 @@ for (const file of files) {
 			}
 			if (node.type === "Text") {
 				// Text nodes inside attribute values are handled with the attribute
-				if (parent?.type === "Attribute") return;
+				if (parent?.type === "Attribute" || parent?.type?.endsWith("Directive")) return;
 				const raw = node.raw ?? node.data ?? "";
 				const trimmed = raw.trim();
 				if (!trimmed || !isCopyText(trimmed)) return;

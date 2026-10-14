@@ -1114,6 +1114,27 @@ fn list_forge_reviews(
                 .map(ForgeReview::from)
                 .collect::<Vec<ForgeReview>>()
         }
+        ForgeName::Gitee => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitee().cloned());
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let storage = storage.clone();
+            let prs = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(but_gitee::list_all_prs(
+                        preferred_account.as_ref(),
+                        &owner,
+                        &repo,
+                        &storage,
+                    ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+            prs.into_iter().map(ForgeReview::from).collect()
+        }
         _ => {
             return Err(Error::msg(format!(
                 "Listing reviews for forge {forge:?} is not implemented yet.",
@@ -1404,6 +1425,11 @@ async fn get_forge_review_inner(
                 .and_then(|user| user.bitbucket());
             let pr = but_bitbucket::pr::get(preferred_account, owner, repo, review_number, storage)
                 .await?;
+            Ok(ForgeReview::from(pr))
+        }
+        ForgeName::Gitee => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitee());
+            let pr = but_gitee::get_pr(preferred_account, owner, repo, review_number, storage).await?;
             Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(

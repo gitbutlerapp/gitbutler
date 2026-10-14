@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { t } from "$lib/i18n";
-
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 
@@ -18,7 +16,7 @@
 
 <div
 	class="message-ruler-container"
-	style:--ruler-position="calc({lineWidth}{t('px-var-lexical-input-client-padding')}"
+	style:--ruler-position="calc({lineWidth}px - var(--lexical-input-client-padding))"
 	style:--ruler-font={monospaceFont || "var(--font-default)"}
 >
 	<div class="message-ruler-dummy" bind:clientWidth={lineWidth}>

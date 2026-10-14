@@ -67,9 +67,9 @@
 	<p>
 		{#if wholeStack}
 			{t("this-lands")} <strong>{branchName}</strong> and everything below it in its stack{lowerListLabel}
-			directly onto {targetLabel}{t("it-cannot-be-undone")}
+			directly onto {targetLabel}. {t("it-cannot-be-undone")}
 		{:else}
-			{t("this-lands")} <strong>{branchName}</strong> directly onto {targetLabel}{t(
+			{t("this-lands")} <strong>{branchName}</strong> directly onto {targetLabel}. {t(
 				"it-cannot-be-undone",
 			)}
 		{/if}

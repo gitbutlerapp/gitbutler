@@ -289,6 +289,24 @@ pub async fn list_all_prs(
     client.list_pull_requests(owner, repo, "all").await
 }
 
+/// Fetch a pull request by number using the preferred (or only) account.
+pub async fn get_pr(
+    preferred_account: Option<&GiteeAccountIdentifier>,
+    owner: &str,
+    repo: &str,
+    number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<GiteePullRequest> {
+    let Some((client, _)) = client_for_account(preferred_account, storage).await? else {
+        anyhow::bail!(
+            "No Gitee access token found. Add a Gitee account in the integrations settings."
+        );
+    };
+    client
+        .get_pull_request(owner, repo, i64::try_from(number)?)
+        .await
+}
+
 /// Create a pull request. `head` should be `owner:branch` when opening from a fork.
 pub async fn create_pr(
     preferred_account: Option<&GiteeAccountIdentifier>,

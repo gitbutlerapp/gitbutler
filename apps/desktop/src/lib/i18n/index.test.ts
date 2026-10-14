@@ -3,6 +3,8 @@ import enJson from "$lib/i18n/locales/en.json";
 import fs from "node:fs";
 import path from "node:path";
 import { get } from "svelte/store";
+import { effect_root, render_effect } from "svelte/internal/client";
+import { flushSync } from "svelte";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 // Keep dayjs side effects out of these tests; setLocale's sync is asserted
@@ -47,6 +49,24 @@ afterEach(() => {
 });
 
 describe("t", () => {
+	test("updates a rendered translation when the locale changes", () => {
+		let rendered = "";
+		const destroy = effect_root(() => {
+			render_effect(() => {
+				rendered = t("create-branch");
+			});
+		});
+		try {
+			expect(rendered).toBe("Create branch");
+			flushSync(() => setLocale("zh-CN"));
+			expect(rendered).toBe("创建分支");
+			flushSync(() => setLocale("en"));
+			expect(rendered).toBe("Create branch");
+		} finally {
+			destroy();
+		}
+	});
+
 	test("returns the English message by default", () => {
 		expect(t("create-branch")).toBe("Create branch");
 	});

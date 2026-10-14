@@ -65,7 +65,12 @@ async fn fetch_gitee_repo_info(
             "No Gitee access token found for account '{account}'."
         ));
     };
-    let client = but_gitee::GiteeClient::new(&access_token)?;
+    let client = match &account {
+        but_gitee::GiteeAccountIdentifier::SelfHosted { host, .. } => {
+            but_gitee::GiteeClient::with_base_url(&access_token, &format!("https://{host}/api/v5"))?
+        }
+        _ => but_gitee::GiteeClient::new(&access_token)?,
+    };
     let info = client.get_repo(owner, repo).await?;
     let permissions = info.permissions.as_ref().map(|p| RepoPermissions {
         pull: p.pull,

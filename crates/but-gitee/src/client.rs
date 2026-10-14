@@ -1,6 +1,6 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use but_secret::Sensitive;
-use reqwest::header::{ACCEPT, HeaderMap, HeaderValue, USER_AGENT};
+use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -24,7 +24,6 @@ pub struct HttpStatusError {
 pub struct GiteeClient {
     client: reqwest::Client,
     base_url: String,
-    access_token: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -150,6 +149,11 @@ impl GiteeClient {
         headers.insert(USER_AGENT, HeaderValue::from_static("gb-gitee-integration"));
         headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
 
+        let mut authorization = HeaderValue::from_str(&format!("Bearer {}", access_token.0))
+            .context("Invalid Gitee authorization header")?;
+        authorization.set_sensitive(true);
+        headers.insert(AUTHORIZATION, authorization);
+
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .timeout(GITEE_REQUEST_TIMEOUT)
@@ -158,19 +162,14 @@ impl GiteeClient {
         Ok(Self {
             client,
             base_url: base_url.trim_end_matches('/').to_string(),
-            access_token: access_token.0.clone(),
         })
     }
 
     fn url(&self, path: &str, extra_query: &[(&str, &str)]) -> String {
-        let mut url = format!(
-            "{}{}?access_token={}",
-            self.base_url,
-            path,
-            urlencoding::encode(&self.access_token)
-        );
-        for (k, v) in extra_query {
-            url.push_str(&format!("&{k}={}", urlencoding::encode(v)));
+        let mut url = format!("{}{}", self.base_url, path);
+        for (index, (k, v)) in extra_query.iter().enumerate() {
+            let separator = if index == 0 { '?' } else { '&' };
+            url.push_str(&format!("{separator}{k}={}", urlencoding::encode(v)));
         }
         url
     }
@@ -181,15 +180,17 @@ impl GiteeClient {
             .get(url)
             .send()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("Failed to send request to Gitee")?;
         let status = response.status();
         if !status.is_success() {
             return Err(anyhow::Error::new(HttpStatusError { status })
-                .context(format!("Gitee API request failed: {url}")));
+                .context("Gitee API request failed"));
         }
         response
             .json::<T>()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("Failed to parse Gitee API response")
     }
 
@@ -204,14 +205,17 @@ impl GiteeClient {
             .json(body)
             .send()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("Failed to send request to Gitee")?;
         let status = response.status();
         if !status.is_success() {
-            bail!("Gitee API request failed with status {status}: {url}");
+            return Err(anyhow::Error::new(HttpStatusError { status })
+                .context("Gitee API request failed"));
         }
         response
             .json::<T>()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("Failed to parse Gitee API response")
     }
 
@@ -226,14 +230,17 @@ impl GiteeClient {
             .json(body)
             .send()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("Failed to send request to Gitee")?;
         let status = response.status();
         if !status.is_success() {
-            bail!("Gitee API request failed with status {status}: {url}");
+            return Err(anyhow::Error::new(HttpStatusError { status })
+                .context("Gitee API request failed"));
         }
         response
             .json::<T>()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("Failed to parse Gitee API response")
     }
 
@@ -244,15 +251,17 @@ impl GiteeClient {
             .get(url)
             .send()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("Failed to send request to Gitee")?;
         let status = response.status();
         if !status.is_success() {
             return Err(anyhow::Error::new(HttpStatusError { status })
-                .context(format!("Gitee API request failed: {url}")));
+                .context("Gitee API request failed"));
         }
         let text = response
             .text()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("Failed to read Gitee API response")?;
         if text.trim().is_empty() || text.trim() == "null" {
             return Ok(vec![]);
@@ -411,4 +420,25 @@ impl GiteeClient {
 /// The default Gitee.com API base URL.
 pub fn api_base_url() -> &'static str {
     GITEE_API_BASE_URL
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_urls_do_not_contain_credentials() {
+        let client = GiteeClient::new(&Sensitive("test-private-token".to_string()))
+            .expect("a valid token should create a client");
+        assert_eq!(
+            client.url("/user", &[]),
+            "https://gitee.com/api/v5/user",
+            "authentication belongs in a sensitive header, not the URL"
+        );
+        assert_eq!(
+            client.url("/repos/owner/repo/pulls", &[("state", "all"), ("page", "2")]),
+            "https://gitee.com/api/v5/repos/owner/repo/pulls?state=all&page=2",
+            "ordinary query parameters must remain valid without a token parameter"
+        );
+    }
 }
