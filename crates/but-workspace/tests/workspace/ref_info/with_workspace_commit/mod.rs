@@ -3548,6 +3548,23 @@ pub(crate) mod utils {
         })
     }
 
+    pub fn graph(
+        repo: &gix::Repository,
+        meta: &VirtualBranchesTomlMetadata,
+        db: &mut but_db::DbHandle,
+    ) -> anyhow::Result<but_graph::Graph> {
+        let project_meta = project_meta(repo)?;
+        but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())
+    }
+
+    pub fn blank_project_meta_graph(
+        repo: &gix::Repository,
+        meta: &VirtualBranchesTomlMetadata,
+        db: &mut but_db::DbHandle,
+    ) -> anyhow::Result<but_graph::Graph> {
+        but_graph::Graph::from_head(repo, meta, ProjectMeta::default(), db, Options::limited())
+    }
+
     pub fn named_writable_scenario_with_description(
         name: &str,
     ) -> anyhow::Result<(
@@ -3616,9 +3633,7 @@ pub(crate) mod utils {
             named_writable_scenario_with_args_and_description(name, args)?;
 
         init_meta(&mut meta);
-        let project_meta = project_meta(&repo)?;
-        let graph =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+        let graph = graph(&repo, &meta, &mut db)?;
         Ok((tmp, graph, repo, meta, desc, db))
     }
 
