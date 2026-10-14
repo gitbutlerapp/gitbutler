@@ -62,7 +62,7 @@ export const MetaCount: FC<{ type: MetaCountType } & ComponentProps<"span">> = (
 		{type === "agent-working" ? (
 			<WorkingRobot />
 		) : (
-			<Icon name={glyph[type]} size={12} className={styles.glyph} />
+			<Icon name={glyph[type]} size={14} className={styles.glyph} />
 		)}
 		<span className={styles.value}>{children}</span>
 	</span>
@@ -75,8 +75,8 @@ export const MetaCount: FC<{ type: MetaCountType } & ComponentProps<"span">> = (
  */
 const WorkingRobot: FC = () => (
 	<svg
-		width="12"
-		height="12"
+		width="14"
+		height="14"
 		viewBox="0 0 12 12"
 		fill="none"
 		aria-hidden="true"
@@ -151,7 +151,7 @@ export const CiStatus: FC<{ status: CiStatusType } & ComponentProps<"span">> = (
 		{...props}
 		className={classes(props.className, "text-13", styles.count, styles[status])}
 	>
-		<Icon name={ciGlyph[status]} size={12} className={styles.glyph} />
+		<Icon name={ciGlyph[status]} size={14} className={styles.glyph} />
 		<span className={styles.value}>{children}</span>
 	</span>
 );
