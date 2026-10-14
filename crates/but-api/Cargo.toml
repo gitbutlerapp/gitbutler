@@ -157,6 +157,10 @@ but-schemars.workspace = true
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSWorkspace"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSURL"] }
 
+[target.'cfg(unix)'.dependencies]
+# Raise the open-file soft limit at startup so large rebases don't hit EMFILE (#14260).
+rlimit = "0.10.2"
+
 [dev-dependencies]
 but-api = { path = ".", features = ["legacy"] }
 but-testsupport.workspace = true
@@ -165,6 +169,10 @@ gitbutler-oplog.workspace = true
 snapbox.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["full"] }
+
+[target.'cfg(unix)'.dev-dependencies]
+# Used by tests/fd_limit.rs to read RLIMIT_NOFILE and assert the never-lowers invariant.
+rlimit = "0.10.2"
 
 [lints]
 workspace = true
