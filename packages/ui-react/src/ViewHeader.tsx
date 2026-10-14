@@ -2,6 +2,7 @@ import styles from "./ViewHeader.module.css";
 import { Button, type ButtonProps } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 import type { IconName } from "./iconNames.ts";
 import { useId, useState, type ComponentProps, type FC, type ReactNode } from "react";
 
@@ -29,8 +30,9 @@ type Props = {
 	leading?: ReactNode;
 	/**
 	 * One line under the title, cut short with an ellipsis rather than wrapped. Its parts stand
-	 * 6px apart with a {@link ViewHeaderMetaSeparator} between them, or are joined with " · " in
-	 * one string; the last part is the one that gives way.
+	 * 12px apart with nothing between them, each led by its own glyph (a `MetaCount`, a
+	 * `CopyableId`), so a part is told from the next by where its glyph starts; the last part is
+	 * the one that gives way. Keep it to what needs the user, one fact and an age.
 	 */
 	meta?: ReactNode;
 	/**
@@ -40,8 +42,7 @@ type Props = {
 	metaTabs?: ReactNode;
 	/**
 	 * The rest of what the title begins, as a commit's message body. It stays folded behind a
-	 * Full message button, the first of the actions, and opens under the title, above the meta
-	 * line.
+	 * small icon button right after the title, and opens under the title, above the meta line.
 	 */
 	children?: ReactNode;
 	/**
@@ -50,10 +51,12 @@ type Props = {
 	 */
 	toolbar?: ReactNode;
 	/**
-	 * Every button the view has, right after the title: Send to, Update, Apply to workspace,
-	 * previous and next, and on a pull request tab its own. Each is a {@link ViewHeaderButton};
-	 * the menu last, ghost and icon-only. Never the diff's own controls; those sit in the bar over
-	 * the diff.
+	 * Every button the view has, at the header's end: Send to, Update, Apply to workspace,
+	 * previous and next, and on a pull request tab its own. They stand beside the title block,
+	 * level with the title when tabs follow and with the meta line when the header ends there.
+	 * Each is a {@link ViewHeaderButton}; the
+	 * menu last, ghost and icon-only. Never the diff's own controls; those sit in the bar over the
+	 * diff.
 	 */
 	actions?: ReactNode;
 } & Omit<ComponentProps<"header">, "title" | "children">;
@@ -63,7 +66,7 @@ const present = (node: ReactNode) => node !== undefined && node !== null && node
 /**
  * The header of a details view: what is shown, a line about it, and the controls for it. Layout
  * only; what goes in each slot is the app's. One component for every view, rather than one per
- * view, so the rules that keep the views alike live here: the buttons follow the title, and the
+ * view, so the rules that keep the views alike live here: the buttons stand at the end, and the
  * meta line never wraps.
  * @import import { ViewHeader } from "@gitbutler/ui-react/ViewHeader.tsx";
  */
@@ -93,26 +96,28 @@ export const ViewHeader: FC<Props> = ({
 						{present(leading) && <div className={styles.leading}>{leading}</div>}
 						<div className={styles.name}>
 							{typeof icon === "string" ? <Icon name={icon as IconName} /> : icon}
-							<h2 className={classes("text-16", "text-semibold", styles.title)}>
-								{typeof title === "string" ? <span>{title}</span> : title}
-							</h2>
-						</div>
-						{(hasBody || present(actions)) && (
-							<div className={styles.actions}>
+							<div className={styles.heading}>
+								<h2 className={classes("text-16", "text-semibold", styles.title)}>
+									{typeof title === "string" ? <span>{title}</span> : title}
+								</h2>
 								{hasBody && (
-									<ViewHeaderButton
-										data-pressed={bodyOpen || undefined}
-										aria-controls={bodyId}
-										aria-expanded={bodyOpen}
-										onClick={() => setBodyOpen(!bodyOpen)}
-									>
-										<Icon name="text-block" />
-										Full message
-									</ViewHeaderButton>
+									<Tooltip side="bottom" content={bodyOpen ? "Hide full message" : "Full message"}>
+										<Button
+											variant="ghost"
+											size="small"
+											iconOnly
+											aria-label="Full message"
+											data-pressed={bodyOpen || undefined}
+											aria-controls={bodyId}
+											aria-expanded={bodyOpen}
+											onClick={() => setBodyOpen(!bodyOpen)}
+										>
+											<Icon name="text-block" />
+										</Button>
+									</Tooltip>
 								)}
-								{actions}
 							</div>
-						)}
+						</div>
 					</div>
 
 					{/* Always there once there is a body, so it can slide open: what is under the header moves
@@ -135,6 +140,8 @@ export const ViewHeader: FC<Props> = ({
 						</div>
 					)}
 				</div>
+
+				{present(actions) && <div className={styles.actions}>{actions}</div>}
 			</div>
 
 			{present(toolbar) && <div className={styles.toolbar}>{toolbar}</div>}
@@ -143,31 +150,16 @@ export const ViewHeader: FC<Props> = ({
 };
 
 /**
- * A button in a header's `actions`: a small {@link Button} a step taller, 22px, to sit beside the
- * 16px title; an icon-only one is square. `outline` for the next step, `ghost` and `iconOnly` for
- * the menu.
+ * A button in a header's `actions`: a regular {@link Button}, the height of the toolbar's
+ * controls under it; an icon-only one is square. `outline` for the next
+ * step, `ghost` and `iconOnly` for the menu.
  * @import import { ViewHeaderButton } from "@gitbutler/ui-react/ViewHeader.tsx";
  */
-export const ViewHeaderButton: FC<Omit<ButtonProps, "size">> = ({
-	className,
-	iconOnly,
-	...props
-}) => (
-	<Button
-		{...props}
-		size="small"
-		iconOnly={iconOnly}
-		className={(state) =>
-			classes(
-				iconOnly ? styles.iconButton : styles.button,
-				typeof className === "function" ? className(state) : className,
-			)
-		}
-	/>
-);
+export const ViewHeaderButton: FC<Omit<ButtonProps, "size">> = (props) => <Button {...props} />;
 
 /**
- * The dim " · " between two parts of a header's meta line.
+ * The dim " · " between two words of a status that have no glyphs to set them apart, as
+ * "offline · seen 2m". A header's meta line needs none: its parts lead with their glyphs.
  * @import import { ViewHeaderMetaSeparator } from "@gitbutler/ui-react/ViewHeader.tsx";
  */
 export const ViewHeaderMetaSeparator: FC = () => (

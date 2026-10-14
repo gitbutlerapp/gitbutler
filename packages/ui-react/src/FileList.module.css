@@ -11,11 +11,10 @@
 	column-gap: var(--gap-icon-text);
 	flex-shrink: 0;
 	align-items: center;
-	height: var(--size-header);
-	/* The title lines up with the rows' file icons: the body's 8px inset plus the row's own 8px.
-	   The last button sits as far from the end as from the top and bottom: a 28px button centred
-	   in the 44px header. */
-	padding-inline: var(--space-3xl) var(--padding-list);
+	padding-inline: var(--space-3xl) var(--padding-panel);
+	/* The panel's 12px in from its top and end, as the diff's bar beside it; the title starts 16px
+	   in, as the view header's above it. The rows start 10px under the buttons. */
+	padding-block: var(--padding-panel) var(--space-xl);
 }
 
 /* The header's two faces trade places when the filter opens: the title steps aside, the field
@@ -50,18 +49,19 @@
 	align-items: center;
 }
 
-/* Over the title, up to the close button: 8px in from the start and a 4px gap before it. */
+/* Over the title, up to the close button: the panel's 12px in from the start and a 4px gap
+   before it. */
 .filterField {
 	position: absolute;
-	inset-block-start: var(--space-lg);
-	inset-inline: 25% calc(var(--space-lg) + var(--size-control) + var(--space-sm));
+	inset-block-start: var(--padding-panel);
+	inset-inline: 25% calc(var(--padding-panel) + var(--size-control) + var(--space-sm));
 	opacity: 0;
 	transition:
 		opacity var(--transition-fast) ease-out,
 		inset-inline-start var(--transition-fast) ease-out;
 
 	.filtering & {
-		inset-inline-start: var(--space-lg);
+		inset-inline-start: var(--padding-panel);
 		opacity: 1;
 	}
 }
@@ -131,8 +131,8 @@
 	display: flex;
 	row-gap: 1px;
 	flex-direction: column;
-	padding-inline: var(--padding-list);
-	padding-block-end: var(--padding-list);
+	padding-inline: var(--padding-panel);
+	padding-block-end: var(--padding-panel);
 }
 
 .item {

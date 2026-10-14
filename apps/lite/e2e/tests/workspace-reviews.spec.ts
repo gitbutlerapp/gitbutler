@@ -158,7 +158,7 @@ test("shows PR titles and labels on workspace branches without hover shifts", as
 
 for (const { reviewState, defaultTab } of [
 	{ reviewState: "none", defaultTab: "Diff" },
-	{ reviewState: "open", defaultTab: "Pull Request" },
+	{ reviewState: "open", defaultTab: "PR #1" },
 	{ reviewState: "merged", defaultTab: "Pull Request" },
 	{ reviewState: "closed", defaultTab: "Diff" },
 ] as const) {

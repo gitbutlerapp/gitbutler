@@ -3,9 +3,9 @@
    the view shows below starts flush under this line. */
 .header {
 	display: flex;
-	row-gap: 10px;
+	row-gap: 16px;
 	flex-direction: column;
-	padding: 20px;
+	padding: 16px;
 	border-bottom: 1px solid var(--border-section);
 
 	/* With tabs in the toolbar, their underline sits on the header's bottom edge. */
@@ -43,8 +43,8 @@
 	min-width: 0;
 }
 
-/* As tall as a ViewHeaderButton whether the view has buttons or not, so the title and the meta
-   line under it sit at the same height on every view. */
+/* The same height on every view, with a leading control or without, so the title and the meta
+   line under it sit at the same height everywhere. */
 .titleLine {
 	display: flex;
 	column-gap: 10px;
@@ -59,6 +59,19 @@
 	column-gap: 8px;
 	align-items: center;
 	min-width: 0;
+}
+
+/* The title and the button that unfolds a commit's body, which stays its size while the title
+   gives way. */
+.heading {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+	min-width: 0;
+
+	> button {
+		flex-shrink: 0;
+	}
 }
 
 .title {
@@ -102,9 +115,11 @@
 	}
 }
 
+/* Its parts lead with their glyphs, so the gap alone parts them: three or four times the room
+   inside a part. */
 .meta {
 	display: flex;
-	column-gap: 6px;
+	column-gap: 12px;
 	align-items: center;
 	min-width: 0;
 	overflow: hidden;
@@ -135,6 +150,7 @@
 	column-gap: 12px;
 	align-items: center;
 	min-width: 0;
+	min-height: 28px;
 }
 
 .metaSeparator {
@@ -148,20 +164,13 @@
 	background-color: var(--border-2);
 }
 
-/* Right after the title: the view's buttons, a step taller than small to sit beside it. */
+/* The view's buttons, beside the title block and level with its meta line, so they don't float
+   between it and the title. */
 .actions {
 	display: flex;
 	column-gap: var(--gap-buttons-compact);
 	flex-shrink: 0;
 	align-items: center;
-}
-
-.button {
-	--button-height: 22px;
-	--button-padding-inline: 7px;
-}
-
-.iconButton {
-	--button-height: 22px;
-	--button-width: 22px;
+	align-self: flex-end;
+	margin-inline-start: auto;
 }

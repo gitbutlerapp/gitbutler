@@ -9,12 +9,7 @@ import { machinePictures } from "./story-assets/machines.ts";
 import { Icon } from "./Icon.tsx";
 import { SwitchButton } from "./SwitchButton.tsx";
 import { Tab, Tabs } from "./Tabs.tsx";
-import {
-	ViewHeader,
-	ViewHeaderButton,
-	ViewHeaderDivider,
-	ViewHeaderMetaSeparator,
-} from "./ViewHeader.tsx";
+import { ViewHeader, ViewHeaderButton, ViewHeaderDivider } from "./ViewHeader.tsx";
 import { MetaCount } from "./MetaCount.tsx";
 import type { FC } from "react";
 
@@ -50,6 +45,18 @@ const BranchTabs: FC<{ tab?: "diff" | "pr"; prDisabled?: boolean }> = ({
 			{prDisabled ? "No pull request" : "Pull Request"}
 		</Tab>
 	</Tabs>
+);
+
+/** but.dev's branch tabs, then the commit filter after a divider. */
+const BranchTabsAndFilter: FC = () => (
+	<>
+		<BranchTabs />
+		<ViewHeaderDivider />
+		<Button>
+			<Icon name="commit" />
+			All 4 commits
+		</Button>
+	</>
 );
 
 const copyToClipboard = (value: string) => void navigator.clipboard.writeText(value);
@@ -125,8 +132,8 @@ export const Branch = meta.story({
 });
 
 /**
- * but.dev's branch header: its buttons right after the title, the meta line spelling out
- * each count with a dim dot between them.
+ * but.dev's branch header without tabs: its buttons at the end, centred on the title block, the
+ * meta line spelling out each count, each led by its glyph.
  */
 export const SpelledOut = meta.story({
 	parameters: {
@@ -140,10 +147,7 @@ export const SpelledOut = meta.story({
 		title: "ios-push-handoff",
 		meta: (
 			<>
-				<MetaCount type="stack">1/3 in stack</MetaCount>
-				<ViewHeaderMetaSeparator />
 				<MetaCount type="unpushed">4 unpushed</MetaCount>
-				<ViewHeaderMetaSeparator />
 				<MetaCount type="behind">3 behind</MetaCount>
 			</>
 		),
@@ -160,6 +164,36 @@ export const SpelledOut = meta.story({
 				<ViewHeaderButton variant="ghost" iconOnly aria-label="More">
 					<Icon name="kebab" />
 				</ViewHeaderButton>
+			</>
+		),
+	},
+});
+
+/**
+ * but.dev's branch: its tabs and the commit filter make the toolbar, and its buttons stand beside
+ * the title, the pull request's Auto-merge first.
+ */
+export const BranchWithButtons = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3249-48559",
+		},
+	},
+	args: {
+		icon: "branch",
+		title: "ios-push-handoff",
+		meta: (
+			<>
+				<MetaCount type="commits">3 commits ahead</MetaCount>
+				<MetaCount type="agent-working">Agent working 12m</MetaCount>
+			</>
+		),
+		toolbar: <BranchTabsAndFilter />,
+		actions: (
+			<>
+				<SwitchButton label="Auto-merge" variant="outline" />
+				<SendAndMenu />
 			</>
 		),
 	},
@@ -188,7 +222,7 @@ export const BranchFullWindow = meta.story({
 });
 
 /**
- * The Pull Request tab: the pull request's own buttons follow the title. Ghosts for Edit and the menu, an outline switch for Auto-merge since
+ * The Pull Request tab: the pull request's own buttons end the tab row. Ghosts for Edit and the menu, an outline switch for Auto-merge since
  * it holds state, and Merge as the surface's one pop.
  */
 export const BranchPullRequestTab = meta.story({

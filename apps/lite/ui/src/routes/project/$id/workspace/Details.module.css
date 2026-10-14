@@ -368,3 +368,10 @@
 .diffArea > * {
 	min-height: 0;
 }
+
+/* The commit's author and when, one part of the header's meta line. */
+.commitAuthor {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+}
