@@ -78,8 +78,9 @@ Two files, split the way the code is:
   the published library: tokens (Tokens page), icons (Icons page) and this
   package's components, one section per component. It is the source of truth
   for tokens; for components, code is, and the drawing follows it. The
-  components are on five pages, by what they are for: Actions, Inputs,
-  Overlays, Content & status, and Sidebar. A new component's section goes at
+  components are on six pages, by what they are for: Actions, Inputs,
+  Overlays, Content & status, Preview (a details view's header and the bar
+  above it), and Sidebar. A new component's section goes at
   the end of its group's page, with its examples section under it. Storybook
   shelves the stories in the same groups (plus Icons, which Figma keeps on its
   own page): a stories file names its group in `title` and keeps its old `id`,

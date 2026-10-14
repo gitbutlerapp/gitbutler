@@ -21,13 +21,14 @@ export type EntityAvatarValue =
 export type EntityAvatarOption = { value: EntityAvatarValue; name: string; keywords?: string };
 
 /**
- * A row of choices in the picker. `small` lays them out seven to a row and scrolls past five rows,
- * for long sets such as emoji; `regular` six to a row at the avatar's own size, for a few pictures.
+ * A row of choices in the picker. `title` lays them out seven to a row, 24px apart by 4, and
+ * scrolls past five rows, for long sets such as emoji; `regular` six to a row at the avatar's own
+ * size, for a few pictures.
  */
 export type EntityAvatarSection = {
 	name: string;
 	options: ReadonlyArray<EntityAvatarOption>;
-	size?: "small" | "regular";
+	size?: "title" | "regular";
 };
 
 export const sameEntityAvatar = (a: EntityAvatarValue, b: EntityAvatarValue): boolean => {

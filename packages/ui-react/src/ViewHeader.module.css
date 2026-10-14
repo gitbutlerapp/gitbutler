@@ -3,10 +3,15 @@
    the view shows below starts flush under this line. */
 .header {
 	display: flex;
-	row-gap: 16px;
+	row-gap: 10px;
 	flex-direction: column;
-	padding: 16px 14px 16px 16px;
+	padding: 20px;
 	border-bottom: 1px solid var(--border-section);
+
+	/* With tabs in the toolbar, their underline sits on the header's bottom edge. */
+	&:has(> .toolbar [role="tablist"]) {
+		padding-bottom: 10px;
+	}
 }
 
 .top {
@@ -16,12 +21,10 @@
 }
 
 /* Window controls are a regular button's 28px; centred on the title's line, they hang off it
-   evenly above and below rather than pushing the title down. They stand as far off the title as
-   an avatar does. */
+   evenly above and below rather than pushing the title down. */
 .leading {
 	display: flex;
 	flex-shrink: 0;
-	margin-inline-end: 8px;
 	margin-block: calc((1lh - 28px) / 2);
 	line-height: 18px;
 }
@@ -40,10 +43,22 @@
 	min-width: 0;
 }
 
+/* As tall as a ViewHeaderButton whether the view has buttons or not, so the title and the meta
+   line under it sit at the same height on every view. */
 .titleLine {
+	display: flex;
+	column-gap: 10px;
+	align-items: center;
+	min-width: 0;
+	min-height: 22px;
+}
+
+/* The glyph for what it is, 8px from its name. */
+.name {
 	display: flex;
 	column-gap: 8px;
 	align-items: center;
+	min-width: 0;
 }
 
 .title {
@@ -87,20 +102,13 @@
 	}
 }
 
-/* A small pill rather than a square: it reads as "more of this line", not as a control of its own. */
-.bodyToggle {
-	flex-shrink: 0;
-	width: 24px;
-	height: 14px;
-}
-
 .meta {
 	display: flex;
-	column-gap: 8px;
+	column-gap: 6px;
 	align-items: center;
 	min-width: 0;
 	overflow: hidden;
-	color: var(--text-3);
+	color: var(--text-2);
 	white-space: nowrap;
 
 	> * {
@@ -129,6 +137,10 @@
 	min-width: 0;
 }
 
+.metaSeparator {
+	color: var(--text-3);
+}
+
 .divider {
 	align-self: center;
 	width: 1px;
@@ -136,17 +148,20 @@
 	background-color: var(--border-2);
 }
 
-/* The end of whichever line is last: the toolbar's, or the title block's,
-   level with its bottom line. */
+/* Right after the title: the view's buttons, a step taller than small to sit beside it. */
 .actions {
 	display: flex;
-	column-gap: 8px;
+	column-gap: var(--gap-buttons-compact);
 	flex-shrink: 0;
 	align-items: center;
-	align-self: flex-end;
-	margin-inline-start: auto;
 }
 
-.toolbar > .actions {
-	align-self: center;
+.button {
+	--button-height: 22px;
+	--button-padding-inline: 7px;
+}
+
+.iconButton {
+	--button-height: 22px;
+	--button-width: 22px;
 }

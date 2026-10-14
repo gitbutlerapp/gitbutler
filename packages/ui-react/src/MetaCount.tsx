@@ -18,7 +18,8 @@ export type MetaCountType =
 	| "worktrees"
 	| "repos"
 	| "agent-working"
-	| "agent-waiting";
+	| "agent-waiting"
+	| "stack";
 
 const glyph: Record<MetaCountType, IconName> = {
 	behind: "arrow-down",
@@ -34,12 +35,14 @@ const glyph: Record<MetaCountType, IconName> = {
 	repos: "repo",
 	"agent-working": "robot",
 	"agent-waiting": "robot",
+	stack: "stack",
 };
 
 /**
  * A glyph and a short value in a row's meta: a count, an age, a branch's name. The type sets both.
  * Amber is work waiting on you (`behind`, `uncommitted`, `agent-waiting`), blue is work to send
- * (`unpushed`), green is an agent at work (`agent-working`); the rest are neutral. Quietest of all
+ * (`unpushed`), green is an agent at work (`agent-working`); the rest are neutral, `stack` among
+ * them: where a branch sits in its stack, "1/3 in stack". Quietest of all
  * are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
  * (`empty`, `detached`); a row shows either first, ahead of its counts.
  *
@@ -127,20 +130,28 @@ const ciLabel: Record<CiStatusType, string> = {
  * The state of a branch's pull request checks, as "CI" in amber while they run, green once they
  * pass and red if one fails. It sits in a row's meta beside the {@link MetaCount}s.
  *
+ * Its words are "CI" unless given others: where there is room, as a pull request's tab, how far
+ * the checks got, "CI 2/14".
+ *
  * @import import { CiStatus } from "@gitbutler/ui-react/MetaCount.tsx";
  */
 export const CiStatus: FC<{ status: CiStatusType } & ComponentProps<"span">> = ({
 	status,
+	children = "CI",
 	...props
 }) => (
 	<span
 		// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph and a word with one name, not a picture with a source.
 		role="img"
-		aria-label={ciLabel[status]}
+		aria-label={
+			typeof children === "string" && children !== "CI"
+				? `${ciLabel[status]}, ${children}`
+				: ciLabel[status]
+		}
 		{...props}
 		className={classes(props.className, "text-13", styles.count, styles[status])}
 	>
 		<Icon name={ciGlyph[status]} size={12} className={styles.glyph} />
-		<span className={styles.value}>CI</span>
+		<span className={styles.value}>{children}</span>
 	</span>
 );
