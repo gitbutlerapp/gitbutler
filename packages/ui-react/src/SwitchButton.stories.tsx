@@ -3,6 +3,8 @@ import { SwitchButton, type SwitchButtonVariant } from "./SwitchButton.tsx";
 import { useState } from "react";
 
 const meta = preview.meta({
+	title: "Actions/SwitchButton",
+	id: "components-switchbutton",
 	component: SwitchButton,
 	parameters: {
 		design: {

@@ -77,7 +77,6 @@ pub fn workspace_status(
         guard.write_permission(),
         &mut OutputChannel::new(OutputFormat::Json),
         OutputFormat::Json,
-        &mode,
         flags,
         StatusRenderMode::Oneshot(None),
     )?;
@@ -185,21 +184,18 @@ impl TuiLaunchOptions {
         args
     }
 
-    #[cfg(feature = "tui-profiling")]
+    #[cfg(any(feature = "nightly", feature = "tui-profiling"))]
     fn resolve_dev_flags(&mut self, flags: args::tui::DevFlags) {
-        let args::tui::DevFlags {
-            debug,
-            quit_after,
-            headless,
-            skip_status_after,
-        } = flags;
-        self.debug = debug;
-        self.quit_after = quit_after;
-        self.headless = headless;
-        self.skip_status_after = skip_status_after;
+        self.quit_after = flags.quit_after;
+        #[cfg(feature = "tui-profiling")]
+        {
+            self.debug = flags.debug;
+            self.headless = flags.headless;
+            self.skip_status_after = flags.skip_status_after;
+        }
     }
 
-    #[cfg(not(feature = "tui-profiling"))]
+    #[cfg(not(any(feature = "nightly", feature = "tui-profiling")))]
     fn resolve_dev_flags(&mut self, _: args::tui::DevFlags) {}
 }
 
@@ -263,7 +259,7 @@ struct UpstreamState {
     author_email: String,
 }
 
-struct StatusContext<'a> {
+struct StatusContext {
     flags: StatusFlags,
     stack_details: Vec<StackEntry>,
     worktree_changes: Vec<ui::TreeChange>,
@@ -294,10 +290,9 @@ struct StatusContext<'a> {
     local_commits_by_id: HashMap<gix::ObjectId, LocalCommit>,
     remote_commits_by_id: HashMap<gix::ObjectId, Commit>,
     base_branch: Option<gitbutler_branch_actions::BaseBranch>,
-    mode: &'a gitbutler_operating_modes::OperatingMode,
 }
 
-impl StatusContext<'_> {
+impl StatusContext {
     /// The changed files of `source`, which carry the tree status letters that
     /// hunks do not. Empty for a checkout this status was not built from.
     fn changes_in_source(&self, source: &ChangeSourceId) -> &[ui::TreeChange] {
@@ -340,7 +335,6 @@ pub(crate) fn worktree(
             guard.write_permission(),
             out,
             format,
-            &mode,
             flags,
             render_mode.clone(),
         )?
@@ -373,7 +367,6 @@ pub(crate) fn worktree(
             let (final_lines, _outcome) = tui::render_tui(
                 ctx,
                 &mut inout,
-                mode.clone(),
                 status_ctx.flags,
                 lines,
                 launch_options.clone(),
@@ -404,9 +397,6 @@ pub(crate) fn tui_with_options(
     invoked_from: &crate::utils::change_source::InvokedFrom,
 ) -> CliResult<(RepoExclusiveGuard, TuiOutcome)> {
     let flags = StatusFlags::for_tui();
-    let operating_mode =
-        but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
-            .operating_mode;
     let launch_options = TuiLaunchOptions {
         invoked_from: Some(invoked_from.clone()),
         ..Default::default()
@@ -418,7 +408,6 @@ pub(crate) fn tui_with_options(
         guard.write_permission(),
         out,
         OutputFormat::Human { agent: false },
-        &operating_mode,
         flags,
         render_mode,
     )?;
@@ -433,16 +422,8 @@ pub(crate) fn tui_with_options(
     let mut lines = Vec::new();
     let mut output = StatusOutput::Buffer { lines: &mut lines };
     build_status_output(ctx, &status_ctx, &mut output)?;
-    let (_final_lines, outcome) = tui::render_tui(
-        ctx,
-        out,
-        operating_mode,
-        flags,
-        lines,
-        launch_options,
-        None,
-        run_options,
-    )?;
+    let (_final_lines, outcome) =
+        tui::render_tui(ctx, out, flags, lines, launch_options, None, run_options)?;
 
     let guard = ctx.exclusive_worktree_access();
 
@@ -473,15 +454,14 @@ pub(crate) fn status_flags_for_tui_target(
     flags
 }
 
-fn build_status_context<'a>(
+fn build_status_context(
     ctx: &mut Context,
     perm: &mut RepoExclusive,
     out: &mut dyn WriteWithUtils,
     format: OutputFormat,
-    mode: &'a OperatingMode,
     flags: StatusFlags,
     render_mode: StatusRenderMode,
-) -> anyhow::Result<StatusContext<'a>> {
+) -> anyhow::Result<StatusContext> {
     use crate::utils::change_source::InvokedFrom;
 
     let head_ref = {
@@ -782,7 +762,6 @@ fn build_status_context<'a>(
         local_commits_by_id,
         remote_commits_by_id,
         base_branch,
-        mode,
     })
 }
 
@@ -793,7 +772,7 @@ fn truncation_policy(format: OutputFormat, render_mode: &StatusRenderMode, is_pa
 
 fn build_status_output(
     ctx: &Context,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     print_update_notice(ctx, status_ctx, output)?;
@@ -801,24 +780,14 @@ fn build_status_output(
     print_upstream_state(ctx, status_ctx, output)?;
     print_common_merge_base_summary(ctx, status_ctx, output)?;
     print_conflicted_files_warning(status_ctx, output)?;
-    let warn_about_outside_workspace = matches!(
-        status_ctx.mode,
-        gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_)
-    ) && !ctx.settings.feature_flags.single_branch;
-    print_outside_workspace_warning(warn_about_outside_workspace, output)?;
-    print_hint(
-        status_ctx,
-        warn_about_outside_workspace,
-        has_merged_upstream_branch,
-        output,
-    )?;
+    print_hint(status_ctx, has_merged_upstream_branch, output)?;
     Ok(())
 }
 
 /// Print update information for human output when a newer `but` version is available.
 fn print_update_notice(
     ctx: &Context,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let cache = ctx.app_cache.get_cache()?;
@@ -837,7 +806,7 @@ fn print_update_notice(
 /// Print a note on how to deal with the uncommitted files marked `{conflicted}` in the
 /// listing above.
 fn print_conflicted_files_warning(
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     if status_ctx.conflicted_paths.is_empty() {
@@ -851,27 +820,9 @@ fn print_conflicted_files_warning(
     Ok(())
 }
 
-/// Print a warning when operating outside the GitButler workspace.
-fn print_outside_workspace_warning(
-    not_on_workspace: bool,
-    output: &mut StatusOutput<'_>,
-) -> anyhow::Result<()> {
-    if not_on_workspace {
-        output.warning(Vec::from([Span::raw(
-            "⚠️    You are in plain Git mode, directly on a branch. Some commands may be unavailable.    ⚠️",
-        )]))?;
-        output.warning(Vec::from([Span::raw(
-            "⚠️    More info: https://github.com/gitbutlerapp/gitbutler/issues/11866                     ⚠️",
-        )]))?;
-    }
-
-    Ok(())
-}
-
 /// Print a contextual hint at the end of status output when hints are enabled.
 fn print_hint(
-    status_ctx: &StatusContext<'_>,
-    not_on_workspace: bool,
+    status_ctx: &StatusContext,
     has_merged_upstream_branch: bool,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
@@ -915,9 +866,7 @@ fn print_hint(
         shown_situational_hint = true;
     }
 
-    let hint_text = if not_on_workspace {
-        Some("Hint: run `but setup` to switch back to GitButler managed mode.")
-    } else if has_merged_upstream_branch {
+    let hint_text = if has_merged_upstream_branch {
         Some(
             "Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch",
         )
@@ -945,7 +894,7 @@ fn print_hint(
     Ok(())
 }
 
-fn should_explain_rewritten_commit_marker(status_ctx: &StatusContext<'_>) -> bool {
+fn should_explain_rewritten_commit_marker(status_ctx: &StatusContext) -> bool {
     status_ctx.is_agent_invocation
         && status_ctx
             .local_commits_by_id
@@ -961,7 +910,7 @@ fn is_rewritten_local_commit(commit: &LocalCommit) -> bool {
 }
 
 fn branch_merge_status<'a>(
-    status_ctx: &'a StatusContext<'_>,
+    status_ctx: &'a StatusContext,
     segment: &SegmentWithId,
 ) -> Option<&'a UpstreamBranchStatus> {
     segment.branch_name().and_then(|branch_name| {
@@ -972,7 +921,7 @@ fn branch_merge_status<'a>(
 }
 
 fn branch_is_merged_upstream(
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     segment: &SegmentWithId,
     repo: &gix::Repository,
     eligible_for_empty_merge: bool,
@@ -1028,7 +977,7 @@ fn branch_is_merged_upstream(
 
 fn empty_branch_is_merged_upstream(
     repo: &gix::Repository,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     segment: &SegmentWithId,
 ) -> bool {
     let Some(remote_ref_name) = segment.inner.remote_tracking_ref_name.as_ref() else {
@@ -1052,11 +1001,11 @@ fn empty_branch_is_merged_upstream(
     }
 
     repo.merge_base(remote_tip_id, status_ctx.target_tip_id)
-        .is_ok_and(|merge_base| merge_base == remote_tip_id)
+        .is_ok_and(|merge_base| merge_base.is_some_and(|merge_base| merge_base == remote_tip_id))
 }
 
 fn remote_tracking_ref_is_target_branch(
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     remote_ref_name: &gix::refs::FullNameRef,
 ) -> bool {
     status_ctx.base_branch.as_ref().is_some_and(|base_branch| {
@@ -1090,7 +1039,7 @@ fn target_remote_tracking_ref_name(
 /// Display upstream state information when upstream has commits ahead of the workspace base.
 fn print_upstream_state(
     ctx: &Context,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let Some(upstream) = &status_ctx.upstream_state else {
@@ -1194,7 +1143,7 @@ fn print_upstream_state(
 /// Print the common merge-base summary line at the bottom of the status tree.
 fn print_common_merge_base_summary(
     ctx: &Context,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let mut label = String::from("common base");
@@ -1256,7 +1205,7 @@ fn print_common_merge_base_summary(
 /// Print per-stack status sections for human-readable output.
 fn print_worktree_status(
     ctx: &Context,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<bool> {
     let mut has_merged_upstream_branch = false;
@@ -1371,7 +1320,7 @@ enum LaneSeparator {
 /// only case at all unless the `worktreeManipulation` flag is on.
 fn print_worktree_lanes_on(
     ctx: &Context,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     base: gix::ObjectId,
     depth: usize,
     output: &mut StatusOutput<'_>,
@@ -1397,7 +1346,7 @@ fn print_worktree_lanes_on(
 /// connector merging back into the lane it branched from.
 fn print_worktree_lane(
     ctx: &Context,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     worktree: &but_workspace::worktrees::WorktreeInfo,
     depth: usize,
     separator: Option<LaneSeparator>,
@@ -1460,7 +1409,7 @@ fn in_lane(depth: usize, prefix: impl IntoIterator<Item = Span<'static>>) -> Vec
 
 #[expect(clippy::too_many_arguments)]
 fn print_files(
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     stack: Option<StackId>,
     branch_name: Option<&BStr>,
     files: &[UncommittedFileWithId],
@@ -1557,7 +1506,7 @@ fn print_files(
 
 fn print_group(
     ctx: &Context,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     stack_with_id: &Option<LaneWithId>,
     files: &[UncommittedFileWithId],
     first: bool,
@@ -1606,7 +1555,7 @@ enum LaneOpening {
 
 fn print_lane_segments(
     ctx: &Context,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     repo: &gix::Repository,
     lane: &LaneWithId,
     depth: usize,
@@ -1851,7 +1800,7 @@ fn print_lane_segments(
 /// checkout as `files`, or every file renders without one. A linked worktree's area names
 /// the worktree after the label.
 fn print_uncommitted_group(
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     cli_id: CliId,
     files: &[UncommittedFileWithId],
     changes: &[ui::TreeChange],
@@ -1927,7 +1876,7 @@ enum CommitChanges<'a> {
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
     repo: &gix::Repository,
-    status_ctx: &StatusContext<'_>,
+    status_ctx: &StatusContext,
     stack_id: Option<StackId>,
     commit_cli_id: CliId,
     change_id: Option<&ChangeIdWithShortId>,

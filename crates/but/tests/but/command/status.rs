@@ -178,9 +178,6 @@ fn common_base_omits_both_defaults_when_they_have_moved() {
 #[test]
 fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
 
     let status = status_json(&env);
     let project_meta = env.project_meta();
@@ -359,29 +356,6 @@ fn unborn() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
-
-"#]]);
-}
-
-#[cfg(feature = "legacy")]
-#[test]
-fn disabled_single_branch_mode_requires_setup_for_unregistered_repository() {
-    let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch disable")
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::str![[r#"
-✓ Feature flag single-branch is now disabled
-
-"#]]);
-
-    env.but("status")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: Setup required: No GitButler project found at . - run `but setup` to configure the project
 
 "#]]);
 }
@@ -774,14 +748,8 @@ fn status_hint_clean_workspace() {
 
 #[test]
 fn status_hint_when_no_branches() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
-    env.setup_metadata(&["A"]);
-
-    env.but("unapply A").assert().success();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.but("status")
         .with_color_for_svg()

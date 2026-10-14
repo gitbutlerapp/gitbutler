@@ -76,12 +76,15 @@ Two files, split the way the code is:
 - **⚛️ Core** —
   <https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core>,
   the published library: tokens (Tokens page), icons (Icons page) and this
-  package's components (Components page), one section per component. It is
-  the source of truth for tokens; for components, code is, and the drawing
-  follows it. The Components page lays the sections out in four rows, by what
-  the components are for: Actions, Inputs, Overlays, and Content & status,
-  with nothing wrapping a row. A new component's section goes at the end of
-  its row, with its examples section under it.
+  package's components, one section per component. It is the source of truth
+  for tokens; for components, code is, and the drawing follows it. The
+  components are on six pages, by what they are for: Actions, Inputs,
+  Overlays, Content & status, Preview (a details view's header and the bar
+  above it), and Sidebar. A new component's section goes at
+  the end of its group's page, with its examples section under it. Storybook
+  shelves the stories in the same groups (plus Icons, which Figma keeps on its
+  own page): a stories file names its group in `title` and keeps its old `id`,
+  so the story ids below don't change when a component moves group.
 - **Client**, the working file —
   <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>: Lite's own
   components on the ⚙️ Meta page, the full screens, and drafts on the
@@ -186,7 +189,7 @@ the upload confirmation is Modal's, the project picker is Popup's (a
 combobox dressed in its parts), the command palette is PickerDialog's.
 
 In ⚛️ Core the examples sit in a section named `<Component> examples`
-directly under the component's own section on the Components page, one
+directly under the component's own section, on its group's page, one
 instance per story, named as the story is; an example story links its
 instance through the `design` parameter.
 

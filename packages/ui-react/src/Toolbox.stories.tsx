@@ -17,6 +17,8 @@ import type { ButtonVariant } from "./Button.tsx";
 import type { FC } from "react";
 
 const meta = preview.meta({
+	title: "Overlays/Toolbox",
+	id: "components-toolbox",
 	component: Toolbox,
 	parameters: {
 		// The toolbox floats over a workspace; previewing it flush against the canvas edge clips
@@ -24,7 +26,7 @@ const meta = preview.meta({
 		layout: "centered",
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client?node-id=4272-2053",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2278-1698",
 		},
 	},
 });
@@ -46,6 +48,12 @@ const Action: FC<{ label: string; hotkey?: string; variant?: ButtonVariant; smal
  * pending to abandon, the way out is a close affordance and its chord is stated in the strip.
  */
 export const Default = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2278-1886",
+		},
+	},
 	render: () => (
 		<Toolbox>
 			<ToolboxMeta icon="commit">
@@ -67,6 +75,12 @@ export const Default = meta.story({
 
 /** An operation still being aimed asks for a placement, then for confirmation. */
 export const WithConfirmation = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2278-1930",
+		},
+	},
 	render: () => (
 		<Toolbox style={{ width: 270 }}>
 			<ToolboxMeta icon="file-diff">
@@ -98,6 +112,12 @@ export const WithConfirmation = meta.story({
  * sentence.
  */
 export const WithTypeSelector = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2278-2055",
+		},
+	},
 	render: () => (
 		<ToolboxStack style={{ width: 322 }}>
 			<Toolbox>

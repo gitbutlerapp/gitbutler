@@ -374,7 +374,7 @@
 		{#if !baseBranch}
 			<NoBaseBranch {projectId} />
 		{:else if baseBranch}
-			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}
+			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || mode.subject.branchName}
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 					<AppLayout {projectId} sidebarDisabled={mode.type === "Edit"}>
 						{@render pageChildren()}

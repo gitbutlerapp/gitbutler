@@ -1,7 +1,7 @@
 use super::WorkspaceState;
 use std::collections::{BTreeMap, HashMap};
 
-use but_core::{DryRun, RefMetadata};
+use but_core::{ChangeId, DryRun, RefMetadata};
 use but_rebase::graph_rebase::{MaterializeOutcome, SuccessfulRebase};
 use but_workspace::ref_info::SegmentIdentity;
 
@@ -91,11 +91,13 @@ impl WorkspaceState {
     ///
     /// This is the most direct constructor in this module and is the right choice when
     /// there is no need to inspect or materialize a [`SuccessfulRebase`].
+    #[allow(clippy::too_many_arguments)]
     fn from_workspace_with_prs<M: RefMetadata>(
         workspace: &but_graph::Workspace,
         meta: &mut M,
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+        conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
         db: &mut but_db::DbHandle,
         checkout_conflict_occurred: bool,
@@ -122,6 +124,7 @@ impl WorkspaceState {
 
             Ok(WorkspaceState {
                 replaced_commits,
+                conflicted_commits,
                 head_info,
                 checkout_conflict_occurred,
             })
@@ -137,6 +140,7 @@ impl WorkspaceState {
 
             Ok(WorkspaceState {
                 replaced_commits,
+                conflicted_commits,
                 graph_workspace: graph_workspace.into(),
                 checkout_conflict_occurred,
             })
@@ -156,6 +160,7 @@ impl WorkspaceState {
         meta: &mut M,
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+        conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = but_forge::review_associations_by_head(db)?;
@@ -164,6 +169,7 @@ impl WorkspaceState {
             meta,
             repo,
             replaced_commits,
+            conflicted_commits,
             &prs_by_head,
             db,
             false,
@@ -181,12 +187,14 @@ impl WorkspaceState {
     ) -> anyhow::Result<WorkspaceState> {
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
         let replaced_commits = rebase.history.commit_mappings();
+        let conflicted_commits = rebase.history.conflicted_commits.clone();
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         Self::from_workspace_with_prs(
             &workspace,
             meta,
             repo,
             replaced_commits,
+            conflicted_commits,
             prs_by_head,
             db,
             false,
@@ -221,6 +229,7 @@ impl WorkspaceState {
             materialized.meta,
             repo,
             materialized.history.commit_mappings(),
+            materialized.history.conflicted_commits,
             &prs_by_head,
             materialized.db,
             materialized.checkout_conflict_occurred,

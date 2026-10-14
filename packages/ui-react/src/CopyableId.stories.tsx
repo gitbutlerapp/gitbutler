@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { CopyableId } from "./CopyableId.tsx";
 
 const meta = preview.meta({
+	title: "Actions/CopyableId",
+	id: "components-copyableid",
 	component: CopyableId,
 });
 

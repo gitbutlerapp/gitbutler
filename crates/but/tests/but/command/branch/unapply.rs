@@ -321,10 +321,6 @@ Unapplied stack with 'remote-feature' from workspace
 #[test]
 fn concurrent_unapply_of_independent_branches_succeeds() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
-    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
     env.setup_metadata(&["A"]);
 
     create_local_branch_with_commit(&env, "feature-branch-a");
@@ -567,23 +563,6 @@ Error: Cannot unapply the last branch because the target has no local tracking b
 }
 
 #[test]
-fn unapply_last_branch_is_disabled_without_single_branch_feature() {
-    let env = Sandbox::open_with_default_settings("single-branch-mode");
-    env.but("commit -b one -m one").assert().success();
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
-    let before = env.git_log();
-
-    env.but("unapply one").assert().failure().stderr_eq(str![[r#"
-Error: Setup required: Not currently on a gitbutler/* branch. - run `but setup` to configure the project
-
-"#]]);
-
-    snapbox::assert_data_eq!(env.git_log(), before);
-}
-
-#[test]
 fn unapply_last_branch_can_be_undone() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.but("commit -b one -m one").assert().success();
@@ -746,7 +725,7 @@ fn unapply_checked_out_branch_preserves_other_remembered_applied_branches() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   593bd9e (gitbutler/workspace) GitButler Workspace Commit
+*   8a4d731 (gitbutler/workspace) GitButler Workspace Commit
 |\  
 | * 9939bf0 (HEAD -> one) one
 * | 2c9e5ce (two) two

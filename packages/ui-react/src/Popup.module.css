@@ -307,9 +307,10 @@
 	text-align: start;
 
 	/* `data-highlighted` is what Base UI's list primitives set as the keyboard walks them, so
-	   pointer and keyboard land on the same tint. */
+	   pointer and keyboard land on the same tint. A menu highlights a disabled row too; it still
+	   takes no tint. */
 	&:hover:not(:disabled, [data-disabled]),
-	&[data-highlighted] {
+	&[data-highlighted]:not([data-disabled]) {
 		background-color: var(--bg-hover);
 	}
 

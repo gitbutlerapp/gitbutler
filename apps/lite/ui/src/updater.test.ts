@@ -470,4 +470,6 @@ it("does not restart the real MacUpdater before a replacement update is prepared
 		updater.quitAndInstall();
 		await rm(dir, { recursive: true, force: true });
 	}
-});
+	// The real MacUpdater and its proxy take well under a second locally but 3.5–5.5s on CI
+	// runners, astride the default 5s; the timeout is room for the runner, not for the updater.
+}, 15_000);

@@ -2500,12 +2500,9 @@ fn remote_contains(
     if ancestor == descendant {
         return Ok(true);
     }
-    match repo.merge_base(ancestor, descendant) {
-        Ok(base) => Ok(base == ancestor),
-        Err(gix::repository::merge_base::Error::FindMergeBase(_))
-        | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(false),
-        Err(err) => Err(err.into()),
-    }
+    Ok(repo
+        .merge_base(ancestor, descendant)?
+        .is_some_and(|base| base == ancestor))
 }
 
 fn local_branch_for_review(ctx: &Context, wanted: i64) -> Result<gix::refs::FullName> {

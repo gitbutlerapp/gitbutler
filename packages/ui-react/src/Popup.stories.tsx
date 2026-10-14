@@ -7,6 +7,8 @@ import { Combobox } from "@base-ui/react";
 import { useDeferredValue, useState } from "react";
 
 const meta = preview.meta({
+	title: "Overlays/Popup",
+	id: "components-popup",
 	component: Popup,
 	parameters: {
 		design: {

@@ -252,9 +252,15 @@ fn absolute_file_url(value: &[u8], workdir: &Path) -> Option<Vec<u8>> {
     if url.scheme != gix::url::Scheme::File || !url.serialize_alternative_form {
         return None;
     }
-    let path = gix::path::from_bstr(value.as_bstr());
-    path.is_relative()
-        .then(|| gix::path::into_bstr(workdir.join(path)).as_ref().to_vec())
+    let path = gix::path::from_bstr(value.as_bstr()).ok()?;
+    if !path.is_relative() {
+        return None;
+    }
+    gix::path::into_bstr(workdir.join(path))
+        .ok()?
+        .as_ref()
+        .to_vec()
+        .into()
 }
 
 fn is_storage_path_key(key: &[u8]) -> bool {

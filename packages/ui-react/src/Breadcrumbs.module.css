@@ -1,0 +1,126 @@
+.breadcrumbs {
+	position: relative;
+	min-width: 0;
+	color: var(--text-2);
+}
+
+/* One line: the levels that don't fit fold into "…", and one still too long ends in an
+   ellipsis. The clip leaves room for a focus ring. */
+.list {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+	margin: 0;
+	padding: 0;
+	overflow: clip;
+	overflow-clip-margin: 4px;
+	list-style: none;
+	white-space: nowrap;
+}
+
+/* Every level stands 18px tall, whatever it holds: a label, its ⌃⌄, or "…". */
+.level {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+	min-width: 0;
+	height: 18px;
+}
+
+.crumb {
+	min-width: 0;
+	overflow: hidden;
+	color: inherit;
+	text-decoration: none;
+	text-overflow: ellipsis;
+}
+
+a.crumb:hover {
+	color: var(--text-1);
+}
+
+.separator {
+	flex-shrink: 0;
+	color: var(--text-3);
+}
+
+/* The folded levels: "…" in the trail's own type, on a quiet button as tall as a level, that
+   opens a menu of them. Its level keeps its size; the named ones around it give way. */
+.level:has(> .more) {
+	flex-shrink: 0;
+}
+
+.more {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	height: 18px;
+	padding: 0 4px;
+	border: none;
+	border-radius: var(--radius-control);
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: var(--control-cursor);
+
+	&:hover,
+	&[data-popup-open] {
+		background-color: var(--bg-hover);
+	}
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+	}
+}
+
+/* A level's siblings: a ⌃⌄ as tall as the level, quiet until the pointer is on it. */
+.menu {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 18px;
+	padding: 0;
+	border: none;
+	border-radius: var(--radius-control);
+	background: none;
+	color: inherit;
+	cursor: var(--control-cursor);
+
+	& [data-icon] {
+		opacity: 0.7;
+	}
+
+	/* Drawn as strokes in ⚛️ Core, the glyph keeps its weight at 10px where the 16px outline
+	   thins: a hairline stroke, which doesn't scale with it, gives the weight back. */
+	& svg path {
+		stroke: currentColor;
+		stroke-width: 0.3px;
+	}
+
+	&:hover,
+	&[data-popup-open] {
+		background-color: var(--bg-hover);
+
+		& [data-icon] {
+			opacity: 1;
+		}
+	}
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+	}
+}
+
+/* A copy of every level, laid out but unseen, so the trail knows each one's width. */
+.measure {
+	display: flex;
+	visibility: hidden;
+	position: absolute;
+	top: 0;
+	left: 0;
+	column-gap: 4px;
+	width: max-content;
+	pointer-events: none;
+}

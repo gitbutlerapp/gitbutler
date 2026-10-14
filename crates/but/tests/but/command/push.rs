@@ -73,9 +73,6 @@ fn shell_quote_path(path: &std::path::Path) -> String {
 
 fn repo_with_unpushed_single_branch() -> (Sandbox, std::path::PathBuf) {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
 
     let remote = env.app_data_dir().join("origin with spaces.git");
     let remote_arg = shell_quote_path(&remote);

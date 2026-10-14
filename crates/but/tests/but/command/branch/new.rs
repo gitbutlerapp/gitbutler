@@ -1180,8 +1180,7 @@ Created branch 'two'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8ad759d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+* cb1c5e1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, two, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1209,8 +1208,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8ad759d (gitbutler/workspace) GitButler Workspace Commit
-|/
+* cb1c5e1 (gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (HEAD -> one, origin/main, origin/HEAD, two, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1242,8 +1240,7 @@ Created branch 'three'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 9e991f4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+* 31c5e9f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, two, three, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1257,6 +1254,8 @@ Created branch 'three'
 ├╯
 ┊
 ┊╭┄ on [one] (no commits)
+┊│
+┊├┄ tw [two] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -1331,6 +1330,8 @@ Hint: run `but help` for all commands
 ├╯
 ┊
 ┊╭┄ bo [bottom] (no commits)
+┊│
+┊├┄ mi [middle] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -1342,8 +1343,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 10e74ab (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+* be30254 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, new-branch, middle, main, gitbutler/target, bottom) M
 * e31e6ca add init
 
@@ -1448,7 +1448,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   4fe5ec0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   799076d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 * | 1c8b0db (new-branch) on new-branch
 | | * c5ca33e (middle) on middle

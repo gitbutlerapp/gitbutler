@@ -332,7 +332,9 @@ impl Graph {
             return vec![frame.ws];
         }
         self.inner
-            .neighbors_directed(frame.ws, Direction::Outgoing)
+            .edges_directed(frame.ws, Direction::Outgoing)
+            .sorted_by_key(|e| (e.weight().workspace_parent_order(), e.weight().parent_order))
+            .map(|e| e.target())
             .collect()
     }
 

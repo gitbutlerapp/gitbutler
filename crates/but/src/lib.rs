@@ -1011,22 +1011,9 @@ async fn dispatch_subcommand(
                     let outcome = command::worktree::remove::remove(&mut ctx, &worktree, force)?;
                     out.print_cli_output(outcome)?;
                 }
-                worktree::Subcommands::New {
-                    name,
-                    above,
-                    #[cfg(feature = "worktree-cow")]
-                    create_mode,
-                } => {
-                    use but_api::worktrees::WorktreeCreationMode;
-                    #[cfg(not(feature = "worktree-cow"))]
-                    let mode = WorktreeCreationMode::Checkout;
-                    #[cfg(feature = "worktree-cow")]
-                    let mode = match create_mode {
-                        worktree::CreateMode::Cow => WorktreeCreationMode::Cow,
-                        worktree::CreateMode::Checkout => WorktreeCreationMode::Checkout,
-                    };
+                worktree::Subcommands::New { name, above } => {
                     let outcome =
-                        command::worktree::new::new(&mut ctx, name.as_ref(), above.as_ref(), mode)?;
+                        command::worktree::new::new(&mut ctx, name.as_ref(), above.as_ref())?;
                     out.print_cli_output(outcome)?;
                 }
             }
@@ -1509,9 +1496,17 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Teardown { checkout_to } => {
-            command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
-                .map_err(|err| err.context("Failed to teardown GitButler project."))?;
+        Subcommands::Teardown {
+            checkout_to,
+            remove_hooks,
+        } => {
+            if remove_hooks {
+                let outcome = command::legacy::teardown::remove_hooks(&mut ctx)?;
+                out.print_cli_output(outcome)?;
+            } else {
+                command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
+                    .map_err(|err| err.context("Failed to teardown GitButler project."))?;
+            }
             None
         }
         #[cfg(feature = "legacy")]
@@ -1705,14 +1700,17 @@ async fn dispatch_subcommand(
                 command::legacy::merge::handle(&mut ctx, out, &branch, yes, no_ff, whole_stack)
                     .context("Failed to merge branch.")
                     .map_err(Into::into);
-            if result.is_ok() {
+            if let Ok(conflicted_commits) = result {
                 command::legacy::conflict_notice::report_newly_conflicted(
                     &ctx,
                     out,
                     conflicts_before,
+                    conflicted_commits,
                 );
+                return Ok(DispatchOutcome::ExitWithoutDestructors(Ok(())));
+            } else {
+                return Ok(DispatchOutcome::ExitWithoutDestructors(result.map(|_| ())));
             }
-            return Ok(DispatchOutcome::ExitWithoutDestructors(result));
         }
         #[cfg(feature = "legacy")]
         Subcommands::Pick(pick_args) => {
@@ -1773,14 +1771,18 @@ async fn dispatch_subcommand(
     };
 
     #[cfg(feature = "legacy")]
-    if let Some(ws) = ws
-        && ws.checkout_conflict_occurred
-    {
-        command::legacy::conflict_notice::report_checkout_conflict(out);
-    }
-    #[cfg(feature = "legacy")]
-    if let Some(conflicts_before) = newly_conflicted_data {
-        command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
+    if let Some(ws) = ws {
+        if ws.checkout_conflict_occurred {
+            command::legacy::conflict_notice::report_checkout_conflict(out);
+        }
+        if let Some(conflicts_before) = newly_conflicted_data {
+            command::legacy::conflict_notice::report_newly_conflicted(
+                &ctx,
+                out,
+                conflicts_before,
+                ws.conflicted_commits,
+            );
+        }
     }
     #[cfg(feature = "legacy")]
     if let Some(status_after) = status_after_data {
@@ -1835,12 +1837,13 @@ fn run_agentlog_command(
 
 pub(crate) fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
     matches!(
-        err.downcast_ref::<gix::discover::Error>(),
-        Some(gix::discover::Error::Discover(
+        err.downcast_ref::<gix::Error>()
+            .and_then(|err| err.downcast_any_ref::<gix::discover::upwards::Error>()),
+        Some(
             gix::discover::upwards::Error::NoGitRepository { .. }
                 | gix::discover::upwards::Error::NoGitRepositoryWithinCeiling { .. }
                 | gix::discover::upwards::Error::NoGitRepositoryWithinFs { .. }
-        ))
+        )
     )
 }
 
@@ -1900,6 +1903,11 @@ fn run_status_after(
     invoked_from: Option<InvokedFrom>,
 ) {
     use crate::command::legacy::status::StatusFlags;
+
+    if let Err(err) = ctx.invalidate_workspace_cache() {
+        eprintln!("warning: failed to write status after mutation: {err}");
+        return;
+    }
 
     let agent_skill_notice = (agent_skill_notices && out.format().is_json())
         .then(command::skill::agent_skill_update_notice)
@@ -1978,6 +1986,32 @@ pub use utils::detect_agent::ENVIRONMENT_VARIABLES as AGENT_ENVIRONMENT_VARIABLE
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn repository_discovery_errors_keep_their_classification() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let err = anyhow::Error::from(gix::discover(tmp.path()).unwrap_err())
+            .context("discovering the optional repository");
+        assert!(
+            is_not_in_git_repository_error(&err),
+            "missing repositories are recognized through both error wrappers"
+        );
+
+        let err = anyhow::Error::from(gix::Error::from_error(
+            gix::discover::upwards::Error::NoTrustedGitRepository {
+                path: tmp.path().into(),
+                candidate: tmp.path().into(),
+                required: gix::sec::Trust::Full,
+                trust: gix::sec::Trust::Reduced,
+            },
+        ))
+        .context("discovering the optional repository");
+        assert!(
+            !is_not_in_git_repository_error(&err),
+            "an untrusted repository must remain an error rather than being treated as an absent repository"
+        );
+        Ok(())
+    }
 
     fn os_args(args: &[&str]) -> Vec<OsString> {
         args.iter().map(|arg| OsString::from(*arg)).collect()

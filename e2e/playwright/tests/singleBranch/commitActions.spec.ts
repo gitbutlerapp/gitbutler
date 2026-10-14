@@ -43,7 +43,6 @@ test.use({
 	gitbutlerOptions: {
 		config: {
 			onboardingComplete: true,
-			featureFlags: { singleBranch: true },
 		},
 	},
 });
@@ -721,28 +720,6 @@ test.describe("unapplying stacks", () => {
 		await expectCurrentBranchChip(page, "gitbutler/workspace");
 		await expect(stack(page)).toHaveCount(0);
 		await assertCleanWorktree(localClone);
-	});
-});
-
-test.describe("single-branch mode disabled", () => {
-	test.use({
-		gitbutlerOptions: {
-			config: {
-				onboardingComplete: true,
-				featureFlags: { singleBranch: false },
-			},
-		},
-	});
-
-	test("keeps the managed workspace when a stack is unapplied", async ({ page, gitbutler }) => {
-		const localClone = await openManagedWorkspace(page, gitbutler, "branch1", "branch3");
-
-		await unapplyStack(page, "branch3");
-
-		// The current-branch chip only renders in single-branch mode, so assert on the repository.
-		await assertSymbolicHead("gitbutler/workspace", localClone);
-		await expect(stack(page)).toHaveCount(1);
-		await expect(stack(page, "branch1")).toBeVisible();
 	});
 });
 

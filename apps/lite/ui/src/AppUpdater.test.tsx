@@ -111,8 +111,9 @@ const mount = async (autoUpdate: boolean) => {
 };
 
 const click = async (label: string) => {
+	// Dismiss is an icon-only button, named by its aria-label.
 	const button = [...document.querySelectorAll("button")].find(
-		(item) => item.textContent === label,
+		(item) => item.textContent === label || item.getAttribute("aria-label") === label,
 	);
 	expect(button, label).toBeDefined();
 	act(() => button?.click());
@@ -216,10 +217,12 @@ it("records a rejected mutation and reports an event-plus-rejection failure once
 	);
 	expect(reportError).toHaveBeenCalledOnce();
 	expect(document.body.textContent.match(/Failed to download app update/g)).toHaveLength(1);
-	expect(document.body.textContent).toContain("Failed to download app update: Download failed");
+	expect(document.body.textContent).toContain("Failed to download app update.");
+	expect(document.body.textContent).toContain("Copy error message");
+	expect(document.body.textContent).not.toContain("Download failed");
 	expect(document.body.textContent).not.toContain("Download 0.0.201");
 	expect(document.body.textContent).not.toContain("Preparing update");
-	expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+	expect(document.querySelectorAll('[role="dialog"], [role="alertdialog"]')).toHaveLength(1);
 	act(() => manual());
 	await settle();
 	expect(document.body.textContent).toContain("Download 0.0.201");
@@ -255,9 +258,10 @@ it("rejects a pending install through the mutation cache without reporting its e
 		"error",
 	);
 	expect(reportError).toHaveBeenCalledExactlyOnceWith(error);
-	expect(document.body.textContent).toContain(`Failed to install app update: ${error.message}`);
+	expect(document.body.textContent).toContain("Failed to install app update.");
+	expect(document.body.textContent).not.toContain(error.message);
 	expect(document.body.textContent).not.toContain("Restarting...");
-	expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+	expect(document.querySelectorAll('[role="dialog"], [role="alertdialog"]')).toHaveLength(1);
 });
 
 it("stops polling unavailable builds while allowing another manual check", async () => {
@@ -282,7 +286,7 @@ it("keeps automatic check failures quiet but shows manual failures", async () =>
 	expect(reportError).toHaveBeenCalledOnce();
 	act(() => manual());
 	await settle();
-	expect(document.body.textContent).toContain("Failed to check for updates: Offline");
+	expect(document.body.textContent).toContain("Failed to check for updates.");
 });
 
 it.each([
@@ -295,7 +299,7 @@ it.each([
 	await settle();
 	expect(document.body.textContent).toContain(message);
 	expect(document.body.textContent).not.toContain("Checking for updates...");
-	expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+	expect(document.querySelectorAll('[role="dialog"], [role="alertdialog"]')).toHaveLength(1);
 });
 
 it.each([
@@ -359,7 +363,7 @@ it("joins an ongoing check and presents the latest installation status when it c
 	await settle();
 	expect(document.body.textContent).toContain("Checking for updates...");
 	expect(document.body.textContent).not.toContain("Install 0.0.201 now");
-	expect(document.body.textContent.match(/Dismiss/g)).toHaveLength(1);
+	expect(document.querySelectorAll('[aria-label="Dismiss"]')).toHaveLength(1);
 	act(() => publish({ _tag: "Ready", version: "0.0.201" }));
 	await settle();
 	act(() => finishCheck({ _tag: "Available", version: "0.0.201" }));
@@ -406,7 +410,7 @@ it("does not replay a manual check error when installation status changes", asyn
 	checkForUpdates.mockRejectedValueOnce(error);
 	act(() => manual());
 	await settle();
-	expect(document.body.textContent).toContain("Failed to check for updates: Offline");
+	expect(document.body.textContent).toContain("Failed to check for updates.");
 	expect(reportError).toHaveBeenCalledExactlyOnceWith(error);
 	await click("Dismiss");
 	act(() => publish({ _tag: "Ready", version: "0.0.201" }));
@@ -442,7 +446,7 @@ it("updates download measurements in one toast and waits for preparation before 
 	await settle();
 	expect(document.body.textContent).toContain("42%");
 	expect(document.body.textContent).toContain("63 MB / 150 MB");
-	expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+	expect(document.querySelectorAll('[role="dialog"], [role="alertdialog"]')).toHaveLength(1);
 	act(() =>
 		publish({
 			_tag: "Downloading",
@@ -618,7 +622,7 @@ it("shows an immediate installation failure after native status returns to idle"
 	});
 	await mount(false);
 	await click("Install 0.0.201 now");
-	expect(document.body.textContent).toContain("Failed to install app update: Installer failed");
+	expect(document.body.textContent).toContain("Failed to install app update.");
 	expect(document.body.textContent).not.toContain("Restarting...");
-	expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+	expect(document.querySelectorAll('[role="dialog"], [role="alertdialog"]')).toHaveLength(1);
 });

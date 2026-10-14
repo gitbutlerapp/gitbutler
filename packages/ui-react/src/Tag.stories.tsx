@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { Tag } from "./Tag.tsx";
 
 const meta = preview.meta({
+	title: "Content & status/Tag",
+	id: "components-tag",
 	component: Tag,
 	parameters: {
 		design: {

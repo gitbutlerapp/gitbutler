@@ -68,8 +68,8 @@ test.beforeEach(async ({ appWindow, electronApp, reviews }) => {
 test("a worktree branch opens a pull request", async ({ appWindow }) => {
 	await appWindow.getByRole("treeitem", { name: "W", exact: true }).click();
 	await appWindow
-		.getByRole("group", { name: "Branch tab", exact: true })
-		.getByRole("button", { name: "Pull Request", exact: true })
+		.getByRole("tablist", { name: "Branch tab", exact: true })
+		.getByRole("tab", { name: "Pull Request", exact: true })
 		.click();
 	await expect(appWindow.getByPlaceholder("PR title")).toBeVisible();
 });

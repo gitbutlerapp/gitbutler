@@ -12,6 +12,8 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false 
 queryClient.setQueryData(guiSettingsQueryOptions.queryKey, defaultSettings as GUISettings);
 
 const meta = preview.meta({
+	title: "Lite/Markdown",
+	id: "components-markdown",
 	component: Markdown,
 	parameters: {
 		design: {

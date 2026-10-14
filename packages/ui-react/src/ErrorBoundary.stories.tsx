@@ -11,20 +11,22 @@ const Broken: FC<{ broken: boolean }> = ({ broken }) => {
 const Recovering: FC = () => {
 	const [broken, setBroken] = useState(true);
 	return (
-		<ErrorBoundary onReset={() => setBroken(false)}>
+		<ErrorBoundary title="This view couldn't be shown" onReset={() => setBroken(false)}>
 			<Broken broken={broken} />
 		</ErrorBoundary>
 	);
 };
 
 const meta = preview.meta({
+	title: "Content & status/ErrorBoundary",
+	id: "components-errorboundary",
 	component: ErrorBoundary,
 });
 
-/** What takes the place of a view that threw while rendering: the message, and Retry. */
+/** What takes the place of a view that threw while rendering: what couldn't be shown, Retry, and the error to copy. */
 export const Default = meta.story({
 	render: () => (
-		<ErrorBoundary>
+		<ErrorBoundary title="This view couldn't be shown">
 			<Broken broken />
 		</ErrorBoundary>
 	),

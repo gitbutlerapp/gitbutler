@@ -9,7 +9,6 @@
 	import { classify, type ClassifiedError } from "$lib/error/errorClassification";
 	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { combineResults } from "$lib/state/helpers";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { unique } from "$lib/utils/array";
@@ -18,7 +17,6 @@
 		Button,
 		CardGroup,
 		Checkbox,
-		Icon,
 		InfoMessage,
 		Link,
 		Select,
@@ -26,7 +24,6 @@
 		TestId,
 		Toggle,
 	} from "@gitbutler/ui-svelte";
-	import { slide } from "svelte/transition";
 	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
 
 	interface Props {
@@ -42,7 +39,6 @@
 
 	const posthog = inject(POSTHOG_WRAPPER);
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
-	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
 
 	const gbConfig = $derived(gitConfig.gbConfig(projectId));
 	const gerritMode = $derived(gbConfig.response?.gitbutlerGerritMode ?? false);
@@ -52,7 +48,6 @@
 	let loading = $state<boolean>(false);
 	let targetWasSet = $state(false);
 	let targetError = $state<ClassifiedError>();
-	let showMoreInfo = $state<boolean>(false);
 
 	// split all the branches by the first '/' and gather the unique remote names
 	// then turn remotes into an array of objects with a 'name' and 'value' key
@@ -324,48 +319,5 @@
 		justify-content: flex-end;
 		width: 100%;
 		gap: 8px;
-	}
-
-	/* BANNER */
-	.project-setup__info {
-		display: flex;
-		padding: 14px 16px;
-		gap: 8px;
-		border-radius: var(--radius-m);
-		background-color: var(--bg-mute);
-		cursor: pointer;
-
-		&:hover {
-			& .project-setup__fold-icon {
-				color: var(--text-2);
-			}
-		}
-	}
-
-	.project-setup__info__title {
-		display: inline;
-		width: 100%;
-		gap: 8px;
-
-		svg {
-			display: inline;
-			margin-right: 8px;
-			float: left;
-			transform: translateY(4px);
-		}
-	}
-
-	.project-setup__fold-icon {
-		display: flex;
-		align-self: flex-start;
-		padding-top: 2px;
-		color: var(--text-3);
-		transition:
-			transform var(--transition-medium),
-			color var(--transition-fast);
-
-		&.rotate-icon {
-			transform: rotate(90deg);
-		}
 	}
 </style>

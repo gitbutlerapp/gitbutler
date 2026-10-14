@@ -175,7 +175,7 @@ pub fn list(
                 // If the merge-base equals the branch head, the branch is already fully contained
                 // in the target and has no commits ahead to show.
                 repo.merge_base_with_graph(branch.head, target_oid, &mut graph)
-                    .map(|merge_base| merge_base != branch.head)
+                    .map(|merge_base| merge_base.is_none_or(|merge_base| merge_base != branch.head))
                     .unwrap_or(true)
             })
             .take(num_branches_to_take)
@@ -414,7 +414,7 @@ fn check_branches_merge_cleanly(
                 Ok(branch_commit) => {
                     // Find merge base
                     match repo.merge_base_with_graph(target_commit_id, branch.tip, &mut graph) {
-                        Ok(merge_base) => {
+                        Ok(Some(merge_base)) => {
                             let merge_base_tree_id =
                                 repo.find_commit(merge_base)?.tree_id()?.detach();
 
@@ -429,7 +429,7 @@ fn check_branches_merge_cleanly(
 
                             result.insert(branch_name, merges_cleanly);
                         }
-                        Err(_) => {
+                        Ok(None) | Err(_) => {
                             // Can't find merge base, assume conflict
                             result.insert(branch_name, false);
                         }
@@ -449,7 +449,7 @@ fn check_branches_merge_cleanly(
             Ok(branch_commit) => {
                 // Find merge base
                 match repo.merge_base_with_graph(target_commit_id, branch.head, &mut graph) {
-                    Ok(merge_base) => {
+                    Ok(Some(merge_base)) => {
                         let merge_base_tree_id = repo.find_commit(merge_base)?.tree_id()?.detach();
 
                         // Check if branch merges cleanly into target
@@ -463,7 +463,7 @@ fn check_branches_merge_cleanly(
 
                         result.insert(branch_name, merges_cleanly);
                     }
-                    Err(_) => {
+                    Ok(None) | Err(_) => {
                         // Can't find merge base, assume conflict
                         result.insert(branch_name, false);
                     }
@@ -496,8 +496,8 @@ fn calculate_commits_ahead(
 
         // Count commits ahead using merge base
         let merge_base = match repo.merge_base_with_graph(branch_oid, target_oid, &mut graph) {
-            Ok(base) => base,
-            Err(_) => continue, // Skip if no merge base found
+            Ok(Some(base)) => base,
+            Ok(None) | Err(_) => continue, // Skip if no merge base found
         };
 
         // Walk from branch head to merge base

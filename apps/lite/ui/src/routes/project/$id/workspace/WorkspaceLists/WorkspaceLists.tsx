@@ -1244,6 +1244,8 @@ const Stacks: FC<{
 			viewportClassName={styles.stacksViewport}
 			style={{
 				"--row-padding-inline-start": `${ROW_INSET}px`,
+				// Edge to edge, the rows' own ends are all that stands them in from the window.
+				"--row-padding-inline-end": "12px",
 				"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
 				"--graph-trunk": graphTrunk ? "shown" : "hidden",
 			}}

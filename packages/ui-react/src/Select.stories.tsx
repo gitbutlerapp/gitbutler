@@ -10,6 +10,8 @@ const terminals = [
 ];
 
 const meta = preview.meta({
+	title: "Inputs/Select",
+	id: "components-select",
 	component: Select,
 	parameters: {
 		design: {
@@ -33,10 +35,23 @@ const meta = preview.meta({
 });
 
 /** Nothing chosen yet: the trigger reads the placeholder, and the list opens with it as its first row. */
-export const Default = meta.story({});
+export const Default = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2787-6895",
+		},
+	},
+});
 
 /** The chosen row is ticked, and the list opens with that row over the trigger. */
 export const WithValue = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2787-6896",
+		},
+	},
 	args: { defaultValue: "terminal" },
 });
 

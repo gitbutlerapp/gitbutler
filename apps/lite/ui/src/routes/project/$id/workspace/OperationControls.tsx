@@ -1,3 +1,4 @@
+import { snackbarManager } from "#ui/snackbars.ts";
 import { useAbsorb } from "#ui/api/mutations.ts";
 import {
 	cancelPendingOperation,
@@ -8,7 +9,6 @@ import {
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { Button, type ButtonSize, type ButtonVariant } from "@gitbutler/ui-react/Button.tsx";
-import { Snackbar } from "@gitbutler/ui-react/Snackbar.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
@@ -51,9 +51,6 @@ import {
 } from "#ui/operations/pending-operation.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
-
-/** How long a notice stands before it takes itself away. */
-const NOTICE_TIMEOUT_MS = 5_000;
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={styles.container}>
@@ -304,7 +301,8 @@ const AbsorbOperationControls: FC<{
 
 	// The plan answers where these changes belong. With no answer — because nothing owns them, or
 	// because working it out failed — there is nothing left to aim, and an operation that cannot be
-	// aimed must not hold the workspace open: it stands down and leaves a notice saying why.
+	// aimed must not hold the workspace open: it stands down and says why in a snackbar. The id makes
+	// a second run of this effect update that snackbar rather than raise another.
 	const refusal = isAbsorptionPlanPending
 		? null
 		: isAbsorptionPlanError
@@ -316,7 +314,8 @@ const AbsorbOperationControls: FC<{
 	useEffect(() => {
 		if (refusal === null) return;
 
-		dispatch(projectSlice.actions.refusePendingOperation({ projectId, notice: refusal }));
+		dispatch(projectSlice.actions.refusePendingOperation({ projectId }));
+		snackbarManager.add({ id: `absorb-refusal:${projectId}`, title: refusal, type: "danger" });
 	}, [dispatch, projectId, refusal]);
 
 	if (refusal !== null) return null;
@@ -638,41 +637,18 @@ export const OperationControls: FC<{
 	const checkedAddressCount = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddressCount(state, projectId),
 	);
-	const notice = useAppSelector((state) => projectSlice.selectors.selectNotice(state, projectId));
-	const dispatch = useAppDispatch();
-	const clearNotice = () => dispatch(projectSlice.actions.clearNotice({ projectId }));
-
-	// A notice is the end of something, not a thing to attend to: it carries no way out of its own
-	// and leaves on a click or on its own, so the only close button on screen belongs to whatever
-	// the workspace still has in hand.
-	useEffect(() => {
-		if (notice === null) return;
-
-		const timer = setTimeout(
-			() => dispatch(projectSlice.actions.clearNotice({ projectId })),
-			NOTICE_TIMEOUT_MS,
-		);
-		return () => clearTimeout(timer);
-	}, [dispatch, notice, projectId]);
 
 	return Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
 			None: () =>
-				(notice !== null || checkedAddressCount > 0) && (
+				checkedAddressCount > 0 && (
 					<div className={styles.container}>
 						<ToolboxStack>
-							{notice !== null && (
-								<Snackbar variant="danger" className={styles.notice} onClick={clearNotice}>
-									{notice}
-								</Snackbar>
-							)}
-							{checkedAddressCount > 0 && (
-								<CheckedAddressOperationControls
-									checkedAddressCount={checkedAddressCount}
-									projectId={projectId}
-									appliedAddressSpace={appliedAddressSpace}
-								/>
-							)}
+							<CheckedAddressOperationControls
+								checkedAddressCount={checkedAddressCount}
+								projectId={projectId}
+								appliedAddressSpace={appliedAddressSpace}
+							/>
 						</ToolboxStack>
 					</div>
 				),

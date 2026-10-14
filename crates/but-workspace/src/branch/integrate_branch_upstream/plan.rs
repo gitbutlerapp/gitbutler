@@ -297,6 +297,7 @@ fn prepare_squash_step_for_editor<M: RefMetadata>(
         .repo()
         .merge_base_octopus(ordered_commit_ids.iter().copied())
         .context("failed to compute squash merge-base")?
+        .context("Could not find a merge-base for the commits to squash")?
         .detach();
 
     let tip_commit_id = *ordered_commit_ids

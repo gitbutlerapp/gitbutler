@@ -28,8 +28,6 @@ doctest = false
 
 [features]
 default = []
-## Enable COW worktrees on macOS (Linux provides a test-only mock).
-worktree-cow = ["but-workspace/worktree-cow"]
 ## Provide Tauri commands automatically where possible, to avoid duplication.
 ## Needs "legacy" as long as it needs legacy project support.
 tauri = ["dep:tauri", "legacy"]

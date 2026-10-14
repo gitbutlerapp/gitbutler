@@ -1,39 +1,188 @@
 .viewport {
-	display: flex;
 	/* Appear above other floating UI e.g. dialogs. */
 	z-index: 1;
 	position: fixed;
+	/* Toasts take the bottom-right corner; the bottom centre belongs to snackbars. */
 	right: 16px;
 	bottom: 16px;
-	row-gap: 8px;
-	flex-direction: column;
-	align-items: flex-end;
+	width: 320px;
 }
 
+/* At rest the toasts stack behind the newest, narrowing as they go back: the first behind peeks
+   14px above the front, the next 9px above that, each step 5px less. Under the pointer or focus
+   the viewport expands them into a column, 8px apart. Base UI measures each toast and sets the
+   --toast-* variables. */
 .root {
-	width: 250px;
-	padding: 12px;
+	--gap: 8px;
+	--peek: 14px;
+	--peek-step: 5px;
+	--lift: calc(
+		var(--toast-index) * var(--peek) - var(--toast-index) * (var(--toast-index) - 1) / 2 *
+			var(--peek-step)
+	);
+	--scale: calc(1 - var(--toast-index) * 0.08);
+	/* Collapsed, every toast takes the front one's height, so a tall one behind doesn't stick out. */
+	--height: var(--toast-frontmost-height, var(--toast-height));
+	z-index: calc(1000 - var(--toast-index));
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	width: 100%;
+	height: var(--height);
+	transform: translateY(calc(-1 * var(--lift) - (1 - var(--scale)) * var(--height)))
+		scale(var(--scale));
+	transform-origin: bottom center;
+	/* A new toast slides up from below the window's edge. An animation rather than the transition,
+	   since arriving and folding both end at rest and a transition can't time them apart; on
+	   `translate`, so it adds to the stack's transform instead of replacing it. */
+	animation: enter 0.45s var(--easing-popup);
+	/* The popup's easing, which starts fast and settles, so folding back feels immediate. */
 	transition:
-		translate 0.3s,
-		opacity 0.2s;
+		transform 0.35s var(--easing-popup),
+		height 0.35s var(--easing-popup),
+		opacity 0.2s ease;
 
-	&[data-starting-style] {
-		translate: 0 5px;
+	/* Unfolding takes its time so the eye can follow each toast to its place; folding back stays
+	   quick, since by then the reader is done with them. */
+	&[data-expanded] {
+		--height: var(--toast-height);
+		transform: translateY(calc(-1 * (var(--toast-offset-y) + var(--toast-index) * var(--gap))));
+		transition:
+			transform 0.45s var(--easing-popup),
+			height 0.45s var(--easing-popup),
+			opacity 0.2s ease;
+	}
+
+	/* Bridges the gap to the toast below, so moving the pointer between two expanded toasts
+	   doesn't leave the viewport and collapse the stack under it. */
+	&::after {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		width: 100%;
+		height: calc(var(--gap) + 1px);
+		content: "";
+	}
+
+	/* Past Base UI's limit of three, a toast waits out of sight until one in front is dismissed. */
+	&[data-limited] {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	/* The front toast drops back below the window's edge when it goes. One further back fades
+	   where it stands rather than sliding through the others. */
+	&[data-ending-style][data-front] {
+		transform: translateY(150%);
+	}
+
+	&[data-ending-style] {
 		opacity: 0;
 	}
 }
 
+.surface {
+	height: 100%;
+	padding: var(--padding-modal);
+}
+
+/* A toast sits at the window's edge, where the popup's larger shadow would mostly fall off it, so it
+   takes the closer one snackbars use. Scoped to the toast so it outranks the popup surface's own. */
+.root > .surface {
+	box-shadow: var(--shadow-md);
+}
+
+/* The glyph, the words and the close button side by side, all hung from the top edge so a long
+   description grows the card downwards without moving them. The popup surface stays a column. */
+.row {
+	display: flex;
+	column-gap: var(--space-2xl);
+	align-items: flex-start;
+	transition: opacity 0.2s;
+
+	/* A toast behind the front one shows only its edge. */
+	&:has(> [data-behind]:not([data-expanded])) {
+		opacity: 0;
+	}
+}
+
+/* The whole verdict: the surface, the border and the words stay the same across types, so the
+   glyph is the only thing saying how the news landed. */
+.icon {
+	flex: none;
+	color: var(--toast-icon, var(--text-3));
+}
+
+.root[data-type="warning"] {
+	--toast-icon: var(--text-warn);
+}
+
+.root[data-type="error"] {
+	--toast-icon: var(--text-danger);
+}
+
+.root[data-type="success"] {
+	--toast-icon: var(--text-safe);
+}
+
+/* The action sits under the words rather than beside the close button, so a long label never
+   squeezes the description into a strip. */
 .content {
 	display: flex;
+	flex: 1;
 	flex-direction: column;
-	gap: 12px;
-	/* Error messages carry URLs and identifiers longer than any word the
-	   250px card can hold; break them rather than overflow the card. */
+	min-width: 0;
+	gap: var(--space-2xl);
+	/* Error messages carry URLs and identifiers longer than any word the card can hold; break
+	   them rather than overflow the card. */
 	overflow-wrap: anywhere;
 }
 
-.actions {
+.text {
 	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
+	flex-direction: column;
+	gap: var(--space-md);
+}
+
+.description {
+	color: var(--text-2);
+
+	/* A breakdown, such as the paths a commit left behind and why. */
+	& ul {
+		margin: 0;
+		padding-inline-start: 16px;
+		list-style: disc;
+	}
+}
+
+.action {
+	align-self: flex-start;
+}
+
+/* Fences the way out off from what it would be closing, the full height of the words, with more
+   room on the words' side than the button's. A hairline that takes no room of its own. */
+.divider {
+	flex: none;
+	align-self: stretch;
+	width: 1px;
+	margin-inline: 8px -1px;
+	background-color: var(--border-2);
+	opacity: 0.4;
+}
+
+/* A small button squared up to 24px, taking a 20px slot in the row: it spills 4px up and out, so
+   it sits the same 13px from the card's top and right edges without pushing the row taller. */
+.dismiss {
+	--button-width: 24px;
+	--button-height: 24px;
+	--button-padding-inline: 5px;
+	flex: none;
+	margin-inline-end: -4px;
+	margin-block-start: -4px;
+}
+
+@keyframes enter {
+	from {
+		translate: 0 150%;
+	}
 }

@@ -112,7 +112,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         let mut commit_to_pick_ix = HashMap::<gix::ObjectId, StepGraphIndex>::new();
         let mut reference_to_ix = HashMap::<gix::refs::FullName, StepGraphIndex>::new();
         let mut graph = StepGraph::new();
-        let mut head_selectors = vec![];
         let mut references = vec![];
         struct NodeSegment {
             nodes: Vec<StepGraphIndex>,
@@ -146,12 +145,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     mutable: reference_mutable,
                 });
                 reference_to_ix.insert(refname.clone(), ix);
-                if Some(refname.as_ref()) == entrypoint.segment.ref_name() {
-                    head_selectors.push(Selector {
-                        id: ix,
-                        revision: 0,
-                    });
-                }
                 nodes.push(ix);
             }
 
@@ -226,18 +219,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             };
         }
 
-        // An edge into an empty segment carries no parent order. Every other commit has its
-        // parents checked against the commit itself further down; the workspace commit is
-        // exempt from that check, so its order is resolved from the commit here.
-        let workspace_commit_parent_order = |source: SegmentIndex, target: SegmentIndex| {
-            let commit = workspace.graph[source].commits.last()?;
-            if Some(commit.id) != workspace_commit_id {
-                return None;
-            }
-            let parent = workspace.graph.tip_skip_empty(target)?;
-            commit.parent_ids.iter().position(|id| *id == parent.id)
-        };
-
         for sidx in segments.keys() {
             let Some(source) = segments.get(sidx).and_then(|n| n.nodes.last()) else {
                 continue;
@@ -269,9 +250,9 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
 
                 let order = edge
                     .weight()
-                    .parent_order()
+                    .workspace_parent_order()
+                    .or_else(|| edge.weight().parent_order())
                     .map(|order| order as usize)
-                    .or_else(|| workspace_commit_parent_order(*sidx, edge.target()))
                     .unwrap_or(0);
                 graph.add_edge(*source, *target, Edge { order });
             }
@@ -376,9 +357,16 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
         }
 
+        let head_selector = match entrypoint.segment.ref_name() {
+            Some(ref_name) => reference_to_ix.get(ref_name),
+            None => entrypoint
+                .commit()
+                .and_then(|commit| commit_to_pick_ix.get(&commit.id)),
+        }
+        .map(|&id| Selector { id, revision: 0 });
         let checkouts = worktree_checkouts
             .into_values()
-            .chain(head_selectors.into_iter().map(|selector| Checkout::Head {
+            .chain(head_selector.map(|selector| Checkout::Head {
                 selector,
                 merge_base_override: None,
             }))
@@ -403,7 +391,8 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// This is the normalization path for callers that want to chain
     /// additional editor-based operations and need the editor graph plus
     /// in-memory repository to agree on ancestry.
-    pub fn into_editor(self) -> Editor<'ws, 'meta, M> {
+    pub fn into_editor(mut self) -> Editor<'ws, 'meta, M> {
+        self.history.conflicted_commits.clear();
         Editor {
             graph: self.graph,
             initial_references: self.initial_references,

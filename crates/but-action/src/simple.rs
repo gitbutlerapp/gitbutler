@@ -59,7 +59,7 @@ pub(crate) fn handle_changes(
     }
 
     // Get the current stacks in the workspace, creating one if none exists.
-    let stacks = stacks_creating_if_none(repo, ws, meta, perm)?;
+    let stacks = stacks_creating_if_none(repo, ws, meta, db, perm)?;
 
     // Put the assignments into buckets by stack ID.
     let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
@@ -152,13 +152,14 @@ pub(crate) fn handle_changes(
 /// Return the applied stacks that can receive action commits, creating one if none exists.
 ///
 /// `repo` is used to generate the canned branch name and create the underlying reference. `ws` is
-/// updated when the first stack has to be created. `meta` records the stack metadata written by the
-/// reference creation operation. `_perm` proves that the caller holds exclusive worktree access for
-/// the reference creation path.
+/// updated when the first stack has to be created. `meta` and `db` record the stack metadata written
+/// by the reference creation operation. `_perm` proves that the caller holds exclusive worktree
+/// access for the reference creation path.
 fn stacks_creating_if_none(
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
     meta: &mut impl RefMetadata,
+    db: &mut DbHandle,
     _perm: &mut RepoExclusive,
 ) -> anyhow::Result<Vec<StackForAction>> {
     let stacks = stack_info(ws);
@@ -167,16 +168,9 @@ fn stacks_creating_if_none(
     }
 
     let branch_name = but_core::branch::unique_canned_refname(repo)?;
-    let new_ws = but_workspace::branch::create_reference(
-        branch_name.as_ref(),
-        None,
-        repo,
-        ws,
-        meta,
-        |_| StackId::generate(),
-        None,
-    )?;
-    *ws = new_ws.into_owned();
+    let editor = Editor::create(ws, meta, repo, db)?;
+    but_workspace::branch::create_reference(editor, branch_name.as_ref(), None, None)?
+        .materialize(Default::default())?;
     let stack = ws
         .stacks
         .iter()

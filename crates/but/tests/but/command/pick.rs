@@ -3,26 +3,6 @@ use snapbox::str;
 use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
-fn switch_requires_single_branch_feature() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    env.setup_metadata(&["A", "B"]);
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
-
-    env.but("pick d3e2ba3 -b picked --switch")
-        .assert()
-        .failure()
-        .stdout_eq(str![])
-        .stderr_eq(str![[r#"
-Error: `--switch` requires the `single-branch` feature to be enabled
-
-Hint: Enable the feature with `but config feature single-branch enable`
-
-"#]]);
-}
-
-#[test]
 fn rejects_unnamed_segment_as_source_or_target() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
@@ -141,7 +121,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         str![[r#"
-*   3fcc02f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   54743c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (foo) add first
 |/  
@@ -307,10 +287,6 @@ fn pick_duplicate_sources_outputs_each_commit_once() {
 #[test]
 fn pick_commit_to_new_branch_outputs_json() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
     env.setup_metadata(&["A"]);
 
     env.but("unapply A").assert().success();
@@ -369,10 +345,6 @@ Hint: run `but help` for all commands
 #[test]
 fn pick_commit_to_new_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
     env.setup_metadata(&["A"]);
 
     env.but("unapply A").assert().success();
@@ -388,7 +360,7 @@ Picked 9477ae7 onto new branch 'new-branch' to create oxt
     env.but("status -v").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ne [new-branch]
+┊╭┄ ne [new-branch] [HEAD]
 ┊● oxt author 2000-01-01 00:00:00 +0000 (sha 099246a)
 ┊│     add A 
 ├╯
@@ -467,10 +439,6 @@ Hint: run `but help` for all commands
 #[test]
 fn pick_commit_above_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
     env.setup_metadata(&["A", "B"]);
 
     env.but("unapply B").assert().success();
@@ -486,7 +454,7 @@ Picked d3e2ba3 onto new branch 'a-branch-1' to create olw
     env.but("status -v").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊● olw author 2000-01-01 00:00:00 +0000 (sha 377d9b6)
 ┊│     add B 
 ┊│
@@ -505,10 +473,6 @@ Hint: run `but help` for all commands
 #[test]
 fn pick_commit_below_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
     env.setup_metadata(&["A", "B"]);
 
     env.but("unapply B").assert().success();
@@ -524,7 +488,7 @@ Picked d3e2ba3 onto new branch 'a-branch-1' to create olw
     env.but("status -v").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊● tpm author 2000-01-01 00:00:00 +0000 (sha fb0504e)
 ┊│     add A 
 ┊│
@@ -543,10 +507,6 @@ Hint: run `but help` for all commands
 #[test]
 fn pick_commit_above_branch_with_new_branch_name() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    // Keep unapply from switching to single-branch mode.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
     env.setup_metadata(&["A", "B"]);
     env.but("unapply B").assert().success();
 
@@ -561,7 +521,7 @@ Picked d3e2ba3 onto new branch 'top' to create olw
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   olw add B
 ┊│
 ┊├┄ g0 [A]
@@ -578,10 +538,6 @@ Hint: run `but help` for all commands
 #[test]
 fn pick_commit_below_branch_with_new_branch_name() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    // Keep unapply from switching to single-branch mode.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
     env.setup_metadata(&["A", "B"]);
     env.but("unapply B").assert().success();
 
@@ -596,7 +552,7 @@ Picked d3e2ba3 onto new branch 'bottom' to create olw
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   tpm add A
 ┊│
 ┊├┄ bo [bottom]
@@ -697,13 +653,14 @@ Picked 580bef0 onto branch 'B' to create qnu
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c2cbac1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   630bd11 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | 0f3edd1 (B) add W
-* | d3e2ba3 add B
+| * 0f3edd1 (B) add W
+| * d3e2ba3 add B
 | | * 580bef0 (wt-feature) add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -734,13 +691,14 @@ Picked d3e2ba3 onto branch 'wt-inside' to create olw
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * 7bc6f49 (wt-inside) add B
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -770,13 +728,14 @@ Picked d3e2ba3 onto branch 'wt-inside' to create olw
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * 7bc6f49 (wt-inside) add B
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 

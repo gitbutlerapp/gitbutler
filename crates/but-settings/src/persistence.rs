@@ -30,6 +30,7 @@ fn remove_deprecated_settings(customizations: &mut serde_json::Value) -> bool {
             "undo",
             "rules",
             "cv3",
+            "singleBranch",
         ] {
             if feature_flags.remove(deprecated).is_some() {
                 removed = true;
@@ -224,7 +225,8 @@ mod tests {
                     "rules": true,
                     "cv3": true,
                     "unapplyV3Pgm": true,
-                    "singleBranch": true
+                    "singleBranch": true,
+                    "worktreeManipulation": true
                 }
             }"#,
         )
@@ -236,12 +238,17 @@ mod tests {
         let saved: serde_json::Value =
             serde_json_lenient::from_str(&std::fs::read_to_string(&config_path).unwrap()).unwrap();
 
-        assert_eq!(saved["featureFlags"]["singleBranch"], json!(true));
+        assert_eq!(saved["featureFlags"]["worktreeManipulation"], json!(true));
         assert_eq!(saved["featureFlags"].get("apply3"), None);
         assert_eq!(saved["featureFlags"].get("unapplyV3"), None);
         assert_eq!(saved["featureFlags"].get("undo"), None);
         assert_eq!(saved["featureFlags"].get("rules"), None);
         assert_eq!(saved["featureFlags"].get("cv3"), None);
+        assert_eq!(
+            saved["featureFlags"].get("singleBranch"),
+            None,
+            "saving should prune the removed single-branch flag"
+        );
         assert_eq!(saved["featureFlags"].get("unapplyV3Pgm"), None);
     }
 

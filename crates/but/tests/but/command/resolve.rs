@@ -732,9 +732,6 @@ fn resolve_status_keeps_unreadable_text_conflicts_remaining() {
 #[test]
 fn cannot_checkout_a_conflicted_commit_in_single_branch_mode() {
     let env = sandbox_with_conflicted_commit();
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
 
     env.but("status")
         .assert()
@@ -782,9 +779,6 @@ fn but_resolve_apply_without_workspace_reference() {
     let env = Sandbox::open_scenario_with_target_and_default_settings(
         "single-branch-conflict-in-bottom-commit",
     );
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
 
     // we should have no workspace commit to begin with
     snapbox::assert_data_eq!(
@@ -825,7 +819,7 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 Error: `but resolve` does not support a checked-out branch. A GitButler workspace is required.
 
-Hint: Enter workspace with `but apply A` then re-run `but resolve rou`
+Hint: Enter workspace with `but switch --workspace` then re-run `but resolve rou`
 
 "#]]);
 
@@ -837,7 +831,7 @@ Hint: Enter workspace with `but apply A` then re-run `but resolve rou`
         .stderr_eq(snapbox::str![[r#"
 Error: `but resolve` does not support a checked-out branch. A GitButler workspace is required.
 
-Hint: Use `but resolve apply` to resolve conflicts without changing HEAD. As a fallback use `but apply A`
+Hint: Use `but resolve apply` to resolve conflicts without changing HEAD. As a fallback use `but switch --workspace`
 
 "#]]);
 

@@ -1,0 +1,82 @@
+.banner {
+	display: flex;
+	column-gap: 8px;
+	align-items: flex-start;
+	padding: 8px 8px 8px 10px;
+	/* Set into the layout like a card, not floated over it like a popup. */
+	border-radius: var(--radius-card);
+	background-color: var(--banner-bg);
+	color: var(--banner-fg);
+}
+
+/* The row is as tall as the action, 20px; each part sits on that line rather than on the
+   banner's middle, so a description under the title leaves the icon and the action beside it. */
+.icon {
+	flex-shrink: 0;
+	margin-block-start: 2px;
+	color: var(--banner-icon, var(--banner-fg));
+}
+
+.content {
+	display: flex;
+	row-gap: 4px;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	padding-block: 2px;
+}
+
+.title {
+	overflow-wrap: anywhere;
+}
+
+.description {
+	color: var(--banner-description, var(--banner-fg));
+}
+
+/* A flex box, so the button's top is the row's top rather than a line box's baseline. */
+.action {
+	display: flex;
+	flex-shrink: 0;
+}
+
+/* The action is the banner's own fix, so it speaks in the banner's colour. Button declares its
+   colours on itself at zero specificity so a class like this one can override them. */
+.action > * {
+	--button-fg: var(--banner-fg);
+	/* The hover is tinted the same way: the plain hover is gray at this share, and the banner's
+	   text colour is darker than that gray, so it takes twice the share to show on the tint. */
+	--button-hover-bg: color-mix(
+		in srgb,
+		var(--banner-fg) calc(var(--opacity-bg-hover) * 2),
+		transparent
+	);
+}
+
+.warn {
+	--banner-bg: var(--bg-warn);
+	--banner-fg: var(--text-warn);
+}
+
+.danger {
+	--banner-bg: var(--bg-danger);
+	--banner-fg: var(--text-danger);
+}
+
+.pop {
+	--banner-bg: var(--bg-pop);
+	--banner-fg: var(--text-pop);
+}
+
+.safe {
+	--banner-bg: var(--bg-safe);
+	--banner-fg: var(--text-safe);
+}
+
+/* No hue to carry the verdict, so the title keeps the body colour and the rest steps down. */
+.gray {
+	--banner-bg: var(--bg-mute);
+	--banner-fg: var(--text-1);
+	--banner-icon: var(--text-2);
+	--banner-description: var(--text-2);
+}

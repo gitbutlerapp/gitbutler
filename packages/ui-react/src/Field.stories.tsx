@@ -10,6 +10,8 @@ import { Icon } from "./Icon.tsx";
 import { Field } from "@base-ui/react";
 
 const meta = preview.meta({
+	title: "Inputs/Field",
+	id: "components-field",
 	// The library's part is the styles; the story composes them on Base UI's Field.
 	component: FieldRootStyles,
 	parameters: {
@@ -34,6 +36,12 @@ export const Default = meta.story({
 });
 
 export const WithValue = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2787-6902",
+		},
+	},
 	render: () => (
 		<Field.Root render={<FieldRootStyles />} style={{ width: 320 }}>
 			<Field.Label render={<FieldLabelStyles />}>Branch name</Field.Label>
@@ -74,6 +82,12 @@ export const Textarea = meta.story({
 });
 
 export const WithLeadingIcon = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2787-6901",
+		},
+	},
 	render: () => (
 		<Field.Root render={<FieldRootStyles />} style={{ width: 320 }}>
 			<Field.Label render={<FieldLabelStyles />}>Search</Field.Label>
@@ -88,6 +102,12 @@ export const WithLeadingIcon = meta.story({
 });
 
 export const WithTrailingIcon = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2787-6903",
+		},
+	},
 	render: () => (
 		<Field.Root render={<FieldRootStyles />} style={{ width: 320 }}>
 			<Field.Label render={<FieldLabelStyles />}>Repository URL</Field.Label>

@@ -23,9 +23,6 @@ fn can_undo_single_branch_commit_on_new_branch() {
 #[test]
 fn can_undo_single_branch_commit_on_checked_out_branch() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
     env.file("new-file.txt", "content\n");
     let head_before = env.invoke_git("rev-parse HEAD");
 
@@ -49,9 +46,6 @@ fn can_undo_single_branch_commit_on_checked_out_branch() {
 fn can_undo_single_branch_commit_at_each_existing_stack_branch() {
     for branch in ["main", "middle", "top"] {
         let env = Sandbox::open_with_default_settings("one-fork");
-        env.but("config feature single-branch enable")
-            .assert()
-            .success();
         env.but("commit -b middle -m 'on middle'")
             .assert()
             .success();

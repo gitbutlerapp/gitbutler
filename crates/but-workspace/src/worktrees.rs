@@ -5,17 +5,12 @@
 //! Enumeration, archived-state reconciliation, and `HEAD` resolution are
 //! centralized in `but-ctx`, keeping this crate independent of it.
 
-#[cfg(feature = "worktree-cow")]
-use std::fs;
-use std::{ffi::OsStr, path::Path};
+use std::{path::Path, sync::atomic::AtomicBool};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString};
 use but_core::{DiffSpec, RepositoryExt};
 pub use but_graph::workspace::WorktreeBase;
-
-#[cfg(feature = "worktree-cow")]
-use gix::utils::AsBStr;
 
 use crate::ref_info::{Lane, LocalCommit, Segment};
 
@@ -82,7 +77,7 @@ pub fn open_worktree_repo(repo: &gix::Repository, name: &BStr) -> anyhow::Result
     let proxy = repo
         .worktrees()?
         .into_iter()
-        .find(|proxy| proxy.id() == name)
+        .find(|proxy| proxy.id().is_ok_and(|id| id == name))
         .with_context(|| format!("Worktree {name} does not exist"))?;
     proxy.into_repo().map_err(Into::into)
 }
@@ -114,18 +109,49 @@ pub fn updated_at(repo: &gix::Repository, name: &BStr) -> anyhow::Result<Option<
     Ok(newest)
 }
 
-/// Remove the linked worktree checked out at `path` the way `git worktree remove` does, which
-/// refuses a dirty checkout unless `force`, and a locked one until it is unlocked.
-///
-/// Git is invoked directly as it has the only implementation of this, and its own error
-/// message is surfaced on failure.
-pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> anyhow::Result<()> {
-    let mut args = Vec::new();
-    if force {
-        args.push(OsStr::new("--force"));
+/// Remove the linked worktree named `name`, refusing a dirty checkout unless `force`.
+/// Uses gix's bounded retries to handle files created during deletion.
+/// Forced removal overrides locks; otherwise a lock is released and restored if removal is refused.
+pub fn remove(repo: &gix::Repository, name: &BStr, force: bool) -> anyhow::Result<()> {
+    use gix::worktree::remove::{Error, Force};
+    let worktree = repo
+        .worktree_proxy_by_id(name)?
+        .with_context(|| format!("Worktree {name} does not exist"))?;
+    let remove = || {
+        let result = worktree.clone().remove(
+            if force {
+                Force::OverrideLock
+            } else {
+                Force::Never
+            },
+            gix::progress::Discard,
+        );
+        match result {
+            Err(err)
+                if matches!(
+                    err.downcast_any_ref::<Error>(),
+                    Some(Error::Dirty { .. } | Error::ContainsSubmodule { .. })
+                ) =>
+            {
+                Err(anyhow::Error::from(err))
+                    .context("Worktree contains changes; use --force to discard them")
+            }
+            result => result.map_err(Into::into),
+        }
+    };
+    if force || !worktree.is_locked() {
+        return remove();
     }
-    args.extend([OsStr::new("--"), path.as_os_str()]);
-    git_worktree(repo, "remove", &args)
+    let lock_reason = worktree
+        .lock_reason()
+        .context("Could not read the worktree lock reason")?;
+    worktree
+        .set_lock(None)
+        .context("Could not unlock the worktree")?;
+    remove().map_err(|err| match worktree.set_lock(Some(lock_reason.as_ref())) {
+        Ok(()) => err,
+        Err(relock_err) => err.context(relock_err),
+    })
 }
 
 /// Create a linked worktree at `path` on the new branch `branch` starting at `base`, the way
@@ -139,326 +165,98 @@ pub fn add(
     branch: &gix::refs::FullNameRef,
     base: gix::ObjectId,
 ) -> anyhow::Result<BString> {
-    add_inner(repo, path, branch, base, false)
-}
-
-fn add_inner(
-    repo: &gix::Repository,
-    path: &Path,
-    branch: &gix::refs::FullNameRef,
-    base: gix::ObjectId,
-    no_checkout: bool,
-) -> anyhow::Result<BString> {
     if path.exists() {
         bail!("'{}' already exists", path.display());
     }
-    let short_name = gix::path::from_bstr(branch.shorten());
-    let base = base.to_string();
-
-    let mut args = vec![];
-    if no_checkout {
-        args.push(OsStr::new("--no-checkout"));
-    }
-    args.extend([
-        OsStr::new("-b"),
-        short_name.as_os_str(),
-        OsStr::new("--"),
-        path.as_os_str(),
-        OsStr::new(&base),
-    ]);
-
-    git_worktree(repo, "add", &args)?;
-    gix::open(path)?
-        .worktree()
-        .and_then(|worktree| worktree.id().map(ToOwned::to_owned))
-        .context("git registered the new checkout as a linked worktree")
-}
-
-/// Create a linked worktree by cloning the main worktree.
-/// Uses copy-on-write on macOS and a full-copy development mock on Linux.
-#[cfg(feature = "worktree-cow")]
-pub fn add_cow(
-    repo: &gix::Repository,
-    path: &Path,
-    branch: &gix::refs::FullNameRef,
-    base: gix::ObjectId,
-) -> anyhow::Result<BString> {
-    let Some(workdir) = repo.workdir() else {
-        anyhow::bail!("Cannot use COW worktree mode on bare repository");
-    };
-    if let Some(mut submodules) = repo.submodules()? {
-        anyhow::ensure!(
-            submodules.next().is_none(),
-            "COW mode is not supported for submodules"
-        );
-    }
-
-    let worktree_name = add_inner(repo, path, branch, base, true)?;
-
-    // If we fail after this point, we must try to remove the created worktree, so all further
-    // actions are encapsulated in this awkward closure :)
-    //
-    // We intentionally do not remove any potentially created branch. It's not a big deal if we
-    // leave it dangling around and it's better to not remove the branch than to accidentally remove
-    // one that wasn't created in this worktree creation.
-    let fill_worktree = || -> anyhow::Result<()> {
-        let source_directory = gix::path::realpath(workdir)?;
-        let destination = gix::path::realpath(path)?;
-        let worktree_repo = open_worktree_repo(repo, worktree_name.as_bstr())?;
-        let worktree_root_tree = worktree_repo.head_commit()?.tree()?;
-
-        anyhow::ensure!(
-            !destination.starts_with(&source_directory),
-            "Nested worktrees not allowed for COW"
-        );
-
-        clone_worktree_files(&source_directory, &destination, &worktree_root_tree)?;
-
-        // As the worktree is built with --no-checkout, the index is empty. Rebuilding the index for
-        // the target tree is important to prevent libgit2 from forcibly overwriting all cloned
-        // files.
-        let mut index = worktree_repo.index_from_tree(&worktree_repo.head_tree_id_or_empty()?)?;
-        index.write(Default::default())?;
-
-        let checkout_repo = git2::Repository::open(&destination)?;
-        // Restore tracked files first, including dirty or missing .gitignores. Doing this first is
-        // important to correctly compute untracked and ignored files in the next stage.
-        checkout_repo
-            .checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
-            .context("Failed to restore tracked worktree files")?;
-        // Remove untracked files now that the target state's gitignores are in place.
-        //
-        // Note: This has a bug where a directory that contains ignored files and at least one
-        // untracked file gets wiped completely instead of the expected outcome of just having the
-        // untracked file(s) be removed. We don't think that's a huge deal.
-        checkout_repo
-            .checkout_head(Some(
-                git2::build::CheckoutBuilder::new()
-                    .force()
-                    .remove_untracked(true)
-                    .remove_ignored(false),
-            ))
-            .context("Failed to remove untracked worktree files")?;
-
-        Ok(())
-    };
-
-    if let Err(err) = fill_worktree() {
-        let err = err.context("Failed to clone files into worktree");
-
-        let err = if let Err(remove_err) = remove(repo, path, true) {
-            err.context(remove_err)
-        } else {
-            err
-        };
-
-        return Err(err);
-    }
-
-    Ok(worktree_name)
-}
-
-/// Clone all from the `working_directory` into `destination`, assuming that `target_root_tree`
-/// corresponds to the desired Git state of the destination.
-///
-/// The root `.git` directory, `.gitignore` files that are not in `target_root_tree` and special
-/// files such as FIFOs are skipped.
-///
-/// Note that this is _not_ safe if the `working_directory` contains submodules!
-#[cfg(feature = "worktree-cow")]
-fn clone_worktree_files(
-    working_directory: &Path,
-    destination: &Path,
-    target_root_tree: &gix::Tree<'_>,
-) -> anyhow::Result<()> {
-    let ignored_paths = [working_directory.join(".git")];
-    let filter_path = |path: &Path| {
-        if ignored_paths.iter().any(|p| p == path) {
-            return Ok(false);
-        }
-
-        if !path.ends_with(".gitignore") {
-            return Ok(true);
-        }
-
-        // Gitignores absent from the target tree would survive the first checkout and
-        // incorrectly influence which artifacts the second checkout preserves.
-        let relpath = path.strip_prefix(working_directory)?;
-        Ok(target_root_tree
-            .lookup_entry_by_path(relpath)
-            .map(|lookup| lookup.is_some())?)
-    };
-
-    clone_directory(working_directory, destination, &filter_path)
-}
-
-#[cfg(feature = "worktree-cow")]
-fn clone_directory(
-    source: &Path,
-    destination: &Path,
-    filter_path: &impl Fn(&Path) -> anyhow::Result<bool>,
-) -> anyhow::Result<()> {
-    anyhow::ensure!(source.is_dir(), "Source must be a directory");
-
-    for entry in
-        fs::read_dir(source).with_context(|| format!("Failed to read '{}'", source.display()))?
+    anyhow::ensure!(
+        branch.category() == Some(gix::refs::Category::LocalBranch),
+        "Worktree branch must be a local branch"
+    );
+    let mut source = repo.clone();
+    source.clear_namespace();
+    source
+        .find_commit(base)
+        .context("Worktree base must be an existing commit")?;
+    source.reference(
+        branch,
+        base,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "branch: Created for linked worktree",
+    )?;
+    let prepared = source.prepare_add_worktree(
+        path,
+        gix::worktree::add::Head::Attached(branch.to_owned()),
+        &AtomicBool::default(),
+    )?;
+    let (created, outcome) = prepared.checkout(gix::progress::Discard, &AtomicBool::default())?;
+    // Like Git, tolerate path collisions on case-insensitive filesystems.
+    if !outcome.errors.is_empty()
+        || !outcome.delayed_paths_unknown.is_empty()
+        || !outcome.delayed_paths_unprocessed.is_empty()
     {
-        let entry = entry?;
-
-        let source = entry.path();
-        if !filter_path(&source)? {
-            continue;
-        }
-
-        let destination = destination.join(entry.file_name());
-
-        let kind = entry.file_type()?;
-        if kind.is_dir() {
-            fs::create_dir(&destination)
-                .with_context(|| format!("Failed to create '{}'", destination.display()))?;
-            clone_directory(&source, &destination, filter_path)?;
-            fs::set_permissions(&destination, entry.metadata()?.permissions())?;
-        } else if source.is_symlink() || source.is_file() {
-            clone_file(&source, &destination).with_context(|| {
-                format!(
-                    "Failed to clone file from '{}' to '{}'",
-                    source.display(),
-                    destination.display()
-                )
-            })?;
-        } else {
-            tracing::debug!(
-                "Cannot clone special file '{}' - skipping",
-                source.display()
-            )
-        }
+        let checkout_error = incomplete_checkout_error(&outcome);
+        let worktree = created.worktree().context("created linked worktree")?;
+        let name = worktree
+            .id()?
+            .context("gix registered the new checkout as a linked worktree")?;
+        return match remove(&source, name, true) {
+            Ok(()) => Err(checkout_error),
+            Err(cleanup) => Err(checkout_error.context(cleanup)),
+        };
     }
-
-    Ok(())
-}
-
-#[cfg(all(
-    test,
-    feature = "worktree-cow",
-    any(target_os = "linux", target_os = "macos")
-))]
-mod tests {
-    #[test]
-    fn clone_copies_dirty_tracked_gitignore_before_restoration() -> anyhow::Result<()> {
-        let temp = tempfile::tempdir()?;
-        let source = temp.path().join("source");
-        let repo = gix::init(&source)?;
-        let target_ignore = repo.write_blob(b"/target-only\n")?;
-        let target_tree = repo
-            .write_object(&gix::objs::Tree {
-                entries: vec![gix::objs::tree::Entry {
-                    mode: gix::objs::tree::EntryKind::Blob.into(),
-                    filename: ".gitignore".into(),
-                    oid: target_ignore.detach(),
-                }],
-            })?
-            .object()?
-            .into_tree();
-
-        std::fs::write(source.join(".gitignore"), "/source-only\n")?;
-        std::fs::create_dir(source.join("untracked"))?;
-        std::fs::write(source.join("untracked/.gitignore"), "/untracked-only\n")?;
-        std::fs::write(source.join("ordinary"), "copied\n")?;
-        let source = gix::path::realpath(&source)?;
-        let destination = tempfile::tempdir_in(temp.path())?;
-
-        // Exercise the production cloning stage without checkout.
-        super::clone_worktree_files(&source, destination.path(), &target_tree)?;
-
-        assert_eq!(
-            std::fs::read_to_string(destination.path().join(".gitignore"))
-                .expect("tracked .gitignore must be copied before restoration"),
-            "/source-only\n",
-            "copied contents come from the dirty source, not the target tree"
-        );
-        assert!(
-            !destination.path().join("untracked/.gitignore").exists(),
-            "gitignores absent from the target tree must not be copied"
-        );
-        assert!(
-            !destination.path().join(".git").exists(),
-            "repository metadata must not be copied"
-        );
-        assert_eq!(
-            std::fs::read_to_string(destination.path().join("ordinary"))?,
-            "copied\n",
-            "ordinary files are still copied"
-        );
-        Ok(())
-    }
-}
-
-/// Test-only mock of COW cloning on Linux: copies files without sharing storage.
-/// Not intended for published Linux builds.
-#[cfg(all(feature = "worktree-cow", target_os = "linux"))]
-fn clone_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
-    if source.is_symlink() {
-        let target = fs::read_link(source)?;
-        std::os::unix::fs::symlink(&target, destination)?;
-    } else if source.is_file() {
-        fs::copy(source, destination)?;
-    } else {
-        bail!(
-            "Invalid source type '{}' for clone_file",
-            source
-                .metadata()
-                .map(|meta| format!("{:?}", meta.file_type()))
-                .unwrap_or("UNKNOWN".to_string())
-        )
-    }
-
-    Ok(())
-}
-
-#[cfg(all(
-    feature = "worktree-cow",
-    not(any(target_os = "macos", target_os = "linux"))
-))]
-fn clone_file(_source: &Path, _destination: &Path) -> anyhow::Result<()> {
-    bail!("COW worktrees are only supported on macOS and Linux")
-}
-
-#[cfg(all(feature = "worktree-cow", target_os = "macos"))]
-fn clone_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
-    use std::{ffi::CString, os::unix::ffi::OsStrExt};
-
-    let source = CString::new(source.as_os_str().as_bytes())?;
-    let destination = CString::new(destination.as_os_str().as_bytes())?;
-    // Defined by <sys/clonefile.h>, but not exported by libc.
-    const CLONE_NOFOLLOW: u32 = 0x0001;
-    // SAFETY: Both pointers reference live, NUL-terminated path strings. CLONE_NOFOLLOW
-    // clones symlinks themselves, including dangling links, rather than their targets.
-    let result = unsafe { libc::clonefile(source.as_ptr(), destination.as_ptr(), CLONE_NOFOLLOW) };
-    if result != 0 {
-        return Err(std::io::Error::last_os_error()).context(
-            "clonefile(2) failed; source and destination must share a filesystem supporting copy-on-write cloning (no full-copy fallback)",
-        );
-    }
-    Ok(())
-}
-
-fn git_worktree(repo: &gix::Repository, subcommand: &str, args: &[&OsStr]) -> anyhow::Result<()> {
-    let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
-    // These would override `-C`.
-    for var in ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] {
-        cmd.env_remove(var);
-    }
-    let output = cmd
+    // Git's post-checkout hook runs after registration succeeds, and failure retains the worktree.
+    let output = std::process::Command::new(gix::path::env::exe_invocation())
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_INDEX_FILE")
         .arg("-C")
-        .arg(repo.workdir().unwrap_or(repo.common_dir()))
-        .args(["worktree", subcommand])
-        .args(args)
+        .arg(path)
+        .args(["hook", "run", "--ignore-missing", "post-checkout", "--"])
+        .arg(repo.object_hash().null().to_string())
+        .arg(base.to_string())
+        .arg("1")
         .output()
-        .with_context(|| format!("Failed to run `git worktree {subcommand}`"))?;
-    if !output.status.success() {
-        anyhow::bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+        .context("Failed to run the worktree post-checkout hook")?;
+    anyhow::ensure!(
+        output.status.success(),
+        "Worktree post-checkout hook failed ({}): {}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    created
+        .worktree()
+        .context("created linked worktree")?
+        .id()?
+        .map(ToOwned::to_owned)
+        .context("gix registered the new checkout as a linked worktree")
+}
+
+fn incomplete_checkout_error(outcome: &gix::worktree::state::checkout::Outcome) -> anyhow::Error {
+    let mut message = format!(
+        "Worktree checkout was incomplete: {} errors, {} unknown delayed paths, {} unprocessed delayed paths",
+        outcome.errors.len(),
+        outcome.delayed_paths_unknown.len(),
+        outcome.delayed_paths_unprocessed.len()
+    );
+    if !outcome.errors.is_empty() {
+        message.push_str("\nCheckout errors:");
+        for record in &outcome.errors {
+            message.push_str(&format!("\n{:?}: {:#}", record.path, record.error));
+        }
     }
-    Ok(())
+    if !outcome.delayed_paths_unknown.is_empty() {
+        message.push_str(&format!(
+            "\nUnknown delayed paths: {:?}",
+            outcome.delayed_paths_unknown
+        ));
+    }
+    if !outcome.delayed_paths_unprocessed.is_empty() {
+        message.push_str(&format!(
+            "\nUnprocessed delayed paths: {:?}",
+            outcome.delayed_paths_unprocessed
+        ));
+    }
+    anyhow::anyhow!(message)
 }
 
 /// The outcome of [`move_uncommitted_changes()`].
@@ -546,4 +344,48 @@ pub fn move_uncommitted_changes(
     Ok(MoveUncommittedChangesOutcome {
         conflict_occurred: destination_outcome.conflict_occurred,
     })
+}
+
+#[cfg(test)]
+mod checkout_tests {
+    use gix::error::ErrorExt as _;
+    use gix::worktree::state::checkout::{ErrorRecord, Outcome};
+    use snapbox::IntoData as _;
+
+    #[test]
+    fn incomplete_checkout_reports_paths_and_error_causes() {
+        let outcome = Outcome {
+            errors: vec![
+                ErrorRecord {
+                    path: "filtered.txt".into(),
+                    error: gix::error::message("smudge filter failed").raise(),
+                },
+                ErrorRecord {
+                    path: "unwritable.txt".into(),
+                    error: std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "write denied",
+                    )
+                    .and_raise(gix::error::message("Could not write file")),
+                },
+            ],
+            delayed_paths_unknown: vec!["unknown.txt".into()],
+            delayed_paths_unprocessed: vec!["unprocessed.txt".into(), b"non-utf8-\xff.txt".into()],
+            ..Default::default()
+        };
+
+        // Checkout diagnostics must survive removal of the incomplete worktree.
+        snapbox::assert_data_eq!(
+            super::incomplete_checkout_error(&outcome).to_string(),
+            snapbox::str![[r#"
+Worktree checkout was incomplete: 2 errors, 1 unknown delayed paths, 2 unprocessed delayed paths
+Checkout errors:
+"filtered.txt": smudge filter failed
+"unwritable.txt": Could not write file: I/O error (PermissionDenied): write denied
+Unknown delayed paths: ["unknown.txt"]
+Unprocessed delayed paths: ["unprocessed.txt", "non-utf8-\xff.txt"]
+"#]]
+            .raw()
+        );
+    }
 }

@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { Kbd } from "./Kbd.tsx";
 
 const meta = preview.meta({
+	title: "Actions/Kbd",
+	id: "components-kbd",
 	component: Kbd,
 	parameters: {
 		design: {

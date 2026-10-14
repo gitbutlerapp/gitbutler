@@ -251,10 +251,12 @@ pub(crate) fn enter_edit_mode(
     // Fail before writing anything if the index is already locked, as checkout would only
     // notice after refs and HEAD were moved. The probe is released so checkout can take it.
     drop(
-        gix::lock::File::acquire_to_update_resource_following_symlinks(
+        gix::lock::File::acquire(
             repo.index_path(),
             gix::lock::acquire::Fail::Immediately,
             None,
+            0,
+            Some(&gix::lock::acquire::resolve_symlink),
         )
         .context("Repository index is locked by another process")?,
     );

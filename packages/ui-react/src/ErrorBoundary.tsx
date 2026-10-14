@@ -1,9 +1,16 @@
 import { Button } from "./Button.tsx";
+import { classes } from "./classes.ts";
 import { Component, type ReactNode } from "react";
 import styles from "./ErrorBoundary.module.css";
 
 type Props = {
 	children: ReactNode;
+	/**
+	 * Names what couldn't be drawn, from where the boundary is mounted: "The sidebar couldn't be
+	 * shown". The error itself rarely says anything a reader can act on, so it stays behind
+	 * "Copy error message".
+	 */
+	title: string;
 	/**
 	 * Clears the error when any entry changes, so a view that fails on one
 	 * selection recovers by moving off it rather than sitting broken until the
@@ -22,6 +29,7 @@ type Props = {
 
 type State = {
 	error: Error | null;
+	copied: boolean;
 	/** The keys the current error was raised under, to compare later ones against. */
 	resetKeys: ReadonlyArray<unknown>;
 };
@@ -43,10 +51,10 @@ const keysChanged = (before: ReadonlyArray<unknown>, after: ReadonlyArray<unknow
  * @import import { ErrorBoundary } from "@gitbutler/ui-react/ErrorBoundary.tsx";
  */
 export class ErrorBoundary extends Component<Props, State> {
-	state: State = { error: null, resetKeys: this.props.resetKeys ?? [] };
+	state: State = { error: null, copied: false, resetKeys: this.props.resetKeys ?? [] };
 
-	static getDerivedStateFromError(error: unknown): Pick<State, "error"> {
-		return { error: asError(error) };
+	static getDerivedStateFromError(error: unknown): Pick<State, "error" | "copied"> {
+		return { error: asError(error), copied: false };
 	}
 
 	// Derived during render rather than in componentDidUpdate, which would cost a
@@ -54,24 +62,33 @@ export class ErrorBoundary extends Component<Props, State> {
 	static getDerivedStateFromProps(props: Props, state: State): State | null {
 		const resetKeys = props.resetKeys ?? [];
 		if (!keysChanged(state.resetKeys, resetKeys)) return null;
-		return { error: null, resetKeys };
+		return { error: null, copied: false, resetKeys };
 	}
 
 	handleRetry(): void {
 		this.props.onReset?.();
-		this.setState({ error: null, resetKeys: this.props.resetKeys ?? [] });
+		this.setState({ error: null, copied: false, resetKeys: this.props.resetKeys ?? [] });
+	}
+
+	handleCopy(message: string): void {
+		void navigator.clipboard.writeText(message).then(() => this.setState({ copied: true }));
 	}
 
 	render(): ReactNode {
-		if (!this.state.error) return this.props.children;
+		const { error } = this.state;
+		if (!error) return this.props.children;
 
 		return (
 			<div className={styles.error}>
-				<h1 className={styles.errorTitle}>Something went wrong.</h1>
+				<h1 className={classes(styles.errorTitle, "text-15", "text-semibold")}>
+					{this.props.title}
+				</h1>
 				<div className={styles.errorActions}>
 					<Button onClick={() => this.handleRetry()}>Retry</Button>
+					<Button onClick={() => this.handleCopy(error.message)}>
+						{this.state.copied ? "Copied" : "Copy error message"}
+					</Button>
 				</div>
-				<code className={styles.errorMessage}>{this.state.error.message}</code>
 			</div>
 		);
 	}

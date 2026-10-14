@@ -10,6 +10,8 @@ import { Icon } from "./Icon.tsx";
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
 
 const meta = preview.meta({
+	title: "Content & status/FileList",
+	id: "components-filelist",
 	component: FileListItem,
 	parameters: {
 		design: {
@@ -145,6 +147,12 @@ const countFiles = (node: TreeNode): number =>
  * their path, since the tree says it.
  */
 export const Tree = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2344-2502",
+		},
+	},
 	render: function Render() {
 		const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set(["src/styles"]));
 		const [checked, setChecked] = useState<ReadonlySet<string>>(() => new Set(["Button.tsx"]));

@@ -7,9 +7,6 @@ use crate::{
 
 fn single_branch_integration_scenario() -> Sandbox {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
     env.but("status").env("NO_BG_TASKS", "1").assert().success();
     let repo = env.open_repo();
     let mut project_meta = env.project_meta();
@@ -66,11 +63,7 @@ fn target_branch_pull_scenario(diverged: bool) -> Sandbox {
 }
 
 fn single_branch_target_branch_pull_scenario(diverged: bool) -> Sandbox {
-    let env = target_branch_pull_scenario(diverged);
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
-    env
+    target_branch_pull_scenario(diverged)
 }
 
 fn assert_pull_fast_forwards_local_target(env: Sandbox) {
@@ -1217,38 +1210,6 @@ Hint: run `but branch new` to create a new branch to work on
 Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
-}
-
-#[test]
-fn pull_keeps_empty_workspace_after_all_stacks_integrate_outside_single_branch_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pull-two-integrated-stacks");
-    env.setup_metadata_at_target(&["A", "B"], "origin/main");
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
-
-    env.but("pull").assert().success();
-
-    env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄ @ [uncommitted] (no changes)
-┊
-┴ 7e5d4e1 (common base, main, origin/main) 2000-01-02 add upstream
-
-Hint: run `but branch new` to create a new branch to work on
-
-"#]]);
-
-    assert_eq!(
-        env.invoke_git("symbolic-ref --short HEAD"),
-        "gitbutler/workspace",
-        "outside single-branch mode the managed workspace stays checked out"
-    );
-    assert_eq!(
-        rev_parse(&env, "gitbutler/workspace^"),
-        rev_parse(&env, "origin/main"),
-        "the emptied workspace is reparented onto the advanced target"
-    );
-    assert_eq!(status_stack_count(&env), 0);
 }
 
 #[test]

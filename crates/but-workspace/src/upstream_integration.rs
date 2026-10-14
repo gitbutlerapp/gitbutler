@@ -56,12 +56,8 @@ pub struct ReviewIntegrationHint {
 
 /// The outcome of integrating upstream
 pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
-    /// The updated workspace metadata.
-    pub ws_meta: Option<but_core::ref_metadata::Workspace>,
     /// The updated project metadata.
     pub project_meta: ProjectMeta,
-    /// Integrated local branches whose metadata must be removed after successful materialization.
-    pub deleted_refs: Vec<gix::refs::FullName>,
     /// The rebased outcome.
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
 }
@@ -167,15 +163,11 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     db: &'meta mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
-    integrate_upstream_with_hints(workspace, meta, project_meta, repo, db, updates, &[], false)
+    integrate_upstream_with_hints(workspace, meta, project_meta, repo, db, updates, &[])
 }
 
 /// Like [`integrate_upstream()`], but accepts merged-review-derived integration
 /// anchors to classify additional integrated history.
-///
-/// With `single_branch_mode`, a managed workspace whose applied stacks were all integrated is
-/// replaced by a checked-out canned branch at the target tip. Otherwise the emptied managed
-/// workspace stays checked out, reparented onto the target.
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     workspace: &'ws mut but_graph::Workspace,
@@ -185,7 +177,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     db: &'meta mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
     review_hints: &[ReviewIntegrationHint],
-    single_branch_mode: bool,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
     if matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc)
         && workspace.ref_name().is_none()
@@ -193,7 +184,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         bail!("Operation not possible while HEAD is detached");
     }
 
-    let mut ws_meta = workspace.metadata.clone();
     let target_sha = project_meta
         .target_commit_id
         .context("Cannot update a workspace without a target sha")?;
@@ -363,7 +353,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let mut fully_integrated_workspace_parents = HashSet::new();
     let mut direct_checkout_replacement_ref: Option<(Selector, gix::refs::FullName)> = None;
     let mut selected_stack_nodes = HashSet::new();
-    let mut deleted_refs = Vec::new();
     for stack in &stacks {
         let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase)
             || stack.to_merge
@@ -433,28 +422,23 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                         target_ref_commit_selector,
                         None,
                     )?;
-                    deleted_refs.push(ref_name.clone());
                 }
                 continue;
             }
-            if let Some(ref_name) = attrs.reference_integrated.as_ref() {
-                if let Some(ws_meta) = ws_meta.as_mut() {
-                    ws_meta.remove_segment(ref_name.as_ref());
-                }
-                if should_delete_integrated_local_branch(
+            if let Some(ref_name) = attrs.reference_integrated.as_ref()
+                && should_delete_integrated_local_branch(
                     ref_name.as_ref(),
                     target_ref.ref_name.as_ref(),
                     local_target_ref.as_ref().map(|name| name.as_ref()),
-                ) {
-                    deleted_refs.push(ref_name.clone());
-                    if direct_checkout_replacement_ref
-                        .as_ref()
-                        .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
-                    {
-                        continue;
-                    }
-                    editor.replace_with_none(*selector)?;
+                )
+            {
+                if direct_checkout_replacement_ref
+                    .as_ref()
+                    .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
+                {
+                    continue;
                 }
+                editor.replace_with_none(*selector)?;
             }
         }
     }
@@ -485,10 +469,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     *parent_order,
                 )?;
             }
-            [] if !fully_integrated_workspace_parents.is_empty()
-                && stacks.len() > 1
-                && single_branch_mode =>
-            {
+            [] if !fully_integrated_workspace_parents.is_empty() && stacks.len() > 1 => {
                 // In single-branch mode a managed workspace must not become empty. Prefer the
                 // local target for its checkout, falling back to a uniquely named canned branch,
                 // just like a fully integrated direct checkout.
@@ -620,9 +601,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     // against the old base, with the target's commits folded into the stacks as integrated.
     rebase.project_meta_mut().target_commit_id = project_meta.target_commit_id;
     Ok(IntegrateUpstreamOutcome {
-        ws_meta,
         project_meta,
-        deleted_refs,
         rebase,
     })
 }
@@ -990,7 +969,7 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
     Ok(editor
         .repo()
         .merge_base(remote_tip_id, target_ref_commit)
-        .is_ok_and(|merge_base| merge_base == remote_tip_id))
+        .is_ok_and(|merge_base| merge_base.is_some_and(|merge_base| merge_base == remote_tip_id)))
 }
 
 /// Return `true` if `ref_name` currently resolves to either the old target
@@ -1208,7 +1187,7 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
         let can_fast_forward = local_tip == target.id
             || repo
                 .merge_base(local_tip, target.id)
-                .is_ok_and(|base| base.detach() == local_tip);
+                .is_ok_and(|base| base.is_some_and(|base| base.detach() == local_tip));
         if can_fast_forward
             && but_core::branch::SafeDelete::new(repo)?
                 .worktree_dirs_with_ref(&reference)
@@ -1348,7 +1327,7 @@ pub fn local_tracking_branch_to_fast_forward(
     if local_id == target_id
         || !repo
             .merge_base(local_id, target_id)
-            .is_ok_and(|base| base.detach() == local_id)
+            .is_ok_and(|base| base.is_some_and(|base| base.detach() == local_id))
     {
         return Ok(None);
     }

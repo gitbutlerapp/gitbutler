@@ -305,7 +305,12 @@ branch may be moved at a time. Source order does not matter. For a branch source
 `--unstack` apply; `--below` and `-b <name>` require commit or committed-change sources. `--branch`
 with no value is equivalent to `--unstack`. With the experimental worktree flag on, `-b` also
 accepts a branch in a worktree's lane, moving commit or committed-change sources onto that
-branch's tip (nothing is created); a branch source is refused there.
+branch's tip (nothing is created). A branch source stacks on top of it, leaving the workspace for
+the worktree; stacked onto the branch the worktree has checked out (`--above` that branch or the
+worktree), it becomes what the worktree has checked out. A
+worktree's branches are branch sources too, and stacking one on a workspace branch brings it into
+the workspace. Moving the branch the worktree has checked out leaves the worktree on the branch
+below it, or detached on the commit it was based on when there is none.
 
 For commits or committed changes, add `-b <new-name>` to `--above <branch>`, `--below <branch>`,
 or `--unstack` to name the new branch; omit it for a generated name. This does not rename an
@@ -382,7 +387,7 @@ When commits have conflicts (history-editing commands warn about newly conflicte
 
 ### `but resolve <commit>`
 
-Enter resolution mode for a conflicted commit.
+Enter resolution mode for a conflicted commit. Requires a GitButler workspace; when a branch is checked out, the error directs you to `but switch --workspace`. Agents can use `but resolve apply` instead to resolve conflicts without changing HEAD.
 
 ```bash
 but resolve <commit-id>
@@ -575,8 +580,6 @@ but worktree remove [-f] <id|name> # Like `git worktree remove`; `-f` for uncomm
 ```
 
 `new` generates a branch name when omitted. `--above <COMMIT>` (`-A`) starts the new branch at that commit instead of the workspace base; branch targets and conflicted commits are refused. Checkouts live under `~/.gitbutler-worktrees/<repo-dir-basename>/`.
-
-On macOS, `new` accepts `--create-mode <cow|checkout>` to tune how worktrees are populated with files. `cow` clones source worktree files, including ignored files, in order to speed up builds in the new worktree and reduce disk usage. `checkout` performs a standard checkout, and is the default mode.
 
 Worktrees are listed most recently updated first, as `id name (refs/heads/branch) - path`, with the branch shown only when it differs from the worktree name. Archiving is a GitButler-only state; none of these take part in `but undo`.
 

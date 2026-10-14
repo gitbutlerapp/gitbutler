@@ -60,9 +60,6 @@ Hint: run `but help` for all commands
 #[test]
 fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
     env.but("branch new A").assert().success();
     env.but("branch new B --above A").assert().success();
     env.but("branch new C --above B").assert().success();
@@ -466,7 +463,7 @@ fn remote_branch_short_name_requires_disambiguation_across_multiple_remotes() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'remote-feature' did not exist
+    The ref partially named "remote-feature" could not be found[..]
 
 "#]])
         .stdout_eq(str![""]);
@@ -541,7 +538,7 @@ fn nonexistent_branch() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'nonexistent-branch' did not exist
+    The ref partially named "nonexistent-branch" could not be found[..]
 
 "#]])
         .stdout_eq(str![""]);
@@ -560,7 +557,7 @@ fn nonexistent_branch_with_json() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'nonexistent-branch' did not exist
+    The ref partially named "nonexistent-branch" could not be found[..]
 
 "#]]);
     // Note: Currently the apply function doesn't output anything with JSON when branch not found

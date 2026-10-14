@@ -1,7 +1,7 @@
 import type { PayloadFor } from "#electron/ipc.ts";
 import { commentsQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 import type { FileParent } from "#ui/addresses.ts";
 import { Toast } from "@base-ui/react";
 import type { DiffComment, DiffSide } from "@gitbutler/but-sdk";
@@ -88,11 +88,9 @@ export const useCommentCreate = () => {
 		onError: (error, input, prev, ctx) => {
 			if (prev) ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, prev);
 
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: "Failed to create comment",
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		},
 	});
@@ -106,11 +104,9 @@ export const useCommentUpdate = () => {
 		onSettled: (_comment, _err, input, _result, ctx) =>
 			ctx.client.invalidateQueries({ queryKey: commentsQueryOptions(input.projectId).queryKey }),
 		onError: (error) => {
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: "Failed to update comment",
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		},
 	});
@@ -137,11 +133,9 @@ export const useCommentArchive = () => {
 		onError: (error, input, prev, ctx) => {
 			if (prev) ctx.client.setQueryData(commentsQueryOptions(input.projectId).queryKey, prev);
 
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: "Failed to archive comment",
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		},
 	});

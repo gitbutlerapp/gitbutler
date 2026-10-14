@@ -5,6 +5,8 @@ import { Tooltip as BaseTooltip } from "@base-ui/react";
 import { Tooltip } from "./Tooltip.tsx";
 
 const meta = preview.meta({
+	title: "Overlays/Tooltip",
+	id: "components-tooltip",
 	component: Tooltip,
 	parameters: {
 		design: {
@@ -24,6 +26,12 @@ const meta = preview.meta({
 });
 
 export const Default = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2787-6898",
+		},
+	},
 	args: {
 		content: "This is a tooltip",
 		kbd: "Mod+A",
@@ -33,6 +41,12 @@ export const Default = meta.story({
 });
 
 export const IconOnly = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2787-6899",
+		},
+	},
 	render: () => (
 		<Tooltip content="New branch" kbd="Mod+B">
 			<Button variant="ghost" iconOnly aria-label="New branch">

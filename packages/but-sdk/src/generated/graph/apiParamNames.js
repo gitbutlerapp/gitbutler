@@ -110,7 +110,7 @@ export const apiParamNames = {
 	listSnapshots: ["projectId", "limit", "sha", "excludeKind", "includeKind"],
 	loginAndPersist: ["token"],
 	mergeReview: ["projectId", "reviewId", "mergeMethod"],
-	moveBranch: ["projectId", "subjectBranch", "targetBranch", "dryRun"],
+	moveBranch: ["projectId", "subjectBranch", "relativeTo", "side", "dryRun"],
 	newReviewTarget: ["projectId", "branch"],
 	openInProgram: ["projectId", "programId", "path", "lineNr"],
 	openInTerminal: ["terminalId", "path"],

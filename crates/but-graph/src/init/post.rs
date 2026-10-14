@@ -1001,11 +1001,16 @@ impl Graph {
         });
 
         // Re-add in reverse because petgraph traverses newest edges first.
-        for (eid, target_sidx, _) in edges_pointing_to_named_segment.into_iter().rev() {
+        for (workspace_parent_order, (eid, target_sidx, _)) in edges_pointing_to_named_segment
+            .into_iter()
+            .enumerate()
+            .rev()
+        {
             let weight = self
                 .inner
                 .remove_edge(eid)
-                .expect("we found the edge before");
+                .expect("we found the edge before")
+                .with_workspace_parent_order(workspace_parent_order as u32)?;
             // Reconnect according to the new order.
             self.inner.add_edge(ws_sidx, target_sidx, weight);
         }
@@ -1630,23 +1635,49 @@ impl Graph {
             .cloned()
             .unwrap_or_default();
         let owner = self.node_weights().find_map(|segment| {
-            let ref_name = segment.ref_name()?;
-            (segment.commits.first()?.id == target_commit_id
-                && ordered_refs.iter().any(|o| o.as_ref() == ref_name))
-            .then_some((segment.id, ref_name))
+            let first_commit = segment
+                .commits
+                .first()
+                .filter(|commit| commit.id == target_commit_id)?;
+            let ref_name = match segment.ref_name() {
+                Some(ref_name) => ordered_refs.iter().find(|o| o.as_ref() == ref_name),
+                None => ordered_refs
+                    .iter()
+                    .rev()
+                    .find(|o| first_commit.refs.iter().any(|ri| ri.ref_name == **o)),
+            }?;
+            Some((segment.id, ref_name.clone()))
         });
         let Some((sidx, ref_name)) = owner else {
             return Ok(());
         };
         let tracks_target = remotes::lookup_remote_tracking_branch_or_deduce_it(
             repo,
-            ref_name,
+            ref_name.as_ref(),
             symbolic_remote_names,
             configured_remote_tracking_branches,
         )? == self.project_meta.target_ref;
-        if !tracks_target {
-            self.split_segment(sidx, 0, None, None, meta, worktree_by_branch)?;
+        if tracks_target {
+            return Ok(());
         }
+        if self[sidx].ref_info.is_none() {
+            let mut named = branch_segment_from_name_and_meta(
+                Some((ref_name.clone(), None)),
+                meta,
+                None,
+                worktree_by_branch,
+            )?;
+            if let Some(ref_info) = named.ref_info.as_mut() {
+                ref_info.commit_id = Some(target_commit_id);
+            }
+            let segment = &mut self[sidx];
+            segment.ref_info = named.ref_info;
+            segment.metadata = named.metadata;
+            if let Some(commit) = segment.commits.first_mut() {
+                commit.refs.retain(|ri| ri.ref_name != ref_name);
+            }
+        }
+        self.split_segment(sidx, 0, None, None, meta, worktree_by_branch)?;
         Ok(())
     }
 
@@ -1992,6 +2023,7 @@ impl Graph {
                     dst,
                     dst_id,
                     parent_order: edge.weight.parent_order,
+                    workspace_parent_order: edge.weight.workspace_parent_order,
                 },
             );
             self.inner.remove_edge(edge.id);
@@ -2164,6 +2196,7 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
                 dst: None,
                 dst_id: None,
                 parent_order: edge.weight.parent_order,
+                workspace_parent_order: edge.weight.workspace_parent_order,
             },
         );
     }
@@ -2302,6 +2335,7 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
                 dst: target_commit_idx,
                 dst_id: target_commit_id,
                 parent_order: edge.weight.parent_order,
+                workspace_parent_order: edge.weight.workspace_parent_order,
             },
         );
     }
@@ -2487,6 +2521,7 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
                         dst: target_cidx,
                         dst_id: target_cidx.and_then(|_| commit.as_ref().map(|c| c.id)),
                         parent_order: edge.weight.parent_order,
+                        workspace_parent_order: edge.weight.workspace_parent_order,
                     },
                 );
             }
@@ -2547,6 +2582,7 @@ fn reconnect_outgoing_edges(
                 dst: edge.weight.dst,
                 dst_id: edge.weight.dst_id,
                 parent_order: edge.weight.parent_order,
+                workspace_parent_order: edge.weight.workspace_parent_order,
             },
         );
     }

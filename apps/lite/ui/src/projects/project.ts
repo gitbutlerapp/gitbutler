@@ -63,17 +63,6 @@ export type CheckableAddress = Extract<Address, { _tag: "Commit" | "File" | "Hun
 
 export type BranchTab = "diff" | "pr";
 
-const allCommits: BranchCommitFilter = { _tag: "All" };
-
-/**
- * Which of a branch's commits its diff shows: all of them, the ones not pushed yet, or an unbroken
- * run picked from its commit list, named by the ids of its oldest and newest commit.
- */
-export type BranchCommitFilter =
-	| { _tag: "All" }
-	| { _tag: "Unpushed" }
-	| { _tag: "Range"; oldest: string; newest: string };
-
 /**
  * A conflict checked for a batch resolution. Ids survive the rewrites that
  * compact hunk positions, so checks carry across; the commit id is remapped.
@@ -101,14 +90,7 @@ type WorkspaceState = {
 	expandedIncoming: Record<string, true>;
 	dependencyCommitIds: Array<string>;
 	pendingOperation: PendingOperation;
-	/**
-	 * What became of the last operation that ended without one, stated where the operation's own
-	 * controls stood. An operation that cannot run must not hold the workspace open waiting to be
-	 * aimed, so it clears itself and leaves this behind to say why.
-	 */
-	notice: string | null;
 	selectedBranchTabs: Record<string, BranchTab>;
-	branchCommitFilters: Record<string, BranchCommitFilter>;
 	/**
 	 * The diff cursor. Its five siblings live in the URL (use-cursor.ts); this
 	 * one holds an exact visual line range in Redux instead of a URL query param.
@@ -148,9 +130,7 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 	expandedIncoming: {},
 	dependencyCommitIds: [],
 	pendingOperation: noPendingOperation,
-	notice: null,
 	selectedBranchTabs: {},
-	branchCommitFilters: {},
 	diffCursor: null,
 	uncommittedFilesFilter: null,
 	filesFilter: null,
@@ -237,7 +217,6 @@ export const projectReducers = {
 	},
 	startInlineEdit: (state: ProjectState, edit: PendingInlineEdit) => {
 		state.workspace.pendingOperation = pendingInlineEdit(edit);
-		state.workspace.notice = null;
 	},
 	updateRewrittenBranchReferences: (
 		state: ProjectState,
@@ -284,7 +263,6 @@ export const projectReducers = {
 	},
 	startTransfer: (state: ProjectState, { transfer }: { transfer: PendingTransfer }) => {
 		state.workspace.pendingOperation = pendingTransfer(transfer);
-		state.workspace.notice = null;
 	},
 	startKeyboardTransfer: (
 		state: ProjectState,
@@ -311,7 +289,6 @@ export const projectReducers = {
 				restoreFocus,
 			}),
 		);
-		state.workspace.notice = null;
 	},
 	startAbsorb: (
 		state: ProjectState,
@@ -326,7 +303,6 @@ export const projectReducers = {
 		},
 	) => {
 		state.workspace.pendingOperation = pendingAbsorb({ sources, restoreSelection, sourceTarget });
-		state.workspace.notice = null;
 	},
 	updatePointerTransfer: (
 		state: ProjectState,
@@ -393,13 +369,9 @@ export const projectReducers = {
 	clearPendingOperation: (state: ProjectState) => {
 		state.workspace.pendingOperation = noPendingOperation;
 	},
-	/** Ends the pending operation and says why in its place. */
-	refusePendingOperation: (state: ProjectState, { notice }: { notice: string }) => {
+	/** Ends a pending operation that cannot run; the caller says why, in a snackbar. */
+	refusePendingOperation: (state: ProjectState) => {
 		state.workspace.pendingOperation = noPendingOperation;
-		state.workspace.notice = notice;
-	},
-	clearNotice: (state: ProjectState) => {
-		state.workspace.notice = null;
 	},
 	setDependencyCommitIds: (
 		state: ProjectState,
@@ -573,13 +545,6 @@ export const projectReducers = {
 		if (state.workspace.selectedBranchTabs[branchName] === tab) return;
 
 		state.workspace.selectedBranchTabs[branchName] = tab;
-	},
-	setBranchCommitFilter: (
-		state: ProjectState,
-		{ branchName, filter }: { branchName: string; filter: BranchCommitFilter },
-	) => {
-		if (filter._tag === "All") delete state.workspace.branchCommitFilters[branchName];
-		else state.workspace.branchCommitFilters[branchName] = filter;
 	},
 
 	toggleSegmentFolded: (state: ProjectState, { branchRef }: { branchRef: string }) => {
@@ -786,8 +751,6 @@ export const projectSelectors = {
 	 */
 	selectBranchTab: (state: ProjectState, branchName: string): BranchTab | undefined =>
 		state.workspace.selectedBranchTabs[branchName],
-	selectBranchCommitFilter: (state: ProjectState, branchName: string): BranchCommitFilter =>
-		state.workspace.branchCommitFilters[branchName] ?? allCommits,
 
 	selectUncommittedFilesFilter: (state: ProjectState) => state.workspace.uncommittedFilesFilter,
 	selectUncommittedFilesRecentFirst: (state: ProjectState) =>
@@ -804,7 +767,6 @@ export const projectSelectors = {
 		conflictCheckKey(conflict) in state.workspace.checkedConflicts,
 	selectCheckedConflicts: selectCheckedConflictsFor,
 	selectPendingOperation: (state: ProjectState) => state.workspace.pendingOperation,
-	selectNotice: (state: ProjectState) => state.workspace.notice,
 	selectFoldedSegments: (state: ProjectState) => state.workspace.foldedSegments,
 	selectSegmentFolded: (state: ProjectState, branchRef: string) =>
 		state.workspace.foldedSegments[branchRef] === true,

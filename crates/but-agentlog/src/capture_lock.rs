@@ -47,6 +47,7 @@ mod tests {
     use super::{acquire_capture_lock, capture_lock_path};
 
     fn setup_repo() -> TempDir {
+        crate::hide_global_git_config();
         let dir = TempDir::new().expect("temp repo");
         gix::init(dir.path()).expect("gitoxide repo init");
         dir

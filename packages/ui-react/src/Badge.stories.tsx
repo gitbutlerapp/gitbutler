@@ -4,6 +4,8 @@ import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";
 
 const meta = preview.meta({
+	title: "Content & status/Badge",
+	id: "components-badge",
 	component: Badge,
 	parameters: {
 		design: {
@@ -90,6 +92,12 @@ export const Inverted = meta.story({
 });
 
 export const WithIcon = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2787-6907",
+		},
+	},
 	render: () => (
 		<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
 			<Badge variant="safe">

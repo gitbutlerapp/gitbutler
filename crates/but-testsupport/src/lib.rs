@@ -566,7 +566,9 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
     repo.config_snapshot_mut()
         .set_raw_value(
             "user.signingKey",
-            gix::path::into_bstr(signing_key_path).as_ref(),
+            gix::path::into_bstr(signing_key_path)
+                .expect("fixture key path is representable")
+                .as_ref(),
         )
         .expect("in-memory values can always be set");
     (repo, tmp)

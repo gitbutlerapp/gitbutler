@@ -68,8 +68,9 @@ highlighted.
 
 | Illustration | Size    | Means                                                                                   |
 | ------------ | ------- | --------------------------------------------------------------------------------------- |
-| `cactus`     | 96×82   | A list with nothing in it: no branches, no machines, nothing yet                        |
+| `cactus`     | 96×82   | A list with nothing in it: no branches, no commits, nothing yet                         |
 | `papers`     | 98×86   | Looked and found nothing, or a state the app can't name: a search, a filter, an address |
+| `sleep`      | 152×122 | Nothing connected: no machine has joined yet, or the one holding this is offline        |
 | `id-card`    | 130×100 | Signing in, accounts, identity                                                          |
 | `terminal`   | 79×59   | The command line                                                                        |
 | `waving`     | 186×215 | Good news in a large view: all good, nothing to do. Large views only                    |

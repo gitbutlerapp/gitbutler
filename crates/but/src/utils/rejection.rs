@@ -93,6 +93,14 @@ pub fn explain_after_rollback(
 
     // Explaining a failure must never mask it: without a workspace projection,
     // fall back to the plain rejection count.
+
+    // The failed operation may have consumed the workspace cache. Invalidate it so that we can
+    // re-obtain it.
+    if let Err(err) = ctx.invalidate_workspace_cache() {
+        tracing::warn!(?err, "Failed to load workspace to explain rejections");
+        return anyhow::Error::new(ExplainedRejection(format!("Cannot {verb}: {rejected}")));
+    }
+
     let (repo, ws, _db) = match ctx.workspace_and_db_with_perm(perm.read_permission()) {
         Ok(loaded) => loaded,
         Err(load_err) => {

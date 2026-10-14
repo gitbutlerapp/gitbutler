@@ -57,6 +57,7 @@ impl WorkspaceState {
         } else {
             but_core::Commit::try_from(
                 repo.merge_base_octopus(head_oids.iter().cloned())?
+                    .context("Could not find a merge-base for the workspace heads")?
                     .object()?
                     .into_commit(),
             )?

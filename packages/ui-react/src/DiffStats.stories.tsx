@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { DiffStats } from "./DiffStats.tsx";
 
 const meta = preview.meta({
+	title: "Content & status/DiffStats",
+	id: "components-diffstats",
 	component: DiffStats,
 	parameters: {
 		design: {

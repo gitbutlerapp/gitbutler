@@ -4,6 +4,8 @@ import { DiffFileHeader } from "./DiffFileHeader.tsx";
 import { DiffFileList } from "./DiffFileList.tsx";
 
 const meta = preview.meta({
+	title: "Content & status/DiffFileList",
+	id: "components-difffilelist",
 	component: DiffFileList,
 	parameters: {
 		design: {

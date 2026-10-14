@@ -13,6 +13,8 @@ const Pane: FC<{ label: string }> = ({ label }) => (
 );
 
 const meta = preview.meta({
+	title: "Content & status/ResizeHandle",
+	id: "components-resizehandle",
 	component: ResizeHandle,
 });
 

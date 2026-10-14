@@ -4,6 +4,8 @@ import { FileStatusBadge, type FileStatusType } from "./FileStatusBadge.tsx";
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
 
 const meta = preview.meta({
+	title: "Content & status/FileStatusBadge",
+	id: "components-filestatusbadge",
 	component: FileStatusBadge,
 	parameters: {
 		design: {

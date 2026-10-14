@@ -219,9 +219,10 @@ pub fn worktree_set_archived_with_perm(
 }
 
 /// Remove the linked worktree named `name` from disk the way `git worktree remove` does,
-/// which refuses a dirty checkout unless `force` and a locked one until it is unlocked, and
-/// forget its archived state so a worktree created under the same name later starts out
-/// active.
+/// which refuses a dirty checkout unless `force`, and forget its archived state so a
+/// worktree created under the same name later starts out active.
+///
+/// A locked worktree is removed like any other.
 ///
 /// This works on archived worktrees as well.
 #[but_api(napi, invalidates = [Worktrees, Workspace])]
@@ -252,7 +253,7 @@ pub fn worktree_remove_with_perm(
         .find(|worktree| worktree.name == name)
         .with_context(|| format!("Worktree {name} does not exist"))?;
     let repo = ctx.repo.get()?;
-    but_workspace::worktrees::remove(&repo, &worktree.path, force)?;
+    but_workspace::worktrees::remove(&repo, worktree.name.as_ref(), force)?;
     ctx.db
         .get_cache_mut()?
         .worktree_meta_mut()
@@ -306,22 +307,7 @@ pub fn worktree_new(
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
     let mut guard = ctx.exclusive_worktree_access();
-    worktree_new_with_perm(
-        ctx,
-        new_ref,
-        WorktreeCreationMode::Checkout,
-        guard.write_permission(),
-    )
-}
-
-/// How to populate a newly created linked worktree.
-#[derive(Debug, Clone, Copy)]
-pub enum WorktreeCreationMode {
-    /// Check out tracked files from the selected commit.
-    Checkout,
-    /// COW-Clone main-worktree files, including ignored artifacts, before restoring tracked files.
-    #[cfg(feature = "worktree-cow")]
-    Cow,
+    worktree_new_with_perm(ctx, new_ref, guard.write_permission())
 }
 
 /// See [`worktree_new()`]; this variant is for callers that already hold exclusive
@@ -329,7 +315,6 @@ pub enum WorktreeCreationMode {
 pub fn worktree_new_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
-    mode: WorktreeCreationMode,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
@@ -338,7 +323,7 @@ pub fn worktree_new_with_perm(
         ws.highest_base()
             .context("The workspace has no target to base a new worktree on")?
     };
-    worktree_new_at_base_with_perm(ctx, new_ref, base, mode, perm)
+    worktree_new_at_base_with_perm(ctx, new_ref, base, perm)
 }
 
 /// Create a worktree at a given base.
@@ -346,7 +331,6 @@ pub fn worktree_new_at_base_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
     base: gix::ObjectId,
-    mode: WorktreeCreationMode,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
@@ -372,15 +356,7 @@ pub fn worktree_new_at_base_with_perm(
         .join(".gitbutler-worktrees")
         .join(repo_name)
         .join(&slug);
-    let name = match mode {
-        WorktreeCreationMode::Checkout => {
-            but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?
-        }
-        #[cfg(feature = "worktree-cow")]
-        WorktreeCreationMode::Cow => {
-            but_workspace::worktrees::add_cow(&repo, &path, ref_name.as_ref(), base)?
-        }
-    };
+    let name = but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?;
     let path = gix::path::realpath(&path)?;
     drop((repo, ws, db));
     ctx.invalidate_workspace_cache()?;

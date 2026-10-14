@@ -54,16 +54,16 @@ pub fn create_virtual_branch(
             .map_err(anyhow::Error::from)?;
 
         let mut meta = ctx.meta()?;
-        let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
-        let new_ws = but_workspace::branch::create_reference(
-            new_ref.as_ref(),
-            None,
-            &repo,
-            &ws,
-            &mut meta,
-            |_| StackId::generate(),
-            branch.order,
-        )?;
+        let (guard, repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut()?;
+        if ws
+            .find_segment_owner_indexes_by_refname(new_ref.as_ref())
+            .is_none()
+        {
+            let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+            but_workspace::branch::create_reference(editor, new_ref.as_ref(), None, branch.order)?
+                .materialize(Default::default())?;
+        }
+        let new_ws = &ws;
 
         let (stack_idx, segment_idx) = new_ws
             .find_segment_owner_indexes_by_refname(new_ref.as_ref())
@@ -92,7 +92,8 @@ pub fn create_virtual_branch(
             is_checked_out: false,
         };
 
-        *ws = new_ws.into_owned();
+        drop((guard, repo, db));
+        ctx.update_workspace_cache(ws);
         out
     };
     Ok(stack_entry)
@@ -108,7 +109,7 @@ pub fn delete_local_branch(
     let branch_refname = local_branch_refname(refname, &given_name)?;
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.legacy_meta_mut(guard.write_permission())?;
-    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
 
     if ws
         .metadata
@@ -131,7 +132,9 @@ pub fn delete_local_branch(
             keep_metadata: false,
         },
     )? {
-        *ws = new_ws;
+        drop(repo);
+        drop(ws);
+        ctx.update_workspace_cache(new_ws);
     } else {
         but_workspace::branch::remove_reference::delete_local_branch(
             &mut repo,
@@ -272,7 +275,7 @@ pub fn update_stack_order_with_perm(
         .context("Updating branch order requires open workspace mode")?;
 
     let mut meta = ctx.legacy_meta_mut(perm)?;
-    let (_repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (_repo, mut ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let workspace_ref = ws
         .ref_name()
         .context("Updating stack order requires a managed workspace")?;
@@ -511,10 +514,8 @@ fn assigned_diffspec_for_stack(
 
 /// Unapply a stack through the newer workspace metadata implementation.
 ///
-/// Outside single branch mode this deliberately keeps the workspace reference and
-/// workspace merge commit in place for compatibility with the legacy API surface.
-/// In single branch mode the workspace reference is dropped once it is no longer
-/// needed, so unapplying the second-to-last stack checks out the remaining branch.
+/// The workspace reference is dropped once it is no longer needed, so unapplying the
+/// second-to-last stack checks out the remaining branch.
 /// Unapplying that last branch checks out the target's local tracking branch and clears its
 /// applied state from retained workspace metadata so switching back won't restore it.
 /// We implement plumbing here, particularly relative to assignment handling,
@@ -522,7 +523,7 @@ fn assigned_diffspec_for_stack(
 ///
 /// # Control-flow
 ///
-/// - require open workspace mode unless the single-branch feature is enabled, and reject edit mode;
+/// - reject edit mode, allowing both managed workspaces and ordinary branch checkouts;
 /// - collect currently assigned worktree changes for `stack_id`;
 /// - identify the workspace metadata branch representing the stack;
 /// - create a best-effort unapply snapshot with all stack branch names as trailers;
@@ -541,8 +542,7 @@ fn unapply_stack_v3_with_perm(
     stack_id: StackId,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
-    let single_branch = ctx.settings.feature_flags.single_branch;
-    if !single_branch || gitbutler_operating_modes::in_edit_mode(ctx, perm.read_permission())? {
+    if gitbutler_operating_modes::in_edit_mode(ctx, perm.read_permission())? {
         ensure_open_workspace_mode(ctx, perm.read_permission())
             .context("Unapplying a stack requires open workspace mode")?;
     }
@@ -562,23 +562,19 @@ fn unapply_stack_v3_with_perm(
     commit_assigned_diffspec(ctx, branch_to_unapply.as_ref(), assigned_diffspec, perm)?;
 
     let mut meta = ctx.legacy_meta_mut(perm)?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let was_ad_hoc = matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc);
-    let workspace_disposition = if single_branch {
-        WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
-    } else {
-        WorkspaceDisposition::KeepWorkspaceCommit
-    };
     let outcome = but_workspace::branch::unapply(
         branch_to_unapply.as_ref(),
         &ws,
         &repo,
         &mut meta,
         but_workspace::branch::unapply::Options {
-            workspace_disposition,
+            workspace_disposition:
+                WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
         },
     )?;
-    *ws = outcome.workspace.into_owned();
+    let new_ws = outcome.workspace.into_owned();
     if was_ad_hoc {
         // Collapsing a managed workspace retains its metadata after deleting its ref.
         // Don't resurrect the last unapplied branch when switching back to that workspace.
@@ -607,6 +603,9 @@ fn unapply_stack_v3_with_perm(
     // Keeping the workspace merge commit can make legacy reconciliation infer the
     // removed stack as applied again, so persist the explicit workspace metadata.
     meta.write_unreconciled()?;
+    drop(repo);
+    drop(ws);
+    ctx.update_workspace_cache(new_ws);
     Ok(())
 }
 

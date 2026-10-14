@@ -44,15 +44,6 @@ export const branchDiffQueryOptions = ({ projectId, ...params }: PayloadFor<"bra
 		queryFn: () => window.lite.branchDiff({ projectId, ...params }),
 	});
 
-export const commitRangeDiffQueryOptions = ({
-	projectId,
-	...params
-}: PayloadFor<"commitRangeDiff">) =>
-	queryOptions({
-		queryKey: [projectId, "commitRangeDiff", params],
-		queryFn: () => window.lite.commitRangeDiff({ projectId, ...params }),
-	});
-
 export const branchListQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [projectId, "branchList"],
@@ -91,8 +82,7 @@ export const changesInWorktreeQueryOptions = (projectId: string) =>
 
 /**
  * The uncommitted changes of a linked worktree, keyed under the main
- * worktree's endpoint so the same tags refresh both. Nothing watches a
- * linked checkout, so this is as fresh as the last workspace activity.
+ * worktree's endpoint so the same tags refresh both.
  */
 export const worktreeChangesQueryOptions = (projectId: string, worktree: string) =>
 	queryOptions({

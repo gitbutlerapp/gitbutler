@@ -135,10 +135,15 @@ impl UnifiedPatch {
             repo,
         ) {
             Ok(()) => {}
-            Err(
-                err @ blob::platform::set_resource::Error::InvalidMode { .. }
-                | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
-            ) => {
+            Err(err)
+                if matches!(
+                    err.downcast_any_ref::<blob::platform::set_resource::Error>(),
+                    Some(
+                        blob::platform::set_resource::Error::InvalidMode { .. }
+                            | blob::platform::set_resource::Error::ConvertToDiffable { .. }
+                    )
+                ) =>
+            {
                 tracing::warn!(?err, %path, "ignoring diff processing failure");
                 return Ok(None);
             }
@@ -160,10 +165,15 @@ impl UnifiedPatch {
             repo,
         ) {
             Ok(()) => {}
-            Err(
-                err @ blob::platform::set_resource::Error::InvalidMode { .. }
-                | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
-            ) => {
+            Err(err)
+                if matches!(
+                    err.downcast_any_ref::<blob::platform::set_resource::Error>(),
+                    Some(
+                        blob::platform::set_resource::Error::InvalidMode { .. }
+                            | blob::platform::set_resource::Error::ConvertToDiffable { .. }
+                    )
+                ) =>
+            {
                 tracing::warn!(?err, %actual_previous_path, "ignoring diff processing failure");
                 return Ok(None);
             }
@@ -172,7 +182,12 @@ impl UnifiedPatch {
 
         let prep = match diff_filter.prepare_diff() {
             Ok(prep) => prep,
-            Err(prepare_diff::Error::SourceAndDestinationRemoved) => {
+            Err(err)
+                if matches!(
+                    err.downcast_any_ref::<prepare_diff::Error>(),
+                    Some(prepare_diff::Error::SourceAndDestinationRemoved)
+                ) =>
+            {
                 tracing::warn!(%path, "ignoring diff of two removed resources");
                 return Ok(None);
             }

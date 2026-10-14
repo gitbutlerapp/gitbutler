@@ -5,27 +5,6 @@ use super::util::{
 use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
-fn switch_requires_single_branch_feature() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    env.setup_metadata(&["A", "B"]);
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
-    env.file("new.txt", "content\n");
-
-    env.but("commit --switch -b new-branch -m test")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: `--switch` requires the `single-branch` feature to be enabled
-
-Hint: Enable the feature with `but config feature single-branch enable`
-
-"#]]);
-}
-
-#[test]
 fn rejects_unnamed_segment_as_target() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
@@ -53,9 +32,6 @@ Hint: Name it with `but reword g0` first! Note that the short ID is likely to ch
 #[test]
 fn commits_a_dirty_file_on_a_new_branch_in_single_branch_mode() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
     env.file("ad-hoc.txt", "content\n");
 
     env.but("status --files")
@@ -151,9 +127,6 @@ Hint: run `but help` for all commands
 #[test]
 fn commits_on_the_checked_out_branch_in_single_branch_mode() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
     let old_head = env.invoke_git("rev-parse HEAD");
     env.file("existing.txt", "content\n");
 
@@ -225,9 +198,6 @@ Hint: run `but help` for all commands
 #[test]
 fn commits_at_each_branch_in_an_existing_single_branch_stack() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
 
     env.but("branch new middle").assert().success();
     env.but("commit --empty -b middle -m 'middle base'")
@@ -1079,7 +1049,7 @@ fn failed_commit_switch_preserves_selected_changes_in_workspace_mode() {
 
     // sy selects only new.txt; the modification to foo's file blocks checkout.
     env.but("commit --switch -b bar -m test sy").assert().failure().stderr_eq(snapbox::str![[r#"
-Error: Could not safely check out 'refs/heads/bar' from 3fcc02f2c0cb1879458235e2f9d9e624126a428e to 87d6a1a51a0607ab42894ed0af2df2a2c1a0a6f6
+Error: Could not safely check out 'refs/heads/bar' from 54743c4a9f97bd3ab109061a5a6c95fbe855ea9d to 87d6a1a51a0607ab42894ed0af2df2a2c1a0a6f6
 
 Caused by:
     Uncommitted files would be overwritten by checkout: "first"
@@ -1133,7 +1103,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   3fcc02f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   54743c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (foo) add first
 |/  
@@ -1211,7 +1181,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   3fcc02f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   54743c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (foo) add first
 |/  
@@ -1400,7 +1370,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   3fcc02f (gitbutler/workspace) GitButler Workspace Commit
+*   54743c4 (gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (HEAD -> foo) add first
 |/  
@@ -1948,6 +1918,21 @@ Hint: Target must be an applied branch or commit. Run `but status` for applicabl
 }
 
 #[test]
+fn cannot_commit_to_main() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b main --no-message")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot commit to 'main': it is the workspace target branch.
+
+Hint: Commit to a feature branch instead: `but commit -b <branch>` and merge with `but merge <branch>`.
+
+"#]]);
+}
+
+#[test]
 fn cannot_commit_above_or_below_main() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
 
@@ -1955,9 +1940,9 @@ fn cannot_commit_above_or_below_main() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find target: 'main'
+Error: Cannot commit above 'main': it is the workspace target branch.
 
-Hint: Target must be an applied branch or commit. Run `but status` for applicable targets.
+Hint: Commit to a feature branch instead: `but commit -b <branch>` and merge with `but merge <branch>`.
 
 "#]]);
 
@@ -1965,9 +1950,9 @@ Hint: Target must be an applied branch or commit. Run `but status` for applicabl
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Could not find target: 'main'
+Error: Cannot commit below 'main': it is the workspace target branch.
 
-Hint: Target must be an applied branch or commit. Run `but status` for applicable targets.
+Hint: Commit to a feature branch instead: `but commit -b <branch>` and merge with `but merge <branch>`.
 
 "#]]);
 
@@ -1976,10 +1961,9 @@ Hint: Target must be an applied branch or commit. Run `but status` for applicabl
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Failed to apply branch
+Error: Cannot apply 'main': it is the workspace target branch.
 
-Caused by:
-    Cannot add the target 'refs/heads/main' branch to its own workspace
+Hint: Apply a feature branch instead.
 
 "#]]);
 }
@@ -3515,13 +3499,14 @@ Created commit nuy on branch 'wt-inside'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * efe5cc8 (wt-inside) onto the worktree branch
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -3632,13 +3617,14 @@ Created commit vzp on branch 'wt-feature'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * 7551b20 (wt-feature) note from the worktree
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -3840,12 +3826,13 @@ Created commit lpo on branch 'wt-feature'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * 0a6784b (wt-feature) note from the worktree
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -4189,14 +4176,15 @@ Created commit nuy on branch 'wt-lower'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * d1e317c (wt-inside) add W2
 | | * 83e1b27 (wt-lower) onto the lower branch
 | | * 580bef0 add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -4421,7 +4409,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   6c30ea2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   f2a31b0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 2388a3a (top) on top
 | * 1c81de8 (middle) also on middle

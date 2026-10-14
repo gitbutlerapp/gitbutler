@@ -143,8 +143,9 @@ pub(crate) fn merge_base_with_target_with_perm(
     let target = ResolvedTarget::from_workspace(&workspace)?;
     let merge_base = repo
         .merge_base(branch_oid, target.oid())
-        .map(|merge_base| merge_base.detach())
-        .context("Failed to find merge base with workspace target")?;
+        .context("Failed to find merge base with workspace target")?
+        .context("Branch and workspace target have no common history")?
+        .detach();
     Ok((merge_base, target))
 }
 

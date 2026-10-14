@@ -14,7 +14,7 @@ import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegme
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 import {
 	changesHotkeys,
 	sidebarHotkeys,
@@ -263,11 +263,9 @@ export const CommitRow: FC<
 					dryRun: false,
 				});
 			} catch (error) {
-				toastManager.add({
-					type: "error",
+				addErrorToast(toastManager, {
 					title: "Failed to reword commit",
-					description: errorMessageForToast(error),
-					priority: "high",
+					error,
 				});
 			}
 		});

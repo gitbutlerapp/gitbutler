@@ -56,15 +56,18 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:gitbutler/workspace[🌳]
-    ├── ·8795f47 (⌂)
-    └── ·dd72792 (⌂) ►c, ►main
-        └── ►:1[1]:b
-            └── ·e5aa7b5 (⌂)
-                └── ►:2[2]:a
-                    └── ·3bfeb52 (⌂)
-                        └── ►:3[3]:base
-                            └── 🏁·b6e2f57 (⌂)
+└── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    └── ·8795f47 (⌂|🏘)
+        └── 📙►:5[1]:c
+            └── 📙►:6[2]:main
+                └── ►:1[3]:anon:
+                    └── ·dd72792 (⌂|🏘)
+                        └── 📙►:2[4]:b
+                            └── ·e5aa7b5 (⌂|🏘)
+                                └── 📙►:3[5]:a
+                                    └── ·3bfeb52 (⌂|🏘)
+                                        └── 📙►:4[6]:base
+                                            └── 🏁·b6e2f57 (⌂|🏘)
 
 "#]]
     );
@@ -133,12 +136,17 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:gitbutler/workspace[🌳]
-    ├── ·badca2f (⌂)
-    ├── ·06106c2 (⌂) ►c, ►main
-    └── ·3bfeb52 (⌂) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·b6e2f57 (⌂)
+└── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    └── ·badca2f (⌂|🏘)
+        └── 📙►:4[1]:c
+            └── 📙►:5[2]:main
+                └── ►:1[3]:anon:
+                    └── ·06106c2 (⌂|🏘)
+                        └── 📙►:6[4]:b
+                            └── 📙►:7[5]:a
+                                └── ·3bfeb52 (⌂|🏘)
+                                    └── 📙►:3[6]:base
+                                        └── 🏁·b6e2f57 (⌂|🏘)
 
 "#]]
     );
