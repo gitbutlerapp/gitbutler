@@ -1,11 +1,13 @@
 .list {
 	/* The tab's inset, which the underline keeps too, so it runs under the tab's content. */
-	--tab-padding-inline: 10px;
+	--tab-padding-inline: 8px;
 
 	display: flex;
 	position: relative;
-	column-gap: 2px;
 	align-items: center;
+
+	/* The first tab's label, not its hover ground, lines up with the text around the row. */
+	margin-inline-start: calc(-1 * var(--tab-padding-inline));
 }
 
 .tab {
@@ -36,7 +38,7 @@
 
 .icon {
 	display: flex;
-	opacity: 0.5;
+	opacity: 0.7;
 
 	/* Only on a tab that isn't selected: the selected one doesn't answer the pointer. */
 	.tab:hover:not([data-active], [data-disabled]) & {
@@ -53,18 +55,29 @@
 	display: inline-flex;
 	column-gap: 3px;
 	align-items: center;
-	opacity: 0.5;
+	opacity: 0.7;
 
 	:is(.tab:hover:not([data-disabled]), .tab[data-active]) & {
 		opacity: 1;
 	}
 }
 
-/* Under the selected tab's content, 8px below it; moves and resizes to the next as the
+/* A state after the label keeps its own colours: it is read, not faded with the label. */
+.status {
+	display: inline-flex;
+	align-items: center;
+}
+
+/* The text alone, so the shortcut beside it keeps its own fade. */
+.text {
+	opacity: 0.9;
+}
+
+/* Under the selected tab's content, 6px below it; moves and resizes to the next as the
    selection moves. */
 .indicator {
 	position: absolute;
-	top: calc(var(--active-tab-top) + var(--active-tab-height) + 8px);
+	top: calc(var(--active-tab-top) + var(--active-tab-height) + 6px);
 	left: 0;
 	width: calc(var(--active-tab-width) - 2 * var(--tab-padding-inline));
 	height: 4px;
