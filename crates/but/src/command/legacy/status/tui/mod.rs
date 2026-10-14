@@ -419,6 +419,8 @@ fn start_watcher(ctx: &mut Context, tx: Sender<Message>) -> anyhow::Result<Sende
                 Ok(_watcher) => {
                     // Immediately refresh as we might have missed events during watcher startup
                     if tx.send(Message::Reload(None, ReloadCause::Manual)).is_ok() {
+                        // This blocks with the sole purpose of keeping watcher alive. On first
+                        // receive we move on and drop the watcher.
                         let _ = stop_rx.recv();
                     }
                     // If send failed, TUI has already dropped the receiving channel (exited), so we
