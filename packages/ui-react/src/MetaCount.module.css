@@ -3,7 +3,7 @@
 	column-gap: 3px;
 	align-items: center;
 	/* A long value (a branch's name) gives way before the counts beside it, down to its glyph. */
-	min-width: 12px;
+	min-width: 14px;
 	color: var(--text-2);
 	line-height: 16px;
 	white-space: nowrap;
@@ -197,7 +197,7 @@
 	text-overflow: ellipsis;
 }
 
-/* The robot fills its 12px edge to edge where the other glyphs leave air around them, so it keeps
+/* The robot fills its 14px edge to edge where the other glyphs leave air around them, so it keeps
    1px more from the count before it. */
 .agent-working,
 .agent-waiting {
