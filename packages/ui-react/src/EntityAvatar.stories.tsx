@@ -21,7 +21,7 @@ const meta = preview.meta({
 		},
 	},
 	argTypes: {
-		size: { control: "radio", options: ["regular", "small"] },
+		size: { control: "radio", options: ["regular", "title"] },
 	},
 });
 
