@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fmt::Write,
 };
 
@@ -7,16 +7,17 @@ use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::legacy::modes::{
     abort_edit_and_return_to_workspace, edit_initial_index_state, enter_edit_mode, operating_mode,
-    save_edit_and_return_to_workspace_with_output,
 };
+use but_core::sync::RepoShared;
 use but_ctx::Context;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_edit_mode::commands::changes_from_initial;
 use gitbutler_operating_modes::OperatingMode;
 
 use crate::{
-    IdMap,
+    CliResult, IdMap,
     args::resolve::Subcommands,
+    bad_input,
     id::{CliId, CommitId, CommitIdRef},
     theme::{self, Paint},
     utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
@@ -28,7 +29,7 @@ pub(crate) fn handle(
     cmd: Option<Subcommands>,
     targets: Vec<String>,
     ai: bool,
-) -> Result<()> {
+) -> CliResult<()> {
     // Conflicted uncommitted files are marked resolved; anything else is a commit.
     let conflicted_paths = if targets.is_empty() {
         Vec::new()
@@ -40,28 +41,28 @@ pub(crate) fn handle(
         [target] if !conflicted_paths.contains(target) => Some(target.clone()),
         _ => {
             if let Some(other) = targets.iter().find(|t| !conflicted_paths.contains(t)) {
-                bail!(
+                return Err(anyhow::anyhow!(
                     "'{other}' is not a conflicted uncommitted file; `but resolve` takes either one commit or only conflicted files (see `but status`)."
-                );
+                ).into());
             }
             if ai {
-                bail!(
+                return Err(anyhow::anyhow!(
                     "Conflicted uncommitted files can only be marked as resolved: `but resolve <path>...`"
-                );
+                ).into());
             }
-            return mark_worktree_conflicts_resolved(ctx, out, targets);
+            return Ok(mark_worktree_conflicts_resolved(ctx, out, targets)?);
         }
     };
     if ai {
         if cmd.is_some() {
-            bail!(
+            return Err(anyhow::anyhow!(
                 "--ai cannot be combined with a resolve subcommand. For one conflict, use `but resolve apply <path>[:<N>] --ai` instead."
-            );
+            ).into());
         }
-        return resolve_with_ai(ctx, out, commit_id.as_deref());
+        return Ok(resolve_with_ai(ctx, out, commit_id.as_deref())?);
     }
     match cmd {
-        Some(Subcommands::Conflicts { commit }) => list_conflicts(ctx, out, commit.as_deref()),
+        Some(Subcommands::Conflicts { commit }) => Ok(list_conflicts(ctx, out, commit.as_deref())?),
         Some(Subcommands::Apply {
             target,
             commit,
@@ -78,18 +79,18 @@ pub(crate) fn handle(
             };
             // Lock stdin at the CLI boundary; the handler reads it only for a
             // piped mixed-content resolution.
-            apply_resolutions(
+            Ok(apply_resolutions(
                 ctx,
                 out,
                 commit.as_deref(),
                 &target,
                 flags,
                 std::io::stdin().lock(),
-            )
+            )?)
         }
-        Some(Subcommands::Status) => show_status(ctx, out),
-        Some(Subcommands::Finish) => finish_resolution(ctx, out),
-        Some(Subcommands::Cancel { force }) => cancel_resolution(ctx, out, force),
+        Some(Subcommands::Status) => Ok(show_status(ctx, out)?),
+        Some(Subcommands::Finish) => Ok(finish_resolution(ctx, out)?),
+        Some(Subcommands::Cancel { force }) => Ok(cancel_resolution(ctx, out, force)?),
         None => {
             // Default action: enter resolution mode for the specified commit
             if let Some(commit_id_str) = commit_id {
@@ -99,10 +100,10 @@ pub(crate) fn handle(
                 let mode = operating_mode(ctx)?.operating_mode;
                 if matches!(mode, OperatingMode::Edit(_)) {
                     // If in edit mode, show status instead of help
-                    show_status(ctx, out)
+                    Ok(show_status(ctx, out)?)
                 } else {
                     // Not in edit mode and no commit specified - check for conflicted commits
-                    check_and_prompt_for_conflicts(ctx, out)
+                    Ok(check_and_prompt_for_conflicts(ctx, out)?)
                 }
             }
         }
@@ -119,6 +120,26 @@ fn conflicted_worktree_paths(ctx: &Context) -> Result<Vec<String>> {
         .filter(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
         .map(|entry| entry.path(&index).to_string())
         .collect())
+}
+
+/// The paths of submodules (gitlinks) whose index entries are still conflicted, and of
+/// those resolved to a single entry. Unlike files, a submodule has no conflict markers,
+/// so only the index tells whether its conflict was resolved, which Git requires to commit.
+fn gitlink_conflict_state(ctx: &Context) -> Result<(BTreeSet<BString>, BTreeSet<BString>)> {
+    let repo = ctx.repo.get()?;
+    let index = repo.index_or_empty()?;
+    let (mut unresolved, mut resolved) = (BTreeSet::new(), BTreeSet::new());
+    for entry in index.entries() {
+        if entry.mode == gix::index::entry::Mode::COMMIT {
+            let paths = if entry.stage() == gix::index::entry::Stage::Unconflicted {
+                &mut resolved
+            } else {
+                &mut unresolved
+            };
+            paths.insert(entry.path(&index).to_owned());
+        }
+    }
+    Ok((unresolved, resolved))
 }
 
 /// Mark the conflicted uncommitted files at `paths` as resolved, taking their
@@ -191,7 +212,15 @@ fn parse_commit_id(ctx: &mut Context, commit_id_str: &str) -> Result<(gix::Objec
     }
 }
 
-fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &str) -> Result<()> {
+fn enter_resolution(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    commit_id_str: &str,
+) -> CliResult<()> {
+    if crate::utils::in_single_branch_mode(ctx)? {
+        return unsupported_in_single_branch_mode_error(out, commit_id_str);
+    }
+
     let t = theme::get();
     use gix::{prelude::ObjectIdExt as _, revision::walk::Sorting};
 
@@ -204,9 +233,9 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
         .context("Failed to find commit")?;
 
     if !commit.is_conflicted() {
-        bail!(
+        return Err(anyhow::anyhow!(
             "Commit {commit_ref} is not in a conflicted state. Only conflicted commits can be resolved."
-        );
+        ).into());
     }
 
     // Find which stack this commit belongs to
@@ -255,7 +284,7 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     }
 
     // Now show the same status as `but resolve status` would show
-    show_status(ctx, out)
+    Ok(show_status(ctx, out)?)
 }
 
 fn show_status(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
@@ -340,6 +369,7 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
         .iter()
         .filter(|(_, conflict)| conflict.is_some())
         .collect();
+    let (mut unresolved_gitlinks, resolved_gitlinks) = gitlink_conflict_state(ctx)?;
 
     // Check which files still have conflict markers
     let repo = ctx.repo.get()?;
@@ -351,19 +381,24 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
     // JSON output keeps just the paths.
     let keep_content = !out.is_json();
     for (change, _) in &initially_conflicted {
-        let file_path = repo_path.join(change.path.to_str_lossy().as_ref());
-        if file_path.exists() {
+        let path = change.path.as_bstr();
+        let file_path = repo_path.join(path.to_str_lossy().as_ref());
+        if unresolved_gitlinks.remove(path) {
+            still_conflicted.push((path.to_owned(), None));
+        } else if resolved_gitlinks.contains(path) {
+            resolved.push(change);
+        } else if file_path.exists() {
             match std::fs::read_to_string(&file_path) {
                 Ok(content) => {
                     if has_conflict_markers(&content) {
-                        still_conflicted.push((change, keep_content.then_some(content)));
+                        still_conflicted.push((path.to_owned(), keep_content.then_some(content)));
                     } else {
                         resolved.push(change);
                     }
                 }
                 Err(_) => {
                     // If we can't read the file, consider it still conflicted
-                    still_conflicted.push((change, None));
+                    still_conflicted.push((path.to_owned(), None));
                 }
             }
         } else {
@@ -371,6 +406,8 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
             resolved.push(change);
         }
     }
+    // Report every submodule conflict finish refuses on, even one not conflicted initially.
+    still_conflicted.extend(unresolved_gitlinks.into_iter().map(|path| (path, None)));
 
     let all_resolved = still_conflicted.is_empty();
 
@@ -388,12 +425,12 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
                 "{}:",
                 t.attention.paint("Conflicted files remaining")
             )?;
-            for (change, content) in &still_conflicted {
+            for (path, content) in &still_conflicted {
                 writeln!(
                     human_out,
                     "  {} {}",
                     t.sym().error,
-                    t.attention.paint(change.path.to_str_lossy())
+                    t.attention.paint(path.to_str_lossy())
                 )?;
                 if let Some(content) = content {
                     write_conflict_regions(human_out, content)?;
@@ -419,7 +456,7 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
     if let Some(out) = out.for_json() {
         let conflicted_list: Vec<String> = still_conflicted
             .iter()
-            .map(|(change, _)| change.path.to_str_lossy().to_string())
+            .map(|(path, _)| path.to_str_lossy().to_string())
             .collect();
         let resolved_list: Vec<String> = resolved
             .iter()
@@ -508,15 +545,31 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
     // Capture conflicted commits BEFORE the rebase
     let conflicts_before = find_conflicted_commits(ctx)?;
 
+    // Hold the lock from the submodule check through the save, so no other
+    // operation can bring a conflict back in between.
+    let mut guard = ctx.exclusive_worktree_access();
+    let (unresolved_gitlinks, _) = gitlink_conflict_state(ctx)?;
+    if !unresolved_gitlinks.is_empty() {
+        let paths: Vec<_> = unresolved_gitlinks
+            .iter()
+            .map(|p| format!("{p:?}"))
+            .collect();
+        bail!(
+            "Unresolved submodule conflicts: {}\nPut the wanted submodule commit or file at each path and run `git add -- <path>`, remove it with `git rm -- <path>`, or discard the resolution with `but resolve cancel --force`.",
+            paths.join(", ")
+        );
+    }
+
     // Note files that still contain conflict markers, so the finish output can
     // answer the "did I leave markers behind?" question without a re-scan.
     // The scan may false-positive on legitimate content, so it warns rather
     // than refusing to finalize.
-    let files_with_markers = files_with_conflict_markers(ctx)?;
+    let files_with_markers = files_with_conflict_markers(ctx, guard.read_permission())?;
 
     // Save and return to workspace, capturing the rebase output
-    save_edit_and_return_to_workspace_with_output(ctx)
+    gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx, guard.write_permission())
         .context("Failed to save resolution and return to workspace")?;
+    drop(guard);
 
     if let Some(human_out) = out.for_human() {
         writeln!(
@@ -573,8 +626,8 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
 
 /// Paths of initially-conflicted files that still contain conflict markers in
 /// the edit-mode worktree.
-fn files_with_conflict_markers(ctx: &mut Context) -> Result<Vec<String>> {
-    let conflicted_files = edit_initial_index_state(ctx)?;
+fn files_with_conflict_markers(ctx: &Context, perm: &RepoShared) -> Result<Vec<String>> {
+    let conflicted_files = gitbutler_edit_mode::commands::starting_index_state(ctx, perm)?;
     let repo = ctx.repo.get()?;
     let repo_path = repo.workdir().context("No workdir")?;
 
@@ -1501,14 +1554,14 @@ pub(crate) fn find_conflicted_commits(
 }
 
 /// Check for conflicted commits and prompt user to resolve them
-fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     let t = theme::get();
     // Find all conflicted commits
     let conflicts_by_branch = find_conflicted_commits(ctx)?;
 
     if conflicts_by_branch.is_empty() {
         // No conflicts found, show the normal help text
-        return show_workflow_help(out);
+        return Ok(show_workflow_help(out)?);
     }
 
     if let Some(json_out) = out.for_json() {
@@ -1741,6 +1794,30 @@ fn show_workflow_help(out: &mut OutputChannel) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn unsupported_in_single_branch_mode_error<T>(
+    out: &mut OutputChannel,
+    commit_id_str: &str,
+) -> CliResult<T> {
+    let workspace_command = "but switch --workspace";
+    let hint = if out.is_agent() {
+        format!(
+            "Use `but resolve apply` to resolve conflicts without changing HEAD. \
+                As a fallback use `{workspace_command}`"
+        )
+    } else {
+        format!(
+            "Enter workspace with `{workspace_command}` then re-run `but resolve {commit_id_str}`"
+        )
+    };
+
+    Err(bad_input(
+        "`but resolve` does not support a checked-out branch. \
+                A GitButler workspace is required.",
+    )
+    .hint(hint)
+    .into())
 }
 
 #[cfg(test)]

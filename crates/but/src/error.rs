@@ -130,7 +130,15 @@ where
     E: Into<anyhow::Error>,
 {
     fn from(value: E) -> Self {
-        Self::Internal(value.into())
+        let error = value.into();
+        if error.downcast_ref::<but_error::Code>()
+            == Some(&but_error::Code::ConflictedCommitCheckout)
+        {
+            return CliError::BadInput(bad_input("Cannot check out a conflicted commit.").hint(
+                "Run `but switch --workspace` and start conflict resolution with `but resolve`",
+            ));
+        }
+        CliError::Internal(error)
     }
 }
 

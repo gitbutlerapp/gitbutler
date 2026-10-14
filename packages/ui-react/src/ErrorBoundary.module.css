@@ -6,15 +6,9 @@
 
 .errorTitle {
 	margin-block-end: 16px;
-	font-size: 15px;
 }
 
 .errorActions {
-	margin-block: 16px;
-}
-
-.errorMessage {
-	font-size: 13px;
-	word-break: break-word;
-	user-select: text;
+	display: flex;
+	gap: var(--gap-buttons);
 }

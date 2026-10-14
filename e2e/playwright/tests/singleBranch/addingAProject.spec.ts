@@ -15,13 +15,11 @@ test.use({
 	gitbutlerOptions: {
 		config: {
 			onboardingComplete: true,
-			featureFlags: { singleBranch: true },
 		},
 	},
 });
 
-// The single-branch counterpart of the onboarding test in ../addingAProject.spec.ts:
-// setting the target must only write project metadata, leaving the user on the branch
+// Setting the target must only write project metadata, leaving the user on the branch
 // they were on instead of moving them onto gitbutler/workspace.
 test("adding a project sets the target without leaving the checked out branch", async ({
 	page,
@@ -35,7 +33,7 @@ test("adding a project sets the target without leaving the checked out branch", 
 	await clickByTestId(page, "add-local-project");
 	await waitForTestId(page, "project-setup-page");
 
-	// The setup page must not promise the branch switch the flag turns off.
+	// Setting the target does not switch branches, so setup must not promise a switch.
 	await expect(page.getByText(/GitButler switches your active branch/)).toHaveCount(0);
 
 	await clickByTestId(page, "set-base-branch");

@@ -31,7 +31,7 @@
 .large {
 	height: var(--size-tag);
 	padding-inline: 7px;
-	gap: 3px;
+	gap: 4px;
 }
 
 /* Single-line labels only, so trimming to the cap/baseline box lets the fixed
@@ -48,8 +48,8 @@
 /* On a light ground the tint is the text's own colour, lighter than the shared
    opacity: one hue with the label, so the colour sits in the text.
    On a dark ground the text colours are pastels that tint grey, so the tint
-   comes from the variant's fill instead. Both track the shared opacity, so a
-   hover or an inverted ground lifts them. */
+   comes from the variant's fill instead. Both track the shared opacity, so an
+   inverted ground lifts them. */
 .lightGray,
 .safe,
 .warn,

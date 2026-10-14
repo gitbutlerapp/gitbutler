@@ -16,7 +16,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const hookState = vi.hoisted(() => ({
 	/** Addresses the checked set holds, and whether it is wholly files under this parent. */
 	checkedAddresses: [] as Array<{ _tag: "File"; parent: unknown; path: string }>,
-	canCheckFiles: true,
+	checkedSetIsFilesFromParent: true,
 	discard: vi.fn(),
 	uncommit: vi.fn(),
 	resolveWorktreeConflicts: vi.fn(),
@@ -67,7 +67,7 @@ vi.mock("#ui/hotkeys.ts", () => ({
 vi.mock("#ui/projects/state.ts", () => ({
 	projectSlice: {
 		selectors: {
-			selectCanCheckFiles: () => hookState.canCheckFiles,
+			selectCheckedSetIsFilesFromParent: () => hookState.checkedSetIsFilesFromParent,
 			selectCheckedAddressCount: () => hookState.checkedAddresses.length,
 			selectCheckedAddresses: () => hookState.checkedAddresses,
 		},
@@ -156,7 +156,7 @@ let root: Root;
 describe("useDirectoryMenuItems", () => {
 	beforeEach(() => {
 		hookState.checkedAddresses = [];
-		hookState.canCheckFiles = true;
+		hookState.checkedSetIsFilesFromParent = true;
 		hookState.discard.mockClear();
 		hookState.uncommit.mockClear();
 		hookState.resolveWorktreeConflicts.mockClear();
@@ -323,7 +323,7 @@ describe("useDirectoryMenuItems", () => {
 	});
 
 	it("keeps to its own files when the checked set is not wholly ours", () => {
-		hookState.canCheckFiles = false;
+		hookState.checkedSetIsFilesFromParent = false;
 		hookState.checkedAddresses = [{ _tag: "File", parent: uncommitted, path: "src/ui/a.ts" }];
 		render({ fileParent: uncommitted, items: [change("src/ui/a.ts")], checkedState: "checked" });
 

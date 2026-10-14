@@ -55,7 +55,7 @@ Committed hunks:  mzm:uvw:2e4         (<commit-id>:<file-id>:<hunk-id>, shown by
 Stacks:           m0, n0              (auto-generated, 2–3 chars)
 ```
 
-**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a three-character minimum; SHA prefixes and branch/worktree IDs can be shorter.
+**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a four-character minimum; SHA prefixes and branch/worktree IDs can be shorter.
 
 **Reading status output:** the first token on each line is that line's ID. Verbose commit lines append an informational `(sha …)` after the timestamp — it changes on every amend; do not pass it to commands.
 
@@ -95,7 +95,10 @@ at a time — a selection mixing worktrees is refused. A worktree's branches are
 `but commit`, `but move`, and `but pick` with `-b <branch>` place the commit on that branch's tip,
 and `--below <checked-out-branch-id>` on the tip of the branch the worktree has checked out
 (`--above` it is refused — that is its uncommitted area). A new branch can't be placed above or
-below a worktree's branch yet, as worktrees can't order branches. A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
+below a worktree's branch yet, as worktrees can't order branches. `but move <branch> --above <branch>`
+moves an existing branch between a worktree's lane and the workspace, in either direction. A branch
+stacked onto the one a worktree has checked out becomes its checked-out branch; moving the checked-out
+branch away leaves the worktree on the branch below it, or detached on the commit it was based on. A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
 `squash`, and `pick` accept them, and the worktree's branch and checkout follow the rewrite.
 `but reword <branch> -m <name>` renames a worktree's branch, and a checkout on it follows the new name.
 Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names it by the

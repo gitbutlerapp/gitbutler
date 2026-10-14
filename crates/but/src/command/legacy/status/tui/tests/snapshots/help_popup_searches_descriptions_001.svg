@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
+  <rect x="26" y="64" width="8" height="18" fill="#CCCCCC" />
   <rect x="26" y="82" width="96" height="18" fill="#555555" />
   <rect x="10" y="352" width="80" height="18" fill="#555555" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">

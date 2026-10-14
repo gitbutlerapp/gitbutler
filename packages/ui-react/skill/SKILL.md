@@ -18,8 +18,9 @@ them alone unless the task is to fix them.
 
 `@gitbutler/ui-react` has the controls: `Button`, `Popup` (modals, dropdowns),
 `Select`, `Field`, `Checkbox`, `Switch`, `Tooltip`, `EmptyState`, `Snackbar`
-and more. Use them rather than a control styled in a feature's CSS. Find a
-surface that already uses the ones you need and follow its structure.
+(raised through the `Snackbars` stack), `Toasts`, `Banner` and more. Use them
+rather than a control styled in a feature's CSS. Find a surface that already
+uses the ones you need and follow its structure.
 
 The source is the reference, because it is the version you build with:
 

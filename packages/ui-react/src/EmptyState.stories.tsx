@@ -5,6 +5,8 @@ import { Icon } from "./Icon.tsx";
 import { illustrations, type IllustrationName } from "./illustrations.ts";
 
 const meta = preview.meta({
+	title: "Content & status/EmptyState",
+	id: "components-emptystate",
 	component: EmptyState,
 	parameters: {
 		design: {

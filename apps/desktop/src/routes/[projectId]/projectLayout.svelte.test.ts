@@ -114,6 +114,14 @@ const forbiddenGitLabError = {
 		code: "GitLabForbidden" as const,
 	},
 };
+const missingGitLabProjectError = {
+	error: {
+		origin: "ipc" as const,
+		name: "API error: (list_reviews)",
+		message: "GitLab could not find this project, or your token cannot see it.",
+		code: "GitLabProjectNotFound" as const,
+	},
+};
 const nonterminalError = {
 	error: {
 		origin: "ipc" as const,
@@ -171,6 +179,7 @@ type Response =
 	| typeof lifetimeError
 	| typeof rejectedGitLabTokenError
 	| typeof forbiddenGitLabError
+	| typeof missingGitLabProjectError
 	| typeof nonterminalError
 	| typeof unrecognizedForgeError;
 
@@ -294,6 +303,7 @@ describe("project review-list polling", () => {
 		["GitHubInsufficientPermissions", terminalError],
 		["GitHubTokenExpired", expiredTokenError],
 		["GitLabForbidden", forbiddenGitLabError],
+		["GitLabProjectNotFound", missingGitLabProjectError],
 	])(
 		"keeps cached reviews, stops terminal polling, and recovers through explicit retries (%s)",
 		async (_code, terminal) => {
@@ -364,6 +374,7 @@ describe("project review-list polling", () => {
 	test.each([
 		["GitLabUnauthorized", rejectedGitLabTokenError],
 		["GitLabForbidden", forbiddenGitLabError],
+		["GitLabProjectNotFound", missingGitLabProjectError],
 	])("stops polling after %s until an accepted token refetches", async (code, refusal) => {
 		vi.useFakeTimers();
 		const harness = setup([success, refusal, success], undefined, [

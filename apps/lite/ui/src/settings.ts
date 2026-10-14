@@ -20,12 +20,12 @@ export const defaultSettings = {
 	// Show the folder tree until the user chooses a display mode.
 	fileDisplayMode: "tree",
 	filesPanelRight: false,
+	graphTrunk: false,
 	// Desktop apps keep the arrow over controls; the hand is a web convention (ui-react's design/foundations/cursors.md).
 	handCursor: false,
 	// Pierre's own default, named here so the setting has somewhere to fall back to.
 	lineDiffType: "word-alt",
 	// Experimental; opt in from the Experimental settings.
-	minimap: false,
 	// Lite has always led with the file name; desktop leads with the path.
 	pathFirst: false,
 	// Loud = the notification bell; quiet = tracked but nothing shown;

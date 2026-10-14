@@ -2,7 +2,7 @@ import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import type { Address } from "#ui/addresses.ts";
+import { fileAddress, type Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { Fragment, memo, type FC, useEffect, useSyncExternalStore } from "react";
@@ -14,6 +14,7 @@ export type GutterCheckboxGroup = {
 	key: string;
 	parentAddress: Extract<Address, { _tag: "Hunk" }>;
 	parentSlotName: string;
+	/** Empty when the left column checks the whole file rather than individual hunks/lines. */
 	lines: Array<{
 		address: Extract<Address, { _tag: "Hunk" }>;
 		slotName: string;
@@ -49,7 +50,7 @@ const LineCheckbox: FC<{
 		projectSlice.selectors.selectAddressChecked(state, p.projectId, p.address),
 	);
 	const canCheck = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckHunks(state, p.projectId, p.address.parent.parent),
+		projectSlice.selectors.selectCanCheckFilesOrHunks(state, p.projectId, p.address.parent.parent),
 	);
 	if (!canCheck) return null;
 
@@ -116,7 +117,17 @@ const HunkCheckbox: FC<{
 	host: HTMLElement;
 	groupKey: string;
 }> = (p) => {
+	const wholeFile = p.lineAddresses.length === 0;
 	const checkedState = useAppSelector((state): HunkCheckedState => {
+		if (wholeFile) {
+			return projectSlice.selectors.selectAddressChecked(
+				state,
+				p.projectId,
+				fileAddress(p.address.parent),
+			)
+				? "checked"
+				: "unchecked";
+		}
 		const checkedCount = p.lineAddresses.filter((address) =>
 			projectSlice.selectors.selectAddressChecked(state, p.projectId, address),
 		).length;
@@ -124,7 +135,7 @@ const HunkCheckbox: FC<{
 		return checkedCount === p.lineAddresses.length ? "checked" : "indeterminate";
 	});
 	const canCheck = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckHunks(state, p.projectId, p.address.parent.parent),
+		projectSlice.selectors.selectCanCheckFilesOrHunks(state, p.projectId, p.address.parent.parent),
 	);
 	// The band spans lines this checkbox does not stand on, and answers clicks along all of them, so
 	// the store learns both what to paint and whether the act is available at all from here. The
@@ -157,7 +168,7 @@ const HunkCheckbox: FC<{
 					event.shiftKey === true;
 				p.onCheck(p.address, p.lineAddresses, shiftKey);
 			}}
-			aria-label="Check hunk"
+			aria-label={wholeFile ? "Check file" : "Check hunk"}
 		/>
 	);
 };

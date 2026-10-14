@@ -27,6 +27,7 @@ import {
 } from "#ui/review-inbox.ts";
 import { usePrNotificationsLevel } from "#ui/review-seen.ts";
 import { Dropdown } from "@gitbutler/ui-react/Popup.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FC } from "react";
 import styles from "./review-inbox-bell.module.css";
@@ -188,7 +189,7 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 					</button>
 				)}
 			</div>
-			<div className={styles.list}>
+			<ScrollArea className={styles.list}>
 				{entries.length === 0 ? (
 					<div className={classes("text-12", styles.empty)}>
 						{tab === "agents" ? "No agent notifications yet" : "No human notifications yet"}
@@ -204,7 +205,7 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 						/>
 					))
 				)}
-			</div>
+			</ScrollArea>
 		</Dropdown>
 	);
 };

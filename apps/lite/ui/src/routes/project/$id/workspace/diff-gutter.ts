@@ -806,9 +806,9 @@ const createGutterStore = <T>(
 
 			const lineAddress = getLineAddress()(target);
 			const parentAddress = getParentAddress()(target);
-			if (!lineAddress || !parentAddress) continue;
+			if (!parentAddress) continue;
 
-			const checkedLineAddress = hunkAddress(lineAddress);
+			const checkedLineAddress = lineAddress && hunkAddress(lineAddress);
 			const checkedParentAddress = hunkAddress(parentAddress);
 			const lineIndex = cell.getAttribute("data-line-index");
 			const lineType = cell.getAttribute("data-line-type");
@@ -820,24 +820,27 @@ const createGutterStore = <T>(
 					: null;
 			codeLine?.toggleAttribute(
 				OPERATION_SOURCE_ATTRIBUTE,
-				sourcesContainLine(operationSources, checkedLineAddress),
+				checkedLineAddress !== null && sourcesContainLine(operationSources, checkedLineAddress),
 			);
 			codeLine?.toggleAttribute(
 				DRAG_PREVIEW_ATTRIBUTE,
-				sourcesContainLine(dragPreviewSources, checkedLineAddress),
+				checkedLineAddress !== null && sourcesContainLine(dragPreviewSources, checkedLineAddress),
 			);
 			const groupKey = addressIdentityKey(checkedParentAddress);
 			const lineSlotName = `gitbutler-diff-gutter-line-${key}-${index}`;
+			const line = checkedLineAddress
+				? { address: checkedLineAddress, slotName: lineSlotName }
+				: null;
 			const group = groupsByKey.get(groupKey);
 			if (group) {
-				group.lines.push({ address: checkedLineAddress, slotName: lineSlotName });
+				if (line) group.lines.push(line);
 			} else {
 				const parentSlotName = `gitbutler-diff-gutter-hunk-${key}-${index}`;
 				groupsByKey.set(groupKey, {
 					key: groupKey,
 					parentAddress: checkedParentAddress,
 					parentSlotName,
-					lines: [{ address: checkedLineAddress, slotName: lineSlotName }],
+					lines: line ? [line] : [],
 				});
 
 				let parentSlot = cell.querySelector<HTMLSlotElement>(
@@ -858,20 +861,22 @@ const createGutterStore = <T>(
 				usedControls.add(parentSlot);
 			}
 
-			let slot = cell.querySelector<HTMLSlotElement>(
-				`:scope > slot[${GUTTER_SLOT_KIND_ATTRIBUTE}="line"]`,
-			);
-			if (!slot) {
-				slot = document.createElement("slot");
-				slot.setAttribute(GUTTER_SLOT_ATTRIBUTE, "");
-				slot.setAttribute(GUTTER_SLOT_KIND_ATTRIBUTE, "line");
-				cell.prepend(slot);
+			if (line) {
+				let slot = cell.querySelector<HTMLSlotElement>(
+					`:scope > slot[${GUTTER_SLOT_KIND_ATTRIBUTE}="line"]`,
+				);
+				if (!slot) {
+					slot = document.createElement("slot");
+					slot.setAttribute(GUTTER_SLOT_ATTRIBUTE, "");
+					slot.setAttribute(GUTTER_SLOT_KIND_ATTRIBUTE, "line");
+					cell.prepend(slot);
+				}
+				slot.name = lineSlotName;
+				slot.setAttribute(GUTTER_GROUP_ATTRIBUTE, groupKey);
+				// A stable reference, so a slot that outlives a hot reload takes this only once.
+				slot.addEventListener("pointerdown", handleLineSlotPointerDown);
+				usedControls.add(slot);
 			}
-			slot.name = lineSlotName;
-			slot.setAttribute(GUTTER_GROUP_ATTRIBUTE, groupKey);
-			// A stable reference, so a slot that outlives a hot reload takes this only once.
-			slot.addEventListener("pointerdown", handleLineSlotPointerDown);
-			usedControls.add(slot);
 
 			const band = ensureHunkBand(cell, groupKey, handleBandClick);
 			paintBand(band, checkedGroups?.has(groupKey) ?? false);

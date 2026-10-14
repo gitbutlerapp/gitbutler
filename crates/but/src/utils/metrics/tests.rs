@@ -140,7 +140,13 @@ fn formerly_unknown_commands_use_explicit_names() {
     #[cfg(feature = "legacy")]
     {
         assert_command(Subcommands::Setup { init: false }, "setup");
-        assert_command(Subcommands::Teardown { checkout_to: None }, "teardown");
+        assert_command(
+            Subcommands::Teardown {
+                checkout_to: None,
+                remove_hooks: false,
+            },
+            "teardown",
+        );
     }
 }
 

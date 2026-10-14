@@ -317,10 +317,13 @@ pub(crate) fn target_to_base_branch(
 ) -> Result<BaseBranch> {
     let target_ref_name = project_meta.target_ref_or_err()?.clone();
     let target_sha = project_meta.target_commit_id_or_err()?;
-    let target_ref = repo
+    let mut target_ref = repo
         .find_reference(&target_ref_name)
         .context(Code::DefaultTargetNotFound)?;
-    let target_ref_commit_id = target_ref.id().detach();
+    let target_ref_commit_id = target_ref
+        .peel_to_commit()
+        .with_context(|| format!("target '{target_ref_name}' does not point to a commit"))?
+        .id;
 
     // Upstream integration needs to know whether the stored target is ahead of
     // the target ref so the UI can block integration until divergence is resolved.
@@ -329,11 +332,10 @@ pub(crate) fn target_to_base_branch(
     let target_sha_ahead_of_ref = !target_sha_not_ref.is_empty();
 
     // The longest first-parent list of upstream commit ids.
-    let mut upstream_commit_ids =
-        upstream_commits_per_stack_head(ws, repo, target_ref_name.as_ref())?
-            .into_iter()
-            .max_by_key(|us| us.len())
-            .unwrap_or_default();
+    let mut upstream_commit_ids = upstream_commits_per_stack_head(ws, repo, target_ref_commit_id)?
+        .into_iter()
+        .max_by_key(|us| us.len())
+        .unwrap_or_default();
     if upstream_commit_ids.is_empty() && target_ref_commit_id != target_sha {
         upstream_commit_ids = first_parent_commit_ids_until(repo, target_ref_commit_id, target_sha)
             .context("failed to get target commits since stored base")?;
@@ -440,7 +442,7 @@ fn first_parent_commit_ids_with_limit(
 fn upstream_commits_per_stack_head(
     ws: &but_graph::Workspace,
     repo: &gix::Repository,
-    target_ref: &gix::refs::FullNameRef,
+    target_ref_id: gix::ObjectId,
 ) -> Result<Vec<Vec<gix::ObjectId>>> {
     let mut heads = ws
         .stacks
@@ -452,7 +454,6 @@ fn upstream_commits_per_stack_head(
     {
         heads.push(entrypoint_commit.id);
     }
-    let target_ref_id = repo.find_reference(target_ref)?.id();
     heads
         .into_iter()
         .map(|head| {

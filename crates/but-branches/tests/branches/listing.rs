@@ -190,7 +190,7 @@ Standalone [A]
   A (local) e5d0542 commits=0 target(+0)
 Standalone [B]
   B (local) e5d0542 commits=0 target(+0)
-Applied [main]
+Target [main]
   main (local+remote: refs/remotes/origin/main) e5d0542 commits=0 target(+0)
 
 "#]]

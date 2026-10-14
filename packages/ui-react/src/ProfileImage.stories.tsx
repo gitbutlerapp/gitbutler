@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { ProfileImage } from "./ProfileImage.tsx";
 
 const meta = preview.meta({
+	title: "Content & status/ProfileImage",
+	id: "components-profileimage",
 	component: ProfileImage,
 	parameters: {
 		design: {

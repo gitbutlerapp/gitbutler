@@ -7,29 +7,7 @@
 }
 
 .fileHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 8px;
-	gap: 12px;
 	border-bottom: 1px solid var(--border-3);
-	white-space: nowrap;
-}
-
-.filePath {
-	display: flex;
-	align-items: center;
-	overflow: hidden;
-	gap: 6px;
-	text-overflow: ellipsis;
-}
-
-.icon {
-	flex-shrink: 0;
-}
-
-.pathInit {
-	color: var(--text-2);
 }
 
 /* The children lay out as items of the shadow root's own actions row, so

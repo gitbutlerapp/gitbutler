@@ -10,6 +10,8 @@ import type { ComponentProps, FC } from "react";
 export type SnackbarVariant =
 	/** Something happened worth saying, with no verdict attached. */
 	| "info"
+	/** An act that came off with a catch: it ran, but not quite as asked. */
+	| "warning"
 	/** An act that failed, or refused to run. */
 	| "danger"
 	/** An act that came off. */
@@ -19,6 +21,7 @@ export type SnackbarVariant =
 const defaultIcon = (variant: SnackbarVariant): IconName =>
 	Match.value(variant).pipe(
 		Match.when("info", () => "info" as const),
+		Match.when("warning", () => "warning" as const),
 		Match.when("danger", () => "danger" as const),
 		Match.when("safe", () => "tick" as const),
 		Match.exhaustive,
@@ -47,7 +50,7 @@ export const Snackbar: FC<
 	} & ComponentProps<"div">
 > = ({ variant = "info", icon, onDismiss, dismissLabel = "Dismiss", children, ...props }) => (
 	<div
-		// A failure interrupts; the other two are there to be read whenever the reader gets to them.
+		// A failure interrupts; the rest are there to be read whenever the reader gets to them.
 		role={variant === "danger" ? "alert" : "status"}
 		{...props}
 		className={classes(
@@ -56,6 +59,7 @@ export const Snackbar: FC<
 			"text-12",
 			Match.value(variant).pipe(
 				Match.when("info", () => styles.info),
+				Match.when("warning", () => styles.warning),
 				Match.when("danger", () => styles.danger),
 				Match.when("safe", () => styles.safe),
 				Match.exhaustive,
@@ -69,7 +73,7 @@ export const Snackbar: FC<
 				<div aria-hidden className={styles.divider} />
 				<Button
 					aria-label={dismissLabel}
-					variant="ghost"
+					variant="ghost-inverted"
 					size="small"
 					iconOnly
 					className={styles.dismiss}

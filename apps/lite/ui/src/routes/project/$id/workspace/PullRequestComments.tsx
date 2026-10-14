@@ -49,6 +49,7 @@ import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { useMentionSuggestions } from "#ui/components/MentionSuggestions.tsx";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import {
 	groupReactors,
 	Reactions,
@@ -506,7 +507,7 @@ const ThreadHunk: FC<{
 	if (fileDiff === null) return null;
 
 	return (
-		<div className={styles.hunk} onContextMenu={onContextMenu}>
+		<ScrollArea className={styles.hunk} onContextMenu={onContextMenu}>
 			<FileDiff
 				fileDiff={fileDiff}
 				options={{
@@ -530,7 +531,7 @@ const ThreadHunk: FC<{
 				// enough — the anchor row above already names the file and its lines.
 				renderCustomHeader={() => null}
 			/>
-		</div>
+		</ScrollArea>
 	);
 };
 

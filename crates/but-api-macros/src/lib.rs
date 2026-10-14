@@ -1522,7 +1522,7 @@ fn build_napi_params<'a>(
                 names.push(param_name.to_string());
                 conversions.push(quote! {
                     let #ident = ::std::str::FromStr::from_str(&#param_name)
-                        .map_err(|e: gix::hash::decode::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                        .map_err(|e: gix::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
                 });
                 let call_ident = match &*pat_ty.ty {
                     syn::Type::Reference(r) => {
@@ -1554,7 +1554,7 @@ fn build_napi_params<'a>(
                 conversions.push(quote! {
                     let #ident: Option<gix::ObjectId> = #param_name
                         .map(|value| {
-                            ::std::str::FromStr::from_str(&value).map_err(|e: gix::hash::decode::Error| {
+                            ::std::str::FromStr::from_str(&value).map_err(|e: gix::Error| {
                                 napi::Error::new(
                                     napi::Status::InvalidArg,
                                     format!("invalid '{}': {e}", stringify!(#param_name)),
@@ -1573,7 +1573,7 @@ fn build_napi_params<'a>(
                         .into_iter()
                         .enumerate()
                         .map(|(index, value)| {
-                            ::std::str::FromStr::from_str(&value).map_err(|e: gix::hash::decode::Error| {
+                            ::std::str::FromStr::from_str(&value).map_err(|e: gix::Error| {
                                 napi::Error::new(
                                     napi::Status::InvalidArg,
                                     format!("invalid '{}' at index {index}: {e}", stringify!(#param_name)),
@@ -1644,7 +1644,7 @@ fn build_napi_params<'a>(
                     conversions.push(quote! {
                         let #ident: crate::json::HexHash = ::std::str::FromStr::from_str(&#ident)
                             .map(crate::json::HexHash)
-                            .map_err(|e: gix::hash::decode::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                            .map_err(|e: gix::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
                     });
                     call_arg_idents.push(quote! { #ident });
                 }
@@ -2020,7 +2020,7 @@ mod tests {
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| {
-                        ::std::str::FromStr::from_str(&value).map_err(|e: gix::hash::decode::Error| {
+                        ::std::str::FromStr::from_str(&value).map_err(|e: gix::Error| {
                             napi::Error::new(
                                 napi::Status::InvalidArg,
                                 format!("invalid '{}' at index {index}: {e}", stringify!(commit_ids)),
@@ -2055,7 +2055,7 @@ mod tests {
             quote! {
                 let cursor: Option<gix::ObjectId> = cursor
                     .map(|value| {
-                        ::std::str::FromStr::from_str(&value).map_err(|e: gix::hash::decode::Error| {
+                        ::std::str::FromStr::from_str(&value).map_err(|e: gix::Error| {
                             napi::Error::new(
                                 napi::Status::InvalidArg,
                                 format!("invalid '{}': {e}", stringify!(cursor)),

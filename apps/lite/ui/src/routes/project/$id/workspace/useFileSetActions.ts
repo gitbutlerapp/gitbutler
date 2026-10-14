@@ -151,7 +151,8 @@ export const useFileSetSubject = ({
 	// Gated on the set being wholly ours, so a mixed selection can't be mistaken for the
 	// row's own subject.
 	const checkedCount = useAppSelector((state) =>
-		promote && projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent)
+		promote &&
+		projectSlice.selectors.selectCheckedSetIsFilesFromParent(state, projectId, fileParent)
 			? projectSlice.selectors.selectCheckedAddressCount(state, projectId)
 			: 0,
 	);

@@ -1,8 +1,17 @@
+/* How round the file cards' corners are, as a share of --radius-card, as
+   ui-react's DiffFile registers it: Lite doesn't load DiffFile's stylesheet.
+   Registered so the diff's scroll-driven animation (unsafeCSS in Details.tsx)
+   can ease it to 0 as a card leaves, where an unregistered one would jump. */
+@property --diff-file-roundness {
+	syntax: "<number>";
+	inherits: true;
+	initial-value: 1;
+}
+
 .container {
 	/* The PR panel's column. It lives up here because the panel — a separate
 	   module, so no literal to share — reads it for its own flex-basis. */
 	--pr-panel-width: 315px;
-
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
 	row-gap: 0;
@@ -11,32 +20,6 @@
 .containerLone {
 	grid-template-rows: minmax(0, 1fr);
 	row-gap: 0;
-}
-
-.headerWrap {
-	display: flex;
-	row-gap: 10px;
-	flex-direction: column;
-	/* Symmetric so the header actions share a right edge with the content
-	   columns below, which all inset by the same token. */
-	/* 12px below: the tabs' underline hangs 8px under them and is 4px thick,
-	   so it sits on the header's bottom edge. */
-	padding-inline: var(--panel-padding-inline);
-	padding-block: var(--panel-padding-block) 12px;
-	/* The header draws its own bottom edge, so the tab row reads as a strip
-	   spanning the pane rather than a control floating in empty space. Every
-	   view below it — diff, PR, loading — starts flush under this line. */
-	border-bottom: 1px solid var(--border-section);
-}
-
-.titleRow {
-	display: flex;
-	column-gap: 12px;
-}
-
-.commitBodyToggle {
-	width: 24px;
-	height: 14px;
 }
 
 .title {
@@ -50,39 +33,33 @@
 	min-width: 0;
 }
 
-.titleContentWrapper {
-	display: flex;
-	align-items: center;
-	min-width: 0;
-	gap: 8px;
-}
-
-.titleContent {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
+/* The diff's controls, over the diff column. The inline inset and the space
+   above and below are the diff's file spacing (set in Page.tsx from
+   ui-react's diffFileSpacing), so the buttons line up with the file cards and
+   sit that far above the first one. */
 .actions {
 	display: flex;
 	align-items: center;
-	/* With a separate header above (commit/branch views), use tighter padding. */
-	padding: 8px;
-	gap: 12px;
-	border-bottom: 1px solid var(--border-section);
+	margin-block-end: var(--diff-file-top);
+	padding-inline: var(--diff-file-inset);
+	padding-block-start: var(--diff-file-top);
+	gap: 8px;
 
-	/* Lone layout: the title lives in this row, match the panel padding. */
+	/* Lone layout: the title lives in this row, so it is the view's header. */
 	.containerLone & {
-		padding-inline: var(--panel-padding-inline);
-		padding-block: var(--panel-padding-block);
+		padding-block: var(--panel-padding-block) 8px;
+		gap: 12px;
+		border-bottom: 1px solid var(--border-section);
+		background-color: var(--bg-1);
 	}
 }
 
+/* At the end of the bar; the files toggle, where there is one, leads it. */
 .diffControls {
 	display: flex;
+	align-items: center;
 	margin-inline-start: auto;
-	gap: 6px;
+	gap: 8px;
 }
 
 .panel {
@@ -112,15 +89,17 @@
    a size container so the block scales its counterweight to the room. */
 .diffTabEmpty {
 	container-type: size;
-	display: flex;
-	flex-direction: column;
-	justify-content: safe center;
-	overflow: auto;
 	/* The paper, not the panel tint: this sits under the details view's own
 	   header, as that view's content, so it takes the ground the diff and file
 	   list would have had. The standalone pane placeholder has no header above
 	   it and is the whole surface, so it keeps `--bg-2` instead. */
 	background-color: var(--bg-1);
+}
+
+.diffTabEmptyViewport {
+	display: flex;
+	flex-direction: column;
+	justify-content: safe center;
 }
 
 .filesPanelContent {
@@ -138,7 +117,7 @@
 
 .diffContentsContainer {
 	display: grid;
-	/* Anchors the minimap overlay. */
+	/* Anchors the search bar. */
 	position: relative;
 	/* Bound the row to the pane rather than letting the diff size it. */
 	grid-template-rows: minmax(0, 1fr);
@@ -147,25 +126,27 @@
 	   above renders nothing unless there are conflicts, and auto placement would
 	   otherwise drop this into that row's `auto` track and size it to the diff. */
 	grid-row: 2;
-
-	&:has([data-minimap-navigable="true"]) .diffContents {
-		/* Drop the native scrollbar while the minimap stands in for it; a diff
-		   too short to map keeps one. */
-		scrollbar-width: none;
-
-		&::-webkit-scrollbar {
-			display: none;
-		}
-	}
 }
 
+.diffScrollBars {
+	/* Over the diff's sticky file headers, which Pierre stacks above the code. */
+	z-index: 1;
+}
+
+/* Each file is a card on the pane, inset as far as the toolbar (.actions) so
+   the cards line up with its buttons. The scroller starts right under the
+   toolbar, so a stuck header sits where the first card began and the code
+   scrolling under it is cut off at its top edge. */
 .diffContents {
 	--diffs-bg-selection-number-override: var(--bg-selected-inactive);
 	--diffs-bg-selection-override: transparent;
 
+	padding-inline: var(--diff-file-inset);
 	overflow: auto;
-	background-color: var(--bg-2);
+	background-color: var(--bg-1);
 	font-variant-ligatures: common-ligatures;
+	/* ScrollBars draws the bars over it instead. */
+	scrollbar-width: none;
 	user-select: text;
 
 	/* CodeView makes this scroller focusable, so arrow keys raise the platform
@@ -175,15 +156,11 @@
 		outline: none;
 	}
 
+	/* The card is drawn by its parts, not by this host: the header draws its
+	   top and the diff under it (Pierre's [data-diff]) its sides and bottom.
+	   A border here would run on past a stuck header's rounded corners. */
 	diffs-container {
 		--diffs-selection-number-fg: var(--text-1);
-		border-top: 1px solid var(--border-section);
-		border-bottom: 1px solid var(--border-section);
-
-		/* Hide the first diff's top border so it doesn't double up with the container above. */
-		&:first-child {
-			border-top-color: var(--bg-1);
-		}
 
 		/* Pierre still reserves the paddingTop item metric (diff-view.ts) under a
 		   folded file's header, though the code it pads is not rendered. Left
@@ -246,21 +223,14 @@
 	gap: 6px;
 }
 
+/* Commit messages are wrapped by hand, at 72 to 78 characters, so the
+   measure leaves room for that rather than breaking each line again. */
 .commitMessageBody {
-	max-width: 70ch;
+	max-width: 80ch;
 	font-size: 12px;
 	line-height: 160%;
 	white-space: pre-wrap;
 	user-select: text;
-}
-
-.tabsRow {
-	display: flex;
-	column-gap: 12px;
-}
-
-.tabsRowRight {
-	margin-inline-start: auto;
 }
 
 /* The tab owns its scrolling, the way the diff tab does. Without this the
@@ -269,7 +239,6 @@
 .prTabScroll {
 	/* The tab's inset and column gap scale with this width (see .prTab). */
 	container-type: inline-size;
-	overflow-y: auto;
 }
 
 .prTab {
@@ -318,15 +287,14 @@
 	}
 }
 
+/* The top of the file's card, with the line under it; the diff below draws
+   the rest. It clips so the selection bar keeps to the rounded corner. */
 .fileHeader {
-	display: grid;
-	grid-template-columns: auto 1fr auto;
-	column-gap: 8px;
-	align-items: center;
-	justify-content: space-between;
-	padding: 8px 10px;
-	border-bottom: 1px solid var(--border-3);
-	white-space: nowrap;
+	overflow: clip;
+	border: 1px solid var(--border-2);
+	border-radius: calc(var(--radius-card) * var(--diff-file-roundness))
+		calc(var(--radius-card) * var(--diff-file-roundness)) 0 0;
+	border-bottom-color: var(--border-3);
 
 	/* Focusable only so a click lands here rather than on the diff container;
 	   the platform ring around a whole header would be noise, and the diff pane
@@ -335,21 +303,25 @@
 		outline: none;
 	}
 
+	/* No diff follows, so the header is the whole card. */
 	&.lone {
-		border-bottom: none;
+		border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+		border-bottom-color: var(--border-2);
 	}
 }
 
 /* Marks the file holding the diff selection — including a folded one, whose
-   header stands in for its hidden hunks. A plain accent bar for now;
-   positioned absolutely so the layout is untouched. */
+   header stands in for its hidden hunks: a tab on the card's left edge, inset
+   from the header's top and bottom and rounded on its open side. Positioned
+   absolutely so the layout is untouched. */
 .fileHeaderSelected {
 	position: relative;
 
 	&::before {
 		position: absolute;
-		width: 3px;
-		inset: 0 auto 0 0;
+		width: 4px;
+		inset: 5px auto 5px 0;
+		border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
 		/* The row-selection fill, dimmed like row selections in a blurred
 		   panel; full strength while the diff pane owns focus. */
 		background-color: var(--bg-selected-inactive);
@@ -361,79 +333,6 @@
 		&::before {
 		background-color: var(--fill-gray-bg);
 	}
-}
-
-/* The trailing cluster: what the file changed, then what you can do about it. */
-.fileHeaderEnd {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-}
-
-.fileHeaderActions {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-/* Splits the file's read-only tallies from the controls that act on it. */
-.fileHeaderSeparator {
-	width: 1px;
-	height: 20px;
-	/* Makes up the 12px the design puts either side of it, over the 8px the
-	   surrounding toolbar gap gives. */
-	margin-inline: 2px;
-	background-color: var(--border-3);
-}
-
-.fileReview {
-	/* The box is the button's own mark, not a decorative icon: the tick inside it
-	   sits on the accent fill and must not be dimmed like a leading icon. */
-	--button-icon-opacity: 1;
-	--button-hover-icon-opacity: 1;
-	/* Wider than a small button's icon gap: the box reads as a control of its
-	   own, so it needs more air from the word than an icon would. */
-	--button-gap: 6px;
-}
-
-/* The checkbox the design draws inside the button. It is the button's mark
-   rather than a Checkbox of its own: nesting a real one would put a second
-   control inside the first. Kept in step with Checkbox.module.css. */
-.fileReviewBox {
-	display: flex;
-	flex-shrink: 0;
-	align-items: center;
-	justify-content: center;
-	width: 14px;
-	height: 14px;
-	border-radius: var(--radius-xs);
-	background-color: var(--bg-1);
-	box-shadow: inset 0 0 0 1px var(--border-2);
-
-	[aria-pressed="true"] &,
-	[aria-pressed="mixed"] & {
-		background-color: var(--fill-pop-bg);
-		box-shadow: inset 0 0 0 1px var(--fill-pop-bg);
-		color: var(--fill-pop-fg);
-	}
-}
-
-.fileMeta {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.filePath {
-	display: flex;
-	align-items: center;
-	overflow: hidden;
-	gap: 6px;
-	text-overflow: ellipsis;
-}
-
-.pathInit {
-	color: var(--text-2);
 }
 
 .hunkHeaderRow {
@@ -455,47 +354,6 @@
 	margin: 8px;
 }
 
-.commitDetailsMeta {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	/* Match the branch header's tabs row (regular button height) so both
-	   header variants end at the same line. */
-	min-height: 28px;
-	gap: 8px;
-	color: var(--text-3);
-}
-
-/* The toggle leads the meta row, so it keeps the row's own rhythm but sits a
-   touch further from the author than the meta items sit from each other. */
-.commitDetailsMetaTabs {
-	margin-inline-end: 4px;
-}
-
-.commitDetailsMetaSha {
-	display: flex;
-	align-items: center;
-	padding: 0;
-	gap: 4px;
-	border: none;
-	background: none;
-	color: var(--text-3);
-	font: inherit;
-
-	> span {
-		text-decoration: underline dotted;
-		text-underline-offset: 2px;
-	}
-
-	&:hover {
-		color: var(--text-2);
-	}
-}
-
-.commitConflictBadge {
-	flex-shrink: 0;
-}
-
 /* Holds the conflict bar above the diff as one child of `.panel`, whose grid
    sizes exactly two rows — a third child would take the diff's. */
 .diffArea {
@@ -506,8 +364,7 @@
 }
 
 /* Grid items floor at min-content, so without this the diff sizes to its whole
-   length and the row scrolls the minimap away with it instead of the code area
-   scrolling beneath a pinned ruler. */
+   length and the whole row scrolls instead of the code area inside it. */
 .diffArea > * {
 	min-height: 0;
 }

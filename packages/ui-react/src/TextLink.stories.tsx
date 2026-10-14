@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { TextLink } from "./TextLink.tsx";
 
 const meta = preview.meta({
+	title: "Actions/TextLink",
+	id: "components-textlink",
 	component: TextLink,
 	parameters: {
 		design: {

@@ -73,6 +73,8 @@ export const rejectedChangesToastOptions = ({
 	newCommit?: string | null;
 	rejectedChanges: Array<RejectedChange>;
 }): ToastManagerAddOptions<never> => ({
+	// With a commit made, the act came off in part; without one, it failed.
+	type: newCommit != null ? "warning" : "error",
 	title: newCommit != null ? "Some changes were not committed" : "Failed to create commit",
 	description: <RejectedChanges rejectedChanges={rejectedChanges} />,
 	priority: "high",
@@ -83,6 +85,7 @@ export const discardChangesToastOptions = ({
 }: {
 	rejectedChanges: Array<DiffSpec>;
 }): ToastManagerAddOptions<never> => ({
+	type: "warning",
 	title: "Some changes were not discarded",
 	description: formatPaths(rejectedChanges.map((diffSpec) => decodeBytes(diffSpec.pathBytes))),
 	priority: "high",

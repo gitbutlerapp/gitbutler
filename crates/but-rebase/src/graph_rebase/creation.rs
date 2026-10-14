@@ -2,12 +2,13 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
-use but_graph::{Commit, SegmentIndex};
+use but_graph::{Commit, RefInfo, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
     Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
-    SuccessfulRebase, util,
+    SuccessfulRebase,
+    util::{self, OrderedParentKind},
 };
 
 #[derive(Clone)]
@@ -81,6 +82,9 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             };
             mutable_entrypoints.push(segment.id);
         }
+        for tip in worktree_tips.iter().filter(|tip| tip.ref_name.is_none()) {
+            mutable_entrypoints.push(workspace.graph.segment_id_by_commit_id(tip.id)?);
+        }
 
         // Segments reachable from a mutable entrypoint (following parent edges)
         // may be rewritten. Every other segment is still included in the
@@ -108,13 +112,20 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         let mut commit_to_pick_ix = HashMap::<gix::ObjectId, StepGraphIndex>::new();
         let mut reference_to_ix = HashMap::<gix::refs::FullName, StepGraphIndex>::new();
         let mut graph = StepGraph::new();
-        let mut head_selectors = vec![];
         let mut references = vec![];
         struct NodeSegment {
             nodes: Vec<StepGraphIndex>,
         }
 
         let mut segments = HashMap::<SegmentIndex, NodeSegment>::new();
+        let is_checked_out_only_where_the_editor_moves_heads = |ref_info: &RefInfo| {
+            ref_info.worktree.as_ref().is_none_or(|worktree| {
+                worktree.owned_by_repo
+                    || worktree_tips
+                        .iter()
+                        .any(|tip| tip.ref_name.as_ref() == Some(&ref_info.ref_name))
+            })
+        };
 
         for sid in segments_to_add {
             let segment = &workspace.graph[sid];
@@ -126,12 +137,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 let reference_mutable =
                     segment_mutable && refname.category() == Some(gix::refs::Category::LocalBranch);
                 // Only mutable references are tracked for potential deletion.
-                if reference_mutable
-                    && ref_info
-                        .worktree
-                        .as_ref()
-                        .is_none_or(|worktree| worktree.owned_by_repo)
-                {
+                if reference_mutable && is_checked_out_only_where_the_editor_moves_heads(ref_info) {
                     references.push(refname.clone());
                 }
                 let ix = graph.add_node(Step::Reference {
@@ -139,12 +145,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     mutable: reference_mutable,
                 });
                 reference_to_ix.insert(refname.clone(), ix);
-                if Some(refname.as_ref()) == entrypoint.segment.ref_name() {
-                    head_selectors.push(Selector {
-                        id: ix,
-                        revision: 0,
-                    });
-                }
                 nodes.push(ix);
             }
 
@@ -157,10 +157,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     let reference_mutable = segment_mutable
                         && refname.category() == Some(gix::refs::Category::LocalBranch);
                     if reference_mutable
-                        && ref_info
-                            .worktree
-                            .as_ref()
-                            .is_none_or(|worktree| worktree.owned_by_repo)
+                        && is_checked_out_only_where_the_editor_moves_heads(ref_info)
                     {
                         references.push(refname.clone());
                     }
@@ -251,8 +248,12 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     continue 'inner;
                 };
 
-                // TODO: does it have relevance when `parent_order()` is `None` for edges to virtual segments?
-                let order = edge.weight().parent_order().unwrap_or(0) as usize;
+                let order = edge
+                    .weight()
+                    .workspace_parent_order()
+                    .or_else(|| edge.weight().parent_order())
+                    .map(|order| order as usize)
+                    .unwrap_or(0);
                 graph.add_edge(*source, *target, Edge { order });
             }
         }
@@ -276,7 +277,8 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
 
             // Resolve what the graph thinks are the parents of this pick
-            let graph_parents = util::collect_ordered_parents(&graph, pick_ix);
+            let graph_parents =
+                util::collect_ordered_parents(&graph, pick_ix, OrderedParentKind::CommitOnly);
             let graph_parent_ids: Vec<gix::ObjectId> = graph_parents
                 .iter()
                 .filter_map(|idx| match &graph[*idx] {
@@ -355,9 +357,16 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
         }
 
+        let head_selector = match entrypoint.segment.ref_name() {
+            Some(ref_name) => reference_to_ix.get(ref_name),
+            None => entrypoint
+                .commit()
+                .and_then(|commit| commit_to_pick_ix.get(&commit.id)),
+        }
+        .map(|&id| Selector { id, revision: 0 });
         let checkouts = worktree_checkouts
             .into_values()
-            .chain(head_selectors.into_iter().map(|selector| Checkout::Head {
+            .chain(head_selector.map(|selector| Checkout::Head {
                 selector,
                 merge_base_override: None,
             }))
@@ -382,7 +391,8 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// This is the normalization path for callers that want to chain
     /// additional editor-based operations and need the editor graph plus
     /// in-memory repository to agree on ancestry.
-    pub fn into_editor(self) -> Editor<'ws, 'meta, M> {
+    pub fn into_editor(mut self) -> Editor<'ws, 'meta, M> {
+        self.history.conflicted_commits.clear();
         Editor {
             graph: self.graph,
             initial_references: self.initial_references,

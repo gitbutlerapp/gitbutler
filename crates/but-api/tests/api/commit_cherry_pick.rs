@@ -251,7 +251,7 @@ fn cherry_pick_multiple_commits_from_outside_the_workspace() -> anyhow::Result<(
         .collect::<Result<Vec<_>, _>>()?;
     assert_eq!(
         titles,
-        ["outside-one\n", "outside-two\n"],
+        ["outside-one", "outside-two"],
         "the copies keep the order the sources were given in"
     );
     Ok(())

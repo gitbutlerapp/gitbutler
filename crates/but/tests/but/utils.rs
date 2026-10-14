@@ -185,8 +185,13 @@ pub trait CommandExt {
     /// asserting with [snapbox::cmd::OutputAssert::stdout_eq] against an SVG
     /// file.
     fn with_color_for_svg(self) -> Self;
+
     /// Change the environment to allow passing `--json`.
     fn allow_json(self) -> Self;
+
+    /// Run this command as if an agent had run it.
+    #[expect(clippy::wrong_self_convention)]
+    fn as_agent(self) -> Self;
 }
 
 impl CommandExt for snapbox::cmd::Command {
@@ -197,6 +202,10 @@ impl CommandExt for snapbox::cmd::Command {
 
     fn allow_json(self) -> Self {
         self.env_remove("BUT_OUTPUT_FORMAT")
+    }
+
+    fn as_agent(self) -> Self {
+        self.env("AI_AGENT", "codex")
     }
 }
 

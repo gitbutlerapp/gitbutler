@@ -166,6 +166,21 @@ export const Appearance: FC = () => {
 				</Row>
 			</Section>
 
+			<Section heading="Workspace">
+				<Row
+					label="Lines between stacks"
+					labelId="graph-trunk"
+					hint="Draw the line that joins each stack to the target branch."
+				>
+					<Switch
+						size="large"
+						aria-labelledby="graph-trunk"
+						checked={settings.graphTrunk ?? defaultSettings.graphTrunk}
+						onCheckedChange={(graphTrunk) => saveGUISettings({ graphTrunk })}
+					/>
+				</Row>
+			</Section>
+
 			<Section heading="Files">
 				<Row
 					label="File path first"

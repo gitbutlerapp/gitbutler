@@ -20,6 +20,13 @@ apart, never rank them; whichever is rarer in the group reads as distinct. In
 the pull request toolbar, Edit and the overflow menu are ghosts, the Auto-merge
 toggle is an outline because it holds state, and Merge is the single pop.
 
+**Sizes.** Buttons on one row share a size, whatever their variant, so the
+row reads as one line of controls. A view header's pop action and its `⋯`
+menu are both `regular`. An icon-only button is no exception: it takes its
+neighbours' size, not a smaller one because it holds less. `small` is for a
+row denser than a toolbar, such as a list row or a file card's header, and
+every button in that row is small.
+
 **The inverted pair.** `ghost-inverted` and `outline-inverted` are for a
 button on an inverted ground — a selected row, where the text turns to
 `--text-1-invert` — not for dark mode, which the tokens handle. A row can apply

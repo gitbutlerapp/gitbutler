@@ -11,6 +11,7 @@ export const apiProvides = {
 	commentsList: ["Comments"],
 	commitConflicts: [],
 	commitDetailsWithLineStats: ["Commits"],
+	commitRangeDiff: ["Commits"],
 	currentForgeLogin: ["ForgeLogin"],
 	editChangesFromInitial: ["WorktreeChanges"],
 	editInitialIndexState: ["OperatingMode"],
@@ -95,6 +96,7 @@ export const watcherInvalidates = {
 	gitActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
 	gitFetch: ["Branches", "TargetCommits", "FetchStatus", "Reviews"],
 	gitHead: ["OperatingMode"],
+	linkedWorktreeChanges: ["Diffs", "WorktreeChanges"],
 	workspaceActivity: ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"],
 	worktreeChanges: ["Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"],
 };

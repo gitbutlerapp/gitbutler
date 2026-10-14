@@ -1,7 +1,7 @@
 use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
-use but_core::{DryRun, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{DryRun, sync::RepoExclusive};
 use but_ctx::Context;
 use but_workspace::branch::create_reference::{Anchor, Position};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
@@ -141,7 +141,6 @@ fn create_branch_for_anonymous_segment(
                     commit_id: anchor_commit_id,
                     position: Position::Above,
                 },
-                |_| StackId::generate(),
                 Some(0),
             )?;
             Ok(but_transaction::Commit(new_ref))

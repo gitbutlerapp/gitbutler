@@ -116,10 +116,10 @@ fn diff_different_changes_with_agent_output() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   txl Add files to modify
-┊│     txl:usv A to-delete.txt
-┊│     txl:lou A to-modify.txt
-┊│     txl:ztt A to-rename.txt
+┊●   txlq Add files to modify
+┊│     txlq:usvy A to-delete.txt
+┊│     txlq:louy A to-modify.txt
+┊│     txlq:ztty A to-rename.txt
 ├╯
 ┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
@@ -140,31 +140,31 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────────────────╮
- nxx:213 A added.txt │
-─────────────────────╯
+───────────────────────╮
+ nxxm:213a A added.txt │
+───────────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
   ┊ 1 │ +added
 
-───────────────────────╮
- szk:emp R renamed.txt │
-───────────────────────╯
+─────────────────────────╮
+ szkp:empt R renamed.txt │
+─────────────────────────╯
 
 No diff available - file is either empty, binary, or too large
 
-─────────────────────────╮
- usv:0a5 D to-delete.txt │
-─────────────────────────╯
+───────────────────────────╮
+ usvy:0a51 D to-delete.txt │
+───────────────────────────╯
 
 @@ -1,1 +1,0 @@
 ───────────────
 1 ┊   │ -deleted
 
-─────────────────────────╮
- lou:b28 M to-modify.txt │
-─────────────────────────╯
+───────────────────────────╮
+ louy:b28b M to-modify.txt │
+───────────────────────────╯
 
 @@ -1,1 +1,1 @@
 ───────────────
@@ -188,31 +188,31 @@ Created commit vxw on branch 'a-branch-1'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-─────────────────────────╮
- vxw:nxx:213 A added.txt │
-─────────────────────────╯
+────────────────────────────╮
+ vxwu:nxxm:213a A added.txt │
+────────────────────────────╯
 
 @@ -1,0 +1,1 @@
 ───────────────
   ┊ 1 │ +added
 
-───────────────────────────╮
- vxw:szk:emp R renamed.txt │
-───────────────────────────╯
+──────────────────────────────╮
+ vxwu:szkp:empt R renamed.txt │
+──────────────────────────────╯
 
 No diff available - file is either empty, binary, or too large
 
-─────────────────────────────╮
- vxw:usv:0a5 D to-delete.txt │
-─────────────────────────────╯
+────────────────────────────────╮
+ vxwu:usvy:0a51 D to-delete.txt │
+────────────────────────────────╯
 
 @@ -1,1 +1,0 @@
 ───────────────
 1 ┊   │ -deleted
 
-─────────────────────────────╮
- vxw:lou:b28 M to-modify.txt │
-─────────────────────────────╯
+────────────────────────────────╮
+ vxwu:louy:b28b M to-modify.txt │
+────────────────────────────────╯
 
 @@ -1,1 +1,1 @@
 ───────────────

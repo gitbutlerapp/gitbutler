@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { Snackbar, type SnackbarVariant } from "./Snackbar.tsx";
 
 const meta = preview.meta({
+	title: "Overlays/Snackbar",
+	id: "components-snackbar",
 	component: Snackbar,
 	parameters: {
 		design: {
@@ -12,7 +14,7 @@ const meta = preview.meta({
 	argTypes: {
 		variant: {
 			control: "inline-radio",
-			options: ["info", "danger", "safe"] satisfies Array<SnackbarVariant>,
+			options: ["info", "warning", "danger", "safe"] satisfies Array<SnackbarVariant>,
 		},
 		icon: { control: "text" },
 	},
@@ -26,11 +28,18 @@ const meta = preview.meta({
 /** The snackbar as the design states it: a glyph, a sentence, and a way out. */
 export const Default = meta.story({});
 
-/** One surface, three glyphs: only the leading icon says how the news landed. */
+/** One surface, four glyphs: only the leading icon says how the news landed. */
 export const AllVariants = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2854-2578",
+		},
+	},
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", alignItems: "start", gap: 12 }}>
 			<Snackbar>Info. Snackbar message</Snackbar>
+			<Snackbar variant="warning">Warning. Snackbar message</Snackbar>
 			<Snackbar variant="danger">Danger. Snackbar message</Snackbar>
 			<Snackbar variant="safe">Success. Snackbar message</Snackbar>
 		</div>
@@ -39,9 +48,18 @@ export const AllVariants = meta.story({
 
 /** With `onDismiss` the snackbar grows a divider and a close button, and the row with it. */
 export const WithDismiss = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2854-2664",
+		},
+	},
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", alignItems: "start", gap: 12 }}>
 			<Snackbar onDismiss={() => {}}>Info. Snackbar message</Snackbar>
+			<Snackbar variant="warning" onDismiss={() => {}}>
+				Warning. Snackbar message
+			</Snackbar>
 			<Snackbar variant="danger" onDismiss={() => {}}>
 				Danger. Snackbar message
 			</Snackbar>
@@ -54,6 +72,12 @@ export const WithDismiss = meta.story({
 
 /** `icon` overrides the variant's own glyph without changing what the snackbar means. */
 export const CustomIcon = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2854-2740",
+		},
+	},
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", alignItems: "start", gap: 12 }}>
 			<Snackbar icon="spinner">Absorbing…</Snackbar>
@@ -69,6 +93,12 @@ export const CustomIcon = meta.story({
 
 /** A sentence wider than the space it has ellipsises rather than widening the snackbar. */
 export const LongMessage = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2854-2804",
+		},
+	},
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 12, width: 320 }}>
 			<Snackbar icon="absorb" onDismiss={() => {}}>

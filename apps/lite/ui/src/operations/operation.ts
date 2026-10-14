@@ -14,7 +14,7 @@ import { type Address, addressEquals, addressFileParent, changesSourceOf } from 
 import { fileParentFromSources, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { useAppDispatch } from "#ui/store.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 import { syncCoreCaches } from "#ui/api/mutations.ts";
 
 /**
@@ -68,7 +68,7 @@ type Operation =
 			commitId: string;
 			assignTo: string | null;
 	  }
-	| { _tag: "MoveBranch"; subjectBranch: string; targetBranch: string };
+	| { _tag: "MoveBranch"; subjectBranch: string; relativeTo: RelativeTo; side: InsertSide };
 
 type LabelledOperation = { operation: Operation; label: string };
 
@@ -193,7 +193,8 @@ const executeOperation = async ({
 				window.lite.moveBranch({
 					projectId,
 					subjectBranch: operation.subjectBranch,
-					targetBranch: operation.targetBranch,
+					relativeTo: operation.relativeTo,
+					side: operation.side,
 					dryRun: false,
 				}),
 		}),
@@ -227,11 +228,9 @@ export const useExecuteOperation = (projectId: string) => {
 			}
 		},
 		onError: (error) => {
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: "Failed to run operation",
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		},
 	});
@@ -475,7 +474,8 @@ const moveOperation = ({
 				operation: {
 					_tag: "MoveBranch",
 					subjectBranch: decodeBytes(source.branchRef),
-					targetBranch: decodeBytes(target.branchRef),
+					relativeTo: { type: "referenceBytes", subject: target.branchRef },
+					side: "above",
 				},
 				label: "Move above",
 			}),

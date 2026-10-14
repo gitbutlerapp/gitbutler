@@ -64,7 +64,13 @@ export const OperationSourceC: FC<
 
 		const state = store.getState();
 		const checkedAddressKeys = projectSlice.selectors.selectCheckedAddressKeys(state, projectId);
-		return sources.some((source) => checkedAddressKeys.has(addressIdentityKey(source)))
+		const checkedHunkFileKeys = projectSlice.selectors.selectCheckedHunkFileKeys(state, projectId);
+		return sources.some((source) => {
+			const key = addressIdentityKey(source);
+			return (
+				checkedAddressKeys.has(key) || (source._tag === "File" && checkedHunkFileKeys.has(key))
+			);
+		})
 			? projectSlice.selectors.selectCheckedAddresses(state, projectId)
 			: sources;
 	};

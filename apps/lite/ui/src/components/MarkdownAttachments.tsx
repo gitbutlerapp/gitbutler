@@ -8,6 +8,7 @@ import { useUploadFiles } from "#ui/api/mutations.ts";
 import { userProfileQueryOptions } from "#ui/api/queries.ts";
 import * as md from "@gitbutler/ui-react/markdown-editing.ts";
 import { applyToTextarea } from "@gitbutler/ui-react/markdown-textarea.ts";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { ACCEPTED_FILE_TYPES, filesFromTransfer, uploadsToMarkdown } from "#ui/uploads.ts";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type RefObject, useEffect, useRef, useState } from "react";
@@ -135,16 +136,18 @@ export const MarkdownAttachments: FC<Props> = (p) => {
 					description="They are uploaded to gitbutler.com and anyone with the link can open them, which is what lets the forge show them in your description."
 				/>
 				<ModalBody>
-					<List className={styles.files}>
-						{pending.map((file, index) => (
-							// Names repeat — two pasted images are both "pasted-image" —
-							// and the list is fixed while the dialog is open.
-							// oxlint-disable-next-line react/no-array-index-key
-							<ListItem key={index} marker={<FileIcon fileName={file.name} />}>
-								{file.name}
-							</ListItem>
-						))}
-					</List>
+					<ScrollArea className={styles.files}>
+						<List>
+							{pending.map((file, index) => (
+								// Names repeat — two pasted images are both "pasted-image" —
+								// and the list is fixed while the dialog is open.
+								// oxlint-disable-next-line react/no-array-index-key
+								<ListItem key={index} marker={<FileIcon fileName={file.name} />}>
+									{file.name}
+								</ListItem>
+							))}
+						</List>
+					</ScrollArea>
 				</ModalBody>
 				<ModalFooter>
 					<Button variant="ghost" onClick={() => setPending([])}>

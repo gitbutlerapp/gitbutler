@@ -104,7 +104,48 @@ Updated branch A.
         snapbox::str![[r#"
 {
   "uncommittedChanges": [],
-  "stacks": [],
+  "stacks": [
+    {
+      "cliId": "h0",
+      "assignedChanges": [],
+      "branches": [
+        {
+          "cliId": "g0",
+          "name": "A",
+          "commits": [
+            {
+              "cliId": "smn",
+              "changeId": "smnwyxurtyqkwkkqslklkvwzxxksotoy",
+              "commitId": "74faa12600297e7b9e8363028de23c69f1db1c14",
+              "createdAt": "2000-01-01T00:00:00+00:00",
+              "message": "add only-on-local\n",
+              "authorName": "author",
+              "authorEmail": "author@example.com",
+              "conflicted": false,
+              "reviewId": null,
+              "changes": null
+            },
+            {
+              "cliId": "yxu",
+              "changeId": "yxuympxptyrpmltqvkxykkswvvlloxql",
+              "commitId": "28baf9a2794d7722ceff84f2967b5186545b8a48",
+              "createdAt": "2000-01-01T00:00:00+00:00",
+              "message": "add only-on-remote\n",
+              "authorName": "author",
+              "authorEmail": "author@example.com",
+              "conflicted": false,
+              "reviewId": null,
+              "changes": null
+            }
+          ],
+          "upstreamCommits": [],
+          "branchStatus": "unpushedCommits",
+          "reviewId": null,
+          "ci": null
+        }
+      ]
+    }
+  ],
   "mergeBase": {
     "cliId": "",
     "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",

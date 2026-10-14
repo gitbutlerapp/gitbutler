@@ -78,9 +78,11 @@ impl From<BStringForFrontend> for BString {
     }
 }
 
-impl From<BStringForFrontend> for OsString {
-    fn from(value: BStringForFrontend) -> Self {
-        gix::path::from_bstring(value.0).into()
+impl TryFrom<BStringForFrontend> for OsString {
+    type Error = gix::Error;
+
+    fn try_from(value: BStringForFrontend) -> Result<Self, Self::Error> {
+        Ok(gix::path::from_bstring(value.0)?.into())
     }
 }
 

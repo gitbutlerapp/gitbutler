@@ -40,6 +40,38 @@ fn worktree_tui() -> (TestTui<App>, String) {
 }
 
 #[test]
+fn marking_a_worktree_commit_replaces_its_dot() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input([KeyCode::Down; 5])
+        .assert_current_line_eq(str!["┊┊●   nll add W"]);
+
+    // Keep both graph lanes intact and replace the commit dot, as in the main worktree.
+    tui.input(' ').assert_marks_count_eq(1);
+    // Marking advances the cursor to the next commit.
+    tui.input(KeyCode::Up)
+        .assert_current_line_eq(str!["┊┊✔︎   nll add W"]);
+
+    tui.input(' ')
+        .assert_marks_count_eq(0)
+        .assert_current_line_eq(str!["┊┊●   nll add W"]);
+}
+
+#[test]
+fn marking_a_worktree_branch_replaces_its_connector() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input([KeyCode::Down; 4])
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
+
+    // Preserve the graph lanes and replace the branch connector, as in the main worktree.
+    tui.input(' ').assert_marks_count_eq(1);
+    // Marking wraps to the main worktree's branch; move back to the linked branch.
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊┊✔︎  wt [wt-branch]"]);
+}
+
+#[test]
 fn linked_worktree_head_marker_survives_reload() {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
@@ -151,7 +183,7 @@ fn branch_picker_excludes_worktrees_when_marking_files() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/branch_picker_excludes_worktrees_when_marking_files_001.svg"
         ])
-        .assert_current_line_eq(str!["┊✔︎┊   ok A wt-file.txt"]);
+        .assert_current_line_eq(str!["┊┊┊✔︎  ok A wt-file.txt"]);
 }
 
 /// Sibling worktrees nested below a dirty worktree's first commit keep a blank lane between them.
@@ -640,8 +672,8 @@ fn move_commit_below_a_worktree_reference() {
         .assert_current_line_eq(str!["┊●   oun (no commit message) (no changes)"]);
 
     tui.input('m');
-    // Past the worktree's own commit, onto its reference row.
-    tui.input([KeyCode::Up, KeyCode::Up])
+    // The worktree forks from the commit below, so its reference row is further down.
+    tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_commit_below_a_worktree_reference_001.svg"
@@ -656,8 +688,8 @@ fn move_commit_below_a_worktree_reference() {
         tui.env().git_log(),
         str![[r#"
 * 6919fdf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 401b057 (wt-branch) 
-| * 20da4fb add W
+| * 76d9e4b (wt-branch) 
+| * 998a235 add W
 |/  
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
@@ -840,79 +872,85 @@ fn unarchive_worktree() {
 
 #[test]
 fn unarchive_worktree_picker_filters_archived_worktrees() {
-    let (mut tui, _editor) = worktree_tui();
-    // Keep the fixture's original worktree active; create and archive two more through the TUI.
-    for _ in 0..2 {
-        tui.input((KeyModifiers::SHIFT, 'G'));
-        tui.input('w');
-        tui.input('n');
-        tui.input('w');
-        tui.input('a');
-        tui.input('y');
-    }
-    tui.reload().assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_001.svg"
-    ]);
+    // Worktree creation resolves the user's home through but_path, outside the sandbox repo.
+    but_testsupport::isolated_app_data_dir(|| {
+        let (mut tui, _editor) = worktree_tui();
+        // Keep the fixture's original worktree active; create and archive two more through the TUI.
+        for _ in 0..2 {
+            tui.input((KeyModifiers::SHIFT, 'G'));
+            tui.input('w');
+            tui.input('n');
+            tui.input('w');
+            tui.input('a');
+            tui.input('y');
+        }
+        tui.reload().assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_001.svg"
+        ]);
 
-    tui.input('w');
-    tui.input('u').assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_002.svg"
-    ]);
-    tui.input("2").assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_003.svg"
-    ]);
-    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_004.svg"
-    ]);
-    // Only the chosen worktree was restored; the other remains available to unarchive.
-    tui.input('w');
-    tui.input('u').assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_005.svg"
-    ]);
+        tui.input('w');
+        tui.input('u').assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_002.svg"
+        ]);
+        tui.input("2").assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_003.svg"
+        ]);
+        tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_004.svg"
+        ]);
+        // Only the chosen worktree was restored; the other remains available to unarchive.
+        tui.input('w');
+        tui.input('u').assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_005.svg"
+        ]);
+    });
 }
 
 #[test]
 fn creating_new_worktrees() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack");
-    env.setup_metadata(&["A"]);
+    // Worktree creation resolves the user's home through but_path, outside the sandbox repo.
+    but_testsupport::isolated_app_data_dir(|| {
+        let env = Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack");
+        env.setup_metadata(&["A"]);
 
-    let mut tui = test_status_tui_with_options(
-        env,
-        TestTuiOptions {
-            worktree_manipulation: true,
-            ..Default::default()
-        },
-    );
+        let mut tui = test_status_tui_with_options(
+            env,
+            TestTuiOptions {
+                worktree_manipulation: true,
+                ..Default::default()
+            },
+        );
 
-    // create a new worktree at the base
-    tui.input('w')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_001.svg"]);
-    tui.input('j')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_002.svg"]);
-    tui.input('n')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_003.svg"]);
+        // create a new worktree at the base
+        tui.input('w')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_001.svg"]);
+        tui.input('j')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_002.svg"]);
+        tui.input('n')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_003.svg"]);
 
-    // create worktree at commit
-    tui.input('g');
-    tui.input('w')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_004.svg"]);
-    tui.input('n')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_005.svg"]);
+        // create worktree at commit
+        tui.input('g');
+        tui.input('w')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_004.svg"]);
+        tui.input('n')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_005.svg"]);
 
-    // discard both worktrees
-    tui.input('g');
-    tui.input('w');
-    tui.input('x')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_006.svg"]);
-    tui.input('y')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_007.svg"]);
-    tui.input('w');
-    tui.input('j')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_008.svg"]);
-    tui.input('x')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_009.svg"]);
-    tui.input('y')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_010.svg"]);
+        // discard both worktrees
+        tui.input('g');
+        tui.input('w');
+        tui.input('x')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_006.svg"]);
+        tui.input('y')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_007.svg"]);
+        tui.input('w');
+        tui.input('j')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_008.svg"]);
+        tui.input('x')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_009.svg"]);
+        tui.input('y')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_010.svg"]);
+    });
 }
 
 #[test]

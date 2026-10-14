@@ -30,6 +30,7 @@ mod external;
 mod format;
 mod gui;
 mod help;
+mod init;
 #[cfg(feature = "legacy")]
 mod merge;
 #[cfg(feature = "legacy")]
@@ -52,6 +53,8 @@ mod reword;
 mod reword2;
 #[cfg(feature = "legacy")]
 mod setup;
+#[cfg(feature = "legacy")]
+mod sha256;
 mod skill;
 #[cfg(feature = "legacy")]
 mod split;
@@ -60,7 +63,7 @@ mod squash;
 #[cfg(feature = "legacy")]
 mod status;
 #[cfg(feature = "legacy")]
-mod r#switch;
+mod switch;
 #[cfg(feature = "legacy")]
 mod teardown;
 #[cfg(feature = "legacy")]

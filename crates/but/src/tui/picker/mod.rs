@@ -34,7 +34,7 @@ pub struct PickerOptions {
 }
 
 pub fn run_picker<'a, Key, Value>(
-    _out: &mut InputOutputChannel<'_>,
+    out: &mut InputOutputChannel<'_>,
     prompt: &str,
     items: &'a NonEmpty<(Key, Value)>,
     options: PickerOptions,
@@ -42,7 +42,7 @@ pub fn run_picker<'a, Key, Value>(
 where
     Key: std::fmt::Display,
 {
-    run_picker_with_help(_out, prompt, items, options, |_| None::<&str>)
+    run_picker_with_help(out, prompt, items, options, |_| None::<&str>)
 }
 
 pub fn run_picker_with_help<'a, Key, Value>(
@@ -445,7 +445,7 @@ where
 /// Render the picker's final (collapsed) frame. The closure draws the summary
 /// and returns how many rows it used, so the cursor can be parked just below it
 /// and subsequent output overwrites the now-unused rows of the inline viewport.
-fn render_final_frame<T, F>(terminal_guard: &mut T, f: F) -> anyhow::Result<()>
+pub fn render_final_frame<T, F>(terminal_guard: &mut T, f: F) -> anyhow::Result<()>
 where
     T: TerminalGuard,
     anyhow::Error: From<<T::Backend as Backend>::Error>,
@@ -455,7 +455,7 @@ where
         let area = frame.area();
 
         frame.render_widget(Clear, area);
-        let used = f(frame, area).clamp(1, area.height.max(1));
+        let used = f(frame, area).min(area.height);
 
         // so subsequent prints show up in the right place
         frame.set_cursor_position((0, area.y + used));

@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { FolderIcon } from "./FolderIcon.tsx";
 
 const meta = preview.meta({
+	title: "Icons/FolderIcon",
+	id: "components-foldericon",
 	component: FolderIcon,
 	parameters: {
 		design: {

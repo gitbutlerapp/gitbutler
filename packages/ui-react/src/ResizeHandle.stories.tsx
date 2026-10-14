@@ -13,6 +13,8 @@ const Pane: FC<{ label: string }> = ({ label }) => (
 );
 
 const meta = preview.meta({
+	title: "Content & status/ResizeHandle",
+	id: "components-resizehandle",
 	component: ResizeHandle,
 });
 
@@ -58,6 +60,35 @@ export const GrabAfter = meta.story({
 			</Panel>
 			<ResizeHandle grab="after" />
 			<Panel minSize={80}>
+				<Pane label="Details" />
+			</Panel>
+		</Group>
+	),
+});
+
+const card = {
+	boxSizing: "border-box",
+	border: "1px solid var(--border-section)",
+	borderRadius: "var(--radius-xl)",
+	background: "var(--bg-1)",
+} as const;
+
+/**
+ * `gap` separates panels drawn as cards: the space between them is the grab area, and a short
+ * grip shows on hover, and darkens and grows while dragged.
+ */
+export const Gap = meta.story({
+	render: () => (
+		<Group
+			orientation="horizontal"
+			resizeTargetMinimumSize={{ coarse: 1, fine: 1 }}
+			style={{ height: 240, padding: 6, background: "var(--bg-2)" }}
+		>
+			<Panel minSize={80} style={card}>
+				<Pane label="Sidebar" />
+			</Panel>
+			<ResizeHandle gap />
+			<Panel minSize={80} style={card}>
 				<Pane label="Details" />
 			</Panel>
 		</Group>

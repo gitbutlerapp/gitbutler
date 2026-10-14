@@ -6,6 +6,8 @@ import { useRef, useState } from "react";
 import type { FC } from "react";
 
 const meta = preview.meta({
+	title: "Inputs/MarkdownToolbar",
+	id: "components-markdowntoolbar",
 	component: MarkdownToolbar,
 	parameters: {
 		design: {

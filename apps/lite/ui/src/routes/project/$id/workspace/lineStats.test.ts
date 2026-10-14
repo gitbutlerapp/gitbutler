@@ -4,10 +4,7 @@ import {
 	getLineStats,
 	patchLineStats,
 } from "#ui/routes/project/$id/workspace/lineStats.ts";
-import {
-	parsePreparedDiffFile,
-	prepareDiffFiles,
-} from "#ui/routes/project/$id/workspace/diff-view.ts";
+import { getDiffView, prepareDiffFiles } from "#ui/routes/project/$id/workspace/diff-view.ts";
 import { uncommittedChangesFileParent } from "#ui/addresses.ts";
 import type { ChangeState, DiffHunk, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { describe, expect, it } from "vitest";
@@ -52,7 +49,7 @@ describe("patchLineStats", () => {
 			changes: [change],
 			treeChangeDiffs: [unified],
 		});
-		const fileDiff = parsePreparedDiffFile(assert(prepared[0]));
+		const fileDiff = assert(getDiffView(prepared).fileByPath.get("file.ts")).item.fileDiff;
 		expect(fileDiff.additionLines).toHaveLength(3);
 		expect(fileDiff.deletionLines).toHaveLength(3);
 	});

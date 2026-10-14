@@ -144,6 +144,11 @@ export const fileParentFromSources = (sources: Array<Address>): FileParent | nul
 	return fileParent;
 };
 
+/**
+ * Resolve sources into one diff spec per file.
+ *
+ * Resolution wholly failes if a source cannot be resolved or rename origins conflict.
+ */
 const resolvedDiffSpecsFromSources = ({
 	sources,
 	worktreeChanges,
@@ -155,6 +160,8 @@ const resolvedDiffSpecsFromSources = ({
 	commitDetails: CommitDetails | undefined;
 	hunkAction: HunkAction | undefined;
 }): Array<DiffSpec> | null => {
+	// For repeated paths, whole-file selection (represented as empty hunk headers) overrides partial
+	// selections, else their hunk headers are combined.
 	const diffSpecsByPath = new Map<string, DiffSpec>();
 
 	for (const address of sources) {
@@ -171,13 +178,12 @@ const resolvedDiffSpecsFromSources = ({
 			const existing = diffSpecsByPath.get(path);
 
 			if (!existing) diffSpecsByPath.set(path, diffSpec);
-			else if (
-				// One current path cannot originate from different rename sources.
-				existing.previousPathBytes?.join(",") !== diffSpec.previousPathBytes?.join(",") ||
-				// Empty headers select the whole file, which cannot mix with selected hunks.
-				(existing.hunkHeaders.length === 0) !== (diffSpec.hunkHeaders.length === 0)
-			)
+			// One current path cannot originate from different rename sources.
+			else if (existing.previousPathBytes?.join(",") !== diffSpec.previousPathBytes?.join(","))
 				return null;
+			// A whole-file selection subsumes checked lines in that file.
+			else if (existing.hunkHeaders.length === 0 || diffSpec.hunkHeaders.length === 0)
+				existing.hunkHeaders = [];
 			else existing.hunkHeaders.push(...diffSpec.hunkHeaders);
 		}
 	}

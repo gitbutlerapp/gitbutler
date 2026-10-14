@@ -60,9 +60,6 @@ Hint: run `but help` for all commands
 #[test]
 fn applying_empty_branch_from_single_branch_mode_preserves_current_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
     env.but("branch new A").assert().success();
     env.but("branch new B --above A").assert().success();
     env.but("branch new C --above B").assert().success();
@@ -466,7 +463,7 @@ fn remote_branch_short_name_requires_disambiguation_across_multiple_remotes() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'remote-feature' did not exist
+    The ref partially named "remote-feature" could not be found[..]
 
 "#]])
         .stdout_eq(str![""]);
@@ -541,7 +538,7 @@ fn nonexistent_branch() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'nonexistent-branch' did not exist
+    The ref partially named "nonexistent-branch" could not be found[..]
 
 "#]])
         .stdout_eq(str![""]);
@@ -560,7 +557,7 @@ fn nonexistent_branch_with_json() {
 Error: Failed to apply branch
 
 Caused by:
-    The reference 'nonexistent-branch' did not exist
+    The ref partially named "nonexistent-branch" could not be found[..]
 
 "#]]);
     // Note: Currently the apply function doesn't output anything with JSON when branch not found
@@ -715,6 +712,84 @@ fn apply_branch_conflicting_with_workspace_reports_json_error() {
 
 "#]])
         .stderr_eq(str![""]);
+}
+
+#[test]
+fn applying_top_branch_of_stack_in_sbm() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit --above bottom -b top -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch bottom").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("apply top").assert().success().stdout_eq(str![[r#"
+Applied branch 'bottom' to workspace
+Applied branch 'top' to workspace
+
+"#]]);
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top]
+┊●   ylm on top (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* c878e9e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 41e32b0 (top) on top
+* ff665ad (bottom) on bottom
+* b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
+* e31e6ca add init
+
+"#]]
+        .raw()
+    );
 }
 
 mod utils {

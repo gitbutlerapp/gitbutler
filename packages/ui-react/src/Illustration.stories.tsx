@@ -6,7 +6,10 @@ const names = (Object.keys(illustrations) as Array<IllustrationName>).sort((a, b
 	a.localeCompare(b),
 );
 
-const meta = preview.meta({});
+const meta = preview.meta({
+	title: "Content & status/Illustration",
+	id: "components-illustration",
+});
 
 /** One drawing, at the size it was drawn. */
 export const Default = meta.story({

@@ -1,12 +1,15 @@
 mod branch_apply;
 mod branch_checkout;
 mod branch_create;
+#[cfg(feature = "legacy")]
+mod branch_land;
 mod branch_list;
 mod branch_move;
 mod branch_remove;
 mod branch_rename;
 mod changes_in_worktree;
 mod commit_cherry_pick;
+mod commit_range_diff;
 mod commit_uncommit;
 #[cfg(feature = "legacy")]
 mod forge_info;

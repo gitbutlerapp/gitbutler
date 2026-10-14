@@ -208,6 +208,25 @@ describe("classify", () => {
 			expect(result.userMessage).toContain("then try again");
 		});
 
+		test("GitLabProjectNotFound is terminal with host, path, and access guidance", () => {
+			const error = new IpcError(
+				{
+					message: "GitLab could not find this project, or your token cannot see it.",
+					code: "GitLabProjectNotFound",
+				},
+				"list_reviews",
+			);
+			const result = classify(error);
+			expect(result.code).toBe("GitLabProjectNotFound");
+			expect(result.severity).toBe("error");
+			expect(result.terminal).toBe(true);
+			expect(result.title).toBe("GitLab Project Not Found");
+			expect(result.userMessage).toContain("GitLab host URL");
+			expect(result.userMessage).toContain("path in your remote URL");
+			expect(result.userMessage).toContain("member");
+			expect(result.userMessage).toContain("then try again");
+		});
+
 		test.each<[Code, RegExp]>([
 			["GitLabUnauthorized", /new personal access token/],
 			["GitLabForbidden", /token scopes.*membership.*instance policies/],

@@ -43,7 +43,7 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
     else
         perf_require_command cargo
         printf 'Building optimized but binary...\n' >&2
-        (cd "$REPO_ROOT" && cargo build --profile bench -p but)
+        (cd "$REPO_ROOT" && cargo build --profile bench -p but --features nightly)
         BUT_BIN=$REPO_ROOT/target/release/but
         perf_resolve_binary
         PERF_BINARY_COMMIT=$("$GIT_BIN" -C "$REPO_ROOT" rev-parse HEAD)

@@ -42,4 +42,16 @@ pub enum Change {
         /// This will be empty if the index changed.
         changed_paths: Arc<[PathBuf]>,
     },
+    /// Emitted after the files or the index of a linked worktree change. Carries its freshly
+    /// computed file diffs, which have neither hunk assignments nor dependencies.
+    LinkedWorktreeChanges {
+        project_id: ProjectHandleOrLegacyProjectId,
+        /// The name of the linked worktree, i.e. its directory name under `$GIT_COMMON_DIR/worktrees/`.
+        worktree: String,
+        changes: but_hunk_assignment::WorktreeChanges,
+        /// The paths of the files that changed.
+        ///
+        /// This will be empty if the index changed.
+        changed_paths: Arc<[PathBuf]>,
+    },
 }

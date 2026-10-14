@@ -4,6 +4,77 @@ use super::util::{
 use crate::utils::{CommandExt as _, Sandbox};
 use snapbox::IntoData;
 
+mod status_in_single_branch_mode;
+
+/// Other Rust tools read the status model directly instead of parsing `but status --json`.
+#[test]
+fn workspace_status_as_library() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let status = but::workspace_status(&mut env.context(), but::StatusFlags::all_false())?;
+    let mut branches: Vec<_> = status
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.branches)
+        .map(|branch| branch.name.as_str())
+        .collect();
+    branches.sort();
+    assert_eq!(branches, ["A", "B"], "both applied stacks are in the model");
+
+    let env = enter_edit_mode_with_conflicted_commit();
+    let err = but::workspace_status(&mut env.context(), but::StatusFlags::all_false())
+        .expect_err("edit mode has no workspace status");
+    assert_eq!(
+        err.to_string(),
+        "workspace status is unavailable during conflict resolution",
+        "edit mode is refused rather than reported as an ordinary workspace"
+    );
+    Ok(())
+}
+
+#[test]
+fn common_base_shows_head_on_local_target() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+    env.invoke_git("checkout main");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 85efbe4 (common base, main, origin/main, HEAD) 2000-01-02 M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_head_on_unrelated_ref_at_same_commit() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+    env.invoke_git("checkout -b unrelated main");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 85efbe4 (common base, main, origin/main) 2000-01-02 M
+...
+"#]]);
+}
+
+#[test]
+fn common_base_omits_head_on_local_target_ahead_of_base() {
+    let env = Sandbox::open_with_default_settings("single-branch-in-sync");
+    env.invoke_git("checkout main");
+    env.invoke_git("commit --allow-empty -m ahead");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┴ 85efbe4 (common base, origin/main) 2000-01-02 M
+...
+"#]]);
+}
+
 #[test]
 fn common_base_shows_only_configured_default_refs() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
@@ -107,9 +178,6 @@ fn common_base_omits_both_defaults_when_they_have_moved() {
 #[test]
 fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
 
     let status = status_json(&env);
     let project_meta = env.project_meta();
@@ -288,29 +356,6 @@ fn unborn() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
-
-"#]]);
-}
-
-#[cfg(feature = "legacy")]
-#[test]
-fn disabled_single_branch_mode_requires_setup_for_unregistered_repository() {
-    let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch disable")
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::str![[r#"
-✓ Feature flag single-branch is now disabled
-
-"#]]);
-
-    env.but("status")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: Setup required: No GitButler project found at . - run `but setup` to configure the project
 
 "#]]);
 }
@@ -567,6 +612,33 @@ fn long_file_cli_ids_are_aligned() {
 }
 
 #[test]
+fn commit_ids_are_aligned_within_a_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("new-file", "first");
+    env.invoke_git("config --local gitbutler.testing.changeId 1234");
+    env.but("commit -b A -m first").assert().success();
+    env.file("new-file", "second");
+    env.invoke_git("config --local gitbutler.testing.changeId 1235");
+    env.but("commit -b A -m second").assert().success();
+
+    // The colliding change IDs need four characters, but the original commit needs three.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊●   1235 second
+┊●   1234 first
+┊●   tpm  add A
+...
+┊●   lrm add B
+...
+"#]]);
+}
+
+#[test]
 fn long_cli_ids() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix");
 
@@ -676,14 +748,8 @@ fn status_hint_clean_workspace() {
 
 #[test]
 fn status_hint_when_no_branches() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
-    env.setup_metadata(&["A"]);
-
-    env.but("unapply A").assert().success();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.but("status")
         .with_color_for_svg()
@@ -1384,7 +1450,7 @@ Hint: run `but help` for all commands
     // The first agent-detected invocation also delivers the skill-install
     // notice ahead of the graph (the sandbox home has no skill installed).
     env.but("status")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])

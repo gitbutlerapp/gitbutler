@@ -278,7 +278,7 @@ impl FuzzyPickerItem for UnarchiveWorktreeItem {
         }]
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         theme.default
     }
 }

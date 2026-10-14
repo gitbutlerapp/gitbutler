@@ -15,6 +15,7 @@ use crate::args::atoms::CliIdArg;
 use crate::utils::envs;
 
 pub mod atoms;
+pub mod init;
 
 #[derive(Debug, clap::Parser)]
 #[clap(
@@ -181,6 +182,9 @@ impl HelpTopic {
     name(SubcommandDiscriminant)
 )]
 pub enum Subcommands {
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Init(init::Platform),
+
     /// Show an overview of the workspace state.
     ///
     /// This shows uncommitted files, all applied branches (stacked or
@@ -331,8 +335,11 @@ pub enum Subcommands {
     /// is pushed to the remote. After merging, the remaining applied branches are reconciled onto
     /// the moved target, just like `but pull`.
     ///
-    /// Requires an active GitButler workspace. Updating the target is direct and not easily
-    /// reversible, so a confirmation is required (use `--yes` to skip it in scripts).
+    /// Requires the GitButler workspace or, in single-branch mode, a checked-out branch. In
+    /// single-branch mode, merging the checked-out branch checks out the target branch afterwards,
+    /// like `but pull` does once a branch is merged upstream, or a generated branch when the target
+    /// can't be reused; the output names the branch checked out. Updating the target is direct and
+    /// not easily reversible, so a confirmation is required (use `--yes` to skip it in scripts).
     ///
     /// When NOT to use this: if your project merges changes through pull requests / code review,
     /// use `but push` and open a PR (`but pr new`) instead — `but merge` deliberately bypasses that
@@ -458,10 +465,10 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Push(push::Command),
 
-    /// Update all applied branches onto the latest target branch.
+    /// Update applied branches and worktrees onto the latest target.
     ///
     /// This fetches the latest changes from the remote and rebases all applied branches
-    /// on top of the updated target branch.
+    /// and linked worktrees on top of the updated target branch.
     ///
     /// You should run this regularly to keep your branches up to date with the latest
     /// changes from the main development line.
@@ -478,6 +485,14 @@ pub enum Subcommands {
         /// Only check whether the update would apply cleanly, without updating
         #[clap(long, short = 'c')]
         check: bool,
+        /// What to rebase onto the target, comma-separated.
+        #[clap(
+            long,
+            value_enum,
+            value_delimiter = ',',
+            default_value = "worktrees,workspace"
+        )]
+        update: Vec<PullUpdate>,
     },
 
     /// Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab MRs.
@@ -656,8 +671,18 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Teardown {
         /// Explicit override for which local branch to checkout to.
-        #[clap(long, short = 'c', value_name = "LOCAL_BRANCH")]
+        #[clap(
+            long,
+            short = 'c',
+            value_name = "LOCAL_BRANCH",
+            group = "teardown_mode"
+        )]
         checkout_to: Option<String>,
+        /// Remove legacy GitButler-managed hooks.
+        ///
+        /// These hooks are no longer required and can safely be removed.
+        #[clap(long, group = "teardown_mode")]
+        remove_hooks: bool,
     },
 
     /// Open the GitButler GUI for the current project.
@@ -831,7 +856,7 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(hide = true)]
-    Switch(r#switch::Platform),
+    Switch(switch::Platform),
 
     /// Manage AI agent skills for GitButler.
     ///
@@ -1042,7 +1067,7 @@ pub mod split;
 #[cfg(feature = "legacy")]
 pub mod squash;
 #[cfg(feature = "legacy")]
-pub mod r#switch;
+pub mod switch;
 #[cfg(feature = "legacy")]
 pub mod tui;
 #[cfg(feature = "legacy")]
@@ -1089,6 +1114,15 @@ pub mod resolve;
 
 pub mod branch;
 pub mod worktree;
+
+/// A group of lanes that `but pull` rebases onto the target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum PullUpdate {
+    /// The linked worktrees that are based on the target rather than on an applied branch.
+    Worktrees,
+    /// The applied branches, along with the linked worktrees based on them.
+    Workspace,
+}
 
 /// Find the subcommand token and its index in raw argv, skipping root options.
 pub(crate) fn find_subcommand(args: &[std::ffi::OsString]) -> Option<(usize, &std::ffi::OsString)> {

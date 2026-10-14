@@ -543,10 +543,6 @@ export class StackService {
 		return this.backendApi.endpoints.resolveCommitConflictsAi.useMutation();
 	}
 
-	get newBranch() {
-		return this.backendApi.endpoints.newBranch.useMutation();
-	}
-
 	get branchCreate() {
 		return this.backendApi.endpoints.branchCreate.useMutation();
 	}

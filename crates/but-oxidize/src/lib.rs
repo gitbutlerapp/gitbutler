@@ -1,9 +1,24 @@
 //! A crate with various utilities to make the migration to `gitoxide` less cumbersome and repetitive.
 
-use std::borrow::Borrow;
+use std::{borrow::Borrow, path::Path};
 
 use anyhow::Context as _;
 use gix::bstr::ByteSlice;
+
+/// Open the repository at `git_dir` with `git2` so that it finds every tree `gix` refers to.
+///
+/// `gix` never stores the empty tree, and `libgit2` only knows the SHA-1 one without it being stored.
+pub fn open_git2_repo(git_dir: &Path) -> anyhow::Result<git2::Repository> {
+    let repo = git2::Repository::open(git_dir)?;
+    if repo.object_format() != git2::ObjectFormat::Sha1 {
+        store_empty_tree(&repo)?;
+    }
+    Ok(repo)
+}
+
+fn store_empty_tree(repo: &git2::Repository) -> Result<git2::Oid, git2::Error> {
+    repo.treebuilder(None)?.write()
+}
 
 pub fn gix_time_to_git2(time: gix::date::Time) -> git2::Time {
     git2::Time::new(time.seconds, time.offset / 60)

@@ -8,7 +8,7 @@ use but_core::ref_metadata::ProjectMeta;
 use but_ctx::{Context, ProjectHandle};
 use but_path::AppChannel;
 use but_testsupport::{
-    CommandExt as _, git, gix_testtools::tempfile::TempDir, graph_tree, open_repo,
+    CommandExt as _, git, git_at_dir, gix_testtools::tempfile::TempDir, graph_tree, open_repo,
     writable_scenario_slow,
 };
 
@@ -73,35 +73,46 @@ fn new_from_project_handle_keeps_repo_cached() -> anyhow::Result<()> {
 }
 
 #[test]
+fn git2_repo_finds_the_empty_tree_in_a_sha256_repository() -> anyhow::Result<()> {
+    let tmp = TempDir::new()?;
+    git_at_dir(tmp.path())
+        .args(["init", "--object-format=sha256"])
+        .run();
+    let repo = open_repo(tmp.path())?;
+    let empty_tree = repo.empty_tree().id;
+    let ctx = Context::from_repo_for_testing(repo)?;
+
+    #[expect(deprecated, reason = "the libgit2 handle is under test")]
+    let git2_repo = ctx.git2_repo.get()?;
+    git2_repo.find_tree(git2::Oid::from_bytes(empty_tree.as_bytes())?)?;
+    Ok(())
+}
+
+#[test]
 fn writable_workspace_accessors_return_mutable_repositories() -> anyhow::Result<()> {
     let (repo, _tmp) = but_testsupport::writable_scenario("unborn-empty");
     let mut ctx = Context::from_repo_for_testing(repo)?;
 
-    for mutable_db in [false, true] {
-        ctx.invalidate_workspace_cache()?;
-        // The first call constructs the workspace; the second reuses its cache.
-        for value in ["uncached", "cached"] {
-            {
-                let (_guard, mut repo, _ws) = if mutable_db {
-                    let (guard, repo, ws, _db) = ctx.workspace_mut_and_db_mut()?;
-                    (guard, repo, ws)
-                } else {
-                    let (guard, repo, ws, _db) = ctx.workspace_mut_and_db()?;
-                    (guard, repo, ws)
-                };
-                repo.config_snapshot_mut()
-                    .set_raw_value("but.contextTest", value)?;
-            }
-            let (_guard, repo, _ws, _db) = ctx.workspace_and_db()?;
-            assert_eq!(
-                repo.config_snapshot()
-                    .string("but.contextTest")
-                    .expect("the writable accessor updated the cached repository")
-                    .to_string(),
-                value,
-                "read access sees the repository update from either writable accessor"
-            );
+    ctx.invalidate_workspace_cache()?;
+    // The first call constructs the workspace; the second reuses its cache.
+    for value in ["uncached", "cached"] {
+        {
+            let (_guard, mut repo, _ws) = {
+                let (guard, repo, ws, _db) = ctx.workspace_mut_and_db_mut()?;
+                (guard, repo, ws)
+            };
+            repo.config_snapshot_mut()
+                .set_raw_value("but.contextTest", value)?;
         }
+        let (_guard, repo, _ws, _db) = ctx.workspace_and_db()?;
+        assert_eq!(
+            repo.config_snapshot()
+                .string("but.contextTest")
+                .expect("the writable accessor updated the cached repository")
+                .to_string(),
+            value,
+            "read access sees the repository update from either writable accessor"
+        );
     }
     Ok(())
 }
@@ -932,11 +943,13 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
         workspace_graph(&ctx)?,
         snapbox::str![[r#"
 
+├── 👉►:0[0]:main[🌳@repo]
+│   └── ►:3[2]:anon:
+│       └── 🏁·85efbe4 (⌂)
 └── ►:2[0]:feat-b[📁wt-b]
     └── ►:1[1]:anon:
         └── ·7d7d38f (⌂)
-            └── 👉►:0[2]:main[🌳@repo]
-                └── 🏁·85efbe4 (⌂)
+            └── →:3:
 
 "#]]
     );

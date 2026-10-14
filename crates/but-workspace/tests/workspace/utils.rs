@@ -79,3 +79,18 @@ pub fn r(name: &str) -> &gix::refs::FullNameRef {
 pub fn rc(name: &str) -> Cow<'static, gix::refs::FullNameRef> {
     Cow::Owned(name.try_into().expect("statically known valid ref-name"))
 }
+
+pub fn create_reference<'a>(
+    repo: &gix::Repository,
+    ws: &mut but_graph::Workspace,
+    meta: &mut impl but_core::RefMetadata,
+    db: &mut but_db::DbHandle,
+    ref_name: impl std::borrow::Borrow<gix::refs::FullNameRef>,
+    anchor: impl Into<Option<but_workspace::branch::create_reference::Anchor<'a>>>,
+    order: impl Into<Option<usize>>,
+) -> anyhow::Result<but_graph::Workspace> {
+    let editor = but_rebase::graph_rebase::Editor::create(ws, meta, repo, db)?;
+    but_workspace::branch::create_reference(editor, ref_name.borrow(), anchor, order)?
+        .materialize(Default::default())?;
+    Ok(ws.clone())
+}

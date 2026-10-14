@@ -116,8 +116,10 @@ pub mod git {
             }
         }
 
-        impl From<GitConfigSettings> for crate::GitConfigSettings {
-            fn from(
+        impl TryFrom<GitConfigSettings> for crate::GitConfigSettings {
+            type Error = gix::Error;
+
+            fn try_from(
                 GitConfigSettings {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
@@ -131,8 +133,8 @@ pub mod git {
                     gpg_program,
                     gpg_ssh_program,
                 }: GitConfigSettings,
-            ) -> Self {
-                crate::GitConfigSettings {
+            ) -> Result<Self, Self::Error> {
+                Ok(crate::GitConfigSettings {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
                     gitbutler_review_stacking_description,
@@ -143,9 +145,9 @@ pub mod git {
                     gitbutler_gitlab_upstream_project_id,
                     signing_key: signing_key.map(Into::into),
                     signing_format: signing_format.map(Into::into),
-                    gpg_program: gpg_program.map(Into::into),
-                    gpg_ssh_program: gpg_ssh_program.map(Into::into),
-                }
+                    gpg_program: gpg_program.map(TryInto::try_into).transpose()?,
+                    gpg_ssh_program: gpg_ssh_program.map(TryInto::try_into).transpose()?,
+                })
             }
         }
     }
@@ -235,8 +237,8 @@ pub mod git {
                 .and_then(string_or_ignore);
             let signing_key = config.string(SIGNING_KEY);
             let signing_format = config.string(SIGNING_FORMAT);
-            let gpg_program = config.trusted_program(GPG_PROGRAM);
-            let gpg_ssh_program = config.trusted_program(GPG_SSH_PROGRAM);
+            let gpg_program = config.trusted_program(GPG_PROGRAM)?;
+            let gpg_ssh_program = config.trusted_program(GPG_SSH_PROGRAM)?;
             Ok(GitConfigSettings {
                 gitbutler_sign_commits,
                 gitbutler_gerrit_mode,

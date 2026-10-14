@@ -9,6 +9,148 @@ use crate::init::utils::{
 };
 
 #[test]
+fn main_and_origin_main_in_sync() -> anyhow::Result<()> {
+    let (repo, meta, mut db) = read_only_in_memory_scenario("single-branch-in-sync")?;
+    // The local branch and its upstream point to the same commit, without a workspace.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 85efbe4 (HEAD -> main, origin/main) M
+
+"#]]
+    );
+
+    // Supply the integration target that CLI initialization would resolve.
+    let project_meta = ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        ..Default::default()
+    };
+    let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
+
+    // The local integration branch projects to no stacks when in sync with its target.
+    snapbox::assert_data_eq!(
+        graph_workspace_determinisitcally(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn empty_feature_branch_at_target_remains_visible() -> anyhow::Result<()> {
+    let (repo, meta, mut db) = read_only_in_memory_scenario("single-branch-empty-feature")?;
+    // The new feature branch shares the tip of main and origin/main, without a workspace.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 85efbe4 (HEAD -> feature, origin/main, main) M
+
+"#]]
+    );
+
+    // Supply the integration target as graph input; target discovery belongs to the caller.
+    let project_meta = ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        ..Default::default()
+    };
+    let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
+
+    // Unlike main, the empty feature branch remains visible above the shared base.
+    snapbox::assert_data_eq!(
+        graph_workspace_determinisitcally(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:feature[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡:feature[🌳] on 85efbe4 {1}
+    └── :feature[🌳]
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn empty_feature_branch_in_sync_with_own_upstream_remains_visible() -> anyhow::Result<()> {
+    let (repo, meta, mut db) =
+        read_only_in_memory_scenario("single-branch-empty-feature-with-upstream")?;
+    // Publishing the empty feature branch does not make it the integration branch.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 85efbe4 (HEAD -> feature, origin/main, origin/feature, main) M
+
+"#]]
+    );
+
+    // No project target: exercise the fallback to the checked-out branch's own upstream.
+    let ws = Graph::from_head(
+        &repo,
+        &*meta,
+        ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+
+    // The upstream fallback must not cause an empty feature branch to disappear.
+    snapbox::assert_data_eq!(
+        graph_workspace_determinisitcally(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:feature[🌳] <> ✓refs/remotes/origin/feature on 85efbe4
+└── ≡:feature[🌳] <> origin/feature on 85efbe4 {1}
+    └── :feature[🌳] <> origin/feature
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn empty_feature_branch_with_own_upstream_and_project_target_remains_visible() -> anyhow::Result<()>
+{
+    let (repo, meta, mut db) =
+        read_only_in_memory_scenario("single-branch-empty-feature-with-upstream")?;
+    // The feature branch and its upstream share the integration target's tip.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 85efbe4 (HEAD -> feature, origin/main, origin/feature, main) M
+
+"#]]
+    );
+
+    let project_meta = ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        ..Default::default()
+    };
+    let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
+
+    // Tracking origin/feature does not make feature the local integration branch for origin/main.
+    snapbox::assert_data_eq!(
+        graph_workspace_determinisitcally(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:feature[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡:feature[🌳] <> origin/feature on 85efbe4 {1}
+    └── :feature[🌳] <> origin/feature
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("ad-hoc-branch-integrated-upstream")?;
     snapbox::assert_data_eq!(

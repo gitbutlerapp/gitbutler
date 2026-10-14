@@ -384,22 +384,199 @@ fn updated_at_is_the_newest_entry_of_the_head_and_branch_reflogs() -> Result<()>
 }
 
 #[test]
-fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
+fn remove_refuses_dirty_checkouts_without_force() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-listing");
     let path = repo
-        .worktree_proxy_by_id(BStr::new("wt-a"))
+        .worktree_proxy_by_id(BStr::new("wt-a"))?
         .expect("fixture worktree")
         .base()?;
 
-    let err = but_workspace::worktrees::remove(&repo, &path, false).unwrap_err();
+    let err = but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), false).unwrap_err();
     assert!(err.to_string().contains("--force"), "{err}");
     assert!(path.is_dir(), "a refused removal leaves the checkout alone");
 
-    but_workspace::worktrees::remove(&repo, &path, true)?;
+    but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), true)?;
     assert!(!path.exists());
     assert!(
-        repo.worktree_proxy_by_id(BStr::new("wt-a")).is_none(),
+        repo.worktree_proxy_by_id(BStr::new("wt-a"))?.is_none(),
         "the administrative files are gone too"
+    );
+    Ok(())
+}
+
+#[test]
+fn remove_overrides_a_lock_and_restores_it_when_removal_is_refused() -> Result<()> {
+    use but_testsupport::CommandExt as _;
+
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    for name in ["wt-a", "wt-detached"] {
+        but_testsupport::git(&repo)
+            .args(["worktree", "lock", "--reason", "kept", name])
+            .run();
+    }
+    let worktree = |name: &str| repo.worktree_proxy_by_id(BStr::new(name));
+
+    but_workspace::worktrees::remove(&repo, BStr::new("wt-detached"), false)?;
+    assert!(
+        worktree("wt-detached")?.is_none(),
+        "a lock does not keep a clean checkout from being removed"
+    );
+
+    let err = but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), false).unwrap_err();
+    assert!(err.to_string().contains("--force"), "{err}");
+    assert_eq!(
+        worktree("wt-a")?
+            .expect("removal was refused")
+            .lock_reason(),
+        Some("kept".into()),
+        "a refused removal leaves the lock as it was"
+    );
+
+    but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), true)?;
+    assert!(
+        worktree("wt-a")?.is_none(),
+        "a lock does not keep a dirty checkout from being removed forcibly"
+    );
+    Ok(())
+}
+
+#[test]
+fn remove_with_force_overrides_an_unreadable_lock() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let name = BStr::new("wt-a");
+    let worktree = repo.worktree_proxy_by_id(name)?.expect("fixture worktree");
+    // A directory is a lock marker whose reason cannot be read, on every platform.
+    std::fs::create_dir(worktree.git_dir().join("locked"))?;
+    assert!(worktree.is_locked(), "the lock marker is present");
+    assert!(
+        worktree.lock_reason().is_none(),
+        "the lock reason is unreadable"
+    );
+
+    but_workspace::worktrees::remove(&repo, name, true)?;
+    assert!(
+        repo.worktree_proxy_by_id(name)?.is_none(),
+        "forced removal overrides the lock without reading its reason"
+    );
+    Ok(())
+}
+
+#[test]
+#[ignore = "scheduling-sensitive removal stress; run explicitly with --ignored --nocapture"]
+fn remove_finishes_when_a_bounded_writer_adds_files_during_deletion() -> Result<()> {
+    use std::{
+        fs,
+        sync::atomic::{AtomicBool, Ordering},
+        time::{Duration, Instant},
+    };
+
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let path = repo.common_dir().join("concurrent-removal");
+    let branch = "refs/heads/concurrent-removal".try_into()?;
+    let name = but_workspace::worktrees::add(&repo, &path, branch, repo.head_id()?.detach())?;
+    let git_dir = repo
+        .worktree_proxy_by_id(name.as_bstr())?
+        .expect("registered worktree")
+        .git_dir()
+        .to_owned();
+    let marker = path.join("marker");
+    fs::write(&marker, b"watch for deletion")?;
+    // Keep deletion busy long enough for the writer to observe the marker disappearing.
+    for i in 0..1_000 {
+        fs::write(path.join(format!("padding-{i}")), b"padding")?;
+    }
+    let stop = AtomicBool::new(false);
+    let (removed, writes) = std::thread::scope(|scope| {
+        let writer = scope.spawn(|| -> Result<usize> {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while marker.exists() && !stop.load(Ordering::Relaxed) && Instant::now() < deadline {
+                std::thread::yield_now();
+            }
+            let mut writes = 0;
+            if !marker.exists() {
+                for i in 0..32 {
+                    match fs::write(path.join(format!("late-{i}")), b"late write") {
+                        Ok(()) => writes += 1,
+                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => break,
+                        Err(err) => return Err(err.into()),
+                    }
+                }
+            }
+            Ok(writes)
+        });
+        let removed = but_workspace::worktrees::remove(&repo, name.as_bstr(), true);
+        stop.store(true, Ordering::Relaxed);
+        (removed, writer.join().expect("writer did not panic"))
+    });
+    let writes = writes?;
+    eprintln!(
+        "late writes={writes}, result={removed:?}, checkout={}, administration={}",
+        path.exists(),
+        git_dir.exists()
+    );
+    assert!(
+        writes > 0,
+        "the writer must overlap deletion for this stress test to be meaningful"
+    );
+    removed?;
+    assert!(
+        !path.exists() && !git_dir.exists(),
+        "both removal roots must disappear after the writer stops"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn add_runs_post_checkout_and_retains_the_worktree_if_the_hook_fails() -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let hooks = repo.common_dir().join("hooks");
+    std::fs::create_dir_all(&hooks)?;
+    let hook = hooks.join("post-checkout");
+    std::fs::write(
+        &hook,
+        br#"#!/bin/sh
+exit 1
+"#,
+    )?;
+    std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755))?;
+    let path = repo.common_dir().join("hook-worktree");
+    let base = repo.head_id()?.detach();
+    let err =
+        but_workspace::worktrees::add(&repo, &path, "refs/heads/hook-worktree".try_into()?, base)
+            .expect_err("hook failure is reported after checkout");
+    assert!(
+        err.to_string()
+            .contains("Worktree post-checkout hook failed (exit status: 1)"),
+        "the exit status explains failure even when the hook writes nothing to stderr: {err}"
+    );
+    assert!(
+        path.join(".git").is_file(),
+        "hook failure retains the completed worktree"
+    );
+    Ok(())
+}
+
+#[test]
+fn add_rejects_existing_branches_and_paths_before_changing_them() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let path = repo.common_dir().join("rejected-worktree");
+    let existing = "refs/heads/main".try_into()?;
+    assert!(
+        but_workspace::worktrees::add(&repo, &path, existing, repo.head_id()?.detach()).is_err(),
+        "an existing branch cannot be reset"
+    );
+    assert!(!path.exists(), "branch refusal leaves no checkout");
+    std::fs::create_dir(&path)?;
+    let new_branch = "refs/heads/rejected-worktree".try_into()?;
+    assert!(
+        but_workspace::worktrees::add(&repo, &path, new_branch, repo.head_id()?.detach()).is_err(),
+        "existing destination is rejected"
+    );
+    assert!(
+        repo.try_find_reference(new_branch)?.is_none(),
+        "destination refusal happens before branch creation"
     );
     Ok(())
 }
@@ -414,10 +591,10 @@ fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path
     let name = but_workspace::worktrees::add(&repo, &path, branch, base)?;
     assert_eq!(
         name, "wt-new",
-        "git names the worktree after the last path component"
+        "the worktree name comes from the last path component"
     );
     assert_eq!(
-        repo.worktree_proxy_by_id(name.as_bstr())
+        repo.worktree_proxy_by_id(name.as_bstr())?
             .expect("registered")
             .base()?,
         gix::path::realpath(&path)?
@@ -488,16 +665,19 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
     );
 
     let p1 = repo.rev_parse_single("wt-pushed~1")?.detach();
-    let ws = but_workspace::branch::create_reference(
+    let mut db = but_testsupport::in_memory_db();
+    db.worktree_meta_mut().mark_adopted()?;
+    let mut ws = ws;
+    let ws = crate::utils::create_reference(
+        &repo,
+        &mut ws,
+        &mut meta,
+        &mut db,
         crate::utils::r("refs/heads/below-pushed"),
         Anchor::AtCommit {
             commit_id: p1,
             position: Above,
         },
-        &repo,
-        &ws,
-        &mut meta,
-        |_| unreachable!("worktree lanes have no stack"),
         None,
     )?;
     snapbox::assert_data_eq!(
@@ -531,7 +711,7 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
 ├── 📁wt-pushed on cad9051
 │   ├── :wt-pushed[📁] <> origin/wt-pushed⇡1
 │   │   └── ·198b592
-│   └── 📙:below-pushed
+│   └── :below-pushed
 │       └── ❄88c9775
 ├── 📁wt-stacked on 6a13321 (🏘️)
 │   └── :wt-stacked[📁]
@@ -554,8 +734,6 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
         "worktree lanes have no applied stack to record the new branch in"
     );
 
-    // Without metadata to order them, a new branch can't share a commit with a lane's branch or
-    // detached `HEAD`, which placing it relative to a branch always does.
     for (anchor, what) in [
         (
             Anchor::AtCommit {
@@ -573,13 +751,14 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
             "below a branch, onto a detached HEAD",
         ),
     ] {
-        let err = but_workspace::branch::create_reference(
+        let mut ws = ws.clone();
+        let err = crate::utils::create_reference(
+            &repo,
+            &mut ws,
+            &mut meta,
+            &mut db,
             crate::utils::r("refs/heads/refused"),
             anchor,
-            &repo,
-            &ws,
-            &mut meta,
-            |_| unreachable!("worktree lanes have no stack"),
             None,
         )
         .expect_err(what);

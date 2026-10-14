@@ -137,7 +137,7 @@ Squash commits, branches, or changes
 Move commits and changes around
 - `<SOURCES>...` One or more sources to move, all of one kind: commits; committed files and hunks from one commit; or a single branch. The order of the sources does not matter. Providing any of the sources as an argument for a target such as --above or --below is an error.
 - `-b, --branch [<BRANCH>]` Place <SOURCES> on the branch BRANCH. If BRANCH exists, commits or committed changes are moved onto its tip. A branch source is instead stacked on top of BRANCH, equivalent to --above BRANCH. If BRANCH does not exist, it is created as an unstacked branch for commit or committed-change sources. Using a branch source with a nonexistent BRANCH is an error. If BRANCH is a worktree or a branch checked out in one, commit or committed-change sources are moved onto the tip of that worktree's branch. If BRANCH is omitted, an unstacked branch with a generated name is created. This is exactly equivalent to --unstack and is allowed for any source kind. Attempting to place <SOURCES> on a branch that exists but is not applied is an error.
-- `-A, --above <BRANCH_OR_COMMIT>` Place <SOURCES> above BRANCH_OR_COMMIT. If BRANCH_OR_COMMIT is a commit, <SOURCES> are placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, the sources are placed on a new branch above the targeted branch. This target is applicable for all kinds of <SOURCES>. If moving commits or committed changes, use --branch NAME to name the new branch.
+- `-A, --above <BRANCH_OR_COMMIT>` Place <SOURCES> above BRANCH_OR_COMMIT. If BRANCH_OR_COMMIT is a commit, <SOURCES> are placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, the sources are placed on a new branch above the targeted branch. If BRANCH_OR_COMMIT is a worktree, a branch source is stacked on the branch that worktree has checked out and becomes its checked-out branch. This target is applicable for all kinds of <SOURCES>. If moving commits or committed changes, use --branch NAME to name the new branch.
 - `-B, --below <BRANCH_OR_COMMIT>` Place <SOURCES> below BRANCH_OR_COMMIT. If BRANCH_OR_COMMIT is a commit, the <SOURCES> are placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, <SOURCES> are placed on a new branch below the targeted branch. Branches are treated as buckets, meaning that "below a branch" is treated as below the oldest ancestor on that branch. If BRANCH_OR_COMMIT is a worktree, <SOURCES> are placed on the tip of the branch that worktree has checked out. This target is only applicable for <SOURCES> that are commits or committed changes. If moving commits or committed changes, use --branch NAME to name the new branch.
 - `--unstack` Unstack <SOURCES> from their current stacks. --unstack does not take an argument, so --unstack <SOURCES> and <SOURCES> --unstack are equivalent. If moving commits or committed changes, use --branch NAME to name the new branch.
 - `-s, --switch` Switch to the destination branch instead of remaining in the GitButler workspace. When moving a branch, switch to the moved branch.
@@ -207,8 +207,9 @@ Push changes in a branch to remote
 - `-d, --dry-run` Show what would be pushed without actually pushing
 
 ### but pull
-Update all applied branches onto the latest target branch
+Update applied branches and worktrees onto the latest target
 - `-c, --check` Only check whether the update would apply cleanly, without updating
+- `--update <UPDATE>` What to rebase onto the target, comma-separated [possible values: worktrees, workspace] [default: worktrees,workspace]
 
 ### but pr
 Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab MRs
@@ -242,6 +243,9 @@ Configure the template to use for review descriptions
 - `[TEMPLATE_PATH]` Path to the review template file within the repository. Without it, a terminal lists the templates found in the repository to pick from; a non-interactive run needs it
 
 ## Other Commands
+
+### but init
+Create an empty Git repository in the current directory
 
 ### but setup
 Set up a GitButler project from the git repository in the current directory

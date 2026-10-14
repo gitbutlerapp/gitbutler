@@ -3,6 +3,8 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Keep the browsers aligned with Playwright in pnpm-lock.yaml (1.58.2).
+    nixpkgs-playwright.url = "github:NixOS/nixpkgs/7f6a6fb1c76e09426d6125e7e2543efe2a7f74e3";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
@@ -10,6 +12,7 @@
   outputs = {
     self,
     nixpkgs,
+    nixpkgs-playwright,
     flake-utils,
     rust-overlay,
   }:
@@ -19,6 +22,7 @@
         overlays = [(import rust-overlay)];
       };
 
+      playwrightBrowsers = nixpkgs-playwright.legacyPackages.${system}.playwright-driver.browsers;
       rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
     in {
       devShells.default = pkgs.mkShell {
@@ -35,7 +39,7 @@
           pkgs.wget
           pkgs.nodejs_24
           pkgs.pnpm
-          pkgs.playwright-driver.browsers
+          playwrightBrowsers
           pkgs.cargo-flamegraph
           pkgs.cargo-machete
         ];
@@ -50,9 +54,7 @@
           export TS_RS_EXPORT_DIR="''${TMPDIR:-/tmp}/gitbutler-ts-rs"
           mkdir -p "$TS_RS_EXPORT_DIR"
 
-          # We use different versions of Playwright in different packages... consider also
-          # voidus/nix-playwright-browsers.
-          export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
+          export PLAYWRIGHT_BROWSERS_PATH=${playwrightBrowsers}
         '';
       };
     });

@@ -18,6 +18,7 @@ import {
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { DiffLineSelection } from "#ui/cursors.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import { diffFileHeaderHeight, diffFileSpacing } from "@gitbutler/ui-react/diffFileLayout.ts";
 import {
 	processFile,
 	type CodeViewDiffItem,
@@ -36,19 +37,16 @@ export type Annotation =
 	/** Workaround to render images w/o native library support. */
 	| { _tag: "image" };
 
-/**
- * Layout and metrics handed to CodeView. Shared because the minimap models item
- * positions from the same numbers, and would drift silently if they diverged.
- */
+/** Layout and metrics handed to CodeView. */
 export const codeViewLayout: CodeViewLayout = {
+	// The toolbar above the scroller supplies the top (see .actions).
 	paddingTop: 0,
-	// Match --panel-padding-block.
-	paddingBottom: 12,
-	gap: 10,
+	paddingBottom: diffFileSpacing.bottom,
+	gap: diffFileSpacing.gap,
 };
 
 export const codeViewItemMetrics = {
-	diffHeaderHeight: 38,
+	diffHeaderHeight: diffFileHeaderHeight,
 	paddingTop: 6,
 	paddingBottom: 9,
 } satisfies Partial<VirtualFileMetrics>;
@@ -156,9 +154,8 @@ export const prepareDiffFiles = ({
 		];
 	});
 
-export const parsePreparedDiffFile = (
-	file: PreparedDiffFile,
-): CodeViewDiffItem<Annotation>["fileDiff"] => parseFileDiff(file.patch, String(file.version));
+const parsePreparedDiffFile = (file: PreparedDiffFile): CodeViewDiffItem<Annotation>["fileDiff"] =>
+	parseFileDiff(file.patch, String(file.version));
 
 /** Build relationships between our SDK data and Pierre's view. */
 export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {

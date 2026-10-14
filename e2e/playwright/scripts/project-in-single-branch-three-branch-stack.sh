@@ -12,7 +12,7 @@ empty_top_branch="${2:-false}"
 # Setup a remote project. GitButler currently requires projects to have a remote.
 mkdir remote-project
 pushd remote-project
-git init -b master --object-format=sha1
+git init -b master --object-format="${OBJECT_FORMAT:-sha1}"
 echo "base" > base.txt
 git add base.txt
 git commit -m "base: initial commit"

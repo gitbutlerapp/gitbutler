@@ -62,5 +62,10 @@ describe("forge", () => {
 			forgeAuthFailure(new Error("Failed to list open merge requests: HTTP 403 Forbidden")),
 		).toBeNull();
 		expect(forgeAuthFailure(new Error("Unable to connect to GitLab."))).toBeNull();
+		expect(
+			forgeAuthFailure(
+				new Error("GitLab could not find this project, or your token cannot see it."),
+			),
+		).toBeNull();
 	});
 });

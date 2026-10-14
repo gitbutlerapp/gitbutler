@@ -133,7 +133,7 @@ fn config_push_remote_rejects_unknown_remote_without_changing_metadata() {
 Error: failed to find remote missing
 
 Caused by:
-    The remote named "missing" did not exist
+    The remote named "missing" did not exist[..]
 
 "#]]);
     assert_eq!(
@@ -160,7 +160,7 @@ Push Remote:
 }
 
 #[test]
-fn feature_config_shell_output_uses_valid_identifiers() {
+fn feature_config_lists_no_flags() {
     let env = Sandbox::empty();
 
     env.but("config feature")
@@ -170,23 +170,20 @@ fn feature_config_shell_output_uses_valid_identifiers() {
 
 Feature Flags:
 
-  single-branch: enabled
 
 "#]]);
 }
 
 #[test]
-fn feature_config_json_output_uses_stable_key() {
+fn feature_config_json_lists_no_flags() {
     let env = Sandbox::empty();
 
-    env.but("--json config feature single-branch")
+    env.but("--json config feature")
         .allow_json()
         .assert()
         .success()
         .stdout_eq(str![[r#"
-{
-  "single_branch": true
-}
+{}
 
 "#]]);
 }

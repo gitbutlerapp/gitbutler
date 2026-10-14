@@ -1,6 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="660" height="416" viewBox="0 0 660 416">
   <rect x="0" y="0" width="660" height="416" fill="#000000" />
-  <rect x="10" y="64" width="640" height="18" fill="#45475A" />
+  <rect x="10" y="64" width="112" height="18" fill="#45475A" />
+  <rect x="122" y="64" width="8" height="18" fill="#FFFFFF" />
+  <rect x="130" y="64" width="520" height="18" fill="#45475A" />
   <rect x="10" y="388" width="80" height="18" fill="#AA00AA" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>

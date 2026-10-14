@@ -8,6 +8,8 @@ const programs = Object.keys(import.meta.glob("./program-icons/*.png"))
 	.sort((a, b) => a.localeCompare(b));
 
 const meta = preview.type<{ args: { size: number } }>().meta({
+	title: "Icons/ProgramIcon",
+	id: "components-programicon",
 	argTypes: {
 		size: {
 			control: { type: "range", min: 8, max: 64, step: 2 },

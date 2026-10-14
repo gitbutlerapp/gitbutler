@@ -5,14 +5,14 @@
 //! Enumeration, archived-state reconciliation, and `HEAD` resolution are
 //! centralized in `but-ctx`, keeping this crate independent of it.
 
-use std::{ffi::OsStr, path::Path};
+use std::{path::Path, sync::atomic::AtomicBool};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString};
 use but_core::{DiffSpec, RepositoryExt};
 pub use but_graph::workspace::WorktreeBase;
 
-use crate::ref_info::{LocalCommit, Segment};
+use crate::ref_info::{Lane, LocalCommit, Segment};
 
 /// A non-archived linked worktree along with the first-parent history it owns exclusively,
 /// i.e. the segments between its `HEAD` and the workspace, an earlier worktree, or the target.
@@ -35,6 +35,31 @@ pub struct WorktreeInfo {
 }
 
 impl WorktreeInfo {
+    /// What the worktree rests on, if that is the target and it has a branch or commits of its
+    /// own to rebase there.
+    pub fn rebasable_base(&self) -> Option<gix::ObjectId> {
+        match self.base {
+            Some(WorktreeBase::Outside(base))
+                if self.ref_name.is_some() || self.commits().next().is_some() =>
+            {
+                Some(base)
+            }
+            _ => None,
+        }
+    }
+
+    /// The worktree as a lane, which rests on another lane only when based inside the workspace.
+    pub fn lane(&self) -> Lane<'_> {
+        Lane {
+            segments: &self.segments,
+            rests_on: match self.base {
+                Some(WorktreeBase::InWorkspace(id)) => Some(id),
+                Some(WorktreeBase::Outside(_)) | None => None,
+            },
+            worktree: Some(self.name.as_ref()),
+        }
+    }
+
     /// The commits owned by this worktree alone, from its `HEAD` down to (excluding) its
     /// [base](Self::base), along the first parent.
     pub fn commits(&self) -> impl Iterator<Item = &LocalCommit> {
@@ -52,7 +77,7 @@ pub fn open_worktree_repo(repo: &gix::Repository, name: &BStr) -> anyhow::Result
     let proxy = repo
         .worktrees()?
         .into_iter()
-        .find(|proxy| proxy.id() == name)
+        .find(|proxy| proxy.id().is_ok_and(|id| id == name))
         .with_context(|| format!("Worktree {name} does not exist"))?;
     proxy.into_repo().map_err(Into::into)
 }
@@ -84,18 +109,49 @@ pub fn updated_at(repo: &gix::Repository, name: &BStr) -> anyhow::Result<Option<
     Ok(newest)
 }
 
-/// Remove the linked worktree checked out at `path` the way `git worktree remove` does, which
-/// refuses a dirty checkout unless `force`, and a locked one until it is unlocked.
-///
-/// Git is invoked directly as it has the only implementation of this, and its own error
-/// message is surfaced on failure.
-pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> anyhow::Result<()> {
-    let mut args = Vec::new();
-    if force {
-        args.push(OsStr::new("--force"));
+/// Remove the linked worktree named `name`, refusing a dirty checkout unless `force`.
+/// Uses gix's bounded retries to handle files created during deletion.
+/// Forced removal overrides locks; otherwise a lock is released and restored if removal is refused.
+pub fn remove(repo: &gix::Repository, name: &BStr, force: bool) -> anyhow::Result<()> {
+    use gix::worktree::remove::{Error, Force};
+    let worktree = repo
+        .worktree_proxy_by_id(name)?
+        .with_context(|| format!("Worktree {name} does not exist"))?;
+    let remove = || {
+        let result = worktree.clone().remove(
+            if force {
+                Force::OverrideLock
+            } else {
+                Force::Never
+            },
+            gix::progress::Discard,
+        );
+        match result {
+            Err(err)
+                if matches!(
+                    err.downcast_any_ref::<Error>(),
+                    Some(Error::Dirty { .. } | Error::ContainsSubmodule { .. })
+                ) =>
+            {
+                Err(anyhow::Error::from(err))
+                    .context("Worktree contains changes; use --force to discard them")
+            }
+            result => result.map_err(Into::into),
+        }
+    };
+    if force || !worktree.is_locked() {
+        return remove();
     }
-    args.extend([OsStr::new("--"), path.as_os_str()]);
-    git_worktree(repo, "remove", &args)
+    let lock_reason = worktree
+        .lock_reason()
+        .context("Could not read the worktree lock reason")?;
+    worktree
+        .set_lock(None)
+        .context("Could not unlock the worktree")?;
+    remove().map_err(|err| match worktree.set_lock(Some(lock_reason.as_ref())) {
+        Ok(()) => err,
+        Err(relock_err) => err.context(relock_err),
+    })
 }
 
 /// Create a linked worktree at `path` on the new branch `branch` starting at `base`, the way
@@ -112,42 +168,95 @@ pub fn add(
     if path.exists() {
         bail!("'{}' already exists", path.display());
     }
-    let short_name = gix::path::from_bstr(branch.shorten());
-    let base = base.to_string();
-    git_worktree(
-        repo,
-        "add",
-        &[
-            OsStr::new("-b"),
-            short_name.as_os_str(),
-            OsStr::new("--"),
-            path.as_os_str(),
-            OsStr::new(&base),
-        ],
+    anyhow::ensure!(
+        branch.category() == Some(gix::refs::Category::LocalBranch),
+        "Worktree branch must be a local branch"
+    );
+    let mut source = repo.clone();
+    source.clear_namespace();
+    source
+        .find_commit(base)
+        .context("Worktree base must be an existing commit")?;
+    source.reference(
+        branch,
+        base,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "branch: Created for linked worktree",
     )?;
-    gix::open(path)?
+    let prepared = source.prepare_add_worktree(
+        path,
+        gix::worktree::add::Head::Attached(branch.to_owned()),
+        &AtomicBool::default(),
+    )?;
+    let (created, outcome) = prepared.checkout(gix::progress::Discard, &AtomicBool::default())?;
+    // Like Git, tolerate path collisions on case-insensitive filesystems.
+    if !outcome.errors.is_empty()
+        || !outcome.delayed_paths_unknown.is_empty()
+        || !outcome.delayed_paths_unprocessed.is_empty()
+    {
+        let checkout_error = incomplete_checkout_error(&outcome);
+        let worktree = created.worktree().context("created linked worktree")?;
+        let name = worktree
+            .id()?
+            .context("gix registered the new checkout as a linked worktree")?;
+        return match remove(&source, name, true) {
+            Ok(()) => Err(checkout_error),
+            Err(cleanup) => Err(checkout_error.context(cleanup)),
+        };
+    }
+    // Git's post-checkout hook runs after registration succeeds, and failure retains the worktree.
+    let output = std::process::Command::new(gix::path::env::exe_invocation())
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_INDEX_FILE")
+        .arg("-C")
+        .arg(path)
+        .args(["hook", "run", "--ignore-missing", "post-checkout", "--"])
+        .arg(repo.object_hash().null().to_string())
+        .arg(base.to_string())
+        .arg("1")
+        .output()
+        .context("Failed to run the worktree post-checkout hook")?;
+    anyhow::ensure!(
+        output.status.success(),
+        "Worktree post-checkout hook failed ({}): {}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    created
         .worktree()
-        .and_then(|worktree| worktree.id().map(ToOwned::to_owned))
-        .context("git registered the new checkout as a linked worktree")
+        .context("created linked worktree")?
+        .id()?
+        .map(ToOwned::to_owned)
+        .context("gix registered the new checkout as a linked worktree")
 }
 
-fn git_worktree(repo: &gix::Repository, subcommand: &str, args: &[&OsStr]) -> anyhow::Result<()> {
-    let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
-    // These would override `-C`.
-    for var in ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] {
-        cmd.env_remove(var);
+fn incomplete_checkout_error(outcome: &gix::worktree::state::checkout::Outcome) -> anyhow::Error {
+    let mut message = format!(
+        "Worktree checkout was incomplete: {} errors, {} unknown delayed paths, {} unprocessed delayed paths",
+        outcome.errors.len(),
+        outcome.delayed_paths_unknown.len(),
+        outcome.delayed_paths_unprocessed.len()
+    );
+    if !outcome.errors.is_empty() {
+        message.push_str("\nCheckout errors:");
+        for record in &outcome.errors {
+            message.push_str(&format!("\n{:?}: {:#}", record.path, record.error));
+        }
     }
-    let output = cmd
-        .arg("-C")
-        .arg(repo.workdir().unwrap_or(repo.common_dir()))
-        .args(["worktree", subcommand])
-        .args(args)
-        .output()
-        .with_context(|| format!("Failed to run `git worktree {subcommand}`"))?;
-    if !output.status.success() {
-        anyhow::bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    if !outcome.delayed_paths_unknown.is_empty() {
+        message.push_str(&format!(
+            "\nUnknown delayed paths: {:?}",
+            outcome.delayed_paths_unknown
+        ));
     }
-    Ok(())
+    if !outcome.delayed_paths_unprocessed.is_empty() {
+        message.push_str(&format!(
+            "\nUnprocessed delayed paths: {:?}",
+            outcome.delayed_paths_unprocessed
+        ));
+    }
+    anyhow::anyhow!(message)
 }
 
 /// The outcome of [`move_uncommitted_changes()`].
@@ -235,4 +344,48 @@ pub fn move_uncommitted_changes(
     Ok(MoveUncommittedChangesOutcome {
         conflict_occurred: destination_outcome.conflict_occurred,
     })
+}
+
+#[cfg(test)]
+mod checkout_tests {
+    use gix::error::ErrorExt as _;
+    use gix::worktree::state::checkout::{ErrorRecord, Outcome};
+    use snapbox::IntoData as _;
+
+    #[test]
+    fn incomplete_checkout_reports_paths_and_error_causes() {
+        let outcome = Outcome {
+            errors: vec![
+                ErrorRecord {
+                    path: "filtered.txt".into(),
+                    error: gix::error::message("smudge filter failed").raise(),
+                },
+                ErrorRecord {
+                    path: "unwritable.txt".into(),
+                    error: std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "write denied",
+                    )
+                    .and_raise(gix::error::message("Could not write file")),
+                },
+            ],
+            delayed_paths_unknown: vec!["unknown.txt".into()],
+            delayed_paths_unprocessed: vec!["unprocessed.txt".into(), b"non-utf8-\xff.txt".into()],
+            ..Default::default()
+        };
+
+        // Checkout diagnostics must survive removal of the incomplete worktree.
+        snapbox::assert_data_eq!(
+            super::incomplete_checkout_error(&outcome).to_string(),
+            snapbox::str![[r#"
+Worktree checkout was incomplete: 2 errors, 1 unknown delayed paths, 2 unprocessed delayed paths
+Checkout errors:
+"filtered.txt": smudge filter failed
+"unwritable.txt": Could not write file: I/O error (PermissionDenied): write denied
+Unknown delayed paths: ["unknown.txt"]
+Unprocessed delayed paths: ["unprocessed.txt", "non-utf8-\xff.txt"]
+"#]]
+            .raw()
+        );
+    }
 }

@@ -21,6 +21,8 @@ const glyphs = [
 ] satisfies Array<GraphSegmentGlyph>;
 
 const meta = preview.meta({
+	title: "Lite/GraphSegment",
+	id: "components-graphsegment",
 	component: GraphSegment,
 	argTypes: {
 		glyph: {

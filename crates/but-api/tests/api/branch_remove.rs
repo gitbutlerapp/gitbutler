@@ -97,7 +97,14 @@ fn branch_remove_deletes_middle_empty_branch_and_keeps_head() -> anyhow::Result<
         .meta()?
         .branch_stack_order(tip.as_ref())?
         .expect("branch order still persisted");
-    assert_eq!(order, vec![tip, main]);
+    assert_eq!(
+        order,
+        vec![
+            tip,
+            main,
+            gix::refs::FullName::try_from("refs/heads/feature")?
+        ]
+    );
 
     Ok(())
 }
@@ -126,7 +133,14 @@ fn branch_remove_checked_out_empty_tip_moves_head_to_ref_below() -> anyhow::Resu
         .meta()?
         .branch_stack_order(middle.as_ref())?
         .expect("branch order still persisted");
-    assert_eq!(order, vec![middle, main]);
+    assert_eq!(
+        order,
+        vec![
+            middle,
+            main,
+            gix::refs::FullName::try_from("refs/heads/feature")?
+        ]
+    );
 
     Ok(())
 }

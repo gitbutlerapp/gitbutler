@@ -15,6 +15,8 @@ const figma = (nodeId: string) => ({
 });
 
 const meta = preview.meta({
+	title: "Overlays/Modal",
+	id: "components-modal",
 	component: Modal,
 	parameters: figma("2229-1566"),
 	args: {

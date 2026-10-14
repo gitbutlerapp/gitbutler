@@ -1,9 +1,12 @@
 import preview from "#storybook/preview";
 import { ToggleGroup, Toggle } from "@base-ui/react";
+import { Badge } from "./Badge.tsx";
 import { Icon } from "./Icon.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
 
 const meta = preview.meta({
+	title: "Actions/ToggleGroup",
+	id: "components-togglegroup",
 	// The library's part is the styles; the story composes them on Base UI's ToggleGroup.
 	component: ToggleGroupStyles,
 	parameters: {
@@ -28,6 +31,12 @@ export const Default = meta.story({
 });
 
 export const Small = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2001-5745",
+		},
+	},
 	render: () => (
 		<ToggleGroup
 			render={<ToggleGroupStyles />}
@@ -59,7 +68,40 @@ export const WithIcons = meta.story({
 	),
 });
 
+// A count rides after the label as a plain child; the item's gap spaces it.
+export const WithBadge = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=1183-3597",
+		},
+	},
+	render: () => (
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["selection"]} aria-label="Diff view">
+			<Toggle render={<ToggleStyles />} value="selection">
+				<Icon name="checklist" size={14} />
+				Selection
+				<Badge variant="lightGray">12</Badge>
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="plain">
+				<Icon name="text-plain" size={14} />
+				Plain
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="wrap">
+				<Icon name="text-wrap" size={14} />
+				Wrap
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
 export const IconOnly = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=1183-3455",
+		},
+	},
 	render: () => (
 		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
 			<Toggle render={<ToggleStyles iconOnly />} value="list" aria-label="List view">
@@ -134,6 +176,12 @@ export const MultipleSelectionWithIconsAndLabels = meta.story({
 });
 
 export const MultipleSelectionIconOnly = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=1183-3520",
+		},
+	},
 	render: () => (
 		<ToggleGroup
 			multiple

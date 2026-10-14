@@ -11,11 +11,9 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchQuery.response);
 	const remoteBranchesQuery = $derived(baseBranchService.remoteBranches(projectId));
-	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 	const [setBaseBranchTargetRef, targetRefSwitch] = baseBranchService.setTargetRef;
 
 	let selectedBranch = $derived(baseBranch?.branchName);
@@ -33,22 +31,11 @@
 			}));
 	}
 
-	const switching = $derived(
-		targetBranchSwitch.current.isLoading || targetRefSwitch.current.isLoading,
-	);
-	// With the singleBranch feature flag, only the target metadata is rewritten
-	// and no branch is checked out, so avoid claiming a branch switch.
-	const switchingLabel = $derived(
-		$settingsStore?.featureFlags.singleBranch ? "Updating target..." : "Switching branches...",
-	);
+	const switching = $derived(targetRefSwitch.current.isLoading);
 
 	async function switchTarget(branch: string, pushRemote?: string) {
-		if ($settingsStore?.featureFlags.singleBranch) {
-			// Only update the target; the user keeps working on their current branch.
-			await setBaseBranchTargetRef({ projectId, targetRef: `refs/remotes/${branch}`, pushRemote });
-		} else {
-			await setBaseBranchTarget({ projectId, branch, pushRemote });
-		}
+		// Only update the target; the user keeps working on their current branch.
+		await setBaseBranchTargetRef({ projectId, targetRef: `refs/remotes/${branch}`, pushRemote });
 	}
 
 	async function onSetBaseBranchClick() {
@@ -136,7 +123,7 @@
 							selectedRemote === baseBranch?.pushRemoteName) ||
 							targetChangeDisabled}
 					>
-						{switching ? switchingLabel : "Update configuration"}
+						{switching ? "Updating target..." : "Update configuration"}
 					</Button>
 				{/if}
 			</CardGroup.Item>

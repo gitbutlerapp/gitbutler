@@ -3,7 +3,7 @@ import {
 	workspaceFetchQueryOptions,
 	workspaceFetchStatusQueryOptions,
 } from "#ui/api/queries.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
@@ -31,11 +31,9 @@ export const useFetchFromRemotes = (projectId: string) => {
 		void refetch().then(({ error }) => {
 			if (!error) return;
 
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: "Failed to fetch",
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		});
 	};

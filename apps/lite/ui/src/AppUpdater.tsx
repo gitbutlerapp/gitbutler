@@ -10,7 +10,8 @@ import {
 import { type FC, type ReactNode, useEffect, useEffectEvent } from "react";
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
+import type { ToastData } from "@gitbutler/ui-react/Toasts.tsx";
 import {
 	canDownloadUpdate,
 	type AvailabilitySnapshot,
@@ -33,6 +34,7 @@ const toastProps = {
 	actionProps: undefined,
 	type: undefined,
 	timeout: undefined,
+	data: { icon: "arrow-in-box" } satisfies ToastData,
 };
 
 const megabyteFormat = new Intl.NumberFormat(undefined, {
@@ -57,7 +59,7 @@ type Props = { children: ReactNode };
 
 export const AppUpdater: FC<Props> = (p) => {
 	const queryClient = useQueryClient();
-	const { add: addToast } = Toast.useToastManager();
+	const { add: addToast, update: updateToast } = Toast.useToastManager();
 
 	const { data: autoUpdate } = useSuspenseQuery({
 		...guiSettingsQueryOptions,
@@ -88,12 +90,15 @@ export const AppUpdater: FC<Props> = (p) => {
 		// Backend handles network connectivity.
 		networkMode: "always",
 		onError: (error) =>
-			addToast({
-				...toastProps,
-				type: "error",
-				description: `Failed to download app update: ${errorMessageForToast(error)}`,
-				timeout: 0,
-			}),
+			addErrorToast(
+				{ add: addToast, update: updateToast },
+				{
+					...toastProps,
+					description: "Failed to download app update.",
+					error,
+					timeout: 0,
+				},
+			),
 	});
 
 	const { mutate: installUpdate } = useMutation({
@@ -102,12 +107,15 @@ export const AppUpdater: FC<Props> = (p) => {
 		// Does not require network.
 		networkMode: "always",
 		onError: (error) =>
-			addToast({
-				...toastProps,
-				type: "error",
-				description: `Failed to install app update: ${errorMessageForToast(error)}`,
-				timeout: 0,
-			}),
+			addErrorToast(
+				{ add: addToast, update: updateToast },
+				{
+					...toastProps,
+					description: "Failed to install app update.",
+					error,
+					timeout: 0,
+				},
+			),
 	});
 
 	// This function is essentially just pattern matching over installation status, update
@@ -165,11 +173,14 @@ export const AppUpdater: FC<Props> = (p) => {
 		const result = await refetchUpdateCheck({ cancelRefetch: false });
 
 		if (result.isError) {
-			addToast({
-				...toastProps,
-				type: "error",
-				description: `Failed to check for updates: ${errorMessageForToast(result.error)}`,
-			});
+			addErrorToast(
+				{ add: addToast, update: updateToast },
+				{
+					...toastProps,
+					description: "Failed to check for updates.",
+					error: result.error,
+				},
+			);
 		} else if (result.isSuccess) {
 			switch (result.data._tag) {
 				case "UpToDate":

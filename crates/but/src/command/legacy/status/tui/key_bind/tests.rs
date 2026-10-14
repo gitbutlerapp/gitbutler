@@ -96,3 +96,18 @@ fn matcher_still_matches_primary_and_alternate_codes() {
     assert!(matcher.matches(&KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)));
     assert!(!matcher.matches(&KeyEvent::new(KeyCode::Char('j'), KeyModifiers::SHIFT)));
 }
+
+#[test]
+fn matcher_ignores_shift_for_shifted_symbols() {
+    // Windows reports SHIFT for symbols like `?` and `:`, other platforms don't.
+    for c in ['?', ':'] {
+        let matcher = press().code(KeyCode::Char(c));
+        assert!(matcher.matches(&KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)));
+        assert!(matcher.matches(&KeyEvent::new(KeyCode::Char(c), KeyModifiers::SHIFT)));
+        assert!(!matcher.matches(&KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)));
+    }
+
+    let matcher = press().shift().code(KeyCode::Char('J'));
+    assert!(matcher.matches(&KeyEvent::new(KeyCode::Char('J'), KeyModifiers::SHIFT)));
+    assert!(!matcher.matches(&KeyEvent::new(KeyCode::Char('J'), KeyModifiers::NONE)));
+}

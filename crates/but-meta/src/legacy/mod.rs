@@ -333,6 +333,7 @@ impl VirtualBranchesTomlMetadata {
                     || stack_head
                         == repo
                             .merge_base_with_graph(stack_head, target_sha, &mut graph)?
+                            .context("Could not find a merge-base between stack head and target")?
                             .detach())
             {
                 to_remove.push(stack.id);

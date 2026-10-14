@@ -157,7 +157,7 @@ impl FuzzyPickerItem for ApplyBranchItem {
         ]
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         if self.has_local {
             theme.local_branch
         } else {

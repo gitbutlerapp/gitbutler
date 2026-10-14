@@ -15,7 +15,8 @@ fn scrolling_reveals_merge_base_in_single_branch_mode() {
             ..Default::default()
         },
     );
-    tui.reload();
+    tui.input('b');
+    tui.input('n');
     let result = tui.input([Control('e'), Control('e'), Control('e'), Control('e')]);
     assert_eq!(
         result.app().status_scroll.top(),

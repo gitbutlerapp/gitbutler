@@ -1,7 +1,7 @@
 use bstr::ByteSlice;
 use snapbox::str;
 
-use crate::utils::Sandbox;
+use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
 fn nonexistent_comman_shows_friendly_error() {
@@ -36,21 +36,16 @@ fn help_help_should_be_help() {
 #[test]
 fn top_level_help_honors_agent_format_after_help_flag() {
     let env = Sandbox::empty();
-    let help = env
-        .but("help")
-        .env("PI_CODING_AGENT", "true")
-        .output()
-        .unwrap()
-        .stdout;
+    let help = env.but("help").as_agent().output().unwrap().stdout;
 
     env.but("--help")
-        .env("PI_CODING_AGENT", "true")
+        .as_agent()
         .assert()
         .success()
         .stdout_eq(help.to_str_lossy().to_string());
 
     env.but("--help")
-        .env("PI_CODING_AGENT", "true")
+        .as_agent()
         .assert()
         .success()
         .stdout_eq(help.to_str_lossy().to_string());

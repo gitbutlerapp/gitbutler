@@ -235,7 +235,7 @@ const useWorktreeMenuItems = (projectId: string, worktree: string): Array<Native
 		nativeMenuItem({
 			label: "Remove Worktree",
 			enabled: !isRemoving,
-			onSelect: () => remove({ projectId, name: worktree, force: false }),
+			onSelect: () => remove(worktree),
 		}),
 	];
 };

@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result, bail};
 use but_core::RefMetadata;
-use but_graph::workspace::{Stack, StackSegment};
+use but_graph::workspace::StackSegment;
 use but_rebase::graph_rebase::{
     Editor, LookupStep, Selector, Step, ToSelector,
     mutate::{SegmentDelimiter, SelectorSet, SomeSelectors},
@@ -19,21 +19,20 @@ pub struct DisconnectParameters {
     pub(crate) parents_to_disconnect: SelectorSet,
 }
 
-/// Get the right disconnect parameters for the given subject segment and source stack.
+/// Get the right disconnect parameters for the given subject segment and the segments of its lane.
 ///
 /// This function determines which are the right parents and children to disconnect,
 /// as well as the right segment delimiter to move.
 pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     editor: &Editor<'ws, 'meta, M>,
-    source_stack: &Stack,
+    lane_segments: &[StackSegment],
     subject_segment: &StackSegment,
     workspace_head: Option<gix::ObjectId>,
 ) -> anyhow::Result<DisconnectParameters> {
-    let index_of_segment = source_stack
-        .segments
+    let index_of_segment = lane_segments
         .iter()
         .position(|segment| segment.id == subject_segment.id)
-        .context("BUG: Unable to find subject segment on source stack.")?;
+        .context("BUG: Unable to find subject segment in its lane.")?;
 
     let subject_segment_ref_name = subject_segment
         .ref_name()
@@ -98,8 +97,8 @@ pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
         });
     }
 
-    // Segment on top of the subject segment in the stack.
-    let child_segment = source_stack.segments.get(index_of_segment - 1).context(
+    // Segment on top of the subject segment in the lane.
+    let child_segment = lane_segments.get(index_of_segment - 1).context(
         "BUG: Unable to find child segment of subject segment but expected it to exist.",
     )?;
 
@@ -345,13 +344,9 @@ fn next_available_order(
 pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     child: Selector,
-    step: &Step,
+    step: gix::ObjectId,
 ) -> Result<Option<Selector>> {
-    let Step::Pick(pick) = step else {
-        return Ok(None);
-    };
-
-    let Some(existing_pick) = editor.try_select_commit(pick.id) else {
+    let Some(existing_pick) = editor.try_select_commit(step) else {
         return Ok(None);
     };
 
@@ -378,18 +373,14 @@ pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
 pub(crate) fn connect_parent_step<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     child: Selector,
-    parent_step: Step,
+    parent_step: gix::ObjectId,
 ) -> Result<Selector> {
-    let parent = match parent_step {
-        Step::Pick(pick) => {
-            if let Some(existing_pick) = editor.try_select_commit(pick.id) {
-                existing_pick
-            } else {
-                editor.add_step(Step::Pick(pick))?
-            }
+    let parent = {
+        if let Some(existing_pick) = editor.try_select_commit(parent_step) {
+            existing_pick
+        } else {
+            editor.add_step(Step::new_pick(parent_step))?
         }
-        Step::Reference { ref refname, .. } => editor.select_reference(refname.as_ref())?,
-        Step::None => bail!("BUG: trying to connect to none"),
     };
 
     let used_orders = editor

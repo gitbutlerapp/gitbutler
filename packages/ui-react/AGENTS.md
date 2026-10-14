@@ -17,6 +17,16 @@ React Compiler makes `useMemo`, `useCallback` and `React.memo` redundant
 outside hot paths; `useEffect` is usually an anti-pattern and needs consent;
 comments explain the non-obvious why, never the what.
 
+### Changing a component
+
+**A change to a component here needs the designer's okay.** Every app draws
+with these components, so a fix made for one surface changes all of them.
+When an app's bug seems to need a change here (a style, a prop, a default, a
+wrapper), try fixing it in the app first. If the library really is at fault,
+ask before changing it. When you can't ask, make the change its own
+`fix(ui-react): …` commit that says which surface showed the bug and what
+else it touches, and call it out in the PR description.
+
 ### What belongs here
 
 A component belongs here when it doesn't reach into an app: no API calls,
@@ -66,12 +76,15 @@ Two files, split the way the code is:
 - **⚛️ Core** —
   <https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core>,
   the published library: tokens (Tokens page), icons (Icons page) and this
-  package's components (Components page), one section per component. It is
-  the source of truth for tokens; for components, code is, and the drawing
-  follows it. The Components page lays the sections out in four rows, by what
-  the components are for: Actions, Inputs, Overlays, and Content & status,
-  with nothing wrapping a row. A new component's section goes at the end of
-  its row, with its examples section under it.
+  package's components, one section per component. It is the source of truth
+  for tokens; for components, code is, and the drawing follows it. The
+  components are on six pages, by what they are for: Actions, Inputs,
+  Overlays, Content & status, Preview (a details view's header and the bar
+  above it), and Sidebar. A new component's section goes at
+  the end of its group's page, with its examples section under it. Storybook
+  shelves the stories in the same groups (plus Icons, which Figma keeps on its
+  own page): a stories file names its group in `title` and keeps its old `id`,
+  so the story ids below don't change when a component moves group.
 - **Client**, the working file —
   <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>: Lite's own
   components on the ⚙️ Meta page, the full screens, and drafts on the
@@ -176,7 +189,7 @@ the upload confirmation is Modal's, the project picker is Popup's (a
 combobox dressed in its parts), the command palette is PickerDialog's.
 
 In ⚛️ Core the examples sit in a section named `<Component> examples`
-directly under the component's own section on the Components page, one
+directly under the component's own section, on its group's page, one
 instance per story, named as the story is; an example story links its
 instance through the `design` parameter.
 

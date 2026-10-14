@@ -4,6 +4,8 @@ import { Icon } from "./Icon.tsx";
 import { List, ListItem } from "./List.tsx";
 
 const meta = preview.meta({
+	title: "Content & status/List",
+	id: "components-list",
 	component: List,
 	parameters: {
 		design: {
@@ -22,6 +24,12 @@ const meta = preview.meta({
 
 /** The default marker: a dot on each item's first line. A long item wraps under itself. */
 export const Default = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2238-1676",
+		},
+	},
 	render: () => (
 		<List>
 			<ListItem>Rejected by a pre-receive hook: 2 files</ListItem>
@@ -36,6 +44,12 @@ export const Default = meta.story({
 
 /** Files carry their own icon in place of the dot, so the list says what each one is. */
 export const Files = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2238-1689",
+		},
+	},
 	render: () => (
 		<List>
 			{["screenshot.png", "pasted-image.png", "src/components/App.tsx"].map((name) => (
@@ -49,6 +63,12 @@ export const Files = meta.story({
 
 /** Any glyph from the icon set can stand in, for branches, commits and the like. */
 export const Icons = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2238-1725",
+		},
+	},
 	render: () => (
 		<List>
 			<ListItem marker={<Icon name="branch" />}>feature/modal-parts</ListItem>

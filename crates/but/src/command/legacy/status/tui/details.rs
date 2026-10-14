@@ -1249,18 +1249,26 @@ impl Details {
         self.to_be_discarded.contains(&id)
     }
 
-    fn copy_current_hunk(&mut self) -> anyhow::Result<()> {
-        let section = match self.selected_section.get() {
-            SelectedSection::Selected(i) => &self.sections[i],
-            SelectedSection::None | SelectedSection::Deselected(_) => return Ok(()),
+    pub fn selected_hunk_text(&self) -> Option<String> {
+        let SelectedSection::Selected(index) = self.selected_section.get() else {
+            return None;
         };
+        let section = &self.sections[index];
+        Some(format_lines_in_section(
+            &self.lines[section.first_line..=section.last_line],
+        ))
+    }
 
-        let lines = &self.lines[section.first_line..=section.last_line];
-        let hunk_text = format_lines_in_section(lines);
+    fn copy_current_hunk(&mut self) -> anyhow::Result<()> {
+        let Some(hunk_text) = self.selected_hunk_text() else {
+            return Ok(());
+        };
 
         self.clipboard.set_text(hunk_text)?;
 
-        self.highlights.insert(section.id);
+        if let SelectedSection::Selected(index) = self.selected_section.get() {
+            self.highlights.insert(self.sections[index].id);
+        }
 
         Ok(())
     }

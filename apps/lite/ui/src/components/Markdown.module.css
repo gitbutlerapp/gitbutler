@@ -64,6 +64,7 @@
 	table,
 	blockquote,
 	pre,
+	.codeBlock,
 	p:has(> a:only-child > .image) {
 		margin-block: 16px;
 	}
@@ -153,11 +154,16 @@
 		background-color: var(--bg-2);
 	}
 
+	/* The wrapper keeps the rhythm: the `<pre>` scrolls inside it, so its own margin would stay
+	   within the scroller rather than collapse with its neighbours'. */
+	.codeBlock pre {
+		margin-block: 0;
+	}
+
 	pre {
 		padding: 10px 12px;
 		/* 12 + the small button's 22 + its 8px inset: a long line ends before the button. */
 		padding-inline-end: 42px;
-		overflow-x: auto;
 
 		code {
 			padding: 0;

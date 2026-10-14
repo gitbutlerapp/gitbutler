@@ -4,7 +4,7 @@ import { Field, Toast } from "@base-ui/react";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { FieldControlStyles, FieldRootStyles } from "@gitbutler/ui-react/Field.tsx";
 import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 import type { AskpassPromptEvent } from "@gitbutler/but-sdk";
 
 /** What git asks for, most specific first: a password prompt can mention the username too. */
@@ -75,11 +75,9 @@ export const AskpassPromptDialog: FC = () => {
 			setPrompts((current) => current.filter((candidate) => candidate.id !== prompt.id));
 		} catch (err) {
 			respondingPromptId.current = null;
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: "Failed to send your answer to git",
-				description: errorMessageForToast(err),
-				priority: "high",
+				error: err,
 			});
 		} finally {
 			setSubmitting(false);

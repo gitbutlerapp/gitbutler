@@ -170,7 +170,6 @@ fn create_reference_without_creating_commits() {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_id(three, Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
 
@@ -271,6 +270,14 @@ fn create_reference_at_commit_then_commit_and_checkout() {
                 base,
                 "the new branch must start at the requested base, not the old HEAD"
             );
+            assert!(
+                ctx.meta()
+                    .unwrap()
+                    .branch_stack_order(new_branch.as_ref())
+                    .unwrap()
+                    .is_none(),
+                "independent creation must not record a stack relationship with the base"
+            );
             assert_num_snapshots(&ctx, 1);
             let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
                 .unwrap()
@@ -357,12 +364,7 @@ fn create_reference_and_checkout_are_undoable_together() {
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            tx.create_reference(
-                new_branch.as_ref(),
-                None,
-                |_| but_core::ref_metadata::StackId::generate(),
-                None,
-            )?;
+            tx.create_reference(new_branch.as_ref(), None, None)?;
             tx.checkout(new_branch.as_ref())?;
 
             Ok(())
@@ -428,12 +430,7 @@ fn checkout_is_not_applied_when_transaction_rolls_back() {
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            tx.create_reference(
-                new_branch.as_ref(),
-                None,
-                |_| but_core::ref_metadata::StackId::generate(),
-                None,
-            )?;
+            tx.create_reference(new_branch.as_ref(), None, None)?;
             tx.checkout(new_branch.as_ref())?;
 
             Ok(tx.rollback("rolled back"))
@@ -484,12 +481,7 @@ fn checkout_dry_run_only_previews_the_new_head() {
         snapshot_details,
         DryRun::Yes,
         |mut tx| {
-            tx.create_reference(
-                new_branch.as_ref(),
-                None,
-                |_| but_core::ref_metadata::StackId::generate(),
-                None,
-            )?;
+            tx.create_reference(new_branch.as_ref(), None, None)?;
             tx.checkout(new_branch.as_ref())?;
 
             Ok(())
@@ -539,7 +531,6 @@ fn create_reference_records_branch_stack_order_in_single_branch_mode() {
             tx.create_reference(
                 new_branch.as_ref(),
                 Anchor::at_reference(main.as_ref(), Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
 
@@ -554,9 +545,9 @@ fn create_reference_records_branch_stack_order_in_single_branch_mode() {
         "single-branch transaction should persist the created reference"
     );
     assert_eq!(
-        meta.branch_stack_order(main.as_ref()).unwrap(),
-        Some(vec![new_branch, main]),
-        "single-branch transaction should persist the recorded branch order"
+        meta.branch_stack_order(new_branch.as_ref()).unwrap(),
+        Some(vec![new_branch]),
+        "single-branch transaction should persist the branch order, without the target branch"
     );
     assert_num_snapshots(&ctx, 1);
 }
@@ -584,7 +575,6 @@ fn create_reference_rolls_back_branch_stack_order_in_single_branch_mode() {
             tx.create_reference(
                 new_branch.as_ref(),
                 Anchor::at_reference(main.as_ref(), Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
 
@@ -653,12 +643,7 @@ fn create_reference_relative_to_various_anchors() {
                 ),
                 (independent.as_ref(), None),
             ] {
-                tx.create_reference(
-                    refname,
-                    anchor,
-                    |_| but_core::ref_metadata::StackId::generate(),
-                    None,
-                )?;
+                tx.create_reference(refname, anchor, None)?;
             }
 
             Ok(())
@@ -669,7 +654,11 @@ fn create_reference_relative_to_various_anchors() {
     assert_eq!(Some(three), ref_target(&env, at_commit_above.as_ref()));
     assert_eq!(Some(two), ref_target(&env, at_commit_below.as_ref()));
     assert_eq!(Some(three), ref_target(&env, at_segment_above.as_ref()));
-    assert_eq!(Some(two), ref_target(&env, at_segment_below.as_ref()));
+    assert_eq!(
+        Some(three),
+        ref_target(&env, at_segment_below.as_ref()),
+        "`at-commit-above` owns `three`, leaving `branch` empty right above it"
+    );
     assert_eq!(Some(base), ref_target(&env, independent.as_ref()));
     assert_num_snapshots(&ctx, 1);
 }
@@ -699,7 +688,6 @@ fn create_reference_then_remove_it_in_same_transaction() {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_id(three, Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
             tx.remove_reference(refname.as_ref())?;
@@ -743,7 +731,6 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_segment(branch.as_ref(), Position::Below),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
             let new_commit =
@@ -963,7 +950,6 @@ fn create_reference_then_commit_relative_to_it() {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_id(three, Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
             let new_commit =
@@ -1010,7 +996,6 @@ fn create_reference_is_removed_on_rollback() {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_id(three, Position::Above),
-                |_| but_core::ref_metadata::StackId::generate(),
                 None,
             )?;
 

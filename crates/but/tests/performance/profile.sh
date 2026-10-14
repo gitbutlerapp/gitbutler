@@ -213,7 +213,7 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
                 cd "$REPO_ROOT"
                 export CARGO_PROFILE_BENCH_DEBUG=true CARGO_PROFILE_BENCH_STRIP=none
                 if [ "$(uname -s)" = Darwin ]; then export CARGO_PROFILE_BENCH_SPLIT_DEBUGINFO=packed; fi
-                cargo build --profile bench -p but --bin but --target "$host" --target-dir "$build_dir"
+                cargo build --profile bench -p but --bin but --target "$host" --target-dir "$build_dir" --features nightly
             )
             BUT_BIN=$build_dir/$host/release/but
             perf_resolve_binary

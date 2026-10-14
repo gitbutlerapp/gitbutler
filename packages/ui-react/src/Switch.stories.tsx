@@ -3,6 +3,8 @@ import { Switch, type SwitchSize } from "./Switch.tsx";
 import { useState } from "react";
 
 const meta = preview.meta({
+	title: "Inputs/Switch",
+	id: "components-switch",
 	component: Switch,
 	parameters: {
 		design: {

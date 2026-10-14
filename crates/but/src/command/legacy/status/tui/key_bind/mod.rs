@@ -81,11 +81,9 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
             }
             ModeDiscriminant::Branch => {
                 builder.branch_new().register();
-                if feature_flags.single_branch {
-                    builder.branch_new_and_switch().register();
-                    builder.branch_pick_and_switch().register();
-                    builder.branch_switch_to_selection().register();
-                }
+                builder.branch_new_and_switch().register();
+                builder.branch_pick_and_switch().register();
+                builder.branch_switch_to_selection().register();
                 builder.branch_toggle_insert_side().register();
                 builder.discard().register();
                 builder.mark().register();
@@ -136,6 +134,7 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                 builder.details_jump_down().register();
 
                 builder.details_copy().register();
+                builder.copy_picker().register();
                 builder.details_top().register();
                 builder.details_bottom().register();
                 builder.toggle_full_screen_details().register();
@@ -1583,7 +1582,17 @@ impl KeyMatcher {
             return false;
         }
 
-        if self.modifiers != ev.modifiers {
+        // Shifted symbols like `?` or `:` already encode shift in the character, but some
+        // platforms (e.g. Windows) still report the SHIFT modifier while others don't.
+        let mut ev_modifiers = ev.modifiers;
+        if let KeyCode::Char(c) = ev.code
+            && !c.is_lowercase()
+            && !c.is_uppercase()
+        {
+            ev_modifiers.remove(KeyModifiers::SHIFT);
+        }
+
+        if self.modifiers != ev_modifiers {
             return false;
         }
 

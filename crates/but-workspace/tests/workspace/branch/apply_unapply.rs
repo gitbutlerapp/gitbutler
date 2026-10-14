@@ -23,7 +23,6 @@ use but_testsupport::{
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{OutcomeStatus, WorkspaceMerge, WorkspaceReferenceNaming},
-    create_reference::{Anchor, Position::Above},
     unapply::WorkspaceDisposition,
 };
 use gix::refs::{Category, transaction::PreviousValue};
@@ -109,6 +108,108 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
         "Refusing to unapply symbolic ref 'HEAD' due to potential ambiguity"
     );
 
+    Ok(())
+}
+
+#[test]
+fn unapply_ad_hoc_tip_checks_out_target_only_when_disposition_allows_it() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
+    git(&repo).args(["checkout", "A"]).run();
+    let branch_before = id_at(&repo, "A");
+    let workspace_before = id_at(&repo, "gitbutler/workspace");
+    let ws = Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&repo)?,
+        &mut db,
+        Options::default(),
+    )?
+    .into_workspace()?;
+
+    let err = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        legacy_unapply_options(),
+    )
+    .expect_err("keeping the workspace must not permit switching away from an ad-hoc branch");
+    assert_eq!(
+        err.to_string(),
+        "Cannot unapply branch 'A' from an ad-hoc workspace because the workspace cannot be empty",
+        "callers that disable single-branch mode retain the existing rejection"
+    );
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options_with(
+            WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
+        ),
+    )?;
+    assert_eq!(
+        out.checked_out.as_ref().map(|name| name.as_ref()),
+        Some(r("refs/heads/main")),
+        "report the checkout destination"
+    );
+    assert_eq!(
+        repo.head()?.referent_name(),
+        Some(r("refs/heads/main")),
+        "HEAD must be attached to the local target"
+    );
+    // Only HEAD changes: neither the unapplied branch nor an existing workspace ref is deleted.
+    assert_eq!(
+        id_at(&repo, "A"),
+        branch_before,
+        "the unapplied branch is preserved"
+    );
+    assert_eq!(
+        id_at(&repo, "gitbutler/workspace"),
+        workspace_before,
+        "an existing workspace ref is preserved"
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&out.workspace).to_string(),
+        snapbox::str![[r#"
+⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn unapply_ad_hoc_target_itself_is_rejected() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
+    git(&repo).args(["checkout", "main"]).run();
+    let before = visualize_commit_graph_all(&repo)?;
+    let ws = Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&repo)?,
+        &mut db,
+        Options::default(),
+    )?
+    .into_workspace()?;
+
+    let err = but_workspace::branch::unapply(
+        r("refs/heads/main"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options_with(
+            WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
+        ),
+    )
+    .expect_err("checking out the branch being unapplied would not unapply it");
+    assert_eq!(
+        err.to_string(),
+        "Cannot unapply the target's local tracking branch",
+        "reject a checkout to the same branch"
+    );
+    snapbox::assert_data_eq!(visualize_commit_graph_all(&repo)?, before.into_data().raw());
     Ok(())
 }
 
@@ -208,20 +309,25 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
 
     let branch = Category::LocalBranch.to_full_name("on-A1")?;
     let first_id = id_by_rev(&repo, "A1");
-    let ws = but_workspace::branch::create_reference(
+    repo.reference(
         branch.as_ref(),
-        Anchor::AtCommit {
-            commit_id: first_id.detach(),
-            position: Above,
-        },
-        &repo,
-        &ws,
-        &mut meta,
-        stack_id_for_name,
-        None,
+        first_id,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "on-A1 with branch metadata",
+    )?;
+    let mut branch_md = meta.branch(branch.as_ref())?;
+    branch_md.update_times(true);
+    meta.set_branch(&branch_md)?;
+    let ws = but_graph::Graph::from_commit_traversal(
+        a2_tip,
+        a2_ref.to_owned(),
+        &meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        but_graph::init::Options::default(),
     )?
-    .into_owned();
-    // creating a branch in the ad-hoc workspace gives unapply a visible segment to reject, it has its own ref-metadata
+    .into_workspace()?;
+    // a branch with its own ref-metadata gives unapply a visible segment to reject
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -694,8 +800,6 @@ Outcome {
             graph_workspace(&out.workspace).to_string(),
             snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:main[🌳] <> origin/main on e5d0542 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
         );
@@ -750,8 +854,6 @@ Outcome {
             graph_workspace(&out.workspace).to_string(),
             snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:main[🌳] <> origin/main on e5d0542 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
         );
@@ -1185,8 +1287,6 @@ Outcome {
         graph_workspace(&out.workspace).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:main[🌳] <> origin/main on 85efbe4 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -1832,8 +1932,6 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:main[🌳] <> origin/main on e5d0542 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -1964,8 +2062,6 @@ Outcome {
         graph_workspace(&out.workspace).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡:main[🌳] <> origin/main on e5d0542 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -3349,8 +3445,6 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡:main[🌳] <> origin/main on 3183e43 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -4221,8 +4315,6 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:main[🌳] <> origin/main on 85efbe4 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -4361,8 +4453,6 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:main[🌳] <> origin/main on 85efbe4 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );
@@ -4842,8 +4932,6 @@ Outcome {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 ⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡:main[🌳] <> origin/main on 85efbe4 {1}
-    └── :main[🌳] <> origin/main
 
 "#]]
     );

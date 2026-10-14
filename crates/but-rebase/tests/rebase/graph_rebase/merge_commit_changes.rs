@@ -4,7 +4,7 @@ use but_core::RepositoryExt;
 use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{Editor, LookupStep as _, Step},
+    graph_rebase::{Editor, LookupStep as _},
 };
 use but_testsupport::visualize_commit_graph_all;
 use gix::prelude::ObjectIdExt;
@@ -599,7 +599,7 @@ fn uses_editor_visible_commits_not_only_original_workspace_graph() -> Result<()>
     let rewritten_head = editor.new_commit(head_commit, DateMode::CommitterUpdateAuthorKeep)?;
 
     let head_selector = editor.select_commit(head)?;
-    editor.replace(head_selector, Step::new_pick(rewritten_head))?;
+    editor.amend_pick(head_selector, rewritten_head)?;
 
     let merged = editor.merge_commit_changes_to_tree(
         rewritten_head,
@@ -759,7 +759,7 @@ fn planning_works_after_normalizing_chained_editor_mutations() -> Result<()> {
     let rewritten_head = editor.new_commit(rewritten_head, DateMode::CommitterUpdateAuthorKeep)?;
 
     let head_selector = editor.select_commit(head)?;
-    editor.replace(head_selector, Step::new_pick(rewritten_head))?;
+    editor.amend_pick(head_selector, rewritten_head)?;
     let editor = editor.rebase()?.into_editor();
     let rewritten_head = editor.lookup_pick(head_selector)?;
 

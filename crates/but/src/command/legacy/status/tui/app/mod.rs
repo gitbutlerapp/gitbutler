@@ -10,7 +10,6 @@ use bstr::{BStr, BString, ByteSlice};
 use but_api::open::program::ProgramSpec;
 use but_ctx::Context;
 use crossterm::event::Event;
-use gitbutler_operating_modes::OperatingMode;
 use gix::refs::{Category, FullName};
 use nonempty::NonEmpty;
 use ratatui::prelude::*;
@@ -36,6 +35,7 @@ use crate::{
                     render::render_app,
                 },
             },
+            switch::SwitchBranchItem,
         },
         open::{self, Openable},
     },
@@ -140,7 +140,6 @@ pub struct App {
     pub file_browser: Option<FileBrowser>,
     pub head_sha: String,
     pub clipboard: Clipboard,
-    pub operating_mode: OperatingMode,
     pub in_single_branch_mode: bool,
 }
 
@@ -334,7 +333,6 @@ impl App {
         mut incoming_out_of_band_messages: Vec<Receiver<Message>>,
         head_sha: String,
         clipboard: Clipboard,
-        operating_mode: OperatingMode,
     ) -> CliResult<Self> {
         let initial_hunk = initial_target.as_ref().and_then(|target| match target {
             ResolvedCliIdArg::UncommittedHunkOrFile(hunk) if !hunk.is_entire_file => {
@@ -438,7 +436,6 @@ impl App {
             file_browser,
             head_sha,
             clipboard,
-            operating_mode,
             in_single_branch_mode: false,
         };
 
@@ -1399,6 +1396,31 @@ impl App {
                     ));
                 }
             }
+            gitbutler_watcher::Change::LinkedWorktreeChanges { worktree, .. } => {
+                let details_selection_changed = self.is_details_visible
+                    && self.details.selection().is_some_and(|selection| {
+                        let source = match selection {
+                            CliId::UncommittedHunkOrFile(uncommitted) => &uncommitted.source,
+                            CliId::UncommittedArea { source, .. } => source,
+                            CliId::AnonymousSegment(..)
+                            | CliId::PathPrefix { .. }
+                            | CliId::CommittedFile { .. }
+                            | CliId::CommittedHunk { .. }
+                            | CliId::Branch(..)
+                            | CliId::Commit { .. }
+                            | CliId::Stack { .. } => return false,
+                        };
+                        source
+                            .worktree_name()
+                            .is_some_and(|name| name == worktree.as_str())
+                    });
+                messages.push(Message::Reload(
+                    None,
+                    ReloadCause::Watcher {
+                        details_selection_changed,
+                    },
+                ));
+            }
             gitbutler_watcher::Change::ExternalInvalidation { .. } => {
                 // The TUI keeps no forge caches; workspace changes reach it as activity.
             }
@@ -1482,13 +1504,8 @@ impl App {
             }
         }
 
-        let new_lines = operations::reload_legacy(
-            ctx,
-            out,
-            &self.operating_mode,
-            self.flags,
-            self.launch_options.clone(),
-        )?;
+        let new_lines =
+            operations::reload_legacy(ctx, out, self.flags, self.launch_options.clone())?;
         self.head_sha = operations::head_sha(ctx)?;
 
         self.cursor = match select_after_reload {
@@ -1747,11 +1764,14 @@ impl App {
     }
 
     fn handle_copy_selection_picker(&mut self) -> anyhow::Result<()> {
-        let Some(selection) = self
-            .cursor
-            .selected_line(&self.status_lines)
-            .and_then(|selection| selection.data.cli_id())
-        else {
+        let selection = if matches!(&*self.mode, Mode::Details(..)) {
+            self.details.selected_section_cli_id()
+        } else {
+            self.cursor
+                .selected_line(&self.status_lines)
+                .and_then(|selection| selection.data.cli_id())
+        };
+        let Some(selection) = selection else {
             return Ok(());
         };
 
@@ -1771,7 +1791,19 @@ impl App {
                 copy_selection_picker::anonymous_segment_picker(id.to_owned(), lane, self.theme)
             }
             CliId::UncommittedHunkOrFile(hunk) => {
-                copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
+                if matches!(&*self.mode, Mode::Details(..)) {
+                    let Some(text) = self.details.selected_hunk_text() else {
+                        return Ok(());
+                    };
+                    copy_selection_picker::details_hunk_picker(
+                        hunk.id.clone(),
+                        hunk.hunks.head.hunk.path.as_ref(),
+                        text,
+                        self.theme,
+                    )
+                } else {
+                    copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
+                }
             }
             CliId::CommittedFile {
                 committed_file:
@@ -1790,8 +1822,18 @@ impl App {
                 source: ChangeSourceId::Worktree(name),
                 ..
             } => copy_selection_picker::worktree_picker(name.as_ref(), self.theme),
-            CliId::CommittedHunk(..)
-            | CliId::PathPrefix { .. }
+            CliId::CommittedHunk(hunk) => {
+                let Some(text) = self.details.selected_hunk_text() else {
+                    return Ok(());
+                };
+                copy_selection_picker::details_hunk_picker(
+                    hunk.id.clone(),
+                    hunk.hunk.path.as_ref(),
+                    text,
+                    self.theme,
+                )
+            }
+            CliId::PathPrefix { .. }
             | CliId::UncommittedArea {
                 source: ChangeSourceId::Head,
                 ..
@@ -2266,7 +2308,7 @@ impl FuzzyPickerItem for GotoBranchItem {
         }
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         match self {
             GotoBranchItem::Branch(..) | GotoBranchItem::Worktree { .. } => theme.local_branch,
             Self::Uncommitted => theme.info,
@@ -2288,7 +2330,7 @@ impl FuzzyPickerItem for ProgramSpec {
         ]
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         theme.info
     }
 }

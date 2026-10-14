@@ -10,7 +10,18 @@ pub async fn list(
     GitLabClient::from_storage(storage, preferred_account)?
         .list_open_mrs(project_id)
         .await
-        .map_err(classify_review_listing_error)
+        .map_err(|err| {
+            if err
+                .downcast_ref::<crate::client::HttpStatusError>()
+                .is_some_and(|http_err| http_err.status == reqwest::StatusCode::NOT_FOUND)
+            {
+                return err.context(but_error::Context::new_static(
+                    but_error::Code::GitLabProjectNotFound,
+                    "GitLab could not find this project, or your token cannot see it.",
+                ));
+            }
+            classify_review_listing_error(err)
+        })
         .context("Failed to list open merge requests")
 }
 

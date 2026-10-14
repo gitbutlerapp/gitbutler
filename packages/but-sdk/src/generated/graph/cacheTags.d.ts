@@ -13,6 +13,7 @@ export declare const apiProvides: {
 	readonly commentsList: readonly ["Comments"];
 	readonly commitConflicts: readonly [];
 	readonly commitDetailsWithLineStats: readonly ["Commits"];
+	readonly commitRangeDiff: readonly ["Commits"];
 	readonly currentForgeLogin: readonly ["ForgeLogin"];
 	readonly editChangesFromInitial: readonly ["WorktreeChanges"];
 	readonly editInitialIndexState: readonly ["OperatingMode"];
@@ -97,6 +98,7 @@ export declare const watcherInvalidates: {
 	readonly gitActivity: readonly ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"];
 	readonly gitFetch: readonly ["Branches", "TargetCommits", "FetchStatus", "Reviews"];
 	readonly gitHead: readonly ["OperatingMode"];
+	readonly linkedWorktreeChanges: readonly ["Diffs", "WorktreeChanges"];
 	readonly workspaceActivity: readonly ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"];
 	readonly worktreeChanges: readonly ["Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"];
 };

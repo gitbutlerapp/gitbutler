@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { ChangeScale } from "./ChangeScale.tsx";
 
 const meta = preview.meta({
+	title: "Content & status/ChangeScale",
+	id: "components-changescale",
 	component: ChangeScale,
 	parameters: {
 		design: {

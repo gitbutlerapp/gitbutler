@@ -1,0 +1,6 @@
+/* The operation toolbox also sits at the bottom centre, so while it is open the stack rides 8px
+   above it rather than over it; with no toolbox the anchor falls back and the stack keeps its 16px. */
+.stack {
+	--snackbars-bottom: calc(anchor(top, 8px) + 8px);
+	position-anchor: --operation-controls;
+}

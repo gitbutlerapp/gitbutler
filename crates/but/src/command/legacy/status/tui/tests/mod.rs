@@ -205,6 +205,18 @@ fn help_popup_opens_over_status_view() {
 }
 
 #[test]
+fn help_popup_opens_when_question_mark_is_reported_with_shift() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    // Windows reports SHIFT along with `?`.
+    tui.input((KeyModifiers::SHIFT, '?'))
+        .assert_rendered_term_svg_eq(file!["snapshots/help_popup_opens_over_status_view_001.svg"]);
+}
+
+#[test]
 fn help_popup_searches_descriptions() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);

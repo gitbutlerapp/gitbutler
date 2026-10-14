@@ -2,19 +2,24 @@ use anyhow::Result;
 use but_api::worktrees::NewWorktree;
 use but_core::sync::{RepoExclusive, RepoShared};
 use but_ctx::Context;
-use gix::{ObjectId, refs::FullName};
+use gix::{ObjectId, prelude::ObjectIdExt as _, refs::FullName};
 use serde::Serialize;
 
 use crate::{
-    CliResult,
-    args::atoms::BranchArg,
+    CliResult, IdMap,
+    args::atoms::{BranchArg, CliIdArg},
+    bad_input,
     theme::{self, Theme},
     utils::{CliOutput, CliOutputHuman, WriteWithUtils},
 };
 
-pub fn new(ctx: &mut Context, name: Option<&BranchArg>) -> CliResult<NewOutcome> {
+pub fn new(
+    ctx: &mut Context,
+    name: Option<&BranchArg>,
+    above: Option<&CliIdArg>,
+) -> CliResult<NewOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
-    let op = NewOperation::resolve(ctx, guard.read_permission(), name)?;
+    let op = NewOperation::resolve(ctx, guard.read_permission(), name, above)?;
     Ok(run(ctx, guard.write_permission(), op)?)
 }
 
@@ -29,6 +34,7 @@ impl NewOperation {
         ctx: &Context,
         perm: &RepoShared,
         name: Option<&BranchArg>,
+        above: Option<&CliIdArg>,
     ) -> CliResult<Self> {
         but_api::worktrees::ensure_worktree_manipulation_enabled(ctx)?;
         let ref_name = match name {
@@ -38,10 +44,24 @@ impl NewOperation {
             }
             None => None,
         };
-        Ok(Self {
-            ref_name,
-            base: None,
-        })
+        let base = match above {
+            Some(above) => {
+                let repo = ctx.repo.get()?;
+                let id_map = IdMap::new_from_context(ctx, perm)?;
+                let base = above.resolve_commit_in_workspace(&repo, &id_map)?;
+                if but_core::Commit::from_id(base.attach(&repo))?.is_conflicted() {
+                    return Err(
+                        bad_input("Cannot create a worktree from a conflicted commit")
+                            .arg_name("--above")
+                            .arg_value(&above.0)
+                            .into(),
+                    );
+                }
+                Some(base)
+            }
+            None => None,
+        };
+        Ok(NewOperation { ref_name, base })
     }
 }
 

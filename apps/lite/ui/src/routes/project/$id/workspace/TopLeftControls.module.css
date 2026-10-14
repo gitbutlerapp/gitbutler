@@ -11,6 +11,19 @@
 	}
 }
 
+/* The sidebar's header pads them by the panel padding. ViewHeader pads 16px, and centring them on
+   its 18px title line leaves them a pixel higher. */
+.inViewHeader {
+	position: relative;
+	top: 1px;
+	margin-inline-start: calc(var(--panel-padding-inline) - 16px);
+}
+
+/* The diff's bar pads by the cards' inset, and its top already matches. */
+.inDiffBar {
+	margin-inline-start: calc(var(--panel-padding-inline) - var(--diff-file-inset));
+}
+
 .macSpacer {
 	flex-shrink: 0;
 	width: 64px;

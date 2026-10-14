@@ -840,6 +840,7 @@ RefInfo {
         NodeIndex(4),
     ),
     ancestor_workspace_commit: None,
+    has_lanes_behind_target: true,
 }
 
 "#]]
@@ -3275,12 +3276,12 @@ RefInfo {
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(0),
+            segment_index: NodeIndex(3),
         },
     ),
     is_target_current: true,
     lower_bound: Some(
-        NodeIndex(0),
+        NodeIndex(3),
     ),
     ancestor_workspace_commit: None,
 }
@@ -3375,12 +3376,12 @@ RefInfo {
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(0),
+            segment_index: NodeIndex(3),
         },
     ),
     is_target_current: true,
     lower_bound: Some(
-        NodeIndex(0),
+        NodeIndex(3),
     ),
     ancestor_workspace_commit: None,
 }

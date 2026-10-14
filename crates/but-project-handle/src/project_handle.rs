@@ -103,7 +103,7 @@ impl TryFrom<ProjectHandle> for PathBuf {
 
 fn encoded_str_to_path(encoded: &str) -> anyhow::Result<PathBuf> {
     let bytes = decode(encoded)?;
-    let path = gix::path::try_from_byte_slice(&bytes)
+    let path = gix::path::from_byte_slice(&bytes)
         .map_err(anyhow::Error::from)
         .with_context(|| {
             format!("Encoded ProjectHandle payload is not a valid filesystem path: '{encoded}'")

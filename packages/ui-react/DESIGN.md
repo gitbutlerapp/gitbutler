@@ -44,7 +44,7 @@ Rules for one component that its docs don't carry yet.
 
 | Page                                      | Read it when                         |
 | ----------------------------------------- | ------------------------------------ |
-| [Buttons](design/components/buttons.md)   | Picking a `Button` variant           |
+| [Buttons](design/components/buttons.md)   | Picking a `Button` variant or size   |
 | [Links](design/components/links.md)       | A link, or text that opens something |
 | [Tooltips](design/components/tooltips.md) | A hover hint                         |
 | [Fields](design/components/fields.md)     | A form, a settings row, a search box |

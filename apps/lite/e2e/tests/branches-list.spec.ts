@@ -31,7 +31,11 @@ test.describe("branches list", () => {
 				// document, and they look just like this list from the outside.
 				const row = document.querySelector('[role="treeitem"][aria-label^="branch-"]');
 				const tree = row?.closest('[role="tree"]');
-				const scroller = tree?.parentElement;
+				// The nearest box that scrolls: the list sits in a ScrollArea, whose
+				// viewport wraps the tree in a content box of its own.
+				let scroller = tree?.parentElement ?? null;
+				while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY))
+					scroller = scroller.parentElement;
 				if (!tree || !scroller) throw new Error("Branches list has no scroller");
 
 				if (unfoldMounted) {
@@ -61,7 +65,10 @@ test.describe("branches list", () => {
 
 		await appWindow.evaluate(() => {
 			const row = document.querySelector('[role="treeitem"][aria-label^="branch-"]');
-			row?.closest('[role="tree"]')?.parentElement?.scrollTo({ top: 0 });
+			let scroller = row?.closest('[role="tree"]')?.parentElement ?? null;
+			while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY))
+				scroller = scroller.parentElement;
+			scroller?.scrollTo({ top: 0 });
 		});
 
 		await expect(branches.first()).toBeVisible();

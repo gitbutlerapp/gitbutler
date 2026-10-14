@@ -151,8 +151,8 @@ fn can_invoke_alias_that_shadows_external_command() {
     env.setup_metadata(&["A"]);
 
     let bin = tempdir().unwrap();
-    let helper = bin.path().join("but-b");
-    fs::write(&helper, "#!/bin/sh\necho 'called but-b'\n").unwrap();
+    let helper = bin.path().join("but-z");
+    fs::write(&helper, "#!/bin/sh\necho 'called but-z'\n").unwrap();
     let mut perms = fs::metadata(&helper).unwrap().permissions();
     perms.set_mode(0o755);
     fs::set_permissions(&helper, perms).unwrap();
@@ -160,18 +160,18 @@ fn can_invoke_alias_that_shadows_external_command() {
     let path = std::env::var("PATH").unwrap_or_default();
     let new_path = format!("{}:{path}", bin.path().display());
 
-    env.but("b")
+    env.but("z")
         .env("PATH", &new_path)
         .assert()
         .stdout_eq(str![[r#"
-called but-b
+called but-z
 
 "#]])
         .stderr_eq(str![[]]);
 
     // Alias should shadow external command
-    env.but("alias add b branch").assert().success();
-    env.but("b")
+    env.but("alias add z branch").assert().success();
+    env.but("z")
         .env("PATH", &new_path)
         .assert()
         .stdout_eq(str![[r#"

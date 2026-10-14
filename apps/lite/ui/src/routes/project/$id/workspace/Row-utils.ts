@@ -49,8 +49,8 @@ export const getRowButtonClassName = ({
 		),
 	);
 
-/** One title line plus a metadata line; shared by both commit list virtualizers. */
-export const COMMIT_ROW_HEIGHT = 54;
+/** A single title line; shared by both commit list virtualizers. */
+export const COMMIT_ROW_HEIGHT = 28;
 
 const isFromInteractiveDescendant = (event: MouseEvent<HTMLDivElement>): boolean => {
 	if (!(event.target instanceof Element)) return false;

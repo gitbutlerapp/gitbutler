@@ -3,14 +3,11 @@
 	import { t } from "$lib/i18n";
 
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
-	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Toggle } from "@gitbutler/ui-svelte";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
-
-	const userService = inject(USER_SERVICE);
 </script>
 
 <p class="text-12 text-body experimental-settings__text">

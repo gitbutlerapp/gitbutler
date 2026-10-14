@@ -10,15 +10,18 @@ pub mod traverse;
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
+use but_core::ChangeId;
 use but_core::commit::CommitIdentifiers;
 use but_core::{RefMetadata, commit::SignCommit};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
 use gix::refs::transaction::RefEdit;
 
-use crate::graph_rebase::util::collect_ordered_parents;
+use crate::graph_rebase::util::{OrderedParentKind, collect_ordered_parents};
 
 use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
+mod branch_stacks;
+pub use branch_stacks::BranchStacks;
 pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;
@@ -358,14 +361,28 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         selector: Selector,
     ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
         let selector = self.history.normalize_selector(selector)?;
-        Ok(match &self.graph[selector.id] {
-            Step::None => None,
+        self.checkout_target_inner(selector.id)
+    }
+
+    fn checkout_target_inner(
+        &self,
+        idx: StepGraphIndex,
+    ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
+        Ok(match &self.graph[idx] {
+            Step::None => {
+                collect_ordered_parents(&self.graph, idx, OrderedParentKind::CommitOrReference)
+                    .first()
+                    .map(|child_idx| self.checkout_target_inner(*child_idx))
+                    .transpose()?
+                    .flatten()
+            }
             Step::Pick(Pick { id, .. }) => Some((*id, None)),
             Step::Reference { refname, .. } => {
-                let parent = collect_ordered_parents(&self.graph, selector.id)
-                    .into_iter()
-                    .next()
-                    .context("No first parent to reference")?;
+                let parent =
+                    collect_ordered_parents(&self.graph, idx, OrderedParentKind::CommitOnly)
+                        .into_iter()
+                        .next()
+                        .context("No first parent to reference")?;
                 let Step::Pick(Pick { id, .. }) = self.graph[parent] else {
                     bail!("collect_ordered_parents should always return a commit pick");
                 };
@@ -398,7 +415,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                 )
             })
             .with_context(|| format!("Could not find reference '{ref_name}' in rebase result"))?;
-        let parent = collect_ordered_parents(&self.graph, reference)
+        let parent = collect_ordered_parents(&self.graph, reference, OrderedParentKind::CommitOnly)
             .into_iter()
             .next()
             .context("Reference has no target commit in rebase result")?;
@@ -459,12 +476,33 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .map_or((entrypoint_id, entrypoint_refname), |(id, ref_name)| {
                 (id, Some(ref_name))
             });
+        let branch_stacks = self.branch_stacks()?;
+        let workspace_metadata = branch_stacks.workspace_metadata(&*self.meta)?;
+        let branch_metadata = workspace_metadata
+            .iter()
+            .flat_map(|workspace| &workspace.stacks)
+            .flat_map(|stack| &stack.branches)
+            .map(|branch| {
+                let metadata = self.meta.branch(branch.ref_name.as_ref())?;
+                Ok((branch.ref_name.clone(), (*metadata).clone()))
+            })
+            .collect::<Result<Vec<_>>>()?;
         let mut overlay = Overlay::default()
             .with_references(updated_refs)
             .with_dropped_references(dropped_refs)
-            .with_entrypoint(entrypoint_id, entrypoint_refname);
+            .with_entrypoint(entrypoint_id, entrypoint_refname)
+            .with_branch_metadata_override(branch_metadata)
+            .with_workspace_metadata_override(
+                workspace_metadata
+                    .map(|workspace| (workspace.as_ref().to_owned(), (*workspace).clone())),
+            );
         if let Some(branch_stack_order) = branch_stack_order {
             overlay = overlay.with_branch_stack_order_override(branch_stack_order.iter().cloned());
+        }
+        if self.meta.can_persist_branch_stack_order() {
+            for stack in branch_stacks.ad_hoc {
+                overlay = overlay.with_branch_stack_order_override(stack);
+            }
         }
         let mut graph = self.workspace.graph.clone();
         graph.worktree_tips = self.worktree_tips_after_rebase()?;
@@ -498,20 +536,24 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         for co in &self.checkouts {
             match co {
                 Checkout::Head { selector, .. } => {
-                    let target = self.checkout_target(*selector)?.map(|t| t.0);
+                    let target = self.checkout_target(*selector)?;
+                    let head = self
+                        .repo()
+                        .head_id()
+                        .ok()
+                        .map(|id| (id.detach(), self.repo().head_name().ok().flatten()));
 
-                    if target != self.repo().head_id().ok().map(|id| id.detach()) {
+                    if target != head {
                         return Ok(true);
                     }
                 }
                 Checkout::Worktree {
                     selector,
+                    ref_name,
                     initial_head,
                     ..
                 } => {
-                    let target = self.checkout_target(*selector)?.map(|t| t.0);
-
-                    if target != Some(*initial_head) {
+                    if self.checkout_target(*selector)? != Some((*initial_head, ref_name.clone())) {
                         return Ok(true);
                     }
                 }
@@ -595,6 +637,8 @@ pub struct RevisionHistory {
     /// Unintuatively, the values are the original values, and the keys are the
     /// _new_ values that they have been mapped to.
     commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
+    /// Conflicted commits that were created.
+    pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
 }
 
 impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
