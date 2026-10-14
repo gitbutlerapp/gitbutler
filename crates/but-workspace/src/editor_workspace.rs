@@ -1,6 +1,8 @@
 //! Bring the editor's `HEAD` into a workspace with a workspace commit.
 
-use but_core::RefMetadata;
+use anyhow::Context as _;
+use but_core::{RefMetadata, WORKSPACE_REF_NAME};
+use but_error::bail_precondition;
 use but_rebase::graph_rebase::{Editor, Pick, Step, SuccessfulRebase, mutate::InsertSide};
 
 use crate::{WorkspaceCommit, commit::Stack};
@@ -20,6 +22,33 @@ pub fn ensure_workspace_commit<'ws, 'meta, M: RefMetadata>(
             InsertSide::Below,
         )?;
     }
+    editor.rebase()
+}
+
+/// Check out a new workspace reference whose workspace commit sits on top of what `HEAD`
+/// checks out, replacing any workspace reference already known to the editor.
+///
+/// Fail if `HEAD` is already on the workspace reference.
+pub fn switch_to_workspace<'ws, 'meta, M: RefMetadata>(
+    mut editor: Editor<'ws, 'meta, M>,
+) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    if editor.workspace_reference().is_some() {
+        bail_precondition!("HEAD is already on the workspace reference");
+    }
+    let head = editor
+        .head()
+        .context("HEAD has no checkout recorded in the editor")?;
+    let workspace_ref = gix::refs::FullName::try_from(WORKSPACE_REF_NAME)?;
+    if let Some(existing) = editor.try_select_reference(workspace_ref.as_ref()) {
+        editor.replace_with_none(existing)?;
+    }
+    let (_, below) = editor.find_commit_target(head)?;
+    let commit = write_workspace_commit(editor.repo(), &below)?;
+    let workspace_commit = editor.add_step(Step::Pick(Pick::new_workspace_pick(commit)))?;
+    editor.add_edge(workspace_commit, head, 0)?;
+    let workspace_reference = editor.add_step(Step::new_reference(workspace_ref))?;
+    editor.add_edge(workspace_reference, workspace_commit, 0)?;
+    editor.set_head_checkout(workspace_reference)?;
     editor.rebase()
 }
 
