@@ -3338,6 +3338,21 @@ Outcome {
 
 "#]]
     );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph(&repo, &meta, &mut db)?.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:unrelated on 3183e43 {3c4}
+│   └── 📙:unrelated
+│       └── ·53ad0c2 (🏘️)
+└── ≡📙:A2 on 3183e43 {72}
+    ├── 📙:A2
+    │   └── ·f1889e7 (🏘️)
+    └── 📙:A1
+        └── ·7de99e1 (🏘️)
+
+"#]]
+    );
 
     // The metadata is in sync, and A1 is outside the workspace.
     snapbox::assert_data_eq!(
@@ -3372,6 +3387,46 @@ Some(
                 branches: [
                     WorkspaceStackBranch {
                         ref_name: "refs/heads/A2",
+                        archived: false,
+                    },
+                ],
+                workspacecommit_relation: Merged,
+            },
+        ],
+    },
+)
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        graph(&repo, &meta, &mut db)?
+            .into_workspace()?
+            .metadata
+            .to_debug(),
+        snapbox::str![[r#"
+Some(
+    Workspace {
+        ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+        stacks: [
+            WorkspaceStack {
+                id: 00000000-0000-0000-0000-0000000003c4,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/unrelated",
+                        archived: false,
+                    },
+                ],
+                workspacecommit_relation: Merged,
+            },
+            WorkspaceStack {
+                id: 00000000-0000-0000-0000-000000000072,
+                branches: [
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/A2",
+                        archived: false,
+                    },
+                    WorkspaceStackBranch {
+                        ref_name: "refs/heads/A1",
                         archived: false,
                     },
                 ],
