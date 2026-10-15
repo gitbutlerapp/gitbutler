@@ -79,6 +79,74 @@ Please run 'but setup' to initialize the project.
 "#]]);
 }
 
+/// Seed `forge_settings.json` with one Forgejo account and return the settings path.
+// forgejo-fork
+fn seed_forgejo_account(env: &Sandbox) -> std::path::PathBuf {
+    let settings_dir = env.app_data_dir().join("com.gitbutler.app");
+    std::fs::create_dir_all(&settings_dir).unwrap();
+    let settings_path = settings_dir.join("forge_settings.json");
+    std::fs::write(
+        &settings_path,
+        r#"{
+  "github": {},
+  "forgejo": {
+    "knownAccounts": [
+      {
+        "host": "https://git.example.com",
+        "username": "alice",
+        "access_token_key": "forgejo_https://git.example.com_alice"
+      }
+    ]
+  }
+}
+"#,
+    )
+    .unwrap();
+    settings_path
+}
+
+#[test]
+fn forge_list_users_includes_forgejo_accounts() {
+    let env = Sandbox::empty();
+    seed_forgejo_account(&env);
+
+    env.but("--json config forge list-users")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+{
+  "accounts": [
+    {
+      "provider": "Forgejo",
+      "username": "alice@https://git.example.com",
+      "account_type": "Personal Access Token"
+    }
+  ]
+}
+
+"#]]);
+}
+
+#[test]
+fn forge_forget_removes_forgejo_account() {
+    let env = Sandbox::empty();
+    let settings_path = seed_forgejo_account(&env);
+
+    env.but("config forge forget alice")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Forgot forge account 'Forgejo account 'alice@https://git.example.com''
+
+"#]]);
+
+    let settings = std::fs::read_to_string(&settings_path).unwrap();
+    assert!(
+        !settings.contains("alice"),
+        "the forgotten account must be gone from storage, got: {settings}"
+    );
+}
+
 #[cfg(feature = "legacy")]
 #[test]
 fn target_configures_distinct_push_remote_for_fork() {

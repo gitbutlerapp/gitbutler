@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BitbucketAccountBadge from "$components/forge/BitbucketAccountBadge.svelte";
+	import ForgejoAccountBadge from "$components/forge/ForgejoAccountBadge.svelte"; // forgejo-fork
 	import GitHubAccountBadge from "$components/forge/GitHubAccountBadge.svelte";
 	import GitLabAccountBadge from "$components/forge/GitLabAccountBadge.svelte";
 	import ForgeAccountConfig from "$components/projectSettings/ForgeAccountConfig.svelte";
@@ -12,6 +13,11 @@
 	} from "$lib/forge/bitbucket/bitbucketUserService.svelte";
 	import { usePreferredBitbucketUsername } from "$lib/forge/bitbucket/hooks.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import {
+		forgejoAccountIdentifierToString,
+		stringToForgejoAccountIdentifier,
+	} from "$lib/forge/forgejo/forgejoUserService.svelte"; // forgejo-fork
+	import { usePreferredForgejoAccount } from "$lib/forge/forgejo/hooks.svelte";
 	import {
 		githubAccountIdentifierToString,
 		stringToGitHubAccountIdentifier,
@@ -33,6 +39,7 @@
 		BitbucketAccountIdentifier,
 		ForgeName,
 		ForgeUser,
+		ForgejoAccountIdentifier,
 		GitHubStackingMode,
 		GithubAccountIdentifier,
 		GitlabAccountIdentifier,
@@ -47,6 +54,7 @@
 		{ label: "GitLab", value: "gitlab" },
 		{ label: "Azure", value: "azure" },
 		{ label: "BitBucket", value: "bitbucket" },
+		{ label: "Forgejo", value: "forgejo" }, // forgejo-fork
 	];
 
 	const { projectId }: { projectId: string } = $props();
@@ -94,6 +102,11 @@
 		reactive(() => projectId),
 	);
 
+	// Forgejo hooks (forgejo-fork)
+	const { preferredForgejoAccount, forgejoAccounts } = usePreferredForgejoAccount(
+		reactive(() => projectId),
+	);
+
 	function handleSelectionChange(selectedOption: ForgeSelection) {
 		if (!project) return;
 
@@ -131,6 +144,13 @@
 		await updatePreferredForgeUser(projectId, { provider: "bitbucket", details: account });
 	}
 
+	async function updatePreferredForgejoAccount(
+		projectId: string,
+		account: ForgejoAccountIdentifier,
+	) {
+		await updatePreferredForgeUser(projectId, { provider: "forgejo", details: account });
+	}
+
 	async function updateReviewStackingDescription(value: ReviewStackingDescription) {
 		await gitConfigService.setGbConfig(projectId, { gitbutlerReviewStackingDescription: value });
 	}
@@ -152,8 +172,8 @@
 				<br />
 				To enable Forge integration, please select your Forge from the dropdown below.
 				<br />
-				<span class="text-bold">Note:</span> Currently, only GitHub, GitLab and Bitbucket support pull
-				request creation.
+				<span class="text-bold">Note:</span> Currently, only GitHub, GitLab, Bitbucket and Forgejo support
+				pull request creation.
 			{:else}
 				We’ve detected that you’re using <span class="text-bold"
 					>{determinedForgeType.toUpperCase()}</span
@@ -295,6 +315,23 @@
 			updatePreferredAccount={updatePreferredBitbucketAccount}
 			AccountBadge={BitbucketAccountBadge}
 			docsUrl="https://docs.gitbutler.com/features/forge-integration/bitbucket-integration"
+			requestType="pull request"
+		/>
+	{/if}
+
+	<!-- forgejo-fork -->
+	{#if forgeInfo?.name === "forgejo"}
+		<ForgeAccountConfig
+			{projectId}
+			displayName="Forgejo"
+			accounts={forgejoAccounts.current}
+			preferredAccount={preferredForgejoAccount.current}
+			accountToString={forgejoAccountIdentifierToString}
+			stringToAccount={stringToForgejoAccountIdentifier}
+			getUsername={(account) => account.username}
+			updatePreferredAccount={updatePreferredForgejoAccount}
+			AccountBadge={ForgejoAccountBadge}
+			docsUrl="https://forgejo.org/docs/latest/user/token-scope/"
 			requestType="pull request"
 		/>
 	{/if}

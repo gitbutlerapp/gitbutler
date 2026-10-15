@@ -13,8 +13,8 @@
 
 use anyhow::{Context, bail};
 use but_api::{
-    bitbucket, branch, commit, diff, github, gitlab, land, legacy, open, platform, resolve,
-    workspace,
+    bitbucket, branch, commit, diff, forgejo, github, gitlab, land, legacy, open, platform,
+    resolve, workspace,
 };
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
@@ -233,6 +233,13 @@ fn main() -> anyhow::Result<()> {
                 bitbucket::tauri_list_known_bitbucket_accounts::list_known_bitbucket_accounts,
                 bitbucket::tauri_clear_all_bitbucket_tokens::clear_all_bitbucket_tokens,
                 bitbucket::tauri_check_bitbucket_credentials::check_bitbucket_credentials,
+                // forgejo-fork
+                forgejo::tauri_store_forgejo_pat::store_forgejo_pat,
+                forgejo::tauri_get_fj_user::get_fj_user,
+                forgejo::tauri_forget_forgejo_account::forget_forgejo_account,
+                forgejo::tauri_list_known_forgejo_accounts::list_known_forgejo_accounts,
+                forgejo::tauri_clear_all_forgejo_tokens::clear_all_forgejo_tokens,
+                forgejo::tauri_check_forgejo_credentials::check_forgejo_credentials,
                 diff::tauri_commit_details::commit_details,
                 diff::tauri_commit_details_with_line_stats::commit_details_with_line_stats,
                 workspace::tauri_get_workspace::get_workspace,

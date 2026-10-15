@@ -61,11 +61,13 @@ export declare const apiParamNames: {
 	readonly forgeInfo: readonly ["projectId"];
 	readonly forgeProvider: readonly ["projectId"];
 	readonly forgetBitbucketAccount: readonly ["account"];
+	readonly forgetForgejoAccount: readonly ["account"];
 	readonly forgetGithubAccount: readonly ["account"];
 	readonly forgetGitlabAccount: readonly ["account"];
 	readonly getAiConfiguration: readonly [];
 	readonly getBbUser: readonly ["account"];
 	readonly getBlobFile: readonly ["projectId", "relativePath", "blobId"];
+	readonly getFjUser: readonly ["account"];
 	readonly getGbConfig: readonly ["projectId"];
 	readonly getGhUser: readonly ["account"];
 	readonly getGlUser: readonly ["account"];
@@ -94,6 +96,7 @@ export declare const apiParamNames: {
 	readonly listCommentReactions: readonly ["projectId", "commentId"];
 	readonly listEditors: readonly [];
 	readonly listKnownBitbucketAccounts: readonly [];
+	readonly listKnownForgejoAccounts: readonly [];
 	readonly listKnownGithubAccounts: readonly [];
 	readonly listKnownGitlabAccounts: readonly [];
 	readonly listPrograms: readonly [];
@@ -137,6 +140,7 @@ export declare const apiParamNames: {
 	readonly setReviewThreadResolved: readonly ["projectId", "threadId", "resolved"];
 	readonly setTargetRefAndInitProject: readonly ["projectId", "targetRef", "pushRemote"];
 	readonly storeBitbucketApiToken: readonly ["email", "accessToken"];
+	readonly storeForgejoPat: readonly ["accessToken", "host"];
 	readonly storeGithubPat: readonly ["accessToken"];
 	readonly storeGitlabPat: readonly ["accessToken"];
 	readonly tearOffBranch: readonly ["projectId", "subjectBranch", "dryRun"];

@@ -1,5 +1,6 @@
 import { useBitbucketForgeUser } from "$lib/forge/bitbucket/hooks.svelte";
 import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+import { useForgejoForgeUser } from "$lib/forge/forgejo/hooks.svelte"; // forgejo-fork
 import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
 import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
 import { inject } from "@gitbutler/core/context";
@@ -27,6 +28,7 @@ export function useForgeAuth(projectId: Reactive<string>): {
 	const githubUser = useGitHubForgeUser(projectId);
 	const gitlabUser = useGitLabForgeUser(projectId);
 	const bitbucketUser = useBitbucketForgeUser(projectId);
+	const forgejoUser = useForgejoForgeUser(projectId);
 
 	const authenticated = $derived(
 		forgeName === "github"
@@ -35,7 +37,9 @@ export function useForgeAuth(projectId: Reactive<string>): {
 				? gitlabUser.user.current !== undefined
 				: forgeName === "bitbucket"
 					? bitbucketUser.user.current !== undefined
-					: false,
+					: forgeName === "forgejo"
+						? forgejoUser.user.current !== undefined
+						: false,
 	);
 	const isLoading = $derived(
 		forgeName === "github"
@@ -44,7 +48,9 @@ export function useForgeAuth(projectId: Reactive<string>): {
 				? gitlabUser.isLoading.current
 				: forgeName === "bitbucket"
 					? bitbucketUser.isLoading.current
-					: false,
+					: forgeName === "forgejo"
+						? forgejoUser.isLoading.current
+						: false,
 	);
 
 	return {

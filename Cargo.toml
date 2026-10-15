@@ -64,6 +64,7 @@ members = [
     "crates/but-gitlab", # 📄A thin wrapper of the GitLab API, for authentication and resource access.
     # 👉lacks top-level docs and docs.
     "crates/but-bitbucket", # 📄A thin wrapper of the Bitbucket Cloud API, for authentication and resource access.
+    "crates/but-forgejo", # 📄A thin wrapper of the Forgejo API, for authentication and resource access. (forgejo-fork)
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
     # 👉Kind of no docs, no tests, and unclear purpose.
     "crates/but-forge", # 📄A generalised interface to communicate with forges.
@@ -164,6 +165,7 @@ but-gerrit = { path = "crates/but-gerrit" }
 but-github = { path = "crates/but-github" }
 but-gitlab = { path = "crates/but-gitlab" }
 but-bitbucket = { path = "crates/but-bitbucket" }
+but-forgejo = { path = "crates/but-forgejo" } # forgejo-fork
 but-error = { path = "crates/but-error" }
 but-serde = { path = "crates/but-serde" }
 but-schemars = { path = "crates/but-schemars" }

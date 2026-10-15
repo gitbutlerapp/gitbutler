@@ -25,6 +25,9 @@ pub struct ForgeSettings {
     /// Bitbucket-specific settings.
     #[serde(default)]
     pub bitbucket: BitbucketSettings,
+    /// Forgejo-specific settings. // forgejo-fork
+    #[serde(default)]
+    pub forgejo: ForgejoSettings,
     /// Cached user profiles, keyed by account `access_token_key`.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub cached_profiles: HashMap<String, CachedProfile>,
@@ -170,6 +173,27 @@ impl BitbucketAccount {
     }
 }
 
+// forgejo-fork
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ForgejoSettings {
+    #[serde(default, deserialize_with = "deserialize_lenient_vec")]
+    pub known_accounts: Vec<ForgejoAccount>,
+}
+
+/// A Forgejo personal access token for one user on one instance.
+///
+/// Forgejo has no canonical hosted instance, so every account carries its host.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ForgejoAccount {
+    // Base URL of the Forgejo instance, e.g. `https://codeberg.org`.
+    pub host: String,
+    // Username associated with the PAT.
+    pub username: String,
+    // Key to retrieve the access token from secure storage.
+    pub access_token_key: String,
+}
+
 /// Deserialize a list of values, silently discarding entries that cannot be
 /// deserialized (e.g. legacy bare-string usernames from an older storage format).
 fn deserialize_lenient_vec<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
@@ -252,6 +276,7 @@ mod tests {
                     access_token_key: "bitbucket_apitoken_bb@test.com".into(),
                 }],
             },
+            forgejo: ForgejoSettings::default(),
             cached_profiles: HashMap::new(),
         };
         let json = serde_json::to_string(&settings).unwrap();

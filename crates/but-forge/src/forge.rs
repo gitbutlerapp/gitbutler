@@ -9,6 +9,7 @@ pub enum ForgeName {
     GitLab,
     Bitbucket,
     Azure,
+    Forgejo, // forgejo-fork
 }
 
 #[cfg(feature = "export-schema")]
@@ -36,6 +37,7 @@ pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
     Bitbucket(but_bitbucket::BitbucketAccountIdentifier),
+    Forgejo(but_forgejo::ForgejoAccountIdentifier), // forgejo-fork
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ForgeUser);
@@ -59,11 +61,19 @@ impl ForgeUser {
             _ => None,
         }
     }
+    // forgejo-fork
+    pub fn forgejo(&self) -> Option<&but_forgejo::ForgejoAccountIdentifier> {
+        match self {
+            ForgeUser::Forgejo(id) => Some(id),
+            _ => None,
+        }
+    }
     pub fn forge_name(&self) -> ForgeName {
         match self {
             ForgeUser::GitHub(_) => ForgeName::GitHub,
             ForgeUser::GitLab(_) => ForgeName::GitLab,
             ForgeUser::Bitbucket(_) => ForgeName::Bitbucket,
+            ForgeUser::Forgejo(_) => ForgeName::Forgejo, // forgejo-fork
         }
     }
     /// The enterprise/self-hosted instance host, when the account has one.
@@ -72,6 +82,7 @@ impl ForgeUser {
             ForgeUser::GitHub(id) => id.custom_host(),
             ForgeUser::GitLab(id) => id.custom_host(),
             ForgeUser::Bitbucket(id) => id.custom_host(),
+            ForgeUser::Forgejo(id) => id.custom_host(), // forgejo-fork
         }
     }
 }
