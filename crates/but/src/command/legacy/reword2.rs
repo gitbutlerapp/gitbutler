@@ -426,7 +426,10 @@ impl CommitMessageSource {
             }
             (false, None, None) if !format.allows_human_ui() => Ok(Self::Keep),
             (false, None, None) => Ok(Self::Editor { initial: None }),
-            _ => Err(bad_input(
+            (true, Some(_), None)
+            | (true, None, Some(_))
+            | (true, Some(_), Some(_))
+            | (false, Some(_), Some(_)) => Err(bad_input(
                 "Only one of --message, --file and --no-message can be used at the same time",
             )
             .into()),
