@@ -53,6 +53,26 @@ terminal rendering affects timings, so do not compare with output-suppressed run
 runs, and profiling. Set `PERF_AI_AGENT=test-agent` to exercise `but`'s agent-specific
 behavior; leave it unset for the default environment.
 
+`PERF_SCENARIO_EXCLUDES` excludes a comma-separated list of exact scenario names
+from `run.sh` and `profile.sh`, including explicitly requested scenarios. Omit spaces
+and globs; unset or empty means no exclusions. Unknown names and empty list entries
+are errors. Skipped scenarios are reported and receive no new scenario directories;
+excluding every selected scenario is an error.
+
+For an agent suite without the interactive TUI benchmark:
+
+```sh
+PERF_AI_AGENT=test-agent PERF_CHANNEL=nightly PERF_SCENARIO_EXCLUDES=tui-startup \
+./crates/but/tests/performance/run.sh
+
+# Multiple exclusions:
+PERF_CHANNEL=nightly PERF_SCENARIO_EXCLUDES=tui-startup,worktree-new \
+./crates/but/tests/performance/run.sh
+```
+
+Profiling against saved benchmark results already selects only benchmarked scenarios,
+so exclusions do not need to be repeated for that invocation.
+
 Supplied `BUT_BIN` requires `PERF_BINARY_COMMIT` (full binary commit SHA).
 Downloaded binaries supply it automatically.
 
