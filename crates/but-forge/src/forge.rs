@@ -46,6 +46,8 @@ but_schemars::register_sdk_type!(ForgeName);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+/// Remote repository coordinates. Compare explicitly with [`Self::same_repository`];
+/// SSH's unknown API port makes repository compatibility non-transitive.
 pub struct ForgeRepoInfo {
     pub forge: ForgeName,
     /// Repository host from the remote URL, not an account's API endpoint.
@@ -89,14 +91,18 @@ impl ForgeRepoInfo {
             }
     }
 
-    /// Whether these remotes can identify the same repository, allowing private
-    /// SSH's unknown API port. Use for fork detection, not strict equality.
-    pub(crate) fn same_repository(&self, other: &Self) -> bool {
+    /// Whether these remotes can identify the same repository for remote reuse
+    /// and fork detection. Provider, canonical host, owner, and repo must match;
+    /// known API ports must agree, while private SSH's API port is unknown.
+    ///
+    /// This is symmetric but not transitive: SSH can match HTTPS on either of
+    /// two ports that do not match each other. It does not authorize credentials.
+    pub fn same_repository(&self, other: &Self) -> bool {
         self.same_server(other) && self.owner == other.owner && self.repo == other.repo
     }
 
-    /// Known API port for identity comparisons. Private SSH remotes remain
-    /// unknown, rather than equating them with every HTTP instance on that host.
+    /// Known API port for server and account checks. Private SSH remotes remain
+    /// unknown because their transport port does not identify an HTTP instance.
     pub(crate) fn identity_port(&self) -> Option<u16> {
         match self.protocol.as_str() {
             "http" => Some(self.port.unwrap_or(80)),
@@ -107,15 +113,6 @@ impl ForgeRepoInfo {
             // SSH URL cannot tell us which HTTP(S) port serves the API.
             _ => self.is_public_host().then_some(443),
         }
-    }
-}
-
-impl PartialEq for ForgeRepoInfo {
-    fn eq(&self, other: &Self) -> bool {
-        self.same_host(other)
-            && self.identity_port() == other.identity_port()
-            && self.owner == other.owner
-            && self.repo == other.repo
     }
 }
 

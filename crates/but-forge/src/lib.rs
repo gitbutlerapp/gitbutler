@@ -715,14 +715,13 @@ mod tests {
             "git@dev.azure.com:v3/org/project/repo.git",
         ] {
             let ssh = derive_forge_repo_info(url, None).unwrap();
-            assert_eq!(
-                https, ssh,
-                "Azure aliases identify the same repository: {url}"
-            );
-            assert_eq!(ssh, https, "repository equality must be symmetric: {url}");
             assert!(
                 https.same_repository(&ssh),
-                "fork detection shares Azure identity"
+                "Azure aliases identify the same repository: {url}"
+            );
+            assert!(
+                ssh.same_repository(&https),
+                "repository compatibility must be symmetric: {url}"
             );
             assert_eq!(
                 ssh.identity_port(),
@@ -731,8 +730,8 @@ mod tests {
             );
             let mut different = https.clone();
             different.port = Some(8443);
-            assert_ne!(
-                ssh, different,
+            assert!(
+                !ssh.same_repository(&different),
                 "SSH transport ports do not change the API port"
             );
             assert!(
@@ -741,11 +740,14 @@ mod tests {
             );
             different.port = None;
             different.host = "private.azure.example".into();
-            assert_ne!(ssh, different, "private Azure hosts must remain distinct");
+            assert!(
+                !ssh.same_repository(&different),
+                "private Azure hosts must remain distinct"
+            );
             different.host = https.host.clone();
             different.owner = "other/project".into();
-            assert_ne!(
-                ssh, different,
+            assert!(
+                !ssh.same_repository(&different),
                 "different organizations identify different repositories"
             );
         }
@@ -765,7 +767,10 @@ mod tests {
             ssh.host.push('.');
             ssh.protocol = "ssh".into();
             ssh.port = Some(2222);
-            assert_eq!(public, ssh, "known aliases ignore SSH transport ports");
+            assert!(
+                public.same_repository(&ssh),
+                "known aliases ignore SSH transport ports"
+            );
             assert!(
                 public.is_public_host() && ssh.is_public_host(),
                 "public hosts and known aliases share public-instance classification"
@@ -782,7 +787,10 @@ mod tests {
             assert!(!account_matches(account, &other), "public API port");
             other.port = None;
             other.host = "private.example".into();
-            assert_ne!(public, other, "host alone distinguishes identity");
+            assert!(
+                !public.same_repository(&other),
+                "host alone distinguishes identity"
+            );
             assert!(
                 !other.is_public_host(),
                 "private hosts are not public instances"
@@ -812,9 +820,16 @@ mod tests {
         second.port = Some(9443);
         let mut ssh = first.clone();
         ssh.protocol = "ssh".into();
-        assert_ne!(first, second, "HTTP ports identify distinct instances");
-        assert_ne!(first, ssh, "unknown SSH port is not equality wildcard");
-        assert_ne!(ssh, second, "SSH must not bridge distinct HTTP identities");
+        assert!(
+            !first.same_repository(&second),
+            "HTTP ports identify distinct instances"
+        );
+        for known in [&first, &second] {
+            assert!(
+                known.same_repository(&ssh) && ssh.same_repository(known),
+                "private SSH compatibility is symmetric but does not equate distinct HTTP ports"
+            );
+        }
         assert!(!first.same_server(&second), "reject known unequal ports");
         assert!(first.same_server(&ssh), "private SSH compatibility");
     }

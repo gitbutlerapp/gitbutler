@@ -482,11 +482,14 @@ fn remote_urls_match(configured: &str, candidate: &str) -> bool {
     if configured == candidate {
         return true;
     }
-    // This compares two arbitrary remote URLs for identity, so the project's
+    // This compares two arbitrary remote URLs for reuse, so the project's
     // forge override doesn't apply - resolve each purely from its URL.
     let configured_info = but_forge::derive_forge_repo_info(configured, None);
     let candidate_info = but_forge::derive_forge_repo_info(candidate, None);
-    configured_info.is_some() && configured_info == candidate_info
+    match (configured_info, candidate_info) {
+        (Some(configured), Some(candidate)) => configured.same_repository(&candidate),
+        _ => false,
+    }
 }
 
 fn sanitize_remote_name(input: &str, review_id: usize) -> String {
@@ -994,6 +997,49 @@ mod tests {
             "all configured fetch URLs should identify an existing review remote"
         );
         Ok(())
+    }
+
+    #[test]
+    fn review_remote_reuses_private_repository_across_protocols() -> Result<()> {
+        let https = "https://gitlab.private.example/alice/widgets.git";
+        let ssh = "ssh://git@gitlab.private.example:2222/alice/widgets.git";
+        for (configured, candidate) in [(ssh, https), (https, ssh)] {
+            let tmp = tempfile::tempdir()?;
+            git_at_dir(tmp.path()).args(["init"]).run();
+            git_at_dir(tmp.path())
+                .args(["remote", "add", "alice", configured])
+                .run();
+            let ctx =
+                Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
+            assert_eq!(
+                ensure_review_remote(&ctx, candidate, &open_review(42, "feature"), 42)?,
+                "alice",
+                "applying a review must reuse the existing self-hosted remote across protocols"
+            );
+            assert_eq!(
+                open_repo(tmp.path())?.remote_names().len(),
+                1,
+                "review apply must not add a duplicate remote"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn review_remote_matching_preserves_repository_boundaries() {
+        let https = "https://gitlab.private.example/alice/widgets.git";
+        for candidate in [
+            "https://gitlab.private.example:8443/alice/widgets.git",
+            "git@gitlab.other.example:alice/widgets.git",
+            "git@gitlab.private.example:bob/widgets.git",
+            "git@gitlab.private.example:alice/other.git",
+            "../alice/widgets.git",
+        ] {
+            assert!(
+                !remote_urls_match(https, candidate),
+                "different known ports, hosts, namespaces, and repositories must not match: {candidate}"
+            );
+        }
     }
 
     #[test]
