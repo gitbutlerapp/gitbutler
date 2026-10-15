@@ -566,6 +566,7 @@ async fn match_subcommand(
                 | Subcommands::Agent(_)
                 | Subcommands::Mcp(_)
                 | Subcommands::Help { .. }
+                | Subcommands::Setup { .. }
                 | Subcommands::Completions { .. }
                 | Subcommands::Metrics { .. }
                 | Subcommands::External(_)
@@ -677,6 +678,20 @@ async fn dispatch_subcommand(
         }
         Subcommands::Help { topic } => {
             command::help::print(out, topic)?;
+            return Ok(DispatchOutcome::Return);
+        }
+        Subcommands::Setup { init } => {
+            let message = "You no longer need to run `but setup`, you can just start using `but` with any Git repository.";
+            if init {
+                // As the user explicitly requested to initialize, we're making this an error as the
+                // expected task has not been performed.
+                return Err(bad_input(message)
+                    .hint("Run `but init` instead to initialize a repository.")
+                    .into());
+            }
+            if let Some(out) = out.for_human() {
+                writeln!(out, "{message}")?;
+            }
             return Ok(DispatchOutcome::Return);
         }
         Subcommands::Onboarding => {
@@ -937,6 +952,7 @@ async fn dispatch_subcommand(
         | Subcommands::Update(..)
         | Subcommands::Help { .. }
         | Subcommands::Onboarding
+        | Subcommands::Setup { .. }
         | Subcommands::Init(..)
         | Subcommands::Config(..)
         | Subcommands::Alias(..)
