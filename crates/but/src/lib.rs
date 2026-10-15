@@ -1334,6 +1334,7 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 move_args,
+                &args.current_dir,
             )?;
             out.print_cli_output(outcome)?;
             Some(ws)
@@ -1347,8 +1348,12 @@ async fn dispatch_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let (outcome, ws) =
-                command::legacy::split::split(&mut ctx, IntermediateChannel::new(out), split_args)?;
+            let (outcome, ws) = command::legacy::split::split(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                split_args,
+                &args.current_dir,
+            )?;
             out.print_cli_output(outcome)?;
             Some(ws)
         }

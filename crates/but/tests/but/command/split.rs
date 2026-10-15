@@ -344,3 +344,25 @@ Error: Can only split changes from one commit. Got qxq and zts
 
 "#]]);
 }
+
+#[test]
+fn split_commit_with_message_from_stdin() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "contents of one");
+    env.file("two", "contents of two");
+
+    env.but("commit -m original").assert().success();
+
+    env.but("split lsw:k -F -")
+        .stdin("extracted\n\nfrom stdin\n")
+        .assert()
+        .success();
+
+    assert_eq!(
+        env.invoke_git("log -1 --format=[%B] a-branch-1"),
+        "[extracted\n\nfrom stdin]",
+        "the split-off commit sits on top and takes the trimmed message read from stdin"
+    );
+}

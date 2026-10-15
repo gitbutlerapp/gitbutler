@@ -325,21 +325,27 @@ or `--unstack` to name the new branch; omit it for a generated name. This does n
 existing branch: naming is not supported when stacking or unstacking a branch source.
 
 For committed-change sources, `-m/--message` sets the new commit's message; repeat `-m` to
-join paragraphs with blank lines. Without it, the new commit has an empty message and no editor
-opens. `-m` is rejected when moving whole commits or branches.
+join paragraphs with blank lines, or read it with `-F -` (stdin) or `-F <file>`. Without either,
+the new commit has an empty message and no editor opens. `-m` and `-F` are rejected when moving
+whole commits or branches.
 
 ### `but split <SOURCES>...`
 
 Move selected committed files/hunks into a new commit immediately above their source.
 Files and hunks may be mixed, but must come from one commit. Unselected changes and the original
 message stay in the source. Use `-m/--message` to set the new commit's message directly rather
-than rewording afterward. Repeated `-m` values are joined with blank lines; omitting it creates
-an empty-message commit without opening an editor.
+than rewording afterward, or `-F -` / `-F <file>` to read it. Repeated `-m` values are joined
+with blank lines; omitting both creates an empty-message commit without opening an editor.
 
 ```bash
 but diff <commit-id>                              # Read committed file/hunk IDs
 but split <commit-id>:<file-id> -m "Extract file"   # Split a file
 but split <commit-id>:<file-id>:<hunk-id> -m "Extract hunk" # Split a hunk
+but split <commit-id>:<file-id> -F - <<'EOF'        # Split a file, message from stdin
+Extract file
+
+Why it moved
+EOF
 ```
 
 ### `but uncommit <SOURCES>...`

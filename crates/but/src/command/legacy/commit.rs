@@ -298,7 +298,8 @@ fn resolve(
     let reword_op = CommitMessageSource::from_args(
         no_message,
         message,
-        file.as_ref().map(|file| (file, current_dir)),
+        file.as_ref(),
+        current_dir,
         out.format(),
     )?;
 

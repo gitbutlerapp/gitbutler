@@ -144,11 +144,13 @@ Move commits and changes around
 - `--unstack` Unstack <SOURCES> from their current stacks. --unstack does not take an argument, so --unstack <SOURCES> and <SOURCES> --unstack are equivalent. If moving commits or committed changes, use --branch NAME to name the new branch.
 - `-s, --switch` Switch to the destination branch instead of remaining in the GitButler workspace. When moving a branch, switch to the moved branch.
 - `-m, --message <MESSAGE>` The message to use when moving changes into a new commit. Can be supplied any amount of times, each value being appended to the preceding ones with a blank line in between. Without -m, the new commit will get an empty message.
+- `-F, --file <FILE>` Read the new commit's message from FILE, or from stdin when FILE is -
 
 ### but split <SOURCES>...
 Split a commit in two
 - `<SOURCES>...` The committed files and hunks to move into a new commit
 - `-m, --message <MESSAGE>` The message to use for the new commit. Can be supplied any amount of times, each value being appended to the preceding ones with a blank line in between. Without -m, the new commit will get an empty message.
+- `-F, --file <FILE>` Read the new commit's message from FILE, or from stdin when FILE is -
 
 ### but absorb [SOURCE]
 Amend uncommitted changes into the commits they belong to

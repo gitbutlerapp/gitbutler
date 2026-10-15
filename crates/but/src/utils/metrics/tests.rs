@@ -82,6 +82,7 @@ fn metrics_use_invoked_command_names() {
             below: None,
             unstack: false,
             message: None,
+            file: None,
             sources: Vec::from([CliIdArg("ci".to_owned())]),
             allow_merged: Default::default(),
         }),
@@ -207,6 +208,7 @@ fn extra_props_keep_useful_source_and_target_kinds() {
             below: None,
             unstack: false,
             message: None,
+            file: None,
             sources: Vec::from([CliIdArg("ci".to_owned())]),
             allow_merged: Default::default(),
         });

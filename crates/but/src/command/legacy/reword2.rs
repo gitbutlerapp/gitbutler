@@ -414,13 +414,14 @@ impl CommitMessageSource {
     pub fn from_args(
         no_message: bool,
         message: Option<Vec<String>>,
-        file: Option<(&MessageFileArg, &Path)>,
+        file: Option<&MessageFileArg>,
+        current_dir: &Path,
         format: OutputFormat,
     ) -> CliResult<Self> {
         match (no_message, message, file) {
             (true, None, None) => Ok(Self::Empty),
             (false, Some(message), None) => Ok(Self::Provided(message.join("\n\n"))),
-            (false, None, Some((file, current_dir))) => {
+            (false, None, Some(file)) => {
                 Ok(Self::Provided(read_commit_message(file, current_dir)?))
             }
             (false, None, None) if !format.allows_human_ui() => Ok(Self::Keep),

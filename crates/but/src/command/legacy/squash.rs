@@ -213,7 +213,8 @@ fn resolve_args(
     let reword = resolve_reword(
         message,
         no_message,
-        file.as_ref().map(|file| (file, current_dir)),
+        file.as_ref(),
+        current_dir,
         use_target_message,
         use_source_message,
         format,
@@ -1074,7 +1075,8 @@ pub fn resolve_squash_branch(
 fn resolve_reword(
     message: Option<Vec<String>>,
     no_message: bool,
-    file: Option<(&MessageFileArg, &Path)>,
+    file: Option<&MessageFileArg>,
+    current_dir: &Path,
     use_target_message: bool,
     use_source_message: bool,
     format: OutputFormat,
@@ -1085,7 +1087,11 @@ fn resolve_reword(
         Ok(HowToRewordTarget::UseSourceMessage)
     } else {
         Ok(HowToRewordTarget::Reword(CommitMessageSource::from_args(
-            no_message, message, file, format,
+            no_message,
+            message,
+            file,
+            current_dir,
+            format,
         )?))
     }
 }

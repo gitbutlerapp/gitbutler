@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, path::Path};
 
 use bstr::ByteSlice;
 use but_api::{
@@ -18,7 +18,7 @@ use serde::Serialize;
 use crate::{
     CliResult, IdMap,
     args::{
-        atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose, ResolvedCliIdArg},
+        atoms::{BranchArg, BranchOrCommit, CliIdArg, MessageFileArg, Purpose, ResolvedCliIdArg},
         r#move::Platform,
     },
     bad_input,
@@ -233,6 +233,7 @@ pub fn r#move(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
+    current_dir: &Path,
 ) -> CliResult<(MoveOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -240,7 +241,14 @@ pub fn r#move(
 
     let allow_merged = args.allow_merged;
     let switch = args.switch;
-    let move_op = resolve(ctx, &mut out, guard.write_permission(), args, &id_map)?;
+    let move_op = resolve(
+        ctx,
+        &mut out,
+        guard.write_permission(),
+        args,
+        &id_map,
+        current_dir,
+    )?;
     ensure_not_touching_merged_upstream(&move_op, &MergedUpstream::from_ctx(ctx, allow_merged)?)?;
 
     Ok(run(
@@ -537,6 +545,7 @@ fn resolve(
     perm: &mut RepoExclusive,
     args: Platform,
     id_map: &IdMap,
+    current_dir: &Path,
 ) -> CliResult<MoveOperation> {
     let Platform {
         above,
@@ -546,6 +555,7 @@ fn resolve(
         unstack,
         switch: _,
         message,
+        file,
         // Consumed by the caller when building the `MergedUpstream` guard.
         allow_merged: _,
     } = args;
@@ -558,14 +568,15 @@ fn resolve(
     match &resolved_sources {
         ResolvedSources::CommittedChanges(..) => {}
         ResolvedSources::Commits { .. } | ResolvedSources::Branch(..) => {
-            if message.is_some() {
+            if message.is_some() || file.is_some() {
                 return Err(bad_input(
-                    "`-m/--message` can only be used when moving committed changes",
+                    "`-m/--message` and `-F/--file` can only be used when moving committed changes",
                 )
                 .into());
             }
         }
     }
+    let reword = message_args_to_reword_operation(message, file.as_ref(), current_dir, out)?;
 
     match (branch, above, below, unstack) {
         (Some(Some(branch)), None, None, false) => {
@@ -634,7 +645,7 @@ fn resolve(
                         source_commit,
                         changes,
                         target: MoveTarget::BranchTip { name },
-                        reword: message_args_to_reword_operation(message, out)?,
+                        reword,
                     },
                 )),
                 (
@@ -648,7 +659,7 @@ fn resolve(
                             source_commit,
                             changes,
                             branch_name: Some(branch_name),
-                            reword: message_args_to_reword_operation(message, out)?,
+                            reword,
                         },
                     ))
                 }
@@ -674,7 +685,7 @@ fn resolve(
                     source_commit,
                     changes,
                     branch_name: None,
-                    reword: message_args_to_reword_operation(message, out)?,
+                    reword,
                 }),
             ),
         },
@@ -685,8 +696,7 @@ fn resolve(
             resolved_sources,
             above,
             Side::Above,
-            out,
-            message,
+            reword,
             branch_name,
         ),
         (branch_name, None, Some(below), false) => create_move_above_or_below_op(
@@ -696,8 +706,7 @@ fn resolve(
             resolved_sources,
             below,
             Side::Below,
-            out,
-            message,
+            reword,
             branch_name,
         ),
         (branch_name, None, None, true) => match resolved_sources {
@@ -737,7 +746,7 @@ fn resolve(
                         source_commit,
                         changes,
                         branch_name,
-                        reword: message_args_to_reword_operation(message, out)?,
+                        reword,
                     },
                 ))
             }
@@ -748,9 +757,17 @@ fn resolve(
 
 pub fn message_args_to_reword_operation(
     message: Option<Vec<String>>,
+    file: Option<&MessageFileArg>,
+    current_dir: &Path,
     out: &mut IntermediateChannel<'_>,
 ) -> CliResult<CommitMessageSource> {
-    CommitMessageSource::from_args(message.is_none(), message, None, out.format())
+    CommitMessageSource::from_args(
+        message.is_none() && file.is_none(),
+        message,
+        file,
+        current_dir,
+        out.format(),
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -761,8 +778,7 @@ fn create_move_above_or_below_op(
     resolved_sources: ResolvedSources,
     unresolved_target: CliIdArg,
     side: Side,
-    out: &mut IntermediateChannel<'_>,
-    message: Option<Vec<String>>,
+    reword: CommitMessageSource,
     new_branch_name: Option<Option<CliIdArg>>,
 ) -> CliResult<MoveOperation> {
     let branch_flag_provided = new_branch_name.is_some();
@@ -878,7 +894,7 @@ fn create_move_above_or_below_op(
                 changes,
                 source_commit,
                 target,
-                reword: message_args_to_reword_operation(message, out)?,
+                reword,
             }),
         ),
     }
