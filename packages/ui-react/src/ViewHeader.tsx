@@ -52,10 +52,9 @@ type Props = {
 	toolbar?: ReactNode;
 	/**
 	 * Every button the view has, at the header's end: Send to, Update, Apply to workspace,
-	 * previous and next, and on a pull request tab its own. They stand beside the title block,
-	 * level with the title when tabs follow and with the meta line when the header ends there.
-	 * Each is a {@link ViewHeaderButton}; the
-	 * menu last, ghost and icon-only. Never the diff's own controls; those sit in the bar over the
+	 * previous and next, and on a pull request tab its own. They stand in the header's top
+	 * corner, level with the title. Each is a {@link ViewHeaderButton}; the menu last, ghost and
+	 * icon-only. Never the diff's own controls; those sit in the bar over the
 	 * diff.
 	 */
 	actions?: ReactNode;
