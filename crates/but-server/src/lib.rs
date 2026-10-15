@@ -14,7 +14,7 @@ use axum::{
     response::IntoResponse,
     routing::{MethodRouter, any, post},
 };
-use but_api::{commit, diff, github, gitlab, json, legacy, open, platform, workspace};
+use but_api::{commit, diff, gitee, github, gitlab, json, legacy, open, platform, workspace};
 use but_ctx::ProjectHandleOrLegacyProjectId;
 
 mod broadcaster;
@@ -1052,6 +1052,56 @@ async fn handle_command(
             match params {
                 Ok(params) => {
                     let result = but_api::gitlab::get_gl_user_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "store_gitee_pat" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = gitee::store_gitee_pat_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "store_gitee_selfhosted_pat" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = gitee::store_gitee_selfhosted_pat_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "get_gitee_user" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = gitee::get_gitee_user_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "forget_gitee_account" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = gitee::forget_gitee_account_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "list_known_gitee_accounts" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = gitee::list_known_gitee_accounts_cmd(params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),

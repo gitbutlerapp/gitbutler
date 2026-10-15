@@ -1,5 +1,7 @@
 <script lang="ts">
 	import BranchBadge from "$components/branch/BranchBadge.svelte";
+	import { t } from "$lib/i18n";
+
 	import { AvatarGroup, Button } from "@gitbutler/ui-svelte";
 	import type { Author, PushStatus } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
@@ -50,12 +52,12 @@
 
 			<div class="header-details__conflicts-action">
 				<div class="stack-v gap-8">
-					<h3 class="text-13 text-semibold">Conflicted commits</h3>
+					<h3 class="text-13 text-semibold">{t("conflicted-commits")}</h3>
 					<p class="text-12 text-body clr-text-2">
-						GitButler opens the earliest commit first, since later commits depend on it.
+						{t("gitbutler-opens-the-earliest-commit-first-since-later-commit")}
 					</p>
 				</div>
-				<Button onclick={onResolveConflicts} style="danger">Start resolving</Button>
+				<Button onclick={onResolveConflicts} style="danger">{t("start-resolving")}</Button>
 			</div>
 		</div>
 	{/if}

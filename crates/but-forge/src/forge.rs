@@ -9,6 +9,7 @@ pub enum ForgeName {
     GitLab,
     Bitbucket,
     Azure,
+    Gitee,
 }
 
 #[cfg(feature = "export-schema")]
@@ -36,6 +37,7 @@ pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
     Bitbucket(but_bitbucket::BitbucketAccountIdentifier),
+    Gitee(but_gitee::GiteeAccountIdentifier),
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ForgeUser);
@@ -59,11 +61,18 @@ impl ForgeUser {
             _ => None,
         }
     }
+    pub fn gitee(&self) -> Option<&but_gitee::GiteeAccountIdentifier> {
+        match self {
+            ForgeUser::Gitee(id) => Some(id),
+            _ => None,
+        }
+    }
     pub fn forge_name(&self) -> ForgeName {
         match self {
             ForgeUser::GitHub(_) => ForgeName::GitHub,
             ForgeUser::GitLab(_) => ForgeName::GitLab,
             ForgeUser::Bitbucket(_) => ForgeName::Bitbucket,
+            ForgeUser::Gitee(_) => ForgeName::Gitee,
         }
     }
     /// The enterprise/self-hosted instance host, when the account has one.
@@ -72,6 +81,7 @@ impl ForgeUser {
             ForgeUser::GitHub(id) => id.custom_host(),
             ForgeUser::GitLab(id) => id.custom_host(),
             ForgeUser::Bitbucket(id) => id.custom_host(),
+            ForgeUser::Gitee(id) => id.custom_host(),
         }
     }
 }

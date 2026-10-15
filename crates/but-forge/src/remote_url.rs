@@ -48,7 +48,7 @@ impl RemoteUrl {
                 (!owner.is_empty() && !repo.is_empty() && !repo.contains('/'))
                     .then(|| (owner.to_string(), repo.to_string()))
             }
-            ForgeName::GitLab => {
+            ForgeName::GitLab | ForgeName::Gitee => {
                 let (owner, repo) = self.path.rsplit_once('/')?;
                 (!owner.is_empty() && !repo.is_empty())
                     .then(|| (owner.to_string(), repo.to_string()))

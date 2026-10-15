@@ -16,6 +16,7 @@
 <script lang="ts">
 	import EditPatchConfirmModal from "$components/commit/EditPatchConfirmModal.svelte";
 	import { conflictEntryHint } from "$lib/files/conflictEntryPresence";
+	import { t } from "$lib/i18n";
 	import { editPatch } from "$lib/mode/editPatchUtils";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { getFileListContext } from "$lib/selection/fileListController.svelte";
@@ -97,8 +98,7 @@
 		{#if ancestorMostConflictedCommitId}
 			<div class="conflicted-entries__action">
 				<p class="text-12 text-body clr-text-2">
-					If the branch has multiple conflicted commits, GitButler opens the earliest one first,
-					since later commits depend on it.
+					{t("if-the-branch-has-multiple-conflicted-commits-gitbutler-open")}
 				</p>
 				<AsyncButton
 					testId={TestId.CommitDrawerResolveConflictsButton}
@@ -113,7 +113,7 @@
 							projectId,
 						})}
 				>
-					Resolve conflicts
+					{t("resolve-conflicts-2")}
 				</AsyncButton>
 			</div>
 		{/if}

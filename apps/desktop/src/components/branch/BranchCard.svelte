@@ -14,6 +14,7 @@
 	import { ReorderCommitDzHandler } from "$lib/dragging/stackingReorderDropzoneManager";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
+	import { t } from "$lib/i18n";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -241,10 +242,10 @@
 				}}
 			>
 				{#snippet emptyState()}
-					<span class="branch-header__empty-state-span">This is an empty branch.</span>
-					<span class="branch-header__empty-state-span">Click for details.</span>
+					<span class="branch-header__empty-state-span">{t("this-is-an-empty-branch")}</span>
+					<span class="branch-header__empty-state-span">{t("click-for-details")}</span>
 					<br />
-					Create or drag & drop commits here.
+					{t("create-or-drag-drop-commits-here")}
 				{/snippet}
 
 				{#snippet content()}
@@ -330,7 +331,8 @@
 			roundedBottom={args.roundedBottom}
 		>
 			{#snippet emptyState()}
-				<span class="branch-header__empty-state-span">There are no commits yet on this branch.</span
+				<span class="branch-header__empty-state-span"
+					>{t("there-are-no-commits-yet-on-this-branch")}</span
 				>
 			{/snippet}
 		</BranchHeader>

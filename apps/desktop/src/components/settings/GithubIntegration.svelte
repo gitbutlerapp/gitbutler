@@ -6,6 +6,7 @@
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { classifyGitHubDeviceOAuthFailure } from "$lib/error/errorClassification";
 	import { GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
+	import { t } from "$lib/i18n";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 
@@ -160,12 +161,12 @@
 			{#snippet error()}
 				<CardGroup.Item>
 					{#snippet title()}
-						Failed to load GitHub accounts
+						{t("failed-to-load-github-accounts")}
 					{/snippet}
 					<Button
 						style="pop"
 						onclick={deleteAllGitHubAccounts}
-						loading={clearingAllResult.current.isLoading}>Try again</Button
+						loading={clearingAllResult.current.isLoading}>{t("try-again")}</Button
 					>
 				</CardGroup.Item>
 			{/snippet}
@@ -189,7 +190,7 @@
 					{/snippet}
 
 					{#snippet caption()}
-						Allows you to create Pull Requests
+						{t("allows-you-to-create-pull-requests")}
 					{/snippet}
 
 					{#snippet actions()}
@@ -212,7 +213,7 @@
 					<div class="step-section">
 						<div class="step-line"></div>
 						<div class="step-section__content">
-							<p class="text-13 text-body">Copy the following verification code:</p>
+							<p class="text-13 text-body">{t("copy-the-following-verification-code")}</p>
 
 							<div class="code-wrapper">
 								<span class="text-head-20">
@@ -228,7 +229,7 @@
 										codeCopied = true;
 									}}
 								>
-									Copy to Clipboard
+									{t("copy-to-clipboard")}
 								</Button>
 							</div>
 						</div>
@@ -239,7 +240,7 @@
 							<div class="step-line step-line-default"></div>
 							<div class="step-section__content">
 								<p class="text-13 text-body">
-									Navigate to the GitHub activation page and paste the code you copied.
+									{t("navigate-to-the-github-activation-page-and-paste-the-code-yo")}
 								</p>
 								<Button
 									style="pop"
@@ -255,7 +256,7 @@
 										}, 500);
 									}}
 								>
-									Open GitHub activation page
+									{t("open-github-activation-page")}
 								</Button>
 							</div>
 						</div>
@@ -273,7 +274,7 @@
 										await gitHubOauthCheckStatus(deviceCode);
 									}}
 								>
-									Check the status
+									{t("check-the-status")}
 								</Button>
 							</div>
 						</div>
@@ -287,7 +288,7 @@
 		<CardGroup>
 			<CardGroup.Item>
 				{#snippet title()}
-					Add Personal Access Token
+					{t("add-personal-access-token")}
 				{/snippet}
 
 				<Textbox
@@ -308,7 +309,7 @@
 						loading={storePatResult.current.isLoading}
 						onclick={storePersonalAccessToken}
 					>
-						Add account
+						{t("add-account")}
 					</Button>
 				</div>
 			</CardGroup.Item>
@@ -317,11 +318,11 @@
 		<CardGroup>
 			<CardGroup.Item>
 				{#snippet title()}
-					Add GitHub Enterprise Account
+					{t("add-github-enterprise-account")}
 				{/snippet}
 
 				{#snippet caption()}
-					To connect to your GitHub Enterprise API, allow-list it in the app’s CSP settings.
+					{t("to-connect-to-your-github-enterprise-api-allow-list-it-in-th")}
 					<br />
 					See <Link href="https://docs.gitbutler.com/troubleshooting/custom-csp"
 						>docs for details</Link
@@ -329,7 +330,7 @@
 				{/snippet}
 
 				<Textbox
-					label="API Base URL"
+					label={t("api-base-url")}
 					size="large"
 					value={gheHostInput}
 					oninput={(value) => (gheHostInput = value)}
@@ -337,7 +338,7 @@
 					error={gheHostError}
 				/>
 				<Textbox
-					label="Personal Access Token"
+					label={t("personal-access-token")}
 					placeholder="ghp_************************"
 					size="large"
 					type="password"
@@ -355,7 +356,7 @@
 						loading={storeGhePatResult.current.isLoading}
 						onclick={storeGitHubEnterpriseToken}
 					>
-						Add account
+						{t("add-account")}
 					</Button>
 				</div>
 			</CardGroup.Item>

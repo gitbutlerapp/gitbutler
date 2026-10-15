@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { MessageRole } from "$lib/ai/types";
+	import { t } from "$lib/i18n";
+
 	import { Button, Icon, Textarea, Markdown } from "@gitbutler/ui-svelte";
 
 	interface Props {
@@ -69,10 +71,10 @@
 		<div class="bubble-actions">
 			{#if !disableRemove}
 				<Button icon="bin" kind="outline" style="danger" onclick={() => onRemoveLastExample()}>
-					Remove example
+					{t("remove-example")}
 				</Button>
 			{/if}
-			<Button kind="outline" grow onclick={() => onAddExample()}>Add new example</Button>
+			<Button kind="outline" grow onclick={() => onAddExample()}>{t("add-new-example")}</Button>
 		</div>
 	{/if}
 </div>

@@ -23,6 +23,7 @@
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
 	import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
+	import { t } from "$lib/i18n";
 	import { workspacePath } from "$lib/routes/routes.svelte";
 	import { handleApplyOutcome } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -184,7 +185,7 @@
 				});
 			}}
 		>
-			Apply to workspace
+			{t("apply-to-workspace")}
 		</AsyncButton>
 		<Button
 			testId={TestId.BranchesViewDeleteLocalBranchButton}
@@ -196,7 +197,7 @@
 			disabled={!hasLocal}
 			tooltip={hasLocal ? undefined : "No local branch to delete"}
 		>
-			Delete local
+			{t("delete-local")}
 		</Button>
 	</div>
 {/snippet}
@@ -215,7 +216,7 @@
 	}}
 >
 	{#snippet children(branchName)}
-		<p>Are you sure you want to delete the local changes inside the branch {branchName}?</p>
+		<p>{t("are-you-sure-you-want-to-delete-the-local-changes-inside-the")} {branchName}?</p>
 	{/snippet}
 
 	{#snippet controls(close)}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CommitFailedFileEntry from "$components/commit/CommitFailedFileEntry.svelte";
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import { t } from "$lib/i18n";
 	import { readableRejectionReason } from "$lib/stacks/stackEndpoints";
 	import { REJECTTION_REASONS } from "$lib/stacks/stackService.svelte";
 	import { type RejectionReason } from "$lib/state/uiState.svelte";
@@ -67,9 +68,10 @@
 					<Tooltip text={data.commitTitle ? data.commitTitle : "No commit title provided"}
 						><span class="h-dotted-underline text-semibold">{data.newCommitId.substring(0, 7)}</span
 						></Tooltip
-					> was created, but some changes weren't fully committed:
+					>
+					{t("was-created-but-some-changes-weren-t-fully-committed")}
 				{:else}
-					Commit could not be created because of the following reasons:
+					{t("commit-could-not-be-created-because-of-the-following-reasons")}
 				{/if}
 			</div>
 

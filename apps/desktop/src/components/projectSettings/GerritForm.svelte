@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Link, Toggle } from "@gitbutler/ui-svelte";
@@ -22,12 +23,12 @@
 		{#snippet children(itIsAGerritProject)}
 			<CardGroup.Item standalone labelFor="gerritModeToggle">
 				{#snippet title()}
-					Gerrit configuration
+					{t("gerrit-configuration")}
 				{/snippet}
 
 				{#snippet caption()}
-					Enable or disable Gerrit mode for this project.
-					<Link href="https://docs.gitbutler.com/features/gerrit-mode">Learn more</Link>
+					{t("enable-or-disable-gerrit-mode-for-this-project")}
+					<Link href="https://docs.gitbutler.com/features/gerrit-mode">{t("learn-more")}</Link>
 				{/snippet}
 
 				{#snippet actions()}

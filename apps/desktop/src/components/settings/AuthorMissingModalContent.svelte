@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { t } from "$lib/i18n";
+
 	import { inject } from "@gitbutler/core/context";
 	import {
 		TestId,
@@ -43,14 +45,13 @@
 	}
 </script>
 
-<ModalHeader type="warning">Set up your git author information</ModalHeader>
+<ModalHeader type="warning">{t("set-up-your-git-author-information")}</ModalHeader>
 <div class="author-missing__content">
-	Your commits need author information to identify who made the changes. This information will be
-	saved to your global git configuration and used for all future commits.
+	{t("your-commits-need-author-information-to-identify-who-made-th")}
 
 	<Textbox
 		disabled={settingInfo.current.isLoading}
-		placeholder="Your full name"
+		placeholder={t("your-full-name")}
 		label="Name"
 		testId={TestId.GlobalModal_AuthorMissing_NameInput}
 		bind:value={name}
@@ -60,7 +61,7 @@
 	<EmailTextbox
 		disabled={settingInfo.current.isLoading}
 		placeholder="your.email@example.com"
-		label="Email address"
+		label={t("email-address")}
 		testId={TestId.GlobalModal_AuthorMissing_EmailInput}
 		bind:value={email}
 		bind:this={emailTextbox}

@@ -49,6 +49,8 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
         Some(ForgeName::Bitbucket)
     } else if host.contains("azure.com") {
         Some(ForgeName::Azure)
+    } else if host.contains("gitee.com") || host.starts_with("gitee.") {
+        Some(ForgeName::Gitee)
     } else {
         None
     }
@@ -166,6 +168,15 @@ pub fn current_forge_login(
             }
             .map(|account| account.username().to_string()))
         }
+        ForgeName::Gitee => {
+            let accounts = but_gitee::list_known_gitee_accounts(storage)?;
+            let preferred = preferred_forge_user.as_ref().and_then(|user| user.gitee());
+            Ok(match preferred {
+                Some(preferred) => accounts.iter().find(|account| *account == preferred),
+                None => accounts.first(),
+            }
+            .map(|account| account.username().to_string()))
+        }
         _ => Ok(None),
     }
 }
@@ -175,6 +186,7 @@ pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     let gh_accounts = but_github::list_known_github_accounts(&storage)?;
     let gl_accounts = but_gitlab::list_known_gitlab_accounts(&storage)?;
+    let gitee_accounts = but_gitee::list_known_gitee_accounts(&storage)?;
 
     let mut forge_users = vec![];
     for gh_account in gh_accounts {
@@ -183,6 +195,10 @@ pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
 
     for gl_account in gl_accounts {
         forge_users.push(ForgeUser::GitLab(gl_account));
+    }
+
+    for gitee_account in gitee_accounts {
+        forge_users.push(ForgeUser::Gitee(gitee_account));
     }
 
     Ok(forge_users)
@@ -194,6 +210,66 @@ mod tests {
         ForgeName, ForgeRepoInfo, ForgeUser, current_forge_login, derive_forge_repo_info,
         match_host_to_accounts_custom_host, normalize_host_for_comparison,
     };
+
+    #[test]
+    fn gitee_custom_host_and_current_login_are_resolved() {
+        let account = but_gitee::GiteeAccountIdentifier::selfhosted("alice", "code.example.com");
+        assert_eq!(
+            match_host_to_accounts_custom_host(
+                "code.example.com",
+                &[ForgeUser::Gitee(account.clone())],
+            ),
+            Some(ForgeName::Gitee),
+            "stored Gitee enterprise accounts identify custom hosts"
+        );
+        let tmp = tempfile::tempdir().unwrap();
+        let storage = but_forge_storage::Controller::from_path(tmp.path());
+        storage
+            .add_gitee_account(&but_forge_storage::settings::GiteeAccount::SelfHosted {
+                username: "alice".into(),
+                host: "code.example.com".into(),
+                access_token_key: "test-key".into(),
+            })
+            .unwrap();
+        storage
+            .add_gitee_account(&but_forge_storage::settings::GiteeAccount::Pat {
+                username: "bob".into(),
+                access_token_key: "second-test-key".into(),
+            })
+            .unwrap();
+        let repo = ForgeRepoInfo {
+            forge: ForgeName::Gitee,
+            owner: "team".into(),
+            repo: "repo".into(),
+            protocol: "ssh".into(),
+        };
+        assert_eq!(
+            current_forge_login(&None, &repo, &storage).unwrap(),
+            Some("alice".into()),
+            "Gitee projects default to the first account even when multiple accounts exist"
+        );
+        assert_eq!(
+            current_forge_login(&Some(ForgeUser::Gitee(account)), &repo, &storage).unwrap(),
+            Some("alice".into()),
+            "Gitee projects expose the preferred login"
+        );
+        assert_eq!(
+            current_forge_login(
+                &Some(ForgeUser::Gitee(but_gitee::GiteeAccountIdentifier::pat("bob"))),
+                &repo,
+                &storage,
+            )
+            .unwrap(),
+            Some("bob".into()),
+            "an explicit preference overrides the first-account default"
+        );
+        let missing = ForgeUser::Gitee(but_gitee::GiteeAccountIdentifier::pat("missing"));
+        assert_eq!(
+            current_forge_login(&Some(missing), &repo, &storage).unwrap(),
+            None,
+            "a deleted preferred account must not fall back to another login"
+        );
+    }
 
     #[test]
     fn derives_supported_forge_repository_urls() {

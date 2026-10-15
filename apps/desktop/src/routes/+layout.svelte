@@ -18,6 +18,7 @@
 	import ToastController from "$components/shared/ToastController.svelte";
 	import GlobalModalRouter from "$components/views/GlobalModalRouter.svelte";
 	import { initDependencies } from "$lib/bootstrap/deps";
+	import { initI18n } from "$lib/bootstrap/i18n.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
@@ -51,6 +52,7 @@
 
 	clientState.initPersist().then(async () => {
 		await initUserSettings(uiState, backend.platformName, terminalService);
+		initI18n(uiState);
 	});
 
 	// =============================================================================

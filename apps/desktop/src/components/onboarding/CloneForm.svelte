@@ -5,6 +5,7 @@
 	import { parseError } from "$lib/error/parser";
 	import { GIT_SERVICE } from "$lib/git/gitService";
 	import { parseRemoteUrl } from "$lib/git/gitUrl";
+	import { t } from "$lib/i18n";
 	import { handleAddProjectOutcome } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { projectPath } from "$lib/routes/routes.svelte";
@@ -112,13 +113,13 @@
 	}
 </script>
 
-<h1 class="clone-title text-serif-42">Clone a <i>repository</i></h1>
+<h1 class="clone-title text-serif-42">{t("clone-a")} <i>repository</i></h1>
 <SettingsSection>
-	<Textbox label="Clone URL" bind:value={repositoryUrl} />
+	<Textbox label={t("clone-url")} bind:value={repositoryUrl} />
 
 	<div class="clone__field repositoryTargetPath">
 		<Textbox
-			label="Where to clone"
+			label={t("where-to-clone")}
 			bind:value={targetDirPath}
 			placeholder="/Users/tipsy/Documents"
 		/>
@@ -147,7 +148,7 @@
 		{#if loading}
 			Cloning..
 		{:else if errors.length > 0}
-			Retry clone
+			{t("retry-clone")}
 		{:else}
 			Clone
 		{/if}

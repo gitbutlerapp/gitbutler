@@ -178,6 +178,10 @@ pub enum Code {
     GitLabForbidden,
     /// GitLab returned HTTP 404 while listing a project's open merge requests.
     GitLabProjectNotFound,
+    /// Gitee returned HTTP 401 while validating a personal access token.
+    GiteeUnauthorized,
+    /// Gitee returned HTTP 403 while validating a personal access token.
+    GiteeForbidden,
     /// The self-hosted GitLab host is not an absolute URL, so no request could be built.
     GitLabInvalidHost,
     /// A GitHub organization has enabled OAuth App access restrictions and

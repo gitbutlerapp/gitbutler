@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";
+	import { t } from "$lib/i18n";
 	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from "@gitbutler/ui-svelte";
 	import type { ForgeUnitInfo } from "@gitbutler/but-sdk";
 	type basePrData = {
@@ -76,7 +77,7 @@
 			<span class="sidebar-entry__divider">•</span>
 
 			{#if noRemote || !sourceBranch}
-				<span>No remote</span>
+				<span>{t("no-remote")}</span>
 			{:else}
 				<div class="sidebar-entry__branch truncate">
 					<SeriesIcon single size={12} />

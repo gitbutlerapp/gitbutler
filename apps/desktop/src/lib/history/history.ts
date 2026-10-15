@@ -1,3 +1,4 @@
+import { locale as localeStore } from "$lib/i18n";
 import { InjectionToken } from "@gitbutler/core/context";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import { get, writable } from "svelte/store";
@@ -137,7 +138,15 @@ export class HistoryService {
 export function createdOnDay(epochMs: number) {
 	const d = new Date(epochMs);
 	const t = new Date();
-	return `${t.toDateString() === d.toDateString() ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}, ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+	const locale = get(localeStore);
+	const isToday = t.toDateString() === d.toDateString();
+	if (locale.toLowerCase().startsWith("zh")) {
+		const date = d.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+		return isToday
+			? `今天, ${date}`
+			: `${d.toLocaleDateString("zh-CN", { weekday: "short" })}, ${date}`;
+	}
+	return `${isToday ? "Today" : d.toLocaleDateString(locale, { weekday: "short" })}, ${d.toLocaleDateString(locale, { month: "short", day: "numeric" })}`;
 }
 
 function injectEndpoints(api: BackendApi) {

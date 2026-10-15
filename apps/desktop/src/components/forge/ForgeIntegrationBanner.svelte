@@ -1,10 +1,12 @@
 <script lang="ts">
 	import bitbucketLogoSvg from "$lib/assets/unsized-logos/bitbucket.svg?raw";
+	import giteeLogoSvg from "$lib/assets/unsized-logos/gitee.svg?raw";
 	import githubLogoSvg from "$lib/assets/unsized-logos/github.svg?raw";
 	import gitlabLogoSvg from "$lib/assets/unsized-logos/gitlab.svg?raw";
 	import { persistedDismissedForgeIntegrationPrompt } from "$lib/config/config";
 	import { useForgeAuth } from "$lib/forge/forgeAuth.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { t } from "$lib/i18n";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
@@ -24,7 +26,10 @@
 	const canSetupIntegration = $derived(
 		forgeInfo &&
 			!auth.authenticated.current &&
-			(forgeInfo.name === "github" || forgeInfo.name === "gitlab" || forgeInfo.name === "bitbucket")
+			(forgeInfo.name === "github" ||
+				forgeInfo.name === "gitlab" ||
+				forgeInfo.name === "bitbucket" ||
+				forgeInfo.name === "gitee")
 			? forgeInfo.name
 			: undefined,
 	);
@@ -63,7 +68,7 @@
 		dismissedTheIntegrationPrompt.set(true);
 	}
 
-	type SetupForgeName = "github" | "gitlab" | "bitbucket";
+	type SetupForgeName = "github" | "gitlab" | "bitbucket" | "gitee";
 
 	function forgeLabelFor(name: SetupForgeName): string {
 		switch (name) {
@@ -73,6 +78,8 @@
 				return "GitLab";
 			case "bitbucket":
 				return "Bitbucket";
+			case "gitee":
+				return "Gitee";
 		}
 	}
 
@@ -88,6 +95,8 @@
 				return "https://docs.gitbutler.com/features/forge-integration/gitlab-integration";
 			case "bitbucket":
 				return "https://docs.gitbutler.com/features/forge-integration/bitbucket-integration";
+			case "gitee":
+				return "https://gitee.com/profile/personal_access_tokens";
 		}
 	}
 
@@ -99,6 +108,8 @@
 				return gitlabLogoSvg;
 			case "bitbucket":
 				return bitbucketLogoSvg;
+			case "gitee":
+				return giteeLogoSvg;
 		}
 	}
 </script>
@@ -113,15 +124,20 @@
 		<div class="forge-prompt__logo">
 			{@html forgeLogoFor(forgeName)}
 		</div>
-		<h3 class="text-13 text-body text-bold">It looks like you have a {forgeLabel} remote!</h3>
+		<h3 class="text-13 text-body text-bold">
+			{t("it-looks-like-you-have-a")}
+			{forgeLabel} remote!
+		</h3>
 		<p class="text-12 text-body m-b-8 clr-text-2">
-			GitButler can display, create and manage {forgeUnit} for you directly in the app.
-			<Link href={integrationDocs}>Read more</Link>
+			{t("gitbutler-can-display-create-and-manage")}
+			{forgeUnit}
+			{t("for-you-directly-in-the-app")}
+			<Link href={integrationDocs}>{t("read-more")}</Link>
 		</p>
 
 		<div class="forge-prompt__footer">
 			<Button kind="outline" onclick={dismissPrompt}>Dismiss</Button>
-			<Button style="pop" onclick={configureIntegration}>Configure integration…</Button>
+			<Button style="pop" onclick={configureIntegration}>{t("configure-integration")}</Button>
 		</div>
 	</div>
 {/if}

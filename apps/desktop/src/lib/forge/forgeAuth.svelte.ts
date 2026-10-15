@@ -1,6 +1,7 @@
 import { useBitbucketForgeUser } from "$lib/forge/bitbucket/hooks.svelte";
 import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
+import { useGiteeForgeUser } from "$lib/forge/gitee/hooks.svelte";
 import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
 import { inject } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
@@ -22,11 +23,12 @@ export function useForgeAuth(projectId: Reactive<string>): {
 
 	// These hooks call inject()/getContext(), which must run during
 	// component init — never inside a $derived that re-runs in a reaction.
-	// Call both unconditionally; each stays inert until its forge's
+	// Call all unconditionally; each stays inert until its forge's
 	// account resolves, so the non-active forge costs nothing.
 	const githubUser = useGitHubForgeUser(projectId);
 	const gitlabUser = useGitLabForgeUser(projectId);
 	const bitbucketUser = useBitbucketForgeUser(projectId);
+	const giteeUser = useGiteeForgeUser(projectId);
 
 	const authenticated = $derived(
 		forgeName === "github"
@@ -35,7 +37,9 @@ export function useForgeAuth(projectId: Reactive<string>): {
 				? gitlabUser.user.current !== undefined
 				: forgeName === "bitbucket"
 					? bitbucketUser.user.current !== undefined
-					: false,
+					: forgeName === "gitee"
+						? giteeUser.user.current !== undefined
+						: false,
 	);
 	const isLoading = $derived(
 		forgeName === "github"
@@ -44,7 +48,9 @@ export function useForgeAuth(projectId: Reactive<string>): {
 				? gitlabUser.isLoading.current
 				: forgeName === "bitbucket"
 					? bitbucketUser.isLoading.current
-					: false,
+					: forgeName === "gitee"
+						? giteeUser.isLoading.current
+						: false,
 	);
 
 	return {

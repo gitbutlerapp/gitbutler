@@ -403,6 +403,7 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Er
         }
         but_forge::ForgeName::GitHub => "GitHub",
         but_forge::ForgeName::GitLab => "GitLab",
+        but_forge::ForgeName::Gitee => "Gitee",
         but_forge::ForgeName::Bitbucket => "Bitbucket",
     };
 

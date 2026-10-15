@@ -98,7 +98,7 @@ pub fn compare_branch_url(
     };
     Some(match repo_info.forge {
         ForgeName::GitHub => format!("{base_url}/compare/{base}...{head}"),
-        ForgeName::GitLab => format!("{base_url}/-/compare/{base}...{head}"),
+        ForgeName::GitLab | ForgeName::Gitee => format!("{base_url}/compare/{base}...{head}"),
         ForgeName::Bitbucket => format!(
             "{base_url}/branch/{head}?dest={}",
             urlencoding::encode(base)
@@ -126,6 +126,7 @@ fn build_base_url(remote_url: &str, repo_info: &ForgeRepoInfo, accounts: &[Forge
             ForgeName::GitLab => "gitlab.com".into(),
             ForgeName::Bitbucket => "bitbucket.org".into(),
             ForgeName::Azure => "dev.azure.com".into(),
+            ForgeName::Gitee => "gitee.com".into(),
         });
     let host = match parsed.as_ref().and_then(|url| url.port) {
         Some(port) if !rewrote_scheme => format!("{host}:{port}"),
@@ -194,12 +195,13 @@ fn url_paths(forge: &ForgeName) -> (&'static str, &'static str) {
         ForgeName::GitLab => ("/-/commit/", "/-/merge_requests/"),
         ForgeName::Bitbucket => ("/commits/", "/pull-requests/"),
         ForgeName::Azure => ("/commit/", "/pullrequest/"),
+        ForgeName::Gitee => ("/commit/", "/pulls/"),
     }
 }
 
 fn label_for(forge: &ForgeName) -> (ForgeUnitInfo, &'static str) {
     match forge {
-        ForgeName::GitHub | ForgeName::Bitbucket | ForgeName::Azure => (
+        ForgeName::GitHub | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::Gitee => (
             ForgeUnitInfo {
                 name: "Pull request".into(),
                 abbr: "PR".into(),
@@ -249,6 +251,14 @@ fn capabilities_for(forge: &ForgeName) -> ForgeCapabilities {
             repo_info: false,
             pr_service: false,
             list_service: false,
+            review_comments: false,
+            review_management: false,
+        },
+        ForgeName::Gitee => ForgeCapabilities {
+            checks: false,
+            repo_info: true,
+            pr_service: true,
+            list_service: true,
             review_comments: false,
             review_management: false,
         },

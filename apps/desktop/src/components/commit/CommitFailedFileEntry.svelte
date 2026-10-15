@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { DEPENDENCY_SERVICE } from "$lib/dependencies/dependencyService.svelte";
+	import { t } from "$lib/i18n";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE, type RejectionReason } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -40,7 +41,7 @@
 			<div class="commit-failed__file-entry__header__unfold-action">
 				<span class="text-12 text-semibold"
 					>{isFolded ? "Show" : "Hide"}
-					hunks ({#if fileDependencies.response}
+					{t("hunks")}{#if fileDependencies.response}
 						{fileDependencies.response.dependencies.length}
 					{:else}
 						0
@@ -75,7 +76,7 @@
 							<div class="text-12 commit-failed__file-entry__dependency-locks">
 								<div class="commit-failed__file-entry__dependency-locks__label">
 									<Icon name="lock" color="var(--fill-warn-bg)" />
-									<span class="clr-text-2">Depends on:</span>
+									<span class="clr-text-2">{t("depends-on")}</span>
 								</div>
 								<div class="commit-failed__file-entry__dependency-locks__content">
 									{#each dependency.locks as lock}
@@ -105,7 +106,7 @@
 										{:else}
 											<p class="text-body commit-failed__file-entry-dependency-lock">
 												<i class="commit-failed__text-icon"><Icon name="branch" /></i>
-												<span class="text-semibold">Unknown stack</span>
+												<span class="text-semibold">{t("unknown-stack")}</span>
 												<i class="clr-text-2">in commit</i>
 												<i class="commit-failed__text-icon"><Icon name="commit" /></i>
 												<span class="text-semibold">{lock.commitId.substring(0, 7)}</span>

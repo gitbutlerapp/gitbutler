@@ -4,6 +4,7 @@
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { descriptionTitle } from "$lib/commits/commit";
 	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { t } from "$lib/i18n";
 	import {
 		sortUpstreamIntegrationStatus,
 		type UpstreamIntegrationStackStatus,
@@ -257,12 +258,12 @@
 				<img class="target-icon" src="/images/domain-icons/trunk.svg" alt="" />
 
 				<div class="target-divergence-about">
-					<h3 class="text-14 text-semibold">Target branch divergence</h3>
+					<h3 class="text-14 text-semibold">{t("target-branch-divergence")}</h3>
 					<p class="text-12 text-body target-divergence-description">
-						<span class="text-bold">{base?.branchName ?? "The target branch"}</span> has diverged
-						from the workspace.
+						<span class="text-bold">{base?.branchName ?? "The target branch"}</span>
+						{t("has-diverged-from-the-workspace")}
 						<br />
-						Resolve target branch divergence before updating the workspace.
+						{t("resolve-target-branch-divergence-before-updating-the-workspa")}
 					</p>
 				</div>
 			</div>
@@ -270,7 +271,7 @@
 		<!-- STACKS AND BRANCHES TO UPDATE -->
 		{#if statuses.length > 0}
 			<div class="section">
-				<h3 class="text-14 text-semibold">To be updated:</h3>
+				<h3 class="text-14 text-semibold">{t("to-be-updated")}</h3>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight="15rem">
 						{#each statuses as status}
@@ -282,12 +283,11 @@
 		{/if}
 		{#if worktreeConflicts.length > 0}
 			<div class="worktree-conflicts" data-testid={TestId.IntegrateUpstreamWorktreeConflicts}>
-				<h3 class="text-14 text-semibold">Uncommitted changes conflict</h3>
+				<h3 class="text-14 text-semibold">{t("uncommitted-changes-conflict")}</h3>
 				<p class="text-12 text-body worktree-conflicts-description">
-					These files will conflict when your current uncommitted changes are applied onto the
-					updated workspace.
+					{t("these-files-will-conflict-when-your-current-uncommitted-chan")}
 					<br />
-					You're free to proceed, but conflict markers will be added to your uncommitted work.
+					{t("you-re-free-to-proceed-but-conflict-markers-will-be-added-to")}
 				</p>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight="10rem">
@@ -330,7 +330,7 @@
 					await integrate();
 				}}
 			>
-				Update workspace
+				{t("update-workspace")}
 			</AsyncButton>
 		</div>
 	{/snippet}
