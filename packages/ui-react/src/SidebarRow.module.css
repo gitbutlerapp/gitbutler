@@ -141,6 +141,80 @@
 	white-space: nowrap;
 }
 
+/* Registered so it interpolates, and inherited so the text inside can follow it: how far a cut name
+   has run, which moves the text and sizes both fades. */
+@property --shift {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
+
+/* Registered so the scroll timeline can set it: 24px on a cut name, nothing on one that fits. */
+@property --fade-end {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+
+/* A cut name fades out at its end rather than ending in an ellipsis. Only a name that overflows can
+   scroll, and a scroll timeline that can't scroll is inactive, so a name that fits is never masked.
+   Under the pointer it runs to its end and back, at the pace measureRuns sets, after a beat so a
+   pointer passing over the list doesn't set every row moving. Each fade is as wide as the text
+   hidden past its edge, up to 24px, so the text is never cut with no fade at either end. */
+@supports (animation-timeline: scroll()) {
+	.name {
+		text-overflow: clip;
+		animation: name-cut linear both;
+		animation-timeline: scroll(self inline);
+		mask-image: linear-gradient(
+			to right,
+			transparent,
+			#000 min(24px, var(--shift)),
+			#000 calc(100% - var(--fade-end)),
+			transparent
+		);
+	}
+
+	.run {
+		display: inline-block;
+		translate: calc(-1 * var(--shift));
+		vertical-align: top;
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		/* The run takes over the end fade from the scroll timeline, which goes inactive as the name
+		   reaches its end and no longer overflows. The first pass skips the hold at the start: the
+		   beat before it is pause enough. */
+		.row:hover .name[data-runs] {
+			--fade-end: min(24px, var(--run) - var(--shift));
+
+			animation: name-run var(--run-duration) ease-in-out calc(0.5s - 0.15 * var(--run-duration))
+				infinite alternate both;
+			animation-timeline: auto;
+		}
+	}
+}
+
+@keyframes name-cut {
+	from,
+	to {
+		--fade-end: 24px;
+	}
+}
+
+/* A pause at each end, so the start and the end each hold long enough to read. */
+@keyframes name-run {
+	0%,
+	15% {
+		--shift: 0px;
+	}
+
+	85%,
+	100% {
+		--shift: var(--run);
+	}
+}
+
 .meta {
 	display: flex;
 	column-gap: var(--space-md);
@@ -183,10 +257,14 @@
 	}
 }
 
+/* The hidden state gives up its width too, so the name runs on up to the actions rather than
+   stopping where the wider state began. The actions stay put at the end. */
 .endSwaps .meta {
 	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
 		& {
 		visibility: hidden;
+		max-width: 0;
+		overflow: hidden;
 	}
 }
 

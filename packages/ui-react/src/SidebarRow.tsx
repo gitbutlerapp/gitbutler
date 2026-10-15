@@ -1,5 +1,5 @@
 import { mergeProps, useRender } from "@base-ui/react";
-import type { ComponentProps, FC, ReactNode } from "react";
+import type { ComponentProps, FC, PointerEvent, ReactNode } from "react";
 import { Badge, type BadgeVariant } from "./Badge.tsx";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
@@ -84,7 +84,19 @@ const Name: FC<{ tooltip: ReactNode; className: string; children: ReactNode }> =
 	className,
 	children,
 }) => {
-	const name = <span className={className}>{children}</span>;
+	const name = (
+		<span
+			className={className}
+			data-name
+			// The clip is a scroll box, which find-in-page and scrollIntoView can scroll and leave
+			// scrolled, with no fade at its start. A cut name only ever runs.
+			onScroll={(event) => {
+				event.currentTarget.scrollLeft = 0;
+			}}
+		>
+			<span className={styles.run}>{children}</span>
+		</span>
+	);
 	return tooltip === undefined ? (
 		name
 	) : (
@@ -97,6 +109,20 @@ const Name: FC<{ tooltip: ReactNode; className: string; children: ReactNode }> =
 /** A slot the host filled with nothing (`null`, `false`) is no slot: the row keeps the room and
  * the state it would otherwise give up for it. */
 const filled = (slot: ReactNode) => (slot === null || slot === false ? undefined : slot);
+
+/** Px per second a cut name runs at under the pointer. */
+const RUN_SPEED = 24;
+
+/** Measures how far each cut name in the row has to run to show its end, at the moment the pointer
+ * arrives: CSS can't size a move by how much of its own content is clipped. */
+const measureRuns = (event: PointerEvent<HTMLElement>) => {
+	for (const name of event.currentTarget.querySelectorAll<HTMLElement>("[data-name]")) {
+		const overflow = name.scrollWidth - name.clientWidth;
+		name.toggleAttribute("data-runs", overflow > 0);
+		name.style.setProperty("--run", `${overflow}px`);
+		name.style.setProperty("--run-duration", `${1 + overflow / RUN_SPEED}s`);
+	}
+};
 
 /** The one-line row every sidebar item but a pull request in `rich` is drawn on. */
 const Row: FC<
@@ -129,6 +155,7 @@ const Row: FC<
 		state: { selected },
 		props: mergeProps<"div">(props, {
 			className: classes(styles.row, styles[layout], rowClassName),
+			onPointerEnter: measureRuns,
 			children: (
 				<>
 					<Steps depth={depth} folded={folded} onToggleFolded={onToggleFolded} name={name} />
