@@ -269,7 +269,8 @@ Single commit, target, no ws commit, but ws-reference
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
-* a6258f6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 2ed6b76 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
 * 3183e43 (origin/main, main, below-B, above-A, B, A) M1
 
 "#]]

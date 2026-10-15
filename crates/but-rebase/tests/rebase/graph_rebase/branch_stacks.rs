@@ -138,7 +138,7 @@ fn empty_stacks_stay_apart() -> Result<()> {
         branch_stacks(&repo, &mut meta, &mut db, target_meta(&repo), false)?,
         snapbox::str![[r#"
 ◎  refs/heads/gitbutler/workspace
-●      a26ae77 GitButler Workspace Commit
+●      2bdc06b GitButler Workspace Commit
 ├─┬─╮
 ◎ │ │  refs/heads/stack-1
 │ ◎ │  refs/heads/stack-2
