@@ -186,7 +186,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Build the topological skeleton of the projection (stacks, above-workspace,
     /// workspace commit) with an empty [`GraphWorkspace::reference_status`].
     fn graph_workspace_topology(&self) -> Result<GraphWorkspace> {
-        let Some(entrypoint_ix) = self.head_index() else {
+        let Some(entrypoint_ix) = self.head().map(|head| head.id) else {
             return Ok(GraphWorkspace::empty());
         };
 
@@ -252,26 +252,22 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
-    /// The entrypoint (`HEAD`) reference node, or `None` if HEAD isn't on a ref.
-    fn head_index(&self) -> Option<StepGraphIndex> {
+    /// The step `HEAD` checks out, or `None` if the editor recorded no `HEAD` checkout.
+    pub fn head(&self) -> Option<Selector> {
         self.checkouts.iter().find_map(|checkout| match checkout {
-            Checkout::Head { selector, .. } => self
-                .history
-                .normalize_selector(*selector)
-                .ok()
-                .map(|s| s.id),
+            Checkout::Head { selector, .. } => self.history.normalize_selector(*selector).ok(),
             Checkout::Worktree { .. } => None,
         })
     }
 
     /// The workspace reference, if `HEAD` is on it.
     pub fn workspace_reference(&self) -> Option<Selector> {
-        let head = self.head_index()?;
+        let head = self.head()?;
         matches!(
-            &self.graph[head],
+            &self.graph[head.id],
             Step::Reference { refname, .. } if refname.as_bstr() == WORKSPACE_REF_NAME
         )
-        .then(|| self.new_selector(head))
+        .then_some(head)
     }
 
     /// The workspace commit beneath the [workspace reference](Self::workspace_reference), if any.
