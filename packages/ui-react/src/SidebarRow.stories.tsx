@@ -383,6 +383,100 @@ export const Selection = meta.story({
 	),
 });
 
+/**
+ * A second clone of a repository whose remote is a fork. Its main worktree takes the folder-fork
+ * glyph, leads with a Fork badge and goes by the fork's owner, so it doesn't read as a second
+ * "Main worktree".
+ */
+export const Fork = meta.story({
+	parameters: { design: { type: "figma", url: core("3357-7989") } },
+	render: () => (
+		<Card label="pavel--macbook-pro-2" header={machine}>
+			<Repository last>
+				<RepoItem layout="compact" name="but-dev" folded={false} menu={menu("Repository")} />
+				<WorktreeItem
+					layout="compact"
+					main
+					name="Main worktree"
+					depth={1}
+					folded={false}
+					meta={
+						<>
+							<MetaCount type="behind">4</MetaCount>
+							<MetaCount type="age">3d</MetaCount>
+						</>
+					}
+					actions={update}
+					menu={menu("Worktree")}
+				/>
+				<UncommittedItem layout="compact" count={19} depth={2} menu={menu("Uncommitted changes")} />
+				<BranchItem
+					layout="compact"
+					title="ios-push-handoff"
+					depth={2}
+					folded
+					meta={
+						<>
+							<MetaCount type="unpushed">7</MetaCount>
+							<MetaCount type="age">1d</MetaCount>
+						</>
+					}
+					actions={push}
+					menu={menu("Branch")}
+				/>
+				<WorktreeDivider depth={1} />
+				<WorktreeItem
+					layout="compact"
+					main
+					fork
+					name="pavellaptev"
+					depth={1}
+					folded={false}
+					meta={
+						<>
+							<MetaCount type="behind">1</MetaCount>
+							<MetaCount type="age">3d</MetaCount>
+						</>
+					}
+					actions={update}
+					menu={menu("Worktree")}
+				/>
+				<UncommittedItem layout="compact" count={22} depth={2} menu={menu("Uncommitted changes")} />
+				<BranchItem
+					layout="compact"
+					title="review-cards"
+					depth={2}
+					folded
+					meta={
+						<>
+							<MetaCount type="unpushed">8</MetaCount>
+							<MetaCount type="age">12m</MetaCount>
+						</>
+					}
+					actions={push}
+					menu={menu("Branch")}
+				/>
+				<WorktreeDivider depth={1} />
+				<WorktreeItem
+					layout="compact"
+					name="mesh-archive"
+					depth={1}
+					folded
+					meta={
+						<>
+							<MetaCount type="unpushed">4</MetaCount>
+							<MetaCount type="behind">2</MetaCount>
+							<MetaCount type="branch">2</MetaCount>
+							<MetaCount type="age">3d</MetaCount>
+						</>
+					}
+					menu={menu("Worktree")}
+				/>
+			</Repository>
+		</Card>
+	),
+});
+
 /** A machine that is offline: its light goes grey and its picture dims. */
 export const OfflineMachine = meta.story({
 	parameters: { design: { type: "figma", url: core("2579-7658") } },
