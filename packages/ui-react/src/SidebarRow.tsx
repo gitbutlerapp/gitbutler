@@ -247,22 +247,33 @@ export const RepoItem: FC<
  * the name, and keep the path in a `Tooltip`. It is styled like any other worktree, so the words
  * and the glyph tell it apart rather than a fainter name.
  *
+ * A `fork` is the main worktree of another clone of the repository, one whose remote is a fork:
+ * it takes the folder-fork glyph, leads with a "Fork" badge, as a pull request leads with its
+ * number, and is named after the fork's owner rather than "Main worktree".
+ *
  * Folded, it reads as `compact` in either layout, as {@link RepoItem} does.
  *
  * @import import { WorktreeItem } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
 export const WorktreeItem: FC<
-	{ name: string; main?: boolean; layout?: SidebarRowLayout } & RowProps
-> = ({ name, main = false, layout = "compact", tooltip, ...props }) => (
+	{ name: string; main?: boolean; fork?: boolean; layout?: SidebarRowLayout } & RowProps
+> = ({ name, main = false, fork = false, layout = "compact", tooltip, ...props }) => (
 	<Row
 		{...props}
 		name={name}
 		layout={props.folded === true ? "compact" : layout}
-		icon={<Icon name={main ? "folder" : "folder-copy"} />}
+		icon={<Icon name={fork ? "folder-fork" : main ? "folder" : "folder-copy"} />}
 		label={
-			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
-				{name}
-			</Name>
+			<>
+				{fork && (
+					<Badge variant="lightGray" className={styles.badge}>
+						Fork
+					</Badge>
+				)}
+				<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+					{name}
+				</Name>
+			</>
 		}
 	/>
 );
