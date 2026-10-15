@@ -467,22 +467,39 @@ export const UncommittedItem: FC<
 );
 
 /**
- * The label over a stack of two or more branches, "Stack of 2". It doesn't open or fold; its
- * `menu` (push the stack, open its pull requests) shows under the pointer. `first` is for a stack
- * that opens right under its repository or worktree; otherwise it follows a
- * {@link WorktreeDivider} and sits tucked under it.
+ * The label over a stack of two or more branches, "Stack of 2". It doesn't open; with `folded` its
+ * chevron hides the stack's branches, and `meta` then says what they hold. Its `menu` (push the
+ * stack, open its pull requests) shows under the pointer. `first` is for a stack that opens right
+ * under its repository or worktree; otherwise it follows a {@link WorktreeDivider} and sits tucked
+ * under it.
  *
  * @import import { StackCaption } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
 export const StackCaption: FC<
-	{ label: string; first?: boolean } & Pick<RowProps, "depth" | "menu" | "tooltip"> &
+	{ label: string; first?: boolean } & Pick<
+		RowProps,
+		"depth" | "folded" | "onToggleFolded" | "meta" | "menu" | "tooltip"
+	> &
 		ComponentProps<"div">
-> = ({ label, first = false, depth = 0, menu, tooltip, ...props }) => (
+> = ({
+	label,
+	first = false,
+	depth = 0,
+	folded,
+	onToggleFolded,
+	meta,
+	menu,
+	tooltip,
+	...props
+}) => (
 	<Row
 		{...props}
 		name={label}
 		layout="compact"
 		depth={depth}
+		folded={folded}
+		onToggleFolded={onToggleFolded}
+		meta={meta}
 		menu={menu}
 		rowClassName={classes(styles.caption, !first && styles.captionTucked)}
 		icon={<Icon name="stack" />}
