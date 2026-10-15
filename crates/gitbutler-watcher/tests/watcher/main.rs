@@ -196,6 +196,11 @@ fn linked_worktree_changes_are_reported_for_that_worktree() -> anyhow::Result<()
                         .changes
                         .iter()
                         .any(|change| change.path_bytes == "file")
+                    // Its hunks come along unassigned, as a linked worktree isn't in the workspace.
+                    && changes
+                        .assignments
+                        .iter()
+                        .any(|assignment| assignment.path == "file" && assignment.stack_id.is_none())
                     && changed_paths.iter().eq(because_of.iter().map(Path::new))
             }
             _ => false,

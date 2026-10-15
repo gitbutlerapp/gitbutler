@@ -32,6 +32,8 @@
 		disabledAction?: boolean;
 		loading?: boolean;
 		existingCommitId?: string;
+		/** The linked worktree whose selected changes AI generation describes, if any. */
+		worktree?: string;
 		title: string;
 		floatingBoxHeader?: string;
 		description: string;
@@ -51,6 +53,7 @@
 		description,
 		floatingBoxHeader = "Create commit",
 		existingCommitId,
+		worktree,
 	}: Props = $props();
 
 	const uiState = inject(UI_STATE);
@@ -61,7 +64,8 @@
 
 	const worktreeService = inject(WORKTREE_SERVICE);
 	const diffService = inject(DIFF_SERVICE);
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const uncommittedServices = inject(UNCOMMITTED_SERVICE);
+	const uncommittedService = $derived(uncommittedServices.at(worktree));
 	const stackService = inject(STACK_SERVICE);
 
 	const laneState = $derived(stackId ? uiState.lane(stackId) : undefined);

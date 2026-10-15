@@ -29,7 +29,6 @@
 		ReorderCommitDzHandler,
 	} from "$lib/dragging/stackingReorderDropzoneManager";
 	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
-	import { createCommitSelection } from "$lib/selection/key";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 
@@ -62,6 +61,10 @@
 
 	const projectId = $derived(controller.projectId);
 	const stackId = $derived(controller.stackId);
+	// A worktree commits on top of its `HEAD`, and its commits' files stay in
+	// its own checkout.
+	const inWorktree = $derived(!!controller.worktree);
+	const choosesCommitPosition = $derived(controller.isCommitting && !inWorktree);
 	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
 	const forgeInfo = $derived(forgeInfoQuery.response);
 
@@ -292,7 +295,7 @@
 		{#if hasRemoteCommits}
 			<UpstreamActionRow testId={TestId.UpstreamCommitsCommitAction} isLast={!hasCommits}>
 				{#snippet action()}
-					{#if branchName && branchRef}
+					{#if branchName && branchRef && !inWorktree}
 						<UpstreamIntegrationActions {projectId} {branchRef} {branchName} />
 					{/if}
 				{/snippet}
@@ -308,7 +311,7 @@
 				{@const commitId = commit.id}
 				{@const selected =
 					controller.isCommitSelected(commit.id) && branchName === selectedBranchName}
-				{#if controller.isCommitting}
+				{#if choosesCommitPosition}
 					<!-- Only commits to the base can be `last`, see next `CommitPositionIndicator`. -->
 					<CommitPositionIndicator
 						{commitId}
@@ -338,12 +341,13 @@
 				{@const { amendHandler, squashHandler, hunkHandler } = createCommitDropHandlers({
 					projectId,
 					stackId,
+					worktree: controller.worktree?.name,
 					commit: dzCommit,
 					runHooks: $runHooks,
 					okWithForce: true,
 					onCommitIdChange: (newId) => {
 						const wasSelected = controller.selection.current?.commitId === commitId;
-						if (stackId && wasSelected) {
+						if (wasSelected) {
 							const previewOpen = selection.current?.previewOpen ?? false;
 							controller.laneState.selection.set({ branchName, commitId: newId, previewOpen });
 						}
@@ -456,7 +460,7 @@
 											{stackId}
 											visibleRange={controller.visibleRange}
 											draggableFiles
-											selectionId={createCommitSelection({ commitId: commitId, stackId })}
+											selectionId={controller.commitSelection(commitId)}
 											persistId={`commit-${commitId}`}
 											changes={changesResult.changes.filter(
 												(change) =>
@@ -495,7 +499,7 @@
 						stackingReorderDropzoneManager.belowCommit(branchName, commit.id),
 					)}
 				{/if}
-				{#if controller.isCommitting && last}
+				{#if choosesCommitPosition && last}
 					<CommitPositionIndicator
 						commitId={commit.id}
 						{first}

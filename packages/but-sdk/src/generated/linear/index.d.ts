@@ -160,7 +160,7 @@ export declare function applyBranchIntegration(projectId: string, branch: string
  *
  * See [`assign_hunk_with_perm()`] for details.
  *
- * {@link ../../../../../crates/but-api/src/diff.rs:317}
+ * {@link ../../../../../crates/but-api/src/diff.rs:326}
  */
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
@@ -324,8 +324,8 @@ export declare function changesInWorktree(projectId: string, changesSource: Chan
  * When dependency and assignment computation is turned off, hunk assignments and dependencies
  * are not computed at all: `assignments` is empty and there are no `dependencies`.
  *
- * A linked worktree is not part of the workspace, so it has neither - the flag is
- * ignored for it, and nothing is persisted.
+ * A linked worktree is not part of the workspace: its hunks all come back unassigned,
+ * it has no dependencies, and nothing is persisted.
  *
  * For lower-level implementation details, see
  * [`but_core::diff::worktree_changes()`],
@@ -1024,7 +1024,7 @@ export declare function listCommentReactions(projectId: string, commentId: numbe
 /**
  * List all editors that can be opened from a GUI client.
  *
- * {@link ../../../../../crates/but-api/src/open/mod.rs:657}
+ * {@link ../../../../../crates/but-api/src/open/mod.rs:664}
  */
 export declare function listEditors(): Promise<Array<Editor>>
 
@@ -1073,7 +1073,7 @@ export declare function listKnownGitlabAccounts(): Promise<Array<GitlabAccountId
 /**
  * List all programs that can be opened from a GUI client.
  *
- * {@link ../../../../../crates/but-api/src/open/mod.rs:668}
+ * {@link ../../../../../crates/but-api/src/open/mod.rs:675}
  */
 export declare function listPrograms(): Promise<Array<Program>>
 
@@ -1198,17 +1198,17 @@ export declare function moveBranch(projectId: string, subjectBranch: string, rel
 export declare function newReviewTarget(projectId: string, branch: string): Promise<string>
 
 /**
- * Open `path` within the given project's workdir using the program specified by `program_id`.
+ * Open `path` using the program specified by `program_id`.
  *
- * `path` is resolved relative to the repository workdir.
+ * `path` is resolved relative to `checkout`, see [`workdir_path()`].
  *
  * `line_nr` can be provided to open a file at a specific line.
  *
  * [`list_programs`] provides the available `program_id`s.
  *
- * {@link ../../../../../crates/but-api/src/open/mod.rs:783}
+ * {@link ../../../../../crates/but-api/src/open/mod.rs:831}
  */
-export declare function openInProgram(projectId: string, programId: string, path: string, lineNr: number | null): Promise<void>
+export declare function openInProgram(projectId: string, programId: string, checkout: ChangesSource, path: string, lineNr: number | null): Promise<void>
 
 /**
  * Opens a terminal application at the specified directory path.
@@ -1255,7 +1255,7 @@ export declare function openInProgram(projectId: string, programId: string, path
  * - The terminal_id is not recognized for the current platform
  * - On all platforms, only spawn failures are detected; the terminal's later exit status is not checked
  *
- * {@link ../../../../../crates/but-api/src/open/mod.rs:380}
+ * {@link ../../../../../crates/but-api/src/open/mod.rs:381}
  */
 export declare function openInTerminal(terminalId: string, path: string): Promise<void>
 
@@ -1473,6 +1473,18 @@ export declare function setReviewThreadResolved(projectId: string, threadId: str
 export declare function setTargetRefAndInitProject(projectId: string, targetRef: string, pushRemote: string | null): Promise<void>
 
 /**
+ * Reveals `path`, relative to `checkout`, in the platform's file manager. An empty `path`
+ * reveals the checkout itself.
+ *
+ * On macOS this reveals the item in Finder, on Windows it selects the item in
+ * Explorer, and on Linux it opens either the directory itself or the file's
+ * parent directory.
+ *
+ * {@link ../../../../../crates/but-api/src/open/mod.rs:599}
+ */
+export declare function showInFinder(projectId: string, checkout: ChangesSource, path: string): Promise<void>
+
+/**
  * Stores an Atlassian API token for Bitbucket Cloud.
  *
  * Bitbucket Cloud authenticates over HTTP Basic where the username is the
@@ -1651,6 +1663,17 @@ export declare function warmCiChecksCache(projectId: string): Promise<void>
  * {@link ../../../../../crates/but-api/src/legacy/forge.rs:1448}
  */
 export declare function withdrawReviewRequest(projectId: string, reviewId: number, logins: Array<string>): Promise<void>
+
+/**
+ * The absolute path of `path`, relative to `checkout`: a linked worktree's, or the project's
+ * own.
+ *
+ * A linked worktree requires the `worktreeManipulation` feature flag and an active worktree,
+ * see `worktrees::open_changes_source()`.
+ *
+ * {@link ../../../../../crates/but-api/src/open/mod.rs:788}
+ */
+export declare function workdirPath(projectId: string, checkout: ChangesSource, path: string): Promise<string>
 
 /**
  * Push a branch and any parent references that lie within the current workspace projection.

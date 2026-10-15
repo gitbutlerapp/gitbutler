@@ -1,17 +1,8 @@
-import {
-	guiSettingsQueryOptions,
-	listEditorsQueryOptions,
-	worktreesListQueryOptions,
-} from "#ui/api/queries.ts";
+import { guiSettingsQueryOptions, listEditorsQueryOptions } from "#ui/api/queries.ts";
 import { changesFileHotkeys, revealInFolderLabel, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { type NativeMenuItem, nativeMenuItem } from "#ui/native-menu.ts";
 import { useQuery } from "@tanstack/react-query";
-import {
-	useAbsolutePath,
-	useOpenPathInProgram,
-	useRevealInFolder,
-	worktreePathIn,
-} from "./usePathActions.ts";
+import { useAbsolutePath, useOpenPathInProgram, useRevealInFolder } from "./usePathActions.ts";
 
 /**
  * What a file offers wherever it is listed: open it, reveal it, copy its
@@ -35,20 +26,12 @@ export const usePathMenuItems = ({
 		...guiSettingsQueryOptions,
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
-	// A linked worktree's location is unknown until its listing answers; until then
-	// nothing that needs it is offered.
-	const { data: isLocated = worktree === undefined } = useQuery({
-		...worktreesListQueryOptions(projectId),
-		enabled: worktree !== undefined,
-		select: (listing) => worktree === undefined || worktreePathIn(listing, worktree) !== undefined,
-	});
-
 	const absolutePath = useAbsolutePath(projectId);
 	const revealInFolder = useRevealInFolder(projectId);
 	const { isPending: isOpenInProgramPending, openPathInProgram } = useOpenPathInProgram(projectId);
 	const openPath = (programId: string) =>
 		void openPathInProgram({ programId, path, lineNr: null, worktree });
-	const canOpen = !isOpenInProgramPending && isLocated;
+	const canOpen = !isOpenInProgramPending;
 
 	return [
 		preferredEditor
@@ -71,7 +54,6 @@ export const usePathMenuItems = ({
 				}),
 		nativeMenuItem({
 			label: revealInFolderLabel,
-			enabled: isLocated,
 			accelerator: toElectronAccelerator(changesFileHotkeys.revealInFolder.hotkey),
 			onSelect: () => revealInFolder(path, worktree),
 		}),
@@ -80,7 +62,6 @@ export const usePathMenuItems = ({
 			submenu: [
 				nativeMenuItem({
 					label: "Absolute Path",
-					enabled: isLocated,
 					onSelect: async () => window.lite.clipboardWriteText(await absolutePath(path, worktree)),
 				}),
 				nativeMenuItem({

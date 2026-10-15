@@ -5,6 +5,7 @@ import type {
 	Segment,
 	Stack as RefInfoStack,
 	UpstreamCommit,
+	Worktree,
 } from "@gitbutler/but-sdk";
 
 export type WorkspaceStackDetails = {
@@ -17,6 +18,11 @@ export type WorkspaceStackDetails = {
 export type WorkspaceDetails = {
 	stacks: EntityState<RefInfoStack, string>;
 	stackDetails: Record<string, WorkspaceStackDetails>;
+	/**
+	 * Active linked worktrees with the segments only they hold. Kept apart from
+	 * `stacks`: they are not in the workspace commit and have no stack id.
+	 */
+	worktrees: Worktree[];
 };
 
 const NULL_SHA = "0000000000000000000000000000000000000000";
@@ -61,6 +67,7 @@ export function transformWorkspaceDetails(response: RefInfo): WorkspaceDetails {
 	return {
 		stacks: stackAdapter.addMany(stackAdapter.getInitialState(), response.stacks),
 		stackDetails,
+		worktrees: response.worktrees,
 	};
 }
 

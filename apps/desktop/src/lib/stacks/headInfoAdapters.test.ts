@@ -65,11 +65,11 @@ function segment(overrides: Partial<Segment> = {}): Segment {
 	};
 }
 
-function refInfo(stacks: RefInfo["stacks"]): RefInfo {
+function refInfo(stacks: RefInfo["stacks"], worktrees: RefInfo["worktrees"] = []): RefInfo {
 	return {
 		stacks,
 		target: null,
-		worktrees: [],
+		worktrees,
 	};
 }
 
@@ -144,5 +144,20 @@ describe("headInfoAdapters", () => {
 			"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		);
 		expect(result.stackDetails["stack-1"]?.segments[0]?.commits).toEqual([]);
+	});
+
+	test("keeps linked worktrees out of the stacks", () => {
+		const worktree: RefInfo["worktrees"][number] = {
+			name: "feature-wt",
+			refName: null,
+			head: localCommit.id,
+			base: { type: "InWorkspace", subject: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
+			segments: [segment()],
+		};
+		const result = transformWorkspaceDetails(refInfo([], [worktree]));
+
+		expect(result.worktrees).toEqual([worktree]);
+		expect(result.stacks.ids).toEqual([]);
+		expect(result.stackDetails).toEqual({});
 	});
 });

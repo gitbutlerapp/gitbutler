@@ -135,8 +135,15 @@ export const EditModePage: FC<{ projectId: string; metadata: EditModeMetadata }>
 	const openConflictedFiles = () => {
 		if (!preferredEditor) return;
 
-		for (const [change] of conflicted)
-			openInProgram({ projectId, programId: preferredEditor.id, path: change.path, lineNr: null });
+		for (const [change] of conflicted) {
+			openInProgram({
+				projectId,
+				programId: preferredEditor.id,
+				checkout: { type: "head" },
+				path: change.path,
+				lineNr: null,
+			});
+		}
 	};
 
 	/**

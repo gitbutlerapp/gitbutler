@@ -128,3 +128,86 @@ fn uncommit_dry_run_persists_no_assignments() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+/// Uncommitting from a linked worktree's commit rewrites its branch and leaves the extracted
+/// change in that worktree's checkout, where it shows up as uncommitted. The main checkout
+/// is left alone.
+#[test]
+fn uncommitting_from_a_linked_worktree_commit_keeps_the_change_in_its_checkout()
+-> anyhow::Result<()> {
+    use but_api::commit::{json::ChangesSource, types::UncommitChangesSource};
+
+    use crate::support::{checkout_branch_in_linked_worktree, repo_with_feature_branch};
+
+    let (repo, tmp) = repo_with_feature_branch()?;
+    let linked = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
+    let wt = linked.path().join("wt");
+    write_file(&wt, "wt.txt", "worktree change\n")?;
+    git_at_dir(&wt).args(["add", "wt.txt"]).run();
+    git_at_dir(&wt)
+        .args(["commit", "-m", "worktree commit"])
+        .run();
+    let worktree_commit = repo.rev_parse_single("refs/heads/feature")?.detach();
+    let main_head = repo.head_id()?.detach();
+
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    ctx.settings.feature_flags.worktree_manipulation = true;
+    // Adoption archives the worktrees that exist when the flag is first read.
+    but_api::worktrees::worktree_set_archived(&mut ctx, "wt".into(), false)?;
+
+    let outcome = but_api::commit::uncommit::commit_uncommit_changes_from_commits(
+        &mut ctx,
+        vec![UncommitChangesSource {
+            commit_id: worktree_commit,
+            changes: vec![but_core::DiffSpec {
+                previous_path: None,
+                path: "wt.txt".into(),
+                hunk_headers: vec![],
+            }],
+        }],
+        None,
+        DryRun::No,
+    )?;
+    let failures: Vec<_> = outcome.failures.iter().map(|f| f.error.clone()).collect();
+    assert!(failures.is_empty(), "{failures:?}");
+
+    {
+        let repo = ctx.repo.get()?;
+        let rewritten = repo.rev_parse_single("refs/heads/feature")?.detach();
+        assert_ne!(
+            rewritten, worktree_commit,
+            "the worktree's branch moves to the rewrite"
+        );
+        let tree = repo.find_commit(rewritten)?.tree()?;
+        assert!(
+            tree.lookup_entry_by_path("wt.txt")?.is_none(),
+            "the rewritten commit no longer has the file"
+        );
+        assert_eq!(
+            std::fs::read_to_string(wt.join("wt.txt"))?,
+            "worktree change\n",
+            "the file stays in the worktree's checkout"
+        );
+        assert_eq!(
+            repo.head_id()?.detach(),
+            main_head,
+            "the main checkout is untouched"
+        );
+    }
+
+    let guard = ctx.shared_worktree_access();
+    let changes = but_api::diff::changes_in_worktree_with_perm(
+        &ctx,
+        ChangesSource::Worktree("wt".into()),
+        false,
+        guard.read_permission(),
+    )?;
+    let paths: Vec<_> = changes
+        .worktree_changes
+        .changes
+        .iter()
+        .map(|change| change.path.clone())
+        .collect();
+    assert_eq!(paths, ["wt.txt"], "it is uncommitted in the worktree");
+    Ok(())
+}

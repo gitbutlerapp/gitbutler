@@ -455,7 +455,8 @@ const ThreadHunk: FC<{
 		}),
 	});
 
-	const openAt = (programId: string) => openInProgram({ projectId, programId, path, lineNr });
+	const openAt = (programId: string) =>
+		openInProgram({ projectId, programId, checkout: { type: "head" }, path, lineNr });
 
 	/* The app's own menu replaces the window's, so it carries the copy the
 	   window would have offered — quoted code is here to be taken away. */
