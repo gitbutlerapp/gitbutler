@@ -20,6 +20,10 @@ export type ServerCapabilities = {
 	canAddProjects: boolean;
 };
 
+// Send only edited fields so unrelated settings don't invalidate forge queries.
+export type ProjectUpdate = Pick<Project, "id"> &
+	Partial<Project> & { unset_bool?: boolean; unset_forge_override?: boolean };
+
 export function buildProjectEndpoints(build: BackendEndpointBuilder) {
 	return {
 		serverCapabilities: build.query<ServerCapabilities, void>({
@@ -55,15 +59,12 @@ export function buildProjectEndpoints(build: BackendEndpointBuilder) {
 			extraOptions: { command: "set_project_active" },
 			query: (args) => args,
 		}),
-		updateProject: build.mutation<
-			void,
-			{ project: Project & { unset_bool?: boolean; unset_forge_override?: boolean } }
-		>({
+		updateProject: build.mutation<void, { project: ProjectUpdate }>({
 			extraOptions: { command: "update_project" },
 			query: (args) => args,
 			invalidatesTags: (_result, error, { project }) => [
 				...providesItem(ReduxTag.Project, project.id),
-				...(!error && (project.forge_override !== undefined || project.unset_forge_override)
+				...(!error && (typeof project.forge_override === "string" || project.unset_forge_override)
 					? [
 							invalidatesType(ReduxTag.ForgeProvider),
 							invalidatesType(ReduxTag.PullRequests),

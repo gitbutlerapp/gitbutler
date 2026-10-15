@@ -28,7 +28,6 @@
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { CardGroup, Select, SelectItem } from "@gitbutler/ui-svelte";
 
-	import type { Project } from "$lib/project/project";
 	import type {
 		BitbucketAccountIdentifier,
 		ForgeName,
@@ -97,14 +96,12 @@
 	function handleSelectionChange(selectedOption: ForgeSelection) {
 		if (!project) return;
 
-		const mutableProject: Project & { unset_forge_override?: boolean } = structuredClone(project);
-
-		if (selectedOption === "default") {
-			mutableProject.unset_forge_override = true;
-		} else {
-			mutableProject.forge_override = selectedOption;
-		}
-		projectsService.updateProject(mutableProject);
+		projectsService.updateProject({
+			id: project.id,
+			...(selectedOption === "default"
+				? { unset_forge_override: true }
+				: { forge_override: selectedOption }),
+		});
 	}
 
 	async function updatePreferredForgeUser(projectId: string, forgeUser: ForgeUser) {

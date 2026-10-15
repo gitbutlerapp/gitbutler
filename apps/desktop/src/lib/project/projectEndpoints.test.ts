@@ -44,6 +44,24 @@ describe("project cache tags", () => {
 		]);
 	});
 
+	test("a null override does not invalidate forge queries", () => {
+		const tags = buildProjectEndpoints(createEndpointBuilder()).updateProject.invalidatesTags;
+		if (typeof tags !== "function") {
+			throw new Error("Expected updateProject.invalidatesTags to be callable");
+		}
+		expect(
+			tags(
+				undefined,
+				undefined,
+				{ project: { id: "project-1", forge_override: null } as unknown as Project },
+				undefined,
+			),
+		).toEqual([
+			{ type: ReduxTag.Project, id: "project-1" },
+			{ type: ReduxTag.Project, id: "LIST" },
+		]);
+	});
+
 	test("setGbConfig invalidates its project item", () => {
 		const endpoints = buildGitEndpoints(createEndpointBuilder());
 		const tags = endpoints.setGbConfig.invalidatesTags;
