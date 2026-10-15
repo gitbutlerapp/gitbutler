@@ -153,10 +153,6 @@ impl std::fmt::Debug for Outcome {
 /// Options for [apply()].
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// If not `None`, the applied branch should be merged into the workspace commit at the N'th parent position.
-    /// This is useful if the tip of a branch (at a specific position) was unapplied, and a segment within that branch
-    /// should now be re-applied, but of course, be placed at the same spot and not end up at the end of the workspace.
-    pub order: Option<usize>,
     /// Create new stack id, which by default is a function that generates a new StackId.
     pub new_stack_id: Option<fn(&gix::refs::FullNameRef) -> StackId>,
     /// By default applying branches that are already applied is considered an error. Setting this
@@ -201,7 +197,6 @@ pub fn apply(
     repo: &gix::Repository,
     meta: &mut impl RefMetadata,
     Options {
-        order,
         new_stack_id,
         allow_applying_already_applied_branch_when_outside_workspace,
     }: Options,
@@ -284,7 +279,7 @@ pub fn apply(
                 .as_ref()
                 .context("Workspace metadata must be available to repair stale applied state")?;
             let mut ws_md = meta.workspace(ws_ref_name.as_ref())?;
-            add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), order, new_stack_id);
+            add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), new_stack_id);
             persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
         }
         let ws = ws
@@ -437,7 +432,7 @@ pub fn apply(
             }
         }
         for rn in &branches_to_apply {
-            add_branch_as_stack_forcefully(ws_mut, rn.as_ref(), order, new_stack_id);
+            add_branch_as_stack_forcefully(ws_mut, rn.as_ref(), new_stack_id);
         }
     }
     let ws_md_retry_base = ws_md.clone();
@@ -614,7 +609,7 @@ pub fn apply(
             .iter()
             .filter(|rn| !unapplied_branches.contains(rn))
         {
-            add_branch_as_stack_forcefully(ws_mut, branch_to_add.as_ref(), order, new_stack_id);
+            add_branch_as_stack_forcefully(ws_mut, branch_to_add.as_ref(), new_stack_id);
         }
         for rn in &unapplied_branches {
             // Here we have to check if the new ref would be able to become its own stack,
@@ -944,11 +939,10 @@ fn find_superseded_stacks(
 fn add_branch_as_stack_forcefully(
     ws_md: &mut Workspace,
     rn: &FullNameRef,
-    order: Option<usize>,
     new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
 ) {
     let (stack_idx, branch_idx) =
-        ws_md.add_or_insert_new_stack_if_not_present(rn, order, Merged, new_stack_id);
+        ws_md.add_or_insert_new_stack_if_not_present(rn, None, Merged, new_stack_id);
 
     let stack = &mut ws_md.stacks[stack_idx];
     if branch_idx != 0 && !stack.is_in_workspace() {

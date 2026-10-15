@@ -25,7 +25,6 @@ pub(crate) fn apply(
         &repo,
         &mut meta,
         but_workspace::branch::apply::Options {
-            order: None,
             new_stack_id: None,
             ..Default::default()
         },
