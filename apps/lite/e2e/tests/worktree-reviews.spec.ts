@@ -1,10 +1,13 @@
 import type { ForgeInfo, ForgeReview } from "@gitbutler/but-sdk";
-import { expect, test as base } from "../test.ts";
+import { expect, test as base, worktreeAppSettings } from "../test.ts";
 
 const test = base.extend<{ reviews: Array<ForgeReview> }>({
 	reviews: [[], { option: true }],
 });
-test.use({ scenario: "project-in-single-branch-with-worktree.sh" });
+test.use({
+	scenario: "project-in-single-branch-with-worktree.sh",
+	appSettings: worktreeAppSettings,
+});
 
 const review: ForgeReview = {
 	number: 2,

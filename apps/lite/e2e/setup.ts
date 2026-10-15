@@ -60,6 +60,16 @@ export const createLiteTestEnvironment = (): LiteTestEnvironment => {
 	return { appDataDir, electronUserDataDir, gitConfig, rootDir, workdir };
 };
 
+/** Write the GitButler app settings, which the backend and the CLI read from the app data dir. */
+export const writeAppSettings = (
+	environment: LiteTestEnvironment,
+	settings: Record<string, unknown>,
+): void => {
+	const settingsDir = path.join(environment.appDataDir, "gitbutler");
+	mkdirSync(settingsDir, { recursive: true });
+	writeFileSync(path.join(settingsDir, "settings.json"), JSON.stringify(settings, null, "\t"));
+};
+
 export const removeLiteTestEnvironment = (environment: LiteTestEnvironment): void => {
 	rmSync(environment.rootDir, { force: true, maxRetries: 3, recursive: true, retryDelay: 100 });
 };
