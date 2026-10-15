@@ -152,20 +152,6 @@ impl std::fmt::Debug for Outcome {
     }
 }
 
-/// How the newly applied branch should be merged into the workspace commit.
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
-pub enum WorkspaceMerge {
-    /// Do nothing but to merge it into the workspace commit, *even* if it's not needed as the workspace reference
-    /// can connect directly with the *one* workspace base.
-    /// This also ensures that there is a workspace merge commit, even if it is none-sensical.
-    #[default]
-    AlwaysMerge,
-    /// Only create a merge commit if a new commit is effectively merged in. This avoids *unnecessary* merge commits,
-    /// but also requires support for this when creating commits (which may then have to create a merge-commit themselves).
-    // TODO: make this the default
-    MergeIfNeeded,
-}
-
 /// Decide how a newly created workspace reference should be named.
 #[derive(Default, Debug, Clone)]
 pub enum WorkspaceReferenceNaming {
@@ -179,8 +165,6 @@ pub enum WorkspaceReferenceNaming {
 /// Options for [apply()].
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// How the branch should be brought into the workspace.
-    pub workspace_merge: WorkspaceMerge,
     /// Decide how to deal with conflicts when creating the workspace merge commit to bring in each stack.
     pub on_workspace_conflict: OnWorkspaceMergeConflict,
     /// How the workspace reference should be named should it be created.
@@ -234,7 +218,6 @@ pub fn apply(
     repo: &gix::Repository,
     meta: &mut impl RefMetadata,
     Options {
-        workspace_merge: integration_mode,
         on_workspace_conflict,
         workspace_reference_naming,
         order,
@@ -550,7 +533,7 @@ pub fn apply(
         let ws_commit_with_new_message = ws_commit_with_new_message.id.detach();
         let (graph, new_head_id) = if (ws_commit_with_new_message != head_id
             && ws.kind.has_managed_commit())
-            || needs_workspace_commit_without_remerge(&ws, integration_mode)
+            || needs_workspace_commit_without_remerge(&ws)
         {
             let graph = ws.graph.redo_traversal_with_overlay(
                 repo,
@@ -1077,20 +1060,14 @@ fn set_head_to_reference(
     Ok(())
 }
 
-fn needs_workspace_commit_without_remerge(
-    ws: &but_graph::Workspace,
-    integration_mode: WorkspaceMerge,
-) -> bool {
-    match integration_mode {
-        WorkspaceMerge::AlwaysMerge => match ws.kind {
-            WorkspaceKind::Managed { .. } => false,
-            WorkspaceKind::AdHoc => {
-                // If it's still ad-hoc, there must be a reason, and we don't try to create a managed commit
-                false
-            }
-            WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => true,
-        },
-        WorkspaceMerge::MergeIfNeeded => false,
+fn needs_workspace_commit_without_remerge(ws: &but_graph::Workspace) -> bool {
+    match ws.kind {
+        WorkspaceKind::Managed { .. } => false,
+        WorkspaceKind::AdHoc => {
+            // If it's still ad-hoc, there must be a reason, and we don't try to create a managed commit
+            false
+        }
+        WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => true,
     }
 }
 

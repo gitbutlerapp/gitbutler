@@ -10,11 +10,7 @@ use but_core::{
     RefMetadata, WORKSPACE_REF_NAME, ref_metadata,
     ref_metadata::{StackId, StackKind, WorkspaceCommitRelation::Outside},
 };
-use but_graph::{
-    Graph,
-    init::{Overlay, Tip},
-    workspace::WorkspaceKind,
-};
+use but_graph::{Graph, init::Tip, workspace::WorkspaceKind};
 use but_testsupport::{
     CommandExt, InMemoryRefMetadata, git, graph_workspace, graph_workspace_determinisitcally,
     id_at, id_by_rev, sanitize_uuids_and_timestamps, visualize_commit_graph_all,
@@ -22,7 +18,7 @@ use but_testsupport::{
 };
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
-    apply::{OutcomeStatus, WorkspaceMerge, WorkspaceReferenceNaming},
+    apply::{OutcomeStatus, WorkspaceReferenceNaming},
     unapply::WorkspaceDisposition,
 };
 use gix::refs::{Category, transaction::PreviousValue};
@@ -400,7 +396,7 @@ Outcome {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
+📕🏘️:gitbutler/workspace[🌳] <> ✓! on e5d0542
 └── ≡📙:B on e5d0542 {1}
     └── 📙:B
 
@@ -413,7 +409,7 @@ Outcome {
     snapbox::assert_data_eq!(
         graph_workspace(&graph(&repo, &meta, &mut db)?.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
+📕🏘️:gitbutler/workspace[🌳] <> ✓! on e5d0542
 ├── ≡📙:B on e5d0542 {1}
 │   └── 📙:B
 └── ≡📙:A on e5d0542 {41}
@@ -426,7 +422,9 @@ Outcome {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A
+* 5ecf7a4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
+* e5d0542 (main, B, A) A
 
 "#]]
     );
@@ -723,7 +721,7 @@ Outcome {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
 └── ≡📙:A on e5d0542 {41}
     └── 📙:A
 
@@ -818,7 +816,7 @@ Outcome {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
 └── ≡📙:A on e5d0542 {41}
     └── 📙:A
 
@@ -843,7 +841,7 @@ Outcome {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
 └── ≡📙:A on e5d0542 {41}
     └── 📙:A
 
@@ -1316,17 +1314,19 @@ Outcome {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
+📕🏘️:gitbutler/workspace[🌳] <> ✓! on e5d0542
 └── ≡📙:A on e5d0542 {41}
     └── 📙:A
 
 "#]]
     );
-    // No commit was created, as it's not enabled by default.
+    // If the user is checked out on gitbutler/workspace but is missing a workspace commit, we
+    // always create one.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A
+* 6277161 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* e5d0542 (main, B, A) A
 
 "#]]
     );
@@ -1350,7 +1350,7 @@ Outcome {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
+📕🏘️:gitbutler/workspace[🌳] <> ✓! on e5d0542
 ├── ≡📙:A on e5d0542 {41}
 │   └── 📙:A
 └── ≡📙:B on e5d0542 {42}
@@ -1359,11 +1359,14 @@ Outcome {
 "#]]
     );
 
-    // Nothing changed visibly, still, it's all in the metadata.
+    // If the user is checked out on gitbutler/workspace but is missing a workspace commit, we
+    // always create one.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A
+* 452772e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
+* e5d0542 (main, B, A) A
 
 "#]]
     );
@@ -1626,7 +1629,7 @@ Outcome {
         graph_workspace(&blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?)
             .to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
+📕🏘️:gitbutler/workspace[🌳] <> ✓!
 ├── ≡📙:main {1a5}
 │   └── 📙:main
 │       └── ·e5d0542 (🏘️) ►B
@@ -1637,11 +1640,14 @@ Outcome {
 "#]]
     );
 
-    // No commit was created, as it's not enabled by default, but a ws-ref was created, and it's checked out.
+    // If the user is checked out on gitbutler/workspace but is missing a workspace commit, we
+    // always create one.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, origin/main, main, B, A) A
+* 9e7cdf5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
+* e5d0542 (origin/main, main, B, A) A
 
 "#]]
     );
@@ -1674,7 +1680,7 @@ Outcome {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
+📕🏘️:gitbutler/workspace[🌳] <> ✓!
 ├── ≡📙:main {1a5}
 │   └── 📙:main
 │       └── ·e5d0542 (🏘️)
@@ -1688,103 +1694,15 @@ Outcome {
 "#]]
     );
 
-    // Nothing changed visibly, still, it's all in the metadata.
+    // If the user is checked out on gitbutler/workspace but is missing a workspace commit, we
+    // always create one.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, origin/main, main, B, A) A
-
-"#]]
-    );
-
-    // Reset the workspace to 'unapply', but keep the per-branch metadata.
-    let mut ws_md = meta.workspace(ws.ref_name().expect("proper gb workspace"))?;
-    for stack in &mut ws_md.stacks {
-        stack.workspacecommit_relation = Outside;
-    }
-    meta.set_workspace(&ws_md)?;
-
-    let ws = ws
-        .graph
-        .redo_traversal_with_overlay(&repo, &meta, Overlay::default())?
-        .into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
-└── ≡:anon: {41}
-    └── :anon:
-        └── ·e5d0542 (🏘️) ►A, ►B, ►main
-
-"#]]
-    );
-
-    but_workspace::branch::apply(
-        r("refs/heads/A"),
-        ws,
-        &repo,
-        &mut meta,
-        but_workspace::branch::apply::Options {
-            workspace_merge: WorkspaceMerge::AlwaysMerge,
-            ..apply_options()
-        },
-    )?;
-    // A workspace commit was created, even though it does nothing.
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* 6277161 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*[31m-[m[31m.[m 0b1e061 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/ /
+|/  
 * e5d0542 (origin/main, main, B, A) A
-
-"#]]
-    );
-
-    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-└── ≡📙:A {41}
-    └── 📙:A
-        └── ·e5d0542 (🏘️) ►B, ►main
-
-"#]]
-    );
-
-    but_workspace::branch::apply(
-        r("refs/heads/B"),
-        ws,
-        &repo,
-        &mut meta,
-        but_workspace::branch::apply::Options {
-            workspace_merge: WorkspaceMerge::AlwaysMerge,
-            ..apply_options()
-        },
-    )?;
-
-    // It's idempotent, but has to update the workspace commit nonetheless for the comment, which depends on the stacks.
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* 5ecf7a4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\
-* e5d0542 (origin/main, main, B, A) A
-
-"#]]
-        .raw()
-    );
-
-    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓!
-├── ≡📙:B {42}
-│   └── 📙:B
-│       └── ·e5d0542 (🏘️) ►main
-└── ≡📙:A {41}
-    └── 📙:A
-        └── ·e5d0542 (🏘️) ►main
 
 "#]]
     );
@@ -1834,18 +1752,20 @@ Outcome {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
 └── ≡📙:A on e5d0542 {41}
     └── 📙:A
 
 "#]]
     );
 
-    // No commit was created, as it's not enabled by default, but a ws-ref was created, and it's checked out.
+    // If the user is checked out on gitbutler/workspace but is missing a workspace commit, we
+    // always create one.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, origin/main, main, B, A) A
+* 6277161 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* e5d0542 (origin/main, main, B, A) A
 
 "#]]
     );
@@ -1867,7 +1787,7 @@ Outcome {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
 ├── ≡📙:A on e5d0542 {41}
 │   └── 📙:A
 └── ≡📙:B on e5d0542 {42}
@@ -1876,11 +1796,14 @@ Outcome {
 "#]]
     );
 
-    // Nothing changed visibly, still, it's all in the metadata.
+    // If the user is checked out on gitbutler/workspace but is missing a workspace commit, we
+    // always create one.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, origin/main, main, B, A) A
+* 452772e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
+* e5d0542 (origin/main, main, B, A) A
 
 "#]]
     );
@@ -2506,7 +2429,7 @@ Outcome {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
+📕🏘️:gitbutler/workspace[🌳] <> ✓!
 ├── ≡📙:B {42}
 │   └── 📙:B
 │       └── ·e5d0542 (🏘️) ►main
@@ -2521,7 +2444,9 @@ Outcome {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A
+* 5ecf7a4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
+* e5d0542 (main, B, A) A
 
 "#]]
     );
@@ -3224,11 +3149,6 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
 "#]]
     );
 
-    assert_eq!(
-        apply_options().workspace_merge,
-        WorkspaceMerge::MergeIfNeeded
-    );
-
     // Add another stack to be sure we correctly handle the removal of existing stacks later (i.e. don't get the index wrong)
     let out = but_workspace::branch::apply(
         r("refs/heads/unrelated"),
@@ -3626,226 +3546,6 @@ Outcome {
 "#]]
     );
 
-    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    // the actual HEAD is ignored, and we only see C (instead of C + HEAD-ref)
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
-└── ≡📙:C on 3183e43 {43}
-    └── 📙:C
-        └── ·aaa195b (🏘️)
-
-"#]]
-    );
-    // A new workspace reference was created, and checked out, without enforcing a workspace commit
-    // as there is no need.
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* 49d4b34 (A) A1
-| * f57c528 (B) B1
-|/  
-| * aaa195b (HEAD -> gitbutler/workspace, C) C1
-|/  
-* 3183e43 (main) M1
-
-"#]]
-    );
-
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
-
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    workspace_ref_created: false,
-    applied_branches: "[refs/heads/B]",
-}
-
-"#]]
-    );
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* 49d4b34 (A) A1
-| *   fdec130 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| |\  
-| | * f57c528 (B) B1
-| |/  
-|/|   
-| * aaa195b (C) C1
-|/  
-* 3183e43 (main) M1
-
-"#]]
-        .raw()
-    );
-
-    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:C on 3183e43 {43}
-│   └── 📙:C
-│       └── ·aaa195b (🏘️)
-└── ≡📙:B on 3183e43 {42}
-    └── 📙:B
-        └── ·f57c528 (🏘️)
-
-"#]]
-    );
-
-    let out = but_workspace::branch::apply(
-        r("refs/heads/A"),
-        ws,
-        &repo,
-        &mut meta,
-        but_workspace::branch::apply::Options {
-            // Make 'A' appear at the front.
-            order: Some(0),
-            ..apply_options()
-        },
-    )?;
-
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    workspace_ref_created: false,
-    applied_branches: "[refs/heads/A]",
-}
-
-"#]]
-    );
-    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:A on 3183e43 {41}
-│   └── 📙:A
-│       └── ·49d4b34 (🏘️)
-├── ≡📙:C on 3183e43 {43}
-│   └── 📙:C
-│       └── ·aaa195b (🏘️)
-└── ≡📙:B on 3183e43 {42}
-    └── 📙:B
-        └── ·f57c528 (🏘️)
-
-"#]]
-    );
-
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-*-.   951ff29 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\ \  
-| | * f57c528 (B) B1
-| * | aaa195b (C) C1
-| |/  
-* / 49d4b34 (A) A1
-|/  
-* 3183e43 (main) M1
-
-"#]]
-        .raw()
-    );
-
-    let out = but_workspace::branch::unapply(
-        r("refs/heads/A"),
-        &ws,
-        &repo,
-        &mut meta,
-        unapply_options(),
-    )?;
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    checked_out: None,
-}
-
-"#]]
-    );
-    let ws = out.workspace.into_owned();
-    // A was removed
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:C on 3183e43 {43}
-│   └── 📙:C
-│       └── ·aaa195b (🏘️)
-└── ≡📙:B on 3183e43 {42}
-    └── 📙:B
-        └── ·f57c528 (🏘️)
-
-"#]]
-    );
-
-    let out = but_workspace::branch::unapply(
-        r("refs/heads/B"),
-        &ws,
-        &repo,
-        &mut meta,
-        unapply_options(),
-    )?;
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    checked_out: None,
-}
-
-"#]]
-    );
-    let ws = out.workspace.into_owned();
-    // B was removed
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
-└── ≡📙:C on 3183e43 {43}
-    └── 📙:C
-        └── ·aaa195b (🏘️)
-
-"#]]
-    );
-
-    let out = but_workspace::branch::unapply(
-        r("refs/heads/C"),
-        &ws,
-        &repo,
-        &mut meta,
-        unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
-    )
-    .expect("C can be removed");
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    checked_out: None,
-}
-
-"#]]
-    );
-    let ws = out.workspace.into_owned();
-    // the workspace reference remains checked out and empty because no non-stack fallback exists
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 3183e43
-
-"#]]
-    );
     Ok(())
 }
 
@@ -5360,227 +5060,13 @@ Outcome {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
+📕🏘️:gitbutler/workspace[🌳] <> ✓!
 ├── ≡📙:A {1}
 │   └── 📙:A
 │       └── ·e5d0542 (🏘️) ►main
 └── ≡📙:B {2}
     └── 📙:B
         └── ·e5d0542 (🏘️) ►main
-
-"#]]
-    );
-    // Even though the real repo seemingly didn't change, after all, our entrypoint was just 'virtual'.
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A
-
-"#]]
-    );
-
-    // make "A" an applied dependent branch that is included in B so apply will do nothing.
-    meta.data_mut().branches.clear();
-    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["A"]);
-
-    let (b_id, b_ref) = id_at(&repo, "B");
-
-    let ws = but_graph::Graph::from_commit_traversal(
-        b_id,
-        b_ref.clone(),
-        &meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_traversal_options(),
-    )?
-    .into_workspace()?;
-    // V-branch B is checked out
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-⌂:B <> ✓!
-└── ≡:B {1}
-    └── :B
-        └── ·e5d0542 (🏘️) ►A, ►main
-
-"#]]
-    );
-
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
-    // Nothing changed, the desired branch was already applied
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    workspace_ref_created: false,
-    applied_branches: "[refs/heads/B, refs/heads/A]",
-}
-
-"#]]
-    );
-
-    // There is no known branch, and adding it will just add metadata.
-    meta.data_mut().branches.clear();
-    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    // There is nothing yet.
-    // metadata defines no branches
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
-
-"#]]
-    );
-
-    // Apply the first branch, it must be independent.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
-    assert_eq!(
-        out.status,
-        OutcomeStatus::Applied,
-        "already-visible branches should report a successful apply"
-    );
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    workspace_ref_created: false,
-    applied_branches: "[refs/heads/A]",
-}
-
-"#]]
-    );
-    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
-└── ≡📙:A on e5d0542 {41}
-    └── 📙:A
-
-"#]]
-    );
-
-    // Apply the first branch, it must be independent.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    workspace_ref_created: false,
-    applied_branches: "[refs/heads/B]",
-}
-
-"#]]
-    );
-    // B is added as independent stack
-    snapbox::assert_data_eq!(
-        graph_workspace(&graph(&repo, &meta, &mut db)?.into_workspace()?).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
-├── ≡📙:A on e5d0542 {41}
-│   └── 📙:A
-└── ≡📙:B on e5d0542 {42}
-    └── 📙:B
-
-"#]]
-    );
-
-    let (b_id, b_ref) = id_at(&repo, "B");
-    let ws = but_graph::Graph::from_commit_traversal(
-        b_id,
-        b_ref.clone(),
-        &meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_traversal_options(),
-    )?
-    .into_workspace()?;
-    // the same result when checked out directly
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-⌂:B <> ✓!
-└── ≡:B {1}
-    └── :B
-        └── ·e5d0542 (🏘️) ►A, ►main
-
-"#]]
-    );
-
-    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    let out = but_workspace::branch::unapply(
-        r("refs/heads/A"),
-        &ws,
-        &repo,
-        &mut meta,
-        unapply_options(),
-    )?;
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    checked_out: None,
-}
-
-"#]]
-    );
-
-    let ws = out.workspace.into_owned();
-    // the workspace is empty again
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
-└── ≡📙:B on e5d0542 {42}
-    └── 📙:B
-
-"#]]
-    );
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A
-
-"#]]
-    );
-
-    let out = but_workspace::branch::unapply(
-        r("refs/heads/B"),
-        &ws,
-        &repo,
-        &mut meta,
-        unapply_options(),
-    )?;
-    snapbox::assert_data_eq!(
-        out.to_debug(),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    checked_out: None,
-}
-
-"#]]
-    );
-    let ws = out.workspace.into_owned();
-    // the workspace is empty again
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
-
-"#]]
-    );
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A
 
 "#]]
     );
@@ -5903,8 +5389,6 @@ Outcome {
 
 fn apply_options() -> but_workspace::branch::apply::Options {
     but_workspace::branch::apply::Options {
-        // TODO: make this the Default once it's MergeIfNeeded.
-        workspace_merge: WorkspaceMerge::MergeIfNeeded,
         on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
         workspace_reference_naming: WorkspaceReferenceNaming::Default,
         order: None,
