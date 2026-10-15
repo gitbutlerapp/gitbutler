@@ -7,7 +7,7 @@ use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::Headers};
 use but_error::bail_precondition;
 use but_rebase::graph_rebase::{
-    Editor, LookupStep, SuccessfulRebase, ToSelector,
+    Editor, LookupStep, Pick, Step, SuccessfulRebase, ToSelector,
     mutate::{SegmentDelimiter, SelectorSet},
 };
 
@@ -167,13 +167,27 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
         EdgeSelection::Children,
     )?;
     let integration_commit_ids = integration_step_commit_ids(&integration.steps);
-    let children_to_reconnect = children_to_reconnect
+    // Commits outside the workspace, like the side of a remote merge, can hang off the
+    // branch reference because their parent is the branch's old tip. They can't be
+    // rewritten, so they stay on that old tip instead of following the moved reference.
+    let old_tip = {
+        let mut parents = editor.direct_parents(delimiter_child)?;
+        parents.sort_by_key(|(_, order)| *order);
+        parents.first().map(|(selector, _)| *selector)
+    };
+    let (children_of_old_tip, children_to_reconnect): (Vec<_>, Vec<_>) = children_to_reconnect
         .into_iter()
         .filter(|(selector, _)| match editor.lookup_pick(*selector) {
             Ok(commit_id) => !integration_commit_ids.contains(&commit_id),
             Err(_) => true,
         })
-        .collect::<Vec<_>>();
+        .partition(|(selector, _)| {
+            old_tip.is_some()
+                && matches!(
+                    editor.lookup_step(*selector),
+                    Ok(Step::Pick(Pick { mutable: false, .. }))
+                )
+        });
     let parents_to_reconnect = selected_edges_from_set(
         &editor,
         segment_delimiter.parent,
@@ -210,6 +224,11 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
         &children_to_reconnect,
         &parents_to_reconnect,
     )?;
+    if let Some(old_tip) = old_tip {
+        for (child, order) in children_of_old_tip {
+            editor.add_edge(child, old_tip, order)?;
+        }
+    }
 
     editor.rebase()
 }

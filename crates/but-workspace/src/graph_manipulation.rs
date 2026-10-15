@@ -255,10 +255,11 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
 /// occupies it.
 ///
 /// `parents` are the previously captured parent edges that should be restored
-/// from `delimiter.parent`, with fresh order values appended after any existing
-/// parents already connected there. If a parent is already connected to
-/// `delimiter.parent`, no new edge is added. Otherwise, the appended order is
+/// from `delimiter.parent`. If a parent is already connected to
+/// `delimiter.parent`, no new edge is added. Otherwise, the captured order is
 /// reused when available, or advanced to the next free order on collision.
+/// Parents that `delimiter.parent` kept, like the side parents of a merge, sit
+/// above order 0, so a restored first parent stays first.
 ///
 /// Returns `Ok(())` after the captured child and parent edges have been
 /// reattached to the rebuilt segment.
@@ -283,14 +284,6 @@ pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
         )?;
     }
 
-    let parent_order_offset = editor
-        .direct_parents(delimiter.parent)?
-        .into_iter()
-        .map(|(_, order)| order)
-        .max()
-        .map(|max| max + 1)
-        .unwrap_or(0);
-
     for (parent, order) in parents {
         let direct_parents = editor.direct_parents(delimiter.parent)?;
         if direct_parents
@@ -299,7 +292,6 @@ pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
         {
             continue;
         }
-        let desired_order = parent_order_offset + *order;
         editor.add_edge(
             delimiter.parent,
             *parent,
@@ -307,7 +299,7 @@ pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
                 direct_parents
                     .iter()
                     .map(|(_, existing_order)| *existing_order),
-                desired_order,
+                *order,
             ),
         )?;
     }
