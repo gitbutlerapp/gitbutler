@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { t } from "$lib/i18n";
+
 	export type GerritPushModalProps = {
 		projectId: string;
 		stackId?: string;
@@ -130,7 +132,7 @@
 			label="Topic"
 			bind:value={topicValue}
 			oninput={handleTopicInput}
-			placeholder="Enter topic name"
+			placeholder={t("enter-topic-name")}
 			wide
 		/>
 
@@ -147,7 +149,7 @@
 	{#snippet controls(close)}
 		<label class="toggle-wrapper">
 			<Toggle id="private-toggle" bind:checked={isPrivate} />
-			<span class="text-13 text-body clr-text-2">Mark as private 🔒</span>
+			<span class="text-13 text-body clr-text-2">{t("mark-as-private")}</span>
 		</label>
 		<div class="flex-1 flex justify-end gap-8">
 			<Button kind="outline" onclick={close}>Cancel</Button>

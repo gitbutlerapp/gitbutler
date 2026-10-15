@@ -18,6 +18,7 @@
 		onDragOver,
 	} from "$lib/dragging/reordering";
 	import { WorkspaceAutoPanner } from "$lib/dragging/workspaceAutoPanner";
+	import { t } from "$lib/i18n";
 	import { branchesPath } from "$lib/routes/routes.svelte";
 	import { type SelectionId } from "$lib/selection/key";
 	import { getStackBranchNames, type Stack } from "$lib/stacks/stack";
@@ -297,17 +298,17 @@
 			>
 				{#snippet title()}
 					{#if stacks.length === 0}
-						No branches in Workspace
+						{t("no-branches-in-workspace")}
 					{/if}
 				{/snippet}
 				{#snippet description()}
 					{#if stacks.length === 0}
-						Drop files to start a branch,
+						{t("drop-files-to-start-a-branch")}
 						<br />
 						apply from the
 						<a
 							class="pointer-events underline-dotted clr-text-2 link-hover-2"
-							aria-label="Branches view"
+							aria-label={t("branches-view")}
 							href={branchesPath(projectId)}>branches view</a
 						>
 						↗
@@ -319,7 +320,7 @@
 							onclick={() => createBranchModal?.show()}>create a new branch</button
 						> +
 					{:else}
-						Drop files to start a branch,
+						{t("drop-files-to-start-a-branch")}
 						<br />
 						or
 						<button

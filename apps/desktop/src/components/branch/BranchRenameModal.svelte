@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { t } from "$lib/i18n";
+
 	export type BranchRenameModalProps = {
 		projectId: string;
 		stackId?: string;
@@ -57,7 +59,7 @@
 >
 	<BranchNameTextbox
 		bind:this={branchNameInput}
-		placeholder="New name"
+		placeholder={t("new-name")}
 		id={ElementId.NewBranchNameInput}
 		bind:value={newName}
 		autofocus
@@ -67,8 +69,7 @@
 
 	{#if isPushed}
 		<div class="text-12 helper-text">
-			Renaming a branch that has already been pushed will create a new branch at the remote. The old
-			one will remain untouched but will be disassociated from this branch.
+			{t("renaming-a-branch-that-has-already-been-pushed-will-create-a")}
 		</div>
 	{/if}
 

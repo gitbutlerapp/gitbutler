@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { t } from "$lib/i18n";
+
 	import {
 		changeIntegrationStepDraftKind,
 		type CommitPickerOption,
@@ -48,7 +50,7 @@
 		onclick={() => (stepDrafts = [])}
 		icon="bin"
 	>
-		Clear steps
+		{t("clear-steps")}
 	</Button>
 
 	<Button
@@ -59,14 +61,14 @@
 		disabled={commitOptions.length === 0}
 		onclick={() => (stepDrafts = [...stepDrafts, createDefaultIntegrationStepDraft(commitOptions)])}
 	>
-		Add step
+		{t("add-step")}
 	</Button>
 </div>
 
 <div class="branch-integration__steps">
 	{#if stepDrafts.length === 0}
 		<div class="branch-integration__empty">
-			No integration steps yet. Add a step to build the plan.
+			{t("no-integration-steps-yet-add-a-step-to-build-the-plan")}
 		</div>
 	{:else}
 		{#each stepDrafts as step, index (step.id)}
@@ -100,7 +102,7 @@
 				<div class="branch-integration__step-fields">
 					<label class="branch-integration__field">
 						<select
-							aria-label="Integration step type"
+							aria-label={t("integration-step-type")}
 							value={step.kind}
 							onchange={(event) =>
 								(stepDrafts = stepDrafts.map((candidate) =>
@@ -146,7 +148,7 @@
 						{/each}
 						<label class="branch-integration__field branch-integration__field--full">
 							<textarea
-								aria-label="Squash commit message"
+								aria-label={t("squash-commit-message")}
 								rows="3"
 								value={step.message}
 								oninput={(event) =>
@@ -163,7 +165,7 @@
 					{:else}
 						<label class="branch-integration__field branch-integration__field--full">
 							<select
-								aria-label="Integration commit"
+								aria-label={t("integration-commit")}
 								value={step.commitId}
 								onchange={(event) =>
 									(stepDrafts = stepDrafts.map((candidate) =>

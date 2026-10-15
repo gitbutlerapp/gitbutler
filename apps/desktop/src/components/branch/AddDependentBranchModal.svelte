@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { t } from "$lib/i18n";
+
 	export type AddDependentBranchModalProps = {
 		projectId: string;
 		stackId: string;
@@ -55,7 +57,7 @@
 >
 	<div class="content-wrap">
 		<BranchNameTextbox
-			placeholder="Branch name"
+			placeholder={t("branch-name")}
 			bind:value={branchName}
 			autofocus
 			onnormalizedvalue={(value) => (normalizedRefName = value)}
@@ -69,7 +71,7 @@
 			style="pop"
 			type="submit"
 			disabled={!isBranchNameValid}
-			loading={branchCreation.current.isLoading}>Add branch</Button
+			loading={branchCreation.current.isLoading}>{t("add-branch")}</Button
 		>
 	{/snippet}
 </Modal>

@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { t } from "$lib/i18n";
+
 	import type { RelativeTo, Segment } from "@gitbutler/but-sdk";
 
 	export type BranchHeaderContextData = {
@@ -217,7 +219,7 @@
 		<ContextMenuSection>
 			{#if remoteTrackingBranch && branchName}
 				<ContextMenuItem
-					label="Open in browser"
+					label={t("open-in-browser")}
 					icon="open-in-browser"
 					testId={TestId.BranchHeaderContextMenu_OpenInBrowser}
 					disabled={!branchUrl}
@@ -228,7 +230,7 @@
 				/>
 			{/if}
 			<ContextMenuItem
-				label="Copy branch name"
+				label={t("copy-branch-name")}
 				icon="copy"
 				testId={TestId.BranchHeaderContextMenu_CopyBranchName}
 				onclick={() => {
@@ -243,14 +245,14 @@
 		{#if stackId}
 			<ContextMenuSection>
 				<ContextMenuItemSubmenu
-					label="Create branch"
+					label={t("create-branch")}
 					icon="stack-plus"
 					disabled={isReadOnly || branchCreation.current.isLoading}
 				>
 					{#snippet submenu({ close: closeSubmenu })}
 						<ContextMenuSection>
 							<ContextMenuItem
-								label="Create branch above"
+								label={t("create-branch-above")}
 								testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
 								disabled={isReadOnly}
 								onclick={async () => {
@@ -260,7 +262,7 @@
 								}}
 							/>
 							<ContextMenuItem
-								label="Create branch below"
+								label={t("create-branch-below")}
 								disabled={isReadOnly}
 								onclick={async () => {
 									await handleCreateNewRef(stackId, "below");
@@ -272,7 +274,7 @@
 					{/snippet}
 				</ContextMenuItemSubmenu>
 				<ContextMenuItem
-					label="Add empty commit"
+					label={t("add-empty-commit")}
 					icon="commit-plus"
 					testId={TestId.BranchHeaderContextMenu_AddEmptyCommit}
 					onclick={async () => {
@@ -289,7 +291,7 @@
 				/>
 				{#if branchCommits.length > 1 && branchName}
 					<ContextMenuItem
-						label="Squash all commits"
+						label={t("squash-all-commits")}
 						icon="commit-double-chevron-down"
 						testId={TestId.BranchHeaderContextMenu_SquashAllCommits}
 						onclick={async () => {
@@ -307,7 +309,7 @@
 			<ContextMenuSection>
 				{#if $aiGenEnabled && aiConfigurationValid && !remoteTrackingBranch && stackId && branchName}
 					<ContextMenuItem
-						label="Generate branch name"
+						label={t("generate-branch-name")}
 						icon="edit-ai"
 						testId={TestId.BranchHeaderContextMenu_GenerateBranchName}
 						disabled={isReadOnly || !hasCommits}
@@ -434,7 +436,7 @@
 		{#if stackId && first}
 			<ContextMenuSection>
 				<ContextMenuItem
-					label="Unapply Stack"
+					label={t("unapply-stack")}
 					icon="eject"
 					testId={TestId.BranchHeaderContextMenu_UnapplyBranch}
 					disabled={isReadOnly || !isOpenWorkspace}

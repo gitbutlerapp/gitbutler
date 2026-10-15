@@ -4,6 +4,7 @@
 	import SnapshotSection from "$components/history/SnapshotSection.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { createdOnDay, HISTORY_SERVICE } from "$lib/history/history";
+	import { t } from "$lib/i18n";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { toHumanReadableTime } from "$lib/utils/time";
 	import { inject } from "@gitbutler/core/context";
@@ -213,7 +214,7 @@
 			<Button
 				size="tag"
 				kind="outline"
-				tooltip="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
+				tooltip={t("restores-gitbutler-and-your-files-to-the-state-before-this-o")}
 				onclick={() => {
 					onRestoreClick();
 				}}

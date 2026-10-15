@@ -3,6 +3,7 @@
 	import CommitTitle from "$components/commit/CommitTitle.svelte";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { type CommitStatusType } from "$lib/commits/commit";
+	import { t } from "$lib/i18n";
 	import { inject } from "@gitbutler/core/context";
 	import { Avatar, Icon, TestId } from "@gitbutler/ui-svelte";
 	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
@@ -118,7 +119,7 @@
 		bind:this={container}
 		role="button"
 		tabindex="0"
-		aria-label="Commit row"
+		aria-label={t("commit-row")}
 		class="commit-row"
 		class:selected
 		class:active

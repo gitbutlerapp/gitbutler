@@ -8,6 +8,7 @@
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
 	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { t } from "$lib/i18n";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { showToast } from "$lib/notifications/toasts";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -167,7 +168,7 @@
 				kind="ghost"
 				icon="pop-out-bottom-right"
 				size="tag"
-				tooltip="Pop out diff view"
+				tooltip={t("pop-out-diff-view")}
 				onclick={onpopout}
 			/>
 		{/if}

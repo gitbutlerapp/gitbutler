@@ -1,4 +1,6 @@
 <script lang="ts" generics="TAccount">
+	import { t } from "$lib/i18n";
+
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { Button, CardGroup, Link, Select, SelectItem } from "@gitbutler/ui-svelte";
 	import type { Component, Snippet } from "svelte";
@@ -49,18 +51,18 @@
 		{#if hasAccounts}
 			Configure {displayName} integration
 		{:else}
-			Connect your {displayName} account
+			{t("connect-your")} {displayName} account
 		{/if}
 	{/snippet}
 
 	{#snippet caption()}
-		Enable {requestType} creation. Read more in the <Link href={docsUrl}>docs</Link>
+		Enable {requestType} {t("creation-read-more-in-the")} <Link href={docsUrl}>docs</Link>
 	{/snippet}
 
 	{#if !hasAccounts}
 		<div class="flex">
 			<Button onclick={() => openGeneralSettings("integrations")} style="pop" icon="link"
-				>Set up in General Settings</Button
+				>{t("set-up-in-general-settings")}</Button
 			>
 		</div>
 	{:else}

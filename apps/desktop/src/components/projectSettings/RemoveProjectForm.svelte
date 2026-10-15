@@ -2,6 +2,7 @@
 	import { goto } from "$app/navigation";
 	import RemoveProjectButton from "$components/projectSettings/RemoveProjectButton.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -55,10 +56,10 @@
 	{#snippet children(project)}
 		<CardGroup.Item standalone>
 			{#snippet title()}
-				Remove project
+				{t("remove-project-2")}
 			{/snippet}
 			{#snippet caption()}
-				Removing projects only clears configuration — your code stays safe.
+				{t("removing-projects-only-clears-configuration-your-code-stays-")}
 			{/snippet}
 
 			<div>

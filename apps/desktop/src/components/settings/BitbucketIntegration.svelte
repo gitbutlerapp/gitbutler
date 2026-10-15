@@ -3,6 +3,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import bitbucketLogoSvg from "$lib/assets/unsized-logos/bitbucket.svg?raw";
 	import { BITBUCKET_USER_SERVICE } from "$lib/forge/bitbucket/bitbucketUserService.svelte";
+	import { t } from "$lib/i18n";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 
@@ -67,12 +68,12 @@
 			{#snippet error()}
 				<CardGroup.Item>
 					{#snippet title()}
-						Failed to load Bitbucket accounts
+						{t("failed-to-load-bitbucket-accounts")}
 					{/snippet}
 					<Button
 						style="pop"
 						onclick={deleteAllBitbucketAccounts}
-						loading={clearingAllResult.current.isLoading}>Try again</Button
+						loading={clearingAllResult.current.isLoading}>{t("try-again")}</Button
 					>
 				</CardGroup.Item>
 			{/snippet}
@@ -96,7 +97,7 @@
 					{/snippet}
 
 					{#snippet caption()}
-						Allows you to create Pull Requests
+						{t("allows-you-to-create-pull-requests")}
 					{/snippet}
 
 					{#snippet actions()}
@@ -113,20 +114,19 @@
 			<CardGroup>
 				<CardGroup.Item>
 					{#snippet title()}
-						Add Atlassian API Token
+						{t("add-atlassian-api-token")}
 					{/snippet}
 
 					{#snippet caption()}
-						Requires read:user:bitbucket, read:repository:bitbucket, read:pullrequest:bitbucket, and
-						write:pullrequest:bitbucket.
+						{t("requires-read-user-bitbucket-read-repository-bitbucket-read-")}
 						<br />
 						<Link href="https://id.atlassian.com/manage-profile/security/api-tokens"
-							>Create one on id.atlassian.com</Link
+							>{t("create-one-on-id-atlassian-com")}</Link
 						>
 					{/snippet}
 
 					<Textbox
-						label="Atlassian account email"
+						label={t("atlassian-account-email")}
 						size="large"
 						value={emailInput}
 						placeholder="you@example.com"
@@ -134,11 +134,11 @@
 						error={emailError}
 					/>
 					<Textbox
-						label="API token"
+						label={t("api-token")}
 						size="large"
 						type="password"
 						value={tokenInput}
-						placeholder="ATATT************************"
+						placeholder={t("atatt")}
 						oninput={(value) => (tokenInput = value)}
 						error={tokenError}
 					/>
@@ -152,7 +152,7 @@
 							loading={storeApiTokenResult.current.isLoading}
 							onclick={storeBitbucketApiToken}
 						>
-							Add account
+							{t("add-account")}
 						</Button>
 					</div>
 				</CardGroup.Item>
@@ -162,7 +162,7 @@
 </div>
 
 <p class="text-12 text-body bitbucket-integration-settings__text">
-	🔒 Credentials are persisted locally in your OS Keychain / Credential Manager.
+	{t("credentials-are-persisted-locally-in-your-os-keychain-creden")}
 </p>
 
 {#snippet addProfileButton(noAccounts: boolean)}

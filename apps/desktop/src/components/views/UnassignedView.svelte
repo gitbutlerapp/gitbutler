@@ -4,6 +4,7 @@
 	import UnassignedFoldButton from "$components/workspace/UnassignedFoldButton.svelte";
 	import noChanges from "$lib/assets/empty-state/no-new-changes.svg?raw";
 	import { stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
+	import { t } from "$lib/i18n";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
@@ -121,8 +122,8 @@
 						<div class="unassigned-empty">
 							{@html noChanges}
 							<p class="text-13 text-body unassigned-empty-text">
-								You're all caught up!<br />
-								No files need committing
+								{t("you-re-all-caught-up")}<br />
+								{t("no-files-need-committing")}
 							</p>
 						</div>
 					{/snippet}
@@ -152,9 +153,9 @@
 						kind="outline"
 					>
 						{#if isCommitting}
-							Committing…
+							{t("committing")}
 						{:else}
-							Commit to new branch
+							{t("commit-to-new-branch")}
 						{/if}
 					</Button>
 				</div>

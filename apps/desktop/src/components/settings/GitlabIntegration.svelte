@@ -7,6 +7,7 @@
 		gitLabHostError,
 		GITLAB_USER_SERVICE,
 	} from "$lib/forge/gitlab/gitlabUserService.svelte";
+	import { t } from "$lib/i18n";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 
@@ -98,12 +99,12 @@
 			{#snippet error()}
 				<CardGroup.Item>
 					{#snippet title()}
-						Failed to load GitLab accounts
+						{t("failed-to-load-gitlab-accounts")}
 					{/snippet}
 					<Button
 						style="pop"
 						onclick={deleteAllGitLabAccounts}
-						loading={clearingAllResult.current.isLoading}>Try again</Button
+						loading={clearingAllResult.current.isLoading}>{t("try-again")}</Button
 					>
 				</CardGroup.Item>
 			{/snippet}
@@ -127,7 +128,7 @@
 					{/snippet}
 
 					{#snippet caption()}
-						Allows you to create Merge Requests
+						{t("allows-you-to-create-merge-requests")}
 					{/snippet}
 
 					{#snippet actions()}
@@ -144,7 +145,7 @@
 			<CardGroup>
 				<CardGroup.Item>
 					{#snippet title()}
-						Add Personal Access Token
+						{t("add-personal-access-token")}
 					{/snippet}
 
 					<Textbox
@@ -165,7 +166,7 @@
 							loading={storePatResult.current.isLoading}
 							onclick={storePersonalAccessToken}
 						>
-							Add account
+							{t("add-account")}
 						</Button>
 					</div>
 				</CardGroup.Item>
@@ -176,11 +177,11 @@
 			<CardGroup>
 				<CardGroup.Item>
 					{#snippet title()}
-						Add Self-Hosted GitLab Account
+						{t("add-self-hosted-gitlab-account")}
 					{/snippet}
 
 					{#snippet caption()}
-						To connect to your self-hosted GitLab API, allow-list it in the app's CSP settings.
+						{t("to-connect-to-your-self-hosted-gitlab-api-allow-list-it-in-t")}
 						<br />
 						See <Link href="https://docs.gitbutler.com/troubleshooting/custom-csp"
 							>docs for details</Link
@@ -188,7 +189,7 @@
 					{/snippet}
 
 					<Textbox
-						label="API Base URL"
+						label={t("api-base-url")}
 						size="large"
 						value={selfHostedHostInput}
 						oninput={(value) => (selfHostedHostInput = value)}
@@ -196,7 +197,7 @@
 						error={selfHostedHostError}
 					/>
 					<Textbox
-						label="Personal Access Token"
+						label={t("personal-access-token")}
 						placeholder="glpat-************************"
 						size="large"
 						type="password"
@@ -214,7 +215,7 @@
 							loading={storeSelfHostedPatResult.current.isLoading}
 							onclick={storeSelfHostedToken}
 						>
-							Add account
+							{t("add-account")}
 						</Button>
 					</div>
 				</CardGroup.Item>

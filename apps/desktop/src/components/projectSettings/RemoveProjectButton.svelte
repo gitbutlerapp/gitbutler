@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { t } from "$lib/i18n";
+
 	import { Button, Modal, TestId } from "@gitbutler/ui-svelte";
 
 	interface Props {
@@ -43,7 +45,7 @@
 	reversedDirection
 	onclick={handleClick}
 >
-	Remove project…
+	{t("remove-project")}
 </Button>
 
 <Modal
@@ -55,13 +57,13 @@
 >
 	<div class="remove-project-description">
 		<p class="text-14 text-body">
-			Are you sure you want to remove
-			<span class="text-bold">{projectTitle}</span> from GitButler?
+			{t("are-you-sure-you-want-to-remove")}
+			<span class="text-bold">{projectTitle}</span>
+			{t("from-gitbutler")}
 		</p>
 
 		<p class="text-12 text-body details-text">
-			When you delete your project from GitButler, your repository doesn't get deleted. It just
-			removes the project from the list, keeping your repository safe and easy to access.
+			{t("when-you-delete-your-project-from-gitbutler-your-repository-")}
 		</p>
 	</div>
 

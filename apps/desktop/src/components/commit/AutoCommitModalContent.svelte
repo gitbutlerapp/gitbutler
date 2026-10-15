@@ -2,6 +2,7 @@
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { t } from "$lib/i18n";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import {
@@ -92,7 +93,7 @@
 
 <div class="auto-commit-modal__wrapper">
 	<ModalHeader sticky={!isScrollTopVisible} closeButton={isDone} oncloseclick={close}
-		>Auto commit changes</ModalHeader
+		>{t("auto-commit-changes")}</ModalHeader
 	>
 
 	<AppScrollableContainer
