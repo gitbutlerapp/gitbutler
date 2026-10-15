@@ -30,8 +30,9 @@ Show details of a commit or branch
 ### but commit [CHANGES]...
 Create a commit
 - `[CHANGES]...` The files or hunks to commit, by CLI ID from but diff. If omitted, everything uncommitted in the checkout but runs in is committed.
-- `-m, --message <MESSAGE>` The message to use for the commit. Can be supplied any amount of times, each value being appended to the preceding ones with a blank line in between. Without -m or --no-message, a terminal opens the editor and a non-interactive run commits with an empty message.
+- `-m, --message <MESSAGE>` The message to use for the commit. Can be supplied any amount of times, each value being appended to the preceding ones with a blank line in between. Without -m, -F or --no-message, a terminal opens the editor and a non-interactive run commits with an empty message.
 - `--no-message` Create the commit without a message
+- `-F, --file <FILE>` Read the commit message from FILE, or from stdin when FILE is -
 - `-b, --branch [<BRANCH>]` Place the commit on the branch BRANCH. With --above or --below, name the new branch created relative to the target branch. The name must not already exist; omit it for a generated name. Cannot be combined with commit or worktree targets. Otherwise, if BRANCH does not exist, it is created as an unstacked branch. If BRANCH is omitted, an unstacked branch with a generated name is created. If BRANCH is a worktree or a branch checked out in one, the commit is placed on the tip of that worktree's branch. Attempting to place a commit on a branch that exists but is not applied is an error.
 - `-A, --above <BRANCH_OR_COMMIT>` Place the commit above BRANCH_OR_COMMIT, which must be an applied branch or commit. If BRANCH_OR_COMMIT is a commit, the new commit is placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, the new commit is placed on a new branch above the targeted branch. Use --branch <NAME> to name it; otherwise a name is generated.
 - `-B, --below <BRANCH_OR_COMMIT>` Place the commit below BRANCH_OR_COMMIT, which must be an applied branch or commit. If BRANCH_OR_COMMIT is a commit, the new commit is placed on the same branch as the targeted commit. If BRANCH_OR_COMMIT is a branch, the new commit is placed on a new branch below the targeted branch. Branches are treated as buckets, meaning that "below a branch" is treated as below the oldest ancestor on that branch. Use --branch <NAME> to name the new branch; otherwise a name is generated. If BRANCH_OR_COMMIT is a worktree, the new commit is placed on the tip of the branch that worktree has checked out.
@@ -129,6 +130,7 @@ Squash commits, branches, or changes
 - `[SOURCES]...` The sources to squash, all of one kind. Commits: squashed into the target. Branches: every commit on them is squashed into the target and the branches are removed; with no target and exactly one branch, that branch is squashed into a single commit. Uncommitted files or hunks, or @ for all of them: squashed into the target. Committed files and hunks from one commit: moved into the target. A target of @ uncommits the sources instead. With --target and no sources, the uncommitted area of the checkout but runs in is used: @, or a linked worktree's.
 - `-m, --message <MESSAGE>` The message to use for the new commit. Can be supplied any number of times, each value being appended to the preceding ones with a blank line in between. Without a message flag, squashing commits or branches opens the editor in a terminal; a non-interactive run skips the editor. This cannot be used when TARGET is the uncommitted area (@).
 - `--no-message` Create the commit without a message. This cannot be used when TARGET is the uncommitted area (@).
+- `-F, --file <FILE>` Read the message for the new commit from FILE, or from stdin when FILE is -. This cannot be used when TARGET is the uncommitted area (@).
 - `-u, --use-target-message` Use the message of the target. The message of the source(s) will be discarded. This cannot be used when TARGET is the uncommitted area (@).
 - `--use-source-message` Use the message of the source(s). The message of the target will be discarded. Cannot be used if <SOURCES> are not committed, if TARGET is the uncommitted area (@), or if moving committed changes between commits.
 - `-t, --target <TARGET>` The target to squash into. If TARGET is a commit the sources will be added to the commit. If TARGET is a branch the sources will be added to that branch's newest commit (its tip). If TARGET is the uncommitted area (@) the sources will be uncommitted. A commit owned by a worktree uncommits into that worktree's area instead, named by its ID (<id>:@).
@@ -142,11 +144,13 @@ Move commits and changes around
 - `--unstack` Unstack <SOURCES> from their current stacks. --unstack does not take an argument, so --unstack <SOURCES> and <SOURCES> --unstack are equivalent. If moving commits or committed changes, use --branch NAME to name the new branch.
 - `-s, --switch` Switch to the destination branch instead of remaining in the GitButler workspace. When moving a branch, switch to the moved branch.
 - `-m, --message <MESSAGE>` The message to use when moving changes into a new commit. Can be supplied any amount of times, each value being appended to the preceding ones with a blank line in between. Without -m, the new commit will get an empty message.
+- `-F, --file <FILE>` Read the new commit's message from FILE, or from stdin when FILE is -
 
 ### but split <SOURCES>...
 Split a commit in two
 - `<SOURCES>...` The committed files and hunks to move into a new commit
 - `-m, --message <MESSAGE>` The message to use for the new commit. Can be supplied any amount of times, each value being appended to the preceding ones with a blank line in between. Without -m, the new commit will get an empty message.
+- `-F, --file <FILE>` Read the new commit's message from FILE, or from stdin when FILE is -
 
 ### but absorb [SOURCE]
 Amend uncommitted changes into the commits they belong to
@@ -219,7 +223,7 @@ Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab
 Create a new review for a branch, force-pushing it first
 - `[BRANCH]` The branch to create a review for. Without it, a terminal prompts for one (or confirms when only one branch lacks a review); a non-interactive run needs it
 - `-m, --message <MESSAGE>` Review title and description: the first line is the title, the rest is the description. A non-interactive run needs -m, -F, or -t
-- `-F, --file <FILE>` Read review title and description from file. The first line is the title, the rest is the description
+- `-F, --file <FILE>` Read review title and description from FILE, or from stdin when FILE is -. The first line is the title, the rest is the description
 - `-s, --skip-force-push-protection` Skip force push protection checks
 - `--no-hooks` Bypass pre-push hooks
 - `-t, --default` Use the default content for the review title and description, skipping any prompts. If the branch contains only a single commit, the commit message will be used

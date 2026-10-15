@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Context as _;
 use but_api::{
     WorkspaceState,
@@ -129,6 +131,7 @@ pub fn commit(
     mut out: IntermediateChannel<'_>,
     args: Platform,
     invoked_from: &InvokedFrom,
+    current_dir: &Path,
 ) -> CliResult<(CommitOutcome, WorkspaceState)> {
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -144,6 +147,7 @@ pub fn commit(
             &head_info,
             &id_map,
             invoked_from,
+            current_dir,
         )?
     };
     Ok(run(
@@ -156,6 +160,7 @@ pub fn commit(
     )?)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn resolve(
     guard: RepoExclusiveGuard,
     ctx: &mut Context,
@@ -164,6 +169,7 @@ fn resolve(
     head_info: &RefInfo,
     id_map: &IdMap,
     invoked_from: &InvokedFrom,
+    current_dir: &Path,
 ) -> CliResult<(
     RepoExclusiveGuard,
     CommitOperation,
@@ -173,6 +179,7 @@ fn resolve(
     let Platform {
         no_message,
         message,
+        file,
         branch,
         empty,
         above,
@@ -288,7 +295,13 @@ fn resolve(
         })?
     };
 
-    let reword_op = CommitMessageSource::from_args(no_message, message, out.format())?;
+    let reword_op = CommitMessageSource::from_args(
+        no_message,
+        message,
+        file.as_ref(),
+        current_dir,
+        out.format(),
+    )?;
 
     Ok((guard, commit_op, commit_selection, reword_op))
 }

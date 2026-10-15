@@ -186,6 +186,12 @@ Create a commit. Changes are positional CLI IDs; where the commit goes is a flag
 but commit -b <branch> -m "message"          # Commit ALL uncommitted changes of this checkout to branch
 but commit -b <branch> -m "message" <id> <id>  # Commit specific files or hunks by CLI ID
 but commit -b <branch> -m "msg" -m "body"    # Repeat -m; parts joined by a blank line
+but commit -b <branch> -F - <<'EOF'          # Multiline message from stdin; quotes and $ kept as written
+Subject
+
+Body
+EOF
+but commit -b <branch> -F <file>             # Message from a file outside the repository
 but commit --above <target> -m "message" <id>  # Place the commit above a commit or branch
 but commit --below <target> -m "message" <id>  # Place the commit below a commit or branch
 but commit --above <branch> -b <new-name> -m "message"  # Commit on a new named branch above it
@@ -255,6 +261,8 @@ need no flag:
 
 ```bash
 -m "msg"                # New message; repeat -m to append paragraphs
+-F -                    # New message from stdin (heredoc); quotes and $ kept as written
+-F <file>               # New message from a file outside the repository
 --no-message            # No message
 -u, --use-target-message  # Keep the target's message, drop the sources'
 --use-source-message      # Keep the sources' message, drop the target's
@@ -317,21 +325,27 @@ or `--unstack` to name the new branch; omit it for a generated name. This does n
 existing branch: naming is not supported when stacking or unstacking a branch source.
 
 For committed-change sources, `-m/--message` sets the new commit's message; repeat `-m` to
-join paragraphs with blank lines. Without it, the new commit has an empty message and no editor
-opens. `-m` is rejected when moving whole commits or branches.
+join paragraphs with blank lines, or read it with `-F -` (stdin) or `-F <file>`. Without either,
+the new commit has an empty message and no editor opens. `-m` and `-F` are rejected when moving
+whole commits or branches.
 
 ### `but split <SOURCES>...`
 
 Move selected committed files/hunks into a new commit immediately above their source.
 Files and hunks may be mixed, but must come from one commit. Unselected changes and the original
 message stay in the source. Use `-m/--message` to set the new commit's message directly rather
-than rewording afterward. Repeated `-m` values are joined with blank lines; omitting it creates
-an empty-message commit without opening an editor.
+than rewording afterward, or `-F -` / `-F <file>` to read it. Repeated `-m` values are joined
+with blank lines; omitting both creates an empty-message commit without opening an editor.
 
 ```bash
 but diff <commit-id>                              # Read committed file/hunk IDs
 but split <commit-id>:<file-id> -m "Extract file"   # Split a file
 but split <commit-id>:<file-id>:<hunk-id> -m "Extract hunk" # Split a hunk
+but split <commit-id>:<file-id> -F - <<'EOF'        # Split a file, message from stdin
+Extract file
+
+Why it moved
+EOF
 ```
 
 ### `but uncommit <SOURCES>...`
@@ -495,7 +509,12 @@ Create and manage pull requests.
 
 ```bash
 but pr new <branch-selector> -m "Title..."        # Push branch and create PR (recommended); first message line is title, rest is description
-but pr new <branch-selector> -F pr_message.txt    # Use file: first line is title, rest is description
+but pr new <branch-selector> -F - <<'EOF'         # From stdin: first line is title, rest is description
+Title
+
+Description
+EOF
+but pr new <branch-selector> -F <file>            # From a file outside the repository, same format
 but pr new <branch-selector> -t     # Use default content (commit message), skip prompts
 but pr new <branch-selector> --draft  # Create as draft
 but pr new <branch-selector> --no-hooks  # Bypass pre-push hooks (--no-verify also works)

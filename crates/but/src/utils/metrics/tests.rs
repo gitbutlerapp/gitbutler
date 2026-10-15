@@ -82,6 +82,7 @@ fn metrics_use_invoked_command_names() {
             below: None,
             unstack: false,
             message: None,
+            file: None,
             sources: Vec::from([CliIdArg("ci".to_owned())]),
             allow_merged: Default::default(),
         }),
@@ -207,6 +208,7 @@ fn extra_props_keep_useful_source_and_target_kinds() {
             below: None,
             unstack: false,
             message: None,
+            file: None,
             sources: Vec::from([CliIdArg("ci".to_owned())]),
             allow_merged: Default::default(),
         });
@@ -272,6 +274,7 @@ fn commit_extra_props_describe_targeting_and_selection_without_ids() {
         let command = Subcommands::Commit(commit::Platform {
             message: Some(vec!["private message".into()]),
             no_message: false,
+            file: None,
             branch: branch.map(|name| name.map(|name| CliIdArg(name.into()))),
             above: above.map(|value| CliIdArg(value.into())),
             below: below.map(|value| CliIdArg(value.into())),

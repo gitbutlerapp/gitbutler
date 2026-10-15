@@ -5100,7 +5100,7 @@ Hint: run `but help` for all commands
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: `-m/--message` can only be used when moving committed changes
+Error: `-m/--message` and `-F/--file` can only be used when moving committed changes
 
 "#]]);
 
@@ -5108,7 +5108,7 @@ Error: `-m/--message` can only be used when moving committed changes
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: `-m/--message` can only be used when moving committed changes
+Error: `-m/--message` and `-F/--file` can only be used when moving committed changes
 
 "#]]);
 }
@@ -6019,4 +6019,37 @@ Hint: Run `but switch --workspace` and start conflict resolution with `but resol
         head_ref_before,
         "the rejected discard keeps the same branch checked out"
     );
+}
+
+#[test]
+fn moving_changes_to_new_commit_with_message_from_stdin() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("move tpm:t --above tpm -F -")
+        .stdin("new commit\n\nfrom stdin\n")
+        .assert()
+        .success();
+
+    assert_eq!(
+        env.invoke_git("log -1 --format=[%B] refs/heads/A --"),
+        "[new commit\n\nfrom stdin]",
+        "the new commit takes the trimmed message read from stdin"
+    );
+}
+
+#[test]
+fn message_file_isnt_allowed_when_moving_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    // Like `-m`, `-F` only names a new commit, which moving a whole commit doesn't create.
+    env.but("move tpm --above g0 -F -")
+        .stdin("not allowed\n")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: `-m/--message` and `-F/--file` can only be used when moving committed changes
+
+"#]]);
 }

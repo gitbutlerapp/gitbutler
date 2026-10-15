@@ -1295,6 +1295,7 @@ async fn dispatch_subcommand(
                 IntermediateChannel::new(out),
                 commit_args,
                 &InvokedFrom::discover(&args.current_dir)?,
+                &args.current_dir,
             )?;
             let metrics_outcome = command::CommandOutcome::Commit(outcome.clone());
             out.print_cli_output(outcome)?;
@@ -1315,6 +1316,7 @@ async fn dispatch_subcommand(
                 IntermediateChannel::new(out),
                 squash_args,
                 &InvokedFrom::discover(&args.current_dir)?,
+                &args.current_dir,
             )?;
             out.print_cli_output(outcome)?;
             ws
@@ -1332,6 +1334,7 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 move_args,
+                &args.current_dir,
             )?;
             out.print_cli_output(outcome)?;
             Some(ws)
@@ -1345,8 +1348,12 @@ async fn dispatch_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let (outcome, ws) =
-                command::legacy::split::split(&mut ctx, IntermediateChannel::new(out), split_args)?;
+            let (outcome, ws) = command::legacy::split::split(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                split_args,
+                &args.current_dir,
+            )?;
             out.print_cli_output(outcome)?;
             Some(ws)
         }
@@ -1534,12 +1541,7 @@ async fn dispatch_subcommand(
                     let draft = top_level_draft || draft;
                     // Read message content from file or inline
                     let message_content = match &file {
-                        Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
-                            format!(
-                                "Failed to read forge review message from file: {}",
-                                path.display()
-                            )
-                        })?),
+                        Some(file) => Some(file.read(&args.current_dir)?),
                         None => message.clone(),
                     };
                     // Parse early to fail fast on invalid content
