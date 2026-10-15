@@ -192,7 +192,7 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 					menu={menu("Branch")}
 				/>
 				<WorktreeDivider depth={2} />
-				<StackCaption label="Stack of 2" depth={2} menu={menu("Stack")} />
+				<StackCaption label="Stack of 2" depth={2} folded={false} menu={menu("Stack")} />
 				<BranchItem
 					layout={layout}
 					title="fix: retry stalled transfers"
