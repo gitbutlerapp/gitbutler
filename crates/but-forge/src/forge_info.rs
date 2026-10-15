@@ -279,6 +279,8 @@ mod tests {
         // per-forge default.
         let repo_info = ForgeRepoInfo {
             forge: ForgeName::GitLab,
+            host: "git.selfhosted.example".into(),
+            port: None,
             owner: "group".into(),
             repo: "repo".into(),
             protocol: "https".into(),

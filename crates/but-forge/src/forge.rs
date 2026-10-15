@@ -12,6 +12,15 @@ pub enum ForgeName {
 }
 
 impl ForgeName {
+    pub(crate) fn public_host(&self) -> Option<&'static str> {
+        match self {
+            Self::GitHub => Some("github.com"),
+            Self::GitLab => Some("gitlab.com"),
+            Self::Bitbucket => Some("bitbucket.org"),
+            Self::Azure => Some("dev.azure.com"),
+        }
+    }
+
     /// Parse a project's stored `forge_override` string (the value the Settings
     /// forge picker saves) into a `ForgeName`.
     ///
@@ -39,14 +48,74 @@ but_schemars::register_sdk_type!(ForgeName);
 #[serde(rename_all = "camelCase")]
 pub struct ForgeRepoInfo {
     pub forge: ForgeName,
+    /// Repository host from the remote URL, not an account's API endpoint.
+    /// Live API calls must select credentials for this host.
+    pub host: String,
+    /// Explicit remote port. SSH ports are transport-only, not API ports.
+    pub port: Option<u16>,
     pub owner: String,
     pub repo: String,
     pub protocol: String,
 }
 
+impl ForgeRepoInfo {
+    /// Compare provider and canonical repository host without considering ports.
+    fn same_host(&self, other: &Self) -> bool {
+        self.forge == other.forge
+            && crate::repository_hosts_match(
+                crate::canonical_repository_host(&self.forge, &self.host),
+                crate::canonical_repository_host(&other.forge, &other.host),
+            )
+    }
+
+    /// Whether this host (including known SSH aliases) identifies the public
+    /// forge instance. Ports are checked separately.
+    pub(crate) fn is_public_host(&self) -> bool {
+        self.forge.public_host().is_some_and(|public| {
+            crate::repository_hosts_match(
+                crate::canonical_repository_host(&self.forge, &self.host),
+                public,
+            )
+        })
+    }
+
+    /// Whether these remotes can identify the same forge instance. This is a
+    /// compatibility check, not equality: SSH remotes have unknown API ports.
+    pub(crate) fn same_server(&self, other: &Self) -> bool {
+        self.same_host(other)
+            && match (self.identity_port(), other.identity_port()) {
+                (Some(left), Some(right)) => left == right,
+                _ => true,
+            }
+    }
+
+    /// Whether these remotes can identify the same repository, allowing private
+    /// SSH's unknown API port. Use for fork detection, not strict equality.
+    pub(crate) fn same_repository(&self, other: &Self) -> bool {
+        self.same_server(other) && self.owner == other.owner && self.repo == other.repo
+    }
+
+    /// Known API port for identity comparisons. Private SSH remotes remain
+    /// unknown, rather than equating them with every HTTP instance on that host.
+    pub(crate) fn identity_port(&self) -> Option<u16> {
+        match self.protocol.as_str() {
+            "http" => Some(self.port.unwrap_or(80)),
+            "https" => Some(self.port.unwrap_or(443)),
+            // Non-HTTP remotes (usually SSH) expose a transport port, not an API
+            // port, so ignore self.port. Public forge hosts and their known SSH
+            // aliases use HTTPS APIs on 443. Private hosts remain None: their
+            // SSH URL cannot tell us which HTTP(S) port serves the API.
+            _ => self.is_public_host().then_some(443),
+        }
+    }
+}
+
 impl PartialEq for ForgeRepoInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.forge == other.forge && self.owner == other.owner && self.repo == other.repo
+        self.same_host(other)
+            && self.identity_port() == other.identity_port()
+            && self.owner == other.owner
+            && self.repo == other.repo
     }
 }
 

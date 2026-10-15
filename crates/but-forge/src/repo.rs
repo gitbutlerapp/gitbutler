@@ -4,13 +4,15 @@ use crate::ForgeName;
 
 /// Fetch repo-level metadata (currently just permissions + fork bit)
 /// for an arbitrary owner/repo on the same forge as the current project.
-/// The auth token comes from the project's preferred forge user, which
-/// matches how every other forge call in this crate resolves credentials.
+/// Credentials must belong to a stored account matching the repository's host
+/// and provider. The project's preferred forge user is used when it matches.
 pub async fn get_repo_info(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
 ) -> anyhow::Result<RepoInfo> {
+    let preferred_forge_user =
+        crate::resolve_account(preferred_forge_user, forge_repo_info, storage)?;
     let owner = forge_repo_info.owner.as_str();
     let repo = forge_repo_info.repo.as_str();
     match forge_repo_info.forge {
@@ -169,6 +171,33 @@ impl From<but_gitlab::GitLabProject> for RepoInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{accounts, assert_auth_error, repo};
+
+    #[test]
+    fn repo_metadata_rejects_wrong_host_accounts_before_network() {
+        let (_tmp, storage, accounts) = accounts();
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        for account in &accounts {
+            let repo = repo(account.forge_name(), "forge.example.com");
+            for preferred in std::iter::once(None).chain(accounts.iter().cloned().map(Some)) {
+                let error = runtime
+                    .block_on(get_repo_info(&preferred, &repo, &storage))
+                    .unwrap_err();
+                assert_auth_error(error);
+            }
+        }
+        let file = tempfile::NamedTempFile::new().unwrap();
+        let storage = but_forge_storage::Controller::from_path(file.path());
+        let azure = repo(ForgeName::Azure, "dev.azure.com");
+        let error = runtime
+            .block_on(get_repo_info(&None, &azure, &storage))
+            .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Fetching repo info for forge Azure is not implemented yet.",
+            "unsupported Azure must not touch account storage"
+        );
+    }
 
     fn bb_repo(permission: Option<&str>, is_fork: bool) -> but_bitbucket::BitbucketRepo {
         but_bitbucket::BitbucketRepo {

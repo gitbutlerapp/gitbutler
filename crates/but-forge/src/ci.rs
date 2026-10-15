@@ -91,6 +91,8 @@ fn ci_checks_for_ref(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    let preferred_forge_user =
+        crate::resolve_account(&preferred_forge_user, forge_repo_info, storage)?;
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user
@@ -200,7 +202,7 @@ fn ci_checks_for_ref(
                     .collect()
             }))
         }
-        _ => Err(anyhow::anyhow!(
+        ForgeName::Azure => Err(anyhow::anyhow!(
             "Listing ci checks for forge {forge:?} is not implemented yet."
         )),
     }
@@ -488,7 +490,14 @@ impl From<but_bitbucket::BitbucketBuildStatus> for CiCheck {
 
 #[cfg(test)]
 mod tests {
-    use super::{CiCheck, CiConclusion, CiOutput, CiStatus, refresh_cache_with_fetched};
+    use super::{
+        CiCheck, CiConclusion, CiOutput, CiStatus, ci_checks_for_ref, ci_checks_for_ref_with_cache,
+        refresh_cache_with_fetched,
+    };
+    use crate::{
+        CacheConfig, ForgeName,
+        test_support::{accounts, assert_auth_error, repo},
+    };
 
     const REFERENCE: &str = "refs/heads/feature";
 
@@ -513,6 +522,51 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let db = but_db::DbHandle::new_in_directory(tmp.path()).unwrap();
         (tmp, db)
+    }
+
+    #[test]
+    fn live_ci_requires_matching_accounts_but_cached_ci_does_not() {
+        let (_tmp, storage, accounts) = accounts();
+        let (_db_tmp, mut db) = test_db();
+        let file = tempfile::NamedTempFile::new().unwrap();
+        let cache_storage = but_forge_storage::Controller::from_path(file.path());
+        refresh_cache_with_fetched(&mut db, REFERENCE, Some(vec![cache_check(1)]));
+        for account in &accounts {
+            let repo = repo(account.forge_name(), "forge.example.com");
+            for preferred in std::iter::once(None).chain(accounts.iter().cloned().map(Some)) {
+                assert_auth_error(
+                    ci_checks_for_ref(preferred.clone(), &repo, &storage, REFERENCE).unwrap_err(),
+                );
+                for config in [
+                    CacheConfig::CacheOnly,
+                    CacheConfig::CacheWithFallback {
+                        max_age_seconds: 300,
+                    },
+                ] {
+                    let checks = ci_checks_for_ref_with_cache(
+                        preferred.clone(),
+                        &repo,
+                        &cache_storage,
+                        REFERENCE,
+                        &mut db,
+                        Some(config),
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        checks.iter().map(|check| check.id).collect::<Vec<_>>(),
+                        vec![1],
+                        "cache-only and fresh-cache reads must not touch account storage"
+                    );
+                }
+            }
+        }
+        let azure = repo(ForgeName::Azure, "dev.azure.com");
+        let error = ci_checks_for_ref(None, &azure, &cache_storage, REFERENCE).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Listing ci checks for forge Azure is not implemented yet.",
+            "unsupported Azure must not touch account storage"
+        );
     }
 
     fn cached_ids(db: &but_db::DbHandle) -> Vec<i64> {
