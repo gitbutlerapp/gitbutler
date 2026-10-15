@@ -17,7 +17,6 @@ use but_testsupport::{
     visualize_disk_tree_with_hashes_skip_dot_git,
 };
 use but_workspace::branch::{
-    OnWorkspaceMergeConflict,
     apply::{OutcomeStatus, WorkspaceReferenceNaming},
     unapply::WorkspaceDisposition,
 };
@@ -3213,17 +3212,8 @@ Outcome {
 "#]]
     );
 
-    let out = but_workspace::branch::apply(
-        r("refs/heads/A2"),
-        ws,
-        &repo,
-        &mut meta,
-        but_workspace::branch::apply::Options {
-            // TODO: remove this, use default options when they are the default.
-            on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
-            ..apply_options()
-        },
-    )?;
+    let out =
+        but_workspace::branch::apply(r("refs/heads/A2"), ws, &repo, &mut meta, apply_options())?;
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
@@ -4559,175 +4549,6 @@ Outcome {
         ["refs/heads/conflict-F1", "refs/heads/conflict-F2"]
     );
 
-    let out = but_workspace::branch::apply(
-        r("refs/heads/conflict-hero"),
-        ws,
-        &repo,
-        &mut meta,
-        but_workspace::branch::apply::Options {
-            on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
-            ..apply_options()
-        },
-    )?;
-    // It does still report conflicts.
-    snapbox::assert_data_eq!(
-        sanitize_uuids_and_timestamps(format!("{out:#?}")),
-        snapbox::str![[r#"
-Outcome {
-    workspace_changed: true,
-    workspace_ref_created: false,
-    applied_branches: "[refs/heads/conflict-hero]",
-    conflicting_stacks: [
-        ConflictingStack {
-            id: 1,
-            ref_name: "refs/heads/conflict-F1",
-        },
-        ConflictingStack {
-            id: 2,
-            ref_name: "refs/heads/conflict-F2",
-        },
-    ],
-}
-"#]]
-    );
-
-    // Now the other stacks are unapplied.
-    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓! on 85efbe4
-├── ≡📙:main on 85efbe4 {1a5}
-│   └── 📙:main
-├── ≡📙:clean-A on 85efbe4 {271}
-│   └── 📙:clean-A
-│       └── ·d3cce74 (🏘️)
-├── ≡📙:clean-B on 85efbe4 {272}
-│   └── 📙:clean-B
-│       └── ·115e41b (🏘️)
-├── ≡📙:clean-C on 85efbe4 {273}
-│   └── 📙:clean-C
-│       └── ·34c4591 (🏘️)
-└── ≡📙:conflict-hero on 85efbe4 {52d}
-    └── 📙:conflict-hero
-        ├── ·4bbb93c (🏘️)
-        └── ·98519e9 (🏘️)
-
-"#]]
-    );
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* bf09eae (conflict-F1) add F1
-| * f2ce66d (conflict-F2) add F2
-|/  
-| *---.   c51f37c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/|\ \ \  
-| | | | * 4bbb93c (conflict-hero) add conflicting-F2
-| | | | * 98519e9 add conflicting-F1
-| |_|_|/  
-|/| | |   
-| | | * 34c4591 (clean-C) add C
-| |_|/  
-|/| |   
-| | * 115e41b (clean-B) add B
-| |/  
-|/|   
-| * d3cce74 (clean-A) add A
-|/  
-* 85efbe4 (main) M
-
-"#]]
-        .raw()
-    );
-
-    let ws_md = sanitize_uuids_and_timestamps(format!(
-        "{:#?}",
-        ws.metadata
-            .as_ref()
-            .expect("managed workspace has metadata")
-    ));
-    snapbox::assert_data_eq!(
-        ws_md,
-        snapbox::str![[r#"
-Workspace {
-    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
-    stacks: [
-        WorkspaceStack {
-            id: 1,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/main",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 2,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/clean-A",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 3,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/conflict-F1",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Outside,
-        },
-        WorkspaceStack {
-            id: 4,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/clean-B",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 5,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/conflict-F2",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Outside,
-        },
-        WorkspaceStack {
-            id: 6,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/clean-C",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 7,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/conflict-hero",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ],
-}
-"#]]
-    );
-
     Ok(())
 }
 
@@ -4815,116 +4636,6 @@ Outcome {
         visualize_commit_graph_all(&repo)?,
         refs_before,
         "an aborting conflict must leave refs unchanged"
-    );
-
-    Ok(())
-}
-
-#[test]
-fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repeat_on_unapply()
--> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) =
-        named_writable_scenario("various-heads-for-multi-line-merge-conflict-on-main")?;
-
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* d3cce74 (clean-A) add A
-| * 115e41b (clean-B) add B
-|/  
-| * 34c4591 (clean-C) add C
-|/  
-| * bf09eae (conflict-F1) add F1
-|/  
-| * f2ce66d (conflict-F2) add F2
-|/  
-| * 4bbb93c (conflict-hero) add conflicting-F2
-| * 98519e9 add conflicting-F1
-|/  
-* 85efbe4 (HEAD -> main) M
-
-"#]]
-    );
-    let mut ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-⌂:main[🌳] <> ✓! on 85efbe4
-└── ≡:main[🌳] on 85efbe4 {1}
-    └── :main[🌳]
-
-"#]]
-    );
-    let branches = [
-        "clean-A",
-        "conflict-F1",
-        "clean-B",
-        "conflict-F2",
-        "clean-C",
-        "conflict-hero",
-    ];
-    for branch_to_apply in branches {
-        but_workspace::branch::apply(
-            Category::LocalBranch
-                .to_full_name(branch_to_apply)?
-                .as_ref(),
-            ws,
-            &repo,
-            &mut meta,
-            but_workspace::branch::apply::Options {
-                on_workspace_conflict:
-                    OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
-                ..apply_options()
-            },
-        )?;
-        ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    }
-    // all branches are applied
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓! on 85efbe4
-├── ≡📙:main on 85efbe4 {1a5}
-│   └── 📙:main
-├── ≡📙:clean-A on 85efbe4 {271}
-│   └── 📙:clean-A
-│       └── ·d3cce74 (🏘️)
-├── ≡📙:clean-B on 85efbe4 {272}
-│   └── 📙:clean-B
-│       └── ·115e41b (🏘️)
-├── ≡📙:clean-C on 85efbe4 {273}
-│   └── 📙:clean-C
-│       └── ·34c4591 (🏘️)
-└── ≡📙:conflict-hero on 85efbe4 {52d}
-    └── 📙:conflict-hero
-        ├── ·4bbb93c (🏘️)
-        └── ·98519e9 (🏘️)
-
-"#]]
-    );
-
-    for branch_to_unapply in branches.into_iter().rev() {
-        let out = but_workspace::branch::unapply(
-            Category::LocalBranch
-                .to_full_name(branch_to_unapply)?
-                .as_ref(),
-            &ws,
-            &repo,
-            &mut meta,
-            unapply_options_with(WorkspaceDisposition::KeepWorkspaceReference),
-        )?;
-        ws = out.workspace.into_owned();
-    }
-
-    // the workspace ref remains because the regenerated workspace still has main available
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on 85efbe4
-└── ≡📙:main on 85efbe4 {1a5}
-    └── 📙:main
-
-"#]]
     );
 
     Ok(())
@@ -5389,7 +5100,6 @@ Outcome {
 
 fn apply_options() -> but_workspace::branch::apply::Options {
     but_workspace::branch::apply::Options {
-        on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
         workspace_reference_naming: WorkspaceReferenceNaming::Default,
         order: None,
         new_stack_id: Some(stack_id_for_name),

@@ -20,7 +20,7 @@ use but_rebase::graph_rebase::{
     mutate::{InsertSide, RelativeTo},
 };
 use but_workspace::branch::{
-    BranchIntegrationStrategy, InitialBranchIntegration, OnWorkspaceMergeConflict,
+    BranchIntegrationStrategy, InitialBranchIntegration,
     apply::WorkspaceReferenceNaming, integrate_branch_upstream::InteractiveIntegration,
 };
 use gix::refs::transaction::PreviousValue;
@@ -866,7 +866,6 @@ pub fn apply_only_with_perm(
         // NOTE: Options can later be passed as parameter, or we have a separate function for that.
         //       Showing them off here while leaving defaults.
         but_workspace::branch::apply::Options {
-            on_workspace_conflict: OnWorkspaceMergeConflict::default(),
             workspace_reference_naming: WorkspaceReferenceNaming::default(),
             order: None,
             new_stack_id: None,

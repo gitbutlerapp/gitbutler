@@ -463,28 +463,6 @@ impl Stack {
     }
 }
 
-/// What to do if the applied branch conflicts with the existing branches?
-#[derive(Default, Debug, Copy, Clone)]
-pub enum OnWorkspaceMergeConflict {
-    /// Provide additional information about the stack(s) that conflicted and the files involved in it,
-    /// and don't materialise the merge, but continue on best-effort basis to merge as many stacks as possible.
-    #[default]
-    AbortAndReportConflictingStacks,
-    /// Despite possible conflicts, materialise the result with the conflicting stacks un-merged and unreachable from the workspace commit.
-    /// Note that the metadata of these branches is still available.
-    MaterializeAndReportConflictingStacks,
-}
-
-impl OnWorkspaceMergeConflict {
-    /// Return `true` if we are supposed to abort on merge conflict.
-    pub fn should_abort(&self) -> bool {
-        matches!(
-            self,
-            OnWorkspaceMergeConflict::AbortAndReportConflictingStacks
-        )
-    }
-}
-
 /// Convert unnamed projected stacks into merge tips while preserving their parent order.
 ///
 /// Named stacks are driven by workspace metadata, but anonymous stacks have no metadata entry

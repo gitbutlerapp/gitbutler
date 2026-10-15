@@ -21,9 +21,7 @@ use gix::{
 };
 use tracing::instrument;
 
-use crate::branch::{
-    OnWorkspaceMergeConflict, setup_local_tracking_configuration, try_find_validated_ref,
-};
+use crate::branch::{setup_local_tracking_configuration, try_find_validated_ref};
 use crate::{
     WorkspaceCommit,
     branch::{anon_stacks, ensure_no_missing_stacks},
@@ -86,7 +84,7 @@ pub struct Outcome {
     /// The workspace as it looks like now.
     ///
     /// The returned workspace can also be a proposed state that was not persisted because
-    /// [Options::on_workspace_conflict] aborted the operation. Check [Outcome::conflicting_stacks]
+    /// there was a conflict. Check [Outcome::conflicting_stacks]
     /// and [Outcome::status] to tell whether anything was actually persisted.
     pub workspace: but_graph::Workspace,
     /// The precise kind of apply operation that completed.
@@ -103,7 +101,7 @@ pub struct Outcome {
     pub applied_branches: Vec<gix::refs::FullName>,
     /// `true` if we created the given workspace ref as it didn't exist yet.
     pub workspace_ref_created: bool,
-    /// If not `None`, an actual merge was attempted, but depending on [the settings](OnWorkspaceMergeConflict),
+    /// If not `None`, an actual merge was attempted, but depending on whether there was a conflict,
     /// this was persisted or not.
     pub workspace_merge: Option<crate::commit::merge::Outcome>,
     /// Stacks that conflicted while trying to apply the branch.
@@ -165,8 +163,6 @@ pub enum WorkspaceReferenceNaming {
 /// Options for [apply()].
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// Decide how to deal with conflicts when creating the workspace merge commit to bring in each stack.
-    pub on_workspace_conflict: OnWorkspaceMergeConflict,
     /// How the workspace reference should be named should it be created.
     /// The creation is always needed if there are more than one branch applied.
     pub workspace_reference_naming: WorkspaceReferenceNaming,
@@ -218,7 +214,6 @@ pub fn apply(
     repo: &gix::Repository,
     meta: &mut impl RefMetadata,
     Options {
-        on_workspace_conflict,
         workspace_reference_naming,
         order,
         new_stack_id,
@@ -595,7 +590,7 @@ pub fn apply(
     ensure_no_missing_stacks(&merge_result)?;
     drop(existing_stacks_superseded_by_branch);
 
-    if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
+    if merge_result.has_conflicts() {
         let conflicting_stacks =
             correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
         return Ok(Outcome {
@@ -709,7 +704,7 @@ pub fn apply(
         )?;
         ensure_no_missing_stacks(&merge_result)?;
 
-        if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
+        if merge_result.has_conflicts() {
             let conflicting_stacks =
                 correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
             return Ok(Outcome {
