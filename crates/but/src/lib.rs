@@ -1282,17 +1282,8 @@ async fn dispatch_subcommand(
             ));
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Commit(mut commit_args) => {
+        Subcommands::Commit(commit_args) => {
             use crate::utils::IntermediateChannel;
-
-            if let Some(file) = commit_args.file.take() {
-                commit_args.message = Some(vec![
-                    command::legacy::commit_message_prep::read_commit_message(
-                        &file,
-                        &args.current_dir,
-                    )?,
-                ]);
-            }
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
@@ -1304,6 +1295,7 @@ async fn dispatch_subcommand(
                 IntermediateChannel::new(out),
                 commit_args,
                 &InvokedFrom::discover(&args.current_dir)?,
+                &args.current_dir,
             )?;
             let metrics_outcome = command::CommandOutcome::Commit(outcome.clone());
             out.print_cli_output(outcome)?;
@@ -1311,17 +1303,8 @@ async fn dispatch_subcommand(
             Some(ws)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Squash(mut squash_args) => {
+        Subcommands::Squash(squash_args) => {
             use crate::utils::IntermediateChannel;
-
-            if let Some(file) = squash_args.file.take() {
-                squash_args.message = Some(vec![
-                    command::legacy::commit_message_prep::read_commit_message(
-                        &file,
-                        &args.current_dir,
-                    )?,
-                ]);
-            }
 
             let status_after = args.status_after;
             out.begin_status_after(status_after);
@@ -1333,6 +1316,7 @@ async fn dispatch_subcommand(
                 IntermediateChannel::new(out),
                 squash_args,
                 &InvokedFrom::discover(&args.current_dir)?,
+                &args.current_dir,
             )?;
             out.print_cli_output(outcome)?;
             ws

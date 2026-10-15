@@ -750,7 +750,7 @@ pub fn message_args_to_reword_operation(
     message: Option<Vec<String>>,
     out: &mut IntermediateChannel<'_>,
 ) -> CliResult<CommitMessageSource> {
-    CommitMessageSource::from_args(message.is_none(), message, out.format())
+    CommitMessageSource::from_args(message.is_none(), message, None, out.format())
 }
 
 #[allow(clippy::too_many_arguments)]

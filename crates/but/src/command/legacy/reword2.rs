@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use bstr::{BStr, BString};
 use but_api::{
     WorkspaceState,
@@ -16,13 +18,15 @@ use crate::{
     CliError, CliResult, IdMap,
     args::{
         OutputFormat,
-        atoms::{BranchOrCommit, Purpose},
+        atoms::{BranchOrCommit, MessageFileArg, Purpose},
         reword2::Platform,
     },
     bad_input,
     command::legacy::{
         ShowDiffInEditor,
-        commit_message_prep::{normalize_commit_message, should_update_commit_message},
+        commit_message_prep::{
+            normalize_commit_message, read_commit_message, should_update_commit_message,
+        },
         reword::get_commit_message_from_editor as get_commit_message_from_editor_legacy,
     },
     id::CommitId,
@@ -410,16 +414,21 @@ impl CommitMessageSource {
     pub fn from_args(
         no_message: bool,
         message: Option<Vec<String>>,
+        file: Option<(&MessageFileArg, &Path)>,
         format: OutputFormat,
     ) -> CliResult<Self> {
-        match (no_message, message) {
-            (true, None) => Ok(Self::Empty),
-            (false, None) if !format.allows_human_ui() => Ok(Self::Keep),
-            (false, None) => Ok(Self::Editor { initial: None }),
-            (false, Some(message)) => Ok(Self::Provided(message.join("\n\n"))),
-            (true, Some(_)) => {
-                Err(bad_input("--no-message and --message cannot be used at the same time").into())
+        match (no_message, message, file) {
+            (true, None, None) => Ok(Self::Empty),
+            (false, Some(message), None) => Ok(Self::Provided(message.join("\n\n"))),
+            (false, None, Some((file, current_dir))) => {
+                Ok(Self::Provided(read_commit_message(file, current_dir)?))
             }
+            (false, None, None) if !format.allows_human_ui() => Ok(Self::Keep),
+            (false, None, None) => Ok(Self::Editor { initial: None }),
+            _ => Err(bad_input(
+                "Only one of --message, --file and --no-message can be used at the same time",
+            )
+            .into()),
         }
     }
 
