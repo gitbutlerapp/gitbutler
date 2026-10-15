@@ -164,13 +164,14 @@
 	background-color: var(--border-2);
 }
 
-/* The view's buttons, beside the title block and level with its meta line, so they don't float
-   between it and the title. */
+/* The view's buttons, in the header's top corner, centred on the title's line: the line's height,
+   so a button taller than it hangs off it evenly above and below, whatever size it is. */
 .actions {
 	display: flex;
 	column-gap: var(--gap-buttons-compact);
 	flex-shrink: 0;
 	align-items: center;
-	align-self: flex-end;
+	align-self: flex-start;
+	height: 22px;
 	margin-inline-start: auto;
 }
