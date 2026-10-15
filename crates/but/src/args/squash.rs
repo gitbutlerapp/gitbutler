@@ -41,8 +41,7 @@ pub struct Platform {
 
     /// Read the message for the new commit from `FILE`, or from stdin when `FILE` is `-`.
     ///
-    /// Surrounding whitespace is trimmed. This cannot be used when `TARGET` is the uncommitted
-    /// area (`@`).
+    /// This cannot be used when `TARGET` is the uncommitted area (`@`).
     #[clap(short = 'F', long, value_name = "FILE", group = "commit_message")]
     pub file: Option<MessageFileArg>,
 
