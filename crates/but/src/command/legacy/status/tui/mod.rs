@@ -379,32 +379,57 @@ fn mouse_is_over_details(app: &App, terminal_area: Rect, column: u16, row: u16) 
         .is_some_and(|area| area.contains(Position { x: column, y: row }))
 }
 
-fn start_watcher(
-    ctx: &mut Context,
-    tx: Sender<Message>,
-) -> anyhow::Result<gitbutler_watcher::WatcherHandle> {
+fn start_watcher(ctx: &mut Context, tx: Sender<Message>) -> anyhow::Result<Sender<()>> {
+    let project_id = ctx.legacy_project.id.clone();
+    let workdir = ctx.workdir_or_fail()?.to_owned();
+    let events_tx = tx.clone();
+
+    let runtime = tokio::runtime::Handle::current();
+    let (stop_tx, stop_rx) = std::sync::mpsc::channel();
+
     let app_settings = app_settings_sync()?;
     let watch_mode = gitbutler_watcher::WatchMode::from_env_or_settings(
         &app_settings.get()?.feature_flags.watch_mode,
         |key| std::env::var(key).ok(),
     );
 
-    let handler = gitbutler_watcher::Handler::new(move |change| {
-        _ = tx.send(Message::WatcherEvent(change));
-        Ok(())
-    });
+    std::thread::Builder::new()
+        .name("tui-watcher-setup".into())
+        // spawn in new thread to prevent slow first render
+        .spawn(move || {
+            let _runtime = runtime.enter();
 
-    let project_id = ctx.legacy_project.id.clone();
+            let handler = gitbutler_watcher::Handler::new(move |change| {
+                _ = events_tx.send(Message::WatcherEvent(change));
+                Ok(())
+            });
 
-    let watcher = gitbutler_watcher::watch_in_background(
-        handler,
-        ctx.workdir_or_fail()?,
-        project_id,
-        app_settings,
-        watch_mode,
-    )?;
+            match gitbutler_watcher::watch_in_background(
+                handler,
+                workdir,
+                project_id,
+                app_settings,
+                watch_mode,
+            )
+            .context("failed to start watcher in background")
+            {
+                Ok(_watcher) => {
+                    // Immediately refresh as we might have missed events during watcher startup
+                    if tx.send(Message::Reload(None, ReloadCause::Manual)).is_ok() {
+                        // This blocks with the sole purpose of keeping watcher alive. On first
+                        // receive we move on and drop the watcher.
+                        let _ = stop_rx.recv();
+                    }
+                    // If send failed, TUI has already dropped the receiving channel (exited), so we
+                    // drop the watcher.
+                }
+                Err(err) => {
+                    let _ = tx.send(Message::FatalError(err));
+                }
+            };
+        })?;
 
-    Ok(watcher)
+    Ok(stop_tx)
 }
 
 fn app_settings_sync() -> anyhow::Result<AppSettingsWithDiskSync> {
@@ -428,6 +453,7 @@ pub enum Message {
     CloseCommitFileListAfterConfirmingOperation,
     Reload(Option<SelectAfterReload>, ReloadCause),
     ShowError(anyhow::Error),
+    FatalError(anyhow::Error),
     ShowToast {
         kind: ToastKind,
         text: Text<'static>,
@@ -746,6 +772,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             | Message::EnterNormalModeAfterConfirmingOperation
             | Message::CloseCommitFileListAfterConfirmingOperation
             | Message::ShowError(..)
+            | Message::FatalError(..)
             | Message::ShowToast { .. }
             | Message::DropToBeDiscarded
             | Message::GrowDetails
