@@ -11,7 +11,7 @@ if [ "${1:-}" = --inside-pty ]; then
     export TERM=xterm-256color
     # Keep but's stdout attached to the PTY, including when using a profiler.
     export PERF_SHOW_OUTPUT=1
-    perf_exec_but tui --quit-after 1
+    perf_exec_but tui --quit-after 0
 fi
 
 perf_state_load
