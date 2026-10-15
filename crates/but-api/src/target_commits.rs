@@ -95,7 +95,15 @@ pub(crate) fn workspace_target_commits_with_perm(
     let mut reviews_by_integration_sha = merged_reviews_by_integration_sha(&ws, &project_meta, &db)
         .inspect_err(|err| warn!(?err, "failed to read cached forge reviews"))
         .unwrap_or_default();
-    let forge_info = target_forge_info(&project_meta, &repo)
+    #[cfg(feature = "legacy")]
+    let override_forge = ctx
+        .legacy_project
+        .forge_override
+        .as_deref()
+        .and_then(but_forge::ForgeName::from_override_str);
+    #[cfg(not(feature = "legacy"))]
+    let override_forge = None;
+    let forge_info = target_forge_info(&project_meta, &repo, override_forge)
         .inspect_err(|err| warn!(?err, "failed to determine the target's forge"))
         .unwrap_or_default();
 
@@ -296,13 +304,18 @@ impl TargetCommitReview {
 fn target_forge_info(
     project_meta: &but_core::ref_metadata::ProjectMeta,
     repo: &gix::Repository,
+    override_forge: Option<but_forge::ForgeName>,
 ) -> anyhow::Result<Option<but_forge::ForgeInfo>> {
     let remote_url = project_meta.remote_url_with_fallback(repo)?;
     // Accounts only refine custom hosts; the forge itself is known without them.
     let accounts = but_forge::get_all_forge_accounts()
         .inspect_err(|err| warn!(?err, "failed to load forge accounts"))
         .unwrap_or_default();
-    Ok(but_forge::forge_info(&remote_url, &accounts))
+    Ok(but_forge::forge_info(
+        &remote_url,
+        &accounts,
+        override_forge,
+    ))
 }
 
 /// Merged reviews targeting the workspace's target branch, keyed by the target

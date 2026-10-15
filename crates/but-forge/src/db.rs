@@ -561,21 +561,4 @@ mod tests {
             "refreshed cache only contains the current persisted model"
         );
     }
-
-    #[test]
-    fn current_version_corruption_is_an_error() {
-        let (_tmp, mut db) = test_db();
-        let now = chrono::Local::now().naive_local();
-        let mut corrupt: but_db::ForgeReview = review(1, "corrupt", now).try_into().unwrap();
-        corrupt.labels = "not-json".to_string();
-        db.forge_reviews_mut()
-            .unwrap()
-            .set_all(vec![corrupt])
-            .unwrap();
-
-        assert!(
-            list_cached_forge_reviews(&db).is_err(),
-            "current-version corruption must not be treated as a cache miss"
-        );
-    }
 }

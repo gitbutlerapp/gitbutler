@@ -64,6 +64,7 @@ function injectEndpoints(api: BackendApi) {
 			>({
 				extraOptions: { command: "forge_compare_branch_url" },
 				query: (args) => args,
+				providesTags: [providesType(ReduxTag.ForgeProvider)],
 			}),
 		}),
 	});

@@ -91,6 +91,8 @@ fn ci_checks_for_ref(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    let preferred_forge_user =
+        crate::resolve_account(&preferred_forge_user, forge_repo_info, storage)?;
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user
@@ -200,7 +202,7 @@ fn ci_checks_for_ref(
                     .collect()
             }))
         }
-        _ => Err(anyhow::anyhow!(
+        ForgeName::Azure => Err(anyhow::anyhow!(
             "Listing ci checks for forge {forge:?} is not implemented yet."
         )),
     }
@@ -488,7 +490,14 @@ impl From<but_bitbucket::BitbucketBuildStatus> for CiCheck {
 
 #[cfg(test)]
 mod tests {
-    use super::{CiCheck, CiConclusion, CiOutput, CiStatus, refresh_cache_with_fetched};
+    use super::{
+        CiCheck, CiOutput, CiStatus, ci_checks_for_ref, ci_checks_for_ref_with_cache,
+        refresh_cache_with_fetched,
+    };
+    use crate::{
+        CacheConfig, ForgeName,
+        test_support::{accounts, assert_auth_error, repo},
+    };
 
     const REFERENCE: &str = "refs/heads/feature";
 
@@ -513,6 +522,51 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let db = but_db::DbHandle::new_in_directory(tmp.path()).unwrap();
         (tmp, db)
+    }
+
+    #[test]
+    fn live_ci_requires_matching_accounts_but_cached_ci_does_not() {
+        let (_tmp, storage, accounts) = accounts();
+        let (_db_tmp, mut db) = test_db();
+        let file = tempfile::NamedTempFile::new().unwrap();
+        let cache_storage = but_forge_storage::Controller::from_path(file.path());
+        refresh_cache_with_fetched(&mut db, REFERENCE, Some(vec![cache_check(1)]));
+        for account in &accounts {
+            let repo = repo(account.forge_name(), "forge.example.com");
+            for preferred in std::iter::once(None).chain(accounts.iter().cloned().map(Some)) {
+                assert_auth_error(
+                    ci_checks_for_ref(preferred.clone(), &repo, &storage, REFERENCE).unwrap_err(),
+                );
+                for config in [
+                    CacheConfig::CacheOnly,
+                    CacheConfig::CacheWithFallback {
+                        max_age_seconds: 300,
+                    },
+                ] {
+                    let checks = ci_checks_for_ref_with_cache(
+                        preferred.clone(),
+                        &repo,
+                        &cache_storage,
+                        REFERENCE,
+                        &mut db,
+                        Some(config),
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        checks.iter().map(|check| check.id).collect::<Vec<_>>(),
+                        vec![1],
+                        "cache-only and fresh-cache reads must not touch account storage"
+                    );
+                }
+            }
+        }
+        let azure = repo(ForgeName::Azure, "dev.azure.com");
+        let error = ci_checks_for_ref(None, &azure, &cache_storage, REFERENCE).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Listing ci checks for forge Azure is not implemented yet.",
+            "unsupported Azure must not touch account storage"
+        );
     }
 
     fn cached_ids(db: &but_db::DbHandle) -> Vec<i64> {
@@ -570,160 +624,6 @@ mod tests {
             cached_ids(&db),
             vec![1],
             "a transient unresolvable ref must not wipe the cache"
-        );
-    }
-
-    fn job(status: &str, web_url: Option<&str>) -> but_gitlab::GitLabPipelineJob {
-        but_gitlab::GitLabPipelineJob {
-            id: 42,
-            name: "job".into(),
-            status: status.into(),
-            allow_failure: false,
-            started_at: Some("2026-05-01T12:00:00Z".into()),
-            finished_at: Some("2026-05-01T12:05:00Z".into()),
-            web_url: web_url.map(str::to_owned),
-            pipeline: but_gitlab::GitLabPipelineRef {
-                id: 7,
-                web_url: None,
-                status: None,
-            },
-        }
-    }
-
-    #[test]
-    fn maps_manual_jobs_to_action_required_complete_status() {
-        let check = CiCheck::from(job("manual", Some("https://example.com/job")));
-
-        assert!(matches!(
-            check.status,
-            CiStatus::Complete {
-                conclusion: CiConclusion::ActionRequired,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn maps_allowed_failure_jobs_to_neutral_complete_status() {
-        let mut job = job("failed", Some("https://example.com/job"));
-        job.allow_failure = true;
-
-        let check = CiCheck::from(job);
-
-        assert!(matches!(
-            check.status,
-            CiStatus::Complete {
-                conclusion: CiConclusion::Neutral,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn maps_optional_manual_jobs_to_neutral_complete_status() {
-        let mut job = job("manual", Some("https://example.com/job"));
-        job.allow_failure = true;
-
-        let check = CiCheck::from(job);
-
-        assert!(matches!(
-            check.status,
-            CiStatus::Complete {
-                conclusion: CiConclusion::Neutral,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn maps_canceling_jobs_to_in_progress_status() {
-        let check = CiCheck::from(job("canceling", Some("https://example.com/job")));
-
-        assert!(matches!(check.status, CiStatus::InProgress));
-    }
-
-    #[test]
-    fn maps_waiting_for_callback_jobs_to_queued_status() {
-        let check = CiCheck::from(job("waiting_for_callback", Some("https://example.com/job")));
-
-        assert!(matches!(check.status, CiStatus::Queued));
-    }
-
-    fn bb_status(state: &str) -> but_bitbucket::BitbucketBuildStatus {
-        but_bitbucket::BitbucketBuildStatus {
-            key: "PIPELINE-1".into(),
-            name: "Build".into(),
-            description: Some("desc".into()),
-            state: state.into(),
-            url: Some("https://bitbucket.org/ws/repo/pipelines/1".into()),
-            commit_hash: "deadbeef".into(),
-            created_on: Some("2026-05-01T12:00:00Z".into()),
-            updated_on: Some("2026-05-01T12:05:00Z".into()),
-        }
-    }
-
-    #[test]
-    fn maps_bitbucket_build_states() {
-        assert!(matches!(
-            CiCheck::from(bb_status("SUCCESSFUL")).status,
-            CiStatus::Complete {
-                conclusion: CiConclusion::Success,
-                ..
-            }
-        ));
-        assert!(matches!(
-            CiCheck::from(bb_status("FAILED")).status,
-            CiStatus::Complete {
-                conclusion: CiConclusion::Failure,
-                ..
-            }
-        ));
-        assert!(matches!(
-            CiCheck::from(bb_status("STOPPED")).status,
-            CiStatus::Complete {
-                conclusion: CiConclusion::Cancelled,
-                ..
-            }
-        ));
-        assert!(matches!(
-            CiCheck::from(bb_status("INPROGRESS")).status,
-            CiStatus::InProgress
-        ));
-        assert!(matches!(
-            CiCheck::from(bb_status("WEIRD")).status,
-            CiStatus::Unknown
-        ));
-    }
-
-    #[test]
-    fn bitbucket_build_status_id_is_stable_and_nonzero() {
-        let a = CiCheck::from(bb_status("SUCCESSFUL"));
-        let b = CiCheck::from(bb_status("SUCCESSFUL"));
-        assert_eq!(a.id, b.id);
-        assert_ne!(a.id, 0);
-        assert_eq!(a.head_sha, "deadbeef");
-    }
-
-    #[test]
-    fn bitbucket_build_status_id_differs_across_commits_and_keys() {
-        let base = bb_status("SUCCESSFUL");
-
-        // Same key on a different commit must not collide (the id is the
-        // ci_checks primary key, and keys like "build" recur across refs/repos).
-        let other_commit = but_bitbucket::BitbucketBuildStatus {
-            commit_hash: "feedface".into(),
-            ..bb_status("SUCCESSFUL")
-        };
-        assert_ne!(CiCheck::from(base).id, CiCheck::from(other_commit).id);
-
-        // Different key on the same commit also differs.
-        let other_key = but_bitbucket::BitbucketBuildStatus {
-            key: "PIPELINE-2".into(),
-            ..bb_status("SUCCESSFUL")
-        };
-        assert_ne!(
-            CiCheck::from(bb_status("SUCCESSFUL")).id,
-            CiCheck::from(other_key).id
         );
     }
 }

@@ -18,7 +18,7 @@
 	const landDirectly = $derived(projectLandDirectly(projectId));
 
 	async function onForcePushProtectionClick(project: Project, value: boolean) {
-		await projectsService.updateProject({ ...project, force_push_protection: value });
+		await projectsService.updateProject({ id: project.id, force_push_protection: value });
 	}
 </script>
 
