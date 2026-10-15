@@ -40,12 +40,6 @@ pub struct Platform {
     pub no_message: bool,
 
     /// Read the commit message from `FILE`, or from stdin when `FILE` is `-`.
-    ///
-    /// Surrounding whitespace is trimmed. A message file inside the worktree is itself an
-    /// uncommitted change and is committed along with everything else unless `CHANGES` are
-    /// given; keep it outside the repository. With `-`, stdin is not a terminal, so a run that
-    /// would need to ask where to commit fails instead; name the target with `--branch`,
-    /// `--above` or `--below`.
     #[clap(short = 'F', long, value_name = "FILE", group = "commit_message")]
     pub file: Option<MessageFileArg>,
 
