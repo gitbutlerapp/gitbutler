@@ -194,7 +194,7 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 SubcommandDiscriminant::Actions => continue,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Fetch => continue,
-                SubcommandDiscriminant::AgentLog => continue,
+                SubcommandDiscriminant::AgentLog | SubcommandDiscriminant::Setup => continue,
             };
             groups.entry(group).or_default().push(*clap_subcommand);
         } else {

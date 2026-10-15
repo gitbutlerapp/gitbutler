@@ -612,6 +612,14 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Redo(redo::Platform),
 
+    /// Explain that setup is no longer required.
+    #[clap(hide = true)]
+    Setup {
+        /// Report an error with a hint to use `but init` instead.
+        #[clap(long)]
+        init: bool,
+    },
+
     /// Exit GitButler mode and return to normal Git workflow.
     ///
     /// This command:
