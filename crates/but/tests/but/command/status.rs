@@ -2072,20 +2072,6 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::file![
             "snapshots/status/linked-worktree-head.stdout.term.svg"
         ]);
-
-    // Setup registers the worktree it runs in, so it is refused here.
-    env.but("setup")
-        .current_dir(wt.join("wt-inside"))
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: Failed to set up GitButler project.
-
-Caused by:
-    `but setup` cannot run from a linked worktree; run it from the main worktree at [..]
-
-"#]]);
 }
 
 #[test]

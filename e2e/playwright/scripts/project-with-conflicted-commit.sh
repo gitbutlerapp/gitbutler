@@ -34,7 +34,7 @@ pushd local-clone
   git checkout master
   target_branch="$(git rev-parse --symbolic-full-name @{u})"
   target_branch="${target_branch#refs/remotes/}"
-  "$BUT" setup
+  "$BUT" switch --workspace
   "$BUT" config target "$target_branch"
 
   sed 's/^juliet$/JULIET-LOCAL/' a_file > a_file.tmp && mv a_file.tmp a_file

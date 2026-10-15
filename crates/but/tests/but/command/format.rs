@@ -23,8 +23,9 @@ fn json_flag_can_be_placed_before_or_after_subcommand() {
             .assert()
             .failure()
             .stderr_eq(str![[r#"
-Error: No git repository found at .
-Please run 'but setup' to initialize the project.
+Error: No git repository found at .git
+
+Hint: Run `but init` to initialize a Git repository.
 
 "#]]);
 
@@ -34,8 +35,9 @@ Please run 'but setup' to initialize the project.
             .assert()
             .failure()
             .stderr_eq(str![[r#"
-Error: No git repository found at .
-Please run 'but setup' to initialize the project.
+Error: No git repository found at .git
+
+Hint: Run `but init` to initialize a Git repository.
 
 "#]]);
     }

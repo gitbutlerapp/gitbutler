@@ -66,7 +66,6 @@ pub enum CommandName {
     UpdateSuppress,
     UpdateInstall,
     Land,
-    Setup,
     Teardown,
     #[cfg(feature = "nightly")]
     Expand,

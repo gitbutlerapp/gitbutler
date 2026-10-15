@@ -51,7 +51,7 @@ pushd local-clone
   git checkout master
   target_branch="$(git rev-parse --symbolic-full-name @{u})"
   target_branch="${target_branch#refs/remotes/}"
-  "$BUT" setup
+  "$BUT" switch --workspace
   "$BUT" config target "$target_branch"
   if [ -n "$FORGE_REMOTE_URL" ]; then
     git remote set-url origin "$FORGE_REMOTE_URL"

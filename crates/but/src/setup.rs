@@ -7,6 +7,7 @@ use command_group::AsyncCommandGroup;
 
 use crate::{
     args::Args,
+    error::{CliResult, bad_input},
     utils::{OutputChannel, binary_path::current_exe_for_but_exec},
 };
 
@@ -103,15 +104,23 @@ pub fn init_ctx(
     args: &Args,
     options: InitCtxOptions,
     out: &mut OutputChannel,
-) -> anyhow::Result<Context> {
+) -> CliResult<Context> {
     let app_settings = crate::app_settings()?;
     // lets try to get the repo from the current directory
     let repo = match but_ctx::discover_main_repo(&args.current_dir) {
         Ok(repo) => repo,
-        Err(_) => anyhow::bail!(
-            "No git repository found at {}\nPlease run 'but setup' to initialize the project.",
-            &args.current_dir.display()
-        ),
+        Err(_) => {
+            return Err(bad_input(format!(
+                "No git repository found at {}",
+                args.current_dir
+                    .strip_prefix(".")
+                    .unwrap_or(&args.current_dir)
+                    .join(".git")
+                    .display()
+            ))
+            .hint("Run `but init` to initialize a Git repository.")
+            .into());
+        }
     };
 
     // Check if we're on gitbutler/workspace with non-workspace commits on top
@@ -122,7 +131,7 @@ pub fn init_ctx(
 
     let (ctx, fetch_interval_minutes, last_fetch) = {
         let Some(workdir) = repo.workdir() else {
-            anyhow::bail!("Bare repositories are not supported.");
+            return Err(anyhow::anyhow!("Bare repositories are not supported.").into());
         };
         #[cfg(feature = "legacy")]
         {

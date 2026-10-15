@@ -861,7 +861,7 @@ Hint: run `but help` for all commands
 #[test]
 fn pull_ignores_unreachable_unrelated_remote() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
-    env.but("setup").assert().success();
+    env.but("switch --workspace").assert().success();
     env.invoke_git("remote add broken /nonexistent/path/broken.git");
 
     env.but("pull").assert().success();
