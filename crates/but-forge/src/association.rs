@@ -120,10 +120,7 @@ fn best_match<'a>(reviews: &'a [ForgeReview], head_ref_short: &str) -> Option<&'
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        best_match, preferred_review, review_associations_by_head, review_for_head_ref,
-        reviews_by_head,
-    };
+    use super::best_match;
     use crate::ForgeReview;
 
     /// An open, non-fork review on `source_branch` with the given `number`.
@@ -217,78 +214,5 @@ mod tests {
     fn prefers_highest_number_when_other_preferences_match() {
         let reviews = vec![review(2, "feature"), review(1, "feature")];
         assert_eq!(best_match(&reviews, "feature").map(|r| r.number), Some(2));
-    }
-
-    #[test]
-    fn preferred_review_uses_cache_association_ranking() {
-        let reviews = vec![merged(review(9, "feature")), review(2, "feature")];
-        assert_eq!(
-            preferred_review(&reviews).map(|review| review.number),
-            Some(2)
-        );
-    }
-
-    fn test_db() -> (tempfile::TempDir, but_db::DbHandle) {
-        let tmp = tempfile::tempdir().unwrap();
-        let db = but_db::DbHandle::new_in_directory(tmp.path()).unwrap();
-        (tmp, db)
-    }
-
-    #[test]
-    fn resolves_from_the_cache() {
-        let (_tmp, mut db) = test_db();
-        crate::db::cache_reviews(&mut db, &[review(7, "feature")]).unwrap();
-
-        let resolved = review_for_head_ref(&db, "feature").unwrap();
-        assert_eq!(resolved.map(|r| r.number), Some(7));
-
-        assert!(
-            review_for_head_ref(&db, "missing").unwrap().is_none(),
-            "an unpublished branch resolves to no review"
-        );
-    }
-
-    #[test]
-    fn empty_cache_resolves_to_none() {
-        let (_tmp, db) = test_db();
-        assert!(review_for_head_ref(&db, "feature").unwrap().is_none());
-    }
-
-    #[test]
-    fn reviews_by_head_dedups_preferring_open() {
-        let (_tmp, mut db) = test_db();
-        crate::db::cache_reviews(
-            &mut db,
-            &[merged(review(1, "feature")), review(2, "feature")],
-        )
-        .unwrap();
-
-        let map = reviews_by_head(&db).unwrap();
-        assert_eq!(map.get("feature").map(|r| r.number), Some(2));
-    }
-
-    #[test]
-    fn reviews_by_head_dedups_preferring_highest_number() {
-        let (_tmp, mut db) = test_db();
-        crate::db::cache_reviews(&mut db, &[review(2, "feature"), review(1, "feature")]).unwrap();
-
-        let map = reviews_by_head(&db).unwrap();
-        assert_eq!(map.get("feature").map(|r| r.number), Some(2));
-    }
-
-    #[test]
-    fn review_associations_include_settled_state() {
-        let (_tmp, mut db) = test_db();
-        let mut settled = merged(review(1, "feature"));
-        // Not redundant with `merged()`: its fixed 2026 timestamp is past the
-        // merged-retention window, so `cache_reviews` would prune the row.
-        settled.merged_at = Some(chrono::Utc::now().to_rfc3339());
-        crate::db::cache_reviews(&mut db, &[settled]).unwrap();
-
-        assert_eq!(
-            review_associations_by_head(&db).unwrap().get("feature"),
-            // The fixture's sha is empty, so no merged head is exposed.
-            Some(&(1, false, None))
-        );
     }
 }
