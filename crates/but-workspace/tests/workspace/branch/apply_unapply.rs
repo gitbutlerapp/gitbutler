@@ -16,10 +16,7 @@ use but_testsupport::{
     id_at, id_by_rev, sanitize_uuids_and_timestamps, visualize_commit_graph_all,
     visualize_disk_tree_with_hashes_skip_dot_git,
 };
-use but_workspace::branch::{
-    apply::{OutcomeStatus, WorkspaceReferenceNaming},
-    unapply::WorkspaceDisposition,
-};
+use but_workspace::branch::{apply::OutcomeStatus, unapply::WorkspaceDisposition};
 use gix::refs::{Category, transaction::PreviousValue};
 use snapbox::prelude::*;
 
@@ -5100,7 +5097,6 @@ Outcome {
 
 fn apply_options() -> but_workspace::branch::apply::Options {
     but_workspace::branch::apply::Options {
-        workspace_reference_naming: WorkspaceReferenceNaming::Default,
         order: None,
         new_stack_id: Some(stack_id_for_name),
         allow_applying_already_applied_branch_when_outside_workspace: false,

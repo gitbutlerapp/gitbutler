@@ -21,7 +21,7 @@ use but_rebase::graph_rebase::{
 };
 use but_workspace::branch::{
     BranchIntegrationStrategy, InitialBranchIntegration,
-    apply::WorkspaceReferenceNaming, integrate_branch_upstream::InteractiveIntegration,
+    integrate_branch_upstream::InteractiveIntegration,
 };
 use gix::refs::transaction::PreviousValue;
 use tracing::instrument;
@@ -866,7 +866,6 @@ pub fn apply_only_with_perm(
         // NOTE: Options can later be passed as parameter, or we have a separate function for that.
         //       Showing them off here while leaving defaults.
         but_workspace::branch::apply::Options {
-            workspace_reference_naming: WorkspaceReferenceNaming::default(),
             order: None,
             new_stack_id: None,
             allow_applying_already_applied_branch_when_outside_workspace: false,

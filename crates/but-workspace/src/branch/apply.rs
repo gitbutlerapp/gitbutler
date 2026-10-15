@@ -150,22 +150,9 @@ impl std::fmt::Debug for Outcome {
     }
 }
 
-/// Decide how a newly created workspace reference should be named.
-#[derive(Default, Debug, Clone)]
-pub enum WorkspaceReferenceNaming {
-    /// Create a default workspace branch
-    #[default]
-    Default,
-    /// Create a workspace with the given name instead.
-    Given(gix::refs::FullName),
-}
-
 /// Options for [apply()].
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// How the workspace reference should be named should it be created.
-    /// The creation is always needed if there are more than one branch applied.
-    pub workspace_reference_naming: WorkspaceReferenceNaming,
     /// If not `None`, the applied branch should be merged into the workspace commit at the N'th parent position.
     /// This is useful if the tip of a branch (at a specific position) was unapplied, and a segment within that branch
     /// should now be re-applied, but of course, be placed at the same spot and not end up at the end of the workspace.
@@ -214,7 +201,6 @@ pub fn apply(
     repo: &gix::Repository,
     meta: &mut impl RefMetadata,
     Options {
-        workspace_reference_naming,
         order,
         new_stack_id,
         allow_applying_already_applied_branch_when_outside_workspace,
@@ -360,12 +346,8 @@ pub fn apply(
             // We need to switch over to a possibly existing workspace.
             // We know that the current branch is *not* reachable from the workspace or isn't naturally included,
             // so it needs to be added as well.
-            let next_ws_ref_name = match workspace_reference_naming {
-                WorkspaceReferenceNaming::Default => {
-                    gix::refs::FullName::try_from(WORKSPACE_REF_NAME).expect("known statically")
-                }
-                WorkspaceReferenceNaming::Given(name) => name,
-            };
+            let next_ws_ref_name =
+                gix::refs::FullName::try_from(WORKSPACE_REF_NAME).expect("known statically");
             let mut current_unmanaged_head_branch_name = ws.ref_name().map(|rn| rn.to_owned());
             if let Some(ref current_head_ref) = current_unmanaged_head_branch_name {
                 // If our current branch is related to the next workspace's target, don't add it to the
