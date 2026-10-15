@@ -144,7 +144,9 @@
 		{/snippet}
 
 		{#snippet caption()}
-			{#if determinedForgeType === "default"}
+			{#if selectedOption !== "default"}
+				A forge override is saved for this project. You can change or clear it below.
+			{:else if determinedForgeType === "default"}
 				We couldn't detect which Forge you're using.
 				<br />
 				To enable Forge integration, please select your Forge from the dropdown below.
@@ -160,7 +162,7 @@
 			{/if}
 		{/snippet}
 
-		{#if determinedForgeType === "default"}
+		{#if determinedForgeType === "default" || selectedOption !== "default"}
 			<Select
 				value={selectedOption}
 				options={FORGE_OPTIONS}
