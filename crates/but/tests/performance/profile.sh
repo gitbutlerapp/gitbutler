@@ -133,6 +133,17 @@ if [ "${PERF_ENV_ISOLATED:-}" != 1 ]; then
         done
     fi
     [ "$#" -gt 0 ] || perf_die 'no scenarios found'
+    perf_validate_scenario_excludes
+    # Filter before reserving profile output or checking paired benchmarks.
+    for scenario_name; do
+        shift
+        if perf_scenario_excluded "$scenario_name"; then
+            printf 'Skipping excluded scenario: %s\n' "$scenario_name" >&2
+        else
+            set -- "$@" "$scenario_name"
+        fi
+    done
+    [ "$#" -gt 0 ] || perf_die 'no scenarios remain after PERF_SCENARIO_EXCLUDES'
     selected=
     for scenario_name; do
         perf_validate_scenario "$scenario_name"
