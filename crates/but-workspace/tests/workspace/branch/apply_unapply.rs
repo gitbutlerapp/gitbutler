@@ -5381,6 +5381,17 @@ Outcome {
 
 "#]]
     );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph(&repo, &meta, &mut db)?.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
+├── ≡📙:A on e5d0542 {1}
+│   └── 📙:A
+└── ≡📙:B on e5d0542 {2}
+    └── 📙:B
+
+"#]]
+    );
     // Even though the real repo seemingly didn't change, after all, our entrypoint was just 'virtual'.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
