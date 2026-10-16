@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TreeRow {
     Dir {
         /// The full path, which is what's collapsed.

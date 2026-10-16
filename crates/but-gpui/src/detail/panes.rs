@@ -5,11 +5,11 @@ use std::ops::Range;
 
 use gpui::{
     AnyElement, ClickEvent, Context, Div, ElementId, Hsla, MouseButton, MouseDownEvent,
-    SharedString, Stateful, Window, div, prelude::*, px, uniform_list,
+    SharedString, Stateful, Toggled, Window, div, prelude::*, px, uniform_list,
 };
 
 use super::file_tree::{self, TreeRow};
-use super::{Check, Detail, checkbox_box};
+use super::{Detail, checkbox_box};
 use crate::app::StartCommit;
 use crate::app::{AppView, MenuItem};
 use crate::backend::{self, CommitState, DiffSource, FileChange, FileDiff, PushState, Selected};
@@ -72,33 +72,29 @@ impl Detail {
                         );
                     }
                 }
-                Selection::Branch(project, ref_name) => {
+                Selection::Branch(_, ref_name) => {
                     crumbs.push((short_ref(ref_name).to_owned().into(), None));
-                    if let Some(branch) = workspace.and_then(|ws| ws.find_branch(ref_name)) {
-                        let (project, ref_name) = (project.clone(), ref_name.clone());
-                        if branch.push.can_push() {
-                            let label = if branch.push == PushState::NeedsForce {
-                                "Force push"
-                            } else {
-                                "Push"
-                            };
-                            let store_handle = self.store.clone();
-                            actions.push(
-                                button("push", label)
-                                    .icon(Icon::ArrowUp)
-                                    .style(ButtonStyle::Pop)
-                                    .tooltip_with_key(
-                                        "Push this branch and the ones below it",
-                                        shortcut(&crate::app::Push, cx),
-                                    )
-                                    .on_click(move |_, _, cx| {
-                                        store_handle.update(cx, |store, cx| {
-                                            store.push(&project, ref_name.clone(), cx)
-                                        })
-                                    })
-                                    .into_any_element(),
-                            );
-                        }
+                    if let Some(branch) = workspace.and_then(|ws| ws.find_branch(ref_name))
+                        && branch.push.can_push()
+                    {
+                        let label = if branch.push == PushState::NeedsForce {
+                            "Force push"
+                        } else {
+                            "Push"
+                        };
+                        actions.push(
+                            button("push", label)
+                                .icon(Icon::ArrowUp)
+                                .style(ButtonStyle::Pop)
+                                .tooltip_with_key(
+                                    "Push this branch and the ones below it",
+                                    shortcut(&crate::app::Push, cx),
+                                )
+                                .on_click(|_, window, cx| {
+                                    window.dispatch_action(Box::new(crate::app::Push), cx)
+                                })
+                                .into_any_element(),
+                        );
                     }
                 }
                 Selection::Commit(project, id) => {
@@ -361,21 +357,7 @@ impl Detail {
                 let theme = Theme::get(cx).clone();
                 range
                     .filter_map(|ix| match &rows[ix] {
-                        TreeRow::Dir {
-                            path,
-                            name,
-                            depth,
-                            collapsed,
-                            files,
-                        } => Some(this.render_dir_row(
-                            path.clone(),
-                            name.clone(),
-                            *depth,
-                            *collapsed,
-                            *files,
-                            &theme,
-                            cx,
-                        )),
+                        dir @ TreeRow::Dir { .. } => this.render_dir_row(dir, &theme, cx),
                         TreeRow::File { pos, depth } => {
                             let depth = tree.then_some(*depth);
                             this.render_source_file(&source, index[*pos], depth, &theme, cx)
@@ -432,18 +414,23 @@ impl Detail {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn render_dir_row(
         &self,
-        path: String,
-        name: String,
-        depth: usize,
-        collapsed: bool,
-        files: usize,
+        row: &TreeRow,
         theme: &Theme,
         cx: &Context<Self>,
-    ) -> AnyElement {
-        list_row(ElementId::Name(format!("dir-{path}").into()), false, theme)
+    ) -> Option<AnyElement> {
+        let TreeRow::Dir {
+            path,
+            name,
+            depth,
+            collapsed,
+            files,
+        } = row.clone()
+        else {
+            return None;
+        };
+        let row = list_row(ElementId::Name(format!("dir-{path}").into()), false, theme)
             .pl(px(10. + TREE_INDENT * depth as f32))
             .gap(px(6.))
             .text_color(theme.text_2)
@@ -470,11 +457,10 @@ impl Detail {
                     this.collapsed_dirs.insert(path.clone());
                 }
                 cx.notify();
-            }))
-            .into_any_element()
+            }));
+        Some(row.into_any_element())
     }
 
-    /// Switches file lists between a flat list and a tree.
     fn tree_toggle(&self, cx: &Context<Self>) -> impl IntoElement {
         let tree = self.store.read(cx).file_tree;
         let store = self.store.clone();
@@ -610,22 +596,15 @@ impl Detail {
                 )
                 .on_mouse_down(
                     MouseButton::Right,
-                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                        this.file_menu(menu_payload.clone(), event, window, cx)
+                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                        this.file_menu(menu_payload.clone(), event, cx)
                     }),
                 );
         }
         row.into_any_element()
     }
 
-    fn file_menu(
-        &mut self,
-        payload: Cut,
-        event: &MouseDownEvent,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let app = self.app.clone();
+    fn file_menu(&mut self, payload: Cut, event: &MouseDownEvent, cx: &mut Context<Self>) {
         let Cut::Files {
             project,
             from,
@@ -634,34 +613,23 @@ impl Detail {
         else {
             return;
         };
-        let mut items = vec![MenuItem::new("Cut", {
-            let (project, files) = (project.clone(), files.clone());
-            move |this: &mut AppView, _, cx| {
-                this.cut_files(project.clone(), from, files.clone(), cx)
-            }
+        let cut = payload.clone();
+        let mut items = vec![MenuItem::new("Cut", move |this: &mut AppView, _, cx| {
+            this.cut(cut.clone(), cx)
         })];
-        match from {
-            None => items.push(
-                MenuItem::new("Discard changes…", {
-                    let (project, files) = (project.clone(), files.clone());
-                    move |this, window, cx| {
-                        this.discard(project.clone(), files.to_vec(), window, cx)
-                    }
-                })
-                .danger(),
-            ),
-            Some(_) => items.push(MenuItem::new("Uncommit file", move |this, window, cx| {
-                this.transfer(
-                    &payload,
-                    &Selection::Uncommitted(project.clone()),
-                    false,
-                    window,
-                    cx,
-                );
-            })),
-        }
+        items.push(match from {
+            None => MenuItem::new("Discard changes…", move |this, window, cx| {
+                this.discard(project.clone(), files.to_vec(), window, cx)
+            })
+            .danger(),
+            Some(_) => MenuItem::new("Uncommit file", move |this, window, cx| {
+                let uncommitted = Selection::Uncommitted(project.clone());
+                this.transfer(&payload, &uncommitted, false, window, cx);
+            }),
+        });
         let position = event.position;
-        app.update(cx, |app, cx| app.open_menu(position, items, cx))
+        self.app
+            .update(cx, |app, cx| app.open_menu(position, items, cx))
             .ok();
     }
 
@@ -1228,7 +1196,7 @@ enum FileSource {
 struct FileRow {
     stats: Option<(u32, u32)>,
     /// Shown while composing a commit.
-    checkbox: Option<Check>,
+    checkbox: Option<Toggled>,
     /// Shown for uncommitted files.
     review: Option<Review>,
     /// Lets the row be dragged and right-clicked as these changes.

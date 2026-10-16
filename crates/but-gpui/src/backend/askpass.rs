@@ -2,6 +2,7 @@
 
 use super::runtime;
 
+#[derive(Clone, Copy)]
 pub struct PromptId(but_askpass::AskpassRequestId);
 
 pub struct Prompt {

@@ -12,15 +12,14 @@ pub struct Watcher {
     _monitor: gitbutler_filemonitor::FileMonitorHandle,
 }
 
-/// Call `on_change` whenever files change in `project`'s worktree or git directory.
-/// It runs on a background task, so it should only signal.
+/// Call `on_change` whenever files change in `project`'s worktree or git directory, with
+/// whether the git directory was among them. It runs on a background task, so it should
+/// only signal.
 ///
 /// This uses the file monitor alone, not `gitbutler_watcher`, which works out status and
 /// hunk assignments under the exclusive repository lock on every event: the app reloads
 /// what it shows itself, and the lock would hold up the user's own commits while an
 /// agent keeps saving.
-/// Calls `on_change` with whether anything in the git directory changed, rather than
-/// only files in the worktree.
 pub fn watch(
     project: &Project,
     on_change: impl Fn(bool) + Send + Sync + 'static,

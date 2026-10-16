@@ -310,26 +310,14 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                     theme.danger,
                 ),
             };
-            let syntax = line.spans.iter().map(|(range, token)| {
-                let color = Some(theme.token(*token));
-                (
-                    range.clone(),
-                    HighlightStyle {
-                        color,
-                        ..Default::default()
-                    },
-                )
-            });
-            let emph = line.emph.iter().map(|range| {
-                let background_color = Some(emph_bg);
-                (
-                    range.clone(),
-                    HighlightStyle {
-                        background_color,
-                        ..Default::default()
-                    },
-                )
-            });
+            let syntax = line
+                .spans
+                .iter()
+                .map(|(range, token)| (range.clone(), HighlightStyle::from(theme.token(*token))));
+            let emph = line
+                .emph
+                .iter()
+                .map(|range| (range.clone(), ground(emph_bg)));
             let number = |n: Option<u32>| {
                 div()
                     .flex_none()
@@ -343,18 +331,9 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                     .when_some(gutter_bg, |el, bg| el.bg(bg))
                     .child(n.map(|n| n.to_string()).unwrap_or_default())
             };
-            let selected = selected.map(|range| {
-                // Blue like the system's text selection, apart from the green and red of
-                // the change itself.
-                let background_color = Some(theme.blue.opacity(0.3));
-                (
-                    range,
-                    HighlightStyle {
-                        background_color,
-                        ..Default::default()
-                    },
-                )
-            });
+            // Blue like the system's text selection, apart from the green and red of the
+            // change itself.
+            let selected = selected.map(|range| (range, ground(theme.blue.opacity(0.3))));
             let text = StyledText::new(SharedString::from(line.text.clone())).with_highlights(
                 combine_highlights(combine_highlights(syntax, emph), selected),
             );
@@ -460,4 +439,12 @@ fn hunk_title(hunk: &Hunk, theme: &Theme) -> AnyElement {
                 .child(inner.clone()),
         )
         .into_any_element()
+}
+
+/// A highlight that only colours the ground behind the text.
+fn ground(color: Hsla) -> HighlightStyle {
+    HighlightStyle {
+        background_color: Some(color),
+        ..Default::default()
+    }
 }

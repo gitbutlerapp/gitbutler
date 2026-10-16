@@ -2,9 +2,9 @@
 
 use std::collections::HashMap;
 
-use gpui::{AnyElement, App, Context, Focusable as _, Window, div, prelude::*, px};
+use gpui::{AnyElement, App, Context, Focusable as _, Toggled, Window, div, prelude::*, px};
 
-use super::{Check, ChecksChanged, Detail, hunk_keys};
+use super::{ChecksChanged, Detail, hunk_keys};
 use crate::app::MenuItem;
 use crate::backend::{self, Destination, DiffSource, FileChange, HunkKey, Selected};
 use crate::state::{Overlay, ProjectId, Selection};
@@ -22,7 +22,6 @@ impl Detail {
         cx.notify();
     }
 
-    /// Uncommitted files that are checked for the next commit.
     fn checked_uncommitted(&self, cx: &App) -> Vec<FileChange> {
         let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
             return Vec::new();
@@ -79,9 +78,9 @@ impl Detail {
             .unwrap_or_default()
     }
 
-    pub(super) fn file_check(&self, path: &str) -> Check {
+    pub(super) fn file_check(&self, path: &str) -> Toggled {
         if self.unchecked.contains(path) {
-            return Check::None;
+            return Toggled::False;
         }
         let excluded = self
             .unchecked_hunks
@@ -89,9 +88,9 @@ impl Detail {
             .filter(|(hunk_path, _)| hunk_path == path)
             .count();
         if excluded == 0 {
-            Check::All
+            Toggled::True
         } else {
-            Check::Some
+            Toggled::Mixed
         }
     }
 
@@ -315,10 +314,10 @@ impl Detail {
         self.unchecked_hunks
             .retain(|(hunk_path, _)| hunk_path != path);
         match check {
-            Check::All | Check::Some => {
+            Toggled::True | Toggled::Mixed => {
                 self.unchecked.insert(path.to_owned());
             }
-            Check::None => {
+            Toggled::False => {
                 self.unchecked.remove(path);
             }
         }
@@ -340,7 +339,7 @@ impl Detail {
         let checked = workspace
             .uncommitted
             .iter()
-            .filter(|f| self.file_check(&f.path) != Check::None)
+            .filter(|f| self.file_check(&f.path) != Toggled::False)
             .count();
         let target = self.effective_target(project, cx);
         let message_focused = self.message.focus_handle(cx).is_focused(window);

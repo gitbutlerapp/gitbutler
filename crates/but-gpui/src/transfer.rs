@@ -84,46 +84,25 @@ impl Transfer {
                     }
                 }
             }
-            (
-                Cut::Files {
-                    from: None, files, ..
+            (Cut::Files { from, files, .. }, target) => match (*from, target) {
+                (None, Selection::Commit(_, into)) => Transfer::Amend {
+                    into: *into,
+                    files: files.clone(),
                 },
-                Selection::Commit(_, into),
-            ) => Transfer::Amend {
-                into: *into,
-                files: files.clone(),
-            },
-            (
-                Cut::Files {
-                    from: None, files, ..
+                (None, Selection::Branch(_, branch)) => Transfer::StageOnBranch {
+                    branch: branch.clone(),
+                    files: files.clone(),
                 },
-                Selection::Branch(_, branch),
-            ) => Transfer::StageOnBranch {
-                branch: branch.clone(),
-                files: files.clone(),
-            },
-            (
-                Cut::Files {
-                    from: Some(from),
-                    files,
-                    ..
+                (Some(from), Selection::Uncommitted(_)) => Transfer::UncommitFiles {
+                    from,
+                    files: files.clone(),
                 },
-                Selection::Uncommitted(_),
-            ) => Transfer::UncommitFiles {
-                from: *from,
-                files: files.clone(),
-            },
-            (
-                Cut::Files {
-                    from: Some(from),
-                    files,
-                    ..
+                (Some(from), Selection::Commit(_, to)) if from != *to => Transfer::MoveFiles {
+                    from,
+                    to: *to,
+                    files: files.clone(),
                 },
-                Selection::Commit(_, to),
-            ) if from != to => Transfer::MoveFiles {
-                from: *from,
-                to: *to,
-                files: files.clone(),
+                _ => return None,
             },
             _ => return None,
         })
@@ -178,14 +157,7 @@ impl Transfer {
     ) -> Option<(String, Arc<[Selected]>)> {
         let label = self.describe();
         match self {
-            Transfer::Uncommit(id) => store.run(
-                project,
-                label,
-                Overlay::commits(store.key_of(project, id)),
-                move |path, remap| backend::uncommit(path, &[remap.get(id)?]),
-                |store, (), cx| store.snack_undoable("Uncommitted", cx),
-                cx,
-            ),
+            Transfer::Uncommit(id) => store.uncommit(project, id, cx),
             Transfer::UncommitFiles { from, files } => store.run(
                 project,
                 label,
