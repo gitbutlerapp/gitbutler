@@ -1316,6 +1316,7 @@ impl Render for AppView {
             .on_action(|_: &Zoom, window, _| window.zoom_window())
             .on_action(cx.listener(Self::add_project))
             .on_action(cx.listener(Self::open_settings))
+            .on_action(cx.listener(Self::resolve_conflicts))
             .on_action(cx.listener(Self::open_selected_in_terminal))
             .on_action(cx.listener(Self::refresh))
             .on_action(cx.listener(Self::undo))

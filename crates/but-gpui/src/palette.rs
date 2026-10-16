@@ -83,6 +83,10 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Go to changes", Box::new(FocusChanges)),
         ("Add project…", Box::new(AddProject)),
         ("Settings", Box::new(crate::settings::OpenSettings)),
+        (
+            "Resolve conflicts",
+            Box::new(crate::resolve::ResolveConflicts),
+        ),
         ("Open in editor", Box::new(crate::open_in::OpenInEditor)),
         ("Open in terminal", Box::new(crate::open_in::OpenInTerminal)),
         ("Reload", Box::new(Refresh)),

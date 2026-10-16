@@ -1031,11 +1031,18 @@ impl Navigator {
                 let Some((branch, commit)) = workspace.find_commit(*id) else {
                     return Vec::new();
                 };
-                let mut items = vec![
-                    action("Cut", &CutSelection),
+                let mut items = Vec::new();
+                if commit.conflicted {
+                    items.push(action(
+                        "Resolve conflicts…",
+                        &crate::resolve::ResolveConflicts,
+                    ));
+                }
+                items.extend([
+                    action("Cut", &CutSelection).separated(),
                     action("Cherry-pick", &CherryPick),
                     action("Edit message…", &RenameSelection).separated(),
-                ];
+                ]);
                 if crate::edits::needs_rewrap(&commit.message) {
                     items.push(action("Rewrap message", &RewrapMessage));
                 }

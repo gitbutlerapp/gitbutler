@@ -845,9 +845,18 @@ impl Detail {
                                 .text_size(px(12.))
                                 .text_color(theme.danger)
                                 .child(small_icon(Icon::Warning))
-                                .child(div().flex_1().child(
-                                    "This commit has conflicts. Resolve them with `but resolve` or the GitButler app, or undo with ⌘Z.",
-                                )),
+                                .child(div().flex_1().child("This commit has conflicts"))
+                                .child(
+                                    button("resolve", "Resolve…")
+                                        .small()
+                                        .style(ButtonStyle::Gray)
+                                        .on_click(|_, window, cx| {
+                                            window.dispatch_action(
+                                                Box::new(crate::resolve::ResolveConflicts),
+                                                cx,
+                                            )
+                                        }),
+                                ),
                         )
                     })
                     .child(

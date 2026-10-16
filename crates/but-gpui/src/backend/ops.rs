@@ -50,7 +50,7 @@ fn full_name(ref_name: &str) -> Result<gix::refs::FullName> {
 /// Commits an operation rewrote, old id to new id, so the UI can keep pointing at them.
 pub type Rewritten = HashMap<CommitId, CommitId>;
 
-fn rewritten(workspace: &but_api::WorkspaceState) -> Rewritten {
+pub(super) fn rewritten(workspace: &but_api::WorkspaceState) -> Rewritten {
     workspace
         .replaced_commits
         .iter()
