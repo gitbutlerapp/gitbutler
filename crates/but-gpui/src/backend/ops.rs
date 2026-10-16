@@ -433,7 +433,7 @@ mod tests {
         lines[19] = "last edit\n".into();
         std::fs::write(path.join("file"), lines.concat()).unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None).unwrap();
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
         let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
             panic!("a text diff");
         };

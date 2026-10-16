@@ -9,6 +9,7 @@ mod panes;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
@@ -89,6 +90,11 @@ pub struct Detail {
     loading: Option<DiffKey>,
     /// The worktree changed while its diff was loading; load again when done.
     reload_queued: bool,
+    /// When the selection last changed, to tell a held arrow key from a single step.
+    selected_at: Option<Instant>,
+    /// Diffs shown lately, oldest first. Commits and ranges can't change, so going back to
+    /// one shows it at once; the worktree reuses each unchanged file's highlighting.
+    recent: Vec<(DiffKey, Arc<Vec<FileDiff>>)>,
     _load: Task<()>,
     list: ListState,
     message: Entity<TextInput>,
@@ -126,6 +132,12 @@ pub struct Detail {
 impl EventEmitter<ChecksChanged> for Detail {}
 
 impl Detail {
+    /// No diff loading or queued, for the dev script's timings.
+    #[cfg(feature = "dev-script")]
+    pub fn is_settled(&self) -> bool {
+        self.loading.is_none() && !self.reload_queued
+    }
+
     pub fn new(
         store: Entity<Store>,
         app: WeakEntity<AppView>,
@@ -186,8 +198,10 @@ impl Detail {
             diff_error: None,
             loading: None,
             reload_queued: false,
+            selected_at: None,
+            recent: Vec::new(),
             _load: Task::ready(()),
-            list: ListState::new(0, ListAlignment::Top, px(600.)),
+            list: ListState::new(0, ListAlignment::Top, px(150.)),
             message,
             commit_target: None,
             unchecked: HashSet::new(),
@@ -279,73 +293,132 @@ impl Detail {
             .flatten()
             .map(|ws| ws.uncommitted.clone());
         let previous = self
-            .diff
-            .as_ref()
-            .filter(|diff| diff.key == key)
-            .map(|diff| diff.files.clone());
+            .recent
+            .iter()
+            .find(|(recent, _)| *recent == key)
+            .map(|(_, files)| files.clone());
+        if let Some(files) = previous.clone()
+            && key.source != DiffSource::Worktree
+            && files.iter().all(|file| file.annotated)
+        {
+            self.loading = None;
+            self.show_diff(key, files, cx);
+            cx.notify();
+            return;
+        }
+        // A single step loads at once. Selections arriving faster than this, from a held
+        // arrow key, wait it out: each replaces the task before its blocking load, which
+        // nothing can stop once it starts, so only the commit landed on is loaded. Worktree
+        // reloads follow the file watcher, which already batches bursts of writes.
+        const SETTLE: Duration = Duration::from_millis(40);
+        let delay = if selection_changed
+            && self
+                .selected_at
+                .replace(Instant::now())
+                .is_some_and(|at| at.elapsed() < SETTLE)
+        {
+            SETTLE
+        } else {
+            Duration::ZERO
+        };
         self._load = cx.spawn(async move |this, cx| {
-            // Running j through commits replaces this task before the blocking load, which
-            // nothing can stop once it starts, so only the commit landed on is loaded.
-            cx.background_executor()
-                .timer(std::time::Duration::from_millis(40))
-                .await;
-            let result =
-                backend::run(move || backend::load_diff(&path, source, worktree, previous)).await;
-            this.update(cx, |this, cx| {
-                if this.loading.as_ref() != Some(&key) {
-                    return;
-                }
-                this.loading = None;
-                match result {
-                    Ok(files) => {
-                        let folded = this.folded_paths(&key, &files, cx);
-                        let rows = diff::rows(&files, |file| folded.contains(&file.file.path));
-                        let same = this.diff.as_ref().is_some_and(|diff| diff.key == key);
-                        if same {
-                            let top = this.list.logical_scroll_top();
-                            this.list.reset(rows.len());
-                            this.list.scroll_to(top);
-                        } else {
-                            this.list.reset(rows.len());
-                        }
-                        if same {
-                            this.cursor = this.cursor_in(&files);
-                        }
-                        if key.source == DiffSource::Worktree {
-                            let present: HashSet<&str> =
-                                files.iter().map(|f| f.file.path.as_str()).collect();
-                            this.unchecked
-                                .retain(|path| present.contains(path.as_str()));
-                            let hunks: HashSet<(&str, HunkKey)> = files
-                                .iter()
-                                .flat_map(|f| {
-                                    hunk_keys(f)
-                                        .into_iter()
-                                        .map(|key| (f.file.path.as_str(), key))
-                                })
-                                .collect();
-                            this.unchecked_hunks
-                                .retain(|(path, key)| hunks.contains(&(path.as_str(), *key)));
-                        }
-                        if this.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
-                            this.text_selection = None;
-                        }
-                        this.diff = Some(LoadedDiff {
-                            key,
-                            files: Arc::new(files),
-                            rows,
-                        });
-                        this.diff_error = None;
+            if !delay.is_zero() {
+                cx.background_executor().timer(delay).await;
+            }
+            // Only the files likely on screen are highlighted first; the rest follow.
+            const FIRST: usize = 16;
+            let (first_path, first_worktree) = (path.clone(), worktree.clone());
+            let result = backend::run(move || {
+                backend::load_diff(&first_path, source, first_worktree, previous, Some(FIRST))
+            })
+            .await;
+            let shown = this
+                .update(cx, |this, cx| {
+                    if this.loading.as_ref() != Some(&key) {
+                        return None;
                     }
-                    Err(err) => this.diff_error = Some(format!("{err:#}").into()),
+                    this.loading = None;
+                    let mut shown = None;
+                    match result {
+                        Ok(files) => {
+                            let files = Arc::new(files);
+                            if files.iter().any(|file| !file.annotated) {
+                                shown = Some(files.clone());
+                            }
+                            this.show_diff(key.clone(), files, cx);
+                        }
+                        Err(err) => this.diff_error = Some(format!("{err:#}").into()),
+                    }
+                    cx.notify();
+                    if std::mem::take(&mut this.reload_queued) {
+                        this.refresh_diff(false, cx);
+                        return None;
+                    }
+                    shown
+                })
+                .ok()
+                .flatten();
+            let Some(shown) = shown else {
+                return;
+            };
+            let previous = Some(shown.clone());
+            let result =
+                backend::run(move || backend::load_diff(&path, source, worktree, previous, None))
+                    .await;
+            this.update(cx, |this, cx| {
+                // Unless something newer landed in the meantime.
+                let current = this.diff.as_ref().map(|diff| &diff.files);
+                if this.loading.is_none()
+                    && current.is_some_and(|files| Arc::ptr_eq(files, &shown))
+                    && let Ok(files) = result
+                {
+                    this.show_diff(key, Arc::new(files), cx);
+                    cx.notify();
                 }
-                if std::mem::take(&mut this.reload_queued) {
-                    this.refresh_diff(false, cx);
-                }
-                cx.notify();
             })
             .ok();
         });
+    }
+
+    /// Show a loaded diff, keeping the scroll position and checks when it's a reload.
+    fn show_diff(&mut self, key: DiffKey, files: Arc<Vec<FileDiff>>, cx: &mut Context<Self>) {
+        const RECENT: usize = 16;
+        self.recent.retain(|(recent, _)| *recent != key);
+        if self.recent.len() == RECENT {
+            self.recent.remove(0);
+        }
+        self.recent.push((key.clone(), files.clone()));
+        let folded = self.folded_paths(&key, &files, cx);
+        let rows = diff::rows(&files, |file| folded.contains(&file.file.path));
+        let same = self.diff.as_ref().is_some_and(|diff| diff.key == key);
+        if same {
+            let top = self.list.logical_scroll_top();
+            self.list.reset(rows.len());
+            self.list.scroll_to(top);
+            self.cursor = self.cursor_in(&files);
+        } else {
+            self.list.reset(rows.len());
+        }
+        if key.source == DiffSource::Worktree {
+            let present: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
+            self.unchecked
+                .retain(|path| present.contains(path.as_str()));
+            let hunks: HashSet<(&str, HunkKey)> = files
+                .iter()
+                .flat_map(|f| {
+                    hunk_keys(f)
+                        .into_iter()
+                        .map(|key| (f.file.path.as_str(), key))
+                })
+                .collect();
+            self.unchecked_hunks
+                .retain(|(path, key)| hunks.contains(&(path.as_str(), *key)));
+        }
+        if self.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
+            self.text_selection = None;
+        }
+        self.diff = Some(LoadedDiff { key, files, rows });
+        self.diff_error = None;
     }
 
     /// What dragging `project`'s uncommitted changes carries: the checked files and hunks

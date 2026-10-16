@@ -280,6 +280,7 @@ pub fn load_diff(
     source: DiffSource,
     worktree: Option<Vec<FileChange>>,
     previous: Option<Arc<Vec<FileDiff>>>,
+    annotate: Option<usize>,
 ) -> Result<Vec<FileDiff>> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
@@ -317,62 +318,155 @@ pub fn load_diff(
         .flat_map(|files| files.iter())
         .map(|file| (file.file.path.as_str(), file))
         .collect();
-    // What each file still needs: nothing when reused, else highlighting and, with both
-    // sides as the patch was computed from them, scope names.
-    let mut todo = Vec::with_capacity(changes.len());
-    let mut diffs = changes
-        .into_iter()
-        .map(|file| {
-            let mut filter = but_core::unified_diff::filter_from_state(
-                &repo,
-                file.change.status.state(),
-                but_core::UnifiedPatch::CONVERSION_MODE,
-            )?;
-            let patch = file
-                .change
-                .unified_patch_with_filter(&repo, context_lines, &mut filter)?;
-            let fingerprint = fingerprint(&patch);
-            if let Some(old) = previous
-                .get(file.path.as_str())
-                .filter(|old| old.fingerprint == fingerprint)
-            {
-                todo.push(None);
-                return Ok(FileDiff {
-                    file,
-                    body: old.body.clone(),
-                    fingerprint,
-                });
-            }
-            let small = matches!(&patch, Some(but_core::UnifiedPatch::Patch { lines_added, lines_removed, .. })
-                if lines_added + lines_removed <= HIGHLIGHT_LIMIT);
-            todo.push(Some(small.then(|| scope_sides(&filter)).flatten()));
-            let body = match patch {
-                None => DiffBody::Empty,
-                Some(but_core::UnifiedPatch::Binary) => DiffBody::Binary,
-                Some(but_core::UnifiedPatch::TooLarge { size_in_bytes }) => DiffBody::TooLarge {
-                    bytes: size_in_bytes,
-                },
-                Some(but_core::UnifiedPatch::Patch {
-                    hunks,
-                    lines_added,
-                    lines_removed,
-                    ..
-                }) => DiffBody::Hunks {
-                    hunks: hunks.iter().map(parse_hunk).collect(),
-                    added: lines_added,
-                    removed: lines_removed,
-                },
-            };
-            Ok(FileDiff {
-                file,
-                body,
-                fingerprint,
-            })
-        })
-        .collect::<Result<Vec<_>>>()?;
-    annotate_all(&mut diffs, todo);
+    // Only the first `annotate` files are highlighted and given scope names; the rest stay
+    // plain unless reused.
+    let first = annotate.unwrap_or(usize::MAX);
+    let repo = repo.clone().into_sync();
+    let diffs = parallel_map(
+        changes,
+        || repo.to_thread_local(),
+        |repo, index, file| {
+            let previous = previous.get(file.path.as_str()).copied();
+            load_file(repo, file, context_lines, previous, index < first)
+        },
+    )
+    .into_iter()
+    .collect::<Result<Vec<_>>>()?;
     tracing::debug!(elapsed = ?started.elapsed(), ?source, "loaded diff");
     Ok(diffs)
+}
+
+/// One file's diff, reused from `previous` when its patch is the same, else parsed and,
+/// when `annotate`, highlighted and given scope names.
+fn load_file(
+    repo: &gix::Repository,
+    file: FileChange,
+    context_lines: u32,
+    previous: Option<&FileDiff>,
+    annotate: bool,
+) -> Result<FileDiff> {
+    // An uncommitted file last written at the same moment, against the same base, has the
+    // same patch, so it isn't computed again, much as git skips files whose stat is unchanged.
+    if let Some(old) = previous.filter(|old| {
+        file.modified.is_some()
+            && old.file.modified == file.modified
+            && old.file.kind == file.kind
+            && old.file.previous_path == file.previous_path
+            && old.file.base() == file.base()
+            && (old.annotated || !annotate)
+    }) {
+        return Ok(FileDiff {
+            file,
+            body: old.body.clone(),
+            fingerprint: old.fingerprint,
+            annotated: old.annotated,
+        });
+    }
+    let mut filter = but_core::unified_diff::filter_from_state(
+        repo,
+        file.change.status.state(),
+        but_core::UnifiedPatch::CONVERSION_MODE,
+    )?;
+    let patch = file
+        .change
+        .unified_patch_with_filter(repo, context_lines, &mut filter)?;
+    let fingerprint = fingerprint(&patch);
+    if let Some(old) = previous.filter(|old| old.fingerprint == fingerprint && old.annotated) {
+        return Ok(FileDiff {
+            file,
+            body: old.body.clone(),
+            fingerprint,
+            annotated: true,
+        });
+    }
+    let mut body = match patch {
+        None => DiffBody::Empty,
+        Some(but_core::UnifiedPatch::Binary) => DiffBody::Binary,
+        Some(but_core::UnifiedPatch::TooLarge { size_in_bytes }) => DiffBody::TooLarge {
+            bytes: size_in_bytes,
+        },
+        Some(but_core::UnifiedPatch::Patch {
+            hunks,
+            lines_added,
+            lines_removed,
+            ..
+        }) => DiffBody::Hunks {
+            hunks: hunks.iter().map(parse_hunk).collect(),
+            added: lines_added,
+            removed: lines_removed,
+        },
+    };
+    if annotate
+        && let DiffBody::Hunks {
+            hunks,
+            added,
+            removed,
+        } = &mut body
+        && *added + *removed <= HIGHLIGHT_LIMIT
+    {
+        for hunk in hunks.iter_mut() {
+            annotate::emphasize(hunk);
+            let Some(mut highlighter) = highlight::Highlighter::for_path(&file.path) else {
+                continue;
+            };
+            for line in &mut hunk.lines {
+                line.spans = highlighter.line(&line.text);
+            }
+        }
+        if let Some((old, new)) = scope_sides(&filter) {
+            annotate::label_scopes(hunks, &old, &new, &file.path);
+        }
+    }
+    Ok(FileDiff {
+        file,
+        body,
+        fingerprint,
+        annotated: annotate,
+    })
+}
+
+/// `f` over `items` on all cores, keeping their order. Each thread gets its own `state`.
+fn parallel_map<T: Send, S, R: Send>(
+    items: Vec<T>,
+    state: impl Fn() -> S + Sync,
+    f: impl Fn(&S, usize, T) -> R + Sync,
+) -> Vec<R> {
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let threads = std::thread::available_parallelism()
+        .map_or(4, |n| n.get())
+        .min(items.len());
+    let next = AtomicUsize::new(0);
+    let items: Vec<Mutex<Option<T>>> = items
+        .into_iter()
+        .map(|item| Mutex::new(Some(item)))
+        .collect();
+    let results: Vec<Mutex<Option<R>>> = items.iter().map(|_| Mutex::new(None)).collect();
+    std::thread::scope(|scope| {
+        for _ in 0..threads {
+            scope.spawn(|| {
+                let state = state();
+                loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some(item) = items.get(index) else {
+                        break;
+                    };
+                    let item = item.lock().expect("each item is taken once").take();
+                    let result = f(&state, index, item.expect("each item is taken once"));
+                    *results[index].lock().expect("each result is set once") = Some(result);
+                }
+            });
+        }
+    });
+    results
+        .into_iter()
+        .map(|result| {
+            result
+                .into_inner()
+                .expect("each result is set once")
+                .expect("every item is mapped")
+        })
+        .collect()
 }
 
 /// The old and new text of a file, when neither side is binary.
@@ -419,58 +513,6 @@ fn side_bytes(data: gix::diff::blob::platform::resource::Data<'_>) -> Option<&[u
 
 /// Files with more changed lines than this aren't highlighted, to keep big diffs fast.
 const HIGHLIGHT_LIMIT: u32 = 4000;
-
-/// Highlight every file, mark the words that changed and name the scopes of its hunks,
-/// spread over all cores: this costs far more than the diff itself.
-/// `todo` has an entry per file: `None` for one reused as it was.
-fn annotate_all(diffs: &mut [FileDiff], todo: Vec<Option<Sides>>) {
-    let next = std::sync::atomic::AtomicUsize::new(0);
-    let files: Vec<std::sync::Mutex<(&mut FileDiff, Sides)>> = diffs
-        .iter_mut()
-        .zip(todo)
-        .filter_map(|(file, todo)| Some((file, todo?)))
-        .map(std::sync::Mutex::new)
-        .collect();
-    let threads = std::thread::available_parallelism()
-        .map_or(4, |n| n.get())
-        .min(files.len());
-    std::thread::scope(|scope| {
-        for _ in 0..threads {
-            scope.spawn(|| {
-                while let Some(file) =
-                    files.get(next.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
-                {
-                    let mut guard = file.lock().expect("each file is taken once");
-                    let (file, sides) = &mut *guard;
-                    let path = file.file.path.clone();
-                    let DiffBody::Hunks {
-                        hunks,
-                        added,
-                        removed,
-                    } = &mut file.body
-                    else {
-                        continue;
-                    };
-                    if *added + *removed > HIGHLIGHT_LIMIT {
-                        continue;
-                    }
-                    for hunk in hunks.iter_mut() {
-                        annotate::emphasize(hunk);
-                        let Some(mut highlighter) = highlight::Highlighter::for_path(&path) else {
-                            continue;
-                        };
-                        for line in &mut hunk.lines {
-                            line.spans = highlighter.line(&line.text);
-                        }
-                    }
-                    if let Some((old, new)) = sides {
-                        annotate::label_scopes(hunks, old, new, &path);
-                    }
-                }
-            });
-        }
-    });
-}
 
 /// Files with more changed lines than this aren't highlighted, to keep big diffs fast.
 /// Lines longer than this, as in minified files, are cut short: shaping and highlighting
