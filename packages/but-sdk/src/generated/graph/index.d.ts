@@ -193,7 +193,7 @@ export declare function branchCannedName(projectId: string): Promise<string>
 export declare function branchCheckout(projectId: string, branch: FullNameBytes): Promise<BranchCheckoutResult>
 
 /**
- * Creates a new local branch at the project target SHA, checks it out, and
+ * Creates a new local branch at the selected project cutoff, checks it out, and
  * returns the resulting workspace state.
  *
  * If `name` is provided, it is treated as a short branch name and normalized
@@ -1772,15 +1772,15 @@ export declare function workspaceIntegrateUpstream(projectId: string, updates: A
 export declare function workspaceRecreate(projectId: string): Promise<WorkspaceRecreateResult>
 
 /**
- * List the target branch's first-parent commits from its tip down to the
- * workspace lower bound, ordered from newest to oldest.
+ * List the target's derived upstream first-parent commits from its tip down to
+ * the workspace lower bound, ordered from newest to oldest.
  *
  * Commits flagged as in the workspace are already reachable from it; the
  * remaining prefix is what an upstream integration would bring in. The
  * in-workspace tail runs to the fork point shared by all workspace stacks,
  * so clients can position each stack against the target history. The
  * first-parent walk shows a merge as a single commit rather than everything
- * it merged. The list is empty when the workspace has no target reference.
+ * it merged. The list is empty when the target has no configured upstream.
  *
  * With `from`, the walk instead continues past the end of a previous
  * response: it starts below the given commit and returns up to `limit`
@@ -2153,12 +2153,16 @@ export type Author = {
 
 export type BaseBranch = {
   branchName: string;
-  remoteName: string;
-  remoteUrl: string;
-  pushRemoteName: string;
-  pushRemoteUrl: string;
+  remoteName: string | null;
+  remoteUrl: string | null;
+  pushRemoteName: string | null;
+  pushRemoteUrl: string | null;
   baseSha: string;
-  currentSha: string;
+  /**
+   * Upstream tip, or local target tip when no upstream is configured.
+   * None means the configured upstream ref is unavailable; incoming counts are unknown.
+   */
+  currentSha: string | null;
   behind: number;
   upstreamCommits: Array<RemoteCommit>;
   recentCommits: Array<RemoteCommit>;
@@ -4483,24 +4487,25 @@ export type StackReference = {
 
 /** Information about the target reference, the one we want to integrate with. */
 export type Target = {
-  /** The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`. */
-  remoteTrackingRef: RemoteTrackingReference;
+  /** The local or remote-tracking branch to integrate with. */
+  refName: TargetReference;
   /** The amount of commits that aren't reachable by any segment in the workspace, they are in its future. */
   commitsAhead: number;
-  /**
-   * Whether the stored target commit is where the target ref points right now.
-   *
-   * Only a workspace update advances the stored target, so `false` means an update has work to do.
-   */
-  isCurrent: boolean;
+  /** The derived upstream, or `None` when the target has no upstream configuration. */
+  upstream: TargetUpstream | null;
   /**
    * Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
    * the stored target commit.
    *
    * Updating only some of them leaves the others so, which means an update has work to do
-   * even while [`Self::is_current`] holds.
+   * even when the stored cutoff matches the upstream tip.
    */
   hasLanesBehind: boolean;
+  /**
+   * Whether pull can safely advance the local target to the upstream tip.
+   * False for equal, ahead, diverged, missing, or checked-out local targets.
+   */
+  canFastForwardLocalTarget: boolean;
 };
 
 /**
@@ -4549,6 +4554,26 @@ export type TargetCommitReview = {
   sourceBranch: string;
   /** Labels attached to the review, when available in the forge cache. */
   labels: Array<ForgeReviewLabel>;
+};
+
+/** A local or remote-tracking reference used as the integration target. */
+export type TargetReference = {
+  /** The full ref name, preserving the local or remote-tracking namespace. */
+  fullNameBytes: Array<number>;
+  /** The branch name for display, without the remote name. */
+  displayName: string;
+  /** The remote name for a remote-tracking target, or `None` for a local target. */
+  remoteName: string | null;
+};
+
+/** The target's configured upstream, distinct from the local target itself. */
+export type TargetUpstream = {
+  /** The derived tracking ref, retained even when its tip is unavailable. */
+  refName: TargetReference;
+  /** The locally available upstream tip, or `None` if the ref cannot be resolved. */
+  tip: string | null;
+  /** Whether the stored cutoff equals the available upstream tip. False if either is absent. */
+  cutoffMatchesTip: boolean;
 };
 
 export type TelemetrySettings = {

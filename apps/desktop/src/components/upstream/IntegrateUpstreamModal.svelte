@@ -54,11 +54,13 @@
 	let statusRequest = 0;
 	let operationRequest = 0;
 
-	const baseLoaded = $derived(!!base);
+	const upstreamAvailable = $derived(
+		!!base?.remoteName && base.currentSha !== null && base.currentSha !== undefined,
+	);
 	const isBaseDiverged = $derived(!!base?.targetShaAheadOfRef);
 	const canIntegrate = $derived(
 		operationState === "idle" &&
-			baseLoaded &&
+			upstreamAvailable &&
 			!isBaseDiverged &&
 			!!integrationStatuses &&
 			!statusesLoading &&
@@ -89,7 +91,7 @@
 	async function loadStatuses(request: number) {
 		try {
 			const nextStatuses = await upstreamIntegrationService.upstreamStatuses(projectId);
-			if (request !== statusRequest || isBaseDiverged || !baseLoaded) return;
+			if (request !== statusRequest || isBaseDiverged || !upstreamAvailable) return;
 
 			const statusesTmp = [...nextStatuses.subject];
 			statusesTmp.sort(sortUpstreamIntegrationStatus);
@@ -119,7 +121,7 @@
 			return;
 		}
 
-		if (!base) {
+		if (!base || !upstreamAvailable) {
 			clearStatuses();
 			return;
 		}
@@ -226,7 +228,17 @@
 	onSubmit={() => integrate()}
 >
 	<ScrollableContainer maxHeight="70vh">
-		{#if base}
+		{#if base && !upstreamAvailable}
+			<div class="integration-error">
+				<InfoMessage>
+					{#snippet content()}
+						The target upstream is unavailable. Fetch or configure an upstream to update the
+						workspace.
+					{/snippet}
+				</InfoMessage>
+			</div>
+		{/if}
+		{#if base && upstreamAvailable}
 			<div class="section">
 				<h3 class="text-14 text-semibold section-title">
 					<span>Incoming {base.upstreamCommits.length === 1 ? "change" : "changes"}</span><Badge

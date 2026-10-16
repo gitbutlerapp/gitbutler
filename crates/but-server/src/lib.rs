@@ -615,6 +615,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             "/commit_insert_blank",
             but_post(commit::insert_blank::commit_insert_blank_cmd),
         )
+        .route("/branch_list", but_post(but_api::branch::branch_list_cmd))
         .route(
             "/list_branches",
             but_post(legacy::virtual_branches::list_branches_cmd),

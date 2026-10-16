@@ -11,13 +11,15 @@
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui-svelte";
 	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
+	import type { LocalTargetBranch } from "$lib/branches/branchEndpoints";
 
 	interface Props {
 		projectId: string;
 		remoteBranches: RemoteBranchInfo[];
+		localBranches: LocalTargetBranch[];
 	}
 
-	const { projectId, remoteBranches }: Props = $props();
+	const { projectId, remoteBranches, localBranches }: Props = $props();
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const baseService = inject(BASE_BRANCH_SERVICE);
@@ -25,14 +27,17 @@
 	const projectQuery = $derived(projectsService.getProject(projectId));
 	const [setBaseBranchTargetRef] = baseService.setTargetRef;
 
-	async function setTarget([branchName, pushRemote]: [branchName: string, pushRemote: string]) {
+	async function setTarget([branchName, pushRemote]: [
+		branchName: string,
+		pushRemote: string | undefined,
+	]) {
 		if (!branchName) return;
 
 		try {
 			// Only set the target; the user keeps working on their current branch.
 			await setBaseBranchTargetRef({
 				projectId,
-				targetRef: `refs/remotes/${branchName}`,
+				targetRef: branchName,
 				pushRemote,
 			});
 		} catch (e: unknown) {
@@ -69,6 +74,7 @@
 				{projectId}
 				projectName={project.title}
 				{remoteBranches}
+				{localBranches}
 				onBranchSelected={setTarget}
 				onOpenProject={openProject}
 			/>

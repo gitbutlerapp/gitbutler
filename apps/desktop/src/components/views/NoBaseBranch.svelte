@@ -8,26 +8,25 @@
 	const { projectId }: { projectId: string } = $props();
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const remoteBranchesQuery = $derived(baseBranchService.remoteBranches(projectId));
+	const localBranchesQuery = $derived(baseBranchService.localTargetBranches(projectId));
 </script>
 
-{#if remoteBranchesQuery.result.isLoading}
-	<!--TODO: Add project id -->
+{#if remoteBranchesQuery.result.isLoading || localBranchesQuery.result.isLoading}
 	<FullviewLoading />
-{:else if remoteBranchesQuery.result.isSuccess}
-	{@const remoteBranches = remoteBranchesQuery.response}
-	{#if !remoteBranches || remoteBranches.length === 0}
+{:else if remoteBranchesQuery.result.isSuccess && localBranchesQuery.result.isSuccess}
+	{@const remoteBranches = remoteBranchesQuery.response ?? []}
+	{@const localBranches = localBranchesQuery.response ?? []}
+	{#if localBranches.length === 0}
 		<ProblemLoadingRepo
 			{projectId}
-			error="Currently, GitButler requires a remote branch to base its virtual branch work on. To
-						use virtual branches, please push your code to a remote branch to use as a base"
+			error="Create a local branch to use as the project target, then reopen the project."
 		/>
 	{:else}
-		<ProjectSetup {projectId} {remoteBranches} />
+		<ProjectSetup {projectId} {remoteBranches} {localBranches} />
 	{/if}
-{:else if remoteBranchesQuery.result.isError}
+{:else if remoteBranchesQuery.result.isError || localBranchesQuery.result.isError}
 	<ProblemLoadingRepo
 		{projectId}
-		error="Currently, GitButler requires a remote branch to base its virtual branch work on. To
-						use virtual branches, please push your code to a remote branch to use as a base"
+		error="Could not load branches. Check the repository and reopen the project."
 	/>
 {/if}

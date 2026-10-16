@@ -9,7 +9,9 @@ import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import type { ForgeProvider, RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
 import type { BaseBranch, WorkspaceFetchStatus } from "@gitbutler/but-sdk";
-import type { BranchListing, BranchListingDetails } from "@gitbutler/but-sdk";
+import type { BranchListing, BranchListingDetails, ListedStack } from "@gitbutler/but-sdk";
+
+export type LocalTargetBranch = { name: string; refName: string; isTarget: boolean };
 
 export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 	return {
@@ -97,6 +99,24 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 					.sort((a, b) => a.localeCompare(b))
 					.map((name) => ({ name }));
 			},
+		}),
+
+		localTargetBranches: build.query<LocalTargetBranch[], { projectId: string }>({
+			extraOptions: { command: "branch_list" },
+			query: (args) => args,
+			providesTags: [providesList(ReduxTag.BranchListing), providesType(ReduxTag.BaseBranchData)],
+			transformResponse: (stacks: ListedStack[]) =>
+				stacks
+					.flatMap((stack) =>
+						stack.branches
+							.filter((branch) => branch.hasLocal)
+							.map((branch) => ({
+								name: branch.displayName,
+								refName: branch.refName.full,
+								isTarget: stack.status === "target",
+							})),
+					)
+					.sort((a, b) => a.name.localeCompare(b.name)),
 		}),
 
 		// ── Branch Listing ──────────────────────────────────────────
