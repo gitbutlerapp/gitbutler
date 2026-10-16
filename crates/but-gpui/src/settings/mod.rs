@@ -581,6 +581,17 @@ impl Render for SettingsView {
 }
 
 impl AppView {
+    /// Settings, at Accounts: where a forge account gets connected.
+    pub fn open_accounts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_settings(&OpenSettings, window, cx);
+        if let Some(view) = self.modal_view::<SettingsView>() {
+            view.update(cx, |view, cx| {
+                view.section = Section::Accounts;
+                cx.notify();
+            });
+        }
+    }
+
     pub fn open_settings(&mut self, _: &OpenSettings, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.clone();
         let project = {

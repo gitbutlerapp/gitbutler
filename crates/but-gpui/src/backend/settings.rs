@@ -62,7 +62,14 @@ pub fn set_fetch_interval(minutes: Option<u64>) -> Result<()> {
 pub struct ProjectSettings {
     pub force_push_protection: bool,
     pub sign_commits: bool,
+    /// Where pull requests list the stack's other pull requests.
+    pub stack_info: StackInfo,
+    pub github_stacks: GitHubStacks,
 }
+
+pub use but_core::settings::git::ui::{
+    GitHubStackingMode as GitHubStacks, ReviewStackingDescription as StackInfo,
+};
 
 pub fn project_settings(id: &str, path: &Path) -> Result<ProjectSettings> {
     let project = gitbutler_project::get(id.parse().context("Invalid project id")?)?;
@@ -70,6 +77,12 @@ pub fn project_settings(id: &str, path: &Path) -> Result<ProjectSettings> {
     Ok(ProjectSettings {
         force_push_protection: project.force_push_protection,
         sign_commits: git.gitbutler_sign_commits.unwrap_or(false),
+        stack_info: git
+            .gitbutler_review_stacking_description
+            .unwrap_or(StackInfo::Bottom),
+        github_stacks: git
+            .gitbutler_github_stacking_mode
+            .unwrap_or(GitHubStacks::Auto),
     })
 }
 
@@ -95,6 +108,23 @@ pub fn set_sign_commits(path: &Path, sign: bool) -> Result<()> {
     let ctx = open(path)?;
     let mut git = config::get_gb_config(&ctx)?;
     git.gitbutler_sign_commits = Some(sign);
+    config::set_gb_config(&ctx, git)
+}
+
+/// Where pull requests list the stack, and whether GitHub shows them as a native stack.
+pub fn set_stacking(
+    path: &Path,
+    info: Option<StackInfo>,
+    github: Option<GitHubStacks>,
+) -> Result<()> {
+    let ctx = open(path)?;
+    let mut git = config::get_gb_config(&ctx)?;
+    if let Some(info) = info {
+        git.gitbutler_review_stacking_description = Some(info);
+    }
+    if let Some(github) = github {
+        git.gitbutler_github_stacking_mode = Some(github);
+    }
     config::set_gb_config(&ctx, git)
 }
 
