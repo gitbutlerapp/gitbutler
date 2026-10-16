@@ -1,190 +1,118 @@
-import type { ForgeInfo, ForgeReview, RefInfo } from "@gitbutler/but-sdk";
-import type { Page } from "@playwright/test";
-import type { LiteElectronApi } from "../../electron/src/ipc.ts";
-import { expect, test as base } from "../test.ts";
+import type { Locator } from "@playwright/test";
+import { aReview } from "../forge.ts";
+import { expect, test } from "../test.ts";
 
-const test = base.extend<{ reviewState: "none" | "open" | "merged" | "closed" }>({
-	reviewState: ["open", { option: true }],
-});
 test.use({ scenario: "project-in-single-branch-three-branch-stack.sh" });
 
-const review: ForgeReview = {
-	number: 1,
-	title: "Improve keyboard navigation in large repositories",
+const review = aReview({
 	sourceBranch: "C",
-	targetBranch: "master",
-	htmlUrl: "https://github.com/example/repo/pull/1",
-	body: null,
-	author: null,
+	title: "Improve keyboard navigation in large repositories",
 	labels: [
 		{ name: "accessibility", color: "0e8a16", description: "Keyboard and screen reader support" },
 		{ name: "@gitbutler/lite", color: "5319e7", description: null },
 	],
-	draft: false,
-	sha: "0000000000000000000000000000000000000001",
-	integrationCommitShas: [],
-	createdAt: "2026-08-01T00:00:00Z",
-	modifiedAt: "2026-08-02T00:00:00Z",
-	mergedAt: null,
-	closedAt: null,
-	repositorySshUrl: null,
-	repositoryHttpsUrl: null,
-	repoOwner: null,
-	headRepoIsFork: false,
-	reviewers: [],
-	autoMergeEnabled: false,
-	unitSymbol: "#",
-	lastSyncAt: "2026-08-02T00:00:00Z",
-};
-
-test.beforeEach(async ({ appWindow, electronApp, reviewState }) => {
-	// The open-PR list omits merged and closed PRs. Their recorded branch metadata
-	// lets the app retrieve them through getReview instead.
-	let headInfo: RefInfo | undefined;
-	if (reviewState === "merged" || reviewState === "closed") {
-		headInfo = await appWindow.evaluate(async () => {
-			const lite = (window as unknown as { lite: LiteElectronApi }).lite;
-			const projectId = location.pathname.split("/")[2];
-			if (projectId === undefined) throw new Error("No project in the URL");
-			return lite.headInfo(projectId);
-		});
-		const branch = headInfo.stacks
-			.flatMap((stack) => stack.segments)
-			.find((segment) => segment.refName?.displayName === review.sourceBranch);
-		if (!branch) throw new Error("The seeded branch is missing");
-		branch.metadata = {
-			refInfo: { createdAt: null, updatedAt: null },
-			review: { pullRequest: review.number, reviewId: null },
-		};
-	}
-	await electronApp.evaluate(
-		({ ipcMain }, { headInfo, review, reviewState }) => {
-			const responses = {
-				...(headInfo ? { headInfo } : {}),
-				forgeInfo: {
-					name: "github",
-					baseUrl: "https://github.com/example/repo",
-					commitUrlPath: "/commit/",
-					prUrlPath: "/pull/",
-					unit: { symbol: "#", name: "pull request", abbr: "PR" },
-					posthogLabel: "",
-					capabilities: {
-						prService: true,
-						checks: false,
-						repoInfo: false,
-						listService: false,
-						reviewComments: false,
-						reviewManagement: false,
-					},
-				} satisfies ForgeInfo,
-				listReviews: reviewState === "open" ? [review] : [],
-				getReview: {
-					...review,
-					mergedAt: reviewState === "merged" ? "2026-08-03T00:00:00Z" : null,
-					closedAt: reviewState === "open" ? null : "2026-08-03T00:00:00Z",
-				},
-				listKnownGithubAccounts: [{ type: "patUsername", info: { username: "test" } }],
-			};
-			for (const [key, value] of Object.entries(responses)) {
-				ipcMain.removeHandler(key);
-				ipcMain.handle(key, () => value);
-			}
-		},
-		{ headInfo, review, reviewState },
-	);
-	await appWindow.reload();
 });
+const closedAt = "2026-08-03T00:00:00Z";
 
-const selectBranch = (page: Page, name: string) =>
-	page.getByRole("treeitem", { name, exact: true }).getByTitle(name, { exact: true }).click();
-const branchTabs = (page: Page) => page.getByRole("tablist", { name: "Branch tab", exact: true });
+test.describe("a branch with an open pull request", () => {
+	test.use({ forge: { reviews: [review] } });
 
-test("shows PR titles and labels on workspace branches without hover shifts", async ({
-	appWindow,
-}) => {
-	const branch = appWindow.getByRole("treeitem", { name: "C", exact: true });
-	await expect(branch.getByText(review.title, { exact: true })).toBeVisible();
-	await expect(branch.getByText("accessibility", { exact: true })).toBeVisible();
-	await expect(branch.getByText("@gitbutler/lite", { exact: true })).toBeVisible();
-	await expect(branch.getByText("PR #1", { exact: true })).toHaveCount(0);
-	const name = branch.getByTitle("C", { exact: true });
-	const status = branch.getByText("Unpushed branch", { exact: true });
-	const push = branch.getByRole("button", {
-		name: "Push this and all branches below",
-		exact: true,
+	test("shows the PR's title and labels in place of its number", async ({ app }) => {
+		const branch = app.branch("C");
+
+		await expect(branch).toShow(review.title);
+		await expect(branch).toShow("accessibility");
+		await expect(branch).toShow("@gitbutler/lite");
+		await expect(branch).not.toShow("PR #1");
+		await expect(branch).toHaveAccessibleDescription(
+			/Improve keyboard navigation.*accessibility.*@gitbutler\/lite/,
+		);
 	});
-	const [nameBox, statusBox, pushBox] = await Promise.all([
-		name.boundingBox(),
-		status.boundingBox(),
-		push.boundingBox(),
-	]);
-	if (!nameBox || !statusBox || !pushBox) throw new Error("Branch push row has no bounds");
-	const centers = [nameBox, statusBox, pushBox].map((box) => box.y + box.height / 2);
-	expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(1);
-	expect(nameBox.x + nameBox.width).toBeLessThan(statusBox.x);
-	expect(statusBox.x + statusBox.width).toBeLessThan(pushBox.x);
-	const labelBounds = await branch
-		.getByText("@gitbutler/lite", { exact: true })
-		.evaluate((element) => {
-			const text = document.createRange();
-			text.selectNodeContents(element);
-			return {
-				glyphBottom: text.getBoundingClientRect().bottom,
-				clipBottom: element.getBoundingClientRect().bottom,
-			};
-		});
-	expect(labelBounds.glyphBottom).toBeLessThanOrEqual(labelBounds.clipBottom);
 
-	await expect(branch).toHaveAccessibleDescription(
-		/Improve keyboard navigation.*accessibility.*@gitbutler\/lite/,
-	);
-	await expect(
-		branch.getByTitle("C", { exact: true }).locator("..").locator("[data-icon]"),
-	).toBeVisible();
-	await appWindow.mouse.move(0, 0);
-	const headline = branch.getByText(review.title, { exact: true }).locator("..");
-	const before = await headline.boundingBox();
-	await headline.hover();
-	await expect(branch.getByRole("button", { name: "Branch menu", exact: true })).toBeVisible();
-	expect(await headline.boundingBox()).toEqual(before);
-	await branch.getByTitle("C", { exact: true }).click();
-	await appWindow.keyboard.press("F2");
-	const editor = branch.getByRole("textbox", { name: "Branch name" });
-	await expect(editor).toHaveValue("C");
-	await expect(branch).not.toHaveAttribute("aria-describedby");
-	await editor.press("Escape");
-	await expect(branch.getByText("accessibility", { exact: true })).toBeVisible();
+	test("shows its labels unclipped", async ({ app }) => {
+		await expect(
+			app.branch("C").getByText("@gitbutler/lite", { exact: true }),
+		).toShowItsTextUnclipped();
+	});
+
+	test("keeps the name, push status and push button on one line", async ({ app }) => {
+		const branch = app.branch("C");
+
+		await expectInOrderOnOneLine(
+			app.branchName("C"),
+			branch.getByText("Unpushed branch", { exact: true }),
+			branch.getByRole("button", { name: "Push this and all branches below", exact: true }),
+		);
+	});
+
+	test("hovering the PR headline moves nothing", async ({ app }) => {
+		const headline = app.branch("C").getByText(review.title, { exact: true }).locator("..");
+
+		await expect(headline).toHoldStillOnHover({ revealing: app.branchMenu("C") });
+	});
+
+	test("renaming drops the PR description until the edit ends", async ({ app }) => {
+		const editor = await app.editBranchName("C");
+
+		await expect(editor).toHaveValue("C");
+		await expect(app.branch("C")).not.toHaveAttribute("aria-describedby");
+		await editor.press("Escape");
+		await expect(app.branch("C")).toShow("accessibility");
+	});
 });
 
-for (const { reviewState, defaultTab } of [
-	{ reviewState: "none", defaultTab: "Diff" },
-	{ reviewState: "open", defaultTab: "PR #1" },
-	{ reviewState: "merged", defaultTab: "Pull Request" },
-	{ reviewState: "closed", defaultTab: "Diff" },
-] as const) {
-	test.describe(`applied branch, PR state: ${reviewState}`, () => {
-		test.use({ reviewState });
-		test(`defaults to ${defaultTab} and remembers a tab change`, async ({ appWindow }) => {
-			await selectBranch(appWindow, "C");
-			const tabs = branchTabs(appWindow);
-			await expect(tabs.getByRole("tab", { name: defaultTab, selected: true })).toBeVisible();
-			await expect(appWindow.getByPlaceholder("PR title")).toBeHidden();
+for (const { state, forge, defaultTab } of [
+	{ state: "no PR", forge: { reviews: [] }, defaultTab: "Diff" },
+	{ state: "an open PR", forge: { reviews: [review] }, defaultTab: "PR #1" },
+	{
+		state: "a merged PR",
+		forge: { reviews: [{ ...review, mergedAt: closedAt, closedAt }] },
+		defaultTab: "Pull Request",
+	},
+	{ state: "a closed PR", forge: { reviews: [{ ...review, closedAt }] }, defaultTab: "Diff" },
+]) {
+	test.describe(`an applied branch with ${state}`, () => {
+		test.use({ forge });
+
+		test(`opens on ${defaultTab} and remembers a tab change`, async ({ app }) => {
+			await app.selectBranch("C");
+			await expect(app.branchTab(defaultTab)).toBeSelected();
+			await expect(app.pullRequestForm).toBeHidden();
 
 			const chosenTab = defaultTab === "Diff" ? "Pull Request" : "Diff";
-			await tabs.getByRole("tab", { name: chosenTab, exact: true }).click();
-			await selectBranch(appWindow, "B");
-			await selectBranch(appWindow, "C");
-			await expect(tabs.getByRole("tab", { name: chosenTab, selected: true })).toBeVisible();
+			await app.branchTab(chosenTab).click();
+			await app.selectBranch("B");
+			await app.selectBranch("C");
+
+			await expect(app.branchTab(chosenTab)).toBeSelected();
 		});
 	});
 }
 
-test.describe("creating a PR", () => {
-	test.use({ reviewState: "none" });
-	test("opens the form from the branch header", async ({ appWindow }) => {
-		await selectBranch(appWindow, "C");
-		await expect(appWindow.getByPlaceholder("PR title")).toBeHidden();
-		await branchTabs(appWindow).getByRole("tab", { name: "Pull Request", exact: true }).click();
-		await expect(appWindow.getByPlaceholder("PR title")).toBeVisible();
+test.describe("a branch without a PR", () => {
+	test.use({ forge: { reviews: [] } });
+
+	test("opens the PR form from the branch header", async ({ app }) => {
+		await app.selectBranch("C");
+		await app.branchTab("Pull Request").click();
+
+		await expect(app.pullRequestForm).toBeVisible();
 	});
 });
+
+/** Each element sits left of the next, all centred on the same line. */
+const expectInOrderOnOneLine = async (...elements: Array<Locator>): Promise<void> => {
+	const boxes = await Promise.all(
+		elements.map(async (element) => {
+			const box = await element.boundingBox();
+			if (box === null) throw new Error(`${String(element)} has no bounding box`);
+			return box;
+		}),
+	);
+	const centers = boxes.map((box) => box.y + box.height / 2);
+	expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(1);
+	boxes.reduce((left, right) => {
+		expect(left.x + left.width).toBeLessThan(right.x);
+		return right;
+	});
+};

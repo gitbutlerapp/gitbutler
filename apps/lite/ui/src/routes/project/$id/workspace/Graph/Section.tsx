@@ -374,7 +374,9 @@ export const Section: FC<{
 	return (
 		<>
 			{header()}
-			<div className={styles.dock}>{header(true)}</div>
+			<div className={styles.dock} role="group" aria-label="Docked upstream">
+				{header(true)}
+			</div>
 			{branched && (
 				<>
 					<Fold open={plan.incomingExpanded} ref={incomingFold}>

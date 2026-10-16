@@ -9,7 +9,11 @@ export const CheckForUpdatesButton: FC = () => {
 	const isCheckingForUpdates = useIsFetching({ queryKey: ["updateCheck"] }) > 0;
 
 	return (
-		<Button disabled={isCheckingForUpdates} onClick={checkForUpdates}>
+		<Button
+			disabled={isCheckingForUpdates}
+			aria-busy={isCheckingForUpdates}
+			onClick={checkForUpdates}
+		>
 			Check for updates
 			<Icon name={isCheckingForUpdates ? "spinner" : "refresh"} />
 		</Button>

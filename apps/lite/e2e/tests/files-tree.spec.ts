@@ -1,39 +1,34 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import { expect, test } from "../test.ts";
 
-test.describe("files tree", () => {
-	test.use({ scenario: "project-in-single-branch-three-branch-stack.sh" });
+test.use({ scenario: "project-in-single-branch-three-branch-stack.sh" });
 
-	test("a directory row offers a menu and answers for the files below it", async ({
-		appWindow,
-		testEnvironment,
-	}) => {
-		const clone = path.join(testEnvironment.workdir, "local-clone");
-		mkdirSync(path.join(clone, "src", "ui"), { recursive: true });
-		writeFileSync(path.join(clone, "src", "ui", "row.txt"), "an uncommitted file\n");
-		await appWindow.reload();
-		await appWindow.getByRole("main").waitFor();
+test.beforeEach(async ({ repo }) => {
+	await repo.write("src/ui/row.txt");
+});
 
-		const uncommittedFiles = appWindow.getByRole("tree", { name: "Uncommitted" });
-		// A chain of directories holding nothing but the next one arrives as one row.
-		const directory = uncommittedFiles.getByRole("treeitem", { name: "Directory src/ui" });
-		await expect(directory).toHaveAttribute("aria-expanded", "true");
+test("a chain of directories holding nothing but the next one is one row", async ({ app }) => {
+	await expect(app.uncommitted.getByRole("treeitem", { name: "Directory src/ui" })).toBeVisible();
+});
 
-		// The toolbar shows itself for the selected row, as it does for a file.
-		await directory.click();
-		await expect(directory.getByRole("button", { name: "Directory menu" })).toBeVisible();
+test("a selected directory row offers a menu", async ({ app }) => {
+	const directory = app.uncommitted.getByRole("treeitem", { name: "Directory src/ui" });
 
-		// Checking the folder checks every file below it.
-		await uncommittedFiles.getByRole("checkbox", { name: "Check directory src/ui" }).click();
-		await expect(
-			uncommittedFiles.getByRole("checkbox", { name: "Check file src/ui/row.txt" }),
-		).toBeChecked();
+	await directory.click();
 
-		await uncommittedFiles.getByRole("button", { name: "Collapse directory src/ui" }).click();
-		await expect(directory).toHaveAttribute("aria-expanded", "false");
-		await expect(
-			uncommittedFiles.getByRole("treeitem", { name: "Addition src/ui/row.txt" }),
-		).toBeHidden();
-	});
+	await expect(directory.getByRole("button", { name: "Directory menu" })).toBeVisible();
+});
+
+test("checking a directory checks every file below it", async ({ app }) => {
+	await app.uncommitted.getByRole("checkbox", { name: "Check directory src/ui" }).click();
+
+	await expect(app.fileCheckbox("src/ui/row.txt")).toBeChecked();
+});
+
+test("collapsing a directory hides its files", async ({ app }) => {
+	const directory = app.uncommitted.getByRole("treeitem", { name: "Directory src/ui" });
+
+	await app.uncommitted.getByRole("button", { name: "Collapse directory src/ui" }).click();
+
+	await expect(directory).toHaveAttribute("aria-expanded", "false");
+	await expect(app.uncommittedFile("src/ui/row.txt")).toBeHidden();
 });

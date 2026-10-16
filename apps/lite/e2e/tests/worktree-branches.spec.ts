@@ -5,29 +5,26 @@ test.use({
 	appSettings: worktreeAppSettings,
 });
 
-test("a worktree branch pushes with the branches it rests on", async ({ appWindow }) => {
-	const branch = appWindow.getByRole("treeitem", { name: "W", exact: true });
-	await expect(branch.getByText("Unpushed branch", { exact: true })).toBeVisible();
+test("a worktree branch pushes with the branches it rests on", async ({ app }) => {
+	await expect(app.branch("W")).toShow("Unpushed branch");
 	await expect(
-		branch.getByRole("button", { name: "Push this and all branches below", exact: true }),
+		app.branch("W").getByRole("button", { name: "Push this and all branches below", exact: true }),
 	).toBeVisible();
 });
 
-test("the push key pushes a selected worktree branch", async ({ appWindow }) => {
-	const branch = appWindow.getByRole("treeitem", { name: "W", exact: true });
-	await branch.click();
-	await expect(branch).toHaveAttribute("aria-selected", "true");
+test("the push key pushes a selected worktree branch", async ({ app }) => {
+	await app.selectBranch("W");
 
-	await appWindow.keyboard.press("Shift+P");
+	await app.press("Shift+P");
 
-	await expect(branch.getByText("Nothing to push", { exact: true })).toBeVisible();
+	await expect(app.branch("W")).toShow("Nothing to push");
 });
 
-test("a worktree branch renames in place", async ({ appWindow }) => {
-	await appWindow.getByRole("treeitem", { name: "W", exact: true }).click();
-	await appWindow.keyboard.press("F2");
-	const editor = appWindow.getByRole("textbox", { name: "Branch name" });
+test("a worktree branch renames in place", async ({ app }) => {
+	const editor = await app.editBranchName("W");
+
 	await editor.fill("W-renamed");
 	await editor.press("Enter");
-	await expect(appWindow.getByRole("treeitem", { name: "W-renamed", exact: true })).toBeVisible();
+
+	await expect(app.branch("W-renamed")).toBeVisible();
 });

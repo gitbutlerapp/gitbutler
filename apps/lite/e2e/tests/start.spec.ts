@@ -1,27 +1,24 @@
-import { LiteTestId } from "../../ui/src/testIds.ts";
 import { expect, test } from "../test.ts";
 
-test("starts without configured projects", async ({ appWindow }) => {
-	await expect(appWindow).toHaveTitle("GitButler Next Nightly");
-	await expect(appWindow.getByTestId(LiteTestId.OnboardingPage)).toBeVisible();
+test("starts on onboarding without configured projects", async ({ app }) => {
+	await expect(app.page).toHaveTitle("GitButler Next Nightly");
+	await expect(app.onboardingHeading).toBeVisible();
 });
 
 test.describe("with a seeded project", () => {
 	test.use({ scenario: "project-with-remote-branches.sh" });
 
-	test("opens the project and navigates between views", async ({ appWindow }) => {
-		await expect(appWindow).toHaveURL(/\/project\/[^/]+\/workspace$/);
-		await expect(appWindow.getByRole("combobox", { name: /Select project/ })).toBeVisible();
+	test("opens the project's workspace", async ({ app }) => {
+		await expect(app.page).toHaveURL(/\/project\/[^/]+\/workspace$/);
+		await expect(app.projectPicker).toBeVisible();
+	});
 
-		const pages = appWindow.getByRole("group", { name: "Pages" });
-		await pages.getByRole("button", { name: "Branches" }).click();
-		// The header, not the list: the seeded remote branches are filtered out by
-		// the default local-only filter, so the tree is empty and has no height.
-		await expect(appWindow.getByText("Recent branches")).toBeVisible();
+	test("the branches view takes input", async ({ app }) => {
+		await app.goTo("Branches");
 
 		// The filter is folded into the header until asked for, so opening it is
 		// what proves the tab is interactive rather than merely painted.
-		await appWindow.getByRole("button", { name: "Filter branches" }).click();
-		await expect(appWindow.getByRole("textbox", { name: "Filter branches" })).toBeVisible();
+		await app.getByRole("button", { name: "Filter branches" }).click();
+		await expect(app.getByRole("textbox", { name: "Filter branches" })).toBeVisible();
 	});
 });
