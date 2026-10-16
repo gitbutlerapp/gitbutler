@@ -18,7 +18,7 @@ The app is built for watching what coding agents change. Reviewing comes first, 
 
 The left side lists every project. Expanded projects show their uncommitted changes, stacks, branches and commits; collapsed ones only show counts for uncommitted files (amber), unpushed commits (blue) and commits the target has that you don't (amber). A file watcher keeps expanded projects current. A green "active" dot marks a project whose files or commits changed in the last two minutes, and a teal dot marks commits you haven't opened yet. Commits the app itself rewrote don't count as new.
 
-The right side shows whatever is selected:
+The right side shows whatever is selected, under a breadcrumb whose project and branch link back to them. Drag the right edge of the navigator or of a file list to resize it, and double-click the edge to reset it; the widths are remembered.
 
 - **Uncommitted changes.** Every changed file as a diff, each marked "Not reviewed", "Reviewed" or "Needs review" (changed after you reviewed it). ⌘Y marks the file under the cursor reviewed, folds it and moves to the next file still to review. ↑ ↓ step through hunks and ⌘⌥Z throws one away, with an Undo button in case you didn't mean it. The navigator shows how many files are left to review. ⌘↩ or "Commit…" opens the composer, where you check files or single hunks and pick a branch.
 
