@@ -2,6 +2,7 @@
 //! screen is laid out. Uncommitted files carry review controls; every hunk gets a small
 //! toolbar while it's under the cursor or the pointer, as in Zed's agent review.
 
+use std::ops::Range;
 use std::rc::Rc;
 
 use gpui::{
@@ -10,10 +11,11 @@ use gpui::{
 };
 
 use super::{
-    Check, Cursor, Detail, DiscardHunk, NextHunk, PreviousHunk, ToggleReviewed, checkbox_box,
+    Check, Cursor, Detail, DiscardHunk, NextHunk, PreviousHunk, TextPoint, ToggleReviewed,
+    checkbox_box,
 };
 use crate::app::{AppView, MenuItem};
-use crate::backend::{DiffBody, DiffSource, Selected};
+use crate::backend::{DiffBody, DiffLine, DiffSource, Selected};
 use crate::state::{ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, Decor, DiffRow, LineSelect};
@@ -57,6 +59,120 @@ impl Render for DiffPane {
 }
 
 impl Detail {
+    /// The diff line at `row`, if that row is one.
+    fn line_at(&self, row: usize) -> Option<&DiffLine> {
+        let diff = self.diff.as_ref()?;
+        let DiffRow::Line {
+            file, hunk, line, ..
+        } = *diff.rows.get(row)?
+        else {
+            return None;
+        };
+        match &diff.files.get(file)?.body {
+            DiffBody::Hunks { hunks, .. } => hunks.get(hunk)?.lines.get(line),
+            _ => None,
+        }
+    }
+
+    /// The selection in order, unless it's empty.
+    fn text_range(&self) -> Option<(TextPoint, TextPoint)> {
+        let (anchor, head) = self.text_selection?;
+        let (start, end) = if anchor <= head {
+            (anchor, head)
+        } else {
+            (head, anchor)
+        };
+        (start != end).then_some((start, end))
+    }
+
+    /// The selected part of the line at `row`. Nothing when the line changed under the
+    /// selection so its ends no longer fall in the text, as after an edit in place.
+    fn selected_in_row(&self, row: usize) -> Option<Range<usize>> {
+        let (start, end) = self.text_range()?;
+        if row < start.0 || row > end.0 {
+            return None;
+        }
+        let text = &self.line_at(row)?.text;
+        let from = if row == start.0 { start.1 } else { 0 };
+        let to = if row == end.0 { end.1 } else { text.len() };
+        let fits = text.is_char_boundary(from) && text.is_char_boundary(to);
+        (from < to && fits).then_some(from..to)
+    }
+
+    /// The selected text, one line per diff line, without the `+` and `-` signs.
+    pub fn selected_text(&self) -> Option<String> {
+        let (start, end) = self.text_range()?;
+        let lines: Vec<&str> = (start.0..=end.0)
+            .filter_map(|row| {
+                let text = &self.line_at(row)?.text;
+                Some(&text[self.selected_in_row(row).unwrap_or(0..0)])
+            })
+            .collect();
+        Some(lines.join("\n"))
+    }
+
+    /// The pointer went down on a line: start selecting there, take the word on a double
+    /// click and the line on a triple, or reach to it with shift held.
+    fn start_text_selection(
+        &mut self,
+        at: TextPoint,
+        clicks: usize,
+        extend: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let (row, ix) = at;
+        let text = self.line_at(row).map_or("", |line| line.text.as_ref());
+        // The text may have changed since the line was drawn.
+        let ix = (0..=ix.min(text.len()))
+            .rev()
+            .find(|ix| text.is_char_boundary(*ix))
+            .unwrap_or(0);
+        let at = (row, ix);
+        self.text_selection = match clicks {
+            2 => {
+                let word = word_at(text, ix);
+                Some(((row, word.start), (row, word.end)))
+            }
+            3.. => Some(((row, 0), (row, text.len()))),
+            _ => match self.text_selection {
+                Some((anchor, _)) if extend => Some((anchor, at)),
+                _ => Some((at, at)),
+            },
+        };
+        self.selecting = true;
+        if let Some(DiffRow::Line { file, hunk, .. }) = self
+            .diff
+            .as_ref()
+            .and_then(|diff| diff.rows.get(row))
+            .copied()
+        {
+            self.cursor = Cursor {
+                file,
+                hunk: Some(hunk),
+            };
+        }
+        window.focus(&self.focus, cx);
+        cx.notify();
+    }
+
+    fn drag_text_selection(&mut self, at: TextPoint, cx: &mut Context<Self>) {
+        if let (true, Some((_, head))) = (self.selecting, &mut self.text_selection)
+            && *head != at
+        {
+            *head = at;
+            cx.notify();
+        }
+    }
+
+    /// Drop the text selection, saying whether there was one.
+    pub fn clear_text_selection(&mut self, cx: &mut Context<Self>) -> bool {
+        let had = self.text_range().is_some();
+        self.text_selection = None;
+        cx.notify();
+        had
+    }
+
     pub(super) fn render_diff(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let ground = |child: AnyElement| {
             div()
@@ -375,4 +491,20 @@ fn hunk_toolbar(
             )
         })
         .into_any_element()
+}
+
+/// The word around byte `ix` of `text`, or an empty range when `ix` isn't in one.
+fn word_at(text: &str, ix: usize) -> Range<usize> {
+    let is_word = |c: char| c.is_alphanumeric() || c == '_';
+    let start = text[..ix]
+        .char_indices()
+        .rev()
+        .take_while(|(_, c)| is_word(*c))
+        .last()
+        .map_or(ix, |(at, _)| at);
+    let end = text[ix..]
+        .char_indices()
+        .find(|(_, c)| !is_word(*c))
+        .map_or(text.len(), |(at, _)| ix + at);
+    start..end
 }
