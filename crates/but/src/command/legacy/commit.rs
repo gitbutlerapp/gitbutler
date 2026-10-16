@@ -190,7 +190,12 @@ fn resolve(
         switch,
     } = args;
 
-    let merged = MergedUpstream::new(&*ctx.repo.get()?, head_info, allow_merged);
+    let merged = MergedUpstream::new(
+        &*ctx.repo.get()?,
+        &ctx.project_meta()?,
+        head_info,
+        allow_merged,
+    );
 
     let target_ish = CommitOperationTargetIsh::resolve(branch, above, below)?;
 
@@ -717,7 +722,7 @@ fn reject_workspace_target(
 ) -> CliResult<()> {
     // Only replace the normal resolution error when this names the workspace target.
     if let Ok(Some(reference)) = repo.try_find_reference(target.0.as_str())
-        && ws.is_branch_the_target_or_its_local_tracking_branch(reference.name())
+        && ws.is_target_or_upstream(reference.name(), repo)?
     {
         return Err(bad_input(format!(
             "Cannot commit {position} '{target}': it is the workspace target branch."

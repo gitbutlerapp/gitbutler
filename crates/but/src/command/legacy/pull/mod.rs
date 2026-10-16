@@ -2,6 +2,8 @@ mod json;
 
 use std::fmt::Write;
 
+use anyhow::Context as _;
+
 use but_api::WorkspaceState;
 use but_core::{DryRun, RepositoryExt};
 use but_ctx::Context;
@@ -93,9 +95,18 @@ fn is_behind(
     head_info: &but_workspace::RefInfo,
     update: &[PullUpdate],
     base_branch: &gitbutler_branch_actions::BaseBranch,
-) -> bool {
-    (update.contains(&PullUpdate::Workspace) && base_branch.behind > 0)
-        || upstream::has_worktree_behind(head_info, update, base_branch.current_sha)
+) -> anyhow::Result<bool> {
+    base_branch
+        .remote_name
+        .as_ref()
+        .context("Pulling requires a configured target upstream")?;
+    let tip = base_branch
+        .current_sha
+        .context("The configured target upstream ref is unavailable")?;
+    Ok(
+        (update.contains(&PullUpdate::Workspace) && base_branch.behind > 0)
+            || upstream::has_worktree_behind(head_info, update, tip),
+    )
 }
 
 async fn handle_check(
@@ -112,7 +123,7 @@ async fn handle_check(
         but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("auto".to_string()))?;
 
     let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
-    let behind = is_behind(&current_head_info, update, &base_branch);
+    let behind = is_behind(&current_head_info, update, &base_branch)?;
     let should_check_integration =
         behind || upstream::has_cleanup_candidate(&current_head_info, update);
     let (has_worktree_conflicts, statuses) = if should_check_integration {
@@ -135,7 +146,10 @@ async fn handle_check(
                 name: base_branch.branch_name.clone(),
                 remote_name: base_branch.remote_name.clone(),
                 base_sha: base_branch.base_sha.to_string(),
-                current_sha: base_branch.current_sha.to_string(),
+                current_sha: base_branch
+                    .current_sha
+                    .context("The configured target upstream ref is unavailable")?
+                    .to_string(),
             },
             upstream_commits: UpstreamInfo {
                 count: base_branch.behind,
@@ -283,7 +297,11 @@ async fn handle_pull(
 
     let upstream_url = format!(
         "{}/{}",
-        base_branch.remote_url.trim_end_matches(".git"),
+        base_branch
+            .remote_url
+            .as_ref()
+            .context("Pulling without a remote isn't supported yet")?
+            .trim_end_matches(".git"),
         base_branch.branch_name
     );
     pull_result.upstream_url = Some(upstream_url.clone());
@@ -343,7 +361,7 @@ async fn handle_pull(
     }
 
     let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
-    let behind = is_behind(&current_head_info, update, &base_branch);
+    let behind = is_behind(&current_head_info, update, &base_branch)?;
     if !behind && !upstream::has_cleanup_candidate(&current_head_info, update) {
         pull_result.status = "up_to_date".to_string();
         if let Some(out) = out.for_human() {

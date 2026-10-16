@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use anyhow::Context as _;
 use but_core::{
     DryRun, RefMetadata,
-    ref_metadata::ProjectMeta,
+    ref_metadata::{LocalRefName, ProjectMeta},
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
@@ -22,7 +22,7 @@ pub struct SingleBranchMode {
     in_single_branch_mode: bool,
     target_checked_out: bool,
     head_at_target_commit: bool,
-    target_ref: FullName,
+    target_ref: LocalRefName,
     target_commit_id: ObjectId,
     switch: bool,
     head_reference: FullName,
@@ -37,15 +37,13 @@ impl SingleBranchMode {
         let project_meta = ProjectMeta::resolve(&repo)?;
         let head_reference = head_name(&repo)?;
 
-        let target_commit_id = project_meta.target_commit_id_or_err()?;
+        let target_commit_id = project_meta.resolve_target_commit(&repo)?;
 
         let target_ref = project_meta
             .target_ref
             .context("BUG: target ref is missing")?;
 
-        let target_checked_out =
-            but_core::branch::resolve_tracking_branch_ref_name(head_reference.as_ref(), &repo)
-                .is_ok_and(|upstream| &*upstream == target_ref.as_ref());
+        let target_checked_out = head_reference.as_ref() == target_ref.as_local_full_name_ref();
 
         Ok(Self {
             in_single_branch_mode,

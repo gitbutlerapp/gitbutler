@@ -194,7 +194,7 @@ fn resolve(
     let reference = repo
         .find_reference(&*branch)
         .context("Failed to apply branch")?;
-    if ws.is_branch_the_target_or_its_local_tracking_branch(reference.name()) {
+    if ws.is_target_or_upstream(reference.name(), repo)? {
         return Err(bad_input(format!(
             "Cannot apply '{}': it is the workspace target branch.",
             reference.name().shorten()
