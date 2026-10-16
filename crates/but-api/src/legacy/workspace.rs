@@ -20,6 +20,8 @@ use gitbutler_oplog::{
 };
 use tracing::instrument;
 
+use crate::commit::json::ChangesSource;
+
 #[but_api(napi, try_from = but_workspace::ui::RefInfo, provides = [Workspace])]
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
@@ -215,24 +217,37 @@ pub fn branch_details(
 ///
 /// If whole files should be discarded, be sure to not pass any hunks
 ///
+/// `changes_source` selects the checkout to discard in. A linked worktree requires the
+/// `worktreeManipulation` feature flag and an active worktree, see
+/// `worktrees::open_changes_source()`, and is not snapshotted as the oplog can't restore it.
+///
 /// Returns the `worktree_changes` that couldn't be applied,
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
     ctx: &mut but_ctx::Context,
+    changes_source: ChangesSource,
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<Vec<but_core::DiffSpec>> {
     let mut guard = ctx.exclusive_worktree_access();
 
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::DiscardChanges),
-        guard.write_permission(),
-    );
-    let refused = but_workspace::discard_workspace_changes(
-        &*ctx.repo.get()?,
-        worktree_changes,
-        ctx.settings.context_lines,
-    )?;
+    let context_lines = ctx.settings.context_lines;
+    let refused = match crate::worktrees::open_changes_source(ctx, &changes_source)? {
+        Some((_name, wt_repo)) => {
+            but_workspace::discard_workspace_changes(&wt_repo, worktree_changes, context_lines)?
+        }
+        None => {
+            let _ = ctx.create_snapshot(
+                SnapshotDetails::new(OperationKind::DiscardChanges),
+                guard.write_permission(),
+            );
+            but_workspace::discard_workspace_changes(
+                &*ctx.repo.get()?,
+                worktree_changes,
+                context_lines,
+            )?
+        }
+    };
     if !refused.is_empty() {
         tracing::warn!(?refused, "Failed to discard at least one hunk");
     }

@@ -74,7 +74,9 @@ impl App {
                             if has_uncommitted_changes {
                                 let DiscardOutcome::Uncommitted { paths: _ } = run_discard(
                                     ctx,
-                                    DiscardOperation::Uncommitted(UncommittedSelection::All),
+                                    DiscardOperation::Uncommitted(UncommittedSelection::All(
+                                        ChangeSourceId::Head,
+                                    )),
                                 )?
                                 else {
                                     anyhow::bail!(

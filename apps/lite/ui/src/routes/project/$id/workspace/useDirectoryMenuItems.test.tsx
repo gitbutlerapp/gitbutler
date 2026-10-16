@@ -211,10 +211,10 @@ describe("useDirectoryMenuItems", () => {
 		expect(labels()).toEqual(["Mark as Reviewed", "Collapse"]);
 	});
 
-	it("offers cutting but no absorbing or discarding in a linked worktree", () => {
+	it("offers cutting and discarding but no absorbing in a linked worktree", () => {
 		render({ fileParent: linkedWorktree, items: [change("src/ui/a.ts")] });
 
-		expect(labels()).toEqual(["Cut File", "Mark as Reviewed", "Collapse"]);
+		expect(labels()).toEqual(["Cut File", "Discard Changes", "Mark as Reviewed", "Collapse"]);
 	});
 
 	it("offers resolving only what is conflicted below it", () => {

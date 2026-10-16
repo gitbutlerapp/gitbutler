@@ -94,6 +94,7 @@
 					hunkHeaders: isWholeFileChange ? [] : [item.hunk],
 				},
 			],
+			worktree: selectionId.worktree,
 		});
 	}
 
@@ -113,6 +114,7 @@
 					hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff, "discard"),
 				},
 			],
+			worktree: selectionId.worktree,
 		});
 	}
 

@@ -53,7 +53,7 @@ export declare const apiParamNames: {
 	readonly deleteProject: readonly ["projectId"];
 	readonly deleteReviewComment: readonly ["projectId", "commentId"];
 	readonly deleteUser: readonly [];
-	readonly discardWorktreeChanges: readonly ["projectId", "worktreeChanges"];
+	readonly discardWorktreeChanges: readonly ["projectId", "changesSource", "worktreeChanges"];
 	readonly editChangesFromInitial: readonly ["projectId"];
 	readonly editInitialIndexState: readonly ["projectId"];
 	readonly enterEditMode: readonly ["projectId", "commitId", "stackId"];

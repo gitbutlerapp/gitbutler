@@ -13,7 +13,7 @@ import {
 } from "#ui/hotkeys.ts";
 import { diffSpecHunkHeadersForLineSelection } from "#ui/hunk.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
-import { hunkAddress, type HunkAddress, type Address } from "#ui/addresses.ts";
+import { changesSourceOf, hunkAddress, type HunkAddress, type Address } from "#ui/addresses.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useAbsolutePath, useOpenPathInProgram, useRevealInFolder } from "./usePathActions.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -174,7 +174,7 @@ export const useHunkMenuItems = ({
 						}),
 					],
 				]),
-				Match.when({ _tag: "UncommittedChanges" }, () => [
+				Match.when({ _tag: "UncommittedChanges" }, (parent) => [
 					[
 						nativeMenuItem({
 							label: "Absorb Hunk",
@@ -200,6 +200,7 @@ export const useHunkMenuItems = ({
 							onSelect: () =>
 								discardWorktreeChanges({
 									projectId,
+									changesSource: changesSourceOf(parent),
 									worktreeChanges: [discardDiffSpec],
 								}),
 						}),

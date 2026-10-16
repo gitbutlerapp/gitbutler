@@ -42,8 +42,8 @@ export const useFileSetActions = ({
 	const { isPending: isResolvePending, mutate: resolveWorktreeConflicts } =
 		useResolveWorktreeConflicts();
 	const { mutate: setFilesReviewed } = useSetFilesReviewed();
-	// A linked worktree's files commit and amend into the workspace like any uncommitted
-	// file, but have no absorb or discard yet: both act on the project's own checkout.
+	// A linked worktree's files commit, amend and discard like any uncommitted file, but
+	// have no absorb: it acts on the project's own checkout.
 	const isLinkedWorktree =
 		fileParent._tag === "UncommittedChanges" && fileParent.worktree !== undefined;
 
@@ -51,7 +51,7 @@ export const useFileSetActions = ({
 		// We currently don't support any operations on branch files.
 		canCut: fileParent._tag !== "Branch",
 		canAbsorb: fileParent._tag === "UncommittedChanges" && !isLinkedWorktree,
-		canDiscard: canDiscard && !isLinkedWorktree,
+		canDiscard,
 		canUncommit: fileParent._tag === "Commit" && !isUncommitPending,
 		canResolve: fileParent._tag === "UncommittedChanges" && !isResolvePending,
 

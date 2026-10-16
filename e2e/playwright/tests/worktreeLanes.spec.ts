@@ -15,7 +15,7 @@ import { test } from "../src/test.ts";
 import { commitRow, dragAndDropByLocator, fillByTestId } from "../src/util.ts";
 import { type Locator, type Page } from "@playwright/test";
 import { execFileSync } from "child_process";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 
 // The stack master <- A <- B <- C, with the linked worktree `worktree-W` on branch W resting on B.
 const FIXTURE = "project-in-single-branch-with-worktree.sh";
@@ -309,10 +309,11 @@ test("keeps a worktree's files out of the main checkout's actions", async ({ pag
 	const file = worktreeLane.getByTestId("file-list-item").filter({ hasText: "W.txt" });
 	await expect(file).toBeVisible();
 
-	// Discard only knows the main checkout.
+	// Stashing and absorbing only know the main checkout.
 	await file.click({ button: "right" });
 	await expect(page.getByRole("button", { name: /^Open in / })).toBeVisible();
-	await expect(page.getByTestId("file-list-item-context-menu__discard-changes")).toHaveCount(0);
+	await expect(page.getByRole("button", { name: "Stash into branch…" })).toHaveCount(0);
+	await expect(page.getByTestId("file-list-item-context-menu__absorb")).toHaveCount(0);
 	await page.keyboard.press("Escape");
 
 	// A line click in the worktree's diff selects in the worktree, not the main checkout.
@@ -324,6 +325,46 @@ test("keeps a worktree's files out of the main checkout's actions", async ({ pag
 
 	expect(pageErrors).toEqual([]);
 	expect(git(localClone, ["status", "--porcelain"])).toBe("");
+});
+
+test("discards a worktree file's changes in that worktree", async ({ page, gitbutler }) => {
+	await gitbutler.runScript(FIXTURE);
+	const worktree = gitbutler.pathInWorkdir("worktree-W");
+	// The main checkout has a W.txt of its own, which discarding must leave alone.
+	writeToFile(gitbutler.pathInWorkdir("local-clone", "W.txt"), "main\n");
+	await openWorkspace(page);
+
+	writeToFile(`${worktree}/W.txt`, "W\nchanged\n");
+	const file = lane(page, "W").getByTestId("file-list-item").filter({ hasText: "W.txt" });
+	await file.click({ button: "right" });
+	await page.getByTestId("file-list-item-context-menu__discard-changes").click();
+	await page.getByTestId("discard-file-changes-confirmation-modal-discard").click();
+
+	await expect.poll(() => git(worktree, ["status", "--porcelain"])).toBe("");
+	const mainFile = gitbutler.pathInWorkdir("local-clone", "W.txt");
+	expect(existsSync(mainFile), "the main checkout's file is still there").toBe(true);
+	expect(readFileSync(mainFile, "utf8"), "the main checkout's file is untouched").toBe("main\n");
+});
+
+test("discards a worktree file's hunk in that worktree", async ({ page, gitbutler }) => {
+	await gitbutler.runScript(FIXTURE);
+	const worktree = gitbutler.pathInWorkdir("worktree-W");
+	const mainFile = gitbutler.pathInWorkdir("local-clone", "W.txt");
+	writeToFile(mainFile, "main\n");
+	await openWorkspace(page);
+
+	writeToFile(`${worktree}/W.txt`, "W\nchanged\n");
+	await lane(page, "W").getByTestId("file-list-item").filter({ hasText: "W.txt" }).click();
+	await page
+		.getByTestId("unified-diff-view")
+		.locator('[data-testid="hunk-count-column"]')
+		.first()
+		.click({ button: "right" });
+	await page.getByTestId("hunk-context-menu-discard-change").click();
+
+	await expect.poll(() => git(worktree, ["status", "--porcelain"])).toBe("");
+	expect(existsSync(mainFile), "the main checkout's file is still there").toBe(true);
+	expect(readFileSync(mainFile, "utf8"), "the main checkout's file is untouched").toBe("main\n");
 });
 
 test("removing a worktree deletes its folder and its lane", async ({ page, gitbutler }) => {

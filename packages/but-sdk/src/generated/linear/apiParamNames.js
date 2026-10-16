@@ -53,7 +53,7 @@ export const apiParamNames = {
 	deleteProject: ["projectId"],
 	deleteReviewComment: ["projectId", "commentId"],
 	deleteUser: [],
-	discardWorktreeChanges: ["projectId", "worktreeChanges"],
+	discardWorktreeChanges: ["projectId", "changesSource", "worktreeChanges"],
 	editChangesFromInitial: ["projectId"],
 	editInitialIndexState: ["projectId"],
 	enterEditMode: ["projectId", "commitId", "stackId"],

@@ -218,7 +218,7 @@ export declare function branchCheckoutNew(projectId: string, name: string | null
 export declare function branchCreate(projectId: string, newRef: MaybeLossyFullNameRef, placement: BranchCreatePlacement): Promise<BranchCreateResult>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:152}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:154}
  */
 export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
 
@@ -652,11 +652,15 @@ export declare function deleteUser(): Promise<void>
  *
  * If whole files should be discarded, be sure to not pass any hunks
  *
+ * `changes_source` selects the checkout to discard in. A linked worktree requires the
+ * `worktreeManipulation` feature flag and an active worktree, see
+ * `worktrees::open_changes_source()`, and is not snapshotted as the oplog can't restore it.
+ *
  * Returns the `worktree_changes` that couldn't be applied,
  *
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:219}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:225}
  */
-export declare function discardWorktreeChanges(projectId: string, worktreeChanges: Array<DiffSpec>): Promise<Array<DiffSpec>>
+export declare function discardWorktreeChanges(projectId: string, changesSource: ChangesSource, worktreeChanges: Array<DiffSpec>): Promise<Array<DiffSpec>>
 
 /**
  * {@link ../../../../../crates/but-api/src/legacy/modes.rs:136}
@@ -955,7 +959,7 @@ export declare function gitTestFetch(projectId: string, remoteName: string, acti
 export declare function gitTestPush(projectId: string, remoteName: string, branchName: string): Promise<void>
 
 /**
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:23}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:25}
  */
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
@@ -1678,7 +1682,7 @@ export declare function workdirPath(projectId: string, checkout: ChangesSource, 
 /**
  * Push a branch and any parent references that lie within the current workspace projection.
  *
- * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:335}
+ * {@link ../../../../../crates/but-api/src/legacy/workspace.rs:350}
  */
 export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 
