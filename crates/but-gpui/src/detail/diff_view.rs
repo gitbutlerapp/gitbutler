@@ -628,9 +628,14 @@ impl Detail {
         };
         let (change, fingerprint) = (file.file.clone(), file.fingerprint);
         let path = change.path.clone();
+        // One read at a time: the one under way reads again when it lands stale.
+        if !self.whole_reading.insert(path.clone()) {
+            return;
+        }
         cx.spawn(async move |this, cx| {
             let lines = backend::run(move || backend::file_lines(&root, &change)).await;
             this.update(cx, |this, cx| {
+                this.whole_reading.remove(&path);
                 if !this.whole.contains_key(&path) {
                     return;
                 }
