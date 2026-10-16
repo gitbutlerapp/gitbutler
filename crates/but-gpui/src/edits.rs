@@ -32,6 +32,7 @@ actions!(
         LandBranch,
         PullRemote,
         TakeRemote,
+        MoveToNewBranch,
     ]
 );
 
@@ -110,6 +111,12 @@ impl AppView {
                     this.add_empty_commit(false, cx)
                 }))
                 .on_action(cx.listener(Self::cherry_pick))
+                .on_action(cx.listener(|this, _: &MoveToNewBranch, _, cx| {
+                    if let Some((project, id)) = this.selected_commit(cx) {
+                        this.store
+                            .update(cx, |store, cx| store.move_to_new_branch(&project, id, cx));
+                    }
+                }))
                 .on_action(cx.listener(Self::squash_picked))
                 .on_action(cx.listener(Self::new_branch_here))
                 .on_action(cx.listener(Self::rewrap_message))

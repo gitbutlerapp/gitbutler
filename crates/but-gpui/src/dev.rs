@@ -11,6 +11,7 @@
 //! click 120 300          # also dclick and tclick; append `cmd` or `shift` to hold them
 //! rclick 120 300
 //! drag 120 300 120 500    # append `alt` or `shift` to hold them, `hold` to keep the button down
+//! drop 120 500            # let go of a held drag there
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! shot /tmp/view.png      # render the current frame to a PNG
 //! perf next key down      # time an input until loads settle, plus one frame
@@ -268,6 +269,30 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                     cx,
                 );
             }
+        }
+        "drop" => {
+            // Finish a drag left held by `drag … hold`, after frames have run.
+            let [x, y] = numbers()?[..] else {
+                bail!("drop takes x y");
+            };
+            let at = point(px(x), px(y));
+            window.dispatch_event(
+                PlatformInput::MouseMove(MouseMoveEvent {
+                    position: at,
+                    pressed_button: Some(MouseButton::Left),
+                    modifiers: Modifiers::default(),
+                }),
+                cx,
+            );
+            window.dispatch_event(
+                PlatformInput::MouseUp(MouseUpEvent {
+                    button: MouseButton::Left,
+                    position: at,
+                    modifiers: Modifiers::default(),
+                    click_count: 1,
+                }),
+                cx,
+            );
         }
         "shot" => {
             let image = window.render_to_image()?;

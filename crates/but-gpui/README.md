@@ -42,6 +42,7 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 | a commit | a branch | moves it to the top of that branch |
 | a commit | another commit | moves it above that commit; hold ⌥ to squash instead, ⇧ to put it below |
 | a commit | uncommitted changes | uncommits it |
+| a commit | New branch, below the stacks while dragging | moves it into a new branch of its own (also in its menu) |
 | uncommitted files | a commit | amends that commit |
 | uncommitted files | a branch | picks that branch and those files for the next commit |
 | a commit's file | another commit | moves the change between commits |

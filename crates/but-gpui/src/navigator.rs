@@ -18,8 +18,8 @@ use crate::backend::{CommitId, CommitState, PushState};
 use crate::detail::{ChecksChanged, Detail};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage, MoveDown,
-    MoveUp, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage, SquashAll, SquashPicked,
-    TakeRemote, UnapplyStack, Unstack, UpdateStack,
+    MoveToNewBranch, MoveUp, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage, SquashAll,
+    SquashPicked, TakeRemote, UnapplyStack, Unstack, UpdateStack,
 };
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
@@ -65,6 +65,8 @@ enum Row {
     More(ProjectId, String, usize),
     /// A commit an operation is still making, by its title.
     Pending(SharedString),
+    /// Where a commit of the project being dragged lands in a new branch of its own.
+    NewBranch(ProjectId),
 }
 
 /// How an item row draws: `solid` is the selection while the navigator has focus.
@@ -225,6 +227,9 @@ impl Navigator {
             }
             if workspace.stacks.is_empty() {
                 rows.push(Row::Note("No branches yet".into(), false));
+            }
+            if matches!(&store.dragging, Some(Cut::Commit(project, _)) if project == id) {
+                rows.push(Row::NewBranch(id.clone()));
             }
             rows.push(Row::Item(Selection::Branches(id.clone())));
             rows.push(Row::Item(Selection::History(id.clone())));
@@ -447,6 +452,39 @@ impl Navigator {
                 .child(small_icon(Icon::Stack))
                 .child(format!("Stack of {n}"))
                 .into_any_element(),
+            Some(Row::NewBranch(project)) => {
+                let (highlight, project) = (theme.pop, project.clone());
+                h_flex()
+                    .id(("new-branch-drop", ix))
+                    .h(px(30.))
+                    .mx(px(6.))
+                    .my(px(2.))
+                    .justify_center()
+                    .gap(px(6.))
+                    .rounded(px(4.))
+                    .border_1()
+                    .border_dashed()
+                    .border_color(theme.border_2)
+                    .text_size(px(12.))
+                    .text_color(theme.text_2)
+                    .child(small_icon(Icon::Branch))
+                    .child("New branch")
+                    .drag_over::<Cut>(move |style, _, _, _| {
+                        style
+                            .bg(highlight.opacity(0.14))
+                            .border_color(highlight)
+                            .text_color(highlight)
+                    })
+                    .on_drop(cx.listener(move |this, payload: &Cut, _, cx| {
+                        if let Cut::Commit(from, id) = payload
+                            && *from == project
+                        {
+                            this.store
+                                .update(cx, |store, cx| store.move_to_new_branch(from, *id, cx));
+                        }
+                    }))
+                    .into_any_element()
+            }
             Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
                 h_flex()
@@ -1296,6 +1334,7 @@ impl Navigator {
                 items.extend([
                     action("Move up", &MoveUp).separated(),
                     action("Move down", &MoveDown),
+                    action("Move to a new branch", &MoveToNewBranch),
                     action("Copy commit ID", &CopySelection).separated(),
                 ]);
                 if commit.has_change_id() {
