@@ -335,7 +335,7 @@ impl Detail {
                 if let Some(payload) = payload.clone() {
                     entity
                         .update(cx, |detail, cx| {
-                            detail.changes_menu(payload, line, event.position, cx)
+                            detail.changes_menu(payload, Some(line), event.position, cx)
                         })
                         .ok();
                 }
