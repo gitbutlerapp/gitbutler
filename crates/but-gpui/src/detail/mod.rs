@@ -286,12 +286,17 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(&key.project) else {
             return;
         };
-        self.loading = Some(key.clone());
         let source = key.source;
         let worktree = (source == DiffSource::Worktree)
             .then(|| self.store.read(cx).workspace(&key.project))
             .flatten()
             .map(|ws| ws.uncommitted.clone());
+        if source == DiffSource::Worktree && worktree.is_none() {
+            // The workspace is still loading and lists the files itself; diffing now would run
+            // a second status on the same repository, slowing both. Its `Loaded` brings us back.
+            return;
+        }
+        self.loading = Some(key.clone());
         let previous = self
             .recent
             .iter()

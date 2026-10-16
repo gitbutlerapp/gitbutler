@@ -128,6 +128,8 @@ impl ProjectEntry {
 pub struct Store {
     pub projects: Vec<ProjectEntry>,
     pub projects_loaded: bool,
+    /// Collapsed projects' cards still need their counts, once the open ones have loaded.
+    summaries_pending: bool,
     pub selection: Option<Selection>,
     pub cut: Option<Cut>,
     /// What the pointer is dragging. Only meaningful while GPUI has a drag active.
@@ -214,6 +216,7 @@ impl Store {
         let mut store = Self {
             projects: Vec::new(),
             projects_loaded: false,
+            summaries_pending: false,
             selection: None,
             cut: None,
             dragging: None,
@@ -370,13 +373,23 @@ impl Store {
             if let Some(selection) = open {
                 self.select(Some(selection), cx);
             }
+            self.summaries_pending = true;
             self.load_summaries(cx);
         }
         cx.notify();
     }
 
     /// Load collapsed projects one after another, so their cards can show counts.
+    /// Waits for the open projects first, so their loads don't compete with these.
     fn load_summaries(&mut self, cx: &mut Context<Self>) {
+        let opening = self
+            .projects
+            .iter()
+            .any(|entry| entry.expanded && entry.workspace.is_none() && entry.error.is_none());
+        if !self.summaries_pending || opening {
+            return;
+        }
+        self.summaries_pending = false;
         let pending: Vec<(ProjectId, PathBuf)> = self
             .projects
             .iter()
@@ -562,6 +575,7 @@ impl Store {
                 if again {
                     store.load(&id, again_full, cx);
                 }
+                store.load_summaries(cx);
             })
             .ok();
         })
