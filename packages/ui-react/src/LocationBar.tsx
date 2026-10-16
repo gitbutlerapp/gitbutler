@@ -5,12 +5,14 @@ import styles from "./LocationBar.module.css";
 type Props = {
 	/**
 	 * The window's own controls before the trail: the sidebar toggle, and Back while the sidebar is
-	 * hidden, with a {@link LocationBarDivider} between them. Ghost, small, icon-only buttons.
+	 * hidden, with a {@link LocationBarDivider} between them. Ghost, regular, icon-only buttons: the
+	 * bar sizes them to 24×22.
 	 */
 	leading?: ReactNode;
 	/**
 	 * After the trail, at the bar's end: the state of what the page shows, as whether its machine
-	 * is live, and the button that refreshes it.
+	 * is live, and the button that refreshes it, a ghost, regular, icon-only button like the leading
+	 * ones.
 	 */
 	state?: ReactNode;
 	/** Where the page sits: its `Breadcrumbs`. */
@@ -35,7 +37,7 @@ export const LocationBar: FC<Props> = ({ leading, state, children, className, ..
 			</>
 		)}
 		<div className={styles.trail}>{children}</div>
-		{present(state) && <div className={classes("text-12", styles.state)}>{state}</div>}
+		{present(state) && <div className={classes("text-13", styles.state)}>{state}</div>}
 	</div>
 );
 

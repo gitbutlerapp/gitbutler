@@ -38,7 +38,7 @@ type Props = {
 const linked = (crumb: Crumb) => crumb.href !== undefined || crumb.onClick !== undefined;
 
 /**
- * The ⌃⌄ that ends a level with a menu: 16×18, its glyph quiet until the pointer is on it. A
+ * The ⌃⌄ that ends a level with a menu: 18×22, its glyph quiet until the pointer is on it. A
  * level's `menu` draws it; on its own it is the trigger for a host's popup beside words that read
  * like a level, as the location bar's "Also in 2 places". Give it an `aria-label`.
  * @import import { CrumbMenuButton } from "@gitbutler/ui-react/Breadcrumbs.tsx";
@@ -71,17 +71,12 @@ const Level: FC<{ crumb: Crumb }> = ({ crumb }) => (
 	</>
 );
 
-const Separator: FC = () => (
-	<span className={styles.separator} aria-hidden>
-		/
-	</span>
-);
+const Separator: FC = () => <Icon name="chevron-right" size={10} className={styles.separator} />;
 
 /**
- * Where a page sits: the levels above it, outermost first, each followed by "/". The page itself
- * is not one: the header under the trail names it, so the trail ends in the "/" under which the
- * page sits. It keeps to one line: when the
- * levels run out of room, the ones between the first and the nearest fold into "…", the outermost
+ * Where a page sits: the levels above it, outermost first, a › between each. The page itself is
+ * not one: the header under the trail names it. It keeps to one line: when the levels run out of
+ * room, the ones between the first and the nearest fold into "…", the outermost
  * first, and open from there as a menu. A level still too long for what is left ends in an
  * ellipsis, its full name a hover away.
  *
@@ -112,7 +107,7 @@ export const Breadcrumbs: FC<Props> = ({ items, className, ...props }) => {
 			const gap = Number.isNaN(columnGap) ? 0 : columnGap;
 			const width = (k: number) => {
 				const shown = [widths[0] ?? 0, ...(k > 0 ? [more] : []), ...widths.slice(1 + k)];
-				const joins = shown.length;
+				const joins = shown.length - 1;
 				return shown.reduce((a, w) => a + w, 0) + joins * (separator + 2 * gap);
 			};
 			let k = 0;
@@ -134,7 +129,7 @@ export const Breadcrumbs: FC<Props> = ({ items, className, ...props }) => {
 		<nav
 			aria-label="Breadcrumb"
 			{...props}
-			className={classes(className, "text-12", styles.breadcrumbs)}
+			className={classes(className, "text-13", styles.breadcrumbs)}
 		>
 			<ol ref={list} className={styles.list}>
 				{shown.map((crumb, i) => (
@@ -182,7 +177,6 @@ export const Breadcrumbs: FC<Props> = ({ items, className, ...props }) => {
 								</MenuSection>
 							</Menu>
 						)}
-						{i === shown.length - 1 && <Separator />}
 					</li>
 				))}
 			</ol>
@@ -193,7 +187,9 @@ export const Breadcrumbs: FC<Props> = ({ items, className, ...props }) => {
 						{crumb.menu !== undefined && <span className={styles.menu} />}
 					</span>
 				))}
-				<span data-separator>/</span>
+				<span data-separator>
+					<Separator />
+				</span>
 				<span data-more className={styles.more}>
 					…
 				</span>

@@ -8,7 +8,7 @@
    ellipsis. The clip leaves room for a focus ring. */
 .list {
 	display: flex;
-	column-gap: 4px;
+	column-gap: var(--space-md);
 	align-items: center;
 	margin: 0;
 	padding: 0;
@@ -21,7 +21,7 @@
 /* Every level stands 18px tall, whatever it holds: a label, its ⌃⌄, or "…". */
 .level {
 	display: flex;
-	column-gap: 4px;
+	column-gap: var(--space-md);
 	align-items: center;
 	min-width: 0;
 	height: 18px;
@@ -35,8 +35,9 @@
 	text-overflow: ellipsis;
 }
 
+/* A step darker under the pointer, not all the way to text-1: it is still a quiet trail. */
 a.crumb:hover {
-	color: var(--text-1);
+	color: color-mix(in srgb, var(--text-2), var(--text-1) 50%);
 }
 
 .separator {
@@ -44,8 +45,9 @@ a.crumb:hover {
 	color: var(--text-3);
 }
 
-/* The folded levels: "…" in the trail's own type, on a quiet button as tall as a level, that
-   opens a menu of them. Its level keeps its size; the named ones around it give way. */
+/* The folded levels: "…" in the trail's own type, on a quiet button that opens a menu of them.
+   Its ground is 22px, as a level's ⌃⌄ is, laid out at the level's 18px. Its level keeps its
+   size; the named ones around it give way. */
 .level:has(> .more) {
 	flex-shrink: 0;
 }
@@ -54,7 +56,8 @@ a.crumb:hover {
 	display: inline-flex;
 	flex-shrink: 0;
 	align-items: center;
-	height: 18px;
+	height: 22px;
+	margin-block: -2px;
 	padding: 0 4px;
 	border: none;
 	border-radius: var(--radius-control);
@@ -73,14 +76,17 @@ a.crumb:hover {
 	}
 }
 
-/* A level's siblings: a ⌃⌄ as tall as the level, quiet until the pointer is on it. */
+/* A level's siblings: a ⌃⌄ quiet until the pointer is on it. Its hover ground reaches 2px past
+   the level's 18px on each side so the glyph has room, but it lays out at 18px: beside words in
+   a bar that isn't a trail, as "Also in 2 places", it doesn't make the bar taller. */
 .menu {
 	display: inline-flex;
 	flex-shrink: 0;
 	align-items: center;
 	justify-content: center;
-	width: 16px;
-	height: 18px;
+	width: 18px;
+	height: 22px;
+	margin-block: -2px;
 	padding: 0;
 	border: none;
 	border-radius: var(--radius-control);
