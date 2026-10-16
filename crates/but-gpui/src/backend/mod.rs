@@ -115,6 +115,11 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
     })
 }
 
+/// `message` with its body wrapped as `git log` and `but reword` expect.
+pub fn wrapped_message(message: &str) -> String {
+    but_action::commit_format::format_commit_message(message)
+}
+
 /// Just the uncommitted files, for when only the worktree changed.
 pub fn load_uncommitted(path: &Path) -> Result<Vec<FileChange>> {
     let ctx = open(path)?;
