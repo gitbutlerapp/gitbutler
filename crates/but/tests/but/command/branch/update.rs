@@ -298,9 +298,6 @@ Hint: run `but help` for all commands
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
-├╯
-┊
 ┊╭┄ g0 [A]
 ┊◐   mtx add A2-by-collaborator
 ┊◐   mun Merge newer main into A (no changes)
@@ -418,9 +415,6 @@ Hint: run `but help` for all commands
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
-┊
-┊╭┄ ma [main] (no commits)
-├╯
 ┊
 ┊╭┄ g0 [A]
 ┊●   qul add A-local

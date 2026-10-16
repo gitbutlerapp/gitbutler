@@ -18,7 +18,7 @@ use gix::{
 use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
-    Checkout, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
+    Checkout, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase, traverse,
     workspace::is_workspace_commit,
 };
 
@@ -174,6 +174,16 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
             });
 
         let checked_out_in_worktrees: HashSet<_> = worktrees.iter().copied().collect();
+        let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
+        let workspace_metadata = self.meta.workspace(workspace_ref.as_ref())?;
+        let upstream: HashSet<_> = project_meta
+            .target_ref
+            .as_ref()
+            .and_then(|target_ref| find_reference(graph, target_ref.as_ref()))
+            .and_then(|target_ref| first_commit(graph, target_ref))
+            .or(base)
+            .map(|tip| traverse::reachable_from(graph, tip).collect())
+            .unwrap_or_default();
         let mut owned = HashSet::new();
         let mut stack_from = |start: StepGraphIndex, own_checkout: Option<StepGraphIndex>| {
             let mut stack = Vec::new();
@@ -184,7 +194,7 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
                 if !owned.insert(ix) {
                     break;
                 }
-                stack.extend(self.stacked_branch(ix, base));
+                stack.extend(self.stacked_branch(ix, &upstream, &workspace_metadata));
             }
             stack
         };
@@ -231,16 +241,26 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
         })
     }
 
-    fn stacked_branch(&self, ix: StepGraphIndex, base: Option<StepGraphIndex>) -> Option<FullName> {
+    fn stacked_branch(
+        &self,
+        ix: StepGraphIndex,
+        upstream: &HashSet<StepGraphIndex>,
+        workspace: &Workspace,
+    ) -> Option<FullName> {
         let Step::Reference { refname, .. } = &self.graph[ix] else {
             return None;
         };
         let is_user_branch = refname.category() == Some(Category::LocalBranch)
             && !refname.as_bstr().starts_with_str("refs/heads/gitbutler/");
-        let is_the_target_branch = base.is_some()
-            && first_commit(&self.graph, ix) == base
-            && self.tracks_target(refname.as_ref());
-        (is_user_branch && !is_the_target_branch).then(|| refname.clone())
+        // The local counterpart of the target often sits at the base of stacks, and is no
+        // branch of theirs until it has commits of its own, or the metadata says so.
+        let is_upstream_target_branch = first_commit(&self.graph, ix)
+            .is_some_and(|commit| upstream.contains(&commit))
+            && self.tracks_target(refname.as_ref())
+            && workspace
+                .find_owner_indexes_by_name(refname.as_ref(), StackKind::Applied)
+                .is_none();
+        (is_user_branch && !is_upstream_target_branch).then(|| refname.clone())
     }
 
     fn tracks_target(&self, name: &gix::refs::FullNameRef) -> bool {

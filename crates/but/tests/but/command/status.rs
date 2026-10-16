@@ -1269,10 +1269,9 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 /// - `origin/main` has two commits on top of `base`: `M1` and `M2`.
 /// - `B` forks from `M2` (the current `origin/main` tip) with one commit.
 ///
-/// The graph walk starts from the lowest common base (`base`), so B's stack
-/// includes `M1` and `M2`. Since both stacks are metadata-tracked they are
-/// not pruned — `M1` and `M2` appear in B's stack as integrated commits,
-/// to be cleaned up by `integrate_upstream`.
+/// The workspace base is the lowest common base (`base`), but B's lane ends at
+/// the local `main` on `M2`: it holds nothing beyond `origin/main`, so `M1` and
+/// `M2` are base for B rather than a `main` branch at the bottom of its stack.
 #[test]
 fn status_upstream_prunes_with_different_bases() {
     let env =
@@ -1296,10 +1295,6 @@ fn status_upstream_prunes_with_different_bases() {
 ┊
 ┊╭┄ h0 [B] [✓ upstream merges cleanly]
 ┊●   wxl B-change
-┊│
-┊├┄ ma [main] (merged upstream)
-┊●   upk M2
-┊●   tpp M1
 ├╯
 ┊
 ┊╭┄ (upstream: origin/main) 2 new commits
@@ -1309,7 +1304,6 @@ fn status_upstream_prunes_with_different_bases() {
 ├╯ efc9211 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
-Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
 }

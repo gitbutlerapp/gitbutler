@@ -2827,12 +2827,10 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
-└── ≡📙:topic <> origin/topic⇡1 on 563a7fc {1}
-    ├── 📙:topic <> origin/topic⇡1
-    │   └── ·f3ceb3d (🏘️)
-    └── :main <> origin/main
-        └── ❄️364a08f (🏘️|✓)
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 364a08f
+└── ≡📙:topic <> origin/topic⇡1 on 364a08f {1}
+    └── 📙:topic <> origin/topic⇡1
+        └── ·f3ceb3d (🏘️)
 
 "#]]
     );

@@ -671,3 +671,125 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn main_pulled_outside_gitbutler_is_not_a_branch_of_a_new_stack() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    // GitButler records the target, then `main` is pulled with plain git.
+    env.but("status").assert().success();
+    env.invoke_bash(
+        "echo upstream > upstream.txt && git add upstream.txt && git commit -qm upstream \
+         && git update-ref refs/remotes/origin/main main",
+    );
+    env.but("branch new feature").assert().success();
+    env.file("feature.txt", "feature\n");
+    env.but("commit -b feature -m feature-change")
+        .assert()
+        .success();
+
+    // `main` holds nothing beyond `origin/main`, so it's the base of `feature`, not its bottom branch.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ at [feature] [HEAD]
+┊●   rwm feature-change
+├╯
+┊
+┊● 100373b (upstream: origin/main) 1 new commit
+├╯ b1540e5 (common base) 2000-01-02 M
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+
+"#]]);
+}
+
+#[test]
+fn main_with_own_commits_stays_below_a_branch_checked_out_from_it() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_bash("echo main > on-main.txt && git add on-main.txt && git commit -qm on-main");
+
+    // The checked-out `main` with a commit of its own is a branch.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ ma [main] [HEAD]
+┊●   xzn on-main
+├╯
+┊
+┴ b1540e5 (common base, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.invoke_bash(
+        "git checkout -qb feature-branch && echo feature > feature.txt && git add feature.txt \
+         && git commit -qm on-feature",
+    );
+
+    // `main` keeps its commit, so it stays a branch below the one built on it.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ at [feature-branch] [HEAD]
+┊●   lns on-feature
+┊│
+┊├┄ ma [main]
+┊●   xzn on-main
+├╯
+┊
+┴ b1540e5 (common base, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn main_behind_origin_is_not_a_branch_of_a_new_stack() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    // GitButler records the target, then `main` is pulled with plain git once, and
+    // `origin/main` moves on again, leaving `main` behind without commits of its own.
+    env.but("status").assert().success();
+    env.invoke_bash(
+        "echo pulled > pulled.txt && git add pulled.txt && git commit -qm pulled \
+         && git checkout -q --detach && echo upstream > upstream.txt && git add upstream.txt \
+         && git commit -qm upstream && git update-ref refs/remotes/origin/main HEAD \
+         && git checkout -q main",
+    );
+    env.invoke_bash(
+        "git checkout -qb feature-branch && echo feature > feature.txt && git add feature.txt \
+         && git commit -qm on-feature",
+    );
+
+    // `main` holds nothing that isn't upstream, so it's no branch at the bottom.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ at [feature-branch] [HEAD]
+┊●   tou on-feature
+├╯
+┊
+┊● 22beb02 (upstream: origin/main) 1 new commit
+├╯ b1540e5 (common base) 2000-01-02 M
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+
+"#]]);
+}
