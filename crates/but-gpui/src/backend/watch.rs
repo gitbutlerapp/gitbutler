@@ -19,7 +19,12 @@ pub struct Watcher {
 /// hunk assignments under the exclusive repository lock on every event: the app reloads
 /// what it shows itself, and the lock would hold up the user's own commits while an
 /// agent keeps saving.
-pub fn watch(project: &Project, on_change: impl Fn() + Send + Sync + 'static) -> Result<Watcher> {
+/// Calls `on_change` with whether anything in the git directory changed, rather than
+/// only files in the worktree.
+pub fn watch(
+    project: &Project,
+    on_change: impl Fn(bool) + Send + Sync + 'static,
+) -> Result<Watcher> {
     let settings = settings()?;
     let watch_mode = gitbutler_filemonitor::WatchMode::from_env_or_settings(
         &settings.get()?.feature_flags.watch_mode,
@@ -37,8 +42,11 @@ pub fn watch(project: &Project, on_change: impl Fn() + Send + Sync + 'static) ->
     )?;
     // Ends when the monitor is dropped, with the sender it holds.
     runtime().spawn(async move {
-        while received.recv().await.is_some() {
-            on_change();
+        while let Some(event) = received.recv().await {
+            on_change(matches!(
+                event,
+                gitbutler_filemonitor::InternalEvent::GitFilesChange(..)
+            ));
         }
     });
     Ok(Watcher { _monitor: monitor })

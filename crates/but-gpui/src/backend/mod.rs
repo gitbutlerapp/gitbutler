@@ -94,6 +94,12 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
     })
 }
 
+/// Just the uncommitted files, for when only the worktree changed.
+pub fn load_uncommitted(path: &Path) -> Result<Vec<FileChange>> {
+    let ctx = open(path)?;
+    worktree_files(&*ctx.repo.get()?)
+}
+
 /// Fill in what the forge cache knows about each branch's pull request: its title, state,
 /// link and CI. Reads only the cache; [`refresh_forge`] is what asks the forge.
 fn describe_reviews(ctx: &Context, stacks: &mut [Stack]) {
