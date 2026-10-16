@@ -735,7 +735,7 @@ impl Detail {
                 let (drop_project, drop_files) = (project.clone(), files.clone());
                 items.extend([
                     MenuItem::new(format!("Uncommit {what}"), move |this, window, cx| {
-                        this.transfer(&uncommit, &uncommitted, false, window, cx);
+                        this.transfer(&uncommit, &uncommitted, Default::default(), window, cx);
                     }),
                     MenuItem::new("Split into a new commit", move |this, _, cx| {
                         this.split_off(split_project.clone(), commit, split_files.clone(), cx)

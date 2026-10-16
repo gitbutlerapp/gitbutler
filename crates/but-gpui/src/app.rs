@@ -7,9 +7,9 @@ use std::rc::Rc;
 use anyhow::Result;
 use gpui::{
     Action, AnyElement, AnyView, App, ClickEvent, ClipboardItem, Context, DismissEvent, Entity,
-    FocusHandle, Focusable, KeyBinding, ManagedView, MouseButton, PathPromptOptions, Pixels, Point,
-    PromptLevel, Role, SharedString, StyleRefinement, Subscription, Window, actions, anchored,
-    deferred, div, prelude::*, px, relative,
+    FocusHandle, Focusable, KeyBinding, ManagedView, Modifiers, MouseButton, PathPromptOptions,
+    Pixels, Point, PromptLevel, Role, SharedString, StyleRefinement, Subscription, Window, actions,
+    anchored, deferred, div, prelude::*, px, relative,
 };
 
 use crate::backend::{self, CommitId};
@@ -92,6 +92,7 @@ pub fn bind_keys(cx: &mut App) {
         // ⌥ turns moving a commit onto another into squashing it, as when dragging. Bound
         // first, so ⌘V is the key shown.
         KeyBinding::new("alt-cmd-v", PasteHere, workspace),
+        KeyBinding::new("shift-cmd-v", PasteHere, workspace),
         KeyBinding::new("cmd-v", PasteHere, workspace),
         KeyBinding::new("cmd-c", CopySelection, workspace),
         KeyBinding::new("escape", Cancel, workspace),
@@ -757,7 +758,7 @@ impl AppView {
         else {
             return;
         };
-        self.transfer(&cut, &target, window.modifiers().alt, window, cx);
+        self.transfer(&cut, &target, window.modifiers(), window, cx);
     }
 
     pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
@@ -778,12 +779,11 @@ impl AppView {
         &mut self,
         payload: &Cut,
         target: &Selection,
-        alternate: bool,
+        held: Modifiers,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(transfer) = Transfer::resolve(payload, target, alternate, self.store.read(cx))
-        else {
+        let Some(transfer) = Transfer::resolve(payload, target, held, self.store.read(cx)) else {
             self.store
                 .update(cx, |store, cx| store.snack("That can't go there", cx));
             return;

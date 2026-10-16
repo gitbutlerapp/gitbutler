@@ -10,7 +10,7 @@
 //! move 120 300            # window coordinates in logical pixels
 //! click 120 300          # also dclick and tclick; append `cmd` or `shift` to hold them
 //! rclick 120 300
-//! drag 120 300 120 500    # append `alt` to hold option, `hold` to keep the button down
+//! drag 120 300 120 500    # append `alt` or `shift` to hold them, `hold` to keep the button down
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! shot /tmp/view.png      # render the current frame to a PNG
 //! perf next key down      # time an input until loads settle, plus one frame
@@ -227,6 +227,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             };
             let release_modifiers = Modifiers {
                 alt: rest.split_whitespace().any(|part| part == "alt"),
+                shift: rest.split_whitespace().any(|part| part == "shift"),
                 ..Default::default()
             };
             let (from, to) = (point(px(x1), px(y1)), point(px(x2), px(y2)));
