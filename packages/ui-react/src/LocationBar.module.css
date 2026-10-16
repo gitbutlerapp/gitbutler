@@ -3,11 +3,11 @@
 .bar {
 	box-sizing: border-box;
 	display: flex;
-	column-gap: 12px;
+	column-gap: var(--space-2xl);
 	align-items: center;
 	min-width: 0;
 	height: 40px;
-	padding: 0 12px 0 10px;
+	padding: 0 var(--padding-panel);
 	border-bottom: 1px solid var(--border-section);
 	background-color: var(--bg-2);
 }
