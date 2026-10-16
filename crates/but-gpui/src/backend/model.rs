@@ -2,6 +2,7 @@
 //! built on a background thread and handed to the UI as is.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// A commit's object id, opaque to the UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -270,7 +271,8 @@ pub struct DiffLine {
     pub kind: LineKind,
     pub old: Option<u32>,
     pub new: Option<u32>,
-    pub text: String,
+    /// Shared, so drawing the line doesn't copy it.
+    pub text: Arc<str>,
     /// Syntax token spans within `text`.
     pub spans: Vec<(std::ops::Range<usize>, Token)>,
     /// The words that changed, when the line pairs up with one on the other side.

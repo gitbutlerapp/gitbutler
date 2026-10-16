@@ -200,7 +200,9 @@ impl Detail {
                     this.close_composer(cx);
                     window.focus(&this.focus, cx);
                 }
-                InputEvent::Changed => cx.notify(),
+                // The input draws itself; nothing here shows the message, and notifying
+                // would redraw the diff on every keystroke.
+                InputEvent::Changed => {}
             }),
             // What the side panel shows comes from the store.
             cx.observe(&store, |_, _, cx| cx.notify()),
@@ -755,7 +757,7 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         let (row, ix) = at;
-        let text = self.line_at(row).map_or("", |line| line.text.as_str());
+        let text = self.line_at(row).map_or("", |line| line.text.as_ref());
         // The text may have changed since the line was drawn.
         let ix = (0..=ix.min(text.len()))
             .rev()

@@ -38,7 +38,7 @@ fn emphasize_run(run: &mut [DiffLine]) {
     }
     let text = |ixs: &[usize]| {
         ixs.iter()
-            .map(|&ix| run[ix].text.as_str())
+            .map(|&ix| run[ix].text.as_ref())
             .collect::<Vec<_>>()
     };
     let (minus, plus) = deltoids::compute_subhunk_emphasis(&text(&removed), &text(&added));
