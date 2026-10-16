@@ -28,6 +28,11 @@ actions!(
     gitbutler,
     [
         Quit,
+        Hide,
+        HideOthers,
+        ShowAll,
+        Minimize,
+        Zoom,
         AddProject,
         CopySelection,
         OpenPullRequest,
@@ -66,6 +71,9 @@ pub fn bind_keys(cx: &mut App) {
     let workspace = Some("Workspace && !TextInput");
     cx.bind_keys([
         KeyBinding::new("cmd-q", Quit, None),
+        KeyBinding::new("cmd-h", Hide, None),
+        KeyBinding::new("alt-cmd-h", HideOthers, None),
+        KeyBinding::new("cmd-m", Minimize, None),
         KeyBinding::new("cmd-o", AddProject, None),
         KeyBinding::new("cmd-r", Refresh, None),
         KeyBinding::new("alt-shift-f", Fetch, None),
@@ -214,7 +222,17 @@ impl AppView {
                 cx.set_global(Theme::for_appearance(window.appearance()));
                 cx.refresh_windows();
             }),
+            cx.observe_window_bounds(window, |this, window, cx| {
+                this.store
+                    .update(cx, |store, cx| store.save_window_place(window, cx));
+            }),
         ];
+        // Closing the window quits, so it asks the same as ⌘Q.
+        let this = cx.entity().downgrade();
+        window.on_window_should_close(cx, move |window, cx| {
+            this.update(cx, |this, cx| this.can_quit(window, cx))
+                .unwrap_or(true)
+        });
         Self::listen_for_credential_prompts(window, cx);
         Self {
             store,
@@ -241,8 +259,28 @@ impl AppView {
         self.store.read(cx).selection.clone()
     }
 
-    fn quit(&mut self, _: &Quit, _: &mut Window, cx: &mut Context<Self>) {
-        cx.quit();
+    fn quit(&mut self, _: &Quit, window: &mut Window, cx: &mut Context<Self>) {
+        if self.can_quit(window, cx) {
+            cx.quit();
+        }
+    }
+
+    /// Whether to quit right away. While an operation hasn't finished, ask instead, and quit
+    /// on a yes: quitting would stop it partway and drop the ones waiting.
+    fn can_quit(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let (message, detail) = match self.store.read(cx).unfinished() {
+            0 => return true,
+            1 => (
+                "Quit before the operation finishes?".to_owned(),
+                "It may stop partway.",
+            ),
+            n => (
+                format!("Quit before {n} operations finish?"),
+                "The running one may stop partway, and the rest won't run.",
+            ),
+        };
+        self.confirm_then(message, detail, "Quit", window, cx, |_, cx| cx.quit());
+        false
     }
 
     pub fn add_project(&mut self, _: &AddProject, _: &mut Window, cx: &mut Context<Self>) {
@@ -1182,6 +1220,8 @@ impl Render for AppView {
                 }
             }))
             .on_action(cx.listener(Self::quit))
+            .on_action(|_: &Minimize, window, _| window.minimize_window())
+            .on_action(|_: &Zoom, window, _| window.zoom_window())
             .on_action(cx.listener(Self::add_project))
             .on_action(cx.listener(Self::refresh))
             .on_action(cx.listener(Self::undo))

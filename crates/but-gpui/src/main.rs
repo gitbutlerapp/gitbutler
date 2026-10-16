@@ -34,8 +34,8 @@ fn main() {
     #[cfg(feature = "dev-script")]
     dev::mark_launch();
     use gpui::{
-        App, Bounds, Menu, MenuItem, QuitMode, TitlebarOptions, WindowBounds, WindowOptions, point,
-        prelude::*, px, size,
+        App, Bounds, Menu, MenuItem, QuitMode, SystemMenuType, TitlebarOptions, WindowBounds,
+        WindowOptions, point, prelude::*, px, size,
     };
 
     use crate::app::AppView;
@@ -62,18 +62,40 @@ fn main() {
             detail::bind_keys(cx);
             palette::bind_keys(cx);
             cx.on_action(|_: &app::Quit, cx| cx.quit());
-            cx.set_menus([Menu::new("GitButler").items([
-                MenuItem::action("Add Project…", app::AddProject),
-                MenuItem::action("Reload", app::Refresh),
-                MenuItem::separator(),
-                MenuItem::action("Quit GitButler", app::Quit),
-            ])]);
+            cx.on_action(|_: &app::Hide, cx| cx.hide());
+            cx.on_action(|_: &app::HideOthers, cx| cx.hide_other_apps());
+            cx.on_action(|_: &app::ShowAll, cx| cx.unhide_other_apps());
+            // The standard macOS menus. AppKit fills a menu named "Window" with the window
+            // list and tiling, and "Services" with what other apps offer.
+            cx.set_menus([
+                Menu::new("GitButler").items([
+                    MenuItem::os_submenu("Services", SystemMenuType::Services),
+                    MenuItem::separator(),
+                    MenuItem::action("Hide GitButler", app::Hide),
+                    MenuItem::action("Hide Others", app::HideOthers),
+                    MenuItem::action("Show All", app::ShowAll),
+                    MenuItem::separator(),
+                    MenuItem::action("Quit GitButler", app::Quit),
+                ]),
+                Menu::new("File").items([
+                    MenuItem::action("Add Project…", app::AddProject),
+                    MenuItem::action("Reload", app::Refresh),
+                ]),
+                Menu::new("Window").items([
+                    MenuItem::action("Minimize", app::Minimize),
+                    MenuItem::action("Zoom", app::Zoom),
+                ]),
+            ]);
 
-            let bounds = Bounds::centered(None, size(px(1360.), px(860.)), cx);
+            let (display_id, bounds) = match state::saved_window_place(cx) {
+                Some((display, bounds)) => (Some(display), bounds),
+                None => (None, Bounds::centered(None, size(px(1360.), px(860.)), cx)),
+            };
             let window = cx
                 .open_window(
                     WindowOptions {
                         window_bounds: Some(WindowBounds::Windowed(bounds)),
+                        display_id,
                         titlebar: Some(TitlebarOptions {
                             title: Some("GitButler".into()),
                             appears_transparent: true,

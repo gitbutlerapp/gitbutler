@@ -20,7 +20,7 @@ mod saved;
 
 use mutation::Queued;
 pub use mutation::{Overlay, SLOW};
-pub use saved::Pane;
+pub use saved::{Pane, saved_window_place};
 use saved::{Restored, Saved};
 
 pub type ProjectId = SharedString;
@@ -142,6 +142,8 @@ pub struct Store {
     pub dragging: Option<Cut>,
     /// Pane widths the user dragged away from their defaults.
     widths: HashMap<Pane, f32>,
+    /// Where the window is, saved for the next launch.
+    window: Option<saved::WindowPlace>,
     /// What was open when the app last quit, until the first project listing uses it.
     restored: Restored,
     /// The saved state as last written, so unchanged state isn't written again.
@@ -249,6 +251,7 @@ impl Store {
             seen: saved.seen,
             widths: saved.widths,
             file_tree: saved.file_tree,
+            window: saved.window,
             restored: Restored {
                 expanded: saved.expanded,
                 selection: saved.selection,
