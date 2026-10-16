@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
     ListAlignment, ListOffset, ListState, Role, SharedString, Subscription, Task, Toggled,
-    WeakEntity, Window, actions, div, prelude::*, px,
+    UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*, px,
 };
 
 use crate::app::AppView;
@@ -109,6 +109,9 @@ pub struct Detail {
     waiting_since: Option<Instant>,
     _waiting: Task<()>,
     list: ListState,
+    /// Where the uncommitted file list and a commit's or branch's file list are scrolled.
+    uncommitted_files: UniformListScrollHandle,
+    diff_files: UniformListScrollHandle,
     message: Entity<TextInput>,
     /// The branch (full ref) new commits go to; `None` creates a branch.
     commit_target: Option<String>,
@@ -218,6 +221,8 @@ impl Detail {
             waiting_since: None,
             _waiting: Task::ready(()),
             list: ListState::new(0, ListAlignment::Top, px(150.)),
+            uncommitted_files: UniformListScrollHandle::new(),
+            diff_files: UniformListScrollHandle::new(),
             message,
             commit_target: None,
             unchecked: HashSet::new(),
@@ -415,13 +420,14 @@ impl Detail {
         self.recent.push((key.clone(), files.clone()));
         let rows = self.build_rows(&key, &files, cx);
         let same = self.diff.as_ref().is_some_and(|diff| diff.key == key);
-        if same {
-            let top = self.list.logical_scroll_top();
-            self.list.reset(rows.len());
+        let top = same.then(|| self.list.logical_scroll_top());
+        // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
+        // is about the right size before they are.
+        self.list
+            .reset_with_uniform_height(rows.len(), px(diff::LINE_HEIGHT));
+        if let Some(top) = top {
             self.list.scroll_to(top);
             self.cursor = self.cursor_in(&files);
-        } else {
-            self.list.reset(rows.len());
         }
         if key.source == DiffSource::Worktree {
             let present: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
@@ -531,7 +537,8 @@ impl Detail {
                     offset_in_item: px(0.),
                 },
             };
-            self.list.reset(rows.len());
+            self.list
+                .reset_with_uniform_height(rows.len(), px(diff::LINE_HEIGHT));
             self.list.scroll_to(scroll_to);
             if let Some(diff) = &mut self.diff {
                 diff.rows = rows;

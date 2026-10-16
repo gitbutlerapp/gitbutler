@@ -14,6 +14,9 @@ use crate::theme::Theme;
 
 pub const LINE_HEIGHT: f32 = 20.;
 
+/// The height of a file's header row.
+pub const FILE_HEADER_HEIGHT: f32 = 38.;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DiffRow {
     File(usize),
@@ -179,7 +182,7 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 .id(("diff-file", ix))
                 .role(Role::Heading)
                 .aria_label(SharedString::from(file.file.path.clone()))
-                .h(px(38.))
+                .h(px(FILE_HEADER_HEIGHT))
                 .pl(px(12.))
                 .pr(px(8.))
                 .gap(px(8.))

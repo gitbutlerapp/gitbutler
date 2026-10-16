@@ -19,6 +19,7 @@ use crate::detail::{ChecksChanged, Detail};
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::Transfer;
+use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, h_flex, icon,
     icon_button, just_now, list_row, popover, relative_time, resize_handle, review, small_icon,
@@ -1018,16 +1019,24 @@ impl Render for Navigator {
                             .child("Add a Git repository with ⌘O."),
                     )
                 } else {
+                    let scroll = Scroll::List(self.list.clone());
                     el.child(
-                        list(
-                            self.list.clone(),
-                            cx.processor(|this, ix: usize, window, cx| {
-                                this.render_row(ix, window, cx)
-                            }),
-                        )
-                        .flex_1()
-                        .pt(px(2.))
-                        .pb(px(12.)),
+                        div()
+                            .relative()
+                            .flex_1()
+                            .min_h(px(0.))
+                            .child(
+                                list(
+                                    self.list.clone(),
+                                    cx.processor(|this, ix: usize, window, cx| {
+                                        this.render_row(ix, window, cx)
+                                    }),
+                                )
+                                .size_full()
+                                .pt(px(2.))
+                                .pb(px(12.)),
+                            )
+                            .children(scrollbar("navigator-scrollbar", scroll, &theme)),
                     )
                 }
             })
