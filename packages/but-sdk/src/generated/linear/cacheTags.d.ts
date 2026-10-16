@@ -55,6 +55,7 @@ export declare const apiInvalidates: {
 	readonly addReviewLabels: readonly ["Reviews"];
 	readonly addReviewReaction: readonly ["ReviewReactions"];
 	readonly addSubmissionReaction: readonly ["ReviewSubmissions"];
+	readonly branchNameSegment: readonly ["Branches", "Workspace"];
 	readonly branchRemove: readonly ["Branches", "Workspace"];
 	readonly branchRename: readonly ["Branches", "Workspace"];
 	readonly createReviewComment: readonly ["ReviewComments"];

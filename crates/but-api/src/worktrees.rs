@@ -100,6 +100,23 @@ fn active_worktree(ctx: &but_ctx::Context, name: &str) -> Result<WorktreeEntry> 
     Ok(worktree)
 }
 
+/// The checkout `source` names, failing for a linked worktree that isn't active.
+///
+/// Must not be called while a database handle is borrowed, see
+/// [`but_ctx::Context::worktrees_with_state()`].
+pub(crate) fn worktree_kind(
+    ctx: &but_ctx::Context,
+    source: &ChangesSource,
+) -> Result<but_graph::WorktreeKind> {
+    Ok(match source {
+        ChangesSource::Head => but_graph::WorktreeKind::Main,
+        ChangesSource::Worktree(name) => {
+            ensure_worktree_manipulation_enabled(ctx)?;
+            but_graph::WorktreeKind::LinkedId(active_worktree(ctx, name)?.name)
+        }
+    })
+}
+
 /// Open the checkout that `source` reads its changes from, returning its stable
 /// name along with a plain from-disk open of it, or `None` for the main worktree.
 ///
