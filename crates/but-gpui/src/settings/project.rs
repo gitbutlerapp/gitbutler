@@ -4,10 +4,10 @@
 use gpui::{App, ClickEvent, Context, DismissEvent, Focusable as _, Window, div, prelude::*, px};
 
 use super::{Row, Section, SettingsView};
-use crate::backend::settings as backend;
+use crate::backend::settings::{self as backend, GitHubStacks, StackInfo};
 use crate::state::ProjectId;
 use crate::theme::Theme;
-use crate::ui::{ButtonStyle, button, h_flex, switch};
+use crate::ui::{ButtonStyle, button, dropdown, h_flex, switch};
 
 impl SettingsView {
     /// Show `project`'s settings in the Project section, loading them.
@@ -118,6 +118,81 @@ impl SettingsView {
         let change_target = cx.listener(move |this, _: &ClickEvent, window, cx| {
             this.pick_target(target_project.clone(), window, cx)
         });
+        let info_items = self.choices(
+            [
+                (StackInfo::Bottom, "At the bottom".to_owned()),
+                (StackInfo::Top, "At the top".to_owned()),
+                (StackInfo::Disabled, "Off".to_owned()),
+            ],
+            {
+                let path = path.clone();
+                move |this, info: StackInfo, cx| {
+                    let Some(path) = path.clone() else {
+                        return;
+                    };
+                    this.apply(
+                        "Couldn't change how stacks show",
+                        move || backend::set_stacking(&path, Some(info), None),
+                        cx,
+                    )
+                }
+            },
+            cx,
+        );
+        let github_items = self.choices(
+            [
+                (GitHubStacks::Auto, "When GitHub offers them".to_owned()),
+                (GitHubStacks::Native, "Always".to_owned()),
+                (GitHubStacks::Disabled, "Never".to_owned()),
+            ],
+            {
+                let path = path.clone();
+                move |this, github: GitHubStacks, cx| {
+                    let Some(path) = path.clone() else {
+                        return;
+                    };
+                    this.apply(
+                        "Couldn't change how stacks show",
+                        move || backend::set_stacking(&path, None, Some(github)),
+                        cx,
+                    )
+                }
+            },
+            cx,
+        );
+        let info_label = match settings.stack_info {
+            StackInfo::Bottom => "At the bottom",
+            StackInfo::Top => "At the top",
+            StackInfo::Disabled => "Off",
+        };
+        let github_label = match settings.github_stacks {
+            GitHubStacks::Auto => "When GitHub offers them",
+            GitHubStacks::Native => "Always",
+            GitHubStacks::Disabled => "Never",
+        };
+        let (menu_a, menu_b) = (cx.entity().downgrade(), cx.entity().downgrade());
+        let stack_info = dropdown("stack-info", info_label, theme)
+            .on_click(move |event, _, cx| {
+                menu_a
+                    .update(cx, |this, cx| this.open_menu(event, info_items.clone(), cx))
+                    .ok();
+            })
+            .into_any_element();
+        let github_stacks = dropdown("github-stacks", github_label, theme)
+            .on_click(move |event, _, cx| {
+                menu_b
+                    .update(cx, |this, cx| {
+                        this.open_menu(event, github_items.clone(), cx)
+                    })
+                    .ok();
+            })
+            .into_any_element();
+        let on_github = self
+            .store
+            .read(cx)
+            .workspace(project)
+            .and_then(|ws| ws.forge.as_deref())
+            == Some("GitHub");
         let remove_id = project.clone();
         let project_name = self.project_name(cx).unwrap_or_default();
         let remove = cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -133,7 +208,7 @@ impl SettingsView {
                 .child(err.clone())
                 .into_any_element(),
         });
-        vec![
+        let mut rows = vec![
             Row {
                 section: Section::Project,
                 title: "Name".into(),
@@ -225,6 +300,14 @@ impl SettingsView {
             },
             Row {
                 section: Section::Project,
+                title: "Stack in pull requests".into(),
+                description: "Each pull request of a stack lists the others in its description, \
+                              kept up to date."
+                    .into(),
+                control: stack_info,
+            },
+            Row {
+                section: Section::Project,
                 title: "Remove project".into(),
                 description: "Takes it out of GitButler. The repository stays on disk as it is."
                     .into(),
@@ -234,7 +317,22 @@ impl SettingsView {
                     .on_click(remove)
                     .into_any_element(),
             },
-        ]
+        ];
+        if on_github {
+            let at = rows.len() - 1;
+            rows.insert(
+                at,
+                Row {
+                    section: Section::Project,
+                    title: "GitHub stacks".into(),
+                    description: "Show a stack's pull requests as one of GitHub's own stacks, \
+                                  where GitHub offers them."
+                        .into(),
+                    control: github_stacks,
+                },
+            );
+        }
+        rows
     }
 
     /// Offer the project's remote branches to pick a new target from.

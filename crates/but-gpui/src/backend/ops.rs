@@ -8,6 +8,7 @@ use std::sync::OnceLock;
 
 use anyhow::{Context as _, Result, bail};
 use but_api::commit::json::ChangesSource;
+use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
@@ -75,11 +76,28 @@ fn selected_specs(selected: &[Selected]) -> Vec<DiffSpec> {
 /// Changes GitButler couldn't take, as "path (reason)", so the UI can say so.
 pub type LeftOut = Vec<String>;
 
-fn left_out<R: std::fmt::Debug>(rejected: &[(R, DiffSpec)]) -> LeftOut {
+fn left_out(rejected: &[(RejectionReason, DiffSpec)]) -> LeftOut {
     rejected
         .iter()
-        .map(|(reason, spec)| format!("{} ({reason:?})", spec.path))
+        .map(|(reason, spec)| format!("{}: {}", spec.path, why(reason)))
         .collect()
+}
+
+/// Why GitButler couldn't take a change, said for the person who asked.
+fn why(reason: &RejectionReason) -> &'static str {
+    use RejectionReason as R;
+    match reason {
+        R::NoEffectiveChanges => "nothing in it would change",
+        R::CherryPickMergeConflict | R::WorkspaceMergeConflict => {
+            "it builds on changes in another branch; commit there, or move those first"
+        }
+        R::WorkspaceMergeConflictOfUnrelatedFile => "it would conflict with another branch",
+        R::WorktreeFileMissingForObjectConversion => "the file is gone from disk",
+        R::FileToLargeOrBinary => "it's binary or too large to split",
+        R::PathNotFoundInBaseTree => "the file isn't where the branch starts from",
+        R::UnsupportedDirectoryEntry | R::UnsupportedTreeEntry => "it isn't a file Git can commit",
+        R::MissingDiffSpecAssociation => "it changed since the diff was shown; try again",
+    }
 }
 
 /// A branch name as GitButler would store it, like `my branch` → `refs/heads/my-branch`.
@@ -139,7 +157,7 @@ pub fn commit(
     let left_out = left_out(&outcome.rejected_specs);
     match outcome.new_commit {
         Some(id) => Ok((CommitId(id), left_out)),
-        None => bail!("Nothing could be committed: {}", left_out.join(", ")),
+        None => bail!("Nothing could be committed.\n{}", left_out.join("\n")),
     }
 }
 
@@ -291,7 +309,7 @@ pub fn amend(path: &Path, commit: CommitId, selected: &[Selected]) -> Result<(Re
     )?;
     let left_out = left_out(&outcome.rejected_specs);
     if outcome.new_commit.is_none() {
-        bail!("Nothing could be amended: {}", left_out.join(", "));
+        bail!("Nothing could be amended.\n{}", left_out.join("\n"));
     }
     Ok((rewritten(&outcome.workspace), left_out))
 }

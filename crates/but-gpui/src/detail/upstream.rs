@@ -31,6 +31,8 @@ pub(super) struct Upstream {
     pub selected: Option<CommitId>,
     /// When the project last fetched successfully, and why the last fetch failed.
     pub fetched: Option<i64>,
+    /// The forge the project is on, when no account for it is connected.
+    pub unconnected_forge: Option<String>,
     pub fetch_error: Option<String>,
     /// What the list was loaded for, and when.
     seen: (u64, Instant),
@@ -68,14 +70,29 @@ impl Detail {
             .and_then(|u| u.commits.last())
             .map(|commit| commit.id);
         let project = project.clone();
+        let forge = self
+            .store
+            .read(cx)
+            .workspace(&project)
+            .and_then(|ws| ws.forge.clone());
         self._upstream_load = cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
                 let page = upstream::target_commits(&path, after, PAGE)?;
-                Ok((page, upstream::fetch_status(&path)?))
+                let connected = forge.as_ref().is_none_or(|forge| {
+                    backend::accounts::accounts()
+                        .iter()
+                        .any(|account| account.forge.name() == forge)
+                });
+                Ok((
+                    page,
+                    upstream::fetch_status(&path)?,
+                    forge.filter(|_| !connected),
+                ))
             })
             .await;
             this.update(cx, |this, cx| {
-                let ((commits, has_more), (fetched, fetch_error)) = match result {
+                let ((commits, has_more), (fetched, fetch_error), unconnected_forge) = match result
+                {
                     Ok(loaded) => loaded,
                     Err(err) => {
                         this.store.update(cx, |store, cx| {
@@ -107,6 +124,7 @@ impl Detail {
                     selected,
                     fetched,
                     fetch_error,
+                    unconnected_forge,
                     seen: (seen, Instant::now()),
                 });
                 this.refresh_diff(false, cx);
@@ -220,6 +238,30 @@ impl Detail {
                     .text_color(theme.danger)
                     .child(format!("The last fetch failed: {err}"))
             }))
+            .children(
+                upstream
+                    .and_then(|u| u.unconnected_forge.clone())
+                    .map(|forge| {
+                        h_flex()
+                            .mt(px(4.))
+                            .gap(px(8.))
+                            .p(px(8.))
+                            .rounded(px(6.))
+                            .bg(theme.fill_gray.opacity(0.06))
+                            .child(div().flex_1().text_color(theme.text_1).child(format!(
+                                "Connect {forge} to see pull requests and CI here."
+                            )))
+                            .child(
+                                crate::ui::button("connect-forge", "Connect…")
+                                    .small()
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.app
+                                            .update(cx, |app, cx| app.open_accounts(window, cx))
+                                            .ok();
+                                    })),
+                            )
+                    }),
+            )
             .children(entry.error.clone().map(|err| {
                 h_flex()
                     .gap(px(8.))

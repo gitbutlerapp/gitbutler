@@ -95,8 +95,8 @@ impl Store {
             self.snack_undoable(done.to_owned(), cx);
         } else {
             self.error(
-                format!("{done}, with gaps"),
-                format!("Left out {}", left_out.join(", ")),
+                format!("{done}, leaving some changes out"),
+                left_out.join("\n"),
                 cx,
             );
         }

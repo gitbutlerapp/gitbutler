@@ -12,6 +12,8 @@ mod dev;
 #[cfg(target_os = "macos")]
 mod edits;
 #[cfg(target_os = "macos")]
+mod help;
+#[cfg(target_os = "macos")]
 mod navigator;
 #[cfg(target_os = "macos")]
 mod open_in;
@@ -79,6 +81,7 @@ fn main() {
             palette::bind_keys(cx);
             settings::bind_keys(cx);
             open_in::bind_keys(cx);
+            help::register(cx);
             cx.on_action(|_: &app::Quit, cx| cx.quit());
             cx.on_action(|_: &app::Hide, cx| cx.hide());
             cx.on_action(|_: &app::HideOthers, cx| cx.hide_other_apps());
@@ -87,6 +90,8 @@ fn main() {
             // list and tiling, and "Services" with what other apps offer.
             cx.set_menus([
                 Menu::new("GitButler").items([
+                    MenuItem::action("About GitButler", help::About),
+                    MenuItem::separator(),
                     MenuItem::action("Settings…", settings::OpenSettings),
                     MenuItem::separator(),
                     MenuItem::os_submenu("Services", SystemMenuType::Services),
@@ -104,6 +109,14 @@ fn main() {
                 Menu::new("Window").items([
                     MenuItem::action("Minimize", app::Minimize),
                     MenuItem::action("Zoom", app::Zoom),
+                ]),
+                Menu::new("Help").items([
+                    MenuItem::action("GitButler Docs", help::OpenDocs),
+                    MenuItem::action("Release Notes", help::OpenReleaseNotes),
+                    MenuItem::action("Keyboard Shortcuts", app::CommandPalette),
+                    MenuItem::separator(),
+                    MenuItem::action("Report an Issue…", help::ReportIssue),
+                    MenuItem::action("Show Settings Folder", help::ShowConfigFolder),
                 ]),
             ]);
 

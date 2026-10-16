@@ -813,6 +813,11 @@ impl AppView {
         cx.notify();
     }
 
+    /// The modal on screen, when it's a `V`.
+    pub fn modal_view<V: 'static>(&self) -> Option<Entity<V>> {
+        self.modal.as_ref()?.0.clone().downcast::<V>().ok()
+    }
+
     fn close_modal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.modal.take().is_some() {
             self.focus_main(window, cx);
