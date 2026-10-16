@@ -437,7 +437,7 @@ impl AppView {
         else {
             return;
         };
-        let message = but_action::commit_format::format_commit_message(&commit.message);
+        let message = backend::wrapped_message(&commit.message);
         self.store.update(cx, |store, cx| {
             store.run(
                 &project,
