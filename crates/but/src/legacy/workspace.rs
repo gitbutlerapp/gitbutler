@@ -351,7 +351,9 @@ pub(crate) mod tests {
 
         let repo = open_repo(tmp.path())?;
         ProjectMeta {
-            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
             target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
             push_remote: Some("origin".into()),
         }

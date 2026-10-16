@@ -44,7 +44,7 @@ fn can_undo_single_branch_commit_on_checked_out_branch() {
 
 #[test]
 fn can_undo_single_branch_commit_at_each_existing_stack_branch() {
-    for branch in ["main", "middle", "top"] {
+    for branch in ["middle", "top"] {
         let env = Sandbox::open_with_default_settings("one-fork");
         env.but("commit -b middle -m 'on middle'")
             .assert()

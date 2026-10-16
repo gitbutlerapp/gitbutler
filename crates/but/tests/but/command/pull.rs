@@ -10,7 +10,9 @@ fn single_branch_integration_scenario() -> Sandbox {
     env.but("status").env("NO_BG_TASKS", "1").assert().success();
     let repo = env.open_repo();
     let mut project_meta = env.project_meta();
-    project_meta.target_ref = Some("refs/remotes/origin/main".try_into().unwrap());
+    project_meta.target_ref = Some(
+        but_core::ref_metadata::LocalRefName::new("refs/heads/main".try_into().unwrap()).unwrap(),
+    );
     project_meta.target_commit_id = Some(
         repo.rev_parse_single("refs/remotes/origin/main")
             .unwrap()
@@ -94,6 +96,163 @@ fn assert_pull_preserves_diverged_local_target(env: Sandbox) {
 #[test]
 fn pull_fast_forwards_the_local_target_branch() {
     assert_pull_fast_forwards_local_target(target_branch_pull_scenario(false));
+}
+
+#[test]
+fn pull_fast_forwards_local_target_while_workspace_remains_checked_out() {
+    let env = target_branch_pull_scenario(false);
+    commit_file(&env, "remaining");
+    let old_target = rev_parse(&env, "main");
+    let upstream = rev_parse(&env, "origin/main");
+    assert_ne!(old_target, upstream, "local target starts behind upstream");
+
+    env.but("pull --check").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        old_target,
+        "preview must not move main"
+    );
+    env.but("pull").assert().success();
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "gitbutler/workspace",
+        "remaining work keeps the workspace checked out instead of taking the checkout-replacement path"
+    );
+    assert_eq!(
+        rev_parse(&env, "main"),
+        upstream,
+        "pull must also advance main when the workspace remains checked out"
+    );
+    assert_eq!(
+        env.project_meta().target_commit_id.unwrap().to_string(),
+        upstream,
+        "stored cutoff advances with main"
+    );
+
+    env.but("undo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        old_target,
+        "undo restores the local target"
+    );
+    env.but("redo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        upstream,
+        "redo advances the local target again"
+    );
+}
+
+fn local_target_only_pull_scenario() -> Sandbox {
+    let env = target_branch_pull_scenario(false);
+    let old_target = rev_parse(&env, "main");
+    commit_file(&env, "remaining");
+    env.but("pull").assert().success();
+    // The workspace and cutoff are current, but the local target has fallen behind.
+    env.invoke_git(&format!("update-ref refs/heads/main {old_target}"));
+    env
+}
+
+#[test]
+fn pull_check_reports_a_local_target_only_fast_forward() {
+    let env = local_target_only_pull_scenario();
+    let old_target = rev_parse(&env, "main");
+    let output = env
+        .but("--json pull --check")
+        .allow_json()
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let output: serde_json::Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(
+        output["upstreamCommits"]["count"], 0,
+        "the cutoff is current"
+    );
+    assert_eq!(
+        output["upToDate"], false,
+        "the local target still needs updating"
+    );
+    assert_eq!(
+        rev_parse(&env, "main"),
+        old_target,
+        "preview must not move main"
+    );
+}
+
+#[test]
+fn pull_fast_forwards_only_the_local_target_with_undo_and_redo() {
+    let env = local_target_only_pull_scenario();
+    let old_target = rev_parse(&env, "main");
+    let upstream = rev_parse(&env, "origin/main");
+    let feature = rev_parse(&env, "remaining");
+    let cutoff = env.project_meta().target_commit_id;
+    env.but("pull").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        upstream,
+        "pull advances only the lagging target"
+    );
+    assert_eq!(
+        rev_parse(&env, "remaining"),
+        feature,
+        "feature commits stay unchanged"
+    );
+    assert_eq!(
+        env.project_meta().target_commit_id,
+        cutoff,
+        "the cutoff stays unchanged"
+    );
+    env.but("undo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        old_target,
+        "undo restores the target"
+    );
+    env.but("redo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        upstream,
+        "redo advances the target"
+    );
+}
+
+#[test]
+fn pull_leaves_a_diverged_local_target_alone_when_the_workspace_is_current() {
+    let env = local_target_only_pull_scenario();
+    let old_target = rev_parse(&env, "main");
+    let divergent = env.invoke_git(&format!(
+        "commit-tree {old_target}^{{tree}} -p {old_target} -m local-main"
+    ));
+    env.invoke_git(&format!("update-ref refs/heads/main {divergent}"));
+    env.but("pull").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        divergent,
+        "pull must preserve divergent local work"
+    );
+}
+
+#[test]
+fn pull_leaves_a_checked_out_local_target_alone_when_the_workspace_is_current() {
+    let env = local_target_only_pull_scenario();
+    let old_target = rev_parse(&env, "main");
+    let worktree = env.app_data_dir().join("linked-main");
+    env.invoke_git(&format!("worktree add -q \"{}\" main", worktree.display()));
+    env.but("pull").assert().success();
+    assert_eq!(
+        rev_parse(&env, "main"),
+        old_target,
+        "pull must preserve the linked worktree's target"
+    );
+}
+
+#[test]
+fn pull_preserves_diverged_local_target_while_workspace_remains_checked_out() {
+    let env = target_branch_pull_scenario(true);
+    commit_file(&env, "remaining");
+    assert_pull_preserves_diverged_local_target(env);
 }
 
 #[test]
@@ -209,8 +368,8 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
     snapbox::assert_data_eq!(
         env.git_log(),
         str![[r#"
-* 1eef6fe (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) on main
-* 85efbe4 M
+* 1eef6fe (HEAD -> main, origin/main, origin/HEAD) on main
+* 85efbe4 (gitbutler/target) M
 
 "#]]
     );
@@ -244,7 +403,10 @@ fn single_branch_pull_preserves_develop_after_pushing_it() {
     env.invoke_git("update-ref -d refs/remotes/origin/main");
     env.invoke_git("branch --set-upstream-to=origin/develop develop");
     let mut project_meta = env.project_meta();
-    project_meta.target_ref = Some("refs/remotes/origin/develop".try_into().unwrap());
+    project_meta.target_ref = Some(
+        but_core::ref_metadata::LocalRefName::new("refs/heads/develop".try_into().unwrap())
+            .unwrap(),
+    );
     project_meta.persist(&env.open_repo()).unwrap();
 
     env.invoke_git("commit --allow-empty -m 'on develop'");
@@ -264,8 +426,8 @@ fn single_branch_pull_preserves_develop_after_pushing_it() {
     snapbox::assert_data_eq!(
         env.git_log(),
         str![[r#"
-* 0a170f9 (HEAD -> develop, origin/develop, origin/HEAD, gitbutler/target) on develop
-* 85efbe4 M
+* 0a170f9 (HEAD -> develop, origin/develop, origin/HEAD) on develop
+* 85efbe4 (gitbutler/target) M
 
 "#]]
     );
@@ -288,7 +450,10 @@ fn single_branch_pull_preserves_integrated_develop_below_feature() {
     env.invoke_git("update-ref -d refs/remotes/origin/main");
     env.invoke_git("branch --set-upstream-to=origin/develop develop");
     let mut project_meta = env.project_meta();
-    project_meta.target_ref = Some("refs/remotes/origin/develop".try_into().unwrap());
+    project_meta.target_ref = Some(
+        but_core::ref_metadata::LocalRefName::new("refs/heads/develop".try_into().unwrap())
+            .unwrap(),
+    );
     project_meta.persist(&env.open_repo()).unwrap();
 
     env.invoke_git("commit --allow-empty -m 'on develop'");
@@ -860,8 +1025,7 @@ Hint: run `but help` for all commands
 /// deleted mirror) is tolerated.
 #[test]
 fn pull_ignores_unreachable_unrelated_remote() {
-    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
-    env.but("switch --workspace").assert().success();
+    let env = single_branch_integration_scenario();
     env.invoke_git("remote add broken /nonexistent/path/broken.git");
 
     env.but("pull").assert().success();
@@ -885,7 +1049,7 @@ fn pull_prunes_integrated_stack_and_keeps_remaining_stack_parent() {
 ├╯
 ┊
 ┊● 26ecc90 (upstream: origin/main) 2 new commits
-├╯ 26ecc90 (common base, main, origin/main) 2000-01-02 add upstream
+├╯ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -1166,7 +1330,7 @@ fn pull_checks_out_main_after_all_stacks_integrate() {
 ├╯
 ┊
 ┊● 7e5d4e1 (upstream: origin/main) 3 new commits
-├╯ 7e5d4e1 (common base, main, origin/main) 2000-01-02 add upstream
+├╯ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -1269,7 +1433,7 @@ fn pull_does_not_report_branch_rebase_conflicts_as_worktree_conflicts() {
 ├╯
 ┊
 ┊● 247c151 (upstream: origin/main) 1 new commit
-├╯ 247c151 (common base, main, origin/main) 2000-01-02 upstream change
+├╯ fa11d0d (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
@@ -1327,7 +1491,7 @@ fn pull_json_reports_branch_rebase_conflicts_as_successful_integration() {
 ├╯
 ┊
 ┊● 247c151 (upstream: origin/main) 1 new commit
-├╯ 247c151 (common base, main, origin/main) 2000-01-02 upstream change
+├╯ fa11d0d (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -1392,7 +1556,7 @@ fn pull_reports_conflict_in_lower_branch_of_stack() {
 ├╯
 ┊
 ┊● 7f73771 (upstream: origin/main) 1 new commit
-├╯ 7f73771 (common base, main, origin/main) 2000-01-02 upstream change
+├╯ 8fa27c9 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -1458,7 +1622,7 @@ fn pull_reports_conflicts_in_multiple_branches_of_stack() {
 ├╯
 ┊
 ┊● e4933d8 (upstream: origin/main) 1 new commit
-├╯ e4933d8 (common base, main, origin/main) 2000-01-02 upstream change
+├╯ 67519c0 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
@@ -1816,7 +1980,7 @@ To undo this operation:
 ├╯
 ┊
 ┊● 526bb83 (upstream: origin/main) 1 new commit[..]
-├╯ 526bb83 (common base, main, origin/main) 2000-01-02 upstream-change
+├╯ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 
