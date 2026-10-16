@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, CursorStyle, HighlightStyle, Hsla, MouseButton, MouseDownEvent, Pixels, Point,
-    SharedString, StyledText, Window, combine_highlights, div, prelude::*, px,
+    Role, SharedString, StyledText, Window, combine_highlights, div, prelude::*, px,
 };
 
 use super::{Icon, h_flex, small_icon};
@@ -176,6 +176,9 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
             let (name, dir) = split_path(&file.file.path);
             let (added, removed) = file.stats();
             card(h_flex())
+                .id(("diff-file", ix))
+                .role(Role::Heading)
+                .aria_label(SharedString::from(file.file.path.clone()))
                 .h(px(38.))
                 .pl(px(12.))
                 .pr(px(8.))
@@ -287,6 +290,8 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
             let DiffBody::Hunks { hunks, .. } = &files[file].body else {
                 return div().into_any_element();
             };
+            // Unique per line, for the line's accessibility node.
+            let row_id = (file << 40) | (hunk << 20) | line;
             let line = &hunks[hunk].lines[line];
             let (bg, gutter_bg, emph_bg, sign, sign_color) = match line.kind {
                 LineKind::Context => (None, None, theme.bg_1, " ", theme.text_3),
@@ -373,6 +378,14 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 }
             };
             card(h_flex())
+                .id(("diff-line", row_id))
+                .role(Role::Label)
+                .aria_label(SharedString::from(line.text.clone()))
+                .aria_description(match line.kind {
+                    LineKind::Added => "added",
+                    LineKind::Removed => "removed",
+                    LineKind::Context => "unchanged",
+                })
                 .h(px(LINE_HEIGHT))
                 .font_family(theme.mono_font.clone())
                 .text_size(px(12.))

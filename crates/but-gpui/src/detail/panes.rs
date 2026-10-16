@@ -508,6 +508,8 @@ impl Detail {
             .map_or(0., |depth| TREE_INDENT * depth as f32 + 18.);
         let dir = if extras.depth.is_some() { "" } else { dir };
         let mut row = list_row(("file", ix), current, theme)
+            .aria_label(file.path.clone())
+            .aria_description(file.kind.word())
             .pl(px(10. + indent))
             .when_some(extras.checkbox, |el, check| {
                 let path = path.clone();

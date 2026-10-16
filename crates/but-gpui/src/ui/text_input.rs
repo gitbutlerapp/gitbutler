@@ -11,7 +11,7 @@ use gpui::{
     App, Bounds, ClipboardItem, Context, CursorStyle, ElementId, ElementInputHandler, Entity,
     EntityInputHandler, EventEmitter, FocusHandle, Focusable, GlobalElementId, KeyBinding,
     LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point,
-    SharedString, Style, Task, TextRun, UTF16Selection, UnderlineStyle, Window, WrappedLine,
+    Role, SharedString, Style, Task, TextRun, UTF16Selection, UnderlineStyle, Window, WrappedLine,
     actions, div, fill, point, prelude::*, px, relative, size,
 };
 use unicode_segmentation::UnicodeSegmentation as _;
@@ -757,6 +757,12 @@ impl Render for TextInput {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .id("text-input")
+            .role(if self.multiline {
+                Role::MultilineTextInput
+            } else {
+                Role::TextInput
+            })
+            .aria_label(self.placeholder.clone())
             .key_context(CONTEXT)
             .track_focus(&self.focus_handle)
             .cursor(CursorStyle::IBeam)
