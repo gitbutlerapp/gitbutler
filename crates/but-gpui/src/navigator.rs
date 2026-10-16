@@ -4,9 +4,9 @@
 use std::collections::HashSet;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, ElementId, Entity, FocusHandle, Focusable, ListAlignment,
-    ListState, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Subscription, WeakEntity,
-    Window, div, list, prelude::*, px,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable, Hsla,
+    ListAlignment, ListState, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Stateful,
+    Subscription, WeakEntity, Window, div, list, prelude::*, px,
 };
 
 use crate::app::{
@@ -14,7 +14,7 @@ use crate::app::{
     Fetch, MenuItem, NewBranchOnTop, OpenPullRequest, Push, Refresh, RenameSelection, SelectNext,
     SelectPrevious, StartCommit, UncommitSelection, UpdateFromTarget,
 };
-use crate::backend::{CommitState, PushState};
+use crate::backend::{CommitId, CommitState, PushState};
 use crate::detail::{ChecksChanged, Detail};
 use crate::state::{Cut, Pane, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
@@ -42,6 +42,43 @@ enum Row {
     More(ProjectId, String, usize),
     /// A commit an operation is still making, by its title.
     Pending(SharedString),
+}
+
+/// How an item row draws: `solid` is the selection while the navigator has focus.
+#[derive(Clone, Copy)]
+struct RowStyle<'a> {
+    theme: &'a Theme,
+    selected: bool,
+    solid: bool,
+}
+
+impl RowStyle<'_> {
+    fn row(&self, id: String, indent: f32) -> Stateful<Div> {
+        let theme = self.theme;
+        list_row(ElementId::Name(id.into()), self.selected, theme)
+            .mx(px(3.))
+            .pl(px(8. + indent))
+            .when(self.solid, |el| {
+                el.bg(theme.fill_gray).text_color(theme.text_inverted)
+            })
+    }
+
+    fn muted(&self) -> Hsla {
+        if self.solid {
+            self.theme.text_inverted.opacity(0.7)
+        } else {
+            self.theme.text_2
+        }
+    }
+
+    /// Meaningful colours wash out on the dark selection ground; keep them legible.
+    fn meta(&self, color: Hsla) -> Hsla {
+        if self.solid {
+            self.theme.text_inverted
+        } else {
+            color
+        }
+    }
 }
 
 pub struct Navigator {
@@ -399,347 +436,386 @@ impl Navigator {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let store = self.store.read(cx);
-        let selected = store.selection.as_ref() == Some(item);
-        let focused = self.focus.contains_focused(window, cx);
-        let solid = selected && focused;
-        let base = |id: String, indent: f32| {
-            list_row(ElementId::Name(id.into()), selected, theme)
-                .mx(px(3.))
-                .pl(px(8. + indent))
-                .when(solid, |el| {
-                    el.bg(theme.fill_gray).text_color(theme.text_inverted)
-                })
+        let selected = self.store.read(cx).selection.as_ref() == Some(item);
+        let style = RowStyle {
+            theme,
+            selected,
+            solid: selected && self.focus.contains_focused(window, cx),
         };
-        let muted = if solid {
-            theme.text_inverted.opacity(0.7)
-        } else {
-            theme.text_2
-        };
-        // Meaningful colours wash out on the dark selection ground; keep them legible.
-        let meta = |color| if solid { theme.text_inverted } else { color };
-        let selection = item.clone();
-        // On press, as native lists do: a click waits for the release.
-        let select = cx.listener(move |this, _: &MouseDownEvent, window, cx| {
-            this.select(selection.clone(), window, cx)
-        });
-
         let el = match item {
-            Selection::Project(id) => {
-                let Some(entry) = store.project(id) else {
-                    return div().into_any_element();
-                };
-                let toggle_id = id.clone();
-                let expanded = entry.expanded;
-                let summary = entry.workspace.as_ref().map(|ws| {
-                    (
-                        ws.uncommitted.len(),
-                        ws.unpushed_commits(),
-                        ws.target.as_ref().map_or(0, |t| t.behind),
-                    )
-                });
-                let unread = entry
-                    .workspace
-                    .as_ref()
-                    .is_some_and(|ws| ws.commits().any(|commit| store.is_unread(id, commit)));
-                let activity = entry.workspace.as_ref().and_then(|ws| ws.last_activity());
-                base(format!("project-{id}"), 0.)
-                    .aria_label(entry.project.name.clone())
-                    .aria_expanded(expanded)
-                    .h(px(if expanded { 32. } else { ROW_HEIGHT }))
-                    .pl(px(4.))
-                    .child(
-                        div()
-                            .id(ElementId::Name(format!("chevron-{id}").into()))
-                            .flex_none()
-                            .size(px(20.))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .rounded(px(4.))
-                            .hover(|el| el.bg(theme.hover()))
-                            .child(
-                                small_icon(if expanded {
-                                    Icon::ChevronDown
-                                } else {
-                                    Icon::ChevronRight
-                                })
-                                .text_color(muted),
-                            )
-                            // Folding the project doesn't select it.
-                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                                cx.stop_propagation();
-                                this.store.update(cx, |store, cx| {
-                                    store.set_expanded(&toggle_id, !expanded, cx)
-                                });
-                            })),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .truncate()
-                            .when(expanded, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
-                            .child(entry.project.name.clone()),
-                    )
-                    .when(unread, |el| el.child(dot(meta(theme.pop))))
-                    .when_some(summary, |el, (uncommitted, unpushed, behind)| {
-                        el.when(uncommitted > 0, |el| {
-                            el.child(count(Some(Icon::File), uncommitted, meta(theme.warn)))
-                        })
-                        .when(unpushed > 0, |el| {
-                            el.child(count(Some(Icon::ArrowUp), unpushed, meta(theme.blue)))
-                        })
-                        .when(behind > 0, |el| {
-                            el.child(count(Some(Icon::ArrowDown), behind, meta(theme.warn)))
-                        })
-                    })
-                    .when(entry.is_loading(), |el| {
-                        el.child(small_icon(Icon::Clock).text_color(theme.text_3))
-                    })
-                    // A project something wrote to in the last two minutes is likely an
-                    // agent at work; otherwise say how long it's been quiet.
-                    .when_some(activity, |el, at| {
-                        if just_now(at) {
-                            el.child(
-                                h_flex()
-                                    .id(ElementId::Name(format!("active-{id}").into()))
-                                    .gap(px(4.))
-                                    .text_size(px(11.))
-                                    .text_color(meta(theme.safe))
-                                    .child(dot(meta(theme.safe)))
-                                    .child("active")
-                                    .tooltip(|_, cx| {
-                                        Tooltip::text("Changed in the last 2 minutes".into(), cx)
-                                    }),
-                            )
-                        } else {
-                            el.child(
-                                div()
-                                    .text_size(px(11.))
-                                    .text_color(muted)
-                                    .child(relative_time(at)),
-                            )
-                        }
-                    })
-                    .when(
-                        expanded
-                            && entry
-                                .workspace
-                                .as_ref()
-                                .and_then(|ws| ws.target.as_ref())
-                                .is_some_and(|t| t.needs_update),
-                        |el| {
-                            let project = id.clone();
-                            el.child(
-                                button(ElementId::Name(format!("update-{id}").into()), "Update")
-                                    .small()
-                                    .style(ButtonStyle::Gray)
-                                    .inverted(solid)
-                                    .tooltip("Rebase branches onto the latest target")
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.store.update(cx, |store, cx| {
-                                            store.update_from_target(&project, cx)
-                                        })
-                                    })),
-                            )
-                        },
-                    )
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener({
-                            let id = id.clone();
-                            move |this, event: &MouseDownEvent, window, cx| {
-                                if event.click_count == 2 {
-                                    this.store.update(cx, |store, cx| {
-                                        store.set_expanded(&id, !expanded, cx)
-                                    });
-                                }
-                                this.select(Selection::Project(id.clone()), window, cx);
-                            }
-                        }),
-                    )
-                    .into_any_element()
-            }
-            Selection::Uncommitted(id) => {
-                let n = store.workspace(id).map_or(0, |ws| ws.uncommitted.len());
-                base(format!("uncommitted-{id}"), 6.)
-                    .aria_label("Uncommitted changes")
-                    .child(icon(Icon::FileDiff).text_color(if n > 0 {
-                        meta(theme.warn)
-                    } else {
-                        muted
-                    }))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .truncate()
-                            .when(n == 0, |el| el.text_color(muted))
-                            .child(if n > 0 {
-                                "Uncommitted changes"
+            Selection::Project(id) => self.project_row(id, style, cx),
+            Selection::Uncommitted(id) => Some(self.uncommitted_row(item, id, style, cx)),
+            Selection::Branch(id, ref_name) => self.branch_row(item, id, ref_name, style, cx),
+            Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
+        };
+        match el {
+            Some(el) => self.drop_target(el, item.clone(), window, theme, cx),
+            None => div().into_any_element(),
+        }
+    }
+
+    /// Select `item` on press, as native lists do: a click waits for the release.
+    fn select_on_press(
+        &self,
+        item: &Selection,
+        cx: &Context<Self>,
+    ) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
+        let item = item.clone();
+        cx.listener(move |this, _: &MouseDownEvent, window, cx| {
+            this.select(item.clone(), window, cx)
+        })
+    }
+
+    fn project_row(
+        &self,
+        id: &ProjectId,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let store = self.store.read(cx);
+        let theme = style.theme;
+        let entry = store.project(id)?;
+        let toggle_id = id.clone();
+        let expanded = entry.expanded;
+        let summary = entry.workspace.as_ref().map(|ws| {
+            (
+                ws.uncommitted.len(),
+                ws.unpushed_commits(),
+                ws.target.as_ref().map_or(0, |t| t.behind),
+            )
+        });
+        let unread = entry
+            .workspace
+            .as_ref()
+            .is_some_and(|ws| ws.commits().any(|commit| store.is_unread(id, commit)));
+        let activity = entry.workspace.as_ref().and_then(|ws| ws.last_activity());
+        Some(
+            style
+                .row(format!("project-{id}"), 0.)
+                .aria_label(entry.project.name.clone())
+                .aria_expanded(expanded)
+                .h(px(if expanded { 32. } else { ROW_HEIGHT }))
+                .pl(px(4.))
+                .child(
+                    div()
+                        .id(ElementId::Name(format!("chevron-{id}").into()))
+                        .flex_none()
+                        .size(px(20.))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .rounded(px(4.))
+                        .hover(|el| el.bg(theme.hover()))
+                        .child(
+                            small_icon(if expanded {
+                                Icon::ChevronDown
                             } else {
-                                "No uncommitted changes"
-                            }),
-                    )
-                    .when(n > 0, |el| {
-                        let to_review = store.to_review(id);
-                        if to_review > 0 {
-                            el.child(count(Some(Icon::Eye), to_review, meta(theme.warn)))
-                        } else {
-                            el.child(count(Some(Icon::Tick), n, muted))
-                        }
-                    })
-                    .on_mouse_down(MouseButton::Left, select)
-                    .when(n > 0, |el| {
-                        let files = self.detail.read(cx).files_to_move(id, cx);
-                        let label: SharedString = match files.len() {
-                            1 => files[0].file.path.clone().into(),
-                            n => format!("{n} files").into(),
-                        };
-                        let payload = Cut::Files {
-                            project: id.clone(),
-                            from: None,
-                            files: files.into(),
-                        };
-                        el.on_drag(payload, drag_preview(self.store.clone(), label))
-                    })
-                    .into_any_element()
-            }
-            Selection::Branch(id, ref_name) => {
-                let Some(branch) = store.branch_for(item) else {
-                    return div().into_any_element();
-                };
-                let unpushed = branch
-                    .commits
-                    .iter()
-                    .filter(|c| c.state == CommitState::Local)
-                    .count();
-                let (glyph, glyph_color) = match (&branch.review, branch.push) {
-                    (Some(review), _) => review::state_glyph(review.state, theme),
-                    (None, PushState::Integrated) => (Icon::Tick, theme.safe),
-                    (None, _) => (Icon::Branch, muted),
-                };
-                base(format!("branch-{id}-{ref_name}"), 6.)
-                    .aria_label(format!("Branch {}", branch.name))
-                    .child(icon(glyph).text_color(meta(glyph_color)))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .truncate()
-                            .font_family(theme.mono_font.clone())
-                            .text_size(px(12.))
-                            .text_color(meta(theme.blue))
-                            .child(branch.name.clone()),
-                    )
-                    // As in t3code: the number in the state's colour, then one glyph for CI.
-                    .when_some(branch.review.as_ref(), |el, review| {
-                        let (_, color) = review::state_glyph(review.state, theme);
-                        el.child(
-                            div()
-                                .text_size(px(11.))
-                                .text_color(meta(color))
-                                .child(format!("#{}", review.number)),
+                                Icon::ChevronRight
+                            })
+                            .text_color(style.muted()),
                         )
-                        .when_some(review.checks, |el, checks| {
-                            let (glyph, color, text) = review::checks_summary(checks, theme);
-                            el.child(
-                                div()
-                                    .id(ElementId::Name(format!("checks-{ref_name}").into()))
-                                    .child(small_icon(glyph).text_color(meta(color)))
-                                    .tooltip(move |_, cx| Tooltip::text(text.clone().into(), cx)),
-                            )
-                        })
-                    })
-                    .when(branch.upstream_only > 0, |el| {
-                        el.child(count(
-                            Some(Icon::ArrowDown),
-                            branch.upstream_only,
-                            meta(theme.warn),
-                        ))
+                        // Folding the project doesn't select it.
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            cx.stop_propagation();
+                            this.store.update(cx, |store, cx| {
+                                store.set_expanded(&toggle_id, !expanded, cx)
+                            });
+                        })),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .when(expanded, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
+                        .child(entry.project.name.clone()),
+                )
+                .when(unread, |el| el.child(dot(style.meta(theme.pop))))
+                .when_some(summary, |el, (uncommitted, unpushed, behind)| {
+                    el.when(uncommitted > 0, |el| {
+                        el.child(count(Some(Icon::File), uncommitted, style.meta(theme.warn)))
                     })
                     .when(unpushed > 0, |el| {
-                        el.child(count(Some(Icon::ArrowUp), unpushed, meta(theme.blue)))
+                        el.child(count(Some(Icon::ArrowUp), unpushed, style.meta(theme.blue)))
                     })
-                    .when(branch.commits.is_empty(), |el| {
+                    .when(behind > 0, |el| {
+                        el.child(count(Some(Icon::ArrowDown), behind, style.meta(theme.warn)))
+                    })
+                })
+                .when(entry.is_loading(), |el| {
+                    el.child(small_icon(Icon::Clock).text_color(theme.text_3))
+                })
+                // A project something wrote to in the last two minutes is likely an
+                // agent at work; otherwise say how long it's been quiet.
+                .when_some(activity, |el, at| {
+                    if just_now(at) {
+                        el.child(
+                            h_flex()
+                                .id(ElementId::Name(format!("active-{id}").into()))
+                                .gap(px(4.))
+                                .text_size(px(11.))
+                                .text_color(style.meta(theme.safe))
+                                .child(dot(style.meta(theme.safe)))
+                                .child("active")
+                                .tooltip(|_, cx| {
+                                    Tooltip::text("Changed in the last 2 minutes".into(), cx)
+                                }),
+                        )
+                    } else {
                         el.child(
                             div()
                                 .text_size(px(11.))
-                                .text_color(theme.text_3)
-                                .child("empty"),
+                                .text_color(style.muted())
+                                .child(relative_time(at)),
+                        )
+                    }
+                })
+                .when(
+                    expanded
+                        && entry
+                            .workspace
+                            .as_ref()
+                            .and_then(|ws| ws.target.as_ref())
+                            .is_some_and(|t| t.needs_update),
+                    |el| {
+                        let project = id.clone();
+                        el.child(
+                            button(ElementId::Name(format!("update-{id}").into()), "Update")
+                                .small()
+                                .style(ButtonStyle::Gray)
+                                .inverted(style.solid)
+                                .tooltip("Rebase branches onto the latest target")
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.store.update(cx, |store, cx| {
+                                        store.update_from_target(&project, cx)
+                                    })
+                                })),
+                        )
+                    },
+                )
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener({
+                        let id = id.clone();
+                        move |this, event: &MouseDownEvent, window, cx| {
+                            if event.click_count == 2 {
+                                this.store
+                                    .update(cx, |store, cx| store.set_expanded(&id, !expanded, cx));
+                            }
+                            this.select(Selection::Project(id.clone()), window, cx);
+                        }
+                    }),
+                )
+                .into_any_element(),
+        )
+    }
+
+    fn uncommitted_row(
+        &self,
+        item: &Selection,
+        id: &ProjectId,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let store = self.store.read(cx);
+        let theme = style.theme;
+        let n = store.workspace(id).map_or(0, |ws| ws.uncommitted.len());
+        style
+            .row(format!("uncommitted-{id}"), 6.)
+            .aria_label("Uncommitted changes")
+            .child(icon(Icon::FileDiff).text_color(if n > 0 {
+                style.meta(theme.warn)
+            } else {
+                style.muted()
+            }))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w(px(0.))
+                    .truncate()
+                    .when(n == 0, |el| el.text_color(style.muted()))
+                    .child(if n > 0 {
+                        "Uncommitted changes"
+                    } else {
+                        "No uncommitted changes"
+                    }),
+            )
+            .when(n > 0, |el| {
+                let to_review = store.to_review(id);
+                if to_review > 0 {
+                    el.child(count(Some(Icon::Eye), to_review, style.meta(theme.warn)))
+                } else {
+                    el.child(count(Some(Icon::Tick), n, style.muted()))
+                }
+            })
+            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+            .when(n > 0, |el| {
+                let files = self.detail.read(cx).files_to_move(id, cx);
+                let label: SharedString = match files.len() {
+                    1 => files[0].file.path.clone().into(),
+                    n => format!("{n} files").into(),
+                };
+                let payload = Cut::Files {
+                    project: id.clone(),
+                    from: None,
+                    files: files.into(),
+                };
+                el.on_drag(payload, drag_preview(self.store.clone(), label))
+            })
+            .into_any_element()
+    }
+
+    fn branch_row(
+        &self,
+        item: &Selection,
+        id: &ProjectId,
+        ref_name: &str,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let store = self.store.read(cx);
+        let theme = style.theme;
+        let branch = store.branch_for(item)?;
+        let unpushed = branch
+            .commits
+            .iter()
+            .filter(|c| c.state == CommitState::Local)
+            .count();
+        let (glyph, glyph_color) = match (&branch.review, branch.push) {
+            (Some(review), _) => review::state_glyph(review.state, theme),
+            (None, PushState::Integrated) => (Icon::Tick, theme.safe),
+            (None, _) => (Icon::Branch, style.muted()),
+        };
+        Some(
+            style
+                .row(format!("branch-{id}-{ref_name}"), 6.)
+                .aria_label(format!("Branch {}", branch.name))
+                .child(icon(glyph).text_color(style.meta(glyph_color)))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .font_family(theme.mono_font.clone())
+                        .text_size(px(12.))
+                        .text_color(style.meta(theme.blue))
+                        .child(branch.name.clone()),
+                )
+                // As in t3code: the number in the state's colour, then one glyph for CI.
+                .when_some(branch.review.as_ref(), |el, review| {
+                    let (_, color) = review::state_glyph(review.state, theme);
+                    el.child(
+                        div()
+                            .text_size(px(11.))
+                            .text_color(style.meta(color))
+                            .child(format!("#{}", review.number)),
+                    )
+                    .when_some(review.checks, |el, checks| {
+                        let (glyph, color, text) = review::checks_summary(checks, theme);
+                        el.child(
+                            div()
+                                .id(ElementId::Name(format!("checks-{ref_name}").into()))
+                                .child(small_icon(glyph).text_color(style.meta(color)))
+                                .tooltip(move |_, cx| Tooltip::text(text.clone().into(), cx)),
                         )
                     })
-                    .when(
-                        branch
-                            .commits
-                            .iter()
-                            .any(|commit| store.is_unread(id, commit)),
-                        |el| el.child(dot(meta(theme.pop))),
-                    )
-                    .on_mouse_down(MouseButton::Left, select)
-                    .into_any_element()
-            }
-            Selection::Commit(id, commit_id) => {
-                let Some((_, commit)) = store
-                    .workspace(id)
-                    .and_then(|ws| ws.find_commit(*commit_id))
-                else {
-                    return div().into_any_element();
-                };
-                let cut = store.cut.as_ref();
-                let is_cut = matches!(cut, Some(Cut::Commit(_, cut)) if cut == commit_id);
-                let (glyph, color) = if commit.conflicted {
-                    (Icon::Warning, theme.danger)
-                } else {
-                    match commit.state {
-                        CommitState::Local => (Icon::Commit, theme.blue),
-                        CommitState::Pushed => (Icon::CommitFill, muted),
-                        CommitState::Integrated => (Icon::Tick, theme.safe),
-                    }
-                };
-                let payload = Cut::Commit(id.clone(), *commit_id);
-                let label: SharedString = commit.title.clone().into();
-                let unread = store.is_unread(id, commit);
-                base(format!("commit-{id}-{}", commit_id.short()), 20.)
-                    .aria_label(label.clone())
-                    .child(small_icon(glyph).text_color(meta(color)))
-                    .child(
+                })
+                .when(branch.upstream_only > 0, |el| {
+                    el.child(count(
+                        Some(Icon::ArrowDown),
+                        branch.upstream_only,
+                        style.meta(theme.warn),
+                    ))
+                })
+                .when(unpushed > 0, |el| {
+                    el.child(count(Some(Icon::ArrowUp), unpushed, style.meta(theme.blue)))
+                })
+                .when(branch.commits.is_empty(), |el| {
+                    el.child(
                         div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .truncate()
-                            .when(commit.title.is_empty(), |el| el.italic().text_color(muted))
-                            .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
-                            .child(if commit.title.is_empty() {
-                                "No message".to_owned()
-                            } else {
-                                commit.title.clone()
-                            }),
-                    )
-                    .when(unread, |el| el.child(dot(meta(theme.pop))))
-                    .child(
-                        div()
-                            .flex_none()
                             .text_size(px(11.))
-                            .text_color(muted)
-                            .child(relative_time(commit.time)),
+                            .text_color(theme.text_3)
+                            .child("empty"),
                     )
-                    .when(is_cut, |el| {
-                        el.opacity(0.5)
-                            .border_1()
-                            .border_dashed()
-                            .border_color(theme.pop)
-                    })
-                    // Selected but on its way out.
-                    .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
-                    .on_mouse_down(MouseButton::Left, select)
-                    .on_drag(payload, drag_preview(self.store.clone(), label))
-                    .into_any_element()
+                })
+                .when(
+                    branch
+                        .commits
+                        .iter()
+                        .any(|commit| store.is_unread(id, commit)),
+                    |el| el.child(dot(style.meta(theme.pop))),
+                )
+                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .into_any_element(),
+        )
+    }
+
+    fn commit_row(
+        &self,
+        item: &Selection,
+        id: &ProjectId,
+        commit_id: &CommitId,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let store = self.store.read(cx);
+        let theme = style.theme;
+        let (_, commit) = store.workspace(id)?.find_commit(*commit_id)?;
+        let cut = store.cut.as_ref();
+        let is_cut = matches!(cut, Some(Cut::Commit(_, cut)) if cut == commit_id);
+        let (glyph, color) = if commit.conflicted {
+            (Icon::Warning, theme.danger)
+        } else {
+            match commit.state {
+                CommitState::Local => (Icon::Commit, theme.blue),
+                CommitState::Pushed => (Icon::CommitFill, style.muted()),
+                CommitState::Integrated => (Icon::Tick, theme.safe),
             }
         };
-        self.drop_target(el, item.clone(), window, theme, cx)
+        let payload = Cut::Commit(id.clone(), *commit_id);
+        let label: SharedString = commit.title.clone().into();
+        let unread = store.is_unread(id, commit);
+        Some(
+            style
+                .row(format!("commit-{id}-{}", commit_id.short()), 20.)
+                .aria_label(label.clone())
+                .child(small_icon(glyph).text_color(style.meta(color)))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .when(commit.title.is_empty(), |el| {
+                            el.italic().text_color(style.muted())
+                        })
+                        .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
+                        .child(if commit.title.is_empty() {
+                            "No message".to_owned()
+                        } else {
+                            commit.title.clone()
+                        }),
+                )
+                .when(unread, |el| el.child(dot(style.meta(theme.pop))))
+                .child(
+                    div()
+                        .flex_none()
+                        .text_size(px(11.))
+                        .text_color(style.muted())
+                        .child(relative_time(commit.time)),
+                )
+                .when(is_cut, |el| {
+                    el.opacity(0.5)
+                        .border_1()
+                        .border_dashed()
+                        .border_color(theme.pop)
+                })
+                // Selected but on its way out.
+                .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
+                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .on_drag(payload, drag_preview(self.store.clone(), label))
+                .into_any_element(),
+        )
     }
 
     /// Make a row accept drags it has a meaning for, and offer its right-click menu.

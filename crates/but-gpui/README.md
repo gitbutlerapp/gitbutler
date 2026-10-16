@@ -81,7 +81,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 ## How it's built
 
 - `src/backend` is the only code that touches GitButler crates, and `src/backend/annotate.rs` the only code that touches deltoids. It turns `but-api` results into plain structs (`model.rs`) and runs every call on a tokio pool with large stacks, since GitButler's graph walks and push futures overflow the small stacks of GPUI's worker threads in debug builds.
-- `src/state.rs` holds the projects, selection, what's been cut and what you've reviewed or opened, and runs one mutation at a time. Review and read state is saved to `gpui-state.json` in the app config directory.
+- `src/state` holds the projects, selection, what's been cut and what you've reviewed or opened. `mutation.rs` runs one mutation at a time and queues the rest; `saved.rs` keeps review and read state in `gpui-state.json` in the app config directory.
 - `src/navigator.rs` and `src/detail/` are the two halves of the window; `src/transfer.rs` decides what a drop or paste does, so both input methods agree.
 - `src/palette.rs` is the command palette and `src/status_bar.rs` the strip along the bottom.
 - `src/ui` has the small components GPUI doesn't ship: buttons, a text field and diff rows.
