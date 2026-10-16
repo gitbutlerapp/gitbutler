@@ -472,6 +472,30 @@ pub fn push(path: &Path, ref_name: &str, force: bool) -> Result<()> {
     Ok(())
 }
 
+/// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
+/// them, or with `theirs` the remote's version of the branch instead of the local one.
+pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
+    use but_api::branch::json::BranchIntegrationStrategy as Strategy;
+    let mut ctx = open(path)?;
+    let name = full_name(branch)?;
+    let strategy = if theirs {
+        Strategy::PickRemote
+    } else {
+        Strategy::PullRebase
+    };
+    let plan =
+        but_api::branch::get_initial_branch_integration(&ctx, name.as_ref(), Some(strategy))?;
+    let mut guard = ctx.exclusive_worktree_access();
+    but_api::branch::apply_branch_integration_with_perm(
+        &mut ctx,
+        name.as_ref(),
+        plan.integration,
+        DryRun::No,
+        guard.write_permission(),
+    )?;
+    Ok(())
+}
+
 /// Rebase every stack onto the target as it is now, or with `branch` only the stack
 /// holding it. Doesn't fetch first; see [`fetch()`].
 pub fn update_from_target(path: &Path, branch: Option<&str>) -> Result<()> {

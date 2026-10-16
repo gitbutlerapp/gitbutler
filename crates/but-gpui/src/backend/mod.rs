@@ -260,7 +260,12 @@ fn branch_from(segment: &but_workspace::ref_info::Segment) -> Branch {
         name,
         ref_name,
         commits: segment.commits.iter().map(commit_from).collect(),
-        upstream_only: segment.commits_on_remote.len(),
+        incoming: (segment.commits_on_remote.iter())
+            .map(|commit| {
+                let message = commit.message.to_str_lossy();
+                message.lines().next().unwrap_or_default().trim().to_owned()
+            })
+            .collect(),
         push,
         review: segment
             .metadata
