@@ -94,6 +94,7 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Find in diff", Box::new(crate::detail::FindInDiff)),
         ("Filter files", Box::new(crate::detail::FilterFiles)),
         ("Wrap long lines", Box::new(crate::detail::ToggleWrap)),
+        ("Side-by-side diff", Box::new(crate::detail::ToggleSplit)),
         (
             "Show or hide the files",
             Box::new(crate::detail::ToggleFiles),

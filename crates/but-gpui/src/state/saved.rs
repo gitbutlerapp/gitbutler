@@ -189,6 +189,8 @@ pub struct Prefs {
     pub terminal: Option<String>,
     /// Long diff lines wrap instead of running off the edge.
     pub wrap: bool,
+    /// Diffs show the old side beside the new rather than one above the other.
+    pub split: bool,
 }
 
 /// Where the window was: the display it was on, and its left, top, width and height on that

@@ -4,8 +4,8 @@ use std::ops::Range;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, CursorStyle, HighlightStyle, Hsla, MouseButton, MouseDownEvent, Pixels, Point,
-    Role, SharedString, StyledText, Window, combine_highlights, div, prelude::*, px,
+    AnyElement, App, CursorStyle, ElementId, HighlightStyle, Hsla, MouseButton, MouseDownEvent,
+    Pixels, Point, Role, SharedString, StyledText, Window, combine_highlights, div, prelude::*, px,
 };
 
 use super::{Icon, h_flex, small_icon, v_flex};
@@ -38,6 +38,15 @@ pub enum DiffRow {
         new: u32,
         last: bool,
     },
+    /// Side by side: the hunk's line on the old side and the one on the new, either missing
+    /// where the other side has more lines. An unchanged line is on both.
+    Pair {
+        file: usize,
+        hunk: usize,
+        left: Option<usize>,
+        right: Option<usize>,
+        last: bool,
+    },
     /// Binary, too large or empty: a one-line explanation instead of lines.
     Note(usize),
     Gap,
@@ -49,6 +58,7 @@ impl DiffRow {
             DiffRow::File(file) | DiffRow::Note(file) => Some(file),
             DiffRow::Hunk { file, .. }
             | DiffRow::Line { file, .. }
+            | DiffRow::Pair { file, .. }
             | DiffRow::Context { file, .. } => Some(file),
             DiffRow::Gap => None,
         }
@@ -57,12 +67,13 @@ impl DiffRow {
 
 /// Rows for `files`, with the files `folded` says are folded reduced to their header, the
 /// ones `hidden` says are hidden left out, and the ones `whole` gives the length of shown
-/// with every unchanged line.
+/// with every unchanged line. With `split`, a hunk's lines pair up side by side.
 pub fn rows(
     files: &[FileDiff],
     folded: impl Fn(&FileDiff) -> bool,
     hidden: impl Fn(&FileDiff) -> bool,
     whole: impl Fn(&FileDiff) -> Option<u32>,
+    split: bool,
 ) -> Vec<DiffRow> {
     let mut rows = Vec::new();
     for (file_ix, file) in files.iter().enumerate() {
@@ -92,13 +103,27 @@ pub fn rows(
                     });
                     let last_hunk =
                         hunk_ix + 1 == hunks.len() && total.is_none_or(|total| next > total);
-                    for line_ix in 0..hunk.lines.len() {
-                        rows.push(DiffRow::Line {
-                            file: file_ix,
-                            hunk: hunk_ix,
-                            line: line_ix,
-                            last: last_hunk && line_ix + 1 == hunk.lines.len(),
-                        });
+                    if split {
+                        let pairs = pair_lines(&hunk.lines);
+                        let count = pairs.len();
+                        rows.extend(pairs.into_iter().enumerate().map(|(ix, (left, right))| {
+                            DiffRow::Pair {
+                                file: file_ix,
+                                hunk: hunk_ix,
+                                left,
+                                right,
+                                last: last_hunk && ix + 1 == count,
+                            }
+                        }));
+                    } else {
+                        for line_ix in 0..hunk.lines.len() {
+                            rows.push(DiffRow::Line {
+                                file: file_ix,
+                                hunk: hunk_ix,
+                                line: line_ix,
+                                last: last_hunk && line_ix + 1 == hunk.lines.len(),
+                            });
+                        }
                     }
                 }
                 if let Some(total) = total.filter(|total| next <= *total) {
@@ -116,6 +141,35 @@ pub fn rows(
         rows.push(DiffRow::Gap);
     }
     rows
+}
+
+/// A hunk's lines side by side: unchanged ones on both sides, and each run of removals
+/// beside the additions that follow it, one for one.
+fn pair_lines(lines: &[DiffLine]) -> Vec<(Option<usize>, Option<usize>)> {
+    let mut pairs = Vec::new();
+    let mut ix = 0;
+    while ix < lines.len() {
+        if lines[ix].kind == LineKind::Context {
+            pairs.push((Some(ix), Some(ix)));
+            ix += 1;
+            continue;
+        }
+        let run = |from: usize, kind| {
+            (from..lines.len())
+                .take_while(|&i| lines[i].kind == kind)
+                .count()
+        };
+        let removed = run(ix, LineKind::Removed);
+        let added = run(ix + removed, LineKind::Added);
+        for k in 0..removed.max(added) {
+            pairs.push((
+                (k < removed).then_some(ix + k),
+                (k < added).then_some(ix + removed + k),
+            ));
+        }
+        ix += removed + added;
+    }
+    pairs
 }
 
 /// The unchanged new-side lines `lines`, numbered `ahead` lines further on than the old side.
@@ -203,14 +257,15 @@ pub fn render_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor)
         .into_any_element()
 }
 
-/// An unchanged line of a file shown whole, from the file's new side, at `old` and `new`.
+/// An unchanged line of a file shown whole, from the file's new side, at `old` and `new`;
+/// on both sides with `split`.
 pub fn render_context_row(
     line: &DiffLine,
     file: usize,
     (old, new): (u32, u32),
     last: bool,
     theme: &Theme,
-    wrap: bool,
+    (wrap, split): (bool, bool),
 ) -> AnyElement {
     let line = DiffLine {
         old: Some(old),
@@ -219,6 +274,17 @@ pub fn render_context_row(
     };
     // Apart from the hunks' lines, which number their hunk below 2^20.
     let row_id = (file << 40) | (0xfffff << 20) | new as usize;
+    if split {
+        let halves = [Half::default(), Half::default()];
+        return render_pair_row(
+            (Some(&line), Some(&line)),
+            halves,
+            row_id,
+            last,
+            theme,
+            wrap,
+        );
+    }
     div()
         .w_full()
         .px(px(16.))
@@ -381,8 +447,149 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 .into_any_element()
         }
         // Drawn by `line_row`, which these need their line for.
-        DiffRow::Line { .. } | DiffRow::Context { .. } => div().into_any_element(),
+        DiffRow::Line { .. } | DiffRow::Pair { .. } | DiffRow::Context { .. } => {
+            div().into_any_element()
+        }
     }
+}
+
+/// How a line of `kind` looks: its ground, its gutter's, its changed words', and its sign.
+struct Look {
+    bg: Option<Hsla>,
+    gutter: Option<Hsla>,
+    emph: Hsla,
+    sign: &'static str,
+    sign_color: Hsla,
+}
+
+fn look(kind: LineKind, theme: &Theme) -> Look {
+    match kind {
+        LineKind::Context => Look {
+            bg: None,
+            gutter: None,
+            emph: theme.bg_1,
+            sign: " ",
+            sign_color: theme.text_3,
+        },
+        LineKind::Added => Look {
+            bg: Some(theme.diff_added_bg),
+            gutter: Some(theme.diff_added_gutter),
+            emph: theme.diff_added_emph,
+            sign: "+",
+            sign_color: theme.safe,
+        },
+        LineKind::Removed => Look {
+            bg: Some(theme.diff_removed_bg),
+            gutter: Some(theme.diff_removed_gutter),
+            emph: theme.diff_removed_emph,
+            sign: "-",
+            sign_color: theme.danger,
+        },
+    }
+}
+
+fn number_cell(n: Option<u32>, gutter: Option<Hsla>, theme: &Theme) -> gpui::Div {
+    div()
+        .flex_none()
+        .w(px(44.))
+        .pr(px(8.))
+        .flex()
+        .items_start()
+        .justify_end()
+        .text_color(theme.text_3)
+        .when_some(gutter, |el, bg| el.bg(bg))
+        .child(n.map(|n| n.to_string()).unwrap_or_default())
+}
+
+/// A line's text with its syntax, changed words, Find's matches and the selection marked.
+fn line_text(
+    line: &DiffLine,
+    emph_bg: Hsla,
+    found: Vec<(Range<usize>, bool)>,
+    selected: Option<Range<usize>>,
+    theme: &Theme,
+) -> StyledText {
+    let syntax = line
+        .spans
+        .iter()
+        .map(|(range, token)| (range.clone(), HighlightStyle::from(theme.token(*token))));
+    let emph = line
+        .emph
+        .iter()
+        .map(|range| (range.clone(), ground(emph_bg)));
+    // Blue like the system's text selection, apart from the green and red of the
+    // change itself.
+    let selected = selected.map(|range| (range, ground(theme.blue.opacity(0.3))));
+    let found = found.into_iter().map(|(range, current)| {
+        (
+            range,
+            ground(theme.warn.opacity(if current { 0.6 } else { 0.28 })),
+        )
+    });
+    StyledText::new(SharedString::from(line.text.clone())).with_highlights(combine_highlights(
+        combine_highlights(combine_highlights(syntax, emph), found),
+        selected,
+    ))
+}
+
+/// The sign and the text of a line, after its numbers.
+fn sign_and_text(look: &Look, text: StyledText, wrap: bool, theme: &Theme) -> [gpui::Div; 2] {
+    [
+        div()
+            .flex_none()
+            .w(px(18.))
+            .pl(px(6.))
+            .text_color(look.sign_color)
+            .child(look.sign),
+        div()
+            .flex_1()
+            .min_w(px(0.))
+            .when(!wrap, |el| el.whitespace_nowrap())
+            .overflow_hidden()
+            .text_color(theme.text_1)
+            .child(text),
+    ]
+}
+
+/// A row of a file's card, a line tall or taller when wrapping.
+fn line_card(id: ElementId, last: bool, wrap: bool, theme: &Theme) -> gpui::Stateful<gpui::Div> {
+    h_flex()
+        .id(id)
+        .w_full()
+        .border_l_1()
+        .border_r_1()
+        .border_color(theme.border_3)
+        .bg(theme.bg_1)
+        .map(|el| {
+            if wrap {
+                el.items_stretch().min_h(px(LINE_HEIGHT))
+            } else {
+                el.h(px(LINE_HEIGHT))
+            }
+        })
+        .line_height(px(LINE_HEIGHT))
+        .font_family(theme.mono_font.clone())
+        .text_size(px(12.))
+        .when(last, |el| el.border_b_1().rounded_b(px(6.)))
+        .overflow_hidden()
+}
+
+/// Line numbers that put the line in the next commit or take it out when clicked.
+fn numbers(id: ElementId, cells: Vec<gpui::Div>, toggle: Option<OnToggle>) -> AnyElement {
+    h_flex()
+        .id(id)
+        .flex_none()
+        .children(cells)
+        .when_some(toggle, |el, toggle| {
+            el.cursor(CursorStyle::PointingHand).on_mouse_down(
+                MouseButton::Left,
+                move |_, window, cx| {
+                    cx.stop_propagation();
+                    toggle(window, cx)
+                },
+            )
+        })
+        .into_any_element()
 }
 
 /// A line of the diff, inside its file's card.
@@ -396,64 +603,8 @@ fn line_row(line: &DiffLine, row_id: usize, last: bool, theme: &Theme, decor: De
         wrap,
         ..
     } = decor;
-    let card = |el: gpui::Div| {
-        el.w_full()
-            .border_l_1()
-            .border_r_1()
-            .border_color(theme.border_3)
-            .bg(theme.bg_1)
-    };
-    let (bg, gutter_bg, emph_bg, sign, sign_color) = match line.kind {
-        LineKind::Context => (None, None, theme.bg_1, " ", theme.text_3),
-        LineKind::Added => (
-            Some(theme.diff_added_bg),
-            Some(theme.diff_added_gutter),
-            theme.diff_added_emph,
-            "+",
-            theme.safe,
-        ),
-        LineKind::Removed => (
-            Some(theme.diff_removed_bg),
-            Some(theme.diff_removed_gutter),
-            theme.diff_removed_emph,
-            "-",
-            theme.danger,
-        ),
-    };
-    let syntax = line
-        .spans
-        .iter()
-        .map(|(range, token)| (range.clone(), HighlightStyle::from(theme.token(*token))));
-    let emph = line
-        .emph
-        .iter()
-        .map(|range| (range.clone(), ground(emph_bg)));
-    let number = |n: Option<u32>| {
-        div()
-            .flex_none()
-            .w(px(44.))
-            .pr(px(8.))
-            .flex()
-            .items_start()
-            .justify_end()
-            .text_color(theme.text_3)
-            .when_some(gutter_bg, |el, bg| el.bg(bg))
-            .child(n.map(|n| n.to_string()).unwrap_or_default())
-    };
-    // Blue like the system's text selection, apart from the green and red of the
-    // change itself.
-    let selected = selected.map(|range| (range, ground(theme.blue.opacity(0.3))));
-    let found = found.into_iter().map(|(range, current)| {
-        (
-            range,
-            ground(theme.warn.opacity(if current { 0.6 } else { 0.28 })),
-        )
-    });
-    let text =
-        StyledText::new(SharedString::from(line.text.clone())).with_highlights(combine_highlights(
-            combine_highlights(combine_highlights(syntax, emph), found),
-            selected,
-        ));
+    let look = look(line.kind, theme);
+    let text = line_text(line, look.emph, found, selected, theme);
     // Where in the text the pointer is, once the text has been laid out: the edge of
     // the character under it nearer the pointer, as text selection goes everywhere.
     let layout = text.layout().clone();
@@ -473,8 +624,11 @@ fn line_row(line: &DiffLine, row_id: usize, last: bool, theme: &Theme, decor: De
             _ => ix,
         }
     };
-    card(h_flex())
-        .id(("diff-line", row_id))
+    let cells = vec![
+        number_cell(line.old, look.gutter, theme),
+        number_cell(line.new, look.gutter, theme),
+    ];
+    line_card(("diff-line", row_id).into(), last, wrap, theme)
         .role(Role::Label)
         .aria_label(SharedString::from(line.text.clone()))
         .aria_description(match line.kind {
@@ -482,52 +636,9 @@ fn line_row(line: &DiffLine, row_id: usize, last: bool, theme: &Theme, decor: De
             LineKind::Removed => "removed",
             LineKind::Context => "unchanged",
         })
-        .map(|el| {
-            if wrap {
-                el.items_stretch().min_h(px(LINE_HEIGHT))
-            } else {
-                el.h(px(LINE_HEIGHT))
-            }
-        })
-        .line_height(px(LINE_HEIGHT))
-        .font_family(theme.mono_font.clone())
-        .text_size(px(12.))
-        .when_some(bg, |el, bg| el.bg(bg))
-        .when(last, |el| el.border_b_1().rounded_b(px(6.)))
-        .overflow_hidden()
-        .child(
-            h_flex()
-                .id(("line-numbers", row_id))
-                .flex_none()
-                .child(number(line.old))
-                .child(number(line.new))
-                .when_some(toggle, |el, toggle| {
-                    el.cursor(CursorStyle::PointingHand).on_mouse_down(
-                        MouseButton::Left,
-                        move |_, window, cx| {
-                            cx.stop_propagation();
-                            toggle(window, cx)
-                        },
-                    )
-                }),
-        )
-        .child(
-            div()
-                .flex_none()
-                .w(px(18.))
-                .pl(px(6.))
-                .text_color(sign_color)
-                .child(sign),
-        )
-        .child(
-            div()
-                .flex_1()
-                .min_w(px(0.))
-                .when(!wrap, |el| el.whitespace_nowrap())
-                .overflow_hidden()
-                .text_color(theme.text_1)
-                .child(text),
-        )
+        .when_some(look.bg, |el, bg| el.bg(bg))
+        .child(numbers(("line-numbers", row_id).into(), cells, toggle))
+        .children(sign_and_text(&look, text, wrap, theme))
         .when_some(select, |el, select| {
             let at_down = at.clone();
             el.cursor(CursorStyle::IBeam)
@@ -541,6 +652,57 @@ fn line_row(line: &DiffLine, row_id: usize, last: bool, theme: &Theme, decor: De
                 })
         })
         .when(excluded, |el| el.opacity(0.45))
+        .into_any_element()
+}
+
+/// What one side of a side-by-side row adds to its line.
+#[derive(Default)]
+pub struct Half {
+    pub excluded: bool,
+    pub toggle: Option<OnToggle>,
+    pub found: Vec<(Range<usize>, bool)>,
+}
+
+/// A side-by-side row: `left` from the old side, numbered there, and `right` from the new.
+pub fn render_pair_row(
+    (left, right): (Option<&DiffLine>, Option<&DiffLine>),
+    [left_half, right_half]: [Half; 2],
+    row_id: usize,
+    last: bool,
+    theme: &Theme,
+    wrap: bool,
+) -> AnyElement {
+    let side = |line: Option<&DiffLine>, number: Option<u32>, half: Half, id: &'static str| {
+        let Some(line) = line else {
+            // Nothing on this side: a quiet gap the other side's lines line up against.
+            return div().flex_1().min_w(px(0.)).bg(theme.bg_2);
+        };
+        let look = look(line.kind, theme);
+        let text = line_text(line, look.emph, half.found, None, theme);
+        let cells = vec![number_cell(number, look.gutter, theme)];
+        h_flex()
+            .flex_1()
+            .min_w(px(0.))
+            .when(wrap, |el| el.items_stretch())
+            .when_some(look.bg, |el, bg| el.bg(bg))
+            .child(numbers((id, row_id).into(), cells, half.toggle))
+            .children(sign_and_text(&look, text, wrap, theme))
+            .when(half.excluded, |el| el.opacity(0.45))
+    };
+    div()
+        .w_full()
+        .px(px(16.))
+        .child(
+            line_card(("diff-pair", row_id).into(), last, wrap, theme)
+                .child(side(left, left.and_then(|l| l.old), left_half, "pair-left"))
+                .child(div().flex_none().w(px(1.)).h_full().bg(theme.border_3))
+                .child(side(
+                    right,
+                    right.and_then(|l| l.new),
+                    right_half,
+                    "pair-right",
+                )),
+        )
         .into_any_element()
 }
 
@@ -640,4 +802,44 @@ fn image_row(
         .rounded_b(px(6.))
         .child(side("Before", before, theme.danger.opacity(0.5)))
         .child(side("After", after, theme.safe.opacity(0.6)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pair_lines;
+    use crate::backend::{DiffLine, LineKind};
+
+    #[test]
+    fn pairs_removals_with_the_additions_after_them() {
+        let lines: Vec<DiffLine> = [
+            LineKind::Context,
+            LineKind::Removed,
+            LineKind::Removed,
+            LineKind::Added,
+            LineKind::Context,
+            LineKind::Added,
+        ]
+        .into_iter()
+        .map(|kind| DiffLine {
+            kind,
+            old: None,
+            new: None,
+            text: "".into(),
+            spans: Vec::new(),
+            emph: Vec::new(),
+        })
+        .collect();
+        assert_eq!(
+            pair_lines(&lines),
+            vec![
+                (Some(0), Some(0)),
+                (Some(1), Some(3)),
+                (Some(2), None),
+                (Some(4), Some(4)),
+                (None, Some(5)),
+            ],
+            "the first removal faces the addition, the second has nothing opposite, and a \
+             lone addition faces a gap"
+        );
+    }
 }

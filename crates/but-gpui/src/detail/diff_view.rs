@@ -449,23 +449,7 @@ impl Detail {
             DiffRow::Line {
                 file, hunk, line, ..
             } => {
-                let changed = matches!(&diff.files[file].body, DiffBody::Hunks { hunks, .. }
-                    if hunks[hunk].lines[line].kind != LineKind::Context);
-                let picking = (self.composing && worktree && changed)
-                    .then(|| hunk_key(file, hunk))
-                    .flatten();
-                let excluded = match &picking {
-                    Some((path, key)) => !self.line_checked(path, *key, line),
-                    None => excluded(file, hunk),
-                };
-                let toggle = picking.map(|(path, key)| {
-                    let entity = entity.clone();
-                    Rc::new(move |_: &mut Window, cx: &mut App| {
-                        entity
-                            .update(cx, |detail, cx| detail.toggle_line(&path, key, line, cx))
-                            .ok();
-                    }) as diff::OnToggle
-                });
+                let (excluded, toggle) = self.line_check(diff, (file, hunk, line), &entity);
                 let (down, drag) = (entity.clone(), entity);
                 let select = LineSelect {
                     down: Rc::new(move |at, event, window, cx| {
@@ -495,6 +479,40 @@ impl Detail {
                     },
                 )
             }
+            DiffRow::Pair {
+                file,
+                hunk,
+                left,
+                right,
+                last,
+            } => {
+                let DiffBody::Hunks { hunks, .. } = &diff.files[file].body else {
+                    return div().into_any_element();
+                };
+                let lines = &hunks[hunk].lines;
+                let half = |line: Option<usize>| {
+                    let Some(line) = line else {
+                        return diff::Half::default();
+                    };
+                    let (excluded, toggle) = self.line_check(diff, (file, hunk, line), &entity);
+                    diff::Half {
+                        excluded,
+                        toggle,
+                        found: self.found_on((file, hunk, line)),
+                    }
+                };
+                // Each line is on one row only, so the right one, or the left where there's
+                // none, tells rows apart.
+                let row_id = (file << 40) | (hunk << 20) | right.or(left).unwrap_or_default();
+                diff::render_pair_row(
+                    (left.map(|l| &lines[l]), right.map(|r| &lines[r])),
+                    [half(left), half(right)],
+                    row_id,
+                    last,
+                    theme,
+                    store.prefs.wrap,
+                )
+            }
             DiffRow::Context {
                 file,
                 old,
@@ -512,7 +530,7 @@ impl Detail {
                         (old, new),
                         last,
                         theme,
-                        store.prefs.wrap,
+                        (store.prefs.wrap, store.prefs.split),
                     ),
                     None => div().into_any_element(),
                 }
@@ -619,6 +637,36 @@ impl Detail {
             .ok();
         })
         .detach();
+    }
+}
+
+impl Detail {
+    /// Whether a hunk's line is left out of the next commit, and while composing, for a
+    /// changed line, what clicking its numbers does.
+    fn line_check(
+        &self,
+        diff: &LoadedDiff,
+        (file, hunk, line): (usize, usize, usize),
+        entity: &WeakEntity<Detail>,
+    ) -> (bool, Option<diff::OnToggle>) {
+        let DiffBody::Hunks { hunks, .. } = &diff.files[file].body else {
+            return (false, None);
+        };
+        if !self.composing || diff.key.source != DiffSource::Worktree {
+            return (false, None);
+        }
+        let (path, key) = (diff.files[file].file.path.clone(), hunks[hunk].key);
+        if hunks[hunk].lines[line].kind == LineKind::Context {
+            return (!self.hunk_checked(&path, key), None);
+        }
+        let excluded = !self.line_checked(&path, key, line);
+        let entity = entity.clone();
+        let toggle = Rc::new(move |_: &mut Window, cx: &mut App| {
+            entity
+                .update(cx, |detail, cx| detail.toggle_line(&path, key, line, cx))
+                .ok();
+        });
+        (excluded, Some(toggle))
     }
 }
 

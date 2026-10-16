@@ -50,6 +50,7 @@ actions!(
         PageUp,
         AmendTop,
         ToggleWrap,
+        ToggleSplit,
         ToggleFiles,
         FilterFiles,
     ]
@@ -73,6 +74,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("pageup", PageUp, c),
         KeyBinding::new("shift-space", PageUp, c),
         KeyBinding::new("alt-z", ToggleWrap, c),
+        KeyBinding::new("cmd-b", ToggleSplit, c),
         KeyBinding::new("f", ToggleFiles, c),
         KeyBinding::new("/", FilterFiles, c),
         // Works while typing the message too, as the composer's other key does.
@@ -624,6 +626,7 @@ impl Detail {
                 }
                 _ => None,
             },
+            store.prefs.split,
         )
     }
 
@@ -730,6 +733,13 @@ impl Detail {
     }
 
     /// Wrap long lines, or stop. Rows change height, so the list measures them again.
+    pub fn toggle_split(&mut self, cx: &mut Context<Self>) {
+        self.store.update(cx, |store, cx| {
+            store.set_prefs(|prefs| prefs.split = !prefs.split, cx)
+        });
+        self.rebuild_rows(cx);
+    }
+
     pub fn toggle_wrap(&mut self, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
             store.set_prefs(|prefs| prefs.wrap = !prefs.wrap, cx)
@@ -1066,6 +1076,7 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PageDown, _, cx| this.page(1., cx)))
             .on_action(cx.listener(|this, _: &PageUp, _, cx| this.page(-1., cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
+            .on_action(cx.listener(|this, _: &ToggleSplit, _, cx| this.toggle_split(cx)))
             .on_action(
                 cx.listener(|this, _: &FilterFiles, window, cx| this.open_filter(window, cx)),
             )
