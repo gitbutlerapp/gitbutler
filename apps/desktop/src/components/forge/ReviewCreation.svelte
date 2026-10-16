@@ -25,6 +25,7 @@
 	import { showToast } from "$lib/notifications/toasts";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { requiresPush } from "$lib/stacks/stack";
+	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { type BranchPushResult } from "$lib/stacks/stackEndpoints";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
@@ -65,6 +66,9 @@
 	const branchDetails = $derived(segment);
 	const commits = $derived(segment.commits);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
+	// Hooks run in the main checkout, so a worktree's branch is pushed without them.
+	const controller = getStackContext();
+	const runPushHooks = $derived($runHooks && !controller.worktree);
 
 	// `forgeBranch` originally returned a Forge.branch handle; it was only
 	// used as a truthy check that the forge knows about this branch. With the
@@ -148,8 +152,6 @@
 	async function pushIfNeeded(
 		branchName: string,
 	): Promise<[string | undefined, BranchPushResult | undefined]> {
-		if (!stackId) return [undefined, undefined];
-
 		if (pushBeforeCreate) {
 			const firstPush = branchDetails?.pushStatus === "completelyUnpushed";
 			const pushQuery = await pushStack({
@@ -158,7 +160,7 @@
 				withForce,
 				skipForcePushProtection: false, // override available for regular push
 				branch: branchName,
-				runHooks: $runHooks,
+				runHooks: runPushHooks,
 				pushOpts: [],
 			});
 

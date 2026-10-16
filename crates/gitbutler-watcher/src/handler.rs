@@ -191,14 +191,22 @@ impl Handler {
             .with_context(|| format!("linked worktree {worktree} does not exist"))?
             .into_repo()?;
 
-        let mut changes: but_core::ui::WorktreeChanges =
-            but_core::diff::worktree_changes(&repo)?.into();
+        let wt_changes = but_core::diff::worktree_changes(&repo)?;
+        let assignments = but_hunk_assignment::unassigned(
+            &repo,
+            wt_changes.changes.clone(),
+            ctx.settings.context_lines,
+        );
+        let mut changes: but_core::ui::WorktreeChanges = wt_changes.into();
         changes.modification_times = but_core::diff::ui::modification_times(&repo, &changes);
 
         self.emit_app_event(Change::LinkedWorktreeChanges {
             project_id,
             worktree: worktree.to_str_lossy().into_owned(),
-            changes: changes.into(),
+            changes: but_hunk_assignment::WorktreeChanges {
+                assignments,
+                ..changes.into()
+            },
             changed_paths: Arc::from(paths),
         })
     }

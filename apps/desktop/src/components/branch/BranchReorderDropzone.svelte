@@ -6,7 +6,9 @@
 
 	interface Props {
 		projectId: string;
-		stackId: string;
+		stackId: string | undefined;
+		/** The linked worktree whose lane this is, if not a stack's. */
+		worktree?: string;
 		branchName: string;
 		lineColor: string;
 		isCommitting: boolean;
@@ -16,6 +18,7 @@
 	const {
 		projectId,
 		stackId,
+		worktree,
 		branchName,
 		lineColor,
 		isCommitting,
@@ -24,7 +27,7 @@
 </script>
 
 {#if !isCommitting}
-	{@const moveBranchHandler = new MoveBranchDzHandler(projectId, stackId, branchName)}
+	{@const moveBranchHandler = new MoveBranchDzHandler(projectId, stackId, branchName, worktree)}
 	<Dropzone handlers={[moveBranchHandler]}>
 		{#snippet overlay({ hovered, activated })}
 			{#if isFirst}

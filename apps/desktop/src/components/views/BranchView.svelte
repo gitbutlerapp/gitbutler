@@ -157,7 +157,7 @@
 				pushStatus={segment.pushStatus}
 				{authors}
 				{isConflicted}
-				onResolveConflicts={handleResolveConflicts}
+				onResolveConflicts={stackId ? handleResolveConflicts : undefined}
 			>
 				<BranchReview
 					{stackId}

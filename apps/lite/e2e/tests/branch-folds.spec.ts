@@ -1,23 +1,25 @@
-import { expect, test } from "../test.ts";
+import { expect, test, worktreeAppSettings } from "../test.ts";
 
 const lanes = [
 	{
 		lane: "stack",
 		scenario: "project-in-single-branch-three-branch-stack.sh",
+		appSettings: null,
 		branch: "B",
 		commit: "B: first commit",
 	},
 	{
 		lane: "worktree",
 		scenario: "project-in-single-branch-with-worktree.sh",
+		appSettings: worktreeAppSettings,
 		branch: "W",
 		commit: "W: first commit",
 	},
 ];
 
-for (const { lane, scenario, branch: branchName, commit: commitTitle } of lanes) {
+for (const { lane, scenario, appSettings, branch: branchName, commit: commitTitle } of lanes) {
 	test.describe(`a ${lane} branch`, () => {
-		test.use({ scenario });
+		test.use({ scenario, appSettings });
 
 		test("folding hands its selected commit's place to the branch", async ({ appWindow }) => {
 			const branch = appWindow.getByRole("treeitem", { name: branchName, exact: true });

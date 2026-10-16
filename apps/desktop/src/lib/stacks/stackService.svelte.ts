@@ -1,4 +1,5 @@
 import { sortLikeFileTree } from "$lib/files/filetreeV3";
+import { BRANCHLESS_LANE_ID, worktreeLaneId, worktreeStack } from "$lib/linkedWorktrees/lane";
 import { showWarning } from "$lib/notifications/toasts";
 import {
 	selectWorkspaceStackById,
@@ -39,7 +40,9 @@ export { REJECTTION_REASONS } from "$lib/stacks/stackEndpoints";
 
 type AmendCommitRequest = {
 	projectId: string;
-	stackId: string;
+	stackId?: string;
+	/** The linked worktree whose changes amend the commit, the main checkout's when unset. */
+	worktree?: string;
 	commitId: string;
 	worktreeChanges: DiffSpec[];
 	dryRun: boolean;
@@ -70,6 +73,26 @@ export class StackService {
 				transform: (workspaceDetails) => stackSelectors.selectAll(workspaceDetails.stacks),
 			},
 		);
+	}
+
+	/** Active linked worktrees, empty unless `featureFlags.worktreeManipulation` is on. */
+	worktrees(projectId: string) {
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
+			{ transform: (workspaceDetails) => workspaceDetails.worktrees },
+		);
+	}
+
+	get setWorktreeArchived() {
+		return this.backendApi.endpoints.worktreeSetArchived.mutate;
+	}
+
+	get newWorktree() {
+		return this.backendApi.endpoints.worktreeNew.useMutation();
+	}
+
+	get removeWorktree() {
+		return this.backendApi.endpoints.worktreeRemove.mutate;
 	}
 
 	stackAt(projectId: string, index: number) {
@@ -233,15 +256,31 @@ export class StackService {
 						const detailsData = stackIds
 							.map((stackId) => workspaceDetails.stackDetails[stackId])
 							.filter(isDefined);
+						// Lanes without a stack id: the branchless one, and each linked worktree's.
+						const lanesWithoutStackId = [
+							...stacks
+								.filter((stack) => !stack.id)
+								.map((stack) => ({ laneId: BRANCHLESS_LANE_ID, stack })),
+							...workspaceDetails.worktrees.map((worktree) => ({
+								laneId: worktreeLaneId(worktree.name),
+								stack: worktreeStack(worktree),
+							})),
+						];
 						return {
 							stackIds,
+							worktrees: workspaceDetails.worktrees.map((worktree) => worktree.name),
 							detailsData,
+							lanesWithoutStackId,
 							allCommits: detailsData.flatMap((details) =>
 								commitSelectors.selectAll(details.commits),
 							),
-							allBranches: detailsData.flatMap((details) =>
-								details.segments.map((segment) => segment.refName?.displayName).filter(isDefined),
-							),
+							// A worktree's branches take actions too, e.g. creating a PR.
+							allBranches: [
+								...detailsData.flatMap((details) => details.segments),
+								...workspaceDetails.worktrees.flatMap((worktree) => worktree.segments),
+							]
+								.map((segment) => segment.refName?.displayName)
+								.filter(isDefined),
 							allBaseCommitShas: detailsData.flatMap((details) =>
 								details.segments
 									.map((segment) => segment.base ?? details.stack.base)
@@ -253,7 +292,9 @@ export class StackService {
 			),
 		);
 		const stackIds = $derived(details.response?.stackIds ?? []);
+		const worktrees = $derived(details.response?.worktrees ?? []);
 		const detailsData = $derived(details.response?.detailsData ?? []);
+		const lanesWithoutStackId = $derived(details.response?.lanesWithoutStackId ?? []);
 		const allCommits = $derived(details.response?.allCommits ?? []);
 		const allBranches = $derived(details.response?.allBranches ?? []);
 		const allBaseCommitShas = $derived(details.response?.allBaseCommitShas ?? []);
@@ -266,6 +307,7 @@ export class StackService {
 				allBranches,
 				allCommits.map((c) => c.id),
 				allBaseCommitShas,
+				worktrees,
 			);
 		});
 
@@ -274,6 +316,7 @@ export class StackService {
 		// dropped each time the snapshot is replaced (no manual cleanup needed).
 		// Scoped here rather than on the service instance so it is tied to the
 		// lifetime of this project session and not shared across project switches.
+		// Keyed by lane id, so lanes without a stack id are repaired too.
 		let prevInfoSnapshot: Record<string, Stack> = {};
 
 		// Having lots of commits in a GitButler workspace is an extreme edge case that
@@ -292,8 +335,11 @@ export class StackService {
 			}
 
 			const nextSnapshot: Record<string, Stack> = {};
-			stackIds.forEach((stackId, i) => {
-				const stack = detailsData[i]?.stack;
+			const lanes = [
+				...stackIds.map((stackId, i) => ({ laneId: stackId, stack: detailsData[i]?.stack })),
+				...lanesWithoutStackId,
+			];
+			lanes.forEach(({ laneId, stack }) => {
 				if (!stack) return;
 				// Only run when the Stack object is actually new (different reference).
 				// During a re-fetch, RTK Query keeps the cached data object unchanged while
@@ -301,11 +347,12 @@ export class StackService {
 				// that window would see stale commit SHAs while selection.commitId may already
 				// hold the new SHA (set by the caller), incorrectly treating the amend as a
 				// deletion and clearing the drawer.
-				const prevInfo = prevInfoSnapshot[stackId];
-				if (stack !== prevInfo) {
-					updateStackSelection(this.uiState, stackId, stack, prevInfo);
+				// Segments rather than the stack: a worktree lane's stack is rebuilt on each read.
+				const prevInfo = prevInfoSnapshot[laneId];
+				if (stack.segments !== prevInfo?.segments) {
+					updateStackSelection(this.uiState, laneId, stack, prevInfo);
 				}
-				nextSnapshot[stackId] = stack;
+				nextSnapshot[laneId] = stack;
 			});
 			prevInfoSnapshot = nextSnapshot;
 		});
@@ -633,7 +680,8 @@ export class StackService {
 		projectId: string;
 		changes: DiffSpec[];
 		commitId: string;
-		stackId: string;
+		/** The lane whose selection follows the commit to its rewrite. */
+		laneId: string;
 		assignTo?: string;
 		dryRun: boolean;
 	}) {
@@ -652,7 +700,7 @@ export class StackService {
 		if (args.dryRun) return result;
 
 		const replacementCommit = result.workspace.replacedCommits[args.commitId];
-		const selection = this.uiState.lane(args.stackId).selection;
+		const selection = this.uiState.lane(args.laneId).selection;
 
 		if (replacementCommit && selection.current?.commitId === args.commitId) {
 			selection.set({ ...selection.current, commitId: replacementCommit });
@@ -748,6 +796,7 @@ export class StackService {
 				projectId: args.projectId,
 				commitId: args.commitId,
 				worktreeChanges: args.worktreeChanges,
+				worktree: args.worktree,
 				dryRun: args.dryRun,
 			});
 	}

@@ -1,3 +1,6 @@
+import { expect } from "./expect.ts";
+import { getButlerPort } from "./setup.ts";
+import type { FakeGitHubServer } from "./fakeGithub.ts";
 import type {
 	CiCheck,
 	CiConclusion,
@@ -183,4 +186,17 @@ export function repoInfo(overrides: Partial<RepoInfo> = {}): RepoInfo {
 		deleteBranchOnMerge: false,
 		...overrides,
 	};
+}
+
+/** Sign the backend in to the fake GitHub server as a GitHub Enterprise user. */
+export async function storeFakeGitHubEnterprisePat(
+	page: Page,
+	server: FakeGitHubServer,
+): Promise<void> {
+	const response = await page.request.post(
+		`http://localhost:${getButlerPort()}/store_github_enterprise_pat`,
+		{ data: { host: server.apiBaseUrl, accessToken: "fake-token" } },
+	);
+	expect(response.ok()).toBe(true);
+	expect((await response.json()).type).toBe("success");
 }

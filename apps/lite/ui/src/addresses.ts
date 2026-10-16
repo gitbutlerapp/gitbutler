@@ -54,7 +54,9 @@ export const uncommittedChangesAddress: Address = {
 };
 
 /** The checkout an uncommitted-changes address reads from, as the API names it. */
-export const changesSourceOf = ({ worktree }: UncommittedChangesAddress): ChangesSource =>
+export const changesSourceOf = ({
+	worktree,
+}: Pick<UncommittedChangesAddress, "worktree">): ChangesSource =>
 	worktree === undefined ? { type: "head" } : { type: "worktree", subject: worktree };
 
 export const branchAddress = ({

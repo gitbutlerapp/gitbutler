@@ -23,4 +23,5 @@ mod resolve_ai;
 mod resolve_hunks;
 mod support;
 mod target_commits;
+mod workdir_path;
 mod worktrees;

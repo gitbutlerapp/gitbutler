@@ -1,3 +1,9 @@
+<!--
+	The commit box of a stack, of a new stack, or of a linked worktree's lane.
+
+	Hooks and analytics are left out for a worktree, since they work on the
+	main checkout and its stacks.
+-->
 <script lang="ts">
 	import CommitMessageEditor from "$components/commit/CommitMessageEditor.svelte";
 	import { COMMIT_ANALYTICS } from "$lib/analytics/commitAnalytics";
@@ -7,31 +13,48 @@
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import {
+		rejectedChangesByPath,
+		toCommitCreatePlacement,
+		type CommitPlacement,
+	} from "$lib/stacks/stackEndpoints";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
-	import { UI_STATE, type NewCommitMessage, type RejectionReason } from "$lib/state/uiState.svelte";
+	import { UI_STATE, type NewCommitMessage } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui-svelte";
 	import { tick } from "svelte";
+	import type { Worktree } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
-		onclose?: () => void;
+		/** Commit this linked worktree's files instead of the main checkout's. */
+		worktree?: Worktree;
+		/** The lane whose saved commit message this edits. */
+		laneId?: string;
 	};
-	const { projectId, stackId, onclose }: Props = $props();
+	const { projectId, stackId, worktree, laneId = "new-commit-view--new-stack" }: Props = $props();
+
+	/** Where a commit lands, and the branch it goes on. */
+	type CommitPlan = CommitPlacement & {
+		branchName: string;
+		/** Set for a stack commit, which reports analytics. */
+		stackId?: string;
+	};
 
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const hooksService = inject(HOOKS_SERVICE);
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const uncommittedServices = inject(UNCOMMITTED_SERVICE);
 	const commitAnalytics = inject(COMMIT_ANALYTICS);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 
+	const uncommittedService = $derived(uncommittedServices.at(worktree?.name));
 	const projectState = $derived(uiState.project(projectId));
-	// Using a dummy stackId kind of sucks... but it's fine for now
-	const laneState = $derived(uiState.lane(stackId || "new-commit-view--new-stack"));
+	const laneState = $derived(uiState.lane(laneId));
 
-	const [createCommitInStack, commitCreation] = stackService.createCommit();
+	const [createCommitMutation, commitCreation] = stackService.createCommit();
+	const [createNewStack, newStackQuery] = stackService.newStack;
 	const [runMessageHook] = hooksService.message;
 
 	let isCooking = $state(false);
@@ -42,14 +65,62 @@
 	const selectedLines = $derived(uncommittedService.selectedLines(stackId));
 	const topBranchQuery = $derived(stackId ? stackService.branches(projectId, stackId) : undefined);
 	const topBranchName = $derived(topBranchQuery?.response?.at(0)?.refName?.displayName);
-
 	const draftBranchName = $derived(uiState.global.draftBranchName.current);
-	const canCommit = $derived(selectedLines.current.length > 0);
 
 	let input = $state<ReturnType<typeof CommitMessageEditor>>();
 	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 
-	async function createCommit(message: string) {
+	/** A worktree commits onto its branch, or onto its detached `HEAD`. */
+	function worktreePlan(worktree: Worktree): CommitPlan {
+		const branchName = worktree.refName?.displayName ?? worktree.name;
+		if (worktree.refName) {
+			const subject = worktree.refName.fullNameBytes;
+			return { branchName, relativeTo: { type: "referenceBytes", subject }, side: "below" };
+		}
+		return { branchName, relativeTo: { type: "commit", subject: worktree.head }, side: "above" };
+	}
+
+	/** A stack commits where the commit box points, into a new stack if needed. */
+	async function stackPlan(): Promise<CommitPlan> {
+		let finalStackId = stackId;
+		let branchName: string | undefined =
+			commitAction?.branchName ||
+			draftBranchName ||
+			topBranchName ||
+			(await stackService.fetchNewBranchName(projectId));
+
+		if (!finalStackId) {
+			const stack = await createNewStack({ projectId, branch: { name: branchName, order: 0 } });
+			finalStackId = stack.id ?? undefined;
+			branchName = stack.heads[0]?.name;
+			uiState.global.draftBranchName.set(undefined);
+		}
+		if (!finalStackId) throw new Error("No stack selected!");
+		if (!branchName) throw new Error("No branch selected!");
+
+		return {
+			...toCommitCreatePlacement({
+				stackBranchName: branchName,
+				parentId: commitAction?.parentCommitId,
+				insertBelow: commitAction?.insertBelow,
+			}),
+			branchName,
+			stackId: finalStackId,
+		};
+	}
+
+	/** The message after the commit-msg hook, or `undefined` when it failed. */
+	async function hookedMessage(message: string): Promise<string | undefined> {
+		const result = await runMessageHook({ projectId, message });
+		if (result?.status === "failure") {
+			showWarning("Commit message hook failed", result.error);
+			return undefined;
+		}
+		if (result?.status === "message") return result.message;
+		return message;
+	}
+
+	async function createCommit(rawMessage: string) {
 		if (isCooking) {
 			showToast({ message: "Commit is already in progress", style: "danger" });
 			return;
@@ -58,119 +129,58 @@
 		isCooking = true;
 		await tick();
 		try {
-			let finalStackId = stackId;
-			let finalBranchName = commitAction?.branchName || draftBranchName || topBranchName;
-			// TODO: Refactor this awkward fallback somehow.
-			if (!finalBranchName) {
-				finalBranchName = await stackService.fetchNewBranchName(projectId);
-			}
-			const parentId = commitAction?.parentCommitId;
-			const insertBelow = commitAction?.insertBelow;
+			const changes = await uncommittedService.worktreeChanges(projectId, stackId);
+			let plan: CommitPlan;
+			if (worktree) plan = worktreePlan(worktree);
+			else plan = await stackPlan();
 
-			if (!finalStackId) {
-				const stack = await createNewStack({
+			const runHooks = $runCommitHooks && !worktree;
+			let message: string | undefined = rawMessage;
+			if (runHooks) message = await hookedMessage(rawMessage);
+			if (message === undefined) return;
+
+			let properties = {};
+			if (plan.stackId) {
+				properties = await commitAnalytics.getCommitProperties({
 					projectId,
-					branch: { name: finalBranchName, order: 0 },
+					stackId: plan.stackId,
+					selectedBranchName: plan.branchName,
+					message,
+					parentId: commitAction?.parentCommitId,
+					isRichTextMode: input?.isRichTextMode?.() || false,
 				});
-				finalStackId = stack.id ?? undefined;
-				finalBranchName = stack.heads[0]?.name; // Updated to access the name property
-				uiState.global.draftBranchName.set(undefined);
 			}
 
-			if (!finalStackId) {
-				throw new Error("No stack selected!");
-			}
-
-			if (!finalBranchName) {
-				throw new Error("No branch selected!");
-			}
-
-			// Run commit-msg hook if hooks are enabled
-			let finalMessage = message;
-			if ($runCommitHooks) {
-				const messageHookResult = await runMessageHook({ projectId, message });
-				if (messageHookResult?.status === "failure") {
-					showWarning("Commit message hook failed", messageHookResult.error);
-					return;
-				} else if (messageHookResult?.status === "message") {
-					finalMessage = messageHookResult.message;
-				}
-			}
-
-			const worktreeChanges = await uncommittedService.worktreeChanges(projectId, stackId);
-
-			// Get current editor mode from the component instance
-			const isRichTextMode = input?.isRichTextMode?.() || false;
-
-			// Await analytics data before creating commit
-			const analyticsProperties = await commitAnalytics.getCommitProperties({
-				projectId,
-				stackId: finalStackId,
-				selectedBranchName: finalBranchName,
-				message: finalMessage,
-				parentId,
-				isRichTextMode,
-			});
-
-			if ($runCommitHooks) {
-				await hooksService.runPreCommitHooks(projectId, worktreeChanges);
-			}
-
-			const response = await createCommitInStack(
-				{
-					projectId,
-					parentId,
-					insertBelow,
-					message: finalMessage,
-					stackBranchName: finalBranchName,
-					worktreeChanges,
-					dryRun: false,
-				},
-				{ properties: analyticsProperties },
+			if (runHooks) await hooksService.runPreCommitHooks(projectId, changes);
+			const { relativeTo, side } = plan;
+			const response = await createCommitMutation(
+				{ projectId, relativeTo, side, changes, worktree: worktree?.name, message },
+				{ properties },
 			);
+			if (runHooks) await hooksService.runPostCommitHooks(projectId);
 
-			if ($runCommitHooks) {
-				await hooksService.runPostCommitHooks(projectId);
-			}
-
-			const newId = response.newCommit;
-
-			if (newId) {
-				// Clear saved state for commit message editor.
+			const newCommitId = response.newCommit ?? undefined;
+			if (newCommitId) {
 				laneState.newCommitMessage.set({ title: "", description: "" });
-
-				// Close the drawer.
+				idSelection.clear(createWorktreeSelection({ stackId, worktree: worktree?.name }));
 				projectState.exclusiveAction.set(undefined);
-
-				// Clear change/hunk selection used for creating the commit.
 				uncommittedService.clearHunkSelection();
-				idSelection.clear(createWorktreeSelection({ stackId }));
 			}
 
 			if (response.rejectedChanges.length > 0) {
-				const pathsToRejectedChanges = response.rejectedChanges.reduce(
-					(acc: Record<string, RejectionReason>, { reason, path }) => {
-						acc[path] = reason;
-						return acc;
-					},
-					{},
-				);
-
 				uiState.global.modal.set({
 					type: "commit-failed",
 					projectId,
-					targetBranchName: finalBranchName,
-					newCommitId: newId ?? undefined,
+					targetBranchName: plan.branchName,
+					newCommitId,
 					commitTitle: laneState.newCommitMessage.current?.title || "",
-					pathsToRejectedChanges,
+					pathsToRejectedChanges: rejectedChangesByPath(response),
 				});
 			}
 		} finally {
 			isCooking = false;
 		}
 	}
-
-	const [createNewStack, newStackQuery] = stackService.newStack;
 
 	async function handleCommitCreation(title: string, description: string) {
 		laneState.newCommitMessage.set({ title, description });
@@ -215,7 +225,6 @@
 		if (stackId) {
 			uncommittedService.uncheckAll(stackId);
 		}
-		onclose?.();
 	}
 </script>
 
@@ -224,11 +233,13 @@
 		bind:this={input}
 		{projectId}
 		{stackId}
+		worktree={worktree?.name}
 		actionLabel="Create commit"
+		floatingBoxHeader={worktree && `Commit to ${worktree.name}`}
 		action={({ title, description }) => handleCommitCreation(title, description)}
 		onChange={({ title, description }) => handleMessageUpdate(title, description)}
 		onCancel={cancel}
-		disabledAction={!canCommit}
+		disabledAction={selectedLines.current.length === 0}
 		loading={commitCreation.current.isLoading || newStackQuery.current.isLoading || isCooking}
 		title={laneState.newCommitMessage.current.title}
 		description={laneState.newCommitMessage.current.description}

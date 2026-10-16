@@ -14,7 +14,6 @@
 
 	interface Props {
 		projectId: string;
-		stackId: string;
 		branchName: string;
 		parent: Segment | undefined;
 		child: Segment | undefined;

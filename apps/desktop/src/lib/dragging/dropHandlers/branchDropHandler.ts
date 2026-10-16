@@ -9,13 +9,15 @@ import type { DropzoneHandler } from "$lib/dragging/handler";
 
 export class BranchDropData {
 	constructor(
-		readonly stackId: string,
+		readonly stackId: string | undefined,
 		readonly branchName: string,
 		readonly hasConflicts: boolean,
 		readonly numberOfBranchesInStack: number,
 		readonly numberOfCommits: number,
 		readonly prNumber: number | undefined,
 		readonly allOtherPrNumbersInStack: number[],
+		/** The linked worktree whose lane the branch is in, if not a stack's. */
+		readonly worktree?: string,
 	) {}
 
 	print(): string {
@@ -35,8 +37,10 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 
 	constructor(
 		private readonly projectId: string,
-		private readonly stackId: string,
+		private readonly stackId: string | undefined,
 		private readonly branchName: string,
+		/** The linked worktree whose lane this is, if not a stack's. */
+		private readonly worktree?: string,
 	) {}
 
 	print(): string {
@@ -47,8 +51,10 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 		if (!(data instanceof BranchDropData) || data.hasConflicts) {
 			return false;
 		}
-		// Dropping a (non-empty) branch onto a different stack merges it into that stack.
-		if (data.stackId !== this.stackId) {
+		// A worktree keeps at least the branch it has checked out.
+		if (data.worktree !== undefined && data.numberOfBranchesInStack <= 1) return false;
+		// Dropping a (non-empty) branch onto a different lane merges it into that lane.
+		if (data.stackId !== this.stackId || data.worktree !== this.worktree) {
 			return data.numberOfCommits > 0;
 		}
 		return acceptsSameStackBranchDrop(data, this.branchName);
@@ -80,6 +86,8 @@ export class StartCommitDzHandler implements DropzoneHandler {
 		if (data instanceof FileChangeDropData || data instanceof FolderChangeDropData) {
 			// Only accept uncomitted files/folders
 			if (data.isCommitted) return false;
+			// Only the main checkout's, which a stack's branch commits
+			if (data.selectionId.worktree !== undefined) return false;
 			// Only accept unassinged files/folders or those assigned to the same stack
 			if (data.stackId !== undefined && data.stackId !== this.stackId) return false;
 			return true;

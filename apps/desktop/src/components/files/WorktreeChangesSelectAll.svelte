@@ -5,11 +5,14 @@
 
 	type Props = {
 		stackId?: string;
+		/** The linked worktree whose changes these are, if not the main checkout's. */
+		worktree?: string;
 	};
 
-	const { stackId }: Props = $props();
+	const { stackId, worktree }: Props = $props();
 
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const uncommittedServices = inject(UNCOMMITTED_SERVICE);
+	const uncommittedService = $derived(uncommittedServices.at(worktree));
 
 	const checkStatus = $derived(uncommittedService.stackCheckStatus(stackId));
 

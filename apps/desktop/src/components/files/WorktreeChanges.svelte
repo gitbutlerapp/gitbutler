@@ -26,6 +26,11 @@
 	type Props = {
 		projectId: string;
 		stackId?: string;
+		/**
+		 * Show this linked worktree's uncommitted changes instead of the main
+		 * checkout's. They can't be assigned, so nothing can be dropped on them.
+		 */
+		worktree?: string;
 		title: string;
 		mode?: "unassigned" | "assigned";
 		onDropzoneActivated?: (activated: boolean) => void;
@@ -42,6 +47,7 @@
 	let {
 		projectId,
 		stackId,
+		worktree,
 		title,
 		mode = "unassigned",
 		onDropzoneActivated,
@@ -55,22 +61,26 @@
 		scrollAreaEl = $bindable(),
 	}: Props = $props();
 
-	// Create a unique persist ID based on stackId and mode (both are static props)
-	const persistId = untrack(() => (stackId ? `worktree-${mode}-${stackId}` : `worktree-${mode}`));
+	// Create a unique persist ID based on the lane and mode (all static props)
+	const persistId = untrack(() =>
+		[`worktree-${mode}`, stackId, worktree].filter(isDefined).join("-"),
+	);
 
 	const diffService = inject(DIFF_SERVICE);
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const uncommittedServices = inject(UNCOMMITTED_SERVICE);
+	const uncommittedService = $derived(uncommittedServices.at(worktree));
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	// Create selectionId for this worktree lane
-	const selectionId = $derived(createWorktreeSelection({ stackId }));
+	const selectionId = $derived(createWorktreeSelection({ stackId, worktree }));
 
-	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackId));
+	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackId, worktree));
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(
 		exclusiveAction?.type === "commit" &&
+			exclusiveAction.worktree === worktree &&
 			(exclusiveAction.stackId === stackId || stackId === undefined),
 	);
 
@@ -90,11 +100,14 @@
 	let scrollTopIsVisible = $state(true);
 
 	const assignmentDZHandler = $derived(
-		new AssignmentDropHandler(projectId, diffService, uncommittedService, stackId, idSelection),
+		worktree
+			? undefined
+			: new AssignmentDropHandler(projectId, diffService, uncommittedService, stackId, idSelection),
 	);
 
 	function getDropzoneLabel(handler: DropzoneHandler | undefined): string {
-		if (handler instanceof UncommitDzHandler) {
+		// A worktree's changes can't be assigned, only uncommitted into.
+		if (handler instanceof UncommitDzHandler || worktree) {
 			return "Uncommit";
 		} else if (mode === "assigned") {
 			return "Assign";
@@ -127,7 +140,7 @@
 			mode={listMode}
 			showCheckboxes={isCommitting}
 			draggable
-			showLockedIndicator
+			showLockedIndicator={!worktree}
 			{visibleRange}
 			dataTestId={TestId.UncommittedChanges_FileList}
 			onselect={onFileClick && ((_change, index) => onFileClick(index))}
@@ -165,7 +178,7 @@
 
 				<div class="worktree-header__content">
 					{#if isCommitting && changes.current.length > 0}
-						<WorktreeChangesSelectAll {stackId} />
+						<WorktreeChangesSelectAll {stackId} {worktree} />
 					{/if}
 					<div class="worktree-header__title truncate">
 						<h3 class="text-14 text-semibold truncate">{title}</h3>

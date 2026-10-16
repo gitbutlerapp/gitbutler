@@ -1,6 +1,9 @@
-import type { CreateCommitRequestWorktreeChanges } from "$lib/stacks/stackEndpoints";
+import {
+	rejectedChangesByPath,
+	toCommitCreatePlacement,
+	type CreateCommitRequestWorktreeChanges,
+} from "$lib/stacks/stackEndpoints";
 import type { StackService } from "$lib/stacks/stackService.svelte";
-import type { RejectionReason } from "$lib/state/uiState.svelte";
 import type { UiState } from "$lib/state/uiState.svelte";
 import type { DiffSpec } from "@gitbutler/but-sdk";
 
@@ -59,29 +62,19 @@ export default class StackMacros {
 		const branchName = stack.heads[0]!.name;
 		const outcome = await this.stackService.createCommitMutation({
 			projectId: this.projectId,
-			stackBranchName: branchName,
-			parentId: undefined,
+			...toCommitCreatePlacement({ stackBranchName: branchName }),
 			message: message ?? STUB_COMMIT_MESSAGE,
-			worktreeChanges,
-			dryRun: false,
+			changes: worktreeChanges,
 		});
 
 		if (outcome.rejectedChanges.length > 0) {
-			const pathsToRejectedChanges = outcome.rejectedChanges.reduce(
-				(acc: Record<string, RejectionReason>, { reason, path }) => {
-					acc[path] = reason;
-					return acc;
-				},
-				{},
-			);
-
 			this.uiState.global.modal.set({
 				type: "commit-failed",
 				projectId: this.projectId,
 				targetBranchName: branchName,
 				newCommitId: outcome.newCommit ?? undefined,
 				commitTitle: message ?? STUB_COMMIT_MESSAGE,
-				pathsToRejectedChanges,
+				pathsToRejectedChanges: rejectedChangesByPath(outcome),
 			});
 		}
 		return { stack, outcome, branchName };

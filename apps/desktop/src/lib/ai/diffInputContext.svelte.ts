@@ -106,11 +106,17 @@ export default class DiffInputContext {
 		return this.args.uncommittedService.filterDiffsBasedOnSelection(diffs, this.args.stackId);
 	}
 
+	/** The linked worktree uncommitted changes are read from, if any. */
+	private get worktree(): string | undefined {
+		if (this.args.type !== "change-selection") return undefined;
+		return this.args.uncommittedService.worktree;
+	}
+
 	private async diffs(): Promise<ChangeDiff[] | undefined> {
 		const changes = await this.changes();
 		if (!changes) return undefined;
 
-		const diffs = await this.diffService.fetchChanges(this.args.projectId, changes);
+		const diffs = await this.diffService.fetchChanges(this.args.projectId, changes, this.worktree);
 		return this.filterIrrelevantHunks(diffs);
 	}
 

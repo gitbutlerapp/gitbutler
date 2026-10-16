@@ -1,3 +1,4 @@
+import type { ChangesSource } from "@gitbutler/but-sdk";
 import type { BrandedId } from "@gitbutler/shared/utils/branding";
 
 // ASCII Unit Separator, used to separate data units within a record or field.
@@ -14,6 +15,8 @@ function isSelectionType(value: unknown): value is SelectionIdType {
 
 export type SelectionId = {
 	type: SelectionIdType;
+	/** The linked worktree whose lane it was selected in, whose checkout holds its files. */
+	worktree?: string;
 } & (
 	| {
 			type: "worktree";
@@ -45,14 +48,20 @@ export type SelectedFileKey = BrandedId<"SelectedFileKey">;
 export type SelectionKey = BrandedId<"SelectedKey">;
 export type StableSelectionKey = BrandedId<"StableSelectedKey">;
 
+/** A trailing key part naming the worktree, left out when unset so other keys keep their shape. */
+function worktreePart(worktree: string | undefined): string {
+	if (worktree === undefined) return "";
+	return `${UNIT_SEP}${worktree}`;
+}
+
 export function key(params: SelectedFile): SelectedFileKey {
 	switch (params.type) {
 		case "commit":
-			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.commitId}${UNIT_SEP}${params.stackId}` as SelectedFileKey;
+			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.commitId}${UNIT_SEP}${params.stackId}${worktreePart(params.worktree)}` as SelectedFileKey;
 		case "branch":
-			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}${UNIT_SEP}${params.remote ?? UNDEFINED_REMOTE}${UNIT_SEP}${params.branchName}` as SelectedFileKey;
+			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}${UNIT_SEP}${params.remote ?? UNDEFINED_REMOTE}${UNIT_SEP}${params.branchName}${worktreePart(params.worktree)}` as SelectedFileKey;
 		case "worktree":
-			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}` as SelectedFileKey;
+			return `${params.type}${UNIT_SEP}${params.path}${UNIT_SEP}${params.stackId}${worktreePart(params.worktree)}` as SelectedFileKey;
 		case "snapshot":
 			return `${params.type}${UNIT_SEP}${params.snapshotId}${UNIT_SEP}${params.path}` as SelectedFileKey;
 	}
@@ -65,15 +74,16 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 
 	switch (type) {
 		case "commit":
-			if (parts.length !== 3) throw new Error("Invalid commit key");
+			if (parts.length !== 3 && parts.length !== 4) throw new Error("Invalid commit key");
 			return {
 				type,
 				path: parts[0]!,
 				commitId: parts[1]!,
 				stackId: parts[2]!,
+				worktree: parts[3],
 			};
 		case "branch":
-			if (parts.length !== 4) throw new Error("Invalid branch key");
+			if (parts.length !== 4 && parts.length !== 5) throw new Error("Invalid branch key");
 			return {
 				type,
 				path: parts[0]!,
@@ -81,13 +91,15 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 				stackId: parts[1] === "undefined" ? undefined : parts[1]!,
 				remote: parts[2] === UNDEFINED_REMOTE ? undefined : parts[2]!,
 				branchName: parts[3]!,
+				worktree: parts[4],
 			};
 		case "worktree":
-			if (parts.length !== 2) throw new Error("Invalid worktree key");
+			if (parts.length !== 2 && parts.length !== 3) throw new Error("Invalid worktree key");
 			return {
 				type,
 				path: parts[0]!,
 				stackId: parts[1] === "undefined" ? undefined : parts[1],
+				worktree: parts[2],
 			};
 		case "snapshot":
 			if (parts.length !== 2) throw new Error("Invalid snapshot key");
@@ -102,11 +114,11 @@ export function readKey(key: SelectedFileKey): SelectedFile {
 export function selectionKey(id: SelectionId): SelectionKey {
 	switch (id.type) {
 		case "commit":
-			return `${id.type}${UNIT_SEP}${id.commitId}` as SelectionKey;
+			return `${id.type}${UNIT_SEP}${id.commitId}${worktreePart(id.worktree)}` as SelectionKey;
 		case "branch":
-			return `${id.type}${UNIT_SEP}${id.stackId}${UNIT_SEP}${id.remote ?? UNDEFINED_REMOTE}${UNIT_SEP}${id.branchName}` as SelectionKey;
+			return `${id.type}${UNIT_SEP}${id.stackId}${UNIT_SEP}${id.remote ?? UNDEFINED_REMOTE}${UNIT_SEP}${id.branchName}${worktreePart(id.worktree)}` as SelectionKey;
 		case "worktree":
-			return `${id.type}${UNIT_SEP}${id.stackId}` as SelectionKey;
+			return `${id.type}${UNIT_SEP}${id.stackId}${worktreePart(id.worktree)}` as SelectionKey;
 		case "snapshot":
 			return `${id.type}${UNIT_SEP}${id.snapshotId}` as SelectionKey;
 	}
@@ -118,11 +130,11 @@ export function selectionKey(id: SelectionId): SelectionKey {
 export function stableSelectionKey(id: SelectionId): StableSelectionKey {
 	switch (id.type) {
 		case "commit":
-			return `commit${UNIT_SEP}${id.commitId}${UNIT_SEP}${id.stackId ?? "undefined"}` as StableSelectionKey;
+			return `commit${UNIT_SEP}${id.commitId}${UNIT_SEP}${id.stackId ?? "undefined"}${worktreePart(id.worktree)}` as StableSelectionKey;
 		case "branch":
-			return `branch${UNIT_SEP}${id.stackId ?? "undefined"}${UNIT_SEP}${id.remote ?? UNDEFINED_REMOTE}${UNIT_SEP}${id.branchName}` as StableSelectionKey;
+			return `branch${UNIT_SEP}${id.stackId ?? "undefined"}${UNIT_SEP}${id.remote ?? UNDEFINED_REMOTE}${UNIT_SEP}${id.branchName}${worktreePart(id.worktree)}` as StableSelectionKey;
 		case "worktree":
-			return `worktree${UNIT_SEP}${id.stackId ?? "undefined"}` as StableSelectionKey;
+			return `worktree${UNIT_SEP}${id.stackId ?? "undefined"}${worktreePart(id.worktree)}` as StableSelectionKey;
 		case "snapshot":
 			return `snapshot${UNIT_SEP}${id.snapshotId}` as StableSelectionKey;
 	}
@@ -138,25 +150,28 @@ export function readStableSelectionKey(key: StableSelectionKey): SelectionId {
 
 	switch (type) {
 		case "commit":
-			if (parts.length !== 2) throw new Error("Invalid commit key");
+			if (parts.length !== 2 && parts.length !== 3) throw new Error("Invalid commit key");
 			return {
 				type,
 				commitId: parts[0]!,
 				stackId: parts[1] === "undefined" ? undefined : parts[1]!,
+				worktree: parts[2],
 			};
 		case "branch":
-			if (parts.length !== 3) throw new Error("Invalid branch key");
+			if (parts.length !== 3 && parts.length !== 4) throw new Error("Invalid branch key");
 			return {
 				type,
 				stackId: parts[0] === "undefined" ? undefined : parts[0]!,
 				remote: parts[1] === UNDEFINED_REMOTE ? undefined : parts[1]!,
 				branchName: parts[2]!,
+				worktree: parts[3],
 			};
 		case "worktree":
-			if (parts.length !== 1) throw new Error("Invalid worktree key");
+			if (parts.length !== 1 && parts.length !== 2) throw new Error("Invalid worktree key");
 			return {
 				type,
 				stackId: parts[0] === "undefined" ? undefined : parts[0],
+				worktree: parts[1],
 			};
 		case "snapshot":
 			if (parts.length !== 1) throw new Error("Invalid snapshot key");
@@ -180,27 +195,51 @@ export function createSelectionId<T extends Omit<SelectionId, "laneId">>(params:
 /**
  * Helper functions for creating specific SelectionId types with auto-populated laneId
  */
-export function createWorktreeSelection(params: { stackId?: string }): SelectionId {
-	return createSelectionId({ type: "worktree", stackId: params.stackId });
+export function createWorktreeSelection(params: {
+	stackId?: string;
+	worktree?: string;
+}): SelectionId {
+	return createSelectionId({
+		type: "worktree",
+		stackId: params.stackId,
+		worktree: params.worktree,
+	});
 }
 
-export function createCommitSelection(params: { commitId: string; stackId?: string }): SelectionId {
-	return createSelectionId({ type: "commit", commitId: params.commitId, stackId: params.stackId });
+export function createCommitSelection(params: {
+	commitId: string;
+	stackId?: string;
+	worktree?: string;
+}): SelectionId {
+	return createSelectionId({
+		type: "commit",
+		commitId: params.commitId,
+		stackId: params.stackId,
+		worktree: params.worktree,
+	});
 }
 
 export function createBranchSelection(params: {
 	stackId?: string;
 	branchName: string;
 	remote: string | undefined;
+	worktree?: string;
 }): SelectionId {
 	return createSelectionId({
 		type: "branch",
 		stackId: params.stackId,
 		branchName: params.branchName,
 		remote: params.remote,
+		worktree: params.worktree,
 	});
 }
 
 export function createSnapshotSelection(params: { snapshotId: string }): SelectionId {
 	return createSelectionId({ type: "snapshot", snapshotId: params.snapshotId });
+}
+
+/** The checkout holding the files `id` selects, the main one when it names no linked worktree. */
+export function checkoutOf(id: { worktree?: string }): ChangesSource {
+	if (id.worktree !== undefined) return { type: "worktree", subject: id.worktree };
+	return { type: "head" };
 }
