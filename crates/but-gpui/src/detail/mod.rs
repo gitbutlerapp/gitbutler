@@ -607,8 +607,15 @@ impl Detail {
             // Keep the row at the top of the view there, or its file's header when the
             // row just folded away.
             let top = self.list.logical_scroll_top();
-            let anchor = diff.rows.get(top.item_ix).copied();
-            let scroll_to = match anchor.and_then(|row| rows.iter().position(|r| *r == row)) {
+            // Gaps all look alike, so a gap at the top is found by the row after it.
+            let gaps = (diff.rows.iter().skip(top.item_ix))
+                .take_while(|row| **row == DiffRow::Gap)
+                .count();
+            let anchor = diff.rows.get(top.item_ix + gaps).copied();
+            let found = anchor
+                .and_then(|row| rows.iter().position(|r| *r == row))
+                .and_then(|ix| ix.checked_sub(gaps));
+            let scroll_to = match found {
                 Some(item_ix) => ListOffset { item_ix, ..top },
                 None => ListOffset {
                     item_ix: anchor
