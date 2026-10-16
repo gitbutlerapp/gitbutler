@@ -30,15 +30,6 @@ pub struct EditedFile {
     pub resolved: Option<bool>,
 }
 
-impl Editing {
-    pub fn unresolved(&self) -> usize {
-        self.files
-            .iter()
-            .filter(|file| file.resolved == Some(false))
-            .count()
-    }
-}
-
 /// The commit `ctx` is editing, if it's in edit mode.
 pub(super) fn editing(ctx: &Context) -> Result<Option<Editing>> {
     let OperatingMode::Edit(meta) = but_api::legacy::modes::operating_mode(ctx)?.operating_mode

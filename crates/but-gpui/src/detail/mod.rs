@@ -148,6 +148,8 @@ pub struct Detail {
     filtering: bool,
     /// Files shown whole, by path, with their lines once read.
     whole: HashMap<String, Option<FileLines>>,
+    /// Conflicted files of an edited commit the user called resolved, markers and all.
+    marked_resolved: HashSet<(backend::CommitId, String)>,
     /// The commit message being edited, with the subscription that saves it.
     rewording: Option<(Entity<TextInput>, Subscription)>,
     /// The project the checkboxes and commit target above belong to.
@@ -318,6 +320,7 @@ impl Detail {
             file_filter,
             filtering: false,
             whole: HashMap::new(),
+            marked_resolved: HashSet::new(),
             rewording: None,
             checks_project: None,
             composing: false,
