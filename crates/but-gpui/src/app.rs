@@ -943,7 +943,7 @@ impl AppView {
             Selection::Project(project) => {
                 Some(self.store.read(cx).path(&project)?.display().to_string())
             }
-            Selection::Uncommitted(_) | Selection::History(_) => None,
+            Selection::Uncommitted(_) | Selection::Branches(_) | Selection::History(_) => None,
         });
         if let Some(text) = text {
             self.copy_text(text, cx);

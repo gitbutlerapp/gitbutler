@@ -1659,6 +1659,7 @@ dependencies = [
  "but-action",
  "but-api",
  "but-askpass",
+ "but-branches",
  "but-core",
  "but-ctx",
  "but-forge",

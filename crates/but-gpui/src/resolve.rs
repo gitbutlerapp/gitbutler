@@ -13,7 +13,7 @@ use crate::backend::{self, CommitId};
 use crate::state::{Overlay, ProjectId, Store};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
-use crate::ui::{ButtonStyle, button, h_flex, v_flex};
+use crate::ui::{ButtonStyle, button, h_flex, plural, v_flex};
 
 actions!(resolve, [ResolveConflicts]);
 
@@ -231,13 +231,6 @@ impl ResolveView {
                     .child(choice(Pick::Both, "Accept both")),
             )
             .into_any_element()
-    }
-}
-
-fn plural(n: usize, word: &str) -> String {
-    match n {
-        1 => format!("1 {word}"),
-        n => format!("{n} {word}s"),
     }
 }
 
