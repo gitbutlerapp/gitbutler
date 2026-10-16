@@ -156,6 +156,7 @@ pub struct Store {
     pub busy: Option<SharedString>,
     /// The running mutation's project, overlay and start.
     running: Option<(ProjectId, Overlay, Instant)>,
+    busy_ticker: Task<()>,
     /// Mutations asked for while one ran, in order.
     queue: VecDeque<Queued>,
     /// The project a finished mutation waits on. Its next load to start ends `busy`.
@@ -244,6 +245,7 @@ impl Store {
             settling: None,
             mutating: None,
             running: None,
+            busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
             last_snapshot: None,
             next_toast: 0,

@@ -6,7 +6,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result};
-use gpui::{Context, SharedString};
+use gpui::{Context, SharedString, Task};
 
 use super::{ProjectId, Selection, Store, StoreEvent};
 use crate::backend::{self, CommitId, PushState, SnapshotId};
@@ -241,11 +241,12 @@ impl Store {
         self.busy = Some(next.label);
         self.running = Some((next.project.clone(), next.overlay, Instant::now()));
         (next.start)(self, remap, cx);
-        self.tick_while_busy(cx);
+        // Replacing the last one's ticker stops it.
+        self.busy_ticker = Self::tick_while_busy(cx);
     }
 
     /// Redraw while a mutation runs, so the status bar can say how long it's taking.
-    fn tick_while_busy(&mut self, cx: &mut Context<Self>) {
+    fn tick_while_busy(cx: &mut Context<Self>) -> Task<()> {
         cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor()
@@ -262,7 +263,6 @@ impl Store {
                 };
             }
         })
-        .detach();
     }
 
     fn start<T: Send + 'static>(
