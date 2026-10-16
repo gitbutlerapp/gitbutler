@@ -8,7 +8,7 @@
 //! key cmd-shift-n         # a keystroke, as in key bindings
 //! type hello world        # text, one keystroke per character
 //! move 120 300            # window coordinates in logical pixels
-//! click 120 300          # also dclick and tclick for double and triple clicks
+//! click 120 300          # also dclick and tclick; append `cmd` or `shift` to hold them
 //! rclick 120 300
 //! drag 120 300 120 500    # append `alt` to hold option, `hold` to keep the button down
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
@@ -138,7 +138,7 @@ fn run(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Result<(
 fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Result<()> {
     let numbers = || -> Result<Vec<f32>> {
         rest.split_whitespace()
-            .filter(|part| !matches!(*part, "alt" | "hold"))
+            .filter(|part| !matches!(*part, "alt" | "cmd" | "shift" | "hold"))
             .map(|part| part.parse::<f32>().context("expected a number"))
             .collect()
     };
@@ -211,15 +211,14 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 "tclick" => 3,
                 _ => 1,
             };
+            let held = |name| rest.split_whitespace().any(|part| part == name);
+            let modifiers = Modifiers {
+                platform: held("cmd"),
+                shift: held("shift"),
+                ..Default::default()
+            };
             for count in 1..=clicks {
-                press(
-                    window,
-                    cx,
-                    point(px(x), px(y)),
-                    button,
-                    Modifiers::default(),
-                    count,
-                );
+                press(window, cx, point(px(x), px(y)), button, modifiers, count);
             }
         }
         "drag" => {

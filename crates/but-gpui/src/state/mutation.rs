@@ -194,12 +194,26 @@ impl Store {
         );
     }
 
-    pub fn uncommit(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
+    pub fn uncommit(&mut self, project: &ProjectId, ids: Vec<CommitId>, cx: &mut Context<Self>) {
+        let keys: Vec<String> = ids
+            .iter()
+            .filter_map(|id| self.key_of(project, *id))
+            .collect();
+        let label = match ids.len() {
+            1 => "Uncommit".to_owned(),
+            n => format!("Uncommit {n} commits"),
+        };
         self.run(
             project,
-            "Uncommit",
-            Overlay::commits(self.key_of(project, id)),
-            move |path, remap| backend::uncommit(path, &[remap.get(id)?]),
+            label,
+            Overlay::commits(keys),
+            move |path, remap| {
+                let ids = ids
+                    .iter()
+                    .map(|id| remap.get(*id))
+                    .collect::<Result<Vec<_>>>()?;
+                backend::uncommit(path, &ids)
+            },
             |store, (), cx| store.snack_undoable("Uncommitted", cx),
             cx,
         );
@@ -235,6 +249,7 @@ impl Store {
             }),
         });
         self.cut = None;
+        self.picked.clear();
         cx.emit(StoreEvent::Pending(project.clone()));
         cx.notify();
         if self.busy.is_none() {

@@ -450,8 +450,13 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         if let Some(Selection::Commit(project, id)) = self.selection(cx) {
-            self.store
-                .update(cx, |store, cx| store.uncommit(&project, id, cx));
+            self.store.update(cx, |store, cx| {
+                let ids = match store.picked.is_empty() {
+                    true => vec![id],
+                    false => store.picked.clone(),
+                };
+                store.uncommit(&project, ids, cx)
+            });
         }
     }
 
@@ -876,6 +881,12 @@ impl AppView {
         }
         if self.store.read(cx).cut.is_some() {
             self.store.update(cx, |store, cx| store.set_cut(None, cx));
+        }
+        if !self.store.read(cx).picked.is_empty() {
+            self.store.update(cx, |store, cx| {
+                store.picked.clear();
+                cx.notify()
+            });
         }
     }
 
