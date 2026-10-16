@@ -2,6 +2,7 @@
 
 pub mod diff;
 pub mod review;
+pub mod scrollbar;
 pub mod text_input;
 
 use std::borrow::Cow;

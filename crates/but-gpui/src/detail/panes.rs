@@ -18,6 +18,7 @@ use crate::theme::Theme;
 use crate::transfer::short_ref;
 use crate::ui::diff;
 use crate::ui::review as ui_review;
+use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, button, empty_state, h_flex, icon, icon_button, list_row,
@@ -242,7 +243,11 @@ impl Detail {
                 .map(|pos| TreeRow::File { pos, depth: 0 })
                 .collect()
         };
-        uniform_list(
+        let handle = match source {
+            FileSource::Uncommitted(_) => self.uncommitted_files.clone(),
+            FileSource::Diff(..) => self.diff_files.clone(),
+        };
+        let list = uniform_list(
             id,
             rows.len(),
             cx.processor(move |this, range: Range<usize>, _, cx| {
@@ -260,9 +265,16 @@ impl Detail {
                     .collect::<Vec<_>>()
             }),
         )
-        .flex_1()
-        .min_h(px(0.))
-        .into_any_element()
+        .track_scroll(&handle)
+        .size_full();
+        let theme = Theme::get(cx);
+        div()
+            .relative()
+            .flex_1()
+            .min_h(px(0.))
+            .child(list)
+            .children(scrollbar("files-scrollbar", Scroll::Uniform(handle), theme))
+            .into_any_element()
     }
 
     /// The `pos`th file of `source`, with what its list shows beside it.

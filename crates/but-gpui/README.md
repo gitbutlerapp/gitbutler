@@ -42,7 +42,7 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 
 Branch rows show a pull request's state (open, draft, merged or closed) and number, and a glyph for its checks. The app reads these from GitButler's forge cache, which it refreshes in the background every minute and after each push, using the GitHub account GitButler already has.
 
-Text in a diff selects like text anywhere: drag across lines, double-click a word, triple-click a line, shift-click to extend, and ⌘C copies it without the `+` and `-`. File lists can show a tree of folders instead of a flat list, with the button beside the file count; folders holding nothing but one folder merge into one row (`src/backend`).
+While a file scrolls, its header stays at the top of the diff until the next file pushes it off. Lists and diffs show a scrollbar while the pointer is over them; drag its thumb, or press the track to jump. Text in a diff selects like text anywhere: drag across lines, double-click a word, triple-click a line, shift-click to extend, and ⌘C copies it without the `+` and `-`. File lists can show a tree of folders instead of a flat list, with the button beside the file count; folders holding nothing but one folder merge into one row (`src/backend`).
 
 While something is cut or dragged, every row it could land on says what landing there would do ("Amend", "Move above", "Squash into" with ⌥ held), and the rest step back. A commit selected in the app stays selected when an agent rewords or rebases it, as long as it keeps its change ID.
 
@@ -84,7 +84,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 - `src/state` holds the projects, selection, what's been cut and what you've reviewed or opened. `mutation.rs` runs one mutation at a time and queues the rest; `saved.rs` keeps review and read state in `gpui-state.json` in the app config directory.
 - `src/navigator.rs` and `src/detail/` are the two halves of the window; `src/transfer.rs` decides what a drop or paste does, so both input methods agree.
 - `src/palette.rs` is the command palette and `src/status_bar.rs` the strip along the bottom.
-- `src/ui` has the small components GPUI doesn't ship: buttons, a text field and diff rows.
+- `src/ui` has the small components GPUI doesn't ship: buttons, a text field, a scrollbar and diff rows.
 
 It is a member of the main workspace, so `cargo check --workspace` catches `but-api` changes that break it. GPUI is a git dependency on Zed that brings around 900 crates and needs Rust 1.98. Only macOS builds the client. Elsewhere GPUI needs system libraries the workspace's Linux and Windows CI don't install, so `main` is a stub there and GPUI isn't compiled. Nothing else in the workspace depends on this crate.
 

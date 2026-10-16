@@ -6,16 +6,17 @@ use std::ops::Range;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, Context, Entity, MouseButton, Subscription, Toggled, WeakEntity, Window, div,
-    list, prelude::*, px,
+    AnyElement, App, Context, Entity, MouseButton, Pixels, Subscription, Toggled, WeakEntity,
+    Window, div, list, prelude::*, px,
 };
 
-use super::{Cursor, Detail, DiscardHunk, TextPoint, ToggleReviewed, checkbox_box};
+use super::{Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleReviewed, checkbox_box};
 use crate::app::AppView;
 use crate::backend::{DiffBody, DiffLine, DiffSource, Selected};
 use crate::state::{ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, Decor, DiffRow, LineSelect};
+use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{ButtonStyle, button, empty_state, h_flex, shortcut};
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -202,6 +203,31 @@ impl Detail {
             return ground(empty_state(title, detail, theme));
         }
         let entity = cx.entity().downgrade();
+        // A copy of the header of the file at the top, while the file scrolls under it. It's
+        // clipped to the list, so the next file can push it out the top.
+        let sticky = self.sticky_header(diff).map(|(ix, lift)| {
+            div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .right_0()
+                .h(px(diff::FILE_HEADER_HEIGHT))
+                .overflow_hidden()
+                .child(
+                    div()
+                        .id("sticky-header")
+                        .absolute()
+                        .top(lift)
+                        .left_0()
+                        .right_0()
+                        // The pane's ground, so the lines under it don't show past the header's
+                        // rounded corners.
+                        .bg(theme.bg_2)
+                        .block_mouse_except_scroll()
+                        .child(self.render_diff_row(ix, entity.clone(), cx)),
+                )
+        });
+        let scrollbar = scrollbar("diff-scrollbar", Scroll::List(self.list.clone()), theme);
         div()
             .flex_1()
             .min_w(px(0.))
@@ -219,15 +245,47 @@ impl Detail {
                 cx.listener(|this, _, _, _| this.selecting = false),
             )
             .child(
-                list(self.list.clone(), move |ix, _window, cx| {
-                    let Some(detail) = entity.upgrade() else {
-                        return div().into_any_element();
-                    };
-                    detail.read(cx).render_diff_row(ix, detail.downgrade(), cx)
-                })
-                .size_full(),
+                div()
+                    .relative()
+                    .size_full()
+                    .child(
+                        list(self.list.clone(), move |ix, _window, cx| {
+                            let Some(detail) = entity.upgrade() else {
+                                return div().into_any_element();
+                            };
+                            detail.read(cx).render_diff_row(ix, detail.downgrade(), cx)
+                        })
+                        .size_full(),
+                    )
+                    .children(sticky)
+                    .children(scrollbar),
             )
             .into_any_element()
+    }
+
+    /// The header to keep at the top of the diff while its file scrolls under it, by row, and
+    /// how far the file's end has pushed it up. Nothing while a header is at the top itself.
+    fn sticky_header(&self, diff: &LoadedDiff) -> Option<(usize, Pixels)> {
+        let top = self.list.logical_scroll_top();
+        let row = *diff.rows.get(top.item_ix)?;
+        let file = row.file()?;
+        if row == DiffRow::File(file) && top.offset_in_item <= px(0.) {
+            return None;
+        }
+        let header = (0..=top.item_ix)
+            .rev()
+            .find(|&ix| diff.rows[ix] == DiffRow::File(file))?;
+        // The file's last row pushes it, so that row and the card's end below it show whole
+        // rather than a sliver of them under the header.
+        let last = (top.item_ix..diff.rows.len())
+            .find(|&ix| diff.rows[ix].file() != Some(file))
+            .unwrap_or(diff.rows.len())
+            - 1;
+        let lift = self.list.bounds_for_item(last).map_or(px(0.), |last| {
+            let room = last.top() - self.list.viewport_bounds().top();
+            (room - px(diff::FILE_HEADER_HEIGHT)).min(px(0.))
+        });
+        Some((header, lift))
     }
 
     fn render_diff_row(&self, ix: usize, entity: WeakEntity<Detail>, cx: &App) -> AnyElement {
