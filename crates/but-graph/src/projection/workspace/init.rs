@@ -199,7 +199,11 @@ impl Graph {
     fn project(&self, frame: Frame<'_>) -> WorkspaceState {
         let tips = self.stack_tips(&frame);
         let stop = self.stop_set(&frame);
-        let lanes = tips.iter().map(|&tip| self.lane(tip, &stop)).collect_vec();
+        let local_target = self.upstream_local_target(&frame);
+        let lanes = tips
+            .iter()
+            .map(|&tip| self.lane(tip, &stop, local_target))
+            .collect_vec();
         let worktree_lanes = self.worktree_lanes(&frame, &lanes);
         let ids = self.stack_ids(&frame, &lanes);
         // The first commit below the target shared by all lanes.
@@ -260,6 +264,7 @@ impl Graph {
         }
         let mut stop = self.stop_set(frame);
         stop.set(frame.ws, true);
+        let local_target = self.upstream_local_target(frame);
         for lane in stack_lanes {
             claim(&mut stop, lane);
         }
@@ -273,7 +278,7 @@ impl Graph {
                 );
                 continue;
             };
-            let lane = self.lane(sidx, &stop);
+            let lane = self.lane(sidx, &stop, local_target);
             claim(&mut stop, &lane);
             lanes.push((tip, lane));
         }
@@ -354,12 +359,41 @@ impl Graph {
         stop
     }
 
-    fn lane(&self, tip: SegmentIndex, stop: &SegmentTable<bool>) -> Lane {
+    /// The local counterpart of the target ref while everything on it is upstream, unless the
+    /// workspace metadata lists it in a stack. It often sits at the base of stacks, and is no
+    /// branch of theirs until it has commits of its own.
+    fn upstream_local_target(&self, frame: &Frame<'_>) -> Option<SegmentIndex> {
+        let target = self
+            .project_meta
+            .target_ref
+            .as_ref()
+            .and_then(|name| self.segment_by_ref_name(name.as_ref()))?;
+        let local_target = target.sibling_segment_id?;
+        let name = self[local_target].ref_name()?;
+        let is_listed = frame
+            .metadata
+            .is_some_and(|metadata| metadata.find_owner_indexes_by_name(name, Applied).is_some());
+        let is_upstream = self[local_target]
+            .commits
+            .first()
+            .is_none_or(|commit| commit.flags.contains(CommitFlags::Integrated));
+        (is_upstream && !is_listed).then_some(local_target)
+    }
+
+    fn lane(
+        &self,
+        tip: SegmentIndex,
+        stop: &SegmentTable<bool>,
+        local_target: Option<SegmentIndex>,
+    ) -> Lane {
         let mut seen = self.seen_table();
         let mut walked = Vec::new();
+        // Below the tip, an upstream local target is a base like the target itself.
+        let is_base =
+            |sidx: SegmentIndex| stop.get(sidx) || (sidx != tip && Some(sidx) == local_target);
         let mut cursor = Some(tip);
         while let Some(sidx) = cursor {
-            if stop.get(sidx) || !seen.insert_unseen(sidx) {
+            if is_base(sidx) || !seen.insert_unseen(sidx) {
                 break;
             }
             walked.push(sidx);
@@ -370,7 +404,7 @@ impl Graph {
                 .map(|e| e.target());
         }
         let base = cursor
-            .filter(|&sidx| stop.get(sidx))
+            .filter(|&sidx| is_base(sidx))
             .and_then(|sidx| self.resolve_to_unambiguously_pointed_to_commit(sidx))
             .map(|(commit, owner)| (commit.id, owner));
         let early_end = cursor.is_none()
