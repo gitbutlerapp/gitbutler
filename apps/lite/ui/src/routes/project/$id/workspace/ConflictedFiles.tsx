@@ -1,9 +1,9 @@
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
-import { Badge } from "#ui/components/Badge.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Checkbox } from "#ui/components/Checkbox.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FileIcon } from "#ui/components/FileIcon.tsx";
+import { Badge } from "@gitbutler/ui-react/Badge.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { DiffFileHeader } from "@gitbutler/ui-react/DiffFileHeader.tsx";
 import { projectSlice } from "#ui/projects/state.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -170,59 +170,48 @@ const ConflictedFileC: FC<{
 	options: UnresolvedFileProps["options"];
 	editFileOptions: FileProps["options"];
 	style: UnresolvedFileProps["style"];
-}> = (p) => {
-	const lastSepIdx = p.file.path.lastIndexOf("/");
-	const directoryPath = lastSepIdx !== -1 ? p.file.path.slice(0, lastSepIdx) : null;
-	const fileName = lastSepIdx !== -1 ? p.file.path.slice(lastSepIdx + 1) : p.file.path;
+}> = (p) => (
+	<section className={styles.file}>
+		<UnresolvedFile
+			file={{ name: p.file.path, contents: p.file.mergedText }}
+			className={styles.diff}
+			style={p.style}
+			options={p.options}
+			// The pool highlights with its own worker-side highlighter and this
+			// view never re-renders when that boots, so a cold mount would stay
+			// plain text. On the main thread it uses the shared highlighter the
+			// parent warmed up, and conflict files are small.
+			disableWorkerPool
+			renderCustomHeader={() => (
+				<DiffFileHeader path={p.file.path} className={styles.fileHeader}>
+					<Badge variant="danger">Conflicted</Badge>
+				</DiffFileHeader>
+			)}
+			renderMergeConflictUtility={(action) => {
+				// Marker block N is hunk N+1: the marker text comes from the same
+				// scan that produced `hunks`, and ambiguous files go to manual.
+				const conflict = p.file.hunks[action.conflictIndex];
+				if (!conflict) return null;
 
-	return (
-		<section className={styles.file}>
-			<UnresolvedFile
-				file={{ name: p.file.path, contents: p.file.mergedText }}
-				className={styles.diff}
-				style={p.style}
-				options={p.options}
-				// The pool highlights with its own worker-side highlighter and this
-				// view never re-renders when that boots, so a cold mount would stay
-				// plain text. On the main thread it uses the shared highlighter the
-				// parent warmed up, and conflict files are small.
-				disableWorkerPool
-				renderCustomHeader={() => (
-					<header className={styles.fileHeader}>
-						<h4 className={classes("text-13", styles.filePath)}>
-							<FileIcon fileName={fileName} className={styles.icon} />
-							{fileName}
-							{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
-						</h4>
-						<Badge variant="danger">Conflicted</Badge>
-					</header>
-				)}
-				renderMergeConflictUtility={(action) => {
-					// Marker block N is hunk N+1: the marker text comes from the same
-					// scan that produced `hunks`, and ambiguous files go to manual.
-					const conflict = p.file.hunks[action.conflictIndex];
-					if (!conflict) return null;
-
-					return (
-						<ConflictActions
-							projectId={p.projectId}
-							commitId={p.commitId}
-							path={p.file.path}
-							hunk={action.conflictIndex + 1}
-							conflict={conflict}
-							busy={p.busy}
-							editFileOptions={p.editFileOptions}
-							editFileStyle={p.style}
-							onResolve={(resolution) =>
-								p.onResolve([{ path: p.file.path, hunk: action.conflictIndex + 1, resolution }])
-							}
-						/>
-					);
-				}}
-			/>
-		</section>
-	);
-};
+				return (
+					<ConflictActions
+						projectId={p.projectId}
+						commitId={p.commitId}
+						path={p.file.path}
+						hunk={action.conflictIndex + 1}
+						conflict={conflict}
+						busy={p.busy}
+						editFileOptions={p.editFileOptions}
+						editFileStyle={p.style}
+						onResolve={(resolution) =>
+							p.onResolve([{ path: p.file.path, hunk: action.conflictIndex + 1, resolution }])
+						}
+					/>
+				);
+			}}
+		/>
+	</section>
+);
 
 /**
  * One conflict's controls, rendered in the library's per-conflict slot beside
@@ -349,9 +338,9 @@ const ConflictActions: FC<{
 						/>
 					</div>
 					<div className={styles.editorActions}>
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "outline", size: "small" })}
+						<Button
+							variant="outline"
+							size="small"
 							disabled={disabled}
 							onClick={() =>
 								apply({
@@ -361,15 +350,15 @@ const ConflictActions: FC<{
 							}
 						>
 							Apply resolution
-						</button>
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "ghost", size: "small" })}
+						</Button>
+						<Button
+							variant="ghost"
+							size="small"
 							disabled={p.busy}
 							onClick={() => setEditing(false)}
 						>
 							Cancel
-						</button>
+						</Button>
 					</div>
 				</>
 			)}

@@ -4,7 +4,7 @@
 	import GitlabIntegration from "$components/settings/GitlabIntegration.svelte";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui";
+	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui-svelte";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = settingsService.appSettings;

@@ -4,7 +4,7 @@
 	import { projectRunCommitHooks } from "$lib/config/config";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Toggle } from "@gitbutler/ui";
+	import { CardGroup, Toggle } from "@gitbutler/ui-svelte";
 	import type { Project } from "$lib/project/project";
 
 	const { projectId }: { projectId: string } = $props();
@@ -13,7 +13,7 @@
 	const projectQuery = $derived(projectsService.getProject(projectId));
 
 	async function onHuskyHooksEnabledClick(project: Project, value: boolean) {
-		await projectsService.updateProject({ ...project, husky_hooks_enabled: value });
+		await projectsService.updateProject({ id: project.id, husky_hooks_enabled: value });
 	}
 </script>
 

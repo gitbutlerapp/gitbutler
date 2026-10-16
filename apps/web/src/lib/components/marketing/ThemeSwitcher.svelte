@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { setTheme, themeStore } from "$lib/utils/theme.svelte";
-	import { Icon } from "@gitbutler/ui";
+	import { Icon } from "@gitbutler/ui-svelte";
 
 	// Get the current theme
 	const currentTheme = $derived($themeStore);

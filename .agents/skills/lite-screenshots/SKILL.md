@@ -188,25 +188,30 @@ $ gh api -X PATCH "repos/<owner>/<repo>/issues/comments/<id>" --input /tmp/paylo
 Do not edit the pull request description: rewriting text a human owns risks
 clobbering their concurrent edits.
 
-### 6. Swap the label
+### 6. Add the label
 
-`screenshots needed` is the request; `screenshots` is the record. Move the pull
-request from one to the other once the comment is posted, so the label says what
-is true:
+`screenshots` is the record that they were posted. Add it once the comment is
+up, so the label says what is true:
 
 ```console
 $ gh pr edit <number> --remove-label "screenshots needed" --add-label "screenshots"
 ```
 
+CI labels any pull request with CSS in it `CSS`, and asks one that touches
+Lite's for screenshots only if the change is visible; leave that label alone,
+it describes the diff.
+`screenshots needed` is one a human applies by hand when they do want them, and
+the command above clears it if it is there.
+
 Only after a comment with images actually went up. A pull request labelled
 `screenshots` with none attached is worse than an unlabelled one — it tells a
 reviewer the change has been shown when it has not. If you declined to post (an
-uncovered surface, a capture that failed), leave `screenshots needed` where it is.
+uncovered surface, a capture that failed), leave the labels as they are.
 
-`screenshots needed` is asked for once per pull request and never re-applied, so
-the swap is final — a later push does not put it back, and a set posted here is
-not a claim about code pushed after it. Recapture when the surfaces move; the
-command above is idempotent either way.
+Screenshots are asked for once per pull request and never again, so the label
+is final — a later push does not undo it, and a set posted here is not a claim
+about code pushed after it. Recapture when the surfaces move; the command above
+is idempotent either way.
 
 If you ever post images that are **not** captures of the running app — a page
 rendered from the branch's CSS, say, when the harness cannot be run — label them

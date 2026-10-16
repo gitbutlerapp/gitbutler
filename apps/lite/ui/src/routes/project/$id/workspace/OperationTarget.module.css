@@ -1,5 +1,5 @@
 .activeTarget {
-	border-radius: 8px;
+	border-radius: var(--radius-lg);
 	outline: 2px dashed var(--fill-gray-bg);
 }
 

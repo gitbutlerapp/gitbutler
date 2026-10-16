@@ -2,7 +2,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Spacer, Textarea, Textbox } from "@gitbutler/ui";
+	import { CardGroup, Spacer, Textarea, Textbox } from "@gitbutler/ui-svelte";
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -23,7 +23,7 @@
 						value={project.title}
 						required
 						onchange={(value: string) => {
-							projectsService.updateProject({ ...project, title: value });
+							projectsService.updateProject({ id: project.id, title: value });
 						}}
 					/>
 					<Textarea
@@ -34,7 +34,7 @@
 						value={project.description}
 						oninput={(e: Event) => {
 							const target = e.currentTarget as HTMLTextAreaElement;
-							projectsService.updateProject({ ...project, description: target.value });
+							projectsService.updateProject({ id: project.id, description: target.value });
 						}}
 					/>
 				</div>

@@ -164,7 +164,7 @@ fn showing_branch_that_isnt_top_of_stack() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -242,7 +242,7 @@ fn checking_merge_status_of_branch_that_isnt_top_of_stack() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 

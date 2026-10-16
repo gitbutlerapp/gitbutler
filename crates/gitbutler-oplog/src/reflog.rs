@@ -85,6 +85,7 @@ pub fn set_reference_to_oplog(git_dir: &Path, reflog_commits: ReflogCommits) -> 
     }
 
     let content = build_reflog_content(
+        repo.object_hash(),
         &[
             Some(reflog_commits.target),
             reflog_commits.oplog,
@@ -111,8 +112,8 @@ fn standard_signature() -> gix::actor::Signature {
     }
 }
 
-fn build_reflog_content(commits: &[gix::ObjectId]) -> String {
-    let mut previous_oid = gix::ObjectId::null(gix::index::hash::Kind::Sha1);
+fn build_reflog_content(object_hash: gix::hash::Kind, commits: &[gix::ObjectId]) -> String {
+    let mut previous_oid = object_hash.null();
 
     let mut log = String::default();
     for (is_first, commit_id) in commits.iter().enumerate().map(|(idx, id)| (idx == 0, id)) {
@@ -366,6 +367,20 @@ mod set_target_ref {
         Ok(())
     }
 
+    #[test]
+    fn sha256_reflog_starts_from_the_null_id() -> anyhow::Result<()> {
+        let (dir, commit_id) = setup_repo_with_object_format("sha256")?;
+        let git_dir = dir.path().join(".git");
+
+        let oplog = gix::ObjectId::from_str(&"01".repeat(32))?;
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
+
+        let contents = std::fs::read_to_string(git_dir.join("logs/refs/heads/gitbutler/target"))?;
+        let null_id = gix::hash::Kind::Sha256.null().to_string();
+        assert_eq!(reflog_lines(&contents)[0].previous_oid, null_id.as_str());
+        Ok(())
+    }
+
     fn reflog_lines(contents: &str) -> Vec<LineRef<'_>> {
         gix::refs::file::log::iter::forward(contents.as_bytes())
             .map(Result::unwrap)
@@ -391,9 +406,17 @@ mod set_target_ref {
     }
 
     fn setup_repo() -> anyhow::Result<(tempfile::TempDir, gix::ObjectId)> {
+        setup_repo_with_object_format("sha1")
+    }
+
+    fn setup_repo_with_object_format(
+        object_format: &str,
+    ) -> anyhow::Result<(tempfile::TempDir, gix::ObjectId)> {
         let dir = tempdir()?;
         let file_path = dir.path().join("foo.txt");
-        git_at_dir(dir.path()).args(["init"]).run();
+        git_at_dir(dir.path())
+            .args(["init", "--object-format", object_format])
+            .run();
         git_at_dir(dir.path())
             .args(["config", "commit.gpgsign", "false"])
             .run();

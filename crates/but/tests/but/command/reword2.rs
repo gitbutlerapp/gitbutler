@@ -24,7 +24,7 @@ Updated commit message for [..]
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -55,7 +55,7 @@ fn rewords_commit_from_editor() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -134,7 +134,7 @@ fn emits_json_for_commit_reword() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -184,6 +184,8 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 ┊● nyq author 2000-01-01 00:00:00 +0000 (sha b019c15)
 ┊│     new message
 ┊│     nyq:z A file-a.txt
+┊│
+┊├┄ as [base] (no commits)
 ├╯
 ┊
 ┊╭┄ h0 [B]
@@ -223,7 +225,7 @@ Renamed 'A' to 'renamed-branch'
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 

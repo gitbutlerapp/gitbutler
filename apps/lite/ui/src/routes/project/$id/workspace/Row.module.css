@@ -20,6 +20,17 @@
 	}
 }
 
+/* Starts where a row's own rail would, so it lines up with the rows around it. */
+.railedList {
+	display: flex;
+	padding-inline-start: var(--row-padding-inline-start, 12px);
+
+	& > :last-child {
+		flex-grow: 1;
+		min-width: 0;
+	}
+}
+
 .sectionHeader {
 	display: flex;
 	flex-shrink: 0;
@@ -34,7 +45,7 @@
 	cursor: var(--control-cursor);
 
 	&:where(:hover) {
-		background-color: var(--list-item-hover-bg);
+		background-color: var(--bg-hover);
 	}
 }
 
@@ -55,7 +66,7 @@
    where each one's cursor sits has to stay legible from the other one. What
    separates them is the rail below and the focused fill further down. */
 .containerSelected {
-	background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+	background-color: var(--bg-selected-inactive);
 
 	/* Only one row in the window is the source of what the details pane shows.
 	   A rail on its leading edge says so even when focus has moved away — into
@@ -76,7 +87,7 @@
 
 	&:has(:is(textarea, input):focus),
 	[data-selection-focus-styles="true"] [data-focus-scope][data-selection-focused="true"] & {
-		background-color: var(--fill-gray-bg);
+		background-color: var(--bg-selected);
 		color: var(--fill-gray-fg);
 	}
 }
@@ -289,8 +300,8 @@
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	/* Small buttons are tag-sized; matching them prevents layout shift when they appear/disappear. */
-	height: var(--size-tag);
+	/* A small button's height, so the row does not shift when one appears or disappears. */
+	height: var(--size-control-sm);
 	gap: 4px;
 }
 
@@ -357,9 +368,8 @@
 
 		--button-border: none;
 		--button-bg: transparent;
-		--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
-		--button-hover-fg: var(--text-1-invert);
-		--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
+		--button-fg: var(--text-1-invert);
+		--button-hover-bg: var(--bg-hover-invert);
 	}
 }
 
@@ -374,9 +384,8 @@
 
 		--button-border: 1px solid color-mix(in srgb, var(--fill-gray-fg) 30%, transparent);
 		--button-bg: transparent;
-		--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
-		--button-hover-fg: var(--text-1-invert);
-		--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
+		--button-fg: var(--text-1-invert);
+		--button-hover-bg: var(--bg-hover-invert);
 	}
 }
 

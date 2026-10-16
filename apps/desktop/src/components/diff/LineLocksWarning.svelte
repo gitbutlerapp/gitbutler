@@ -3,8 +3,8 @@
 	import { getStackName } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { TestId } from "@gitbutler/ui";
-	import type { DependencyLock } from "@gitbutler/ui/utils/diffParsing";
+	import { TestId } from "@gitbutler/ui-svelte";
+	import type { DependencyLock } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 	type Props = {
 		projectId: string;

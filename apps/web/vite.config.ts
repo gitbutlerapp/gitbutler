@@ -40,7 +40,7 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			"@gitbutler/ui/styles/fonts": "../../packages/ui/src/styles/fonts",
+			"@gitbutler/ui-svelte/styles/fonts": "../../packages/ui-svelte/src/styles/fonts",
 		},
 	},
 	ssr: {

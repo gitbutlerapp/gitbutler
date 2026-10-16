@@ -4,6 +4,33 @@ packages:
   - crates/*
   - e2e
 
+engineStrict: true
+autoInstallPeers: true
+nodeLinker: isolated
+
+allowBuilds:
+  "@ffmpeg-installer/darwin-arm64": true
+  "@ffmpeg-installer/darwin-x64": true
+  "@ffmpeg-installer/linux-arm": true
+  "@ffmpeg-installer/linux-arm64": true
+  "@ffmpeg-installer/linux-ia32": true
+  "@ffmpeg-installer/linux-x64": true
+  "@ffmpeg-installer/win32-ia32": true
+  "@ffmpeg-installer/win32-x64": true
+  "@prisma/client": true
+  core-js: true
+  electron: true
+  electron-winstaller: true
+  "@parcel/watcher": false
+  "@posthog/cli": false
+  "@sentry/cli": false
+  edgedriver: false
+  esbuild: false
+  geckodriver: false
+  leveldown: false
+  playwright-webkit: false
+  unrs-resolver: false
+
 catalog:
   "@playwright/test": 1.58.2
   "@vitest/browser": 3.2.7
@@ -39,7 +66,39 @@ catalogs:
 overrides:
   "@hono/node-server": 2.0.10
   "@modelcontextprotocol/sdk>@hono/node-server": 2.0.10
+  ajv@6.12.6: 6.14.0
+  axios: 1.13.5
+  devalue: 5.6.3
+  diff@^4.0.0: 4.0.4
+  diff@^5.0.0: 5.2.2
+  diff@^8.0.0: 8.0.3
+  fast-xml-parser: 5.3.7
+  "@isaacs/brace-expansion": 5.0.1
+  lodash: 4.17.23
+  lodash-es: 4.17.23
+  minimatch@^10.0.0: 10.2.2
   qs: 6.15.2
+  undici@6.22.0: 6.23.0
+  "@lexical/clipboard": 0.27.2
+  "@lexical/code": 0.27.2
+  "@lexical/file": 0.27.2
+  "@lexical/hashtag": 0.27.2
+  "@lexical/history": 0.27.2
+  "@lexical/html": 0.27.2
+  "@lexical/link": 0.27.2
+  "@lexical/list": 0.27.2
+  "@lexical/mark": 0.27.2
+  "@lexical/markdown": 0.27.2
+  "@lexical/offset": 0.27.2
+  "@lexical/overflow": 0.27.2
+  "@lexical/plain-text": 0.27.2
+  "@lexical/rich-text": 0.27.2
+  "@lexical/selection": 0.27.2
+  "@lexical/table": 0.27.2
+  "@lexical/text": 0.27.2
+  "@lexical/utils": 0.27.2
+  "@lexical/yjs": 0.27.2
+  lexical: 0.27.2
 
 # Don't allow package versions less than two days old to be installed.
 # https://pnpm.io/settings#minimumreleaseage
@@ -49,7 +108,3 @@ minimumReleaseAge: 2880
 minimumReleaseAgeExclude:
   - "@gitbutler/design-core"
   - "@modelcontextprotocol/sdk"
-  - electron-builder
-  - electron-builder-squirrel-windows
-  - app-builder-lib
-  - dmg-builder

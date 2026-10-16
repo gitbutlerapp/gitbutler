@@ -5,7 +5,7 @@
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Avatar, Link, Markdown, TestId } from "@gitbutler/ui";
+	import { Avatar, Link, Markdown, TestId } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		projectId: string;

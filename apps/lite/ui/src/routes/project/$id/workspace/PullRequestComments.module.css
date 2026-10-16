@@ -72,18 +72,10 @@
 .cardIdentity {
 	display: flex;
 	flex: 1;
+	flex-wrap: wrap;
 	align-items: center;
 	min-width: 0;
 	gap: 6px;
-}
-
-.avatar {
-	flex-shrink: 0;
-	width: 18px;
-	height: 18px;
-	object-fit: cover;
-	border-radius: 50%;
-	background-color: var(--bg-2);
 }
 
 .authorLogin {
@@ -95,7 +87,21 @@
 
 .cardTime {
 	flex-shrink: 0;
+	margin-left: auto;
 	color: var(--text-2);
+}
+
+.reviewVerdict {
+	flex-shrink: 0;
+	&[data-variant="warn"] {
+		background-color: var(--bg-warn);
+	}
+	&[data-variant="danger"] {
+		background-color: var(--bg-danger);
+	}
+	&[data-variant="safe"] {
+		background-color: var(--bg-safe);
+	}
 }
 
 .cardEdited {
@@ -146,7 +152,7 @@
 .editor {
 	display: flex;
 	flex-direction: column;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	outline: 1px solid var(--border-2);
 	outline-offset: -1px;
 	transition: outline-color var(--transition-fast);
@@ -247,7 +253,7 @@
 }
 
 .eventMono {
-	font-family: var(--text-fontfamily-mono);
+	font-family: var(--font-family-mono);
 }
 
 /* ---- Composer ---------------------------------------------------------- */
@@ -372,7 +378,7 @@
 .thread {
 	overflow: hidden;
 	border: 1px solid var(--border-3);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-card);
 	background-color: var(--bg-2);
 }
 
@@ -420,11 +426,11 @@
    above already carries the file and its lines. */
 .hunk {
 	/* Pierre lays the code out at its natural width, and inside a card that
-	   overruns — so the frame is what scrolls, or the overrun is unreachable. */
-	overflow-x: auto;
-	overflow-y: hidden;
+	   overruns — so the frame is what scrolls, or the overrun is unreachable.
+	   Clipped so the code keeps to the frame's rounded corners. */
+	overflow: hidden;
 	border: 1px solid var(--border-3);
-	border-radius: var(--radius-md);
+	border-radius: var(--radius-card);
 	/* The body turns selection off app-wide; quoted code is there to be read
 	   and copied, so it opts back in the way the diff view does. Inherited,
 	   which is how it reaches the code inside the shadow root. */
@@ -479,6 +485,7 @@
 		font-size: 12px;
 	}
 
+	/* A reply's author runs smaller than a card's. */
 	& .avatar {
 		width: 14px;
 		height: 14px;

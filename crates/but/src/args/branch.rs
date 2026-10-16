@@ -150,8 +150,8 @@ pub enum Subcommands {
 
 /// Create a new branch.
 ///
-/// Use `--above` or `--below` to created stacked branches. Omitting these create a new unstacked
-/// branch.
+/// Use `--above` or `--below` to create stacked branches. Omitting these creates a new unstacked
+/// branch in the workspace, which is refused when run from a linked worktree.
 ///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[cfg(feature = "legacy")]

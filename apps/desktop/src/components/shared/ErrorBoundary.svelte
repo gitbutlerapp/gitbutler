@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { logError } from "$lib/error/logError";
-	import { Icon } from "@gitbutler/ui";
+	import { Icon } from "@gitbutler/ui-svelte";
 	import type { Snippet } from "svelte";
 
 	type Props = {

@@ -2,7 +2,7 @@ import { FileListController } from "$lib/selection/fileListController.svelte";
 import { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
 import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 import { createWorktreeSelection, type SelectionId } from "$lib/selection/key";
-import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
+import { FOCUS_MANAGER } from "@gitbutler/ui-svelte/focus/focusManager";
 import { get } from "svelte/store";
 import { describe, expect, test, vi, beforeEach, type Mock } from "vitest";
 import type { TreeChange } from "@gitbutler/but-sdk";

@@ -18,12 +18,20 @@
 	import { useUserAvatarUrl } from "$lib/user/userAvatar.svelte";
 	import { inject } from "@gitbutler/core/context";
 
-	import { AsyncButton, Avatar, Badge, Button, InfoButton, Modal, TestId } from "@gitbutler/ui";
+	import {
+		AsyncButton,
+		Avatar,
+		Badge,
+		Button,
+		InfoButton,
+		Modal,
+		TestId,
+	} from "@gitbutler/ui-svelte";
 	import { SvelteMap, SvelteSet } from "svelte/reactivity";
 	import type { ConflictState } from "$lib/files/conflictEntryPresence";
 	import type { EditModeMetadata, TreeChange } from "@gitbutler/but-sdk";
 	import type { ConflictEntryPresence } from "@gitbutler/but-sdk";
-	import type { FileStatus } from "@gitbutler/ui/components/file/types";
+	import type { FileStatus } from "@gitbutler/ui-svelte/components/file/types";
 
 	type Props = {
 		projectId: string;

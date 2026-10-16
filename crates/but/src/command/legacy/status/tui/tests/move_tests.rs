@@ -286,27 +286,273 @@ fn moving_multiple_commits() {
 }
 
 #[test]
-fn switch_from_move_mode_to_branch_mode() {
+fn move_commit_to_new_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
     let mut tui = test_status_tui(env);
 
     tui.input('j');
-    tui.input('m').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_move_mode_to_branch_mode_001.svg"
-    ]);
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_move_mode_to_branch_mode_002.svg"
-    ]);
-    tui.input(KeyCode::Esc);
+    tui.input('j');
+    tui.input('m')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_commit_to_new_branch_001.svg"]);
+    tui.input('k');
+    tui.input('b')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_commit_to_new_branch_002.svg"]);
+}
+
+#[test]
+fn move_multiple_commits_to_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
 
     tui.input('j');
-    tui.input('m').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_move_mode_to_branch_mode_003.svg"
+    tui.input('j');
+    tui.input(' ');
+    tui.input('j');
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/move_multiple_commits_to_new_branch_001.svg"
+    ]);
+    tui.input('m');
+    tui.input('k');
+    tui.input('k');
+    tui.input('k').assert_rendered_term_svg_eq(file![
+        "snapshots/move_multiple_commits_to_new_branch_002.svg"
     ]);
     tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switch_from_move_mode_to_branch_mode_004.svg"
+        "snapshots/move_multiple_commits_to_new_branch_003.svg"
     ]);
-    tui.input(KeyCode::Esc);
+}
+
+#[test]
+fn committed_file_roundtrips_through_squash_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-files");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('d');
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input('m').assert_rendered_term_svg_eq(file![
+        "snapshots/committed_file_roundtrips_through_squash_mode_001.svg"
+    ]);
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/committed_file_roundtrips_through_squash_mode_002.svg"
+    ]);
+    tui.input('m');
+    tui.input('k')
+        .assert_current_line_eq(str!["┊│   << move file above >>[..]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/committed_file_roundtrips_through_squash_mode_003.svg"
+        ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/committed_file_roundtrips_through_squash_mode_004.svg"
+    ]);
+}
+
+#[test]
+fn marked_committed_files_roundtrip_through_squash_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-files");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('d');
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input(' ');
+    tui.input(' ');
+    tui.input('m').assert_rendered_term_svg_eq(file![
+        "snapshots/marked_committed_files_roundtrip_through_squash_mode_001.svg"
+    ]);
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/marked_committed_files_roundtrip_through_squash_mode_002.svg"
+    ]);
+    tui.input('m');
+    tui.input('k');
+    tui.input('k')
+        .assert_current_line_eq(str!["┊│   << move files above >>[..]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marked_committed_files_roundtrip_through_squash_mode_003.svg"
+        ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/marked_committed_files_roundtrip_through_squash_mode_004.svg"
+    ]);
+}
+
+#[test]
+fn move_committed_files_to_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input('m')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_commit_001.svg"]);
+    tui.input('k')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_commit_002.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_commit_003.svg"]);
+}
+
+#[test]
+fn move_committed_files_to_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input('m')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_branch_001.svg"]);
+    tui.input('k');
+    tui.input('k')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_branch_002.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_branch_003.svg"]);
+}
+
+#[test]
+fn move_committed_files_to_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input('m').assert_rendered_term_svg_eq(file![
+        "snapshots/move_committed_files_to_new_branch_001.svg"
+    ]);
+    tui.input('k');
+    tui.input('k').assert_rendered_term_svg_eq(file![
+        "snapshots/move_committed_files_to_new_branch_002.svg"
+    ]);
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/move_committed_files_to_new_branch_003.svg"
+    ]);
+}
+
+#[test]
+fn move_committed_files_to_unstacked_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input('m').assert_rendered_term_svg_eq(file![
+        "snapshots/move_committed_files_to_unstacked_branch_001.svg"
+    ]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/move_committed_files_to_unstacked_branch_002.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/move_committed_files_to_unstacked_branch_003.svg"
+    ]);
+}
+
+#[test]
+fn move_two_files_to_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-files");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('d');
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input(' ');
+    tui.input(' ');
+    tui.input('m')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_commit_001.svg"]);
+    tui.input('k');
+    tui.input('k')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_commit_002.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_commit_003.svg"]);
+}
+
+#[test]
+fn move_two_files_to_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-files");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('d');
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input(' ');
+    tui.input(' ');
+    tui.input('m')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_branch_001.svg"]);
+    tui.input('k');
+    tui.input('k');
+    tui.input('k')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_branch_002.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_branch_003.svg"]);
+}
+
+#[test]
+fn move_two_files_to_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-files");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('d');
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input(' ');
+    tui.input(' ');
+    tui.input('m')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_new_branch_001.svg"]);
+    tui.input('k');
+    tui.input('k');
+    tui.input('k')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_new_branch_002.svg"]);
+    tui.input('b')
+        .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_new_branch_003.svg"]);
+}
+
+#[test]
+fn move_two_files_to_unstacked_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-files");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('d');
+    tui.input('j');
+    tui.input('j');
+    tui.input('f');
+    tui.input(' ');
+    tui.input(' ');
+    tui.input('m').assert_rendered_term_svg_eq(file![
+        "snapshots/move_two_files_to_unstacked_branch_001.svg"
+    ]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/move_two_files_to_unstacked_branch_002.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/move_two_files_to_unstacked_branch_003.svg"
+    ]);
 }

@@ -18,6 +18,8 @@ const DEFAULT_ALIASES: &[(&str, &str)] = &[
     ("s", "squash"),
     ("m", "move"),
     ("wt", "worktree"),
+    ("b", "branch"),
+    ("sw", "switch"),
 ];
 
 /// Attempts to expand `potential_alias`.

@@ -59,7 +59,7 @@
 </tspan>
     <tspan x="10px" y="334px"><tspan>┊</tspan><tspan class="fg-green">●</tspan><tspan> </tspan><tspan class="dimmed">8dc508f</tspan><tspan> (upstream: origin/main) 1 new commit</tspan>
 </tspan>
-    <tspan x="10px" y="352px"><tspan>├╯ </tspan><tspan class="dimmed">8dc508f</tspan><tspan> (common base) </tspan><tspan class="dimmed">2000-01-02</tspan><tspan> M-advanced</tspan>
+    <tspan x="10px" y="352px"><tspan>├╯ </tspan><tspan class="dimmed">8dc508f</tspan><tspan> (common base, main, origin/main) </tspan><tspan class="dimmed">2000-01-02</tspan><tspan> M-advanced</tspan>
 </tspan>
     <tspan x="10px" y="370px">
 </tspan>

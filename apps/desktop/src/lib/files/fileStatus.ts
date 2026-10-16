@@ -1,4 +1,4 @@
-import { type FileStatus } from "@gitbutler/ui/components/file/types";
+import { type FileStatus } from "@gitbutler/ui-svelte/components/file/types";
 import type { TreeChange } from "@gitbutler/but-sdk";
 
 export function computeChangeStatus(change: TreeChange): FileStatus {

@@ -26,10 +26,12 @@
     <text x="10" y="132" style="fill:#CCCCCC;">┴</text>
     <text x="26 34 42 50 58 66 74" y="132" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
     <text x="90 98 106 114 122 130 138" y="132" style="fill:#CCCCCC;">(common</text>
-    <text x="154 162 170 178 186" y="132" style="fill:#CCCCCC;">base)</text>
-    <text x="202 210 218 226 234 242 250 258 266 274" y="132" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
-    <text x="290 298 306" y="132" style="fill:#CCCCCC;">add</text>
-    <text x="322" y="132" style="fill:#CCCCCC;">M</text>
+    <text x="154 162 170 178 186" y="132" style="fill:#CCCCCC;">base,</text>
+    <text x="202 210 218 226 234" y="132" style="fill:#CCCCCC;">main,</text>
+    <text x="250 258 266 274 282 290 298 306 314 322 330 338" y="132" style="fill:#CCCCCC;">origin/main)</text>
+    <text x="354 362 370 378 386 394 402 410 418 426" y="132" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
+    <text x="442 450 458" y="132" style="fill:#CCCCCC;">add</text>
+    <text x="474" y="132" style="fill:#CCCCCC;">M</text>
     <text x="546 554 562 570 578 586 594 602 610 618 626 634 642 650 658 666 674 682 690 698 706 714 722 730 738 746 754 762 770 778 786 794" y="204" style="fill:#AA0000;">┌──────────────────────────────┐</text>
     <text x="546" y="222" style="fill:#AA0000;">│</text>
     <text x="562 570 578 586 594 602 610 618 626 634 642 650 658 666 674" y="222" style="fill:#CCCCCC;">context-level-3</text>

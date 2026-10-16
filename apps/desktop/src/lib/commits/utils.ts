@@ -1,4 +1,4 @@
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import type { DiffSpec, HunkAssignment } from "@gitbutler/but-sdk";
 import type { TreeChange } from "@gitbutler/but-sdk";
 

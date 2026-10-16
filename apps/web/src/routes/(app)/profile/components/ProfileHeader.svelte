@@ -1,5 +1,12 @@
 <script lang="ts">
-	import { Button, CardGroup, ProfilePictureUpload, Spacer, Textbox, Toggle } from "@gitbutler/ui";
+	import {
+		Button,
+		CardGroup,
+		ProfilePictureUpload,
+		Spacer,
+		Textbox,
+		Toggle,
+	} from "@gitbutler/ui-svelte";
 	import type { User, UserService } from "$lib/user/userService";
 
 	interface Props {

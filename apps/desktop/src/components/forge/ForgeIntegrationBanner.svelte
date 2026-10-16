@@ -8,7 +8,7 @@
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-	import { Button, Link } from "@gitbutler/ui";
+	import { Button, Link } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		projectId: string;

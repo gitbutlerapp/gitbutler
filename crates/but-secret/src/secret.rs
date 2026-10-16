@@ -55,9 +55,13 @@ fn annotate_keychain_error(err: anyhow::Error) -> anyhow::Error {
         // This is fine, except for when we might be dependent on the locale.
         // If this is an issue, actually test this.
         if err_string.contains(" org.freedesktop.secrets ")
+            || err_string.contains("no secret service provider or dbus session found")
             // This is supposed to prevent the DBus-Error to trigger a popup on CI which disturbs E2E tests.
             // Ideally, e2e could be made to auto-confirm this particular message after a timeout, maybe?
-            || (!cfg!(debug_assertions) && err_string.contains("DBus error"))
+            || (!cfg!(debug_assertions)
+                && ["zbus error", "zbus fdo error"]
+                    .iter()
+                    .any(|prefix| err_string.contains(prefix)))
         {
             // Attach an explicit, stable message alongside the Code so the
             // frontend/telemetry see a human-readable label instead of the raw
@@ -67,7 +71,7 @@ fn annotate_keychain_error(err: anyhow::Error) -> anyhow::Error {
                 but_error::Code::SecretKeychainNotFound,
                 "System keychain is not available",
             ));
-        } else if err_string.contains("Secret Service: no result found") {
+        } else if err_string.contains("SS error: result not returned from SS API") {
             return err.context(but_error::Context::new_static(
                 but_error::Code::MissingLoginKeychain,
                 "Login keychain is missing",
@@ -84,6 +88,54 @@ fn annotate_keychain_error(err: anyhow::Error) -> anyhow::Error {
         but_error::Code::Unknown,
         "System keychain access failed",
     ))
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::annotate_keychain_error;
+    use but_error::{Code, Context};
+
+    #[test]
+    fn missing_login_keychain_from_secret_service() {
+        let err =
+            annotate_keychain_error(anyhow::anyhow!("SS error: result not returned from SS API"));
+        assert_eq!(
+            err.downcast_ref::<Context>().unwrap().code,
+            Code::MissingLoginKeychain,
+            "a missing Secret Service collection must retain its stable error code"
+        );
+    }
+
+    #[test]
+    fn dbus_errors_keep_build_specific_classification() {
+        for message in [
+            "zbus error: connection refused",
+            "zbus fdo error: connection refused",
+        ] {
+            let err = annotate_keychain_error(anyhow::anyhow!(message));
+            assert_eq!(
+                err.downcast_ref::<Context>().unwrap().code,
+                if cfg!(debug_assertions) {
+                    Code::Unknown
+                } else {
+                    Code::SecretKeychainNotFound
+                },
+                "D-Bus errors must retain the release-only keychain classification"
+            );
+        }
+    }
+
+    #[test]
+    fn unavailable_secret_service() {
+        let err = annotate_keychain_error(anyhow::anyhow!(
+            "no secret service provider or dbus session found"
+        ));
+        assert_eq!(
+            err.downcast_ref::<Context>().unwrap().code,
+            Code::SecretKeychainNotFound,
+            "an unavailable Secret Service must keep its stable error code"
+        );
+    }
 }
 
 /// Delete the secret at `handle` permanently from `namespace`.
@@ -136,6 +188,134 @@ fn entry_for(handle: &str, namespace: Namespace) -> Result<keyring::Entry> {
 
 /// How to further specialize secrets to avoid name clashes in the globally shared keystore.
 static NAMESPACE: Mutex<String> = Mutex::new(String::new());
+
+/// A simple file-based credentials store where each key maps to a filepath with a file containing
+/// only the value. As the amount of credentials is generally small, this gives a very simple
+/// concurrency model.
+///
+/// This is only available on Linux and is only meant to be used for the `but` CLI, with the
+/// intention of more easily supporting headless Linux runtimes that most often lack a
+/// D-Bus-connected Secret Service.
+#[cfg(target_os = "linux")]
+pub mod file_credentials {
+    use std::{
+        any::Any,
+        fs::{DirBuilder, metadata, read_to_string, remove_file},
+        io,
+        os::unix::fs::{DirBuilderExt, MetadataExt},
+        path::{Path, PathBuf},
+    };
+
+    use anyhow::{bail, ensure};
+    use keyring::credential::{CredentialApi, CredentialBuilderApi};
+    use sha2::{Digest, Sha256};
+
+    struct Entry(PathBuf);
+
+    impl AsRef<Path> for Entry {
+        fn as_ref(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl CredentialApi for Entry {
+        fn set_password(&self, password: &str) -> keyring::Result<()> {
+            but_utils::write(self.as_ref(), password)
+                .map_err(|err| keyring::Error::PlatformFailure(err.into_boxed_dyn_error()))?;
+            Ok(())
+        }
+
+        fn get_password(&self) -> keyring::Result<String> {
+            let content = read_to_string(self.as_ref()).map_err(|err| match err.kind() {
+                io::ErrorKind::NotFound => keyring::Error::NoEntry,
+                _ => keyring::Error::PlatformFailure(err.into()),
+            })?;
+            Ok(content)
+        }
+
+        fn set_secret(&self, _password: &[u8]) -> keyring::Result<()> {
+            unreachable!("unused")
+        }
+
+        fn get_secret(&self) -> keyring::Result<Vec<u8>> {
+            unreachable!("unused")
+        }
+
+        fn delete_credential(&self) -> keyring::Result<()> {
+            remove_file(self.as_ref()).map_err(|err| match err.kind() {
+                io::ErrorKind::NotFound => keyring::Error::NoEntry,
+                _ => keyring::Error::PlatformFailure(err.into()),
+            })
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    pub(super) struct Builder {
+        pub(super) store: PathBuf,
+    }
+
+    impl CredentialBuilderApi for Builder {
+        fn build(
+            &self,
+            _target: Option<&str>,
+            service: &str,
+            _user: &str,
+        ) -> keyring::Result<Box<keyring::Credential>> {
+            // Turn into hex to make the key guaranteed to be path safe
+            let handle_hex = Sha256::digest(service);
+            let path = self.store.join(format!("{handle_hex:x}"));
+            Ok(Box::new(Entry(path)))
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    pub fn setup<P: AsRef<Path>>(credentials_directory: P) -> anyhow::Result<()> {
+        let mut builder = DirBuilder::new();
+        builder.recursive(true).mode(0o700);
+        builder.create(&credentials_directory)?;
+
+        let stat = metadata(&credentials_directory)?;
+        ensure!(
+            stat.is_dir(),
+            "Successfully created a directory at {:?} - must be a directory!",
+            credentials_directory.as_ref()
+        );
+
+        let euid = nix::unistd::Uid::effective().as_raw();
+        let dir_uid = stat.uid();
+        if dir_uid != euid {
+            bail!(
+                "Bad owner {dir_uid} of credentials directory {:?}. Must be owned by current user {euid}.",
+                credentials_directory.as_ref()
+            );
+        }
+
+        // If the directory already existed OR there is a umask restriction on the owner's bits, it
+        // may not have the correct permissions. We don't want to change the permissions of an
+        // existing directory nor forcibly override a umask, but the app won't work properly if we
+        // don't have rwx on the credentials directory and we don't want to store secrets in it if
+        // there are overly permissive permissions. So we bail with an informative error.
+        let mode = stat.mode();
+        if (mode & 0o777) != 0o700 {
+            bail!(
+                "Bad permissions 0{mode:o} on credentials directory {:?}. Must be 0700.",
+                credentials_directory.as_ref()
+            )
+        }
+
+        let builder = Builder {
+            store: credentials_directory.as_ref().to_owned(),
+        };
+        keyring::set_default_credential_builder(Box::new(builder));
+        Ok(())
+    }
+}
 
 /// A keystore that uses git-credentials under to hood. It's useful on Systems that nag the user
 /// with popups if the underlying binary changes, and is available if `git` can be found and executed.

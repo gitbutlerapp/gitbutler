@@ -1,5 +1,5 @@
 import styles from "./GraphSegment.module.css";
-import { classes } from "#ui/components/classes.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { GRAPH_COMMIT_BEND_PADDING, GRAPH_LANE_WIDTH } from "./graph-spacing.ts";
 import type { ComponentProps, FC } from "react";
 import type { CommitState } from "@gitbutler/but-sdk";
@@ -55,7 +55,7 @@ const passes = (behind: number, folded = false) =>
 		column === 0 ? (
 			<svg
 				key={column}
-				className={classes(styles.edgePass, folded && styles.edgePassFading)}
+				className={classes(styles.edgePass, styles.trunk, folded && styles.edgePassFading)}
 				style={trunkStyle}
 				viewBox={`0 0 ${GRAPH_LANE_WIDTH} 28`}
 				preserveAspectRatio="none"
@@ -84,7 +84,10 @@ const commitGlyph = (
 ) => (
 	<>
 		{fromTrunk ? (
-			<g transform={`translate(16 ${-GRAPH_COMMIT_BEND_PADDING}) scale(-1 1)`}>
+			<g
+				className={styles.trunk}
+				transform={`translate(16 ${-GRAPH_COMMIT_BEND_PADDING}) scale(-1 1)`}
+			>
 				<Tone status={above} d={bendPath(11 + GRAPH_COMMIT_BEND_PADDING)} />
 			</g>
 		) : (
@@ -193,8 +196,13 @@ interface GraphSegmentProps extends ComponentProps<"span"> {
 	fromTrunk?: boolean;
 	/** How many columns of the main line run behind the row, left of the glyph. */
 	behind?: number;
+	/** The glyph is the trunk's own, or a leg onto it, and goes when the trunk is hidden. */
+	trunk?: boolean;
 }
 
+/**
+ * @import import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+ */
 export const GraphSegment: FC<GraphSegmentProps> = ({
 	glyph,
 	className,
@@ -206,12 +214,13 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 	below,
 	fromTrunk = false,
 	behind = 0,
+	trunk = false,
 	...props
 }) => (
 	// Spans throughout: the segment sits in buttons and spans, which take phrasing content only.
 	<span {...props} className={classes(className, styles.container)} data-status={status}>
 		{passes(behind, folded)}
-		<span className={styles.glyph}>
+		<span className={classes(styles.glyph, trunk && styles.trunk)}>
 			<svg
 				className={classes(
 					styles.mainSegment,
@@ -301,8 +310,8 @@ const edgePaths = {
  * run or the bend at its head and no glyph. Rows on it carry no inset.
  */
 export const GraphEdge: FC<{ glyph: keyof typeof edgePaths }> = ({ glyph }) => (
-	<span className={styles.container} data-status="LocalOnly">
-		<span className={classes(styles.glyph, styles.edge)}>
+	<span className={classes(styles.container, styles.edge)} data-status="LocalOnly">
+		<span className={styles.glyph}>
 			<svg
 				className={styles.mainSegment}
 				viewBox="0 0 8 28"
@@ -343,6 +352,7 @@ export const GraphGap: FC<{
 		{passes(behind)}
 		<svg
 			viewBox={`0 0 28 ${height}`}
+			className={behind === 0 ? styles.trunk : undefined}
 			style={behind === 0 ? gapInsetStyle : undefined}
 			width="28"
 			height={height}
@@ -353,6 +363,35 @@ export const GraphGap: FC<{
 		>
 			<Tone status="LocalOnly" d={`M8 0V${height}`} />
 			{bend !== undefined && <Tone status={bend} d={bendPath(height)} />}
+		</svg>
+	</div>
+);
+
+/**
+ * The trunk through something whose height is its content's, not a fixed gap: the gap's line,
+ * stretched to the height beside it. `vector-effect` keeps the stroke 1.5 however far it stretches.
+ */
+export const GraphRail: FC = () => (
+	<div className={classes(styles.gap, styles.rail, styles.trunk)} aria-hidden>
+		<svg
+			viewBox="0 0 28 1"
+			preserveAspectRatio="none"
+			style={gapInsetStyle}
+			width="28"
+			height="100%"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+			aria-hidden="true"
+			focusable="false"
+		>
+			<g className={styles.tone} data-status="LocalOnly">
+				<path
+					className={styles.line}
+					d="M8 0V1"
+					strokeWidth="1.5"
+					vectorEffect="non-scaling-stroke"
+				/>
+			</g>
 		</svg>
 	</div>
 );

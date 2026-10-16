@@ -2,7 +2,7 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import type { FC } from "react";
 import { appSettingsQueryOptions, guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { useSaveGUISettings, useUpdateFeatureFlags } from "#ui/api/mutations.ts";
-import { Switch } from "#ui/components/Switch.tsx";
+import { Switch } from "@gitbutler/ui-react/Switch.tsx";
 import { defaultSettings } from "#ui/settings.ts";
 import { Row, Section } from "./Section.tsx";
 
@@ -25,32 +25,6 @@ export const Experimental: FC = () => {
 					aria-labelledby="comment-annotations"
 					checked={settings.commentAnnotations ?? defaultSettings.commentAnnotations}
 					onCheckedChange={(commentAnnotations) => saveGUISettings({ commentAnnotations })}
-				/>
-			</Row>
-
-			<Row
-				label="Preview while dragging"
-				labelId="dry-run-operations"
-				hint="Shows a drag's outcome, such as a conflict, before you drop it. Slows dragging."
-			>
-				<Switch
-					size="large"
-					aria-labelledby="dry-run-operations"
-					checked={settings.dryRunOperations ?? defaultSettings.dryRunOperations}
-					onCheckedChange={(dryRunOperations) => saveGUISettings({ dryRunOperations })}
-				/>
-			</Row>
-
-			<Row
-				label="Minimap"
-				labelId="minimap"
-				hint="A map of the diff down the right-hand edge, standing in for the scrollbar."
-			>
-				<Switch
-					size="large"
-					aria-labelledby="minimap"
-					checked={settings.minimap ?? defaultSettings.minimap}
-					onCheckedChange={(minimap) => saveGUISettings({ minimap })}
 				/>
 			</Row>
 

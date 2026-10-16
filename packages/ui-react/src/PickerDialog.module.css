@@ -1,0 +1,136 @@
+.popup {
+	max-height: min(36rem, calc(100dvh - 5rem));
+}
+
+.listArea {
+	box-sizing: border-box;
+	flex: 0 1 auto;
+	max-height: min(60dvh, 24rem);
+}
+
+.listViewport {
+	scroll-padding-block: 0.25rem;
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: -1px;
+	}
+}
+
+.list {
+	box-sizing: border-box;
+	position: relative;
+
+	&:empty {
+		padding: 0;
+	}
+}
+
+.listContent {
+	min-width: 100%;
+}
+
+.virtualContainer {
+	position: relative;
+}
+
+/* A `PopupItem`'s metrics, laid out as a grid because the type sits at the far end of the row. */
+.item {
+	box-sizing: border-box;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	min-height: 28px;
+	/* Inset from the list's edge, the way a `PopupSection` insets the rows it holds. A heading
+	   stays flush and reaches its 10px in with padding, so it and the labels under it stagger the
+	   2px the design gives them. */
+	margin-inline: var(--padding-menu);
+	padding-inline: 8px;
+	gap: 8px;
+	border-radius: var(--radius-control);
+	outline: 0;
+	font-size: 13px;
+	scroll-margin-block: var(--padding-menu);
+	user-select: none;
+
+	&[data-highlighted] {
+		background-color: var(--bg-hover);
+	}
+}
+
+.itemLabel {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.itemType {
+	color: var(--text-3);
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+/* Loading and failing stay one line where the rows would be: neither is a surface at rest, and
+   neither gets the block a search that matched nothing does. */
+.status {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 8rem;
+	padding: 1rem;
+	color: var(--text-2);
+	font-size: 13px;
+}
+
+/* The keys the list answers to, held in view while the query keeps the focus. It stands on the
+   popup's own background rather than a recessed band — only the hairline divides it from the list.
+   A picker with an action of its own puts it at the far end. */
+.footer {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: space-between;
+	height: 36px;
+	padding-inline: 12px;
+	gap: 12px;
+	border-top: 1px solid var(--border-3);
+	background-color: var(--bg-2);
+}
+
+.hints {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: var(--text-2);
+	font-size: 12px;
+}
+
+/* A hint is one phrase. Broken over two lines it stops reading as a key and what it does, and the
+   bar has no room to grow into anyway. */
+.hint {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	white-space: nowrap;
+}
+
+/* The glyph is the quieter half: what it does is the part being read, the key is what you already
+   know how to press. `kbd` is monospace by default, and these sit in a line of prose. */
+.hintKey {
+	color: var(--text-3);
+	font: inherit;
+}
+
+.visuallyHiddenClose {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	border: 0;
+	white-space: nowrap;
+}

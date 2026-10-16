@@ -2,8 +2,8 @@
 	import { inject } from "@gitbutler/core/context";
 	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
 
-	import { Button, Modal, Textarea, Textbox, chipToasts } from "@gitbutler/ui";
-	import { slugify } from "@gitbutler/ui/utils/string";
+	import { Button, Modal, Textarea, Textbox, chipToasts } from "@gitbutler/ui-svelte";
+	import { slugify } from "@gitbutler/ui-svelte/utils/string";
 
 	interface Props {
 		organizationSlug: string;

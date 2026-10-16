@@ -1,0 +1,7 @@
+@import "@gitbutler/design-core/core";
+@import "../src/base.css";
+
+body {
+	background-color: var(--bg-1);
+	color: var(--text-1);
+}

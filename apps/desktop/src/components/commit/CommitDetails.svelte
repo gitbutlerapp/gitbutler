@@ -8,8 +8,8 @@
 	import { rejoinParagraphs, truncate } from "$lib/utils/string";
 	import { inject } from "@gitbutler/core/context";
 
-	import { Avatar, CopyButton, TestId, TimeAgo, Tooltip } from "@gitbutler/ui";
-	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import { Avatar, CopyButton, TestId, TimeAgo, Tooltip } from "@gitbutler/ui-svelte";
+	import { pxToRem } from "@gitbutler/ui-svelte/utils/pxToRem";
 	import type { Commit, UpstreamCommit } from "@gitbutler/but-sdk";
 
 	type Props = {

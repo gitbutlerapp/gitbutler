@@ -961,7 +961,6 @@ fn render_tree_changes_with_id(
                 let mut id_gen = id_gen.scoped("hunks");
                 let hunk_id = id_gen.new_id(0);
 
-                // TODO need cli ID for TUI selection to work
                 render_hunk_path_header(
                     hunk_id,
                     None,
@@ -1587,9 +1586,7 @@ mod tests {
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
-                    | CliId::Uncommitted { .. }
-                    | CliId::Worktree { .. }
-                    | CliId::WorktreeUncommitted { .. }
+                    | CliId::UncommittedArea { .. }
                     | CliId::Stack { .. } => None,
                 },
                 DetailsLine::Text { .. }

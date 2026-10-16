@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { InfoMessage } from "@gitbutler/ui";
+	import { InfoMessage } from "@gitbutler/ui-svelte";
 
 	// Number of events received.
 	let count = $state(0);

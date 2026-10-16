@@ -25,12 +25,11 @@ use crate::{
             },
         },
     },
-    id::UncommittedHunkOrFile,
+    id::{LaneId, UncommittedHunkOrFile},
     tui::TerminalGuard,
     utils::{
         change_source::{ChangeSourceId, UncommittedSelection},
         targeting::{self, Side},
-        worktrees::worktree_branch,
     },
 };
 
@@ -71,11 +70,9 @@ pub enum CommitSource {
 
 impl ModeRender for CommitMode {
     fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
-        let is_worktree_heading = matches!(data, StatusOutputLineData::Worktree { .. });
         let direction = if matches!(data, StatusOutputLineData::Commit { .. }) {
             self.insert_side.into()
-        } else if matches!(data, StatusOutputLineData::Branch { .. }) || is_worktree_heading {
-            // Below the heading is the top of the worktree's lane, which is where the commit goes.
+        } else if matches!(data, StatusOutputLineData::Branch { .. }) {
             ExtensionDirection::Below
         } else {
             return None;
@@ -141,24 +138,42 @@ impl CommitSource {
         }
     }
 
-    fn try_from_cli_id(id: &CliId) -> Option<Self> {
-        match id {
-            CliId::Branch(..) | CliId::Commit { .. } | CliId::Uncommitted { .. } => {
-                Some(CommitSource::UncommittedArea(ChangeSourceId::Head))
+    fn try_from_cli_id(id: &CliId, ctx: &Context) -> anyhow::Result<Option<CommitSource>> {
+        Ok(match id {
+            // A worktree lane's rows offer the area whose changes land on that lane by default,
+            // the way a stack's branch row offers the main area: `c` then confirm on it commits
+            // the worktree's own changes, never another worktree's.
+            CliId::Branch(..) | CliId::AnonymousSegment(..)
+                if let Some(name) = id.lane().and_then(LaneId::worktree_name) =>
+            {
+                Some(CommitSource::UncommittedArea(ChangeSourceId::Worktree(
+                    name.to_owned(),
+                )))
             }
+            CliId::Commit { commit, id: _ } => {
+                let head_info = but_api::legacy::workspace::head_info(ctx)?;
+                Some(CommitSource::UncommittedArea(
+                    crate::utils::worktrees::commit_owner(&head_info, commit.commit_id),
+                ))
+            }
+            CliId::Branch(..)
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => Some(CommitSource::UncommittedArea(ChangeSourceId::Head)),
             CliId::UncommittedHunkOrFile(hunk) => Some(CommitSource::UncommittedHunk(hunk.clone())),
-            // The reference offers the area whose changes land on its lane by default, the way a
-            // branch row offers the main area: `c` then confirm on it commits the worktree's own
-            // changes, never another worktree's.
-            CliId::WorktreeUncommitted { name, .. } | CliId::Worktree { name, .. } => Some(
-                CommitSource::UncommittedArea(ChangeSourceId::Worktree(name.clone())),
-            ),
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            } => Some(CommitSource::UncommittedArea(ChangeSourceId::Worktree(
+                name.clone(),
+            ))),
             CliId::AnonymousSegment(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Stack { .. } => None,
-        }
+        })
     }
 }
 
@@ -187,9 +202,9 @@ impl App {
     {
         match message {
             CommitMessage::CreateEmpty => self.handle_commit_create_empty(ctx, messages)?,
-            CommitMessage::Start => self.handle_commit_start(messages),
+            CommitMessage::Start => self.handle_commit_start(messages, ctx)?,
             CommitMessage::StartWithSource(source) => {
-                if let Some(source) = CommitSource::try_from_cli_id(&source) {
+                if let Some(source) = CommitSource::try_from_cli_id(&source, ctx)? {
                     self.handle_commit_start_source(source);
                 }
             }
@@ -208,7 +223,11 @@ impl App {
         Ok(())
     }
 
-    fn handle_commit_start(&mut self, messages: &mut Vec<Message>) {
+    fn handle_commit_start(
+        &mut self,
+        messages: &mut Vec<Message>,
+        ctx: &Context,
+    ) -> anyhow::Result<()> {
         match &*self.mode {
             Mode::Normal(..) => {
                 if self.marks_ref().is_empty() {
@@ -216,9 +235,11 @@ impl App {
                         .cursor
                         .selected_line(&self.status_lines)
                         .and_then(|selection| selection.data.cli_id())
-                        .and_then(|id| CommitSource::try_from_cli_id(id))
+                        .map(|id| CommitSource::try_from_cli_id(id, ctx))
+                        .transpose()?
+                        .flatten()
                     else {
-                        return;
+                        return Ok(());
                     };
                     self.handle_commit_start_source(source);
                 } else {
@@ -228,7 +249,7 @@ impl App {
             Mode::Details(details_mode) => match details_mode.return_mode.marks() {
                 MarksRef::Empty => {
                     let Some(selection) = self.details.selected_section_cli_id() else {
-                        return;
+                        return Ok(());
                     };
                     if details_mode.full_screen {
                         messages.push(Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit));
@@ -252,10 +273,8 @@ impl App {
                 | MarksRef::Branches { .. } => {}
             },
             Mode::Squash(squash_mode) => match &squash_mode.source {
-                SquashSource::Uncommitted => {
-                    self.handle_commit_start_source(CommitSource::UncommittedArea(
-                        ChangeSourceId::Head,
-                    ));
+                SquashSource::Uncommitted(source) => {
+                    self.handle_commit_start_source(CommitSource::UncommittedArea(source.clone()));
                 }
                 SquashSource::UncommittedHunk(hunk) => {
                     self.handle_commit_start_source(CommitSource::UncommittedHunk(hunk.clone()));
@@ -274,6 +293,8 @@ impl App {
             },
             _ => {}
         }
+
+        Ok(())
     }
 
     fn handle_commit_start_source(&mut self, source: CommitSource) {
@@ -361,29 +382,23 @@ impl App {
         let target = match &**data {
             CliId::Branch(branch) => commit::CommitRelativeToTarget::BranchTip {
                 name: Category::LocalBranch.to_full_name(&*branch.name)?,
+                switch: false,
             },
             CliId::Commit { commit, id: _ } => commit::CommitRelativeToTarget::Commit {
                 commit: commit.clone(),
                 side: *insert_side,
             },
-            CliId::Worktree { name, .. } => {
-                let repo = ctx.repo.get()?;
-                commit::CommitRelativeToTarget::BranchTip {
-                    name: worktree_branch(&repo, name.as_ref())?,
-                }
-            }
             CliId::AnonymousSegment(..)
             | CliId::UncommittedHunkOrFile(..)
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
-            | CliId::Uncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
         let commit_op = commit::CommitOperation::CommitAt(commit::CommitAtOperation { target });
 
-        commit_with(ctx, terminal_guard, messages, mode, commit_op, false)?;
+        commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
 
         Ok(())
     }
@@ -411,15 +426,20 @@ impl App {
         };
 
         let commit_op = match &**data {
-            CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => {
-                commit::CommitOperation::CommitToNewBranch(commit::CommitToNewBranchOperation {
-                    branch_name: None,
-                })
-            }
+            CliId::UncommittedHunkOrFile(..)
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            } => commit::CommitOperation::CommitToNewBranch(commit::CommitToNewBranchOperation {
+                branch_name: None,
+                switch: false,
+            }),
             CliId::Branch(branch) => commit::CommitOperation::CommitAt(commit::CommitAtOperation {
                 target: commit::CommitRelativeToTarget::BranchBucket {
                     name: Category::LocalBranch.to_full_name(&*branch.name)?,
                     side: targeting::Side::Above,
+                    new_branch_name: None,
+                    switch: false,
                 },
             }),
 
@@ -428,19 +448,14 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::Worktree { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(_),
+                ..
+            }
             | CliId::Stack { .. } => return Ok(()),
         };
 
-        commit_with(
-            ctx,
-            terminal_guard,
-            messages,
-            mode,
-            commit_op,
-            commit::should_stack_on_head(&self.operating_mode),
-        )?;
+        commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
 
         Ok(())
     }
@@ -491,7 +506,6 @@ fn commit_with<T>(
     messages: &mut Vec<Message>,
     mode: &CommitMode,
     commit_op: commit::CommitOperation,
-    stack_on_head: bool,
 ) -> anyhow::Result<()>
 where
     T: TerminalGuard,
@@ -552,7 +566,6 @@ where
         &mut meta,
         guard.write_permission(),
         commit_op,
-        stack_on_head,
         commit_selection,
         reword_op,
     )?;

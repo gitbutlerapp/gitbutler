@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Modal, TestId } from "@gitbutler/ui";
+	import { Button, Modal, TestId } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		projectTitle?: string;

@@ -1,6 +1,9 @@
 use snapbox::str;
 
-use crate::utils::{CommandExt, Sandbox};
+use crate::{
+    command::util,
+    utils::{CommandExt, Sandbox},
+};
 
 #[test]
 fn rejects_unnamed_segment_as_anchor() {
@@ -205,12 +208,9 @@ fn in_single_branch_mode_creating_stacked_branches() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
-├╯
-┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
-Hint: run `but help` for all commands
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
@@ -232,10 +232,10 @@ Created branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle] (no commits)
+┊╭┄ mi [middle] [HEAD] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -257,12 +257,12 @@ Created branch 'bottom' below branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle] (no commits)
+┊╭┄ mi [middle] [HEAD] (no commits)
 ┊│
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -284,14 +284,14 @@ Created branch 'top' above branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top] (no commits)
+┊╭┄ to [top] [HEAD] (no commits)
 ┊│
 ┊├┄ mi [middle] (no commits)
 ┊│
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -313,7 +313,7 @@ Created branch 'between-middle-and-top' above branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top] (no commits)
+┊╭┄ to [top] [HEAD] (no commits)
 ┊│
 ┊├┄ et [between-middle-and-top] (no commits)
 ┊│
@@ -322,7 +322,7 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -349,12 +349,9 @@ fn in_single_branch_mode_create_new_branches_with_commits() {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
-├╯
-┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
-Hint: run `but help` for all commands
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
@@ -377,11 +374,11 @@ Created branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle]
+┊╭┄ mi [middle] [HEAD]
 ┊●   lsm on middle (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -406,14 +403,14 @@ Created branch 'top' above branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   qzl on top (no changes)
 ┊│
 ┊├┄ mi [middle]
 ┊●   lsm on middle (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -445,7 +442,7 @@ Created branch 'bottom' below branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   qzl on top (no changes)
 ┊│
 ┊├┄ mi [middle]
@@ -454,7 +451,7 @@ Created branch 'bottom' below branch 'middle'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -471,7 +468,7 @@ Hint: run `but help` for all commands
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   qzl on top (no changes)
 ┊│
 ┊├┄ mi [middle]
@@ -481,7 +478,7 @@ Hint: run `but help` for all commands
 ┊●   l#1 on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -506,7 +503,7 @@ Created branch 'between-middle-and-top' above branch 'middle'
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   qzl on top (no changes)
 ┊│
 ┊├┄ et [between-middle-and-top]
@@ -519,7 +516,7 @@ Created branch 'between-middle-and-top' above branch 'middle'
 ┊●   l#1 on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -570,7 +567,7 @@ Created branch 'a-branch-1'
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -593,7 +590,7 @@ Created branch 'one'
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -613,7 +610,7 @@ fn create_branch_above_empty_branch() {
 ┊╭┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -635,7 +632,7 @@ Created branch 'top' above branch 'bottom'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -659,7 +656,7 @@ Created branch 'middle' above branch 'bottom'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -680,7 +677,7 @@ fn create_branch_above_non_empty_branch() {
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -703,7 +700,7 @@ Created branch 'top' above branch 'bottom'
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -723,7 +720,7 @@ fn create_branch_below_empty_branch() {
 ┊╭┄ to [top] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -745,7 +742,7 @@ Created branch 'bottom' below branch 'top'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -769,7 +766,7 @@ Created branch 'middle' below branch 'top'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -790,7 +787,7 @@ fn create_branch_below_non_empty_branch() {
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -813,7 +810,7 @@ Created branch 'bottom' below branch 'top'
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -838,7 +835,7 @@ fn create_branch_above_commit() {
 ┊●   tqv bottom (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -863,7 +860,7 @@ Created branch 'a-branch-1' above commit uxw
 ┊●   tqv bottom (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -890,7 +887,7 @@ Created branch 'a-branch-2' above commit zou
 ┊●   tqv bottom (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -915,7 +912,7 @@ fn create_branch_below_commit() {
 ┊●   tqv bottom (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -940,7 +937,7 @@ Created branch 'a-branch-1' below commit uxw
 ┊●   tqv bottom (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -967,7 +964,7 @@ Created branch 'a-branch-2' below commit tqv
 ┊├┄ ra [a-branch-2] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -995,7 +992,7 @@ fn can_create_new_branches_above_merged_branches_but_not_below() {
 ├╯
 ┊
 ┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+├╯ 55165db (common base, main, origin/main) 2000-01-02 merge document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
@@ -1024,7 +1021,7 @@ Created branch 'a-branch-1' above branch 'document-but-pr-skill'
 ├╯
 ┊
 ┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+├╯ 55165db (common base, main, origin/main) 2000-01-02 merge document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
@@ -1088,7 +1085,7 @@ fn create_branch_using_old_anchor_flag() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -1110,7 +1107,7 @@ Hint: run `but branch new` to create a new branch to work on
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1134,12 +1131,9 @@ fn in_single_branch_mode_creating_new_independent_branch_takes_you_to_workspace_
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (no commits)
-├╯
-┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
 
-Hint: run `but help` for all commands
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 
@@ -1164,10 +1158,10 @@ Created branch 'one'
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one] (no commits)
+┊╭┄ on [one] [HEAD] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1186,8 +1180,7 @@ Created branch 'two'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8ad759d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+* cb1c5e1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, two, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1203,7 +1196,7 @@ Created branch 'two'
 ┊╭┄ on [one] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1215,8 +1208,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8ad759d (gitbutler/workspace) GitButler Workspace Commit
-|/
+* cb1c5e1 (gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (HEAD -> one, origin/main, origin/HEAD, two, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1226,10 +1218,10 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one] (no commits)
+┊╭┄ on [one] [HEAD] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1248,8 +1240,7 @@ Created branch 'three'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 9e991f4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+* 31c5e9f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, two, three, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1263,9 +1254,11 @@ Created branch 'three'
 ├╯
 ┊
 ┊╭┄ on [one] (no commits)
+┊│
+┊├┄ tw [two] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1285,12 +1278,12 @@ fn in_single_branch_mode_switching_to_stacked_branches_works() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle] (no commits)
+┊╭┄ mi [middle] [HEAD] (no commits)
 ┊│
 ┊├┄ bo [bottom] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1310,10 +1303,10 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ bo [bottom] (no commits)
+┊╭┄ bo [bottom] [HEAD] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1337,9 +1330,11 @@ Hint: run `but help` for all commands
 ├╯
 ┊
 ┊╭┄ bo [bottom] (no commits)
+┊│
+┊├┄ mi [middle] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1348,8 +1343,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 10e74ab (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+* be30254 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (origin/main, origin/HEAD, new-branch, middle, main, gitbutler/target, bottom) M
 * e31e6ca add init
 
@@ -1378,14 +1372,14 @@ fn in_single_branch_mode_switching_to_stacked_branches_with_commits_works() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ mi [middle]
+┊╭┄ mi [middle] [HEAD]
 ┊●   ylm on middle (no changes)
 ┊│
 ┊├┄ bo [bottom]
 ┊●   lsm on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1407,11 +1401,11 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ bo [bottom]
+┊╭┄ bo [bottom] [HEAD]
 ┊●   lsm on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1445,7 +1439,7 @@ Hint: run `but help` for all commands
 ┊●   l#1 on bottom (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1454,7 +1448,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   4fe5ec0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   799076d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 * | 1c8b0db (new-branch) on new-branch
 | | * c5ca33e (middle) on middle
@@ -1477,10 +1471,10 @@ fn in_single_branch_mode_creating_and_switching_to_new_branches() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one] (no commits)
+┊╭┄ on [one] [HEAD] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1500,10 +1494,10 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ tw [two] (no commits)
+┊╭┄ tw [two] [HEAD] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1529,11 +1523,11 @@ fn in_single_branch_mode_creating_and_switching_to_new_branches_with_commits() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ on [one]
+┊╭┄ on [one] [HEAD]
 ┊●   lsm on one (no changes)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1554,10 +1548,10 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ tw [two] (no commits)
+┊╭┄ tw [two] [HEAD] (no commits)
 ├╯
 ┊
-┴ b1540e5 (common base) 2000-01-02 M
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 
@@ -1583,10 +1577,10 @@ fn in_workspace_mode_creating_and_switching_to_new_branches() {
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1] (no commits)
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1595,11 +1589,10 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   6afce52 (gitbutler/workspace) GitButler Workspace Commit
-|/ /  
-| | * 9477ae7 (A) add A
-| |/  
-* / d3e2ba3 (B) add B
+*   c128bce (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 9477ae7 (A) add A
+* | d3e2ba3 (B) add B
 |/  
 * 0dc3733 (HEAD -> a-branch-1, origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -1611,10 +1604,10 @@ Hint: run `but help` for all commands
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-2] (no commits)
+┊╭┄ br [a-branch-2] [HEAD] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1623,14 +1616,224 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   6afce52 (gitbutler/workspace) GitButler Workspace Commit
-|/ /  
-| | * 9477ae7 (A) add A
-| |/  
-* / d3e2ba3 (B) add B
+*   c128bce (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 9477ae7 (A) add A
+* | d3e2ba3 (B) add B
 |/  
 * 0dc3733 (HEAD -> a-branch-2, origin/main, origin/HEAD, main, gitbutler/target, a-branch-1) add M
 
 "#]]
     );
+}
+
+#[test]
+fn switching_back_after_creating_an_independent_branch_restores_workspace() {
+    let env = Sandbox::open_with_default_settings("two-stacks");
+    env.setup_metadata(&["B", "A"]);
+    env.but("branch new example --switch").assert().success();
+    env.but("switch --workspace").assert().success();
+    // Returning restores the previous branches and adds the independent branch last.
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ ex [example] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn places_a_branch_in_a_worktree_lane() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt = util::add_worktree_with_commit(&env, "wt-feature", "A");
+    but_testsupport::invoke_bash_at_dir("echo more >>wt-file.txt && git commit -qam 'add W2'", &wt);
+    let w1 = env.invoke_git("rev-parse wt-feature~1");
+
+    env.but(format!("branch new wt-lower --above {w1}"))
+        .assert()
+        .success();
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature]
+┊┊●   luv add W2
+┊┊│
+┊┊├┄ lo [wt-lower]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // A new branch can't share a commit with a worktree's branch until worktrees can order them.
+    env.but("branch new wt-upper --above wt-feature")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: failed to create reference. anchor=AtSegment { ref_name: FullNameRef("refs/heads/wt-feature"), position: Above }; new_ref=FullName("refs/heads/wt-upper")
+
+Caused by:
+    Cannot place 'wt-upper' relative to worktree branch 'wt-feature': branches can't be ordered in worktrees yet
+
+"#]])
+        .stdout_eq(str![]);
+}
+
+#[test]
+fn an_unstacked_branch_is_refused_from_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt = util::add_worktree_with_commit(&env, "wt-feature", "A");
+    but_testsupport::invoke_bash_at_dir("echo more >>wt-file.txt && git commit -qam 'add W2'", &wt);
+    let w1 = env.invoke_git("rev-parse wt-feature~1");
+
+    env.but("branch new unstacked")
+        .current_dir(&wt)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot create an unstacked branch from worktree wt-feature
+
+Hint: Use `--above` or `--below` to place it, or `but worktree new` for a new worktree
+
+"#]]);
+
+    env.but("branch new unstacked --switch")
+        .current_dir(&wt)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot create an unstacked branch from worktree wt-feature
+
+Hint: Use `--above` or `--below` to place it, or `but worktree new` for a new worktree
+
+"#]]);
+
+    env.but(format!("branch new wt-lower --above {w1}"))
+        .current_dir(&wt)
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Created branch 'wt-lower' above commit nsn
+
+"#]]);
+}
+
+#[test]
+fn an_unstacked_branch_is_refused_from_an_unmanaged_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    let wt = util::add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("branch new unstacked")
+        .current_dir(&wt)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot create an unstacked branch from worktree wt-feature
+
+Hint: Use `--above` or `--below` to place it, or `but worktree new` for a new worktree
+
+"#]]);
+}
+
+#[test]
+fn switching_between_empty_stacked_branches() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("branch new A").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("branch new B --above A").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B] [HEAD] (no commits)
+┊│
+┊├┄ h0 [A] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch A").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("switch main").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
 }

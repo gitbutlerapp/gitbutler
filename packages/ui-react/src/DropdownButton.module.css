@@ -1,0 +1,87 @@
+.dropdownButton {
+	display: inline-flex;
+	max-width: 100%;
+
+	/* The buttons drop the border and radius they'd otherwise carry between
+	   them, so the two read as one control split by the separator. Two classes
+	   deep so these win over Button's own chrome regardless of sheet order. */
+	> .action,
+	> .trigger {
+		overflow: hidden;
+	}
+
+	> .action {
+		flex: 1;
+		min-width: 0;
+		border-right: 0;
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+	}
+
+	> .trigger {
+		flex-shrink: 0;
+		border-left: 0;
+		border-start-start-radius: 0;
+		border-end-start-radius: 0;
+	}
+
+	/* Button fades a disabled one whole, fill included, which would split the
+	   control into two shades. A disabled half keeps the shared fill and fades
+	   only its label or icon. */
+	> :is(.action, .trigger):is(:disabled, [data-disabled]) {
+		color: color-mix(in srgb, var(--button-fg) 50%, transparent);
+		opacity: 1;
+	}
+
+	/* With both halves disabled the control fades as one, as a lone disabled
+	   Button does, seam included. */
+	&:not(:has(> :is(.action, .trigger):not(:disabled, [data-disabled]))) {
+		opacity: 0.5;
+
+		> :is(.action, .trigger) {
+			color: var(--button-fg);
+		}
+	}
+}
+
+/* Zero-width, so the halves meet edge to edge and keep their fill and border
+   unbroken; the rule hangs over the seam, inset from top and bottom. */
+.separator {
+	position: relative;
+	flex-shrink: 0;
+	width: 0;
+
+	&::before {
+		position: absolute;
+		inset-block: 5px;
+		left: 0;
+		width: 1px;
+		background-color: var(--dropdown-button-separator);
+		content: "";
+		transition: opacity var(--transition-fast);
+	}
+}
+
+/* A hovered half's fill already marks the seam at full height, so the rule
+   steps aside rather than sit on that edge as a stub. A disabled half keeps
+   its fill on hover, so it keeps the rule too. */
+.dropdownButton:has(> :is(.action, .trigger):not(:disabled, [data-disabled]):hover)
+	> .separator::before {
+	opacity: 0;
+}
+
+/* Each variant divides its own fill, so the rule reads as a seam in the button
+   rather than a line drawn on top of it. */
+.pop {
+	--dropdown-button-separator: color-mix(in srgb, var(--scale-pop-40) 20%, var(--scale-pop-70));
+}
+
+.gray {
+	--dropdown-button-separator: color-mix(in srgb, var(--fill-gray-fg) 20%, var(--fill-gray-bg));
+}
+
+/* Outline has no fill to divide, so the seam is its border, lighter so it sits
+   inside the control rather than reading as a second edge. */
+.outline {
+	--dropdown-button-separator: color-mix(in srgb, var(--border-control) 60%, transparent);
+}

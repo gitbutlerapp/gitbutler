@@ -15,7 +15,7 @@
 .body {
 	display: flex;
 	flex-direction: column;
-	padding-block-start: 6px;
+	padding-block-start: var(--padding-list);
 }
 
 /* Carries the rail on from one branch to the next. It only has to bridge the

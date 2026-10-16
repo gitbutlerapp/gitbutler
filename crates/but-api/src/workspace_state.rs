@@ -1,21 +1,20 @@
 use super::WorkspaceState;
 use std::collections::{BTreeMap, HashMap};
 
-use but_core::{DryRun, RefMetadata};
+use but_core::{ChangeId, DryRun, RefMetadata};
 use but_rebase::graph_rebase::{MaterializeOutcome, SuccessfulRebase};
+use but_workspace::ref_info::SegmentIdentity;
 
 impl WorkspaceState {
-    /// Map each projected local reference to whether its commits contain conflicts.
+    /// Map each projected segment that can be told apart to whether its commits contain conflicts.
     #[cfg(not(feature = "graph-workspace"))]
-    pub fn conflicts_by_reference(&self) -> HashMap<Vec<u8>, bool> {
+    pub fn conflicts_by_segment(&self) -> HashMap<SegmentIdentity, bool> {
         self.head_info
-            .stacks
-            .iter()
-            .flat_map(|stack| &stack.segments)
-            .filter_map(|segment| {
-                let ref_info = segment.ref_info.as_ref()?;
+            .lanes()
+            .flat_map(but_workspace::ref_info::Lane::identified_segments)
+            .filter_map(|(identity, segment)| {
                 Some((
-                    ref_info.ref_name.as_bstr().to_vec(),
+                    identity?,
                     segment.commits.iter().any(|commit| commit.has_conflicts),
                 ))
             })
@@ -23,8 +22,10 @@ impl WorkspaceState {
     }
 
     /// Map each projected local reference to whether its commits contain conflicts.
+    ///
+    /// The graph projection carries no worktrees, so detached worktrees are absent.
     #[cfg(feature = "graph-workspace")]
-    pub fn conflicts_by_reference(&self) -> HashMap<Vec<u8>, bool> {
+    pub fn conflicts_by_segment(&self) -> HashMap<SegmentIdentity, bool> {
         use but_workspace::ui::workspace::DetailedGraphRowData;
 
         self.graph_workspace
@@ -43,7 +44,11 @@ impl WorkspaceState {
                             Some(DetailedGraphRowData::Commit(commit)) if commit.has_conflicts
                         )
                     });
-                    Some((reference.ref_name.full_name_bytes.to_vec(), has_conflicts))
+                    let ref_name = gix::refs::FullName::try_from(bstr::BString::from(
+                        reference.ref_name.full_name_bytes.to_vec(),
+                    ))
+                    .ok()?;
+                    Some((SegmentIdentity::Branch(ref_name), has_conflicts))
                 })
             })
             .collect()
@@ -86,11 +91,13 @@ impl WorkspaceState {
     ///
     /// This is the most direct constructor in this module and is the right choice when
     /// there is no need to inspect or materialize a [`SuccessfulRebase`].
+    #[allow(clippy::too_many_arguments)]
     fn from_workspace_with_prs<M: RefMetadata>(
         workspace: &but_graph::Workspace,
         meta: &mut M,
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+        conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
         db: &mut but_db::DbHandle,
         checkout_conflict_occurred: bool,
@@ -117,6 +124,7 @@ impl WorkspaceState {
 
             Ok(WorkspaceState {
                 replaced_commits,
+                conflicted_commits,
                 head_info,
                 checkout_conflict_occurred,
             })
@@ -132,6 +140,7 @@ impl WorkspaceState {
 
             Ok(WorkspaceState {
                 replaced_commits,
+                conflicted_commits,
                 graph_workspace: graph_workspace.into(),
                 checkout_conflict_occurred,
             })
@@ -151,6 +160,7 @@ impl WorkspaceState {
         meta: &mut M,
         repo: &gix::Repository,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+        conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = but_forge::review_associations_by_head(db)?;
@@ -159,6 +169,7 @@ impl WorkspaceState {
             meta,
             repo,
             replaced_commits,
+            conflicted_commits,
             &prs_by_head,
             db,
             false,
@@ -170,21 +181,20 @@ impl WorkspaceState {
     /// Use this when the caller needs to report the post-rebase workspace layout before
     /// writing the rebase result back to the repository, such as dry-run flows or
     /// operations that intentionally preview the outcome first and materialize later.
-    ///
-    /// The `replaced_commits` map should describe the commit rewrites visible in the
-    /// preview graph, which typically comes from `rebase.history.commit_mappings()`.
     fn from_rebase_preview_with_prs<M: RefMetadata>(
         rebase: &mut SuccessfulRebase<'_, '_, M>,
-        replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
     ) -> anyhow::Result<WorkspaceState> {
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let replaced_commits = rebase.history.commit_mappings();
+        let conflicted_commits = rebase.history.conflicted_commits.clone();
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         Self::from_workspace_with_prs(
             &workspace,
             meta,
             repo,
             replaced_commits,
+            conflicted_commits,
             prs_by_head,
             db,
             false,
@@ -198,10 +208,9 @@ impl WorkspaceState {
     /// before projecting the preview state.
     pub(crate) fn from_rebase_preview<M: RefMetadata>(
         rebase: &mut SuccessfulRebase<'_, '_, M>,
-        replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = but_forge::review_associations_by_head(rebase.db())?;
-        Self::from_rebase_preview_with_prs(rebase, replaced_commits, &prs_by_head)
+        Self::from_rebase_preview_with_prs(rebase, &prs_by_head)
     }
 
     /// Build a [`WorkspaceState`] from a materialized rebase.
@@ -220,6 +229,7 @@ impl WorkspaceState {
             materialized.meta,
             repo,
             materialized.history.commit_mappings(),
+            materialized.history.conflicted_commits,
             &prs_by_head,
             materialized.db,
             materialized.checkout_conflict_occurred,
@@ -244,8 +254,7 @@ impl WorkspaceState {
         if dry_run.into() {
             let mut rebase = rebase;
             let prs_by_head = but_forge::review_associations_by_head(rebase.db())?;
-            let replaced_commits = rebase.history.commit_mappings();
-            return Self::from_rebase_preview_with_prs(&mut rebase, replaced_commits, &prs_by_head);
+            return Self::from_rebase_preview_with_prs(&mut rebase, &prs_by_head);
         }
 
         Self::from_materialized(rebase.materialize(Default::default())?, repo)

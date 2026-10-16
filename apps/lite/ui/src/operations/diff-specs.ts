@@ -4,7 +4,7 @@ import {
 	worktreeChangesQueryOptions,
 } from "#ui/api/queries.ts";
 import { addressEquals, type FileParent, type Address, addressFileParent } from "#ui/addresses.ts";
-import { type QueryClient, useQueries } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import type {
 	CommitDetails,
 	DiffSpec,
@@ -144,6 +144,11 @@ export const fileParentFromSources = (sources: Array<Address>): FileParent | nul
 	return fileParent;
 };
 
+/**
+ * Resolve sources into one diff spec per file.
+ *
+ * Resolution wholly failes if a source cannot be resolved or rename origins conflict.
+ */
 const resolvedDiffSpecsFromSources = ({
 	sources,
 	worktreeChanges,
@@ -155,6 +160,8 @@ const resolvedDiffSpecsFromSources = ({
 	commitDetails: CommitDetails | undefined;
 	hunkAction: HunkAction | undefined;
 }): Array<DiffSpec> | null => {
+	// For repeated paths, whole-file selection (represented as empty hunk headers) overrides partial
+	// selections, else their hunk headers are combined.
 	const diffSpecsByPath = new Map<string, DiffSpec>();
 
 	for (const address of sources) {
@@ -171,13 +178,12 @@ const resolvedDiffSpecsFromSources = ({
 			const existing = diffSpecsByPath.get(path);
 
 			if (!existing) diffSpecsByPath.set(path, diffSpec);
-			else if (
-				// One current path cannot originate from different rename sources.
-				existing.previousPathBytes?.join(",") !== diffSpec.previousPathBytes?.join(",") ||
-				// Empty headers select the whole file, which cannot mix with selected hunks.
-				(existing.hunkHeaders.length === 0) !== (diffSpec.hunkHeaders.length === 0)
-			)
+			// One current path cannot originate from different rename sources.
+			else if (existing.previousPathBytes?.join(",") !== diffSpec.previousPathBytes?.join(","))
 				return null;
+			// A whole-file selection subsumes checked lines in that file.
+			else if (existing.hunkHeaders.length === 0 || diffSpec.hunkHeaders.length === 0)
+				existing.hunkHeaders = [];
 			else existing.hunkHeaders.push(...diffSpec.hunkHeaders);
 		}
 	}
@@ -206,44 +212,6 @@ export const resolveDiffSpecs = async ({
 			? queryClient.fetchQuery(commitDetailsWithLineStatsQueryOptions({ projectId, commitId }))
 			: undefined,
 	]);
-
-	return resolvedDiffSpecsFromSources({
-		sources,
-		worktreeChanges,
-		commitDetails,
-		hunkAction,
-	});
-};
-
-export const useResolveDiffSpecs = ({
-	sources,
-	projectId,
-	hunkAction,
-}: {
-	sources?: Array<Address>;
-	projectId: string;
-	hunkAction?: HunkAction;
-}) => {
-	const fileParent = fileParentFromSources(sources ?? []);
-	const worktree = worktreeOf(fileParent);
-	// The two options differ in key type, which one `useQuery` cannot take; a list can.
-	const worktreeChanges = useQueries({
-		queries: [
-			worktree === undefined
-				? changesInWorktreeQueryOptions(projectId)
-				: worktreeChangesQueryOptions(projectId, worktree),
-		],
-		combine: ([result]) => result.data,
-	});
-	const commitId = fileParent ? commitIdFromParent(fileParent) : null;
-	const commitDetails = useQueries({
-		queries: (commitId !== null ? [commitId] : []).map((commitId) =>
-			commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-		),
-		combine: ([result]) => result?.data,
-	});
-
-	if (!sources || !fileParent) return null;
 
 	return resolvedDiffSpecsFromSources({
 		sources,

@@ -109,22 +109,47 @@ mod oplog_snapshot {
                 return None;
             }
 
-            let tree_id = match ref_name {
-                Some(ref_name) => ctx.prepare_snapshot_with_ref(ref_name, perm),
-                None => ctx.prepare_snapshot(perm),
-            };
-            let tree_id = match tree_id {
-                Ok(tree_id) => tree_id,
+            match UnmaterializedOplogSnapshot::prepare(ctx, details, ref_name, perm) {
+                Ok(snapshot) => Some(snapshot),
                 Err(err) => {
                     tracing::warn!(?err, "Failed to prepare unmaterialized oplog snapshot");
-                    return None;
+                    None
                 }
-            };
-            Some(Self { tree_id, details })
+            }
         }
     }
 
     impl UnmaterializedOplogSnapshot {
+        /// Prepare a required checkpoint before a mutation that needs snapshot-based rollback.
+        /// Unlike best-effort timeline recording, failure must prevent the mutation from starting.
+        pub fn prepare_checkpoint(
+            ctx: &Context,
+            details: gitbutler_oplog::entry::SnapshotDetails,
+            perm: &RepoShared,
+        ) -> anyhow::Result<UnmaterializedOplogSnapshot> {
+            UnmaterializedOplogSnapshot::prepare(ctx, details, None, perm)
+        }
+
+        fn prepare(
+            ctx: &Context,
+            details: gitbutler_oplog::entry::SnapshotDetails,
+            ref_name: Option<&gix::refs::FullNameRef>,
+            perm: &RepoShared,
+        ) -> anyhow::Result<UnmaterializedOplogSnapshot> {
+            let tree_id = match ref_name {
+                Some(ref_name) => ctx.prepare_snapshot_with_ref(ref_name, perm)?,
+                None => ctx.prepare_snapshot(perm)?,
+            };
+            Ok(UnmaterializedOplogSnapshot { tree_id, details })
+        }
+
+        /// Restore the checkpoint without publishing it or appending a restore operation.
+        /// Restore or drop any metadata writers from the failed operation first, so
+        /// they cannot write the failed mutation back after rollback.
+        pub fn rollback(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+            gitbutler_oplog::restore_checkpoint(ctx, self.tree_id, perm)
+        }
+
         /// Call this method only if the main effect succeeded so the snapshot should be added to the operation log,
         /// using `ctx` with granted edit `perm`ission.
         pub fn commit(self, ctx: &Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {

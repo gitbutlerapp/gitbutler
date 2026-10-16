@@ -1,6 +1,6 @@
 <script lang="ts">
 	import GoToSettingsButton from "$components/settings/GoToSettingsButton.svelte";
-	import { CardGroup, Icon } from "@gitbutler/ui";
+	import { CardGroup, Icon } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		title?: string;

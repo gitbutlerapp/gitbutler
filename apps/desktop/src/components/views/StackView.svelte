@@ -6,9 +6,9 @@
 	import { type Stack } from "$lib/stacks/stack";
 	import { StackController, setStackContext } from "$lib/stacks/stackController.svelte";
 	import { persistWithExpiration } from "@gitbutler/shared/persisted";
-	import { TestId } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import { intersectionObserver } from "@gitbutler/ui/utils/intersectionObserver";
+	import { TestId } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
+	import { intersectionObserver } from "@gitbutler/ui-svelte/utils/intersectionObserver";
 
 	type Props = {
 		projectId: string;

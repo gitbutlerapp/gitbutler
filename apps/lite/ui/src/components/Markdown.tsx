@@ -1,13 +1,14 @@
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { reportError } from "#ui/error-reporting.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TextLink } from "#ui/components/TextLink.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { useCopied } from "#ui/components/useCopied.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import { Tooltip } from "@base-ui/react";
+import { openLinkExternally } from "#ui/external-link.ts";
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, FC, MouseEvent, ReactNode } from "react";
 import { useState } from "react";
@@ -169,17 +170,19 @@ const Pre: FC<{ node?: HastNode; children?: ReactNode }> = ({ node, children }) 
 
 	return (
 		<div className={styles.codeBlock}>
-			<pre>{children}</pre>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					className={classes(
-						getButtonClassName({ variant: "ghost", size: "small", iconOnly: true }),
-						styles.copy,
-					)}
+			<ScrollArea>
+				<pre>{children}</pre>
+			</ScrollArea>
+			<Tooltip content={copied ? "Copied" : "Copy"}>
+				<Button
+					variant="ghost"
+					size="small"
+					iconOnly
+					aria-label={copied ? "Copied" : "Copy"}
+					className={styles.copy}
 					// Keeps the button shown for the tick, even once the pointer has left the block.
 					data-copied={copied || undefined}
 					onClick={copy}
-					render={<button type="button" aria-label={copied ? "Copied" : "Copy"} />}
 				>
 					{/* Each glyph in its own wrapper: the button styles the icons' opacity itself, so the
 					    crossfade has to fade something else. */}
@@ -191,13 +194,8 @@ const Pre: FC<{ node?: HastNode; children?: ReactNode }> = ({ node, children }) 
 							<Icon name="tick" />
 						</span>
 					</span>
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup />}>{copied ? "Copied" : "Copy"}</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+				</Button>
+			</Tooltip>
 		</div>
 	);
 };
@@ -249,6 +247,7 @@ const remarkLiteralTags = () => {
  * - Images inline only from GitHub-operated hosts (which don't expose
  *   request logs to authors, so they can't track viewers); any other host
  *   renders as a link and is never fetched. See {@link isGitHubHostedImage}.
+ * @import import { Markdown } from "#ui/components/Markdown.tsx";
  */
 export const Markdown: FC<{ children: string }> = ({ children }) => (
 	<div className={classes("text-13", "text-body", styles.markdown)}>
@@ -258,7 +257,12 @@ export const Markdown: FC<{ children: string }> = ({ children }) => (
 			components={{
 				a: ({ node: _node, children, href, ...props }) =>
 					isExternalUrl(href) ? (
-						<TextLink {...props} href={href} className={styles.externalLink}>
+						<TextLink
+							{...props}
+							href={href}
+							className={styles.externalLink}
+							onClick={openLinkExternally}
+						>
 							{children}
 						</TextLink>
 					) : (

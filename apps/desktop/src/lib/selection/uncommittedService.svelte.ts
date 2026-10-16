@@ -17,7 +17,7 @@ import {
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import type { UnifiedDiff } from "$lib/hunks/diff";
 import type { ChangeDiff, DiffService } from "$lib/hunks/diffService.svelte";
 import type { AppDispatch, ClientState } from "$lib/state/clientState.svelte";
@@ -25,7 +25,7 @@ import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
 import type { DiffSpec, HunkAssignment, HunkHeader } from "@gitbutler/but-sdk";
 import type { DiffHunk } from "@gitbutler/but-sdk";
 import type { TreeChange } from "@gitbutler/but-sdk";
-import type { LineId } from "@gitbutler/ui/utils/diffParsing";
+import type { LineId } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 export const UNCOMMITTED_SERVICE = new InjectionToken<UncommittedService>("UncommittedService");
 

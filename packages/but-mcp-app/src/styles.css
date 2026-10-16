@@ -10,7 +10,6 @@
 	--gb-border-3: var(--border-3);
 	--gb-text-1: var(--text-1);
 	--gb-text-2: var(--text-2);
-	--gb-hover: color-mix(var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
 	--gb-local: var(--commit-local);
 	--gb-remote: var(--commit-remote);
 	--gb-integrated: var(--commit-integrated);
@@ -41,7 +40,7 @@ button {
 	font: inherit;
 
 	&:focus-visible {
-		outline: 1.5px solid color-mix(in srgb, var(--fill-gray-bg) 70%, transparent);
+		outline: 1.5px solid var(--border-focus);
 		outline-offset: 1px;
 	}
 }
@@ -67,7 +66,7 @@ button {
 	display: block;
 	margin-bottom: 2px;
 	color: var(--gb-text-2);
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 10px;
 	letter-spacing: 0.065em;
 	text-transform: uppercase;
@@ -76,7 +75,7 @@ button {
 h1 {
 	margin: 0;
 	overflow: hidden;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 17px;
 	line-height: 1.3;
 	text-overflow: ellipsis;
@@ -124,7 +123,7 @@ h1 {
 	padding: 8px;
 	gap: 8px;
 	border: 1px solid var(--gb-border-3);
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-section);
 	background: var(--gb-bg-2);
 }
 
@@ -150,12 +149,12 @@ h1 {
 }
 
 .stack-header:hover {
-	background: var(--gb-hover);
+	background: var(--bg-hover);
 }
 
 .stack-header > span:first-of-type {
 	overflow: hidden;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 12px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -185,7 +184,7 @@ h1 {
 .stack-rows {
 	display: flex;
 	flex-direction: column;
-	padding: 6px;
+	padding: var(--padding-list);
 }
 
 .outline-row {
@@ -197,14 +196,14 @@ h1 {
 	min-height: 28px;
 	padding-inline: 8px;
 	border: 0;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: transparent;
 	text-align: left;
 	cursor: pointer;
 }
 
 .outline-row:hover {
-	background: var(--gb-hover);
+	background: var(--bg-hover);
 }
 
 .outline-row[data-selected] {
@@ -275,7 +274,7 @@ code {
 
 .branch-label strong {
 	overflow: hidden;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 13px;
 	line-height: 16px;
 	text-overflow: ellipsis;
@@ -291,7 +290,7 @@ code {
 .branch-kind {
 	padding: 2px 6px;
 	border: 1px solid var(--gb-border-3);
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	color: var(--gb-text-2);
 	font-size: 9px;
 	letter-spacing: 0.03em;
@@ -300,10 +299,10 @@ code {
 
 .conflict-badge {
 	padding: 2px 5px;
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	background: color-mix(in srgb, var(--gb-danger) 14%, transparent);
 	color: var(--gb-danger);
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 9px;
 }
 
@@ -323,7 +322,7 @@ code {
 .message-state {
 	padding: 24px 16px;
 	border: 1px dashed var(--gb-border-2);
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-card);
 	background: var(--gb-bg-1);
 }
 
@@ -342,7 +341,7 @@ code {
 	width: 12px;
 	height: 12px;
 	border: 1.5px solid var(--gb-border-2);
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	border-top-color: var(--gb-text-1);
 	animation: spin 0.8s linear infinite;
 }
@@ -367,7 +366,7 @@ code {
 	min-width: 0;
 	overflow: hidden;
 	border: 1px solid var(--gb-border-3);
-	border-radius: var(--radius-lg);
+	border-radius: var(--radius-card);
 	background: var(--gb-bg-1);
 	box-shadow: var(--shadow-card);
 }
@@ -387,7 +386,7 @@ code {
 
 .detail-kind {
 	color: var(--gb-text-2);
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 9px;
 	letter-spacing: 0.055em;
 	text-transform: uppercase;
@@ -395,7 +394,7 @@ code {
 
 .detail-header h2 {
 	margin: 0;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 15px;
 	line-height: 1.35;
 	overflow-wrap: anywhere;
@@ -422,7 +421,7 @@ code {
 	padding: 3px 7px;
 	gap: 4px;
 	border: 1px solid var(--gb-border-3);
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: transparent;
 	color: var(--gb-text-2);
 	font-size: 10px;
@@ -431,7 +430,7 @@ code {
 
 .copy-button:hover {
 	border-color: var(--gb-border-2);
-	background: var(--gb-hover);
+	background: var(--bg-hover);
 	color: var(--gb-text-1);
 }
 
@@ -488,7 +487,7 @@ code {
 	align-items: center;
 	width: fit-content;
 	gap: 3px;
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 }
 
 .line-stats .additions {
@@ -503,7 +502,7 @@ code {
 	justify-self: start;
 	padding: 3px 7px;
 	border: 1px solid var(--gb-border-3);
-	border-radius: 999px;
+	border-radius: var(--radius-full);
 	color: var(--gb-text-2);
 	font-size: 9px;
 }
@@ -541,7 +540,7 @@ code {
 	align-items: center;
 	padding: 7px 8px;
 	gap: 7px;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	font-size: 10px;
 }
 
@@ -568,15 +567,15 @@ code {
 	min-width: 74px;
 	padding: 6px 10px;
 	border: 1px solid var(--gb-border-2);
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: var(--gb-bg-1);
-	font-weight: var(--text-weight-semibold);
+	font-weight: var(--font-weight-semibold);
 	font-size: 11px;
 	cursor: pointer;
 }
 
 .detail-button:hover:not(:disabled) {
-	background: var(--gb-hover);
+	background: var(--bg-hover);
 }
 
 .detail-button.primary {
@@ -602,7 +601,7 @@ code {
 	padding: 3px 6px;
 	gap: 3px;
 	border: 0;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: transparent;
 	color: var(--gb-text-2);
 	font-size: 10px;
@@ -610,7 +609,7 @@ code {
 }
 
 .back-button:hover {
-	background: var(--gb-hover);
+	background: var(--bg-hover);
 	color: var(--gb-text-1);
 }
 

@@ -1,12 +1,12 @@
 use anyhow::Context as _;
-use bstr::{BString, ByteSlice as _};
+use bstr::{BStr, BString, ByteSlice as _};
 use but_ctx::Context;
 use gix::prelude::ObjectIdExt as _;
 use nonempty::NonEmpty;
 use ratatui::{style::Style, text::Span};
 
 use crate::{
-    CliId,
+    ChangeSourceId, CliId,
     command::{
         legacy::status::{
             FilesStatusFlag,
@@ -26,6 +26,7 @@ use crate::{
         },
         worktree::{self, archive::ArchivalOperation, new::NewOperation},
     },
+    id::LaneId,
     theme::Theme,
 };
 
@@ -96,15 +97,33 @@ impl App {
     }
 
     fn handle_worktree_archive(&mut self) {
-        let Some(CliId::Worktree { name, .. }) = self
+        let Some(worktree_name) = self
             .cursor
             .selected_line(&self.status_lines)
             .and_then(|line| line.data.cli_id())
-            .map(|id| &**id)
+            .and_then(|id| match &**id {
+                CliId::UncommittedArea {
+                    source: ChangeSourceId::Worktree(name),
+                    ..
+                } => Some(name.clone()),
+                CliId::Branch(..) | CliId::AnonymousSegment(..) => id
+                    .lane()
+                    .and_then(LaneId::worktree_name)
+                    .map(BStr::to_owned),
+                CliId::UncommittedHunkOrFile(..)
+                | CliId::PathPrefix { .. }
+                | CliId::CommittedFile { .. }
+                | CliId::CommittedHunk(..)
+                | CliId::Commit { .. }
+                | CliId::UncommittedArea {
+                    source: ChangeSourceId::Head,
+                    ..
+                }
+                | CliId::Stack { .. } => None,
+            })
         else {
             return;
         };
-        let worktree_name = name.clone();
 
         self.modal = Some(Modal::Confirm {
             confirm: Confirm::new(
@@ -219,7 +238,6 @@ impl App {
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::Branch { .. }
@@ -260,7 +278,7 @@ impl FuzzyPickerItem for UnarchiveWorktreeItem {
         }]
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         theme.default
     }
 }

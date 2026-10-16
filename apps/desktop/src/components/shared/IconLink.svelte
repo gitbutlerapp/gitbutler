@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { inject } from "@gitbutler/core/context";
-	import { Icon, type IconName } from "@gitbutler/ui";
+	import { Icon, type IconName } from "@gitbutler/ui-svelte";
 	import type { Snippet } from "svelte";
 
 	interface Props {

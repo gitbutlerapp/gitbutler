@@ -1,5 +1,5 @@
 import { msSinceDaysAgo } from "$lib/utils/time";
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import type { ForgeUser, PullRequest } from "$lib/forge/interface/types";
 import type { BranchListing } from "@gitbutler/but-sdk";
 

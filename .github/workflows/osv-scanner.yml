@@ -48,7 +48,7 @@ jobs:
           retention-days: 5
       - name: Upload to code-scanning
         if: ${{ !cancelled() && hashFiles('results.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: results.sarif
       - name: Report vulnerabilities
@@ -130,7 +130,7 @@ jobs:
       - name: Run reporter
         id: run_reporter
         if: ${{ always() && !cancelled() && steps.check_scan_outputs.outcome == 'success' }}
-        uses: google/osv-scanner-action/osv-reporter-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
+        uses: google/osv-scanner-action/osv-reporter-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
         with:
           scan-args: |-
             --output=results.sarif
@@ -170,7 +170,7 @@ jobs:
           retention-days: 5
       - name: Upload to code-scanning
         if: ${{ always() && !cancelled() && hashFiles('results.sarif') != '' }}
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: results.sarif
       - name: Fail on vulnerabilities introduced by PR

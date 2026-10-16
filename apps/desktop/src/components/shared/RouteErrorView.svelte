@@ -2,7 +2,7 @@
 	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
 	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
-	import { InfoMessage } from "@gitbutler/ui";
+	import { InfoMessage } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		projectId?: string;

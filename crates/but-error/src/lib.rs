@@ -150,6 +150,7 @@ pub enum Code {
     DefaultTargetNotFound,
     CommitSigningFailed,
     CommitMergeConflictFailure,
+    ConflictedCommitCheckout,
     ProjectMissing,
     AuthorMissing,
     BranchNotFound,
@@ -175,6 +176,8 @@ pub enum Code {
     GitLabUnauthorized,
     /// GitLab returned HTTP 403 while validating a personal access token.
     GitLabForbidden,
+    /// GitLab returned HTTP 404 while listing a project's open merge requests.
+    GitLabProjectNotFound,
     /// The self-hosted GitLab host is not an absolute URL, so no request could be built.
     GitLabInvalidHost,
     /// A GitHub organization has enabled OAuth App access restrictions and

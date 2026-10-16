@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useInstallCli } from "#ui/api/mutations.ts";
 import { isPackagedQueryOptions } from "#ui/api/queries.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { Illustration } from "#ui/components/Illustration.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { Illustration } from "@gitbutler/ui-react/Illustration.tsx";
 import { Row, Section } from "./Section.tsx";
 import { Toast } from "@base-ui/react";
 
@@ -32,9 +32,7 @@ export const InstallCli = () => {
 					</>
 				}
 			>
-				<button
-					type="button"
-					className={getButtonClassName({})}
+				<Button
 					disabled={isPending || installed}
 					onClick={() =>
 						mutate(undefined, {
@@ -53,7 +51,7 @@ export const InstallCli = () => {
 				>
 					{buttonLabel}
 					<Icon name={isPending ? "spinner" : installed ? "tick" : "arrow-in-box"} />
-				</button>
+				</Button>
 			</Row>
 		</Section>
 	);

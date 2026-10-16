@@ -12,7 +12,7 @@ import {
 	createSelectByPrefix,
 	createSelectNotIn,
 } from "$lib/state/customSelectors";
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import {
 	createSelector,
 	createSlice,
@@ -21,7 +21,7 @@ import {
 } from "@reduxjs/toolkit";
 import type { HunkAssignment, HunkHeader } from "@gitbutler/but-sdk";
 import type { TreeChange } from "@gitbutler/but-sdk";
-import type { LineId } from "@gitbutler/ui/utils/diffParsing";
+import type { LineId } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 type UncommittedState = {
 	treeChanges: EntityState<TreeChange, string>;

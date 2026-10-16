@@ -3,8 +3,8 @@
 		clearHighlightingCaches,
 		codeContentToTokens,
 		langFromExtension,
-	} from "@gitbutler/ui/utils/diffParsing";
-	import { onHighlighterChange } from "@gitbutler/ui/utils/shikiHighlighter";
+	} from "@gitbutler/ui-svelte/utils/diffParsing";
+	import { onHighlighterChange } from "@gitbutler/ui-svelte/utils/shikiHighlighter";
 
 	interface Props {
 		text: string;

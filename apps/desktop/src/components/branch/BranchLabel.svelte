@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { autoSelectBranchNameFeature } from "$lib/config/uiFeatureFlags";
-	import { TestId } from "@gitbutler/ui";
-	import { clickOutside } from "@gitbutler/ui/utils/clickOutside";
-	import { resizeObserver } from "@gitbutler/ui/utils/resizeObserver";
+	import { TestId } from "@gitbutler/ui-svelte";
+	import { clickOutside } from "@gitbutler/ui-svelte/utils/clickOutside";
+	import { resizeObserver } from "@gitbutler/ui-svelte/utils/resizeObserver";
 
 	interface Props {
 		name: string;

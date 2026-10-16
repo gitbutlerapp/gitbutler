@@ -8,7 +8,7 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-	import { TestId } from "@gitbutler/ui";
+	import { TestId } from "@gitbutler/ui-svelte";
 	import type { Segment } from "@gitbutler/but-sdk";
 
 	type Props = {
@@ -17,7 +17,6 @@
 		branchName: string;
 		segment: Segment;
 		branchIndex: number;
-		parent: Segment | undefined;
 		withForce: boolean;
 		prNumber?: number;
 		oncancel?: () => void;
@@ -29,7 +28,6 @@
 		branchName,
 		segment,
 		branchIndex,
-		parent,
 		withForce,
 		prNumber,
 		oncancel,
@@ -63,7 +61,6 @@
 			{branchName}
 			{segment}
 			{branchIndex}
-			{parent}
 			{withForce}
 			onClose={close}
 		/>

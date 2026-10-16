@@ -9,7 +9,7 @@
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { sleep } from "$lib/utils/sleep";
 	import { inject } from "@gitbutler/core/context";
-	import { TestId } from "@gitbutler/ui";
+	import { TestId } from "@gitbutler/ui-svelte";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = $derived(settingsService.appSettings);

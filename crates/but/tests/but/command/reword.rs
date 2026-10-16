@@ -34,7 +34,7 @@ Named anonymous branch 'g0' as 'recovered'
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -435,4 +435,139 @@ Updated commit message for nsn
 "#]]
     );
     assert_eq!(env.git_status(), "", "the main checkout stayed clean");
+}
+
+#[test]
+fn reword_renames_branches_in_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_lower_branch(&env, "wt-feature", "A");
+
+    env.but("reword wt-lower -m wt-lower-renamed")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Renamed branch 'wt-lower' to 'wt-lower-renamed'
+
+"#]]);
+    env.but("reword wt-feature -m wt-renamed")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Renamed branch 'wt-feature' to 'wt-renamed'
+
+"#]]);
+
+    // The worktree's checkout followed its branch to the new name.
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+* edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
+| * 3b0b265 (HEAD -> wt-renamed) add W2
+| * 580bef0 (wt-lower-renamed) add W
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn reword_commit_from_editor_uses_core_comment_char() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.invoke_git("config core.commentChar ;");
+    env.file(
+        "editor.sh",
+        "#!/usr/bin/env bash\ncp \"$1\" template.txt\nsed 's/^add A$/#123 reworded/' template.txt > \"$1\"\n",
+    );
+    let commit = env.invoke_git("rev-parse A");
+
+    env.but(format!("reword {commit}"))
+        .env("GIT_EDITOR", "bash editor.sh")
+        .assert()
+        .success();
+
+    assert_eq!(
+        env.invoke_git("log -1 --format=%B refs/heads/A"),
+        "#123 reworded",
+        "with ';' as comment char, a line starting with '#' is kept"
+    );
+    // The template, ignore-rest marker included, uses the configured comment char.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("template.txt")).unwrap(),
+        str![[r#"
+add A
+
+; Please enter the commit message for your changes. Lines starting
+; with ';' will be ignored, and an empty message aborts the commit.
+;
+; Changes in this commit:
+;	new file:   A
+;
+; --- ignore-rest ---
+--- /dev/null
++++ b/A
+@@ -1,0 +1,1 @@
++A
+
+"#]]
+    );
+}
+
+#[test]
+fn reword_commit_from_editor_auto_comment_char_avoids_message_lines() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    let commit = env.invoke_git("rev-parse A");
+    env.but(format!("reword {commit} -m '#123 add A'"))
+        .assert()
+        .success();
+    // Git matches `auto` case-insensitively.
+    env.invoke_git("config core.commentChar AUTO");
+    env.file(
+        "editor.sh",
+        "#!/usr/bin/env bash\nsed 's/^#123 add A$/#123 reworded/' \"$1\" > \"$1.new\" && mv \"$1.new\" \"$1\"\n",
+    );
+    let commit = env.invoke_git("rev-parse A");
+
+    env.but(format!("reword {commit}"))
+        .env("GIT_EDITOR", "bash editor.sh")
+        .assert()
+        .success();
+
+    assert_eq!(
+        env.invoke_git("log -1 --format=%B refs/heads/A"),
+        "#123 reworded",
+        "'auto' picks a comment char other than '#' because the message starts with '#'"
+    );
+}
+
+#[test]
+fn reword_commit_from_editor_auto_comment_char_fails_when_all_candidates_are_used() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    let commit = env.invoke_git("rev-parse A");
+    env.but(format!(
+        "reword {commit} -m 'x\n#\n;\n@\n!\n$\n%\n^\n&\n|\n:'"
+    ))
+    .assert()
+    .success();
+    env.invoke_git("config core.commentChar auto");
+    let commit = env.invoke_git("rev-parse A");
+
+    // Git refuses here too, rather than picking a prefix that would strip message lines.
+    env.but(format!("reword {commit}"))
+        .env("GIT_EDITOR", "true")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Unable to select a comment character that is not used in the current commit message
+
+"#]]);
 }

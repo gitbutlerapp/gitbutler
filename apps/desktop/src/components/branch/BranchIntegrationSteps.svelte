@@ -8,7 +8,7 @@
 		updateIntegrationStepDraftCommit,
 		updateIntegrationStepDraftMessage,
 	} from "$lib/upstream/branchIntegrationEditor";
-	import { Button } from "@gitbutler/ui";
+	import { Button } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		stepDrafts: IntegrationStepDraft[];

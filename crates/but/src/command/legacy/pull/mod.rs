@@ -5,10 +5,12 @@ use std::fmt::Write;
 use but_api::WorkspaceState;
 use but_core::{DryRun, RepositoryExt};
 use but_ctx::Context;
+use but_workspace::ref_info::SegmentIdentity;
 use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, UpstreamInfo};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    args::PullUpdate,
     command::legacy::upstream::{
         self, BranchStatus as PullBranchStatus, BranchStatusInfo as PullBranchStatusInfo,
     },
@@ -76,16 +78,31 @@ pub async fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
     check_only: bool,
+    update: &[PullUpdate],
 ) -> anyhow::Result<Option<WorkspaceState>> {
     if check_only {
-        handle_check(ctx, out).await?;
+        handle_check(ctx, out, update).await?;
         Ok(None)
     } else {
-        handle_pull(ctx, out).await
+        handle_pull(ctx, out, update).await
     }
 }
 
-async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+/// Whether a lane selected by `update` is missing commits of the target.
+fn is_behind(
+    head_info: &but_workspace::RefInfo,
+    update: &[PullUpdate],
+    base_branch: &gitbutler_branch_actions::BaseBranch,
+) -> bool {
+    (update.contains(&PullUpdate::Workspace) && base_branch.behind > 0)
+        || upstream::has_worktree_behind(head_info, update, base_branch.current_sha)
+}
+
+async fn handle_check(
+    ctx: &Context,
+    out: &mut OutputChannel,
+    update: &[PullUpdate],
+) -> anyhow::Result<()> {
     let t = theme::get();
     let mut progress = out.progress_channel();
 
@@ -94,14 +111,12 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
     let base_branch =
         but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("auto".to_string()))?;
 
-    let should_check_integration = if base_branch.behind == 0 {
-        let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
-        upstream::has_cleanup_candidate(&current_head_info)
-    } else {
-        true
-    };
+    let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
+    let behind = is_behind(&current_head_info, update, &base_branch);
+    let should_check_integration =
+        behind || upstream::has_cleanup_candidate(&current_head_info, update);
     let (has_worktree_conflicts, statuses) = if should_check_integration {
-        let preview = upstream::dry_run_integration(ctx)?;
+        let preview = upstream::dry_run_integration(ctx, update)?;
         (
             !preview.outcome.worktree_conflicts.is_empty(),
             preview.statuses,
@@ -109,7 +124,7 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
     } else {
         (false, Vec::new())
     };
-    let up_to_date = base_branch.behind == 0 && !statuses_need_update(&statuses);
+    let up_to_date = !behind && !statuses_need_update(&statuses);
     if !up_to_date {
         writeln!(progress, "Checking integration statuses...")?;
     }
@@ -233,6 +248,7 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
 async fn handle_pull(
     ctx: &mut Context,
     out: &mut OutputChannel,
+    update: &[PullUpdate],
 ) -> anyhow::Result<Option<WorkspaceState>> {
     let t = theme::get();
     let mut pull_result = PullResult {
@@ -326,13 +342,9 @@ async fn handle_pull(
         }
     }
 
-    let should_check_integration = if base_branch.behind == 0 {
-        let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
-        upstream::has_cleanup_candidate(&current_head_info)
-    } else {
-        true
-    };
-    if !should_check_integration {
+    let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
+    let behind = is_behind(&current_head_info, update, &base_branch);
+    if !behind && !upstream::has_cleanup_candidate(&current_head_info, update) {
         pull_result.status = "up_to_date".to_string();
         if let Some(out) = out.for_human() {
             writeln!(out, "\n{}", t.success.paint("Everything is up to date"))?;
@@ -348,9 +360,9 @@ async fn handle_pull(
         current: current_head_info,
         outcome: _preview,
         statuses,
-    } = upstream::dry_run_integration(ctx)?;
+    } = upstream::dry_run_integration(ctx, update)?;
 
-    if base_branch.behind == 0 && !statuses_need_update(&statuses) {
+    if !behind && !statuses_need_update(&statuses) {
         pull_result.status = "up_to_date".to_string();
         if let Some(out) = out.for_human() {
             writeln!(out, "\n{}", t.success.paint("Everything is up to date"))?;
@@ -411,7 +423,10 @@ async fn handle_pull(
     // Step 3: Actually perform the integration
     if let Some(statuses) = statuses_to_apply {
         let integration_result = {
-            let updates = but_api::workspace::rebase_stack_bottoms(&current_head_info);
+            let updates = but_api::workspace::rebase_lane_bottoms(upstream::selected_lanes(
+                &current_head_info,
+                update,
+            ));
             let mut ctx = ctx.to_sync().into_thread_local();
             let mut guard = ctx.exclusive_worktree_access();
             but_api::workspace::workspace_integrate_upstream_with_perm(
@@ -425,7 +440,7 @@ async fn handle_pull(
         match integration_result {
             Ok(outcome) => {
                 let post_statuses =
-                    upstream::classify(&current_head_info, &outcome.workspace_state);
+                    upstream::classify(&current_head_info, update, &outcome.workspace_state);
                 // Report detailed results for each resolution
                 let mut successful_rebases: Vec<String> = Vec::new();
                 let mut conflicted_rebases: Vec<String> = Vec::new();
@@ -661,7 +676,7 @@ fn collect_materialized_rebase_results(
             continue;
         }
 
-        match post_branch_status(post_integration_statuses, branch_status.name.as_str()) {
+        match post_branch_status(post_integration_statuses, &branch_status.identity) {
             Some(PullBranchStatus::Conflicted) => {
                 conflicted_rebases.push(branch_status.name.clone());
             }
@@ -677,11 +692,11 @@ fn collect_materialized_rebase_results(
 
 fn post_branch_status(
     post_integration_statuses: &[PullBranchStatusInfo],
-    branch_name: &str,
+    identity: &Option<SegmentIdentity>,
 ) -> Option<PullBranchStatus> {
     post_integration_statuses
         .iter()
-        .find(|branch_status| branch_status.name == branch_name)
+        .find(|branch_status| branch_status.identity == *identity)
         .map(|branch_status| branch_status.status)
 }
 

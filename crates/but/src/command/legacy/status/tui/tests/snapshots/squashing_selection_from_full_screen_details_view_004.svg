@@ -66,10 +66,10 @@
     <text x="10" y="150" style="fill:#CCCCCC;">┴</text>
     <text x="26 34 42 50 58 66 74" y="150" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
     <text x="90 98 106 114 122 130 138" y="150" style="fill:#CCCCCC;">(common</text>
-    <text x="154 162 170 178 186" y="150" style="fill:#CCCCCC;">base)</text>
-    <text x="202 210 218 226 234 242 250 258 266 274" y="150" style="fill:#CCCCCC;opacity:0.75;">2000-01-02</text>
-    <text x="290 298 306" y="150" style="fill:#CCCCCC;">add</text>
-    <text x="322" y="150" style="fill:#CCCCCC;">M</text>
+    <text x="154 162 170 178 186" y="150" style="fill:#CCCCCC;">base,</text>
+    <text x="202 210 218 226 234" y="150" style="fill:#CCCCCC;">main,</text>
+    <text x="250 258 266 274 282 290 298 306 314 322 330 338" y="150" style="fill:#CCCCCC;">origin/main)</text>
+    <text x="354 362 370 378 386 394 402" y="150" style="fill:#CCCCCC;opacity:0.75;">2000-01</text>
     <text x="410" y="150" style="fill:#555555;">│</text>
     <text x="418" y="150" style="fill:#CCCCCC;">2</text>
     <text x="434 442 450 458 466" y="150" style="fill:#CCCCCC;">files</text>

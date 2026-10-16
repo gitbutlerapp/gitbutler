@@ -154,7 +154,7 @@ fn changing_pushed_commit_does_not_cause_change_id_ambiguity() {
 ┊◐   123 rewritten
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -222,7 +222,7 @@ fn exact_match_on_branch_short_id_must_prioritize_branch() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -452,7 +452,7 @@ Created commit 1 on branch 'a-branch-1'
 ┊│     1#3:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -579,7 +579,7 @@ Created commit 1 on branch 'a-branch-1'
 ┊│     1#2:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 

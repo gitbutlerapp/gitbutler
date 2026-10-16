@@ -1,4 +1,4 @@
-import { hashCode } from "@gitbutler/ui/utils/string";
+import { hashCode } from "@gitbutler/ui-svelte/utils/string";
 import gitUrlParse from "git-url-parse";
 
 export type RepoInfo = {

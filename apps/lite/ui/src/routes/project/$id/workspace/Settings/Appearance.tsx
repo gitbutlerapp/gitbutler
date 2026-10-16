@@ -8,12 +8,12 @@ import type { ThemesType } from "@pierre/diffs/react";
 import type { GUISettings } from "#electron/settings.ts";
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { useSaveGUISettings } from "#ui/api/mutations.ts";
-import { FieldControlStyles } from "#ui/components/Field.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { NumberField } from "#ui/components/NumberField.tsx";
-import { Select } from "#ui/components/Select.tsx";
-import { Switch } from "#ui/components/Switch.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { FieldControlStyles } from "@gitbutler/ui-react/Field.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { NumberField } from "@gitbutler/ui-react/NumberField.tsx";
+import { Select } from "@gitbutler/ui-react/Select.tsx";
+import { Switch } from "@gitbutler/ui-react/Switch.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { displayName } from "#ui/syntax-highlighting.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import styles from "./Appearance.module.css";
@@ -162,6 +162,21 @@ export const Appearance: FC = () => {
 						aria-labelledby="hand-cursor"
 						checked={settings.handCursor ?? defaultSettings.handCursor}
 						onCheckedChange={(handCursor) => saveGUISettings({ handCursor })}
+					/>
+				</Row>
+			</Section>
+
+			<Section heading="Workspace">
+				<Row
+					label="Lines between stacks"
+					labelId="graph-trunk"
+					hint="Draw the line that joins each stack to the target branch."
+				>
+					<Switch
+						size="large"
+						aria-labelledby="graph-trunk"
+						checked={settings.graphTrunk ?? defaultSettings.graphTrunk}
+						onCheckedChange={(graphTrunk) => saveGUISettings({ graphTrunk })}
 					/>
 				</Row>
 			</Section>

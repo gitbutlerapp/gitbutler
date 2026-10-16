@@ -11,7 +11,7 @@
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
-	import { Button, InfoMessage, type MessageStyle, Spacer, Textbox } from "@gitbutler/ui";
+	import { Button, InfoMessage, type MessageStyle, Spacer, Textbox } from "@gitbutler/ui-svelte";
 
 	import * as Sentry from "@sentry/sveltekit";
 	import { onMount } from "svelte";

@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
-import { hunkAddress, type HunkAddress } from "#ui/addresses.ts";
+import { commitAddress, hunkAddress, type HunkAddress } from "#ui/addresses.ts";
+import { projectSlice } from "#ui/projects/state.ts";
 import { store } from "#ui/store.ts";
 import type { CodeViewDiffItem } from "@pierre/diffs";
 import { act, createRef, forwardRef, type RefObject, useImperativeHandle } from "react";
@@ -162,6 +163,40 @@ describe("useDiffGutterCheckboxes", () => {
 
 		pointerOver(code);
 		expect(host.shadowRoot?.querySelector("[data-gitbutler-diff-actions]")).toBeNull();
+	});
+
+	it("lights the hunk column only while the hunk can be checked", async () => {
+		const { host, cell } = createHost();
+		const context = { type: "diff", item: ITEM, element: host, version: ITEM.version };
+		await act(async () => {
+			Reflect.apply(handle().onPostRender, undefined, [host, {}, "mount", context]);
+		});
+		const band = cell.querySelector<HTMLElement>("[data-gitbutler-diff-hunk-band]");
+		if (!band) throw new Error("expected a hunk band");
+		const hovered = () => band.hasAttribute("data-gitbutler-diff-gutter-hovered");
+		// A checked commit leaves the uncommitted hunks with nothing to check.
+		const checkCommit = (checked: boolean) =>
+			act(() => {
+				store.dispatch(
+					projectSlice.actions.checkAddress({
+						projectId: "project",
+						address: commitAddress({ commitId: "commit", changeId: "change" }),
+						checked,
+					}),
+				);
+			});
+
+		checkCommit(true);
+		pointerOver(band);
+		expect(hovered()).toBe(false);
+
+		checkCommit(false);
+		expect(hovered()).toBe(true);
+
+		checkCommit(true);
+		expect(hovered()).toBe(false);
+
+		checkCommit(false);
 	});
 
 	describe("checkbox drag", () => {

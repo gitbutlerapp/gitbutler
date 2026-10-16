@@ -7,8 +7,8 @@
 	import { type GlobalModalState, UI_STATE } from "$lib/state/uiState.svelte";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Modal, TestId } from "@gitbutler/ui";
-	import type { ModalProps } from "@gitbutler/ui";
+	import { Modal, TestId } from "@gitbutler/ui-svelte";
+	import type { ModalProps } from "@gitbutler/ui-svelte";
 
 	const uiState = inject(UI_STATE);
 	const userService = inject(USER_SERVICE);

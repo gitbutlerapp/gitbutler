@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Scrollbar } from "@gitbutler/ui";
+	import { Scrollbar } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		viewport: HTMLDivElement;

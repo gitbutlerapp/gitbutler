@@ -20,7 +20,7 @@
 		SimpleCommitRow,
 		ScrollableContainer,
 		chipToasts,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import type { GerritPushFlag } from "$lib/stacks/stack";
 	import type { Segment } from "@gitbutler/but-sdk";
 

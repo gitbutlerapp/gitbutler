@@ -1,4 +1,4 @@
-/* The widths ⚛️ Lite Core gives a select and a field at the end of a settings row. */
+/* The widths ⚛️ Core gives a select and a field at the end of a settings row. */
 .select {
 	width: 140px;
 }
@@ -37,7 +37,7 @@
 	width: 8px;
 	height: 8px;
 	margin-top: calc((1lh - 8px) / 2);
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 	background-color: var(--text-3);
 }
 

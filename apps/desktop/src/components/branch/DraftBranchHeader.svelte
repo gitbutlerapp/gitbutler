@@ -2,7 +2,7 @@
 	import BranchHeaderIcon from "$components/branch/BranchHeaderIcon.svelte";
 	import BranchLabel from "$components/branch/BranchLabel.svelte";
 	import CommitPositionIndicator from "$components/commit/CommitPositionIndicator.svelte";
-	import { TestId } from "@gitbutler/ui";
+	import { TestId } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		branchName: string;

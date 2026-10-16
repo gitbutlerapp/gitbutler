@@ -7,12 +7,12 @@
 	import { getPatch } from "@gitbutler/shared/patches/patchCommitsPreview.svelte";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { CommitStatusBadge } from "@gitbutler/ui";
+	import { CommitStatusBadge } from "@gitbutler/ui-svelte";
 	import {
 		EXTERNAL_LINK_SERVICE,
 		type ExternalLinkService,
-	} from "@gitbutler/ui/utils/externalLinkService";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	} from "@gitbutler/ui-svelte/utils/externalLinkService";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import type { PatchCommit } from "@gitbutler/shared/patches/types";
 
 	type Props = {

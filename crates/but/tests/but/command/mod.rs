@@ -30,6 +30,7 @@ mod external;
 mod format;
 mod gui;
 mod help;
+mod init;
 #[cfg(feature = "legacy")]
 mod merge;
 #[cfg(feature = "legacy")]
@@ -41,6 +42,8 @@ mod open;
 #[cfg(feature = "legacy")]
 mod pick;
 #[cfg(feature = "legacy")]
+mod pr;
+#[cfg(feature = "legacy")]
 mod pull;
 #[cfg(feature = "legacy")]
 mod push;
@@ -51,7 +54,7 @@ mod reword;
 #[cfg(feature = "legacy")]
 mod reword2;
 #[cfg(feature = "legacy")]
-mod setup;
+mod sha256;
 mod skill;
 #[cfg(feature = "legacy")]
 mod split;
@@ -60,7 +63,7 @@ mod squash;
 #[cfg(feature = "legacy")]
 mod status;
 #[cfg(feature = "legacy")]
-mod r#switch;
+mod switch;
 #[cfg(feature = "legacy")]
 mod teardown;
 #[cfg(feature = "legacy")]
@@ -261,13 +264,13 @@ mod util {
     }
 
     /// Add a dirty linked worktree named `name` on a new branch of the same name at
-    /// `start_point`, with `note.txt` uncommitted in it.
+    /// `start_point`, with `note.txt` uncommitted in it, then return the worktree's directory.
     ///
     /// The caller must have run a flag-on command first: the first read with the
     /// flag on archives every worktree already on disk, so the ones under test
     /// have to be created after it. Checked out into the per-test temp dir, as
     /// scenario directories are reused across runs.
-    pub fn add_dirty_worktree(env: &Sandbox, name: &str, start_point: &str) {
+    pub fn add_dirty_worktree(env: &Sandbox, name: &str, start_point: &str) -> std::path::PathBuf {
         let wt = env.app_data_dir().join("worktrees");
         but_testsupport::invoke_bash_at_dir(
             &format!(
@@ -279,6 +282,7 @@ mod util {
             ),
             env.projects_root(),
         );
+        wt.join(name)
     }
 
     /// Add a linked worktree named `name` on a new branch of the same name at
@@ -304,5 +308,20 @@ mod util {
             env.projects_root(),
         );
         wt.join(name)
+    }
+
+    /// Like [`add_worktree_with_commit`], with a second commit adding `wt-top.txt` on top and
+    /// `wt-lower` naming the first, so the worktree's lane holds a branch below its checkout.
+    pub fn add_worktree_with_lower_branch(
+        env: &Sandbox,
+        name: &str,
+        start_point: &str,
+    ) -> std::path::PathBuf {
+        let wt = add_worktree_with_commit(env, name, start_point);
+        but_testsupport::invoke_bash_at_dir(
+            "echo top >wt-top.txt && git add wt-top.txt && git commit -q -m 'add W2' && git branch wt-lower HEAD~1",
+            &wt,
+        );
+        wt
     }
 }

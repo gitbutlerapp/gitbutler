@@ -77,14 +77,20 @@ import {
 	UserService as CloudUserService,
 	USER_SERVICE as CLOUD_USER_SERVICE,
 } from "@gitbutler/shared/users/userService";
-import { DragStateService, DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
-import { FModeManager } from "@gitbutler/ui/focus/fModeManager";
-import { FOCUS_MANAGER, FocusManager } from "@gitbutler/ui/focus/focusManager";
+import {
+	DragStateService,
+	DRAG_STATE_SERVICE,
+} from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
+import { FModeManager } from "@gitbutler/ui-svelte/focus/fModeManager";
+import { FOCUS_MANAGER, FocusManager } from "@gitbutler/ui-svelte/focus/focusManager";
 import {
 	EXTERNAL_LINK_SERVICE,
 	type ExternalLinkService,
-} from "@gitbutler/ui/utils/externalLinkService";
-import { IMECompositionHandler, IME_COMPOSITION_HANDLER } from "@gitbutler/ui/utils/imeHandling";
+} from "@gitbutler/ui-svelte/utils/externalLinkService";
+import {
+	IMECompositionHandler,
+	IME_COMPOSITION_HANDLER,
+} from "@gitbutler/ui-svelte/utils/imeHandling";
 import type { AppSettings } from "@gitbutler/but-sdk";
 import { PUBLIC_API_BASE_URL } from "$env/static/public";
 

@@ -8,7 +8,7 @@
 	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
 	import { organizationTable } from "@gitbutler/shared/organizations/organizationsSlice";
 	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
-	import { Button, CardGroup, EmptyStatePlaceholder, Icon } from "@gitbutler/ui";
+	import { Button, CardGroup, EmptyStatePlaceholder, Icon } from "@gitbutler/ui-svelte";
 
 	const organizationService = inject(ORGANIZATION_SERVICE);
 	const appState = inject(APP_STATE);

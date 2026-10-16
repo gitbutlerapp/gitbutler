@@ -1,6 +1,6 @@
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import styles from "./Section.module.css";
 import type { FC, ReactNode } from "react";
 

@@ -19,7 +19,7 @@
 		SelectItem,
 		Spacer,
 		Textbox,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 
 	import { onMount, tick } from "svelte";
 	import { run } from "svelte/legacy";

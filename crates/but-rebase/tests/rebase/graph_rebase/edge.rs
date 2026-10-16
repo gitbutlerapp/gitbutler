@@ -225,3 +225,47 @@ fn removing_an_existing_edge_returns_its_order_and_allows_readding_it() -> Resul
 
     Ok(())
 }
+
+#[test]
+fn inserting_a_parent_shifts_the_later_parents() -> Result<()> {
+    let (repo, mut meta, mut db) = fixture("merge-in-the-middle")?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let merge = editor.select_commit(repo.rev_parse_single("HEAD~")?.detach())?;
+    let base = editor.select_commit(repo.rev_parse_single("base")?.detach())?;
+    let reference = editor.add_step(Step::new_reference("refs/heads/new".try_into()?))?;
+    editor.add_edge(reference, base, 0)?;
+    editor.insert_parent(merge, reference, Some(1))?;
+
+    snapbox::assert_data_eq!(
+        editor.steps_ascii(),
+        snapbox::str![[r#"
+◎  refs/heads/with-inner-merge
+●  e8ee978 on top of inner merge
+●      2fc288c Merge branch 'B' into with-inner-merge
+├─┬─╮
+◎ │ │  refs/heads/A
+● │ │  add59d2 A: 10 lines on top
+│ ◎ │  refs/heads/new
+│ │ ◎  refs/heads/B
+│ │ ●  984fd1c C: new file with 10 lines
+├───╯
+◎ │  refs/heads/main
+◎ │  refs/tags/base (immutable)
+├─╯
+●  8f0d338 base
+"#]]
+    );
+
+    Ok(())
+}

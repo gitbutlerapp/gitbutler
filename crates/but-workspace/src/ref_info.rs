@@ -8,7 +8,7 @@ use std::{
     str::FromStr,
 };
 
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata;
 use but_graph::{SegmentIndex, workspace::StackCommitFlags};
 use gix::Repository;
@@ -349,12 +349,49 @@ pub struct Lane<'a> {
     pub segments: &'a [Segment],
     /// The commit in another lane that the last segment rests on.
     pub rests_on: Option<gix::ObjectId>,
+    /// The stable name of the worktree this lane is, or `None` for a stack.
+    pub worktree: Option<&'a BStr>,
+}
+
+/// What a segment is known by before and after its lane is rebased.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SegmentIdentity {
+    /// The branch naming the segment.
+    Branch(gix::refs::FullName),
+    /// The worktree whose detached `HEAD` owns the segment, by its stable name.
+    DetachedWorktree(BString),
+}
+
+impl std::fmt::Display for SegmentIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SegmentIdentity::Branch(ref_name) => ref_name.shorten().fmt(f),
+            SegmentIdentity::DetachedWorktree(name) => name.fmt(f),
+        }
+    }
 }
 
 impl<'a> Lane<'a> {
     /// The segments from `index` down to the base.
     pub fn segments_from(self, index: usize) -> &'a [Segment] {
         self.segments.get(index..).unwrap_or_default()
+    }
+
+    /// Each segment along with what it is known by across a rebase: its branch, or the worktree
+    /// for the anonymous segment a detached worktree has checked out. An anonymous segment of a
+    /// stack has nothing to tell it apart.
+    pub fn identified_segments(
+        self,
+    ) -> impl Iterator<Item = (Option<SegmentIdentity>, &'a Segment)> {
+        self.segments.iter().map(move |segment| {
+            let identity = match segment.ref_name() {
+                Some(ref_name) => Some(SegmentIdentity::Branch(ref_name.to_owned())),
+                None => self
+                    .worktree
+                    .map(|name| SegmentIdentity::DetachedWorktree(name.to_owned())),
+            };
+            (identity, segment)
+        })
     }
 
     fn segment_index(&self, matches: impl Fn(&Segment) -> bool) -> Option<usize> {
@@ -591,12 +628,17 @@ pub fn graph_to_ref_info(
         target_ref: target_ref.clone(),
         target_commit: target_commit.clone(),
         is_target_current,
+        has_lanes_behind_target: false,
         ancestor_workspace_commit,
         worktrees: worktrees
             .iter()
             .map(|worktree| crate::worktrees::WorktreeInfo::try_from_graph_worktree(worktree, repo))
             .collect::<anyhow::Result<_>>()?,
     };
+
+    info.has_lanes_behind_target = target_commit
+        .as_ref()
+        .is_some_and(|target| info.has_lanes_behind(graph, target));
 
     if let Some(info) = &info.ancestor_workspace_commit {
         // This is the MVP version of what should be guided by the UI - just communicate through
@@ -691,24 +733,39 @@ fn forge_review_for_branch(
 }
 
 impl RefInfo {
+    /// Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
+    /// `target`.
+    ///
+    /// A lane resting on `target` has it. One resting elsewhere may still have merged it in,
+    /// which the graph tells.
+    fn has_lanes_behind(&self, graph: &Graph, target: &but_graph::workspace::TargetCommit) -> bool {
+        let stacks = self
+            .stacks
+            .iter()
+            .map(|stack| (stack.base, &stack.segments));
+        let worktrees = self
+            .worktrees
+            .iter()
+            .map(|worktree| (worktree.rebasable_base(), &worktree.segments));
+        stacks.chain(worktrees).any(|(base, segments)| {
+            base.is_some_and(|base| base != target.commit_id)
+                && segments.first().is_some_and(|top| {
+                    graph.find_merge_base(target.segment_index, top.id)
+                        != Some(target.segment_index)
+                })
+        })
+    }
+
     /// Every lane, i.e. each stack followed by each worktree in tip order.
     ///
     /// A lane can only rest on a lane listed before it, so following [`Lane::rests_on`] always
     /// terminates.
     pub fn lanes(&self) -> impl Iterator<Item = Lane<'_>> {
-        self.stacks
-            .iter()
-            .map(|stack| Lane {
-                segments: &stack.segments,
-                rests_on: None,
-            })
-            .chain(self.worktrees.iter().map(|wt| Lane {
-                segments: &wt.segments,
-                rests_on: match wt.base {
-                    Some(crate::worktrees::WorktreeBase::InWorkspace(id)) => Some(id),
-                    Some(crate::worktrees::WorktreeBase::Outside(_)) | None => None,
-                },
-            }))
+        self.stacks.iter().map(branch::Stack::lane).chain(
+            self.worktrees
+                .iter()
+                .map(crate::worktrees::WorktreeInfo::lane),
+        )
     }
 
     /// The lane holding `branch` along with the index of the branch's segment, followed by each

@@ -1,9 +1,7 @@
 .tree {
-	/* File rows run the full width of their panel: the hover and selection fills
-	   reach both edges, and the inset that used to sit on the panel is carried by
-	   the rows instead. */
-	--row-padding-inline-start: 14px;
-	--row-padding-inline-end: 14px;
+	/* The empty-filter row is a Row, not a list item: inset it to match them. */
+	--row-padding-inline-start: var(--space-lg);
+	--row-padding-inline-end: var(--space-lg);
 
 	display: flex;
 	flex-direction: column;
@@ -11,87 +9,5 @@
 	&:focus {
 		/* The focus state is displayed on the item row instead. */
 		outline: none;
-	}
-}
-
-.steps {
-	display: flex;
-	column-gap: 4px;
-	flex-shrink: 0;
-	align-self: stretch;
-}
-
-/* One directory's worth of indent. */
-.step {
-	display: flex;
-	position: relative;
-	flex-shrink: 0;
-	align-items: center;
-	justify-content: center;
-	width: 12px;
-}
-
-/* Runs the full height of the row so the segments in the rows above and below
-   join up into one line under the directory they all sit in. It ends of its own
-   accord: the first row shallower than this step doesn't draw one. */
-.stepLine::before {
-	position: absolute;
-	width: 1px;
-	inset-block: 0;
-	background-color: color-mix(in srgb, var(--text-2) 20%, transparent);
-	content: "";
-}
-
-.stepToggle {
-	padding: 0;
-	border: none;
-	background: none;
-	color: var(--text-3);
-
-	&:hover,
-	&:focus-visible {
-		color: var(--text-2);
-	}
-}
-
-/* The mark and the checkbox share one cell: the mark says what the row is, and
-   gives way to the checkbox once the row is worth acting on. */
-.leading {
-	display: grid;
-
-	& > * {
-		grid-area: 1 / 1;
-	}
-}
-
-/* File and folder marks share one box, so the two kinds of row line up. */
-.leadingMark {
-	align-self: center;
-	width: 14px;
-	height: 14px;
-	color: var(--text-3);
-}
-
-.fileCount {
-	flex-shrink: 0;
-	align-self: center;
-	font-variant-numeric: tabular-nums;
-}
-
-/* Opaque, so a checked box covers the mark it shares a cell with. Appears when
-   the pointer is over that cell, not the whole row, so the row stays quiet
-   while browsing. */
-.leadingCheckbox {
-	opacity: 0;
-
-	&[data-checked],
-	&[data-indeterminate],
-	.leading:hover &,
-	&:focus {
-		opacity: 1;
-	}
-
-	&[data-disabled] {
-		display: none;
 	}
 }

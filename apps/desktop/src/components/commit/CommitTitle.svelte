@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { splitMessage } from "$lib/commits/commitMessage";
-	import { TestId, Tooltip } from "@gitbutler/ui";
+	import { TestId, Tooltip } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		truncate?: boolean;

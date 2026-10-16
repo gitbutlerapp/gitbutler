@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { ScrollableContainer, type ScrollableProps } from "@gitbutler/ui";
+	import { ScrollableContainer, type ScrollableProps } from "@gitbutler/ui-svelte";
 
 	let {
 		viewport = $bindable(),

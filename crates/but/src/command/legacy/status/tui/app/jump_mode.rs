@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use bstr::ByteSlice;
 use crossterm::event::Event;
 use ratatui::prelude::*;
@@ -35,6 +37,45 @@ impl ModeRender for JumpMode {
 }
 
 impl JumpMode {
+    /// Rows that will be selected immediately after typing their next hinted character.
+    pub fn immediate_jump_targets(
+        &self,
+        lines: &[StatusOutputLine],
+        show_files: FilesStatusFlag,
+    ) -> Vec<bool> {
+        let query = self.query();
+        let mut next_chars = BTreeSet::new();
+        for line in lines {
+            if !prefix_match(query, line, &self.return_mode, show_files) {
+                continue;
+            }
+            let mut hex_buf = gix::hash::Kind::hex_buf();
+            let Some(id) = jump_id(line, &mut hex_buf) else {
+                continue;
+            };
+            if let Some(next_char) = id.strip_prefix(query).and_then(|rest| rest.chars().next()) {
+                next_chars.insert(next_char);
+            }
+        }
+
+        // Resolve once per distinct key, not once per row. Include offscreen rows and use
+        // the input resolver so ambiguous prefixes never advertise an immediate jump.
+        let mut targets = Vec::with_capacity(lines.len());
+        targets.resize(lines.len(), false);
+        let mut next_query = query.to_owned();
+        for next_char in next_chars {
+            next_query.push(next_char);
+            if let Some(target) =
+                find_line_by_jump_id(&next_query, lines, &self.return_mode, show_files)
+                && let Some(index) = lines.iter().position(|line| std::ptr::eq(line, target))
+            {
+                targets[index] = true;
+            }
+            next_query.truncate(query.len());
+        }
+        targets
+    }
+
     pub fn query(&self) -> &str {
         self.textarea
             .lines()
@@ -70,16 +111,9 @@ fn find_line_by_jump_id<'a>(
         .peekable();
 
     let needle = matches.next()?;
-    if matches.peek().is_none() {
-        return Some(needle);
-    }
-    // A worktree's `wt` is a strict prefix of its own area `wt:@`, so typing it can never
-    // become unique; an ID typed out in full wins over the IDs extending it.
-    std::iter::once(needle).chain(matches).find(|line| {
-        line.data
-            .cli_id()
-            .is_some_and(|id| id.short_string() == query)
-    })
+    // Keep accepting input when an exact ID prefixes another target (e.g. `wt` and
+    // `wt:@`). Enter can confirm the shorter ID without making the longer one unreachable.
+    matches.peek().is_none().then_some(needle)
 }
 
 pub fn prefix_match(
@@ -91,20 +125,18 @@ pub fn prefix_match(
     if !cursor::is_selectable_in_mode(line, return_mode.as_ref(), show_files_flag) {
         return false;
     }
-    jump_id_has_prefix(line, query)
+    let mut buf = gix::hash::Kind::hex_buf();
+    jump_id(line, &mut buf).is_some_and(|id| id.starts_with(query))
 }
 
-fn jump_id_has_prefix(line: &StatusOutputLine, query: &str) -> bool {
+fn jump_id<'a>(line: &'a StatusOutputLine, hex_buf: &'a mut [u8]) -> Option<&'a str> {
     if let StatusOutputContent::MergeBase(merge_base) = &line.content {
-        let mut buf = gix::hash::Kind::hex_buf();
-        return merge_base.commit_id.hex_to_buf(&mut buf).starts_with(query);
+        return Some(merge_base.commit_id.hex_to_buf(hex_buf));
     }
 
-    let Some(id) = line.data.cli_id() else {
-        return false;
-    };
+    let id = line.data.cli_id()?;
     match &**id {
-        CliId::UncommittedHunkOrFile(hunk) => hunk.id.starts_with(query),
+        CliId::UncommittedHunkOrFile(hunk) => Some(&hunk.id),
         CliId::Commit {
             commit: CommitId {
                 commit_id,
@@ -113,25 +145,18 @@ fn jump_id_has_prefix(line: &StatusOutputLine, query: &str) -> bool {
             id,
         } => {
             if let Some(change_id) = change_id {
-                change_id
-                    .as_bytes()
-                    .to_str()
-                    .unwrap_or(id)
-                    .starts_with(query)
+                Some(change_id.as_bytes().to_str().unwrap_or(id))
             } else {
-                let mut buf = gix::hash::Kind::hex_buf();
-                commit_id.hex_to_buf(&mut buf).starts_with(query)
+                Some(commit_id.hex_to_buf(hex_buf))
             }
         }
         CliId::PathPrefix { id, .. }
         | CliId::CommittedFile { id, .. }
-        | CliId::Uncommitted { id }
-        | CliId::Worktree { id, .. }
-        | CliId::WorktreeUncommitted { id, .. }
-        | CliId::Stack { id, .. } => id.starts_with(query),
-        CliId::Branch(branch) => branch.id.starts_with(query),
-        CliId::AnonymousSegment(segment) => segment.id.starts_with(query),
-        CliId::CommittedHunk(..) => false,
+        | CliId::UncommittedArea { id, .. }
+        | CliId::Stack { id, .. } => Some(id),
+        CliId::Branch(branch) => Some(&branch.id),
+        CliId::AnonymousSegment(segment) => Some(&segment.id),
+        CliId::CommittedHunk(..) => None,
     }
 }
 
@@ -170,13 +195,6 @@ impl App {
     }
 
     fn handle_jump_enter(&mut self) {
-        // TODO(david): dont enter if commit file list is open
-
-        match self.flags.show_files {
-            FilesStatusFlag::None | FilesStatusFlag::All => {}
-            FilesStatusFlag::Commit(..) => return,
-        }
-
         let previous_mode = match &*self.mode {
             Mode::Details(..) => return,
             mode @ (Mode::Normal(..)
@@ -292,14 +310,18 @@ pub fn find_jump_match(
     mode: &JumpMode,
     show_files: FilesStatusFlag,
 ) -> Option<Cursor> {
-    cursor
-        .selected_line(lines)
+    let selected = cursor.selected_line(lines);
+    lines
+        .iter()
         .filter(|line| prefix_match(mode.query(), line, &mode.return_mode, show_files))
-        .map(|_| cursor)
-        .or_else(|| {
-            lines
-                .iter()
-                .find(|line| prefix_match(mode.query(), line, &mode.return_mode, show_files))
-                .and_then(|line| cursor_for_jump_line(line, lines))
+        // Enter prefers an exact ID, then the current selection, then the first match.
+        .min_by_key(|line| {
+            let exact = line
+                .data
+                .cli_id()
+                .is_some_and(|id| id.short_string() == mode.query());
+            let current = selected.is_some_and(|selected| std::ptr::eq(*line, selected));
+            (!exact, !current)
         })
+        .and_then(|line| cursor_for_jump_line(line, lines))
 }

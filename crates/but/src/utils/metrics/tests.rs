@@ -24,6 +24,24 @@ fn assert_command(subcommand: Subcommands, expected: &str) {
 }
 
 #[test]
+fn experimental_metric_names_require_nightly() {
+    assert_eq!(
+        CommandName::from_str("expand", false).is_ok(),
+        cfg!(feature = "nightly"),
+        "expand metrics must only be accepted in nightly builds"
+    );
+    assert_eq!(
+        serde_json::from_value::<CommandName>(serde_json::json!("expand")).is_ok(),
+        cfg!(feature = "nightly"),
+        "serialized expand metrics must follow the same feature gate"
+    );
+    assert!(
+        CommandName::from_str("open", false).is_ok(),
+        "open metrics are also used by the stable open command"
+    );
+}
+
+#[test]
 fn metrics_use_invoked_command_names() {
     assert_command(
         Subcommands::Update(update::Platform {
@@ -58,10 +76,13 @@ fn metrics_use_invoked_command_names() {
     #[cfg(feature = "legacy")]
     assert_command(
         Subcommands::Move(crate::args::r#move::Platform {
+            switch: false,
             branch: Some(Some(CliIdArg("main".to_owned()))),
             above: None,
             below: None,
             unstack: false,
+            message: None,
+            file: None,
             sources: Vec::from([CliIdArg("ci".to_owned())]),
             allow_merged: Default::default(),
         }),
@@ -119,8 +140,13 @@ fn formerly_unknown_commands_use_explicit_names() {
 
     #[cfg(feature = "legacy")]
     {
-        assert_command(Subcommands::Setup { init: false }, "setup");
-        assert_command(Subcommands::Teardown { checkout_to: None }, "teardown");
+        assert_command(
+            Subcommands::Teardown {
+                checkout_to: None,
+                remove_hooks: false,
+            },
+            "teardown",
+        );
     }
 }
 
@@ -175,10 +201,13 @@ fn extra_props_keep_useful_source_and_target_kinds() {
     #[cfg(feature = "legacy")]
     {
         let moved = Subcommands::Move(crate::args::r#move::Platform {
+            switch: false,
             branch: Some(Some(CliIdArg("main".to_owned()))),
             above: None,
             below: None,
             unstack: false,
+            message: None,
+            file: None,
             sources: Vec::from([CliIdArg("ci".to_owned())]),
             allow_merged: Default::default(),
         });
@@ -244,6 +273,7 @@ fn commit_extra_props_describe_targeting_and_selection_without_ids() {
         let command = Subcommands::Commit(commit::Platform {
             message: Some(vec!["private message".into()]),
             no_message: false,
+            file: None,
             branch: branch.map(|name| name.map(|name| CliIdArg(name.into()))),
             above: above.map(|value| CliIdArg(value.into())),
             below: below.map(|value| CliIdArg(value.into())),
@@ -253,6 +283,7 @@ fn commit_extra_props_describe_targeting_and_selection_without_ids() {
                 .map(|index| CliIdArg(format!("private-change-{index}")))
                 .collect(),
             allow_merged: Default::default(),
+            switch: false,
         });
         let props = command.to_metrics_extra_props();
 

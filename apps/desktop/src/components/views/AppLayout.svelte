@@ -7,7 +7,7 @@
 	import AppSidebar from "$components/views/AppSidebar.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 	import type { Snippet } from "svelte";
 
 	const {

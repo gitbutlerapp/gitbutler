@@ -10,7 +10,7 @@
 	import { PATCH_EVENTS_SERVICE } from "@gitbutler/shared/patchEvents/patchEventsService";
 	import { getPatchEvents } from "@gitbutler/shared/patches/patchCommitsPreview.svelte";
 	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
-	import { Button } from "@gitbutler/ui";
+	import { Button } from "@gitbutler/ui-svelte";
 	import type { PatchCommit } from "@gitbutler/shared/patches/types";
 
 	type Props = {

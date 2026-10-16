@@ -5,7 +5,7 @@
 	import { parseError } from "$lib/error/parser";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, Icon, InfoMessage, Link } from "@gitbutler/ui";
+	import { Button, Icon, InfoMessage, Link } from "@gitbutler/ui-svelte";
 	import { slide } from "svelte/transition";
 
 	interface Props {

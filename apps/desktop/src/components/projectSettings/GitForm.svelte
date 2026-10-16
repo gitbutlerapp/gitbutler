@@ -8,7 +8,7 @@
 	import { projectLandDirectly } from "$lib/config/config";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui";
+	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui-svelte";
 	import type { Project } from "$lib/project/project";
 
 	const { projectId }: { projectId: string } = $props();
@@ -18,7 +18,7 @@
 	const landDirectly = $derived(projectLandDirectly(projectId));
 
 	async function onForcePushProtectionClick(project: Project, value: boolean) {
-		await projectsService.updateProject({ ...project, force_push_protection: value });
+		await projectsService.updateProject({ id: project.id, force_push_protection: value });
 	}
 </script>
 

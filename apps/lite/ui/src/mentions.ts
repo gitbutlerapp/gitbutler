@@ -1,6 +1,6 @@
 /** `@mention` completion for a plain textarea. Pure and DOM-free, like `markdown-editing.ts`. */
 
-import type { MarkdownCommand, MarkdownSelection } from "#ui/markdown-editing.ts";
+import type { MarkdownCommand, MarkdownSelection } from "@gitbutler/ui-react/markdown-editing.ts";
 import type { ForgeReviewUser } from "@gitbutler/but-sdk";
 
 /** Where a mention's `@` sits and what has been typed after it. */

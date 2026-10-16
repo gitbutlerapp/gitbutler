@@ -2,7 +2,7 @@
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import DrawerHeader from "$components/shared/DrawerHeader.svelte";
 	import { persistWithExpiration } from "@gitbutler/shared/persisted";
-	import { Icon } from "@gitbutler/ui";
+	import { Icon } from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 	import { writable, type Writable } from "svelte/store";
 	import type { Snippet } from "svelte";

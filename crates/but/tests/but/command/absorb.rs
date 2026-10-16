@@ -24,7 +24,13 @@ fn unresolvable_source_errors_instead_of_absorbing_everything() {
 
     // A source that resolves to nothing must fail loudly. It used to be
     // swallowed, silently degrading `absorb <id>` to absorb-everything.
-    env.but("absorb zq").assert().failure();
+    env.but("absorb zq")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Source 'zq' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.
+
+"#]]);
 
     // The worktree change is untouched.
     let status = util::status_json(&env);
@@ -44,7 +50,13 @@ fn ambiguous_source_errors_instead_of_absorbing_an_arbitrary_match() {
     env.file("foo23", "data\n");
     env.file("foo242", "data\n");
 
-    env.but("absorb kp").assert().failure();
+    env.but("absorb kp")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: 'kp' is ambiguous - it matches more than one uncommitted change. Use more characters to disambiguate.
+
+"#]]);
 
     // Nothing was absorbed by the ambiguous selector.
     let status = util::status_json(&env);
@@ -389,7 +401,7 @@ fn committed_hunk() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -440,7 +452,7 @@ Hint: you can run `but undo` to undo these changes
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -815,4 +827,81 @@ c
             .is_none(),
         "absorb must not create a workspace ref in single-branch mode"
     );
+}
+
+#[test]
+fn absorbing_a_linked_worktrees_changes_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = util::add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    env.but("absorb")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot absorb uncommitted changes in worktree wt-feature yet
+
+"#]]);
+
+    env.but("absorb nl")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot absorb uncommitted changes in worktree wt-feature yet
+
+"#]]);
+
+    // Neither checkout's changes were absorbed.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted]
+┊   qy A main.txt
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature}
+┊┊┊   nl A note.txt
+┊┊├┄ wt [wt-feature] (no commits)
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn bare_absorb_in_an_unmanaged_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = util::add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    env.but("absorb")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Worktree wt-feature is not managed by GitButler
+
+Hint: Run `but worktree list` to see the worktrees GitButler manages
+
+"#]]);
 }

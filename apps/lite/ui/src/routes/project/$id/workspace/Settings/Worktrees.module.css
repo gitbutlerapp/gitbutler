@@ -1,22 +1,15 @@
-/* The same title-over-hint pair a settings row draws, on the recessed ground rather than the
-   card's paper, so it reads as the state of the page and not as one more row of it. */
+/* Frames the library's empty state on the recessed ground rather than the card's paper, so it
+   reads as the state of the page and not as one more row of it. A section is not a pane: there is
+   no height to centre in and no weight to lift, so the block's counterweight is off. */
 .empty {
+	--empty-state-counterweight: 0px;
+
 	display: flex;
 	flex-direction: column;
-	padding: 16px;
-	gap: 6px;
+	padding-block: 24px;
 	border: 1px solid var(--border-section);
 	border-radius: var(--radius-card);
 	background-color: var(--bg-2);
-}
-
-.emptyTitle {
-	color: var(--text-1);
-}
-
-.emptyHint {
-	color: var(--text-2);
-	text-wrap: pretty;
 }
 
 /* A worktree's row: its name over its path, and the actions at the end. Not a `Row` only because

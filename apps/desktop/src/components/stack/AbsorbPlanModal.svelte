@@ -12,7 +12,7 @@
 		ScrollableContainer,
 		TestId,
 		chipToasts,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import { tick } from "svelte";
 	import type { CommitAbsorption, SingleHunk, TreeChange } from "@gitbutler/but-sdk";
 

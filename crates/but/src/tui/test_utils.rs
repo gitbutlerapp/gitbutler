@@ -473,7 +473,8 @@ fn backend_to_svg(backend: &TestBackend) -> String {
         let mut x = area.x;
         let row_end = area.x.saturating_add(area.width);
         while x < row_end {
-            let bg = color_to_rgb(buffer[(x, y)].bg, default_bg);
+            let cell = &buffer[(x, y)];
+            let bg = svg_background_color(cell.fg, cell.bg, cell.modifier, default_fg, default_bg);
             if bg == default_bg {
                 x += 1;
                 continue;
@@ -481,7 +482,13 @@ fn backend_to_svg(backend: &TestBackend) -> String {
 
             let run_start = x;
             x += 1;
-            while x < row_end && color_to_rgb(buffer[(x, y)].bg, default_bg) == bg {
+            while x < row_end {
+                let cell = &buffer[(x, y)];
+                if svg_background_color(cell.fg, cell.bg, cell.modifier, default_fg, default_bg)
+                    != bg
+                {
+                    break;
+                }
                 x += 1;
             }
 
@@ -545,6 +552,20 @@ fn backend_to_svg(backend: &TestBackend) -> String {
     }
     svg.push_str("  </g>\n</svg>\n");
     svg
+}
+
+fn svg_background_color(
+    foreground: Color,
+    background: Color,
+    modifier: Modifier,
+    default_foreground: (u8, u8, u8),
+    default_background: (u8, u8, u8),
+) -> (u8, u8, u8) {
+    if modifier.contains(Modifier::REVERSED) {
+        color_to_rgb(foreground, default_foreground)
+    } else {
+        color_to_rgb(background, default_background)
+    }
 }
 
 fn svg_text_style(

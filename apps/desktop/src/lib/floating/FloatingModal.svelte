@@ -6,9 +6,9 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { getStorageItem, setStorageItem } from "@gitbutler/shared/persisted";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import { portal } from "@gitbutler/ui/utils/portal";
-	import { pxToRem, remToPx } from "@gitbutler/ui/utils/pxToRem";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
+	import { portal } from "@gitbutler/ui-svelte/utils/portal";
+	import { pxToRem, remToPx } from "@gitbutler/ui-svelte/utils/pxToRem";
 	import { onMount, untrack, type Snippet } from "svelte";
 	import type { SnapPositionName } from "$lib/floating/types";
 	import type { SnapPoint, ModalBounds } from "$lib/floating/types";

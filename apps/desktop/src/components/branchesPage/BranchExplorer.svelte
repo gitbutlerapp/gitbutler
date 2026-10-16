@@ -17,7 +17,7 @@
 	import { debounce } from "$lib/utils/debounce";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from "@gitbutler/ui";
+	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from "@gitbutler/ui-svelte";
 	import Fuse from "fuse.js";
 	import type { ForgeUser } from "$lib/forge/interface/types";
 	import type { BaseBranch } from "@gitbutler/but-sdk";

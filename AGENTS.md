@@ -40,3 +40,5 @@ this order:
 
 - For Rust work under `crates/`, follow `crates/AGENTS.md`.
 - For Lite work under `apps/lite/`, follow `apps/lite/AGENTS.md`.
+- For the React component library under `packages/ui-react/`, follow
+  `packages/ui-react/AGENTS.md`.

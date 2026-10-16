@@ -13,7 +13,7 @@
 		SelectItem,
 		Textbox,
 		Toggle,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 
 	const { projectId }: { projectId: string } = $props();
 

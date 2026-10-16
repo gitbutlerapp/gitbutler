@@ -1,4 +1,3 @@
-use anyhow::bail;
 use bstr::BStr;
 use but_error::bail_precondition;
 use but_oxidize::{ObjectIdExt, OidExt as _};
@@ -44,10 +43,14 @@ pub fn safe_checkout_from_head(
         && new_object.kind.is_commit()
         && crate::Commit::from_id(new_head_id.attach(repo))?.is_conflicted()
     {
-        bail!("Refusing to check out conflicted commit {new_head_id}");
+        return Err(
+            anyhow::anyhow!(but_error::Code::ConflictedCommitCheckout).context(format!(
+                "Refusing to check out conflicted commit {new_head_id}"
+            )),
+        );
     }
 
-    let git2_repo = git2::Repository::open(repo.git_dir())?;
+    let git2_repo = but_oxidize::open_git2_repo(repo.git_dir())?;
     let head_tree_id = repo.head_tree_id_or_empty()?;
     let head_tree = git2_repo.find_tree(head_tree_id.to_git2())?;
     let old_tree = if let Some(id) = merge_base_override {
@@ -61,7 +64,9 @@ pub fn safe_checkout_from_head(
             .is_err()
         {
             // Just overwrite the index.
-            git2_repo.index()?.read_tree(&tree)?;
+            let mut index = git2_repo.index()?;
+            index.read_tree(&tree)?;
+            index.write()?;
         }
         tree
     } else {

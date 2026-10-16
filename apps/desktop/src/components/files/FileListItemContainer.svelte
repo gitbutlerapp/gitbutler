@@ -15,9 +15,9 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { FileListItem, TestId } from "@gitbutler/ui";
-	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
-	import { type FocusableOptions } from "@gitbutler/ui/focus/focusTypes";
+	import { FileListItem, TestId } from "@gitbutler/ui-svelte";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
+	import { type FocusableOptions } from "@gitbutler/ui-svelte/focus/focusTypes";
 	import { onDestroy } from "svelte";
 	import type { ConflictEntriesObj } from "$lib/files/conflicts";
 	import type { HunkLockTarget } from "@gitbutler/but-sdk";

@@ -21,7 +21,7 @@
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, TestId } from "@gitbutler/ui";
+	import { Button, TestId } from "@gitbutler/ui-svelte";
 	import type { Segment } from "@gitbutler/but-sdk";
 
 	type Props = {

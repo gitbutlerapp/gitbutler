@@ -55,7 +55,7 @@ Committed hunks:  mzm:uvw:2e4         (<commit-id>:<file-id>:<hunk-id>, shown by
 Stacks:           m0, n0              (auto-generated, 2–3 chars)
 ```
 
-**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a three-character minimum; SHA prefixes and branch/worktree IDs can be shorter.
+**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a four-character minimum; SHA prefixes and branch/worktree IDs can be shorter.
 
 **Reading status output:** the first token on each line is that line's ID. Verbose commit lines append an informational `(sha …)` after the timestamp — it changes on every amend; do not pass it to commands.
 
@@ -67,32 +67,50 @@ Stacks:           m0, n0              (auto-generated, 2–3 chars)
 but commit -b <branch-name> -m "message" <file-or-hunk-id>   # Commit selected changes to a branch
 but amend -t <commit-id> <file-or-hunk-id> <file-or-hunk-id>  # Amend file(s) or hunk(s) into commit
 but squash <commit-id> -t <commit-id> -m "message"         # Squash commits
-but move <commit-id>:<file-id> --above <commit-id>           # Reposition a committed file
-but move <commit-id>:<file-id>:<hunk-id> --above <commit-id> # Reposition a committed hunk
+but move <commit-id>:<file-id> --above <commit-id> -m "message" # Reposition a committed file
+but move <commit-id>:<file-id>:<hunk-id> --above <commit-id> -m "message" # Reposition a committed hunk
+but split <commit-id>:<file-id> -m "message"              # Extract a file immediately above its source
 ```
 
 IDs are positional and space-separated. `but help cli-ids` documents every ID kind in detail.
 
 **Worktrees** (experimental, only with the `worktreeManipulation` feature flag on): each
-active worktree gets its own ID and is drawn in `but status` as a lane — a braced
-`{<branch>}` heading (the worktree name when its `HEAD` is detached) nested above the commit the
+active worktree is drawn in `but status` as a lane of its own, nested above the commit the
 worktree rests on — another worktree's commit included, lanes nest recursively — or standing on
-its own below the stacks when it rests outside the workspace.
-The lane lists that worktree's uncommitted files and commits. The heading ID names the worktree;
-`<worktree>:@` (ID or name) names its uncommitted area. `<worktree>:<path>` scopes a
-filename to it — `@:<path>` keeps meaning the main worktree. A filename dirty in several
+its own below the stacks when it rests outside the workspace. The lane opens with the worktree's
+uncommitted area, `<id>:@ [uncommitted] {<worktree-name>}`, followed by ordinary branch rows
+for the branch checked out there and the branches below it (a detached `HEAD` shows as an
+anonymous segment) and their commits. The top branch's ID and the worktree's name both name the
+worktree; `<worktree>:@` (that ID or the name) names its uncommitted area. `but discard` on that
+top branch removes the worktree when its checkout is clean; the branches below it discard and
+squash like stack branches. A worktree's branches count as applied: `but apply` on one changes
+nothing, and `but unapply` refuses it — remove the worktree instead. `<worktree>:<path>`
+scopes a filename to it — `@:<path>` keeps meaning the main worktree. A filename dirty in several
 worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file ID or
-`<worktree>:@` works as a `but commit` change and a `but amend`
+`<worktree>:@` works as a `but commit` change and a `but amend` or `but squash`
 source: the change lands on the target and leaves that worktree's uncommitted area. Without a
 target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one worktree
-at a time — a selection mixing worktrees is refused. A worktree is also a target: `but commit`,
-`but move`, and `but pick` with `-b <worktree-id-or-its-branch-name>` or `--below <worktree-id>`
-place the commit on the tip of the branch the worktree has checked out (`--above` is refused —
-that is its uncommitted area). A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
+at a time — a selection mixing worktrees is refused. A worktree's branches are also targets:
+`but commit`, `but move`, and `but pick` with `-b <branch>` place the commit on that branch's tip,
+and `--below <checked-out-branch-id>` on the tip of the branch the worktree has checked out
+(`--above` it is refused — that is its uncommitted area). A new branch can't be placed above or
+below a worktree's branch yet, as worktrees can't order branches. `but move <branch> --above <branch>`
+moves an existing branch between a worktree's lane and the workspace, in either direction. A branch
+stacked onto the one a worktree has checked out becomes its checked-out branch; moving the checked-out
+branch away leaves the worktree on the branch below it, or detached on the commit it was based on. A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
 `squash`, and `pick` accept them, and the worktree's branch and checkout follow the rewrite.
+`but reword <branch> -m <name>` renames a worktree's branch, and a checkout on it follows the new name.
 Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names it by the
 worktree's area ID (`<id>:@`), not `@`; `but uncommit` infers it.
+IDs are the same whichever checkout `but` runs in, and `@` always means the main worktree's
+area. Only what a command falls back to when no location is named depends on it: run from
+inside a linked worktree, a bare `but commit` and `but diff`, and `but amend`/`but squash`
+with `-t` but no sources, take that worktree's changes, while `but commit --empty` and `but pick`
+without a target go on its branch. `but discard`, `but absorb`, and `but branch new` without
+`--above`/`--below` refuse there instead of acting on the main worktree, and every such default
+is refused in a worktree GitButler doesn't manage (the flag is off, it is archived, or its `HEAD`
+is unusable).
 
 ## Parallel vs Stacked Branches
 
@@ -179,7 +197,9 @@ The other editing commands are narrower entry points on the same model:
 - `but uncommit <commits-branches-or-committed-changes>` — move committed work back to uncommitted;
   branches are removed, and committed changes in one call must come from one commit
 - `but move <sources> --above|--below|--branch|--unstack` — relocate commits, committed changes, or a
-  branch; this is the command with position control
+  branch; this is the command with position control. For commits or committed changes,
+  `--above <branch>`, `--below <branch>`, and `--unstack` create a new branch; add `-b <new-name>`
+  to name it instead of using a generated name
 - `but discard <changes>` — drop work instead of relocating it
 
 ## Dependency Tracking

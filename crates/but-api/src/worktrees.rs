@@ -219,9 +219,10 @@ pub fn worktree_set_archived_with_perm(
 }
 
 /// Remove the linked worktree named `name` from disk the way `git worktree remove` does,
-/// which refuses a dirty checkout unless `force` and a locked one until it is unlocked, and
-/// forget its archived state so a worktree created under the same name later starts out
-/// active.
+/// which refuses a dirty checkout unless `force`, and forget its archived state so a
+/// worktree created under the same name later starts out active.
+///
+/// A locked worktree is removed like any other.
 ///
 /// This works on archived worktrees as well.
 #[but_api(napi, invalidates = [Worktrees, Workspace])]
@@ -252,7 +253,7 @@ pub fn worktree_remove_with_perm(
         .find(|worktree| worktree.name == name)
         .with_context(|| format!("Worktree {name} does not exist"))?;
     let repo = ctx.repo.get()?;
-    but_workspace::worktrees::remove(&repo, &worktree.path, force)?;
+    but_workspace::worktrees::remove(&repo, worktree.name.as_ref(), force)?;
     ctx.db
         .get_cache_mut()?
         .worktree_meta_mut()
@@ -295,9 +296,9 @@ but_schemars::register_sdk_type!(NewWorktree);
 /// [`but_graph::Workspace::highest_base()`].
 ///
 /// The branch is `new_ref` or a canned name, and the checkout lives at
-/// `$GIT_COMMON_DIR/gb-wts/<slug>`, where the slug of the short branch name also names the
-/// worktree. This fails without a target to base the worktree on, and refuses an existing
-/// branch or directory.
+/// `~/.gitbutler-worktrees/<repo-dir-basename>/<slug>`, where the repository directory is
+/// the main worktree and the slug of the short branch name also names the worktree.
+/// This fails without a target to base the worktree on, and refuses an existing branch or directory.
 #[but_api(napi, invalidates = [Worktrees, Workspace])]
 #[instrument(err(Debug))]
 pub fn worktree_new(
@@ -345,7 +346,16 @@ pub fn worktree_new_at_base_with_perm(
             ref_name.shorten()
         );
     }
-    let path = repo.common_dir().join("gb-wts").join(&slug);
+    let repo_name = repo
+        .workdir()
+        .context("Cannot create a worktree without a main working directory")?
+        .file_name()
+        .context("Cannot derive a repository directory basename")?;
+    let path = but_path::home_dir()
+        .context("Could not resolve the home directory for worktrees")?
+        .join(".gitbutler-worktrees")
+        .join(repo_name)
+        .join(&slug);
     let name = but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?;
     let path = gix::path::realpath(&path)?;
     drop((repo, ws, db));

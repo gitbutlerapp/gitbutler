@@ -7,7 +7,7 @@
 		ContextMenuSection,
 		DropdownButton,
 		TestId,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 
 	interface Props {
 		isCreatingPR: boolean;

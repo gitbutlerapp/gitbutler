@@ -1,6 +1,6 @@
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { CSSProperties, FC, MouseEvent, ReactNode } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 import styles from "./Clamped.module.css";
@@ -26,6 +26,7 @@ const resolveLength = (length: string, text: Element): number => {
  * Content that changes size after mount (lazy images, async syntax
  * highlighting) re-measures via a ResizeObserver on the inner wrapper, and
  * viewport resizes re-measure the vh-based caps.
+ * @import import { Clamped } from "#ui/components/Clamped.tsx";
  */
 export const Clamped: FC<{
 	/** A px, vh or lh length, e.g. `"240px"`, `"80vh"` or `"3lh"`. */
@@ -143,18 +144,17 @@ export const Clamped: FC<{
 			>
 				{clamp}
 				{framed && (
-					<button
+					<Button
 						aria-expanded={expanded}
 						aria-label={expanded ? "Show less" : "Show more"}
-						className={classes(
-							getButtonClassName({ variant: "ghost", iconOnly: true, size: "small" }),
-							styles.cardToggle,
-						)}
+						variant="ghost"
+						iconOnly
+						size="small"
+						className={styles.cardToggle}
 						onClick={() => setExpanded(!expanded)}
-						type="button"
 					>
 						<Icon name={expanded ? "chevron-up" : "chevron-down"} />
-					</button>
+					</Button>
 				)}
 			</div>
 		);

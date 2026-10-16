@@ -1,6 +1,6 @@
 import styles from "./OperationTarget.module.css";
 import type { Placement } from "#ui/operations/operation.ts";
-import { classes } from "#ui/components/classes.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Match } from "effect";
 import type { FC } from "react";

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, ModalHeader, ModalFooter, SkeletonBone } from "@gitbutler/ui";
-	import { gravatarUrlFromEmail } from "@gitbutler/ui/components/avatar/gravatar";
+	import { Button, ModalHeader, ModalFooter, SkeletonBone } from "@gitbutler/ui-svelte";
+	import { gravatarUrlFromEmail } from "@gitbutler/ui-svelte/components/avatar/gravatar";
 	import type { LoginConfirmationModalState } from "$lib/state/uiState.svelte";
 
 	type Props = {

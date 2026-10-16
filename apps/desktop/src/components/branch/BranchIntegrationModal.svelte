@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchIntegrationModalContent from "$components/branch/BranchIntegrationModalContent.svelte";
-	import { Modal, TestId } from "@gitbutler/ui";
+	import { Modal, TestId } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		modalRef: Modal | undefined;

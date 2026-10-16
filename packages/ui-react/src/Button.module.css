@@ -1,0 +1,133 @@
+.button {
+	display: inline-flex;
+
+	/* The size classes below only provide defaults for these, at zero
+	   specificity, so consumers can override them from their own class. */
+	column-gap: var(--button-gap);
+	align-items: center;
+	justify-content: center;
+	height: var(--button-height);
+	padding-inline: var(--button-padding-inline);
+	border: var(--button-border);
+	border-radius: var(--radius-control);
+	background-color: var(--button-bg);
+	color: var(--button-fg);
+	line-height: 1.1;
+	white-space: nowrap;
+
+	&:not(.disableTransition) {
+		transition: var(--transition-button);
+	}
+
+	&[data-pressed] {
+		--button-bg: var(--bg-2);
+		--button-hover-bg: color-mix(in srgb, var(--bg-2) 50%, var(--bg-3));
+	}
+
+	&:disabled,
+	&[data-disabled],
+	form:invalid &[type="submit"] {
+		opacity: 0.5;
+	}
+
+	& [data-icon] {
+		opacity: var(--button-icon-opacity, 0.7);
+		transition: opacity var(--transition-fast);
+	}
+
+	&:not(:disabled, [data-disabled]):hover {
+		background-color: var(--button-hover-bg);
+
+		& [data-icon] {
+			opacity: var(--button-hover-icon-opacity, 0.8);
+		}
+	}
+
+	& > svg {
+		display: block;
+		flex-shrink: 0;
+		width: var(--icon-size);
+		height: var(--icon-size);
+	}
+}
+
+:where(.iconOnly) {
+	width: var(--button-width);
+}
+
+:where(.small) {
+	--button-gap: 4px;
+	--button-height: var(--size-control-sm);
+	--button-padding-inline: 6px;
+	--icon-size: 14px;
+
+	&:where(.iconOnly) {
+		--button-width: 22px;
+		--button-padding-inline: 3px;
+	}
+}
+
+:where(.regular) {
+	--button-gap: 6px;
+	--button-height: var(--size-control);
+	--button-padding-inline: 10px;
+	--icon-size: 16px;
+
+	&:where(.iconOnly) {
+		--button-width: var(--size-control);
+		--button-padding-inline: 8px;
+	}
+}
+
+:where(.pop) {
+	--button-border: none;
+	--button-bg: var(--scale-pop-70);
+	--button-fg: var(--scale-pop-10);
+	--button-icon-opacity: 0.7;
+	--button-hover-bg: color-mix(in srgb, var(--scale-pop-70), var(--scale-pop-50) 13%);
+}
+
+:where(.gray) {
+	--button-border: none;
+	--button-bg: var(--fill-gray-bg);
+	--button-fg: var(--fill-gray-fg);
+	--button-hover-bg: color-mix(in srgb, var(--fill-gray-bg) 45%, var(--scale-gray-0));
+}
+
+:where(.ghost-inverted) {
+	--button-border: none;
+	--button-bg: transparent;
+	--button-fg: var(--text-1-invert);
+	--button-hover-bg: var(--bg-hover-invert);
+}
+
+:where(.outline) {
+	--button-border: 1px solid var(--border-control);
+	--button-bg: transparent;
+	--button-fg: var(--text-1);
+	--button-hover-bg: var(--bg-hover);
+}
+
+:where(.outline-inverted) {
+	--button-border: 1px solid color-mix(in srgb, var(--fill-gray-fg) 26%, transparent);
+	--button-bg: transparent;
+	--button-fg: var(--text-1-invert);
+	--button-hover-bg: var(--bg-hover-invert);
+}
+
+:where(.danger) {
+	--button-border: none;
+	--button-bg: color-mix(in srgb, var(--scale-danger-80) 60%, transparent);
+	--button-fg: var(--text-danger);
+	/* A step up from the rest: red on its pink ground loses an icon at 0.7. */
+	--button-icon-opacity: 0.8;
+	--button-hover-icon-opacity: 0.9;
+	--button-hover-bg: color-mix(in srgb, var(--scale-danger-80) 74%, transparent);
+}
+
+:where(.ghost) {
+	--button-border: none;
+	--button-bg: transparent;
+	--button-fg: var(--text-1);
+	--button-hover-bg: var(--bg-hover);
+}

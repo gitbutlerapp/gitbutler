@@ -1,23 +1,23 @@
 import rowStyles from "./Row.module.css";
-import uiStyles from "#ui/components/ui.module.css";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { useBranchRemove } from "#ui/api/mutations.ts";
 import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { assert } from "#ui/assert.ts";
 import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
-import { Badge, type BadgeVariant } from "#ui/components/Badge.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
+import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { BranchRowHeadline } from "./BranchRowHeadline.tsx";
-import type { IconName } from "#ui/components/iconNames.ts";
-import { classes } from "#ui/components/classes.ts";
-import { EmptyState } from "#ui/components/EmptyState.tsx";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import {
 	GraphSegment,
 	type GraphSegmentGlyph,
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TextLink } from "#ui/components/TextLink.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
 import { branchesHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
 	nativeMenuItem,
@@ -30,8 +30,8 @@ import { branchAddress, commitAddress, addressIdentityKey, type Address } from "
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAutofocusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
-import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
+import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
+import { getRangeExtractorWithIndices } from "@gitbutler/ui-react/virtual.ts";
 import type { BranchReviewStatus, Commit, ListedBranch } from "@gitbutler/but-sdk";
 import { Toolbar } from "@base-ui/react";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -808,10 +808,10 @@ export const BranchesList: FC<
 				<ListFilterRow {...branchFilter.rowProps} />
 			)}
 
-			<div
-				ref={retainScrollElement}
-				className={classes(uiStyles.scroller, styles.list)}
-				data-empty={isEmpty}
+			<ScrollArea
+				viewportRef={retainScrollElement}
+				className={styles.list}
+				viewportClassName={classes(styles.listViewport, isEmpty && styles.listViewportEmpty)}
 			>
 				{/* Loading and failing stay one line where the rows would be: neither
 				    is a surface at rest. An empty list gets the block, and says which
@@ -826,7 +826,7 @@ export const BranchesList: FC<
 						<EmptyState
 							// The binoculars are for a search that came up empty; filters that
 							// hide everything get the same cactus as a list with nothing in it.
-							illustration={query === "" ? "cactus" : "looking"}
+							illustration={query === "" ? "cactus" : "papers"}
 							title="No branches match"
 							description={
 								query === ""
@@ -836,13 +836,9 @@ export const BranchesList: FC<
 										: `No matches for “${query}” in branches or pull requests`
 							}
 						>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "outline" })}
-								onClick={showAllBranches}
-							>
+							<Button variant="outline" onClick={showAllBranches}>
 								Show all branches
-							</button>
+							</Button>
 						</EmptyState>
 					) : (
 						<EmptyState
@@ -921,7 +917,7 @@ export const BranchesList: FC<
 						);
 					})}
 				</div>
-			</div>
+			</ScrollArea>
 		</div>
 	);
 };

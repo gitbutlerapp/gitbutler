@@ -25,9 +25,9 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { throttle } from "$lib/utils/misc";
 	import { inject } from "@gitbutler/core/context";
-	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
-	import { resizeObserver } from "@gitbutler/ui/utils/resizeObserver";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
+	import { resizeObserver } from "@gitbutler/ui-svelte/utils/resizeObserver";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import { flip } from "svelte/animate";
 
 	type Props = {

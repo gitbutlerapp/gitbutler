@@ -2,7 +2,7 @@
 	import AIPromptEntry from "$components/settings/AIPromptEntry.svelte";
 	import { PROMPT_SERVICE } from "$lib/ai/aiPromptService";
 	import { inject } from "@gitbutler/core/context";
-	import { Button } from "@gitbutler/ui";
+	import { Button } from "@gitbutler/ui-svelte";
 	import { untrack } from "svelte";
 	import { get } from "svelte/store";
 	import type { Prompts, UserPrompt } from "$lib/ai/types";

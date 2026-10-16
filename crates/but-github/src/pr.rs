@@ -9,6 +9,7 @@ const GITHUB_ORG_SAML_RESTRICTION_MESSAGE: &str = "This GitHub organization requ
 /// which never reach the user.
 const GITHUB_TOKEN_LIFETIME_PHRASE: &str = "if the token's lifetime is greater than";
 const GITHUB_TOKEN_LIFETIME_RESTRICTION_MESSAGE: &str = "A GitHub organization limits how long personal access tokens may stay valid. Create a token with a shorter expiration that meets the organization's policy, then reconnect GitHub with it.";
+const GITHUB_IP_ALLOW_LIST_MESSAGE: &str = "A GitHub organization's IP allow list blocks access from your current network. Connect from an allowed network or IP address, or ask an organization owner to add your address to the allow list, then try again.";
 pub async fn list(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     owner: &str,
@@ -123,6 +124,13 @@ pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
                 Some(but_error::Context::new_static(
                     but_error::Code::GitHubTokenLifetimeRestricted,
                     GITHUB_TOKEN_LIFETIME_RESTRICTION_MESSAGE,
+                ))
+            } else if contains("IP allow list enabled")
+                && contains("not permitted to access this resource")
+            {
+                Some(but_error::Context::new_static(
+                    but_error::Code::GitHubInsufficientPermissions,
+                    GITHUB_IP_ALLOW_LIST_MESSAGE,
                 ))
             } else if contains("Resource not accessible by personal access token") {
                 Some(but_error::Context::new_static(
@@ -533,9 +541,18 @@ pub async fn update(
     params: crate::client::UpdatePullRequestParams<'_>,
     storage: &but_forge_storage::Controller,
 ) -> Result<crate::client::PullRequest> {
-    let pr = GitHubClient::from_storage(storage, preferred_account)?
-        .update_pull_request(&params)
+    let client = GitHubClient::from_storage(storage, preferred_account)?;
+    update_with_client(&client, &params).await
+}
+
+async fn update_with_client(
+    client: &GitHubClient,
+    params: &crate::client::UpdatePullRequestParams<'_>,
+) -> Result<crate::client::PullRequest> {
+    let pr = client
+        .update_pull_request(params)
         .await
+        .map_err(classify_forge_error)
         .context("Failed to update pull request")?;
     Ok(pr)
 }
@@ -575,6 +592,93 @@ pub async fn set_auto_merge(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn update_classifies_saml_refusal_and_preserves_the_error_chain() {
+        use std::io::{Read as _, Write as _};
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let body = r#"{"message":"Resource protected by organization SAML enforcement. You must grant your OAuth token access to this organization."}"#;
+        let server = std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+            let (mut stream, _) = loop {
+                match listener.accept() {
+                    Ok(connection) => break connection,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(std::time::Instant::now() < deadline, "request timed out");
+                        std::thread::sleep(std::time::Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("failed to accept request: {error}"),
+                }
+            };
+            // Accepted sockets inherit nonblocking mode on macOS. The reads below
+            // must wait for the request, bounded by the read timeout.
+            stream.set_nonblocking(false).unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                .unwrap();
+            let mut request = Vec::new();
+            while !request.windows(4).any(|bytes| bytes == b"\r\n\r\n") {
+                let mut buffer = [0; 1024];
+                let read = stream.read(&mut buffer).unwrap();
+                assert_ne!(read, 0, "request ended before its headers");
+                request.extend_from_slice(&buffer[..read]);
+            }
+            let request = String::from_utf8_lossy(&request);
+            assert!(
+                request.starts_with("PATCH /repos/o/r/pulls/7 "),
+                "the update uses the pull request mutation endpoint"
+            );
+            write!(
+                stream,
+                "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+        });
+        let client = GitHubClient::new_with_host_override(
+            &but_secret::Sensitive("token".to_string()),
+            &format!("http://{address}"),
+        )
+        .unwrap();
+        let params = crate::client::UpdatePullRequestParams {
+            owner: "o",
+            repo: "r",
+            pr_number: 7,
+            title: None,
+            body: None,
+            base: Some("main"),
+            state: None,
+        };
+
+        let err = update_with_client(&client, &params).await.unwrap_err();
+        server.join().unwrap();
+
+        let context = err
+            .downcast_ref::<but_error::Context>()
+            .expect("the update path classifies the SAML refusal");
+        assert_eq!(
+            (context.code, context.message.as_deref()),
+            (
+                but_error::Code::GitHubOrgSamlRestricted,
+                Some(GITHUB_ORG_SAML_RESTRICTION_MESSAGE)
+            ),
+            "the update reports the canonical code and static guidance"
+        );
+        assert!(
+            err.downcast_ref::<HttpStatusError>()
+                .is_some_and(|cause| cause.status == reqwest::StatusCode::FORBIDDEN),
+            "the original HTTP status remains in the chain"
+        );
+        assert!(
+            err.chain().any(|cause| cause
+                .to_string()
+                .contains("Resource protected by organization SAML enforcement")),
+            "the original provider refusal remains in the chain"
+        );
+    }
 
     /// Shape the error like `ensure_success` does: the status-carrying error
     /// wrapped by what the forge said in the response body.
@@ -664,6 +768,75 @@ mod tests {
             ctx.map(|c| c.code),
             Some(but_error::Code::GitHubInsufficientPermissions),
             "a PAT permission 403 is terminal and needs its remediation surfaced"
+        );
+        assert!(
+            ctx.and_then(|c| c.message.as_deref())
+                .is_some_and(|message| message.starts_with("Your GitHub token")),
+            "PAT refusals keep their token guidance"
+        );
+    }
+
+    #[test]
+    fn ip_allow_list_403_gets_actionable_terminal_classification() {
+        let bodies = [
+            r#"403 Forbidden: {"message":"Although you appear to have the correct authorization credentials, the `example-org` organization has an IP allow list enabled, and your IP address is not permitted to access this resource."}"#,
+            // Synthetic variants: a literal address and an enterprise-level allow list.
+            r#"403 Forbidden: {"message":"Although you appear to have the correct authorization credentials, the `example-org` organization has an IP allow list enabled, and 203.0.113.1 is not permitted to access this resource."}"#,
+            r#"403 Forbidden: {"message":"Although you appear to have the correct authorization credentials, the `example-ent` enterprise has an IP allow list enabled, and your IP address is not permitted to access this resource."}"#,
+        ];
+        for body in bodies {
+            let err = classify_forge_error(http_error(reqwest::StatusCode::FORBIDDEN, body));
+            let ctx = err
+                .downcast_ref::<but_error::Context>()
+                .expect("an IP allow-list rejection needs a frontend context");
+            assert_eq!(
+                (ctx.code, ctx.message.as_deref()),
+                (
+                    but_error::Code::GitHubInsufficientPermissions,
+                    Some(GITHUB_IP_ALLOW_LIST_MESSAGE)
+                ),
+                "IP allow-list refusals are terminal and need static guidance"
+            );
+            let message = ctx.message.as_deref().expect("guidance is present");
+            assert!(
+                !["example-org", "example-ent", "203.0.113", "CI"]
+                    .iter()
+                    .any(|detail| message.contains(detail)),
+                "the classifier must discard the organization, address, and operation"
+            );
+        }
+    }
+
+    #[test]
+    fn ip_allow_list_phrase_requires_403_and_yields_to_oauth() {
+        let code = |status, body: &str| {
+            classify_forge_error(http_error(status, body))
+                .downcast_ref::<but_error::Context>()
+                .map(|ctx| ctx.code)
+        };
+        let ip = r#"{"message":"The organization has an IP allow list enabled, and your IP address is not permitted to access this resource."}"#;
+        assert_eq!(
+            code(reqwest::StatusCode::UNAUTHORIZED, ip),
+            Some(but_error::Code::GitHubTokenExpired),
+            "401 retains its authentication classification"
+        );
+        for status in [
+            reqwest::StatusCode::NOT_FOUND,
+            reqwest::StatusCode::UNPROCESSABLE_ENTITY,
+        ] {
+            assert_eq!(
+                code(status, ip),
+                None,
+                "a phrase-bearing {status} stays unclassified"
+            );
+        }
+        assert_eq!(
+            code(
+                reqwest::StatusCode::FORBIDDEN,
+                r#"{"message":"The organization has enabled OAuth App access restrictions and has an IP allow list enabled, and your IP address is not permitted to access this resource."}"#
+            ),
+            Some(but_error::Code::GitHubOrgOAuthRestricted),
+            "OAuth restrictions keep precedence"
         );
     }
 

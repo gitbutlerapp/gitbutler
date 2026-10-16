@@ -17,8 +17,11 @@
 }
 
 .stacksScroller {
-	display: flex;
 	flex-grow: 1;
+}
+
+.stacksViewport {
+	display: flex;
 	flex-direction: column;
 
 	& > * {
@@ -60,7 +63,7 @@
 	inset-inline: 0;
 	top: calc(-1 * var(--dock-offset));
 	/* Match the card's head room so the label stays put as the row takes over. */
-	padding-block-start: 6px;
+	padding-block-start: var(--padding-list);
 	border-block-end: 1px solid var(--border-section);
 	background-color: var(--bg-2);
 
@@ -76,6 +79,18 @@
 .dockRow {
 	/* Keep the trunk aligned with the stack rows and gaps: see layout.ts's ROW_INSET. */
 	--row-padding-inline-start: var(--graph-trunk-inset);
+
+	/* Without the trunk the rows are inset the same at both ends. */
+	@container style(--graph-trunk: hidden) {
+		--row-padding-inline-start: var(--row-padding-inline-end, 8px);
+	}
+}
+
+/* The files carry their own inset, so with no rail before them the list adds none. */
+.uncommittedCard .files {
+	@container style(--graph-trunk: hidden) {
+		padding-inline-start: 0;
+	}
 }
 
 .uncommittedCard {
@@ -83,12 +98,6 @@
 
 	border-block-end: 1px solid var(--border-section);
 	background-color: var(--bg-1);
-}
-
-/* The leading graph rail stays put; the first tree guide moves to the same
-   16px spacing as the guides at deeper directory levels. */
-.uncommittedFiles [role="treeitem"] > :first-child {
-	margin-inline-end: -5px;
 }
 
 /* The card's head, header and filter, stays at the scroller's top while the
@@ -123,19 +132,23 @@
 	margin-block: 8px;
 }
 
-/* With no stacks, the one block is centred in the room under the uncommitted
-   files. `safe` is what makes that survive the splitter being dragged down to
-   the panel's minimum: plain centring would push the block's top out of reach
-   above the scroll origin, where nothing can scroll back to it. */
+/* No branches applied: an empty section where the cards would be (ui-react's
+   design/patterns/empty-states.md). The panel has content above and below, so
+   the block keeps its place in the flow: no illustration, no centring in the
+   panel's leftover height, and no counterweight, since a section has no
+   weight to lift. */
 .empty {
-	/* Only here, so the virtualised lists are never inside a size container.
-	   It lets the empty block scale its counterweight to the room it has. */
-	container-type: size;
+	--empty-state-counterweight: 0px;
+	--empty-state-gap: 0px;
 
 	display: flex;
-	flex-grow: 1;
-	flex-direction: column;
-	justify-content: safe center;
+
+	/* On the column the section titles above start on, which sits 4px inside where the rail ends.
+	   The gap above already gives the space the cards would open with. */
+	& > :last-child {
+		margin-inline-start: -4px;
+		padding-block: 0 16px;
+	}
 }
 
 /* The cards run the full width of the panel, so nothing insets them and the

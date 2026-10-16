@@ -7,8 +7,8 @@
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { toHumanReadableTime } from "$lib/utils/time";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, Icon, ScrollableContainer, type IconName } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { Button, Icon, ScrollableContainer, type IconName } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 	import { untrack } from "svelte";
 	import type { Snapshot, SnapshotDetails } from "$lib/history/types";
 

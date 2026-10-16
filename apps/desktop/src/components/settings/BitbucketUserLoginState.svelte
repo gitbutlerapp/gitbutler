@@ -3,7 +3,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { BITBUCKET_USER_SERVICE } from "$lib/forge/bitbucket/bitbucketUserService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { ForgeUserCard } from "@gitbutler/ui";
+	import { ForgeUserCard } from "@gitbutler/ui-svelte";
 	import { QueryStatus } from "@reduxjs/toolkit/query";
 	import type { BitbucketAccountIdentifier } from "@gitbutler/but-sdk";
 

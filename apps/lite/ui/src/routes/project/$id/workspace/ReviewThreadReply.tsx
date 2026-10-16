@@ -1,7 +1,6 @@
 import { useCreateReviewThreadReply } from "#ui/api/mutations.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FieldTextareaStyles } from "#ui/components/Field.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { FieldTextareaStyles } from "@gitbutler/ui-react/Field.tsx";
 import { useMentionSuggestions } from "#ui/components/MentionSuggestions.tsx";
 import { type FC, type KeyboardEvent, useRef, useState } from "react";
 import styles from "./ReviewThreadReply.module.css";
@@ -65,16 +64,16 @@ export const ReviewThreadReply: FC<Props> = ({ projectId, reviewId, threadId }) 
 
 	if (!open) {
 		return (
-			<button
-				className={classes(getButtonClassName({ variant: "ghost" }), styles.open)}
+			<Button
+				variant="ghost"
+				className={styles.open}
 				onClick={() => {
 					wantsFocusRef.current = true;
 					setOpen(true);
 				}}
-				type="button"
 			>
 				Reply
-			</button>
+			</Button>
 		);
 	}
 
@@ -98,21 +97,12 @@ export const ReviewThreadReply: FC<Props> = ({ projectId, reviewId, threadId }) 
 			/>
 			{mentions.popup}
 			<div className={styles.actions}>
-				<button
-					className={getButtonClassName({ variant: "ghost" })}
-					onClick={() => setOpen(false)}
-					type="button"
-				>
+				<Button variant="ghost" onClick={() => setOpen(false)}>
 					Cancel
-				</button>
-				<button
-					className={getButtonClassName({ variant: "gray" })}
-					disabled={body.trim() === ""}
-					onClick={submit}
-					type="button"
-				>
+				</Button>
+				<Button variant="gray" disabled={body.trim() === ""} onClick={submit}>
 					Reply
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

@@ -1,9 +1,10 @@
 use but_ctx::Context;
 use gix::{ObjectId, refs::Category};
 use nonempty::NonEmpty;
+use ratatui::text::{Line, Span};
 
 use crate::{
-    CliId,
+    ChangeSourceId, CliId,
     command::legacy::{
         discard::{
             self, CommittedDiscardSource, DiscardOperation, DiscardOutcome, UncommittedSelection,
@@ -20,22 +21,31 @@ use crate::{
             },
         },
     },
-    id::CommitId,
+    id::{CommitId, LaneId},
     theme,
+    utils::worktrees,
 };
 
 use super::mark::Marks;
 
 impl App {
-    pub fn handle_discard(&mut self, messages: &mut Vec<Message>) -> anyhow::Result<()> {
+    pub fn handle_discard(
+        &mut self,
+        ctx: &Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
         if self.marks_ref().is_empty() {
-            self.handle_discard_selection(messages)
+            self.handle_discard_selection(ctx, messages)
         } else {
             self.handle_discard_marks(messages)
         }
     }
 
-    pub fn handle_discard_selection(&mut self, messages: &mut Vec<Message>) -> anyhow::Result<()> {
+    pub fn handle_discard_selection(
+        &mut self,
+        ctx: &Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return Ok(());
         };
@@ -45,7 +55,10 @@ impl App {
 
         self.modal = Some(Modal::Confirm {
             confirm: match &**cli_id {
-                CliId::Uncommitted { .. } => {
+                CliId::UncommittedArea {
+                    source: ChangeSourceId::Head,
+                    ..
+                } => {
                     self.to_be_discarded = Vec::from([Selectable::Uncommitted]);
                     // The uncommitted header remains selectable when staged assignments consume
                     // all changes. Preserve confirming discard as a no-op in that state.
@@ -123,7 +136,11 @@ impl App {
                     let drop_to_be_discarded =
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
                     Confirm::new(
-                        NonEmpty::new(format!("Discard commit {}?", theme::Commit(&commit)).into()),
+                        NonEmpty::new(Line::from_iter([
+                            Span::raw("Discard commit "),
+                            theme::Commit(&commit).to_span(),
+                            Span::raw("?"),
+                        ])),
                         self.theme,
                         move |ctx, messages| {
                             let DiscardOutcome::Commits {
@@ -147,6 +164,48 @@ impl App {
                         },
                     )
                 }
+                CliId::Branch(..) | CliId::AnonymousSegment(..)
+                    if let Some(name) = cli_id.lane().and_then(LaneId::worktree_name)
+                        && worktrees::is_worktree_top(&*ctx.repo.get()?, name, cli_id)? =>
+                {
+                    let worktree_name = name.to_owned();
+
+                    self.to_be_discarded = match &**cli_id {
+                        CliId::Branch(branch) => Vec::from([Selectable::Branch(branch.clone())]),
+                        _ => Vec::new(),
+                    };
+                    let drop_to_be_discarded =
+                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+
+                    Confirm::new(
+                        NonEmpty::new(Line::from_iter([
+                            Span::raw("Delete worktree "),
+                            Span::styled(worktree_name.to_string(), self.theme.local_branch),
+                            Span::raw(" and its directory? This cannot be undone"),
+                        ])),
+                        self.theme,
+                        move |ctx, messages| {
+                            let mut guard = ctx.exclusive_worktree_access();
+                            _ = crate::command::worktree::remove::run(
+                                ctx,
+                                guard.write_permission(),
+                                crate::command::worktree::remove::RemoveOperation {
+                                    worktree: worktree_name,
+                                    force: true,
+                                },
+                            )?;
+
+                            messages.extend([
+                                Message::EnterNormalModeAfterConfirmingOperation,
+                                Message::Reload(None, ReloadCause::Mutation),
+                            ]);
+
+                            drop(drop_to_be_discarded);
+
+                            Ok(())
+                        },
+                    )
+                }
                 CliId::Branch(branch) => {
                     let name = branch.name.to_owned();
                     let ref_name = Category::LocalBranch.to_full_name(&*name)?;
@@ -160,7 +219,11 @@ impl App {
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
 
                     Confirm::new(
-                        NonEmpty::new(format!("Discard branch {name}?").into()),
+                        NonEmpty::new(Line::from_iter([
+                            Span::raw("Discard branch "),
+                            Span::styled(name.to_string(), self.theme.local_branch),
+                            Span::raw("?"),
+                        ])),
                         self.theme,
                         move |ctx, messages| {
                             let DiscardOutcome::Branches(_) = run_discard(
@@ -236,48 +299,14 @@ impl App {
                         },
                     )
                 }
-                CliId::Worktree { id, name } => {
-                    let worktree_name = name.clone();
-
-                    self.to_be_discarded = Vec::from([Selectable::Worktree {
-                        id: id.clone(),
-                        name: worktree_name.clone(),
-                    }]);
-                    let drop_to_be_discarded =
-                        message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
-
-                    Confirm::new(
-                        NonEmpty::new(
-                            format!("Remove {worktree_name}? This cannot be undone").into(),
-                        ),
-                        self.theme,
-                        move |ctx, messages| {
-                            let mut guard = ctx.exclusive_worktree_access();
-                            _ = crate::command::worktree::remove::run(
-                                ctx,
-                                guard.write_permission(),
-                                crate::command::worktree::remove::RemoveOperation {
-                                    worktree: worktree_name,
-                                    force: true,
-                                },
-                            )?;
-
-                            messages.extend([
-                                Message::EnterNormalModeAfterConfirmingOperation,
-                                Message::Reload(None, ReloadCause::Mutation),
-                            ]);
-
-                            drop(drop_to_be_discarded);
-
-                            Ok(())
-                        },
-                    )
-                }
                 CliId::AnonymousSegment(..)
                 | CliId::CommittedHunk(..)
                 | CliId::Stack { .. }
                 | CliId::PathPrefix { .. }
-                | CliId::WorktreeUncommitted { .. } => return Ok(()),
+                | CliId::UncommittedArea {
+                    source: ChangeSourceId::Worktree(_),
+                    ..
+                } => return Ok(()),
             },
         });
 
@@ -373,9 +402,9 @@ impl App {
                             commit_id
                         }
                     }),
-                    DiscardOutcome::Branches(_) | DiscardOutcome::Uncommitted { .. } => {
-                        select_after_reload
-                    }
+                    DiscardOutcome::Branches(_)
+                    | DiscardOutcome::Uncommitted { .. }
+                    | DiscardOutcome::Worktree(_) => select_after_reload,
                 };
 
                 drop(drop_to_be_discarded);

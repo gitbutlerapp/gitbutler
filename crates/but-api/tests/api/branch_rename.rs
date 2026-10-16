@@ -14,6 +14,7 @@ fn branch_rename_middle_branch_keeps_head_and_order() -> anyhow::Result<()> {
     let middle = gix::refs::FullName::try_from("refs/heads/middle")?;
     let renamed = gix::refs::FullName::try_from("refs/heads/renamed")?;
     let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
 
     // [tip, middle, main] with HEAD on the empty tip.
     create_empty_branch_above(&mut ctx, &middle, &main)?;
@@ -26,12 +27,13 @@ fn branch_rename_middle_branch_keeps_head_and_order() -> anyhow::Result<()> {
     assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), tip);
     assert!(repo.try_find_reference(middle.as_ref())?.is_none());
     assert!(repo.try_find_reference(renamed.as_ref())?.is_some());
-    // The order keeps the branch in place under the new name.
+    // The order keeps the branch in place under the new name, down to the last local branch
+    // that `HEAD` builds on.
     let order = ctx
         .meta()?
         .branch_stack_order(tip.as_ref())?
         .expect("branch order still persisted");
-    assert_eq!(order, vec![tip, renamed, main]);
+    assert_eq!(order, vec![tip, renamed, main, feature]);
 
     Ok(())
 }
@@ -43,6 +45,7 @@ fn branch_rename_checked_out_branch_moves_head_to_new_name() -> anyhow::Result<(
     let main = gix::refs::FullName::try_from("refs/heads/main")?;
     let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
     let renamed = gix::refs::FullName::try_from("refs/heads/renamed-tip")?;
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
 
     // [tip, main] with HEAD on the empty tip.
     create_empty_branch_above(&mut ctx, &tip, &main)?;
@@ -60,7 +63,7 @@ fn branch_rename_checked_out_branch_moves_head_to_new_name() -> anyhow::Result<(
         .meta()?
         .branch_stack_order(renamed.as_ref())?
         .expect("branch order still persisted");
-    assert_eq!(order, vec![renamed, main]);
+    assert_eq!(order, vec![renamed, main, feature]);
 
     Ok(())
 }
@@ -107,32 +110,42 @@ fn branch_rename_same_name_rejects_a_missing_source() -> anyhow::Result<()> {
 }
 
 #[test]
-fn branch_rename_refuses_when_checked_out_in_another_worktree() -> anyhow::Result<()> {
+fn branch_rename_moves_head_of_another_worktree_checked_out_on_it() -> anyhow::Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
-    // Check `feature` out in a second, linked worktree; the main worktree stays on `main`.
-    let _worktree = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
-
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    ctx.settings.feature_flags.worktree_manipulation = true;
+    assert!(
+        but_api::worktrees::worktrees_list(&mut ctx)?
+            .active
+            .is_empty(),
+        "adoption runs before the worktree exists, so it starts out active"
+    );
+    let worktree = checkout_branch_in_linked_worktree(tmp.path(), "feature")?;
+    let main = gix::refs::FullName::try_from("refs/heads/main")?;
     let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
     let renamed = gix::refs::FullName::try_from("refs/heads/renamed-feature")?;
 
-    let err = but_api::branch::branch_rename(&mut ctx, feature.clone(), "renamed-feature".into())
-        .expect_err("cannot rename a branch checked out in another worktree");
-    assert!(
-        err.to_string().contains("checked out elsewhere"),
-        "unexpected error: {err}"
-    );
+    but_api::branch::branch_rename(&mut ctx, feature.clone(), "renamed-feature".into())?;
 
-    // The rename must be all-or-nothing: the old ref is untouched and the new ref was never created,
-    // so we don't leave a partially-applied rename behind.
     let repo = ctx.repo.get()?;
     assert!(
-        repo.try_find_reference(feature.as_ref())?.is_some(),
-        "the original branch must remain"
+        repo.try_find_reference(feature.as_ref())?.is_none(),
+        "the old name is gone"
     );
     assert!(
-        repo.try_find_reference(renamed.as_ref())?.is_none(),
-        "the new branch must not have been created"
+        repo.try_find_reference(renamed.as_ref())?.is_some(),
+        "the new name exists"
+    );
+    assert_eq!(
+        repo.head_name()?.expect("HEAD is symbolic"),
+        main,
+        "the main worktree was never on the renamed branch"
+    );
+    let linked = gix::open(worktree.path().join("wt"))?;
+    assert_eq!(
+        linked.head_name()?.expect("HEAD is symbolic"),
+        renamed,
+        "the linked worktree follows its branch to the new name"
     );
 
     Ok(())
@@ -418,65 +431,6 @@ fn branch_rename_out_of_a_directory_prefix() -> anyhow::Result<()> {
         "the collapsed ref must exist"
     );
     assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), foo);
-
-    Ok(())
-}
-
-#[test]
-fn prefix_rename_restores_source_when_destination_is_locked() -> anyhow::Result<()> {
-    let (repo, _tmp) = repo_with_feature_branch()?;
-    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    let main = gix::refs::FullName::try_from("refs/heads/main")?;
-    let source = gix::refs::FullName::try_from("refs/heads/foo/bar")?;
-    let destination = gix::refs::FullName::try_from("refs/heads/foo")?;
-
-    create_empty_branch_above(&mut ctx, &source, &main)?;
-
-    let source_id = ctx
-        .repo
-        .get()?
-        .find_reference(source.as_ref())?
-        .peel_to_id()?
-        .detach();
-
-    // Simulate a lock left by a Git process that crashed while attempting to create the
-    // destination branch. This doesn't interfere with deleting `foo/bar`, but prevents creating
-    // `foo` after its parent directory has been pruned.
-    std::fs::write(
-        ctx.repo.get()?.path().join("refs/heads/foo.lock"),
-        b"stale lock",
-    )?;
-
-    but_api::branch::branch_rename(&mut ctx, source.clone(), "foo".into())
-        .expect_err("the stale destination lock must make creation fail");
-
-    let repo = ctx.repo.get()?;
-    let restored = repo.try_find_reference(source.as_ref())?;
-    let destination_exists = repo.try_find_reference(destination.as_ref())?.is_some();
-    assert!(!destination_exists, "the destination was never created");
-    let mut restored = restored.unwrap_or_else(|| {
-        panic!("the source branch must be restored; destination exists: {destination_exists}")
-    });
-    assert_eq!(
-        restored.peel_to_id()?,
-        source_id,
-        "rollback must restore the source at its original commit"
-    );
-    assert_eq!(
-        repo.head_name()?.expect("HEAD is symbolic"),
-        source,
-        "HEAD must continue to name the restored source branch"
-    );
-    let recovery_ref = repo
-        .references()?
-        .prefixed("refs/gitbutler/rename-backup/")?
-        .next()
-        .transpose()
-        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-    assert!(
-        recovery_ref.is_none(),
-        "the recovery ref must be removed after restoring the source"
-    );
 
     Ok(())
 }

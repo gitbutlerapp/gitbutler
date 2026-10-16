@@ -417,7 +417,7 @@ fn test_respects_absolute_core_hooks_path() -> Result<()> {
     // Configure core.hooksPath
     repo.config_snapshot_mut().set_raw_value(
         "core.hooksPath",
-        gix::path::into_bstr(&custom_hooks).as_ref(),
+        gix::path::into_bstr(&custom_hooks)?.as_ref(),
     )?;
 
     // Install hooks

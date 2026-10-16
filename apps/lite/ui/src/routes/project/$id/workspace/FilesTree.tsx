@@ -1,31 +1,22 @@
 import rowStyles from "./Row.module.css";
-import { startAbsorb } from "#ui/use-cursor.ts";
 import {
-	changesInWorktreeQueryOptions,
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listEditorsQueryOptions,
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import {
-	uncommittedChangesFileParent,
-	fileAddress,
-	addressEquals,
-	addressIdentityKey,
-	type FileParent,
-} from "#ui/addresses.ts";
+import { fileAddress, addressEquals, addressIdentityKey, type FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
-import { classes } from "#ui/components/classes.ts";
-import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { getRangeExtractorWithIndices } from "@gitbutler/ui-react/virtual.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
 import {
 	type ComponentProps,
 	type FC,
-	type ReactNode,
 	type RefObject,
 	useCallback,
 	useDeferredValue,
@@ -36,24 +27,27 @@ import {
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { focusScope, useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
+import { useAddressSpaceHotkeys, type FocusScope } from "#ui/focus-scopes.ts";
 import {
 	addressSpaceIncludes,
 	getAdjacent,
 	type AddressSpace,
 } from "#ui/workspace/address-space.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
-import { useRevealInFolder } from "./useRevealInFolder.ts";
+import { useOpenPathInProgram, useRevealInFolder } from "./usePathActions.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { FileRow, FileRowPresentational } from "./FileRow.tsx";
-import { DirectoryRow, type DirectoryCheckedState } from "./DirectoryRow.tsx";
+import {
+	DirectoryRow,
+	DirectoryRowPresentational,
+	type DirectoryCheckedState,
+} from "./DirectoryRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
 import { parentDirectoryRow, type FileTreeRow } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
 import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/checking.ts";
-import { useDiscardFileChanges, useOpenInProgram } from "#ui/api/mutations.ts";
-import type { TreeChange } from "@gitbutler/but-sdk";
+import { useFileSetActions, useFileSetSubject } from "./useFileSetActions.ts";
 import type { CSSProperties } from "react";
 import { FileRowTooltipRoot, type FileRowTooltipPayload } from "./FileRowTooltip.tsx";
 
@@ -69,12 +63,10 @@ const useFilesTreeHotkeys = ({
 	projectId,
 	ref,
 	fileParent,
-	canUncommit,
-	uncommit,
 	rows,
 	selection,
 	selectedRow,
-	selectedChange,
+	selectedChangePaths,
 	toggleDirectoryCollapsed,
 }: {
 	checkAll: () => void;
@@ -85,12 +77,11 @@ const useFilesTreeHotkeys = ({
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 	fileParent: FileParent;
-	canUncommit: boolean;
-	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 	rows: Array<FileTreeRow<FileRowItem>>;
 	selection: string | null;
 	selectedRow: FileTreeRow<FileRowItem> | undefined;
-	selectedChange: TreeChange | null;
+	/** What the selected row stands for: its own file, or every file below a directory. */
+	selectedChangePaths: Array<string>;
 	toggleDirectoryCollapsed: (path: string) => void;
 }) => {
 	const noOperationPending = useAppSelector(
@@ -102,52 +93,21 @@ const useFilesTreeHotkeys = ({
 		...guiSettingsQueryOptions,
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
-	const { mutate: openInProgram } = useOpenInProgram();
+	const { openPathInProgram } = useOpenPathInProgram(projectId);
 	const revealInFolder = useRevealInFolder(projectId);
-	const { canDiscard, discard } = useDiscardFileChanges({ projectId, fileParent });
+	const actions = useFileSetActions({ projectId, fileParent });
 
 	const store = useAppStore();
-	const queryClient = useQueryClient();
 
-	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
-	const selectedUncommittedChange =
-		fileParent._tag === "UncommittedChanges" ? selectedChange : null;
-
-	const absorbSelectedFile = () => {
-		if (selectedUncommittedChange === null) return;
-		const checkedPaths = projectSlice.selectors.selectCheckedUncommittedFilePaths(
-			store.getState(),
-			projectId,
-		);
-		const checkedChanges =
-			checkedPaths.size === 0
-				? null
-				: queryClient
-						.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey)
-						?.changes.filter((change) => checkedPaths.has(change.path));
-		if (checkedPaths.size > 0 && !checkedChanges) return;
-
-		startAbsorb({
-			sources: (checkedPaths.size > 0
-				? Array.from(checkedPaths, (path) =>
-						fileAddress({ parent: uncommittedChangesFileParent, path }),
-					)
-				: null) ?? [
-				fileAddress({
-					parent: uncommittedChangesFileParent,
-					path: selectedUncommittedChange.path,
-				}),
-			],
-			sourceTarget: {
-				type: "treeChanges",
-				subject: {
-					changes: checkedChanges ?? [selectedUncommittedChange],
-					assignedStackId: null,
-				},
-			},
-		});
-		focusScope("sidebar");
-	};
+	// As with the other list-wide hotkeys, checked files are the subject when there are any.
+	const subject = useFileSetSubject({
+		projectId,
+		fileParent,
+		promote: true,
+		own: () => selectedChangePaths.map((path) => fileAddress({ parent: fileParent, path })),
+		ownCount: selectedChangePaths.length,
+	});
+	const hasSelectedChanges = selectedChangePaths.length > 0;
 
 	// Repeats must follow the pending cursor before React renders it. Null ends the held-key run
 	// so it cannot reverse and undo the checks; a fresh keypress starts from the selected row.
@@ -168,17 +128,16 @@ const useFilesTreeHotkeys = ({
 		if (item !== null) nextCheckedRow.current = checkRow({ path: item, shiftKey: false });
 	};
 
-	const discardSelectedFile = () => {
-		if (selectedChange === null) return;
-
-		// As with the other list-wide hotkeys, checked files are the subject when there are any.
-		void discard({ change: selectedChange, extendToCheckedFiles: true });
+	const discardSelectedRow = () => {
+		if (hasSelectedChanges) void actions.discard(subject.addresses());
 	};
 
-	const uncommitSelectedFile = () => {
-		if (selectedChange === null || fileParent._tag !== "Commit") return;
+	const uncommitSelectedRow = () => {
+		if (hasSelectedChanges) actions.uncommit(subject.addresses());
+	};
 
-		uncommit?.(selectedChange, true);
+	const absorbSelectedRow = () => {
+		if (hasSelectedChanges) actions.absorb(subject.addresses());
 	};
 
 	/**
@@ -203,10 +162,10 @@ const useFilesTreeHotkeys = ({
 		toggleDirectoryCollapsed(parent.path);
 	};
 
-	const canDiscardSelectedFile = selectedChange !== null && canDiscard;
+	const canDiscardSelectedRow = hasSelectedChanges && actions.canDiscard;
 
 	const canCheckTheseFiles = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
+		projectSlice.selectors.selectCanCheckFilesOrHunks(state, projectId, fileParent),
 	);
 
 	useHotkeys([
@@ -223,10 +182,10 @@ const useFilesTreeHotkeys = ({
 		},
 		{
 			hotkey: changesFileHotkeys.absorb.hotkey,
-			callback: absorbSelectedFile,
+			callback: absorbSelectedRow,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedChangesFile !== null && noOperationPending,
+				enabled: hasSelectedChanges && actions.canAbsorb && noOperationPending,
 				target: ref,
 				meta: changesFileHotkeys.absorb.meta,
 			},
@@ -245,10 +204,10 @@ const useFilesTreeHotkeys = ({
 		},
 		{
 			hotkey: changesFileHotkeys.discard.hotkey,
-			callback: discardSelectedFile,
+			callback: discardSelectedRow,
 			options: {
 				conflictBehavior: "allow",
-				enabled: noOperationPending && canDiscardSelectedFile,
+				enabled: noOperationPending && canDiscardSelectedRow,
 				target: ref,
 				meta: changesFileHotkeys.discard.meta,
 			},
@@ -266,49 +225,46 @@ const useFilesTreeHotkeys = ({
 		},
 		{
 			hotkey: changesFileHotkeys.openInEditor.hotkey,
+			// A row's path is all opening it takes, and an editor takes a directory
+			// as readily as a file, so this reaches whatever the cursor is on.
 			callback: () => {
-				if (!preferredEditor || selectedChangesFile === null) return;
+				if (!preferredEditor || selection === null) return;
 
-				openInProgram({
-					projectId,
+				void openPathInProgram({
 					programId: preferredEditor.id,
-					path: selectedChangesFile,
+					path: selection,
 					lineNr: null,
+					worktree: fileParent.worktree,
 				});
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: preferredEditor && selectedChangesFile !== null,
+				enabled: preferredEditor && selection !== null,
 				target: ref,
 				meta: changesFileHotkeys.openInEditor.meta,
 			},
 		},
 		{
 			hotkey: changesFileHotkeys.revealInFolder.hotkey,
-			// Not limited to uncommitted files the way the editor binding above
-			// is: a row's path locates the file in the worktree whichever list
-			// it came from, which is all revealing it needs.
+			// A row's path locates it in the worktree whichever list it came from and
+			// whichever kind of row it is, which is all revealing it needs.
 			callback: () => {
 				if (selection === null) return;
-				void revealInFolder(selection);
+				void revealInFolder(selection, fileParent.worktree);
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedRow?._tag === "File",
+				enabled: selection !== null,
 				target: ref,
 				meta: changesFileHotkeys.revealInFolder.meta,
 			},
 		},
 		{
 			hotkey: changesFileHotkeys.uncommit.hotkey,
-			callback: uncommitSelectedFile,
+			callback: uncommitSelectedRow,
 			options: {
 				conflictBehavior: "allow",
-				enabled:
-					noOperationPending &&
-					selectedChange !== null &&
-					fileParent._tag === "Commit" &&
-					canUncommit,
+				enabled: noOperationPending && hasSelectedChanges && actions.canUncommit,
 				target: ref,
 				meta: changesFileHotkeys.uncommit.meta,
 			},
@@ -344,7 +300,9 @@ const useFilesTreeHotkeys = ({
 				projectId,
 			);
 			if (row?._tag === "Directory") {
-				const sources = row.filePaths.map((path) => fileAddress({ parent: fileParent, path }));
+				const sources = row.items.map((item) =>
+					fileAddress({ parent: fileParent, path: item.path }),
+				);
 				return sources.some((source) =>
 					checkedAddresses.some((checked) => addressEquals(checked, source)),
 				)
@@ -363,13 +321,13 @@ const DirectoryOperationSource: FC<
 	{
 		projectId: string;
 		fileParent: FileParent;
-		filePaths: Array<string>;
+		items: Array<FileRowItem>;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
-> = ({ projectId, fileParent, filePaths, render, ...props }) => (
+> = ({ projectId, fileParent, items, render, ...props }) => (
 	<OperationSourceC
 		{...props}
 		projectId={projectId}
-		sources={filePaths.map((path) => fileAddress({ parent: fileParent, path }))}
+		sources={items.map((item) => fileAddress({ parent: fileParent, path: item.path }))}
 		respectChecked
 		outline="outside"
 		acceptOriginDrop
@@ -386,18 +344,14 @@ type RowShared = {
 	fileParent: FileParent;
 	focusScope: FocusScope;
 	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
-	ageBadgeNow: number | null;
 	pathDisplay: "lead" | "trail" | "hidden";
 	canCheck: boolean;
 	anyOperationPending: boolean;
-	canUncommit: boolean;
-	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 	checkFile: (evt: { path: string; shiftKey: boolean }) => void;
 	checkDirectory: (evt: { path: string; checked: boolean }) => void;
 	onRowSelection: (selection: string) => void;
 	onToggleDirectoryCollapsed: (path: string) => void;
 	branchNameByCommitId: (commitId: string) => string | undefined;
-	rail: ReactNode | undefined;
 };
 
 /**
@@ -441,31 +395,30 @@ const FilesTreeRow: FC<{
 		fileParent,
 		focusScope,
 		tooltipHandle,
-		ageBadgeNow,
 		pathDisplay,
 		canCheck,
 		anyOperationPending,
-		canUncommit,
-		uncommit,
 		checkFile,
 		checkDirectory,
 		onRowSelection,
 		onToggleDirectoryCollapsed,
 		branchNameByCommitId,
-		rail,
 	} = shared;
 	const virtStyle: CSSProperties = { position: "absolute", top: 0, left: 0, width: "100%", height };
 
 	if (row._tag === "Directory") {
+		// As for file rows: the cheap half while scrolling, the one that
+		// resolves a menu once the list settles.
+		const DirectoryRowComponent = interactive ? DirectoryRow : ScrollingDirectoryRow;
 		const directoryRow = (
-			<DirectoryRow
+			<DirectoryRowComponent
 				projectId={projectId}
+				fileParent={fileParent}
 				path={row.path}
 				name={row.name}
-				fileCount={row.filePaths.length}
+				items={row.items}
 				depth={row.depth}
 				isCollapsed={isCollapsed}
-				scrollSelectedIntoView={false}
 				onToggleCollapsed={() => {
 					// Collapsing over the selection hides it, and it would
 					// fall back to the first row: hand it to the directory
@@ -476,10 +429,12 @@ const FilesTreeRow: FC<{
 				}}
 				isSelected={isSelected}
 				canCheck={canCheck}
+				anyOperationPending={anyOperationPending}
 				checkedState={checkedState}
+				isReviewed={isReviewed}
 				checkDirectory={checkDirectory}
 				focusScope={focusScope}
-				rail={rail}
+				tooltipHandle={tooltipHandle}
 				inert={inert}
 				onSelect={() => onRowSelection(row.path)}
 			/>
@@ -499,7 +454,7 @@ const FilesTreeRow: FC<{
 						<DirectoryOperationSource
 							projectId={projectId}
 							fileParent={fileParent}
-							filePaths={row.filePaths}
+							items={row.items}
 							render={directoryRow}
 						/>
 					) : (
@@ -541,20 +496,16 @@ const FilesTreeRow: FC<{
 								pathDisplay={pathDisplay}
 								inert={inert}
 								isSelected={isSelected}
-								scrollSelectedIntoView={false}
 								isChecked={isChecked}
+								isIndeterminate={checkedState === "indeterminate"}
 								isReviewed={isReviewed}
 								onSelect={() => onRowSelection(row.path)}
 								canCheck={canCheck && item._tag === "Change"}
 								checkFile={checkFile}
 								projectId={projectId}
 								fileParent={fileParent}
-								canUncommit={canUncommit}
-								uncommit={uncommit}
 								focusScope={focusScope}
 								tooltipHandle={tooltipHandle}
-								ageBadgeNow={ageBadgeNow}
-								rail={rail}
 								branchNameByCommitId={branchNameByCommitId}
 							/>
 						}
@@ -566,8 +517,8 @@ const FilesTreeRow: FC<{
 						pathDisplay={pathDisplay}
 						inert={inert}
 						isSelected={isSelected}
-						scrollSelectedIntoView={false}
 						isChecked={isChecked}
+						isIndeterminate={checkedState === "indeterminate"}
 						isReviewed={isReviewed}
 						onSelect={() => onRowSelection(row.path)}
 						canCheck={canCheck && item._tag === "Change"}
@@ -576,8 +527,6 @@ const FilesTreeRow: FC<{
 						fileParent={fileParent}
 						focusScope={focusScope}
 						tooltipHandle={tooltipHandle}
-						ageBadgeNow={ageBadgeNow}
-						rail={rail}
 						branchNameByCommitId={() => undefined}
 						anyOperationPending={anyOperationPending}
 						menuItems={[]}
@@ -603,8 +552,9 @@ const FilesTreeVirtualList: FC<{
 	hasPendingOperationSources: boolean;
 	collapsedDirectories: Record<string, true>;
 	reviewedPaths: ReadonlySet<string>;
-	isFileChecked: (path: string) => boolean;
-	directoryCheckedState: (filePaths: Array<string>) => DirectoryCheckedState;
+	fileCheckedState: (path: string) => DirectoryCheckedState;
+	directoryCheckedState: (items: Array<FileRowItem>) => DirectoryCheckedState;
+	directoryReviewed: (items: Array<FileRowItem>) => boolean;
 	shared: RowShared;
 	scrollElementRef: RefObject<HTMLElement | null> | undefined;
 	scrollMargin: number;
@@ -617,8 +567,9 @@ const FilesTreeVirtualList: FC<{
 	hasPendingOperationSources,
 	collapsedDirectories,
 	reviewedPaths,
-	isFileChecked,
+	fileCheckedState,
 	directoryCheckedState,
+	directoryReviewed,
 	shared,
 	scrollElementRef,
 	scrollMargin,
@@ -647,6 +598,8 @@ const FilesTreeVirtualList: FC<{
 			scrollElementRef?.current ?? groupRef.current?.parentElement?.parentElement ?? null,
 		// Keep in sync with --single-line-row-height.
 		estimateSize: () => 28,
+		// The pixel between rows; see .tree.
+		gap: 1,
 		getItemKey: (index) => rows[index]?.path ?? index,
 		rangeExtractor: rangeExtractorWithSelected,
 		scrollMargin,
@@ -690,14 +643,12 @@ const FilesTreeVirtualList: FC<{
 						isSelected={selection !== null && selection === row.path}
 						inert={!addressSpaceIncludes(addressSpace, row.path, (path) => path)}
 						checkedState={
-							isDirectory
-								? directoryCheckedState(row.filePaths)
-								: isFileChecked(row.path)
-									? "checked"
-									: "unchecked"
+							isDirectory ? directoryCheckedState(row.items) : fileCheckedState(row.path)
 						}
 						isReviewed={
-							!isDirectory && row.item._tag === "Change" && reviewedPaths.has(row.item.change.path)
+							isDirectory
+								? directoryReviewed(row.items)
+								: row.item._tag === "Change" && reviewedPaths.has(row.item.change.path)
 						}
 						isCollapsed={isDirectory && collapsedDirectories[row.path] === true}
 						holdsSelection={
@@ -717,8 +668,6 @@ export const FilesTree: FC<
 	{
 		projectId: string;
 		rows: Array<FileTreeRow<FileRowItem>>;
-		canUncommit: boolean;
-		uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 		collapsedDirectories: Record<string, true>;
 		onToggleDirectoryCollapsed: (path: string) => void;
 		selection: string | null;
@@ -735,13 +684,6 @@ export const FilesTree: FC<
 		 * apply, which hides the mark.
 		 */
 		reviewedPaths?: ReadonlySet<string>;
-		/**
-		 * Timestamp the row age badges are measured against; `null` hides them.
-		 * The caller owns the ticking.
-		 */
-		ageBadgeNow?: number | null;
-		/** On the graph, every row's rail, drawn before its steps. */
-		rail?: ReactNode;
 		/** The scroller the list scrolls in when it is not the tree's own parent, and the list's offset in it. */
 		scrollElementRef?: RefObject<HTMLElement | null>;
 		scrollMargin?: number;
@@ -751,8 +693,6 @@ export const FilesTree: FC<
 	} & ComponentProps<"div">
 > = ({
 	rows,
-	canUncommit,
-	uncommit,
 	collapsedDirectories,
 	onToggleDirectoryCollapsed,
 	selection,
@@ -763,8 +703,6 @@ export const FilesTree: FC<
 	fileParent,
 	focusScope,
 	reviewedPaths = EMPTY_REVIEWED_PATHS,
-	ageBadgeNow = null,
-	rail,
 	scrollElementRef,
 	scrollMargin = 0,
 	scrollPaddingStart = 14,
@@ -785,7 +723,7 @@ export const FilesTree: FC<
 	});
 	const mode = useFileDisplayMode();
 	const canCheck = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckFiles(state, projectId, fileParent),
+		projectSlice.selectors.selectCanCheckFilesOrHunks(state, projectId, fileParent),
 	);
 	const pendingOperationTag = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag,
@@ -795,6 +733,9 @@ export const FilesTree: FC<
 		pendingOperationTag === "Absorb" || pendingOperationTag === "Transfer";
 	const checkedAddressKeys = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddressKeys(state, projectId),
+	);
+	const checkedHunkFileKeys = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedHunkFileKeys(state, projectId),
 	);
 	const store = useAppStore();
 	const dispatch = useAppDispatch();
@@ -816,22 +757,37 @@ export const FilesTree: FC<
 	);
 	const checkable = (path: string) => !conflictPaths.has(path);
 	const selectedRow = selection === null ? undefined : rowByPath.get(selection);
-	const selectedItem = selectedRow?._tag === "File" ? selectedRow.item : undefined;
-	const selectedChange = selectedItem?._tag === "Change" ? selectedItem.change : null;
+	// A directory row stands for every file below it, so the list hotkeys reach a whole
+	// subtree the way its menu does. Conflicts have no change to act on either way.
+	const selectedChangePaths = changePathsOfRow(selectedRow);
 
 	// The tree already names the directory a row sits under, so repeating it on
 	// the row itself would say it twice.
 	const pathDisplay =
 		mode === "tree" ? "hidden" : (pathFirst ?? defaultSettings.pathFirst) ? "lead" : "trail";
 
-	const isFileChecked = (path: string): boolean =>
-		checkedAddressKeys.has(addressIdentityKey(fileAddress({ parent: fileParent, path })));
+	const fileCheckedState = (path: string): DirectoryCheckedState => {
+		const key = addressIdentityKey(fileAddress({ parent: fileParent, path }));
+		if (checkedAddressKeys.has(key)) return "checked";
+		return checkedHunkFileKeys.has(key) ? "indeterminate" : "unchecked";
+	};
 
-	const directoryCheckedState = (filePaths: Array<string>): DirectoryCheckedState => {
-		const paths = filePaths.filter(checkable);
-		const checkedCount = paths.filter((path) => isFileChecked(path)).length;
+	const directoryCheckedState = (items: Array<FileRowItem>): DirectoryCheckedState => {
+		const states = items
+			.filter((item) => checkable(item.path))
+			.map((item) => fileCheckedState(item.path));
+		if (states.includes("indeterminate")) return "indeterminate";
+		const checkedCount = states.filter((state) => state === "checked").length;
 		if (checkedCount === 0) return "unchecked";
-		return checkedCount === paths.length ? "checked" : "indeterminate";
+		return checkedCount === states.length ? "checked" : "indeterminate";
+	};
+
+	// A directory is reviewed once every change below it is — the same "all of
+	// them" its checkbox reads by. Conflicts have no diff to review, so, as with
+	// checking, they don't count; a directory holding nothing else is not reviewed.
+	const directoryReviewed = (items: Array<FileRowItem>): boolean => {
+		const changePaths = items.filter((item) => item._tag === "Change").map((item) => item.path);
+		return changePaths.length > 0 && changePaths.every((path) => reviewedPaths.has(path));
 	};
 
 	const rangeResolver = addressSpaceRange<string, string>({
@@ -914,7 +870,7 @@ export const FilesTree: FC<
 		fileCheckRangeEnd.current = null;
 
 		const previous = checkedFilePaths();
-		const subject = new Set(row.filePaths);
+		const subject = new Set(row.items.map((item) => item.path));
 		applyCheckedFiles({
 			previous,
 			next: checked ? previous.union(subject) : previous.difference(subject),
@@ -928,7 +884,9 @@ export const FilesTree: FC<
 			const checked = checkedFilePaths();
 			checkDirectory({
 				path,
-				checked: !row.filePaths.filter(checkable).every((path) => checked.has(path)),
+				checked: !row.items
+					.filter((item) => checkable(item.path))
+					.every((item) => checked.has(item.path)),
 			});
 		} else {
 			if (!row || !checkable(path)) return null;
@@ -945,8 +903,10 @@ export const FilesTree: FC<
 				const row = rowByPath.get(path);
 				if (!row || !checkable(path)) return null;
 				if (row._tag === "File") return checked.has(path);
-				const paths = row.filePaths.filter(checkable);
-				return paths.length > 0 ? paths.every((path) => checked.has(path)) : null;
+				const checkableItems = row.items.filter((item) => checkable(item.path));
+				return checkableItems.length > 0
+					? checkableItems.every((item) => checked.has(item.path))
+					: null;
 			},
 		});
 		if (next !== null) onRowSelection(next);
@@ -971,7 +931,9 @@ export const FilesTree: FC<
 			const paths = rows
 				.values()
 				.filter((row) => row.depth === 0)
-				.flatMap((row) => (row._tag === "Directory" ? row.filePaths : row.path));
+				.flatMap((row) =>
+					row._tag === "Directory" ? row.items.map((item) => item.path) : row.path,
+				);
 
 			const previous = checkedFilePaths();
 			fileCheckRangeAnchor.current = null;
@@ -989,12 +951,10 @@ export const FilesTree: FC<
 		projectId,
 		ref,
 		fileParent,
-		canUncommit,
-		uncommit,
 		rows,
 		selection,
 		selectedRow,
-		selectedChange,
+		selectedChangePaths,
 		toggleDirectoryCollapsed: onToggleDirectoryCollapsed,
 	});
 
@@ -1003,19 +963,15 @@ export const FilesTree: FC<
 		fileParent,
 		focusScope,
 		tooltipHandle,
-		ageBadgeNow,
 		pathDisplay,
 		canCheck,
 		anyOperationPending,
-		canUncommit,
-		uncommit,
 		checkFile,
 		checkDirectory,
 		onRowSelection,
 		onToggleDirectoryCollapsed,
 		branchNameByCommitId: (commitId) =>
 			headInfoIndex?.commitContextByCommitId(commitId)?.segment.refName?.displayName,
-		rail,
 	};
 
 	return (
@@ -1031,7 +987,6 @@ export const FilesTree: FC<
 			<FileRowTooltipRoot handle={tooltipHandle} />
 			{rows.length === 0 ? (
 				<Row interactive={false}>
-					{rail}
 					<RowLabelContainer>
 						{/* Both callers hide the tree outright when there is nothing to
 						    list, so an empty tree only ever means the filter matched
@@ -1047,8 +1002,9 @@ export const FilesTree: FC<
 					hasPendingOperationSources={hasPendingOperationSources}
 					collapsedDirectories={collapsedDirectories}
 					reviewedPaths={reviewedPaths}
-					isFileChecked={isFileChecked}
+					fileCheckedState={fileCheckedState}
 					directoryCheckedState={directoryCheckedState}
+					directoryReviewed={directoryReviewed}
 					shared={shared}
 					scrollElementRef={scrollElementRef}
 					scrollMargin={scrollMargin}
@@ -1060,7 +1016,27 @@ export const FilesTree: FC<
 	);
 };
 
+/** The changes a row stands for: its own, or every one below a directory. */
+const changePathsOfRow = (row: FileTreeRow<FileRowItem> | undefined): Array<string> => {
+	if (row === undefined) return [];
+	if (row._tag === "Directory")
+		return row.items.filter((item) => item._tag === "Change").map((item) => item.path);
+
+	return row.item._tag === "Change" ? [row.path] : [];
+};
+
 const treeItemId = (path: string): string => `files-treeitem-${encodeURIComponent(path)}`;
+
+/**
+ * A directory row as it renders mid-scroll: the settled row's shape with no menu
+ * resolved behind it, which is what {@link FileRowPresentational} does with the
+ * same props.
+ */
+const ScrollingDirectoryRow: FC<ComponentProps<typeof DirectoryRow>> = ({
+	projectId: _projectId,
+	fileParent: _fileParent,
+	...props
+}) => <DirectoryRowPresentational {...props} menuItems={[]} presentationalOnly />;
 
 /**
  * One row of the flattened tree. Depth is reported rather than nested, which is

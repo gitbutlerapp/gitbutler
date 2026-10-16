@@ -2,11 +2,11 @@
 	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { abbreviateFolders, changesToFileTree, nodePath } from "$lib/files/filetreeV3";
 	import { isExecutableStatus } from "$lib/hunks/change";
-	import { FileListItem, FolderListItem } from "@gitbutler/ui";
+	import { FileListItem, FolderListItem } from "@gitbutler/ui-svelte";
 	import { SvelteMap } from "svelte/reactivity";
 	import type { TreeNode } from "$lib/files/filetreeV3";
 	import type { TreeChange } from "@gitbutler/but-sdk";
-	import type { FocusableOptions } from "@gitbutler/ui/focus/focusTypes";
+	import type { FocusableOptions } from "@gitbutler/ui-svelte/focus/focusTypes";
 
 	type Props = {
 		changes: TreeChange[];

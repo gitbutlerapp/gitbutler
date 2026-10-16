@@ -15,9 +15,9 @@
 	import { BranchDropData } from "$lib/dragging/dropHandlers/branchDropHandler";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
 	import { inject } from "@gitbutler/core/context";
-	import { Badge, TestId, Icon } from "@gitbutler/ui";
-	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { Badge, TestId, Icon } from "@gitbutler/ui-svelte";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 	import { slide } from "svelte/transition";
 	import type { PushStatus } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";

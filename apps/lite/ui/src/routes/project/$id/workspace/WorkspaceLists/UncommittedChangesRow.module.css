@@ -8,6 +8,26 @@
 	color: var(--text-3);
 }
 
+/* The chevron stands in the trunk's column; without one the row is the pointer's toggle.
+   The button stays for the keyboard and screen readers, out of sight. */
+.foldToggle {
+	@container style(--graph-trunk: hidden) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
+}
+
+/* The hidden button's focus ring, drawn on the row that stands in for it. */
+:has(> .foldToggle:focus-visible) {
+	@container style(--graph-trunk: hidden) {
+		outline: var(--focus-ring);
+		outline-offset: -1.5px;
+	}
+}
+
 .foldToggle [data-icon] {
 	translate: -4px;
 }

@@ -2,22 +2,26 @@
 
 #![deny(missing_docs)]
 
-use crate::args::atoms::{AllowMergedArg, CliIdArg};
+use crate::args::atoms::{AllowMergedArg, CliIdArg, MessageFileArg};
 
 /// Create a commit.
 ///
-/// By default, all uncommitted changes are included in the commit. This can be controlled with
-/// change flags such as `--empty` and `--interactive`, or by providing `CHANGES` as positional
-/// arguments.
+/// By default, all uncommitted changes of the checkout `but` runs in are included in the commit:
+/// the main worktree's, or a linked worktree's when run from inside one. This can be controlled
+/// with change flags such as `--empty` and `--interactive`, or by providing `CHANGES` as
+/// positional arguments.
 ///
-/// If there are no branches applied, a new branch is created for the commit. If there is only one
-/// stack of branches applied, the commit is placed at the tip of that stack. Otherwise, the
-/// targeting flags `--above`, `--below` and `--branch` control where the commit is placed. Note
-/// that only one of the targeting flags can be provided at a time.
+/// Run from a linked worktree, or given changes from one, the commit is placed at the tip of that
+/// worktree's branch. Otherwise, if there are no branches applied, a new branch is created for the
+/// commit. If there is only one stack of branches applied, the commit is placed at the tip of that
+/// stack. Otherwise, the targeting flags `--above`, `--below` and `--branch` control where the
+/// commit is placed.
+/// `--above` and `--below` are mutually exclusive; combine either with `--branch` to name a new
+/// branch when targeting a branch.
 ///
-/// The commit is expected to have a commit message unless `--no-message` is provided. If neither of
-/// `--no-message` nor `--message` is provided, the user's preferred editor is opened to input a
-/// message.
+/// The commit is expected to have a commit message unless `--no-message` is provided. If none of
+/// `--no-message`, `--message` or `--file` is provided, the user's preferred editor is opened to
+/// input a message.
 ///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]
@@ -26,8 +30,8 @@ pub struct Platform {
     /// The message to use for the commit.
     ///
     /// Can be supplied any amount of times, each value being appended to the preceding ones with a
-    /// blank line in between. Without `-m` or `--no-message`, a terminal opens the editor and a
-    /// non-interactive run commits with an empty message.
+    /// blank line in between. Without `-m`, `-F` or `--no-message`, a terminal opens the editor
+    /// and a non-interactive run commits with an empty message.
     #[clap(short, long, group = "commit_message")]
     pub message: Option<Vec<String>>,
 
@@ -35,17 +39,24 @@ pub struct Platform {
     #[clap(long, group = "commit_message")]
     pub no_message: bool,
 
+    /// Read the commit message from `FILE`, or from stdin when `FILE` is `-`.
+    #[clap(short = 'F', long, value_name = "FILE", group = "commit_message")]
+    pub file: Option<MessageFileArg>,
+
     /// Place the commit on the branch `BRANCH`.
     ///
-    /// If `BRANCH` does not exist, it is created as an unstacked branch.
+    /// With `--above` or `--below`, name the new branch created relative to the target branch.
+    /// The name must not already exist; omit it for a generated name. Cannot be combined with
+    /// commit or worktree targets.
     ///
+    /// Otherwise, if `BRANCH` does not exist, it is created as an unstacked branch.
     /// If `BRANCH` is omitted, an unstacked branch with a generated name is created.
     ///
     /// If `BRANCH` is a worktree or a branch checked out in one, the commit is placed
     /// on the tip of that worktree's branch.
     ///
     /// Attempting to place a commit on a branch that exists but is not applied is an error.
-    #[clap(short, long, value_name = "BRANCH", group = "targeting")]
+    #[clap(short, long, value_name = "BRANCH")]
     pub branch: Option<Option<CliIdArg>>,
 
     /// Place the commit above `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
@@ -54,7 +65,7 @@ pub struct Platform {
     /// targeted commit.
     ///
     /// If `BRANCH_OR_COMMIT` is a branch, the new commit is placed on a new branch above the
-    /// targeted branch.
+    /// targeted branch. Use `--branch <NAME>` to name it; otherwise a name is generated.
     #[clap(
         short = 'A',
         long,
@@ -70,7 +81,8 @@ pub struct Platform {
     ///
     /// If `BRANCH_OR_COMMIT` is a branch, the new commit is placed on a new branch below the
     /// targeted branch. Branches are treated as buckets, meaning that "below a branch" is treated
-    /// as below the oldest ancestor on that branch.
+    /// as below the oldest ancestor on that branch. Use `--branch <NAME>` to name the new branch;
+    /// otherwise a name is generated.
     ///
     /// If `BRANCH_OR_COMMIT` is a worktree, the new commit is placed on the tip of the
     /// branch that worktree has checked out.
@@ -92,13 +104,17 @@ pub struct Platform {
 
     /// The files or hunks to commit, by CLI ID from `but diff`.
     ///
-    /// If omitted, everything uncommitted is committed.
+    /// If omitted, everything uncommitted in the checkout `but` runs in is committed.
     #[clap(group = "changes_to_commit")]
     pub changes: Vec<CliIdArg>,
 
     #[clap(flatten)]
     #[allow(missing_docs)]
     pub allow_merged: AllowMergedArg,
+
+    /// Switch to the target branch instead of remaining in the GitButler workspace.
+    #[clap(long, short, group = "targeting")]
+    pub switch: bool,
 }
 
 /// Example invocations appended to a `but commit` parse error.

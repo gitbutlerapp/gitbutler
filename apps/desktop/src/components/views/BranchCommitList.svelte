@@ -35,11 +35,11 @@
 
 	import { UI_STATE, withStackBusy } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { TestId } from "@gitbutler/ui";
-	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { TestId } from "@gitbutler/ui-svelte";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
+	import { getTimeAgo } from "@gitbutler/ui-svelte/utils/timeAgo";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import type { Segment } from "@gitbutler/but-sdk";
 
 	interface Props {

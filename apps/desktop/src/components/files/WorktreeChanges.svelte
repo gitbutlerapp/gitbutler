@@ -17,9 +17,9 @@
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 
-	import { Badge, FileListItem, TestId } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { Badge, FileListItem, TestId } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import { untrack, type Snippet } from "svelte";
 	import type { DropzoneHandler } from "$lib/dragging/handler";
 

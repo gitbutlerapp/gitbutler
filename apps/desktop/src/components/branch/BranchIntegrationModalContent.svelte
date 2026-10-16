@@ -14,9 +14,17 @@
 		type IntegrationGraphRow,
 	} from "$lib/upstream/branchIntegrationView";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, Icon, ModalFooter, RadioButton, TestId, Badge, chipToasts } from "@gitbutler/ui";
+	import {
+		Button,
+		Icon,
+		ModalFooter,
+		RadioButton,
+		TestId,
+		Badge,
+		chipToasts,
+	} from "@gitbutler/ui-svelte";
 	import type { BranchIntegrationStrategy } from "@gitbutler/but-sdk";
-	import type { IconName } from "@gitbutler/ui";
+	import type { IconName } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		projectId: string;

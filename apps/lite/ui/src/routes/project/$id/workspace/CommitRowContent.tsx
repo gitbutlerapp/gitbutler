@@ -1,26 +1,21 @@
-import { commitTitle, shortCommitId } from "#ui/commit.ts";
-import { classes } from "#ui/components/classes.ts";
-import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
+import { commitTitle } from "#ui/commit.ts";
+import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
 import type { Commit, TargetCommitReview } from "@gitbutler/but-sdk";
-import { type ComponentProps, type FC, useState } from "react";
+import type { ComponentProps, FC } from "react";
 import { BranchRowHeadline } from "./BranchRowHeadline.tsx";
-import { RowLabel, RowLabelContainer, RowLabelGroup, RowMeta, RowMetaSeparator } from "./Row.tsx";
+import { RowLabel, RowLabelContainer, RowLabelGroup } from "./Row.tsx";
 import rowStyles from "./Row.module.css";
 import styles from "./CommitRowContent.module.css";
 
 export const CommitRowContent: FC<
 	{
-		commit: Pick<Commit, "id" | "message" | "author" | "authoredAt">;
-		review?: Pick<TargetCommitReview, "title" | "sourceBranch" | "labels"> | null;
+		commit: Pick<Commit, "message">;
+		review?: Pick<TargetCommitReview, "title" | "labels"> | null;
 		hasConflicts?: boolean;
 		descriptionId?: string;
 	} & Omit<ComponentProps<typeof RowLabelGroup>, "children" | "title">
 > = ({ commit, review, hasConflicts = false, descriptionId, ...props }) => {
-	const [now] = useState(() => Date.now());
 	const title = commitTitle(commit.message);
-	const author = commit.author.name !== "" ? commit.author.name : commit.author.email;
 
 	return (
 		<RowLabelGroup {...props} id={descriptionId}>
@@ -44,32 +39,6 @@ export const CommitRowContent: FC<
 					</RowLabel>
 				</RowLabelContainer>
 			)}
-			<RowMeta className={classes(rowStyles.fadedText, styles.metadata)}>
-				{review && review.sourceBranch !== "" && (
-					<>
-						<span className={classes(rowStyles.metaItem, rowStyles.metaItemShrinkable)}>
-							<Icon name="branch" size={12} />
-							<span className={rowStyles.metaItemText} title={review.sourceBranch}>
-								{review.sourceBranch}
-							</span>
-						</span>
-						<RowMetaSeparator />
-					</>
-				)}
-				{author !== "" && (
-					<>
-						<span className={styles.author} title={commit.author.email}>
-							{author}
-						</span>
-						<RowMetaSeparator />
-					</>
-				)}
-				<RelativeTime timestamp={commit.authoredAt} now={now} />
-				<RowMetaSeparator />
-				<span className={styles.commitId} title={commit.id}>
-					{shortCommitId(commit.id)}
-				</span>
-			</RowMeta>
 		</RowLabelGroup>
 	);
 };

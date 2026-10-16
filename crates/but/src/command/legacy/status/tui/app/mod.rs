@@ -1,22 +1,21 @@
 use std::{
     borrow::Cow,
-    cell::Cell,
+    cell::{Cell, RefCell},
     sync::{Arc, mpsc::Receiver},
     time::{Duration, Instant},
 };
 
 use ansi_to_tui::IntoText as _;
-use bstr::{BStr, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_api::open::program::ProgramSpec;
 use but_ctx::Context;
 use crossterm::event::Event;
-use gitbutler_operating_modes::OperatingMode;
 use gix::refs::{Category, FullName};
 use nonempty::NonEmpty;
 use ratatui::prelude::*;
 
 use crate::{
-    CliId, CliResult,
+    ChangeSourceId, CliId, CliResult,
     args::atoms::ResolvedCliIdArg,
     command::{
         legacy::{
@@ -36,10 +35,11 @@ use crate::{
                     render::render_app,
                 },
             },
+            switch::SwitchBranchItem,
         },
         open::{self, Openable},
     },
-    id::{CommitId, CommittedFileId},
+    id::{AnonymousSegmentId, BranchId, CommitId, CommittedFileId},
     theme::Theme,
     tui::{Clipboard, TerminalGuard, event_polling::EventPolling},
     utils::{in_single_branch_mode, targeting::Side},
@@ -117,6 +117,8 @@ pub struct App {
     pub should_render: bool,
     pub cursor: Cursor,
     pub status_scroll: StatusScroll,
+    /// Screen areas of status items in the last rendered frame, excluding preview rows.
+    pub status_line_areas: RefCell<Vec<(Rect, usize)>>,
     pub debug_scroll: DebugScroll,
     pub mode: RememberToUpdateBackstack<Mode>,
     pub toasts: Toasts,
@@ -138,7 +140,6 @@ pub struct App {
     pub file_browser: Option<FileBrowser>,
     pub head_sha: String,
     pub clipboard: Clipboard,
-    pub operating_mode: OperatingMode,
     pub in_single_branch_mode: bool,
 }
 
@@ -239,6 +240,10 @@ impl Tui for App {
                 break;
             }
             for msg in messages.drain(..) {
+                // Fatal startup errors must bypass recoverable message error handling.
+                if let Message::FatalError(err) = msg {
+                    return Err(err);
+                }
                 if matches!(msg, Message::Reload(..)) {
                     if did_reload && cfg!(feature = "tui-profiling") && !cfg!(test) {
                         self.toasts
@@ -332,7 +337,6 @@ impl App {
         mut incoming_out_of_band_messages: Vec<Receiver<Message>>,
         head_sha: String,
         clipboard: Clipboard,
-        operating_mode: OperatingMode,
     ) -> CliResult<Self> {
         let initial_hunk = initial_target.as_ref().and_then(|target| match target {
             ResolvedCliIdArg::UncommittedHunkOrFile(hunk) if !hunk.is_entire_file => {
@@ -344,10 +348,8 @@ impl App {
             | ResolvedCliIdArg::UncommittedHunkOrFile(..)
             | ResolvedCliIdArg::CommittedFile(..)
             | ResolvedCliIdArg::CommittedHunk(..)
-            | ResolvedCliIdArg::Uncommitted
+            | ResolvedCliIdArg::Uncommitted(..)
             | ResolvedCliIdArg::PathPrefix { .. }
-            | ResolvedCliIdArg::Worktree(..)
-            | ResolvedCliIdArg::WorktreeUncommitted(..)
             | ResolvedCliIdArg::Stack { .. } => None,
         });
         let initial_committed_file = matches!(
@@ -414,6 +416,7 @@ impl App {
             flags,
             cursor,
             status_scroll: StatusScroll::default(),
+            status_line_areas: RefCell::default(),
             debug_scroll: DebugScroll::default(),
             outcome: None,
             should_render: true,
@@ -437,7 +440,6 @@ impl App {
             file_browser,
             head_sha,
             clipboard,
-            operating_mode,
             in_single_branch_mode: false,
         };
 
@@ -512,6 +514,13 @@ impl App {
                 panic!("Intentional crash caused by Message::Crash");
             }
             Message::JustRender => {}
+            Message::StatusClick(position) => {
+                self.handle_status_click(position);
+                return Ok(());
+            }
+            Message::StatusScroll(delta) => {
+                return self.handle_status_scroll(delta, terminal_guard);
+            }
             Message::DebugScrollUp(count) => self.debug_scroll.up(count),
             Message::DebugScrollDown(count) => self.debug_scroll.down(count),
             Message::MoveCursorUp(count) => {
@@ -563,32 +572,56 @@ impl App {
                     self.cursor = new_cursor;
                 }
             }
-            Message::SelectUncommitted => {
-                let new_cursor = Cursor::new(&self.status_lines);
-                if let Some(uncommitted_line) = new_cursor.selected_line(&self.status_lines)
-                    && cursor::is_selectable_in_mode(
-                        uncommitted_line,
-                        self.mode.as_ref(),
-                        self.flags.show_files,
-                    )
+            Message::SelectWorktree(name) => {
+                if let Some(new_cursor) = Cursor::select_worktree(name.as_ref(), &self.status_lines)
                 {
                     self.cursor = new_cursor;
                 }
             }
-            Message::SelectMergeBase => {
-                let Some(new_cursor) = Cursor::select_merge_base(&self.status_lines) else {
-                    return Ok(());
-                };
-                if let Some(merge_base_line) = new_cursor.selected_line(&self.status_lines)
-                    && cursor::is_selectable_in_mode(
-                        merge_base_line,
-                        self.mode.as_ref(),
-                        self.flags.show_files,
-                    )
-                {
-                    self.cursor = new_cursor;
+            Message::GotoTop => match self.flags.show_files {
+                FilesStatusFlag::None | FilesStatusFlag::All => {
+                    let new_cursor = Cursor::new(&self.status_lines);
+                    if let Some(uncommitted_line) = new_cursor.selected_line(&self.status_lines)
+                        && cursor::is_selectable_in_mode(
+                            uncommitted_line,
+                            self.mode.as_ref(),
+                            self.flags.show_files,
+                        )
+                    {
+                        self.cursor = new_cursor;
+                    }
                 }
-            }
+                FilesStatusFlag::Commit(..) => {
+                    if let Some(new_cursor) =
+                        Cursor::select_first(&self.status_lines, &self.mode, self.flags.show_files)
+                    {
+                        self.cursor = new_cursor;
+                    }
+                }
+            },
+            Message::GotoBottom => match self.flags.show_files {
+                FilesStatusFlag::None | FilesStatusFlag::All => {
+                    let Some(new_cursor) = Cursor::select_merge_base(&self.status_lines) else {
+                        return Ok(());
+                    };
+                    if let Some(merge_base_line) = new_cursor.selected_line(&self.status_lines)
+                        && cursor::is_selectable_in_mode(
+                            merge_base_line,
+                            self.mode.as_ref(),
+                            self.flags.show_files,
+                        )
+                    {
+                        self.cursor = new_cursor;
+                    }
+                }
+                FilesStatusFlag::Commit(..) => {
+                    if let Some(new_cursor) =
+                        Cursor::select_last(&self.status_lines, &self.mode, self.flags.show_files)
+                    {
+                        self.cursor = new_cursor;
+                    }
+                }
+            },
             Message::Squash(squash_message) => {
                 self.handle_squash(squash_message, ctx, terminal_guard, messages)?
             }
@@ -600,6 +633,9 @@ impl App {
             }
             Message::EnterNormalModeAfterConfirmingOperation => {
                 self.handle_enter_normal_mode_after_confirming_operation(messages);
+            }
+            Message::CloseCommitFileListAfterConfirmingOperation => {
+                self.handle_close_commit_file_list_after_confirming_operation();
             }
             Message::DetailsLayout(details_layout_message) => match details_layout_message {
                 DetailsLayoutMessage::Focus { full_screen } => {
@@ -629,6 +665,7 @@ impl App {
             Message::Reload(select_after_reload, cause) => {
                 self.handle_reload(ctx, out, select_after_reload, cause)?
             }
+            Message::FatalError(err) => messages.push(Message::FatalError(err)),
             Message::ShowError(err) => self.handle_show_error(err, messages),
             Message::Commit(commit_message) => {
                 self.handle_commit(commit_message, ctx, terminal_guard, messages)?
@@ -763,7 +800,7 @@ impl App {
                 self.incoming_out_of_band_messages.push(rx);
             }
             Message::Discard => {
-                self.handle_discard(messages)?;
+                self.handle_discard(ctx, messages)?;
             }
             Message::DropToBeDiscarded => {
                 self.to_be_discarded.clear();
@@ -827,6 +864,99 @@ impl App {
         self.status_scroll.to_cursor();
 
         Ok(())
+    }
+
+    fn handle_status_click(&mut self, position: Position) {
+        if self.modal.is_some()
+            || matches!(
+                &*self.mode,
+                Mode::InlineReword(..) | Mode::Command(..) | Mode::Jump(..)
+            )
+        {
+            return;
+        }
+        let Some(index) = self
+            .status_line_areas
+            .borrow()
+            .iter()
+            .find_map(|(area, index)| area.contains(position).then_some(*index))
+        else {
+            return;
+        };
+        if let Some(cursor) =
+            Cursor::select_at_index(index, &self.status_lines, &self.mode, self.flags.show_files)
+        {
+            self.cursor = cursor;
+            // Clicking a visible row must not pull it away from the mouse to restore context.
+            self.status_scroll.take_pending_cursor();
+        }
+    }
+
+    fn handle_status_scroll<T>(
+        &mut self,
+        delta: isize,
+        terminal_guard: &mut T,
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
+        if matches!(&*self.mode, Mode::InlineReword(..)) {
+            return Ok(());
+        }
+        let terminal_area = terminal_guard.terminal_mut().size()?.into();
+        if let Some(area) = super::render::status_area_for_app(self, terminal_area) {
+            self.scroll_status(delta, usize::from(area.height));
+        }
+        Ok(())
+    }
+
+    fn scroll_status(&mut self, delta: isize, height: usize) {
+        if height == 0 {
+            return;
+        }
+        let old_top = self.status_scroll.top();
+        let top = old_top
+            .saturating_add_signed(delta)
+            .min(self.status_lines.len().saturating_sub(height));
+        if top == old_top {
+            return;
+        }
+        let context = super::CURSOR_CONTEXT_ROWS.min(height.saturating_sub(1) / 2);
+        let start = top + context;
+        let end = top + height - context - 1;
+        // Walk only when the viewport has pushed the selection into a context margin.
+        // Reuse mode-aware navigation so wheel scrolling cannot select disabled rows.
+        if self.cursor.index() < start {
+            while self.cursor.index() < start {
+                let Some(cursor) =
+                    self.cursor
+                        .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+                else {
+                    break;
+                };
+                self.cursor = cursor;
+            }
+        } else if self.cursor.index() > end {
+            while self.cursor.index() > end {
+                let Some(cursor) =
+                    self.cursor
+                        .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+                else {
+                    break;
+                };
+                self.cursor = cursor;
+            }
+        }
+        // Sparse/restricted selections may require stopping short of the requested scroll.
+        self.status_scroll
+            .set_top(self.cursor.scroll_top_for_viewport(
+                top,
+                self.status_lines.len(),
+                height,
+                super::CURSOR_CONTEXT_ROWS,
+            ));
+        self.status_scroll.take_pending_cursor();
     }
 
     fn handle_quit(&mut self) {
@@ -901,6 +1031,16 @@ impl App {
         }
     }
 
+    fn handle_close_commit_file_list_after_confirming_operation(&mut self) {
+        match self.flags.show_files {
+            FilesStatusFlag::Commit(..) => {
+                self.backstack.remove_show_file_list();
+                self.flags.show_files = FilesStatusFlag::None;
+            }
+            FilesStatusFlag::None | FilesStatusFlag::All => {}
+        }
+    }
+
     fn handle_back(&mut self, messages: &mut Vec<Message>) {
         if let Some(entry) = self.backstack.pop() {
             self.handle_backstack_entry(entry, messages);
@@ -918,8 +1058,11 @@ impl App {
                 }
             }
             BackstackEntry::LeaveNormalMode => {
+                // Cancelling jump only restores the mode and backstack, never the cursor.
+                if self.restore_mode_before_jump() {
+                    return;
+                }
                 if !self.restore_mode_before_details(messages)
-                    && !self.restore_mode_before_jump()
                     && !self.restore_cursor_before_move_stack(messages)
                 {
                     let marks = self.marks_ref().to_owned();
@@ -1169,7 +1312,10 @@ impl App {
                                 },
                             ));
                         }
-                        CliId::Uncommitted { .. } => {
+                        CliId::UncommittedArea {
+                            source: ChangeSourceId::Head,
+                            ..
+                        } => {
                             let previous_uncommitted_paths = self
                                 .status_lines
                                 .iter()
@@ -1186,9 +1332,7 @@ impl App {
                                             | CliId::Branch(..)
                                             | CliId::Commit { .. }
                                             | CliId::Stack { .. }
-                                            | CliId::Worktree { .. }
-                                            | CliId::WorktreeUncommitted { .. }
-                                            | CliId::Uncommitted { .. } => None,
+                                            | CliId::UncommittedArea { .. } => None,
                                         }
                                     }
                                     StatusOutputLineData::UpdateNotice
@@ -1197,7 +1341,6 @@ impl App {
                                     | StatusOutputLineData::StagedChanges { .. }
                                     | StatusOutputLineData::StagedFile { .. }
                                     | StatusOutputLineData::UncommittedChanges { .. }
-                                    | StatusOutputLineData::Worktree { .. }
                                     | StatusOutputLineData::WorktreeUncommitted { .. }
                                     | StatusOutputLineData::Branch { .. }
                                     | StatusOutputLineData::Commit { .. }
@@ -1236,8 +1379,10 @@ impl App {
                         | CliId::CommittedHunk { .. }
                         | CliId::Branch(..)
                         | CliId::Commit { .. }
-                        | CliId::Worktree { .. }
-                        | CliId::WorktreeUncommitted { .. }
+                        | CliId::UncommittedArea {
+                            source: ChangeSourceId::Worktree(_),
+                            ..
+                        }
                         | CliId::Stack { .. } => {
                             messages.push(Message::Reload(
                                 None,
@@ -1255,6 +1400,31 @@ impl App {
                         },
                     ));
                 }
+            }
+            gitbutler_watcher::Change::LinkedWorktreeChanges { worktree, .. } => {
+                let details_selection_changed = self.is_details_visible
+                    && self.details.selection().is_some_and(|selection| {
+                        let source = match selection {
+                            CliId::UncommittedHunkOrFile(uncommitted) => &uncommitted.source,
+                            CliId::UncommittedArea { source, .. } => source,
+                            CliId::AnonymousSegment(..)
+                            | CliId::PathPrefix { .. }
+                            | CliId::CommittedFile { .. }
+                            | CliId::CommittedHunk { .. }
+                            | CliId::Branch(..)
+                            | CliId::Commit { .. }
+                            | CliId::Stack { .. } => return false,
+                        };
+                        source
+                            .worktree_name()
+                            .is_some_and(|name| name == worktree.as_str())
+                    });
+                messages.push(Message::Reload(
+                    None,
+                    ReloadCause::Watcher {
+                        details_selection_changed,
+                    },
+                ));
             }
             gitbutler_watcher::Change::ExternalInvalidation { .. } => {
                 // The TUI keeps no forge caches; workspace changes reach it as activity.
@@ -1339,13 +1509,8 @@ impl App {
             }
         }
 
-        let new_lines = operations::reload_legacy(
-            ctx,
-            out,
-            &self.operating_mode,
-            self.flags,
-            self.launch_options.clone(),
-        )?;
+        let new_lines =
+            operations::reload_legacy(ctx, out, self.flags, self.launch_options.clone())?;
         self.head_sha = operations::head_sha(ctx)?;
 
         self.cursor = match select_after_reload {
@@ -1502,9 +1667,9 @@ impl App {
                     CommitOperation::CommitAt(CommitAtOperation {
                         target: CommitRelativeToTarget::BranchTip {
                             name: Category::LocalBranch.to_full_name(&*branch.name)?,
+                            switch: false,
                         },
                     }),
-                    false,
                     CommitSelection::Nothing,
                     CommitMessageSource::Empty,
                 )?;
@@ -1532,7 +1697,6 @@ impl App {
                             side: Side::Above,
                         },
                     }),
-                    false,
                     CommitSelection::Nothing,
                     CommitMessageSource::Empty,
                 )?;
@@ -1543,38 +1707,6 @@ impl App {
                 ));
             }
             StatusOutputLineData::WorktreeUncommitted { .. } => return Ok(()),
-            StatusOutputLineData::Worktree { cli_id } => {
-                // The reference row is the top of its lane, so the empty commit goes to the tip
-                // of the branch checked out there. The uncommitted areas name no branch, so they
-                // stay no-ops.
-                let CliId::Worktree { name, .. } = &**cli_id else {
-                    return Ok(());
-                };
-                let branch = {
-                    let repo = ctx.repo.get()?;
-                    crate::utils::worktrees::worktree_branch(&repo, name.as_ref())?
-                };
-
-                let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
-
-                let (outcome, _ws) = commit::run(
-                    ctx,
-                    &mut meta,
-                    guard.write_permission(),
-                    CommitOperation::CommitAt(CommitAtOperation {
-                        target: CommitRelativeToTarget::BranchTip { name: branch },
-                    }),
-                    false,
-                    CommitSelection::Nothing,
-                    CommitMessageSource::Empty,
-                )?;
-
-                messages.push(Message::Reload(
-                    Some(SelectAfterReload::Commit(outcome.new_commit.commit_id)),
-                    ReloadCause::Mutation,
-                ));
-            }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::UncommittedChanges { .. }
             | StatusOutputLineData::Connector
@@ -1621,12 +1753,10 @@ impl App {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 uncommitted.hunks.first().hunk.path.to_str_lossy()
             }
-            CliId::Worktree { name, .. } => name.to_str_lossy(),
             CliId::AnonymousSegment(..)
             | CliId::CommittedHunk(..)
             | CliId::PathPrefix { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 
@@ -1639,11 +1769,14 @@ impl App {
     }
 
     fn handle_copy_selection_picker(&mut self) -> anyhow::Result<()> {
-        let Some(selection) = self
-            .cursor
-            .selected_line(&self.status_lines)
-            .and_then(|selection| selection.data.cli_id())
-        else {
+        let selection = if matches!(&*self.mode, Mode::Details(..)) {
+            self.details.selected_section_cli_id()
+        } else {
+            self.cursor
+                .selected_line(&self.status_lines)
+                .and_then(|selection| selection.data.cli_id())
+        };
+        let Some(selection) = selection else {
             return Ok(());
         };
 
@@ -1655,12 +1788,27 @@ impl App {
                 let commit_id = *commit_id;
                 copy_selection_picker::commit_picker(commit_id, self.theme)
             }
-            CliId::Branch(branch) => {
-                let branch = Category::LocalBranch.to_full_name(&*branch.name)?;
-                copy_selection_picker::branch_picker(branch, self.theme)
+            CliId::Branch(BranchId { name, id, lane }) => {
+                let branch = Category::LocalBranch.to_full_name(name.as_str())?;
+                copy_selection_picker::branch_picker(branch, id.to_owned(), lane, self.theme)
+            }
+            CliId::AnonymousSegment(AnonymousSegmentId { id, lane, .. }) => {
+                copy_selection_picker::anonymous_segment_picker(id.to_owned(), lane, self.theme)
             }
             CliId::UncommittedHunkOrFile(hunk) => {
-                copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
+                if matches!(&*self.mode, Mode::Details(..)) {
+                    let Some(text) = self.details.selected_hunk_text() else {
+                        return Ok(());
+                    };
+                    copy_selection_picker::details_hunk_picker(
+                        hunk.id.clone(),
+                        hunk.hunks.head.hunk.path.as_ref(),
+                        text,
+                        self.theme,
+                    )
+                } else {
+                    copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
+                }
             }
             CliId::CommittedFile {
                 committed_file:
@@ -1675,14 +1823,26 @@ impl App {
                 id.to_owned(),
                 self.theme,
             ),
-            CliId::Worktree { id, name } => {
-                copy_selection_picker::worktree_picker(name.to_owned(), id.to_owned(), self.theme)
+            CliId::UncommittedArea {
+                source: ChangeSourceId::Worktree(name),
+                ..
+            } => copy_selection_picker::worktree_picker(name.as_ref(), self.theme),
+            CliId::CommittedHunk(hunk) => {
+                let Some(text) = self.details.selected_hunk_text() else {
+                    return Ok(());
+                };
+                copy_selection_picker::details_hunk_picker(
+                    hunk.id.clone(),
+                    hunk.hunk.path.as_ref(),
+                    text,
+                    self.theme,
+                )
             }
-            CliId::AnonymousSegment(..)
-            | CliId::CommittedHunk(..)
-            | CliId::PathPrefix { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::WorktreeUncommitted { .. }
+            CliId::PathPrefix { .. }
+            | CliId::UncommittedArea {
+                source: ChangeSourceId::Head,
+                ..
+            }
             | CliId::Stack { .. } => return Ok(()),
         };
         self.modal = Some(Modal::CopySelectionPicker {
@@ -1721,9 +1881,7 @@ impl App {
                     | CliId::Commit { .. }
                     | CliId::Branch(_)
                     | CliId::PathPrefix { .. }
-                    | CliId::Uncommitted { .. }
-                    | CliId::Worktree { .. }
-                    | CliId::WorktreeUncommitted { .. }
+                    | CliId::UncommittedArea { .. }
                     | CliId::Stack { .. } => Ok(None),
                 }
             }
@@ -1854,7 +2012,7 @@ impl App {
             )?
         };
 
-        let branch_names = head_info
+        let mut picker_items = head_info
             .stacks
             .iter()
             .flat_map(|stack| &stack.segments)
@@ -1881,10 +2039,24 @@ impl App {
                         is_selectable_in_mode(line, self.mode.as_ref(), self.flags.show_files)
                     })
             })
-            .map(|name| name.to_owned())
+            .map(|name| GotoBranchItem::Branch(name.to_owned()))
             .collect::<Vec<_>>();
 
-        if let Some(branch_names) = NonEmpty::from_vec(branch_names) {
+        for worktree in head_info.worktrees {
+            let selectable = Cursor::select_worktree(worktree.name.as_ref(), &self.status_lines)
+                .and_then(|cursor| cursor.selected_line(&self.status_lines))
+                .is_some_and(|line| {
+                    is_selectable_in_mode(line, self.mode.as_ref(), self.flags.show_files)
+                });
+            if selectable {
+                picker_items.push(GotoBranchItem::Worktree {
+                    name: worktree.name,
+                    ref_name: worktree.ref_name,
+                });
+            }
+        }
+
+        if let Some(picker_items) = NonEmpty::from_vec(picker_items) {
             let include_uncommitted = Cursor::select_uncommitted(&self.status_lines)
                 .and_then(|cursor| cursor.selected_line(&self.status_lines))
                 .is_some_and(|uncommitted| {
@@ -1893,10 +2065,10 @@ impl App {
 
             let picker_items = if include_uncommitted {
                 let mut mapped_items = NonEmpty::new(GotoBranchItem::Uncommitted);
-                mapped_items.extend(branch_names.map(GotoBranchItem::Branch));
+                mapped_items.extend(picker_items);
                 mapped_items
             } else {
-                branch_names.map(GotoBranchItem::Branch)
+                picker_items
             };
 
             self.modal = Some(Modal::GotoBranchPicker {
@@ -1908,8 +2080,11 @@ impl App {
                             GotoBranchItem::Branch(branch_name) => {
                                 messages.push(Message::SelectBranch(branch_name));
                             }
+                            GotoBranchItem::Worktree { name, .. } => {
+                                messages.push(Message::SelectWorktree(name));
+                            }
                             GotoBranchItem::Uncommitted => {
-                                messages.push(Message::SelectUncommitted);
+                                messages.push(Message::GotoTop);
                             }
                         }
                         Ok(())
@@ -2111,6 +2286,10 @@ fn commit_identifier_to_copy(
 #[derive(Debug, Clone)]
 pub enum GotoBranchItem {
     Branch(FullName),
+    Worktree {
+        name: BString,
+        ref_name: Option<FullName>,
+    },
     Uncommitted,
 }
 
@@ -2121,6 +2300,12 @@ impl FuzzyPickerItem for GotoBranchItem {
                 text: full_name.shorten().to_str_lossy(),
                 searchable: Some(searchable),
             }],
+            GotoBranchItem::Worktree { name, ref_name } => [Col {
+                text: ref_name
+                    .as_ref()
+                    .map_or_else(|| name.to_str_lossy(), |name| name.shorten().to_str_lossy()),
+                searchable: Some(searchable),
+            }],
             Self::Uncommitted => [Col {
                 text: "uncommitted".into(),
                 searchable: Some(searchable),
@@ -2128,9 +2313,9 @@ impl FuzzyPickerItem for GotoBranchItem {
         }
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         match self {
-            Self::Branch(..) => theme.local_branch,
+            GotoBranchItem::Branch(..) | GotoBranchItem::Worktree { .. } => theme.local_branch,
             Self::Uncommitted => theme.info,
         }
     }
@@ -2150,7 +2335,7 @@ impl FuzzyPickerItem for ProgramSpec {
         ]
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         theme.info
     }
 }

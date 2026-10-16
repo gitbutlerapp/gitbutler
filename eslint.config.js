@@ -27,8 +27,8 @@ export default defineConfig(
 					// subdirectories, ignoring the root tsconfig.json
 					allowDefaultProject: [
 						"svelte.config.js",
-						"packages/ui/.storybook/*.ts",
-						"packages/ui/playwright-ct.config.ts",
+						"packages/ui-svelte/.storybook/*.ts",
+						"packages/ui-svelte/playwright-ct.config.ts",
 					],
 				},
 			},
@@ -144,6 +144,8 @@ export default defineConfig(
 	{
 		ignores: [
 			"apps/lite/**",
+			// Lite's component library: linted by oxlint, as Lite is.
+			"packages/ui-react/**",
 			"**/.*", // dotfiles aren't ignored by default in FlatConfig
 			".*", // dotfiles aren't ignored by default in FlatConfig
 			"**/.DS_Store",
@@ -168,9 +170,9 @@ export default defineConfig(
 			"target/",
 			"crates/",
 			"apps/desktop/embedded-frontend",
-			"packages/ui/storybook-static",
+			"packages/ui-svelte/storybook-static",
 			// Storybook Meta type wrapper
-			"packages/ui/src/stories/**/*.stories.ts",
+			"packages/ui-svelte/src/stories/**/*.stories.ts",
 			// but-sdk generated code
 			"packages/but-sdk/src/generated",
 			// Standalone scripts not covered by a tsconfig

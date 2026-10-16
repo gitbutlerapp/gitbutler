@@ -11,8 +11,8 @@
 	import { ActionEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Badge, Button, TestId } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { Badge, Button, TestId } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 
 	interface Props {
 		projectId: string;

@@ -1,4 +1,12 @@
-import type { RelativeTo, Segment, Stack } from "@gitbutler/but-sdk";
+import type {
+	BottomUpdate,
+	RefInfo,
+	RelativeTo,
+	Segment,
+	Stack,
+	Target,
+	Worktree,
+} from "@gitbutler/but-sdk";
 
 export const segmentBottomRelativeTo = (segment: Segment): RelativeTo | null => {
 	const bottomCommit = segment.commits.at(-1);
@@ -19,3 +27,23 @@ export const stackBottomRelativeTo = (stack: Stack): RelativeTo | null => {
 
 	return null;
 };
+
+/** A worktree stacked on a branch has no bottom of its own: it moves with that branch. */
+const worktreeBottomRelativeTo = (worktree: Worktree): RelativeTo | null => {
+	if (worktree.base?.type !== "Outside") return null;
+
+	const bottomSegment = worktree.segments.at(-1);
+	return bottomSegment ? segmentBottomRelativeTo(bottomSegment) : null;
+};
+
+/** One rebase for every stack and worktree resting on the target. */
+export const rebaseAllUpdates = (headInfo: RefInfo): Array<BottomUpdate> =>
+	[
+		...headInfo.stacks.map(stackBottomRelativeTo),
+		...headInfo.worktrees.map(worktreeBottomRelativeTo),
+	]
+		.filter((relativeTo) => relativeTo != null)
+		.map((relativeTo) => ({ kind: "rebase", selector: relativeTo }));
+
+/** Whether a pull has work to do: the stored target trails its ref, or a lane has yet to catch up with it. */
+export const pullHasWork = (target: Target): boolean => !target.isCurrent || target.hasLanesBehind;

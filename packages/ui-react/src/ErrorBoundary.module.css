@@ -1,0 +1,14 @@
+.error {
+	max-width: 500px;
+	margin: auto;
+	padding: 24px;
+}
+
+.errorTitle {
+	margin-block-end: 16px;
+}
+
+.errorActions {
+	display: flex;
+	gap: var(--gap-buttons);
+}

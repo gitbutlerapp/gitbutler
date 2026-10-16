@@ -1,4 +1,4 @@
-@import "@gitbutler/ui/main.css";
+@import "@gitbutler/ui-svelte/main.css";
 
 :root {
 	--radius-xl: 20px;

@@ -23,11 +23,15 @@ import {
  * does; the CodeView stand-in reports what the page asked it to scroll to.
  */
 
-type LineSelection = { id: string; range: unknown };
 type CodeViewProps = {
 	items: Array<{ id: string }>;
 	onScroll: (scrollTop: number, viewer: unknown) => void;
-	onSelectedLinesChange: (selection: LineSelection | null) => void;
+	options: {
+		onLineNumberClick: (
+			props: { numberElement: HTMLElement },
+			context: { item: { id: string } },
+		) => void;
+	};
 };
 
 const scrollTo = vi.fn();
@@ -353,10 +357,10 @@ test("a line selection before the diff arrives cancels the pending scroll", asyn
 	const page = await mountPage(["file-64.ts"]);
 	try {
 		page.select("file-64.ts");
-		codeView?.onSelectedLinesChange({
-			id: itemIdOf("file-0.ts"),
-			range: { start: 1, side: "additions", end: 1, endSide: "additions" },
-		});
+		const numberElement = document.createElement("span");
+		numberElement.setAttribute("data-column-number", "1");
+		numberElement.setAttribute("data-line-type", "change-addition");
+		codeView?.options.onLineNumberClick({ numberElement }, { item: { id: itemIdOf("file-0.ts") } });
 
 		page.release("file-64.ts");
 		await vi.waitFor(() => expect(itemIdOf("file-64.ts")).toBeDefined(), settle);

@@ -69,7 +69,10 @@ pub fn remerged_workspace_tree_v2(
         commit.tree_id_or_auto_resolution()?.detach()
     } else {
         let base_tree_id = but_core::Commit::try_from(
-            repo.find_commit(repo.merge_base_octopus(heads.iter().copied())?)?,
+            repo.find_commit(
+                repo.merge_base_octopus(heads.iter().copied())?
+                    .context("Could not find a merge-base for the workspace heads")?,
+            )?,
         )?
         .tree_id_or_auto_resolution()?
         .detach();

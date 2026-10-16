@@ -4,7 +4,7 @@
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup } from "@gitbutler/ui";
+	import { CardGroup } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		// Used by credential checker before target branch set

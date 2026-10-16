@@ -534,6 +534,7 @@ mod error {
                     .id
             )
             .unwrap()
+            .expect("HEAD and the target share history")
             .detach(),
             "the missing stored object is replaced by the validated merge-base"
         );

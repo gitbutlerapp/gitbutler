@@ -7,7 +7,7 @@
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from "$lib/selection/key";
 	import { inject } from "@gitbutler/core/context";
-	import { EmptyStatePlaceholder, Icon } from "@gitbutler/ui";
+	import { EmptyStatePlaceholder, Icon } from "@gitbutler/ui-svelte";
 
 	import type { ConflictEntriesObj } from "$lib/files/conflicts";
 	import type { TreeStats } from "@gitbutler/but-sdk";

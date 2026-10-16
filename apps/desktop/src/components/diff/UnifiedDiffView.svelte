@@ -18,15 +18,15 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { isImageFile } from "@gitbutler/shared/utils/file";
-	import { EmptyStatePlaceholder, generateHunkId, HunkDiff, TestId } from "@gitbutler/ui";
-	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
-	import { parseHunk } from "@gitbutler/ui/utils/diffParsing";
+	import { EmptyStatePlaceholder, generateHunkId, HunkDiff, TestId } from "@gitbutler/ui-svelte";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
+	import { parseHunk } from "@gitbutler/ui-svelte/utils/diffParsing";
 	import { untrack } from "svelte";
 	import type { FileDependencies } from "$lib/hunks/dependencies";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
 	import type { DiffHunk } from "@gitbutler/but-sdk";
 	import type { TreeChange } from "@gitbutler/but-sdk";
-	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
+	import type { LineId } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 	const LARGE_DIFF_THRESHOLD = 1000;
 	const INITIAL_HUNKS = 5;

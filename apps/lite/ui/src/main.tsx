@@ -8,7 +8,7 @@ import { Page } from "#ui/routes/project/$id/workspace/Page.tsx";
 import { createRoot } from "react-dom/client";
 import "./global.css";
 import { Toast } from "@base-ui/react";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 
 const toastManager = Toast.createToastManager();
 
@@ -43,12 +43,7 @@ const queryClient: QueryClient = new QueryClient({
 
 			const title = mutation.meta?.failureTitle;
 			if (title === undefined) return;
-			toastManager.add({
-				type: "error",
-				title,
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
+			addErrorToast(toastManager, { title, error });
 		},
 	}),
 });
@@ -86,11 +81,9 @@ const root = createRoot(rootElement, {
 	onCaughtError: (error, info) => reportError(error, { componentStack: info.componentStack }),
 	onUncaughtError: (error: unknown, info) => {
 		reportError(error, { componentStack: info.componentStack });
-		toastManager.add({
-			type: "error",
+		addErrorToast(toastManager, {
 			title: "Error",
-			description: errorMessageForToast(error),
-			priority: "high",
+			error,
 		});
 	},
 });

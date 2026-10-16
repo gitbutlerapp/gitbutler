@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, path::Path};
 
 use anyhow::Context as _;
 use bstr::ByteSlice as _;
@@ -27,19 +27,19 @@ use crate::{
     CliError, CliResult, CliResultExt, IdMap,
     args::{
         OutputFormat,
-        atoms::{BranchArg, CliIdArg, Priority, Purpose, ResolvedCliIdArg, ResolvedCliIdArgRef},
+        atoms::{
+            BranchArg, CliIdArg, MessageFileArg, Priority, Purpose, ResolvedCliIdArg,
+            ResolvedCliIdArgRef,
+        },
         squash::Platform,
     },
     bad_input,
     command::legacy::reword2::CommitMessageSource,
-    id::{
-        CommitId, CommitIdRef, CommittedFileId, CommittedHunk, IdAndHunk, UNCOMMITTED,
-        UncommittedHunkOrFile,
-    },
+    id::{CommitId, CommitIdRef, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        change_source::{self, ChangeSourceId, ChangeSourceRepo},
+        change_source::{self, ChangeSourceId, ChangeSourceRepo, InvokedFrom},
         diff_specs::DiffSpecBuilder,
         merged_upstream::MergedUpstream,
         rejection,
@@ -160,6 +160,8 @@ pub fn squash(
     ctx: &mut Context,
     out: IntermediateChannel<'_>,
     args: Platform,
+    invoked_from: &InvokedFrom,
+    current_dir: &Path,
 ) -> CliResult<(SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -168,7 +170,15 @@ pub fn squash(
     let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
 
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-    let resolved_args = resolve_args(&repo, args, &id_map, &head_info, out.format())?;
+    let resolved_args = resolve_args(
+        &repo,
+        args,
+        &id_map,
+        &head_info,
+        out.format(),
+        invoked_from,
+        current_dir,
+    )?;
     let resolved_args = resolved_args.as_ref();
 
     let squash_op = resolve(resolved_args, &ws, &repo, &merged)?;
@@ -185,12 +195,15 @@ fn resolve_args(
     id_map: &IdMap,
     head_info: &RefInfo,
     format: OutputFormat,
+    invoked_from: &InvokedFrom,
+    current_dir: &Path,
 ) -> CliResult<ResolvedSquashArgs> {
     let Platform {
         target,
         sources,
         message,
         no_message,
+        file,
         use_target_message,
         use_source_message,
         // Consumed by the caller when building the `MergedUpstream` guard.
@@ -200,6 +213,8 @@ fn resolve_args(
     let reword = resolve_reword(
         message,
         no_message,
+        file.as_ref(),
+        current_dir,
         use_target_message,
         use_source_message,
         format,
@@ -207,7 +222,9 @@ fn resolve_args(
 
     if let Some(target) = target {
         let resolved_sources = if sources.is_empty() {
-            Vec::from([ResolvedCliIdArg::Uncommitted])
+            Vec::from([ResolvedCliIdArg::Uncommitted(
+                invoked_from.managed_source(id_map)?,
+            )])
         } else {
             sources
                 .iter()
@@ -254,7 +271,7 @@ fn resolve_args(
                         bad_input("--no-message cannot be used when uncommitting").into()
                     }
                     ResolveTargetError::MessageUnavailable => {
-                        bad_input("--message cannot be used when uncommitting").into()
+                        bad_input("--message and --file cannot be used when uncommitting").into()
                     }
                     ResolveTargetError::AnonymousSegment(id) => {
                         crate::args::atoms::anonymous_segment_error(&id)
@@ -445,7 +462,7 @@ pub fn resolve<'a>(
                         target, sources, reword,
                     )?)
                 }
-                ClassifiedSquashables::Uncommitted => {
+                ClassifiedSquashables::Uncommitted(source) => {
                     let (target, reword) = match target {
                         SquashTarget::Commit { commit, reword } => {
                             (commit, reword.try_into_uncommitting()?)
@@ -454,7 +471,11 @@ pub fn resolve<'a>(
                             return Err(cannot_uncommit_uncommitted_changes_error());
                         }
                     };
-                    ResolvedSquash::Uncommitted { target, reword }
+                    ResolvedSquash::Uncommitted {
+                        target,
+                        reword,
+                        source,
+                    }
                 }
                 ClassifiedSquashables::CommittedChanges(committed_changes) => {
                     let first = committed_changes.first().clone();
@@ -543,9 +564,15 @@ pub fn resolve<'a>(
         ResolvedSquash::UncommittedHunk(amend_hunks) => {
             SquashOperation::UncommittedHunks(amend_hunks)
         }
-        ResolvedSquash::Uncommitted { target, reword } => {
-            SquashOperation::Uncommitted { target, reword }
-        }
+        ResolvedSquash::Uncommitted {
+            target,
+            reword,
+            source,
+        } => SquashOperation::Uncommitted {
+            target,
+            reword,
+            source,
+        },
         ResolvedSquash::CommittedChanges {
             target,
             source,
@@ -757,6 +784,7 @@ pub enum ResolvedSquash<'a> {
     Uncommitted {
         target: CommitId,
         reword: HowToRewordTargetNoSource,
+        source: ChangeSourceId,
     },
     CommittedChanges {
         target: MoveCommittedChangesTarget,
@@ -908,15 +936,9 @@ pub fn resolve_target(
 
             Err(ResolveTargetError::NotFound)
         }
-        ResolvedCliIdArgRef::Uncommitted => {
-            resolve_uncommit_target(ChangeSourceId::Head, sources, reword, head_info)
+        ResolvedCliIdArgRef::Uncommitted(source) => {
+            resolve_uncommit_target(source.clone(), sources, reword, head_info)
         }
-        ResolvedCliIdArgRef::WorktreeUncommitted(name) => resolve_uncommit_target(
-            ChangeSourceId::Worktree(name.to_owned()),
-            sources,
-            reword,
-            head_info,
-        ),
         ResolvedCliIdArgRef::AnonymousSegment(segment) => {
             Err(ResolveTargetError::AnonymousSegment(segment.id.clone()))
         }
@@ -924,7 +946,6 @@ pub fn resolve_target(
         | ResolvedCliIdArgRef::CommittedFile { .. }
         | ResolvedCliIdArgRef::CommittedHunk { .. }
         | ResolvedCliIdArgRef::PathPrefix { .. }
-        | ResolvedCliIdArgRef::Worktree(..)
         | ResolvedCliIdArgRef::Stack { .. } => Err(ResolveTargetError::InvalidTarget),
     }
 }
@@ -963,9 +984,7 @@ fn resolve_uncommit_target(
         | ResolvedCliIdArgRef::AnonymousSegment(..)
         | ResolvedCliIdArgRef::UncommittedHunkOrFile(..)
         | ResolvedCliIdArgRef::PathPrefix { .. }
-        | ResolvedCliIdArgRef::Uncommitted
-        | ResolvedCliIdArgRef::Worktree(..)
-        | ResolvedCliIdArgRef::WorktreeUncommitted(..)
+        | ResolvedCliIdArgRef::Uncommitted(..)
         | ResolvedCliIdArgRef::Stack { .. } => None,
     });
     for commit in source_commits {
@@ -1056,6 +1075,8 @@ pub fn resolve_squash_branch(
 fn resolve_reword(
     message: Option<Vec<String>>,
     no_message: bool,
+    file: Option<&MessageFileArg>,
+    current_dir: &Path,
     use_target_message: bool,
     use_source_message: bool,
     format: OutputFormat,
@@ -1066,7 +1087,11 @@ fn resolve_reword(
         Ok(HowToRewordTarget::UseSourceMessage)
     } else {
         Ok(HowToRewordTarget::Reword(CommitMessageSource::from_args(
-            no_message, message, format,
+            no_message,
+            message,
+            file,
+            current_dir,
+            format,
         )?))
     }
 }
@@ -1161,7 +1186,7 @@ enum Squashable<'a> {
     Commit(CommitId),
     Branch(BranchArg),
     UncommittedChange(UncommittedSquashSource<'a>),
-    Uncommitted(&'static str),
+    Uncommitted(ChangeSourceId),
     CommittedFile(CommittedFileId),
     CommittedHunk(CommittedHunk),
 }
@@ -1181,7 +1206,9 @@ impl<'a> Squashable<'a> {
                     UncommittedSquashSource::HunkOrFile(Cow::Borrowed(hunk)),
                 ));
             }
-            ResolvedCliIdArgRef::Uncommitted => return Ok(Self::Uncommitted(UNCOMMITTED)),
+            ResolvedCliIdArgRef::Uncommitted(source) => {
+                return Ok(Self::Uncommitted(source.clone()));
+            }
             ResolvedCliIdArgRef::CommittedFile(file) => {
                 return Ok(Self::CommittedFile(file.clone()));
             }
@@ -1193,8 +1220,6 @@ impl<'a> Squashable<'a> {
                     UncommittedSquashSource::PathPrefix(Cow::Borrowed(hunks)),
                 ));
             }
-            ResolvedCliIdArgRef::Worktree(..) => "a worktree",
-            ResolvedCliIdArgRef::WorktreeUncommitted(..) => "a worktree's uncommitted changes",
             ResolvedCliIdArgRef::Stack { .. } => "a stack",
         };
         Err(bad_input(format!(
@@ -1208,7 +1233,7 @@ enum ClassifiedSquashables<'a> {
     Commits(NonEmpty<CommitId>),
     Branches(NonEmpty<BranchArg>),
     UncommittedChanges(NonEmpty<UncommittedSquashSource<'a>>),
-    Uncommitted,
+    Uncommitted(ChangeSourceId),
     CommittedChanges(NonEmpty<CommittedChange>),
 }
 
@@ -1217,7 +1242,7 @@ impl<'a> ClassifiedSquashables<'a> {
         commit_sources: Vec<CommitId>,
         branch_sources: Vec<BranchArg>,
         uncommitted_change_sources: Vec<UncommittedSquashSource<'a>>,
-        uncommitted_sources: Vec<&'static str>,
+        uncommitted_sources: Vec<ChangeSourceId>,
         committed_change_sources: Vec<CommittedChange>,
     ) -> CliResult<Self> {
         let has_commits = !commit_sources.is_empty();
@@ -1248,7 +1273,9 @@ impl<'a> ClassifiedSquashables<'a> {
         } else if let Some(sources) = NonEmpty::from_vec(uncommitted_change_sources) {
             Ok(Self::UncommittedChanges(sources))
         } else if has_uncommitted {
-            Ok(Self::Uncommitted)
+            Ok(Self::Uncommitted(change_source::single_source(
+                uncommitted_sources,
+            )?))
         } else if let Some(committed_change_sources) = NonEmpty::from_vec(committed_change_sources)
         {
             Ok(Self::CommittedChanges(committed_change_sources))
@@ -1314,7 +1341,7 @@ pub fn run(
             source: _,
         }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let repo = ctx.repo.get()?;
             let mut builder =
                 DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
             for source in &sources {
@@ -1340,10 +1367,15 @@ pub fn run(
                 ),
             )
         }
-        SquashOperation::Uncommitted { target, reword } => {
+        SquashOperation::Uncommitted {
+            target,
+            reword,
+            source: _,
+        } => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+            let repo = ctx.repo.get()?;
+            let mut builder =
+                DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
             builder.push_changes_from_uncommitted_area()?;
             let changes = builder.into_diff_specs();
 
@@ -1364,7 +1396,7 @@ pub fn run(
             reword,
         } => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let repo = ctx.repo.get()?;
             let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             let mut tree_changes = None;
             for change in sources {
@@ -1434,7 +1466,7 @@ pub fn run(
         },
         SquashOperation::UncommitCommittedChanges(UncommitChangesOperation { source, sources }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let repo = ctx.repo.get()?;
             let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             let mut tree_changes = None;
             for change in sources {
@@ -1548,6 +1580,12 @@ pub fn run(
                     DryRun::Yes,
                     perm,
                 )?;
+                // The implementation of `commit_uncommit_only_with_perm` requires a write lock on
+                // the workspace even in dry run mode. Ideally, we should change that function
+                // (or better, remove this whole `if` block and instead check for conflicts another
+                // way). For now, invalidate the workspace cache to enable future code to once
+                // again take locks.
+                ctx.invalidate_workspace_cache()?;
 
                 anyhow::ensure!(
                     !workspace.is_conflicted(),
@@ -1612,6 +1650,12 @@ pub fn run(
                         DryRun::Yes,
                         perm,
                     )?;
+                // The implementation of `commit_uncommit_changes_only_with_perm` requires a write lock on
+                // the workspace even in dry run mode. Ideally, we should change that function
+                // (or better, remove this whole `if` block and instead check for conflicts another
+                // way). For now, invalidate the workspace cache to enable future code to once
+                // again take locks.
+                ctx.invalidate_workspace_cache()?;
 
                 anyhow::ensure!(
                     !workspace.is_conflicted(),
@@ -1642,6 +1686,7 @@ pub enum SquashOperation<'a> {
     Uncommitted {
         target: CommitId,
         reword: HowToRewordTargetNoSource,
+        source: ChangeSourceId,
     },
     MoveCommittedChanges {
         target: CommitId,
@@ -1659,6 +1704,7 @@ impl SquashOperation<'_> {
     fn change_source(&self) -> ChangeSourceId {
         match self {
             SquashOperation::UncommittedHunks(op) => op.source.clone(),
+            SquashOperation::Uncommitted { source, .. } => source.clone(),
             _ => ChangeSourceId::Head,
         }
     }
@@ -1681,9 +1727,15 @@ impl SquashOperation<'_> {
             SquashOperation::UncommittedHunks(inner) => {
                 SquashOperation::UncommittedHunks(inner.into_fully_owned())
             }
-            SquashOperation::Uncommitted { target, reword } => {
-                SquashOperation::Uncommitted { target, reword }
-            }
+            SquashOperation::Uncommitted {
+                target,
+                reword,
+                source,
+            } => SquashOperation::Uncommitted {
+                target,
+                reword,
+                source,
+            },
             SquashOperation::MoveCommittedChanges {
                 target,
                 source,
@@ -1888,7 +1940,7 @@ pub fn resolve_commits_on_branch_by_ref(
     repo: &gix::Repository,
     ws: &Workspace,
 ) -> anyhow::Result<Vec<CommitId>> {
-    let (_, segment) = ws.try_find_segment_and_stack_by_refname(branch)?;
+    let segment = ws.try_find_segment_by_refname(branch)?;
     let commits_in_segment = segment
         .commits
         .iter()

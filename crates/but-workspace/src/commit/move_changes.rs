@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use but_core::{DiffSpec, RefMetadata, RepositoryExt};
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector},
+    graph_rebase::{Editor, Selector, SuccessfulRebase, ToCommitSelector},
 };
 
 use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
@@ -88,7 +88,7 @@ pub fn move_changes_between_commits<'ws, 'meta, M: RefMetadata>(
         editor.new_commit(new_source_commit, DateMode::CommitterUpdateAuthorKeep)?
     };
 
-    editor.replace(source_selector, Step::new_pick(new_source_commit_id))?;
+    editor.amend_pick(source_selector, new_source_commit_id)?;
 
     // Rebase and get potentially rebased destination commit
     let mut editor = editor.rebase()?.into_editor();
@@ -125,10 +125,7 @@ pub fn move_changes_between_commits<'ws, 'meta, M: RefMetadata>(
         editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?
     };
 
-    editor.replace(
-        destination_selector,
-        Step::new_pick(new_destination_commit_id),
-    )?;
+    editor.amend_pick(destination_selector, new_destination_commit_id)?;
 
     let outcome = editor.rebase()?;
 

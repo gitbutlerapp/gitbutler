@@ -139,7 +139,10 @@ but diff nn                  # Read the committed hunk ID
 but squash nn:a2:5 -t mm     # Target message is reused
 
 # Or put that committed hunk in a new commit at a chosen position
-but move nn:a2:5 --above mm
+but move nn:a2:5 --above mm -m "Extract utility change"
+
+# Or split it into a named commit immediately above its source
+but split nn:a2:5 -m "Extract utility change"
 
 # Or move that committed hunk back to uncommitted
 but squash nn:a2:5 -t @
@@ -163,6 +166,12 @@ but branch new feature-b    # Creates branch bv
 
 # 3. Move the commit
 but move nn -b feature-b    # Move nn to top of feature-b
+
+# Alternatively, move onto a new named branch above feature-a
+but move nn --above feature-a -b extracted-work  # --below also works
+
+# Or move onto a new named independent branch
+but move nn --unstack -b independent-work
 ```
 
 ## Example 5: Stacking Existing Branches
@@ -219,6 +228,8 @@ but resolve nn
 # 3. Edit each conflicted file to resolve
 # IMPORTANT: You MUST edit the files — do NOT just run `but resolve finish`
 # NEVER use `git add`, `git checkout --theirs/--ours`, or any git write command — just edit the files directly with the Edit tool, then `but resolve finish`
+# Exception: a conflicted submodule has no markers and `but resolve finish` refuses until you select it —
+#   check out the commit to keep inside it, then `git add -- <path>` (or `git rm -- <path>` to drop it); never `git commit`
 # (edit to remove every marker — <<<<<<< ||||||| ======= >>>>>>> — and keep correct content;
 #  with several conflicted files, `but resolve status` re-lists what remains)
 
@@ -271,6 +282,8 @@ but pr new user-dashboard -m "Add user dashboard"
 # Created PR #123: https://github.com/org/repo/pull/123
 
 # 10. After PR is merged, update
+but pull --check                # is user-dashboard listed as [integrated]?
+but unapply user-dashboard      # only if it is not: `but pull` would rebase it instead
 but pull
 ```
 

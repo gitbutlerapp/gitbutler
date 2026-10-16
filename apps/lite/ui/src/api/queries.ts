@@ -82,8 +82,7 @@ export const changesInWorktreeQueryOptions = (projectId: string) =>
 
 /**
  * The uncommitted changes of a linked worktree, keyed under the main
- * worktree's endpoint so the same tags refresh both. Nothing watches a
- * linked checkout, so this is as fresh as the last workspace activity.
+ * worktree's endpoint so the same tags refresh both.
  */
 export const worktreeChangesQueryOptions = (projectId: string, worktree: string) =>
 	queryOptions({
@@ -206,6 +205,12 @@ export const getReviewQueryOptions = ({ projectId, reviewId }: PayloadFor<"getRe
 	queryOptions({
 		queryKey: [projectId, "getReview", reviewId],
 		queryFn: () => window.lite.getReview({ projectId, reviewId }),
+	});
+
+export const newReviewTargetQueryOptions = ({ projectId, branch }: PayloadFor<"newReviewTarget">) =>
+	queryOptions({
+		queryKey: [projectId, "newReviewTarget", branch],
+		queryFn: () => window.lite.newReviewTarget({ projectId, branch }),
 	});
 
 export const worktreesListQueryOptions = (projectId: string) =>

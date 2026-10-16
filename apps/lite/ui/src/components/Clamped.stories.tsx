@@ -13,6 +13,8 @@ const paragraph = (idx: number) => (
 const paragraphs = (count: number) => Array.from({ length: count }, (_, idx) => paragraph(idx));
 
 const meta = preview.meta({
+	title: "Lite/Clamped",
+	id: "components-clamped",
 	component: Clamped,
 	args: {
 		maxHeight: "240px",

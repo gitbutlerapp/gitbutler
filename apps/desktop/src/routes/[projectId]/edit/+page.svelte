@@ -4,7 +4,7 @@
 	import EditCommitPanel from "$components/workspace/EditCommitPanel.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { inject } from "@gitbutler/core/context";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import type { EditModeMetadata } from "@gitbutler/but-sdk";
 
 	// TODO: Refactor so we don't need non-null assertion.

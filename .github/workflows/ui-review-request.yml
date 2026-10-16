@@ -1,0 +1,83 @@
+name: UI Review Request
+
+# Asks the design system's maintainer to look at a pull request that touches
+# the component libraries or Lite's design rules. It requests a review and
+# nothing more: it blocks no merge and fails no check.
+#
+# CODEOWNERS would do the asking too, but with this repository's ruleset an
+# owned path also needs an owner's approval, and GitHub doesn't count an
+# author's approval of their own pull request. The maintainer writes most of
+# the changes to these paths, so owning them would mean waiting on someone
+# else for each one. This keeps the visibility and leaves merging as it is.
+#
+# Asking is a one-time event. A review that is already requested or already
+# given isn't requested again on later pushes: a request that repeats is one
+# people learn to ignore.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  REVIEWER: PavelLaptev
+
+jobs:
+  changes:
+    # Nobody is being asked to review a draft yet. `ready_for_review` above is
+    # what picks it up later.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    outputs:
+      ui: ${{ steps.filter.outputs.ui }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            ui:
+              - 'packages/ui-react/**'
+              - 'packages/ui-svelte/**'
+              - 'packages/ui-react/DESIGN.md'
+
+  request:
+    needs: changes
+    # A pull request from a fork gets a read-only token, so there is nothing
+    # this job could do for it.
+    if: >-
+      needs.changes.outputs.ui == 'true' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      AUTHOR: ${{ github.event.pull_request.user.login }}
+      REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Request a review, once
+        run: |
+          # Nobody needs asking to look at their own pull request, and GitHub
+          # refuses the request anyway.
+          if [ "$AUTHOR" = "$REVIEWER" ]; then
+            echo "$REVIEWER wrote this one."
+            exit 0
+          fi
+          state=$(gh pr view "$PR" --repo "$REPO" --json reviewRequests,reviews \
+            --jq "[.reviewRequests[].login, .reviews[].author.login] | index(\"$REVIEWER\") != null")
+          if [ "$state" = "true" ]; then
+            echo "$REVIEWER is already asked or has already reviewed."
+            exit 0
+          fi
+          gh pr edit "$PR" --repo "$REPO" --add-reviewer "$REVIEWER"

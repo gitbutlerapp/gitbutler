@@ -9,7 +9,14 @@
 	import { inject } from "@gitbutler/core/context";
 	import { HTTP_CLIENT } from "@gitbutler/shared/network/httpClient";
 
-	import { Button, Checkbox, Modal, Textarea, EmailTextbox, chipToasts } from "@gitbutler/ui";
+	import {
+		Button,
+		Checkbox,
+		Modal,
+		Textarea,
+		EmailTextbox,
+		chipToasts,
+	} from "@gitbutler/ui-svelte";
 
 	type Feedback = {
 		id: number;

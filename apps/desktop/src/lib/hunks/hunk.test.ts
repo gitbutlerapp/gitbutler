@@ -9,7 +9,7 @@ import {
 	diffToHunkHeaders,
 } from "$lib/hunks/hunk";
 import { describe, expect, test } from "vitest";
-import type { LineId } from "@gitbutler/ui/utils/diffParsing";
+import type { LineId } from "@gitbutler/ui-svelte/utils/diffParsing";
 
 describe.concurrent("lineIdsToHunkHeaders", () => {
 	test("should return empty array when given no line IDs", () => {

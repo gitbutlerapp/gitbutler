@@ -178,6 +178,9 @@ pub struct UpdateUserParams {
     pub avatar_base64: Option<String>,
     /// Original filename of the avatar (e.g. "photo.png").
     pub avatar_filename: Option<String>,
+    /// Remove the uploaded avatar, so the picture falls back to the sign-in one or
+    /// Gravatar. Ignored when a new avatar is sent in the same update.
+    pub remove_avatar: Option<bool>,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(UpdateUserParams);
@@ -213,6 +216,9 @@ pub fn update_user_profile(params: UpdateUserParams) -> Result<serde_json::Value
         }
         if let Some(email_share) = params.email_share {
             form = form.text("email_share", email_share.to_string());
+        }
+        if params.remove_avatar == Some(true) && params.avatar_base64.is_none() {
+            form = form.text("remove_avatar", "true");
         }
         if let Some(avatar_b64) = params.avatar_base64 {
             use base64::Engine as _;

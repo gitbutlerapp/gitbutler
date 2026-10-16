@@ -22,12 +22,12 @@
 		EmojiPickerButton,
 		Mention as MentionsPlugin,
 		RichTextEditor,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import FileUploadPlugin, {
 		type DropFileResult,
-	} from "@gitbutler/ui/richText/plugins/FileUpload.svelte";
+	} from "@gitbutler/ui-svelte/richText/plugins/FileUpload.svelte";
 
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import type { PatchCommit } from "@gitbutler/shared/patches/types";
 	import { env } from "$env/dynamic/public";
 

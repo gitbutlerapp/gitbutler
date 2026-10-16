@@ -1437,15 +1437,7 @@ impl GitHubClient {
         };
 
         let response = self.client.patch(&url).json(&body).send().await?;
-
-        if !response.status().is_success() {
-            bail!(
-                "Failed to update pull request: {}",
-                response_error(response).await
-            );
-        }
-
-        let pr: GitHubPullRequest = response.json().await?;
+        let pr: GitHubPullRequest = ensure_success(response).await?.json().await?;
         Ok(pr.into())
     }
 

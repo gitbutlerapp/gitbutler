@@ -10,8 +10,9 @@ use crate::command::legacy::status::{
     TuiLaunchOptions,
     tui::{App, BackstackEntry},
 };
-use crate::tui::test_utils::TestTui;
+use crate::tui::test_utils::{Shift, TestTui};
 
+const COPY_MORE: (KeyModifiers, char) = (KeyModifiers::SHIFT, 'Y');
 const TEST_EDITOR_MESSAGE: &str = "commit from worktree";
 
 /// A workspace with one stack, plus a linked worktree that branched off that stack's commit,
@@ -36,6 +37,153 @@ fn worktree_tui() -> (TestTui<App>, String) {
         },
     );
     (tui, editor_command)
+}
+
+#[test]
+fn marking_a_worktree_commit_replaces_its_dot() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input([KeyCode::Down; 5])
+        .assert_current_line_eq(str!["┊┊●   nll add W"]);
+
+    // Keep both graph lanes intact and replace the commit dot, as in the main worktree.
+    tui.input(' ').assert_marks_count_eq(1);
+    // Marking advances the cursor to the next commit.
+    tui.input(KeyCode::Up)
+        .assert_current_line_eq(str!["┊┊✔︎   nll add W"]);
+
+    tui.input(' ')
+        .assert_marks_count_eq(0)
+        .assert_current_line_eq(str!["┊┊●   nll add W"]);
+}
+
+#[test]
+fn marking_a_worktree_branch_replaces_its_connector() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input([KeyCode::Down; 4])
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
+
+    // Preserve the graph lanes and replace the branch connector, as in the main worktree.
+    tui.input(' ').assert_marks_count_eq(1);
+    // Marking wraps to the main worktree's branch; move back to the linked branch.
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊┊✔︎  wt [wt-branch]"]);
+}
+
+#[test]
+fn linked_worktree_head_marker_survives_reload() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
+    env.setup_metadata(&["A"]);
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            worktree_manipulation: true,
+            launch_options: TuiLaunchOptions {
+                invoked_from: Some(crate::utils::change_source::InvokedFrom::LinkedWorktree(
+                    "wt".into(),
+                )),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    );
+
+    // Only the invoking checkout's branch is marked, including after rebuilding status.
+    tui.reload().assert_rendered_term_svg_eq(file![
+        "snapshots/linked_worktree_head_marker_survives_reload.svg"
+    ]);
+}
+
+#[test]
+fn interactive_commit_picker_marks_invoking_worktree_head() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
+    env.setup_metadata(&["A"]);
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            worktree_manipulation: true,
+            run_options: crate::command::legacy::status::TuiRunOptions::PickChanges,
+            launch_options: TuiLaunchOptions {
+                invoked_from: Some(crate::utils::change_source::InvokedFrom::LinkedWorktree(
+                    "wt".into(),
+                )),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    );
+
+    // The picker must retain the invoking checkout's marker when rebuilding status.
+    tui.reload().assert_rendered_term_svg_eq(file![
+        "snapshots/interactive_commit_picker_marks_invoking_worktree_head.svg"
+    ]);
+}
+
+#[test]
+fn branch_picker_jumps_to_worktree_by_branch() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input('t');
+    tui.input("wt-branch").assert_rendered_term_svg_eq(file![
+        "snapshots/branch_picker_jumps_to_worktree_by_branch_001.svg"
+    ]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
+}
+
+#[test]
+fn branch_picker_jumps_to_detached_worktree() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
+    env.setup_metadata(&["A"]);
+    env.invoke_bash("git -C .git/gitbutler/test-worktrees/wt checkout -q --detach");
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            worktree_manipulation: true,
+            ..Default::default()
+        },
+    );
+
+    tui.input('t');
+    tui.input("wt").assert_rendered_term_svg_eq(file![
+        "snapshots/branch_picker_jumps_to_detached_worktree_001.svg"
+    ]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊┊├┄ h0"]);
+}
+
+#[test]
+fn branch_picker_excludes_worktrees_when_disabled() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
+    env.setup_metadata(&["A"]);
+    let mut tui = test_status_tui_with_options(env, TestTuiOptions::default());
+
+    tui.input('t');
+    tui.input("wt-branch").assert_rendered_term_svg_eq(file![
+        "snapshots/branch_picker_excludes_worktrees_when_disabled_001.svg"
+    ]);
+    tui.input(KeyCode::Esc)
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
+}
+
+#[test]
+fn branch_picker_excludes_worktrees_when_marking_files() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input([KeyCode::Down; 3])
+        .assert_current_line_eq(str!["┊┊┊   ok A wt-file.txt"]);
+    tui.input(' ');
+    // All branch rows are unselectable while marking files, so the picker stays closed.
+    tui.input('t')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/branch_picker_excludes_worktrees_when_marking_files_001.svg"
+        ])
+        .assert_current_line_eq(str!["┊┊┊✔︎  ok A wt-file.txt"]);
 }
 
 /// Sibling worktrees nested below a dirty worktree's first commit keep a blank lane between them.
@@ -63,21 +211,37 @@ fn sibling_worktree_lanes_are_separated_after_uncommitted_files() {
     ]);
 }
 
-/// `wt` is a strict prefix of its own area's `wt:@`, so typing it can never become the only
-/// match; the ID typed out in full still jumps to the reference, and one more character reaches
-/// the area.
+/// An ambiguous worktree ID needs Enter, leaving its uncommitted area reachable by typing ':'.
 #[test]
 fn jump_to_a_worktree_reference_despite_its_area_extending_the_id() {
     let (mut tui, _editor) = worktree_tui();
 
     tui.reload();
     tui.input('/');
-    tui.input("wt")
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+    // Neither worktree heading is an immediate target while both share the prefix.
+    tui.input('w').assert_rendered_term_svg_eq(file![
+        "snapshots/jump_to_a_worktree_reference_despite_its_area_extending_the_id_001.svg"
+    ]);
+    tui.input('t')
+        .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
+}
 
+#[test]
+fn jump_to_a_worktree_uncommitted_area() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.reload();
     tui.input('/');
     tui.input("wt:")
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt}"]);
+
+    // Confirming the exact branch ID must win even when the area is already selected.
+    tui.input('/');
+    tui.input("wt");
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
 }
 
 /// The same path dirty in the main worktree and a linked one is two rows, and the jump lands
@@ -104,11 +268,11 @@ fn worktree_lane_is_navigable() {
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt}"]);
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊┊┊   ok A wt-file.txt"]);
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊┊●   nll add W"])
         .assert_rendered_term_svg_eq(file!["snapshots/worktree_lane_is_navigable_final.svg"]);
@@ -146,20 +310,20 @@ fn remember_selection_on_worktree_rows() {
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt}"]);
     tui.input('q');
 
     let mut tui = test_status_tui_with_options(tui.into_env(), options());
     tui.reload()
-        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt}"]);
 
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
     tui.input('q');
 
     let mut tui = test_status_tui_with_options(tui.into_env(), options());
     tui.reload()
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
 }
 
 /// A worktree's uncommitted area names that worktree's changes the way `@` names the main
@@ -171,12 +335,10 @@ fn commit_source_from_a_worktree_area() {
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt}"]);
 
     tui.input('c')
-        .assert_current_line_eq(str![
-            "┊┊╭┄ << source >> << noop >> wt:@ {worktree uncommitted}"
-        ])
+        .assert_current_line_eq(str!["┊┊╭┄ << source >> << noop >> wt:@ [uncommitted] {wt}"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_source_from_a_worktree_area_final.svg"
         ]);
@@ -190,13 +352,13 @@ fn commit_all_changes_of_a_worktree() {
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt}"]);
 
     tui.input('c');
     // In commit mode the area's own file rows are not selectable, so one step down from the
     // area row reaches the reference row that receives the commit.
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
     with_var("GIT_EDITOR", Some(editor), || {
         tui.input(KeyCode::Enter);
     });
@@ -225,10 +387,10 @@ fn commit_all_changes_of_a_worktree_from_its_reference() {
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
 
     tui.input('c')
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"])
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_all_changes_of_a_worktree_from_its_reference_001.svg"
         ]);
@@ -264,10 +426,10 @@ fn commit_one_worktree_file_onto_its_own_branch() {
     tui.input('c')
         .assert_current_line_eq(str!["┊┊┊   << source >> << noop >> ok A wt-file.txt"]);
 
-    // Down onto the worktree's reference row, which offers itself as the destination via the
-    // `<< commit to worktree >>` extension line.
+    // Down onto the worktree's branch row, which offers itself as the destination via the
+    // `<< commit to branch >>` extension line.
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"])
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_one_worktree_file_onto_its_own_branch_001.svg"
         ]);
@@ -305,7 +467,7 @@ fn commit_a_main_worktree_change_onto_a_worktree() {
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
 
     with_var("GIT_EDITOR", Some(editor), || {
         tui.input(KeyCode::Enter);
@@ -349,7 +511,7 @@ fn marks_spanning_worktrees_are_refused() {
 
     tui.input('c');
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
 
     // The refusal shows as an error and nothing was committed.
     tui.input(KeyCode::Enter)
@@ -368,8 +530,79 @@ fn marks_spanning_worktrees_are_refused() {
     );
 }
 
-/// A detached worktree has no branch to move, so committing onto its reference row is refused
-/// instead of silently committing somewhere else.
+/// A detached worktree's top is an anonymous segment, which like a stack's anonymous segment
+/// names no branch to commit to, so confirming on it does nothing rather than committing
+/// somewhere else.
+#[test]
+fn copies_worktree_path_and_name_from_its_reference() {
+    let (mut tui, _editor) = worktree_tui();
+    let path = tui
+        .env()
+        .projects_root()
+        .join(".git/gitbutler/test-worktrees/wt");
+
+    tui.reload();
+    tui.input([KeyCode::Down; 4])
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
+
+    tui.input(COPY_MORE);
+    tui.input([KeyCode::Down; 4]);
+    tui.input(KeyCode::Enter)
+        .assert_copied_text_eq(std::fs::canonicalize(&path).unwrap().display().to_string());
+
+    tui.input(COPY_MORE);
+    tui.input([KeyCode::Down; 5]);
+    tui.input(KeyCode::Enter).assert_copied_text_eq("wt");
+}
+
+#[test]
+fn copies_worktree_path_and_name_from_its_empty_uncommitted_area() {
+    let (mut tui, _editor) = worktree_tui();
+    let path = tui
+        .env()
+        .projects_root()
+        .join(".git/gitbutler/test-worktrees/wt");
+    std::fs::remove_file(path.join("wt-file.txt")).unwrap();
+
+    tui.reload();
+    tui.input([KeyCode::Down; 2])
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt} (no changes)"]);
+
+    tui.input(COPY_MORE);
+    tui.input(KeyCode::Enter)
+        .assert_copied_text_eq(std::fs::canonicalize(&path).unwrap().display().to_string());
+
+    tui.input(COPY_MORE);
+    tui.input(KeyCode::Down);
+    tui.input(KeyCode::Enter).assert_copied_text_eq("wt");
+}
+
+#[test]
+fn copies_short_id_and_worktree_values_from_a_detached_worktree_segment() {
+    let (mut tui, _editor) = worktree_tui();
+    let path = tui
+        .env()
+        .projects_root()
+        .join(".git/gitbutler/test-worktrees/wt");
+    but_testsupport::invoke_bash_at_dir("git checkout -q --detach", &path);
+
+    tui.reload();
+    tui.input([KeyCode::Down; 4])
+        .assert_current_line_eq(str!["┊┊├┄ h0"]);
+
+    tui.input(COPY_MORE);
+    tui.input(KeyCode::Enter).assert_copied_text_eq("h0");
+
+    tui.input(COPY_MORE);
+    tui.input(KeyCode::Down);
+    tui.input(KeyCode::Enter)
+        .assert_copied_text_eq(std::fs::canonicalize(&path).unwrap().display().to_string());
+
+    tui.input(COPY_MORE);
+    tui.input([KeyCode::Down; 2]);
+    tui.input(KeyCode::Enter).assert_copied_text_eq("wt");
+}
+
 #[test]
 fn commit_to_a_detached_worktree_reference_is_refused() {
     let (mut tui, _editor) = worktree_tui();
@@ -381,16 +614,15 @@ fn commit_to_a_detached_worktree_reference_is_refused() {
             .join(".git/gitbutler/test-worktrees/wt"),
     );
 
-    // Detached, the reference row falls back to the worktree's name.
+    // Detached, the lane's top is an anonymous segment with a generated ID.
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ h0:@ [uncommitted] {wt}"]);
 
-    tui.input('c').assert_current_line_eq(str![
-        "┊┊╭┄ << source >> << noop >> wt:@ {worktree uncommitted}"
-    ]);
+    tui.input('c')
+        .assert_current_line_eq(str!["┊┊╭┄ << source >> << noop >> h0:@ [uncommitted] {wt}"]);
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt}"]);
+        .assert_current_line_eq(str!["┊┊├┄ h0"]);
 
     tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/commit_to_a_detached_worktree_reference_is_refused.svg"
@@ -417,7 +649,7 @@ fn empty_commit_on_a_worktree_reference() {
 
     tui.reload();
     tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"]);
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
 
     tui.input('n')
         .assert_rendered_term_svg_eq(file![
@@ -440,9 +672,9 @@ fn move_commit_below_a_worktree_reference() {
         .assert_current_line_eq(str!["┊●   oun (no commit message) (no changes)"]);
 
     tui.input('m');
-    // Past the worktree's own commit, onto its reference row.
-    tui.input([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"])
+    // The worktree forks from the commit below, so its reference row is further down.
+    tui.input(KeyCode::Down)
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_commit_below_a_worktree_reference_001.svg"
         ]);
@@ -456,8 +688,8 @@ fn move_commit_below_a_worktree_reference() {
         tui.env().git_log(),
         str![[r#"
 * 6919fdf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 401b057 (wt-branch) 
-| * 20da4fb add W
+| * 76d9e4b (wt-branch) 
+| * 998a235 add W
 |/  
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
@@ -504,7 +736,7 @@ fn uncommit_a_worktree_commit_into_its_own_area() {
     tui.input('r');
     // Past the worktree's reference row and files to its own area.
     tui.input('k')
-        .assert_current_line_eq(str!["┊┊╭┄ << uncommit >> wt:@ {worktree uncommitted}"])
+        .assert_current_line_eq(str!["┊┊╭┄ << uncommit >> wt:@ [uncommitted] {wt}"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/uncommit_a_worktree_commit_into_its_own_area_001.svg"
         ]);
@@ -516,9 +748,9 @@ fn uncommit_a_worktree_commit_into_its_own_area() {
         .assert_current_line_eq(str!["┊╭┄ << squash >> g0 [A]"]);
 
     tui.input('j')
-        .assert_current_line_eq(str!["┊┊╭┄ << uncommit >> wt:@ {worktree uncommitted}"]);
+        .assert_current_line_eq(str!["┊┊╭┄ << uncommit >> wt:@ [uncommitted] {wt}"]);
     tui.input(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊┊╭┄ wt:@ {worktree uncommitted}"])
+        .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt}"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/uncommit_a_worktree_commit_into_its_own_area_002.svg"
         ]);
@@ -547,6 +779,35 @@ fn discard_worktree() {
         .assert_rendered_term_svg_eq(file!["snapshots/discard_worktree_002.svg"]);
     tui.input('y')
         .assert_rendered_term_svg_eq(file!["snapshots/discard_worktree_003.svg"]);
+}
+
+#[test]
+fn a_branch_below_the_worktree_top_gets_the_branch_confirm_not_worktree_removal() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack-with-worktree");
+    env.setup_metadata(&["A"]);
+    env.invoke_bash(
+        r#"
+        git branch wt-below wt-branch
+        git -C .git/gitbutler/test-worktrees/wt commit -q --allow-empty -m "top work"
+        "#,
+    );
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            worktree_manipulation: true,
+            ..Default::default()
+        },
+    );
+
+    tui.input("jjjjjj")
+        .assert_current_line_eq(str!["┊┊├┄ el [wt-below]"]);
+    tui.input('x').assert_rendered_term_svg_eq(file![
+        "snapshots/a_branch_below_the_worktree_top_gets_the_branch_confirm_not_worktree_removal_001.svg"
+    ]);
+    tui.input('y').assert_rendered_term_svg_eq(file![
+        "snapshots/a_branch_below_the_worktree_top_gets_the_branch_confirm_not_worktree_removal_002.svg"
+    ]);
 }
 
 #[test]
@@ -579,7 +840,7 @@ fn archive_worktree() {
 
     tui.input("jjjj");
     tui.input('w')
-        .assert_current_line_eq(str!["┊┊├┄ << worktree >> wt {wt-branch}"])
+        .assert_current_line_eq(str!["┊┊├┄ << worktree >> wt [wt-branch]"])
         .assert_rendered_term_svg_eq(file!["snapshots/archive_worktree_001.svg"]);
     tui.input('a')
         .assert_rendered_term_svg_eq(file!["snapshots/archive_worktree_002.svg"]);
@@ -603,7 +864,7 @@ fn unarchive_worktree() {
     tui.input('u')
         .assert_rendered_term_svg_eq(file!["snapshots/unarchive_worktree_002.svg"]);
     tui.input(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"])
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"])
         .assert_rendered_term_svg_eq(file!["snapshots/unarchive_worktree_003.svg"]);
     tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/unarchive_worktree_004.svg"]);
@@ -611,79 +872,85 @@ fn unarchive_worktree() {
 
 #[test]
 fn unarchive_worktree_picker_filters_archived_worktrees() {
-    let (mut tui, _editor) = worktree_tui();
-    // Keep the fixture's original worktree active; create and archive two more through the TUI.
-    for _ in 0..2 {
-        tui.input((KeyModifiers::SHIFT, 'G'));
-        tui.input('w');
-        tui.input('n');
-        tui.input('w');
-        tui.input('a');
-        tui.input('y');
-    }
-    tui.reload().assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_001.svg"
-    ]);
+    // Worktree creation resolves the user's home through but_path, outside the sandbox repo.
+    but_testsupport::isolated_app_data_dir(|| {
+        let (mut tui, _editor) = worktree_tui();
+        // Keep the fixture's original worktree active; create and archive two more through the TUI.
+        for _ in 0..2 {
+            tui.input((KeyModifiers::SHIFT, 'G'));
+            tui.input('w');
+            tui.input('n');
+            tui.input('w');
+            tui.input('a');
+            tui.input('y');
+        }
+        tui.reload().assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_001.svg"
+        ]);
 
-    tui.input('w');
-    tui.input('u').assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_002.svg"
-    ]);
-    tui.input("2").assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_003.svg"
-    ]);
-    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_004.svg"
-    ]);
-    // Only the chosen worktree was restored; the other remains available to unarchive.
-    tui.input('w');
-    tui.input('u').assert_rendered_term_svg_eq(file![
-        "snapshots/unarchive_worktree_picker_filters_archived_worktrees_005.svg"
-    ]);
+        tui.input('w');
+        tui.input('u').assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_002.svg"
+        ]);
+        tui.input("2").assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_003.svg"
+        ]);
+        tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_004.svg"
+        ]);
+        // Only the chosen worktree was restored; the other remains available to unarchive.
+        tui.input('w');
+        tui.input('u').assert_rendered_term_svg_eq(file![
+            "snapshots/unarchive_worktree_picker_filters_archived_worktrees_005.svg"
+        ]);
+    });
 }
 
 #[test]
 fn creating_new_worktrees() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack");
-    env.setup_metadata(&["A"]);
+    // Worktree creation resolves the user's home through but_path, outside the sandbox repo.
+    but_testsupport::isolated_app_data_dir(|| {
+        let env = Sandbox::init_scenario_with_target_and_default_settings_slow("one-stack");
+        env.setup_metadata(&["A"]);
 
-    let mut tui = test_status_tui_with_options(
-        env,
-        TestTuiOptions {
-            worktree_manipulation: true,
-            ..Default::default()
-        },
-    );
+        let mut tui = test_status_tui_with_options(
+            env,
+            TestTuiOptions {
+                worktree_manipulation: true,
+                ..Default::default()
+            },
+        );
 
-    // create a new worktree at the base
-    tui.input('w')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_001.svg"]);
-    tui.input('j')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_002.svg"]);
-    tui.input('n')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_003.svg"]);
+        // create a new worktree at the base
+        tui.input('w')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_001.svg"]);
+        tui.input('j')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_002.svg"]);
+        tui.input('n')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_003.svg"]);
 
-    // create worktree at commit
-    tui.input('g');
-    tui.input('w')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_004.svg"]);
-    tui.input('n')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_005.svg"]);
+        // create worktree at commit
+        tui.input('g');
+        tui.input('w')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_004.svg"]);
+        tui.input('n')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_005.svg"]);
 
-    // discard both worktrees
-    tui.input('g');
-    tui.input('w');
-    tui.input('x')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_006.svg"]);
-    tui.input('y')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_007.svg"]);
-    tui.input('w');
-    tui.input('j')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_008.svg"]);
-    tui.input('x')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_009.svg"]);
-    tui.input('y')
-        .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_010.svg"]);
+        // discard both worktrees
+        tui.input('g');
+        tui.input('w');
+        tui.input('x')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_006.svg"]);
+        tui.input('y')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_007.svg"]);
+        tui.input('w');
+        tui.input('j')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_008.svg"]);
+        tui.input('x')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_009.svg"]);
+        tui.input('y')
+            .assert_rendered_term_svg_eq(file!["snapshots/creating_new_worktrees_010.svg"]);
+    });
 }
 
 #[test]
@@ -718,4 +985,81 @@ fn cannot_create_worktrees_on_conflicted_commits() {
     tui.input('n').assert_rendered_term_svg_eq(file![
         "snapshots/cannot_create_worktrees_on_conflicted_commits_003.svg"
     ]);
+}
+
+#[test]
+fn squashing_changes_from_worktree_into_worktree() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_worktree_001.svg"
+    ]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_worktree_002.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_worktree_003.svg"
+    ]);
+}
+
+#[test]
+fn squashing_changes_from_worktree_into_commit_in_workspace() {
+    let (mut tui, _editor) = worktree_tui();
+
+    // create a new branch with a commit that we can squash into
+    tui.input('b');
+    tui.input('n');
+    tui.input('n');
+
+    // squash all uncommitted changes from the worktree into the commit
+    tui.input('j');
+    tui.input('j');
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_commit_in_workspace_001.svg"
+    ]);
+    tui.input('k');
+    tui.input('k').assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_commit_in_workspace_002.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_commit_in_workspace_003.svg"
+    ]);
+    tui.input('f').assert_rendered_term_svg_eq(file![
+        "snapshots/squashing_changes_from_worktree_into_commit_in_workspace_004.svg"
+    ]);
+}
+
+#[test]
+fn reverse_squash_from_worktree() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('j')
+        .assert_rendered_term_svg_eq(file!["snapshots/reverse_squash_from_worktree_001.svg"]);
+    tui.input(Shift('r'))
+        .assert_rendered_term_svg_eq(file!["snapshots/reverse_squash_from_worktree_002.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/reverse_squash_from_worktree_003.svg"]);
+}
+
+#[test]
+fn commit_from_commit_in_worktree() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('j');
+    tui.input('c')
+        .assert_rendered_term_svg_eq(file!["snapshots/commit_from_commit_in_worktree_001.svg"]);
+    tui.input('a');
+    tui.input('e');
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/commit_from_commit_in_worktree_002.svg"]);
 }

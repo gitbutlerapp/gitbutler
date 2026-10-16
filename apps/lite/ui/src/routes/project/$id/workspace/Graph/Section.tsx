@@ -1,6 +1,6 @@
 import { GraphGap, GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { getRowButtonClassName } from "#ui/routes/project/$id/workspace/Row-utils.ts";
 import {
 	Row,
@@ -11,19 +11,18 @@ import {
 } from "#ui/routes/project/$id/workspace/Row.tsx";
 import { useFetchFromRemotes } from "#ui/routes/project/$id/workspace/useFetchFromRemotes.ts";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
-import { formatRelativeTime } from "#ui/time.ts";
+import { formatRelativeTime } from "@gitbutler/ui-react/time.ts";
 import { useAddressSpace } from "#ui/routes/project/$id/workspace/WorkspaceLists/context.tsx";
 import { addressIdentityKey, type Address } from "#ui/addresses.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
 import type { TargetCommit } from "@gitbutler/but-sdk";
 import { useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { stackBottomRelativeTo } from "#ui/api/stack.ts";
+import { rebaseAllUpdates } from "#ui/api/stack.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { Button, Tooltip } from "@base-ui/react";
-import type { BottomUpdate } from "@gitbutler/but-sdk";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Button } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type ReactNode, type RefObject, useRef, useState } from "react";
 import styles from "./Section.module.css";
@@ -80,16 +79,9 @@ const Caption: FC<{ className?: string; hint: ReactNode; children: ReactNode }> 
 	hint,
 	children,
 }) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger render={<span className={classes("text-12", className)} />}>
-			{children}
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup />}>{hint}</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
+	<Tooltip content={hint}>
+		<span className={classes("text-12", className)}>{children}</span>
+	</Tooltip>
 );
 
 /** A header row: not a value. With a fold, the rail's toggle opens it, as on the rows above. */
@@ -207,56 +199,48 @@ const Fetch: FC<{ projectId: string }> = ({ projectId }) => {
 	const { fetch, isPending, enabled, lastSuccessfulMs } = useFetchFromRemotes(projectId);
 	const [tooltipNow, setTooltipNow] = useState(() => Date.now());
 	return (
-		<Tooltip.Root
+		<Tooltip
 			onOpenChange={(open) => {
 				if (open) setTooltipNow(Date.now());
 			}}
+			content={
+				<>
+					{workspaceHotkeys.fetchFromRemotes.meta.name}
+					{lastSuccessfulMs != null && ` (${formatRelativeTime(lastSuccessfulMs, tooltipNow)})`}
+				</>
+			}
+			kbd={workspaceHotkeys.fetchFromRemotes.hotkey}
 		>
-			<Tooltip.Trigger
+			<Button
 				aria-label={workspaceHotkeys.fetchFromRemotes.meta.name}
 				className={getRowButtonClassName({ iconOnly: true })}
 				onClick={fetch}
-				// `disabled` goes on the button so the tooltip still opens over it.
-				render={<Button focusableWhenDisabled disabled={!enabled} />}
+				focusableWhenDisabled
+				disabled={!enabled}
 			>
 				<Icon name={isPending ? "spinner" : "refresh"} />
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.fetchFromRemotes.hotkey} />}>
-						{workspaceHotkeys.fetchFromRemotes.meta.name}
-						{lastSuccessfulMs != null && ` (${formatRelativeTime(lastSuccessfulMs, tooltipNow)})`}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			</Button>
+		</Tooltip>
 	);
 };
 
-/** Rebases every stack onto the target's fetched tip; this does not fetch. */
+/** Rebases every stack and worktree onto the target's fetched tip; this does not fetch. */
 const Pull: FC<{ target: string; enabled: boolean; isPending: boolean; onPull: () => void }> = ({
 	target,
 	enabled,
 	isPending,
 	onPull,
 }) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger
+	<Tooltip content={<>Pull the latest from {target} into the workspace base</>}>
+		<Button
 			className={getRowButtonClassName({ variant: "outline" })}
 			onClick={onPull}
-			// `disabled` goes on the button so the tooltip still opens over it.
-			render={<Button focusableWhenDisabled disabled={!enabled} />}
+			focusableWhenDisabled
+			disabled={!enabled}
 		>
 			{isPending ? "Pulling…" : "Pull latest"}
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup />}>
-					Pull the latest from {target} into the workspace base
-				</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
+		</Button>
+	</Tooltip>
 );
 
 export const Section: FC<{
@@ -290,13 +274,11 @@ export const Section: FC<{
 	);
 	const { isPending: isPulling, mutate: integrate } = useWorkspaceIntegrateUpstream();
 	const pull = () => {
-		const updates = (headInfo?.stacks ?? [])
-			.values()
-			.map(stackBottomRelativeTo)
-			.filter((relativeTo) => relativeTo != null)
-			.map((relativeTo): BottomUpdate => ({ kind: "rebase", selector: relativeTo }))
-			.toArray();
-		integrate({ projectId, updates, dryRun: false });
+		integrate({
+			projectId,
+			updates: headInfo ? rebaseAllUpdates(headInfo) : [],
+			dryRun: false,
+		});
 	};
 	// Opening from docked: scroll to the bottom and hold it while the fold grows.
 	const incomingFold = useRef<HTMLDivElement>(null);
@@ -359,7 +341,7 @@ export const Section: FC<{
 						{branched && <Icon name={plan.incomingExpanded ? "chevron-down" : "chevron-right"} />}
 					</span>
 				) : branched ? (
-					<GraphSegment glyph="forkRight" status="Upstream" behind={1} />
+					<GraphSegment glyph="forkRight" status="Upstream" behind={1} trunk={!expanded} />
 				) : (
 					<GraphSegment
 						glyph="space"
@@ -427,6 +409,7 @@ export const Section: FC<{
 								behind={plan.historyExpanded ? 1 : 0}
 								status="LocalOnly"
 								railEnds={!plan.historyExpanded}
+								trunk
 							/>
 						}
 					/>

@@ -112,9 +112,7 @@ impl ReorderStackSource {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::Worktree { .. }
-            | CliId::WorktreeUncommitted { .. }
-            | CliId::Uncommitted { .. } => false,
+            | CliId::UncommittedArea { .. } => false,
         }
     }
 }
@@ -159,7 +157,7 @@ impl FuzzyPickerItem for ApplyBranchItem {
         ]
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         if self.has_local {
             theme.local_branch
         } else {
@@ -171,7 +169,6 @@ impl FuzzyPickerItem for ApplyBranchItem {
 fn line_uses_top_stack_for_stack_mode(line: &StatusOutputLine) -> bool {
     match &line.data {
         StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::Worktree { .. }
         | StatusOutputLineData::WorktreeUncommitted { .. } => true,
         StatusOutputLineData::UncommittedFile { cli_id }
         | StatusOutputLineData::StagedFile { cli_id }
@@ -202,7 +199,7 @@ pub fn stack_ids_in_display_order(status_lines: &[StatusOutputLine]) -> Vec<Stac
     for line in status_lines {
         if let StatusOutputLineData::Branch { cli_id, .. } = &line.data
             && let CliId::Branch(branch) = &**cli_id
-            && let Some(stack_id) = branch.stack_id
+            && let Some(stack_id) = branch.lane.stack_id()
             && !stack_ids.contains(&stack_id)
         {
             stack_ids.push(stack_id);
@@ -226,7 +223,6 @@ fn stack_id_for_line(
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::Worktree { .. }
         | StatusOutputLineData::WorktreeUncommitted { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage
@@ -249,9 +245,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
         | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::Branch(..)
-        | CliId::Uncommitted { .. }
-        | CliId::Worktree { .. }
-        | CliId::WorktreeUncommitted { .. }
+        | CliId::UncommittedArea { .. }
         | CliId::Stack { .. }
         | CliId::CommittedHunk(..) => false,
     };
@@ -270,9 +264,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
-                    | CliId::Uncommitted { .. }
-                    | CliId::Worktree { .. }
-                    | CliId::WorktreeUncommitted { .. }
+                    | CliId::UncommittedArea { .. }
                     | CliId::Stack { .. } => None,
                 },
                 StatusOutputLineData::UpdateNotice
@@ -281,7 +273,6 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                 | StatusOutputLineData::StagedChanges { .. }
                 | StatusOutputLineData::StagedFile { .. }
                 | StatusOutputLineData::UncommittedChanges { .. }
-                | StatusOutputLineData::Worktree { .. }
                 | StatusOutputLineData::WorktreeUncommitted { .. }
                 | StatusOutputLineData::UncommittedFile { .. }
                 | StatusOutputLineData::Branch { .. }
@@ -295,14 +286,12 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                 | StatusOutputLineData::NoAssignmentsUnstaged => None,
             })
         }
-        CliId::Branch(branch) => branch.stack_id,
-        CliId::AnonymousSegment(segment) => segment.stack_id,
+        CliId::Branch(branch) => branch.lane.stack_id(),
+        CliId::AnonymousSegment(segment) => segment.lane.stack_id(),
         CliId::Stack { stack_id, .. } => Some(*stack_id),
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
-        | CliId::Worktree { .. }
-        | CliId::WorktreeUncommitted { .. }
-        | CliId::Uncommitted { .. }
+        | CliId::UncommittedArea { .. }
         | CliId::CommittedHunk(..) => None,
     }
 }
@@ -472,7 +461,7 @@ impl App {
 
         let (stack_id, name) = match &**selection {
             CliId::Branch(branch) => {
-                let Some(stack_id) = branch.stack_id else {
+                let Some(stack_id) = branch.lane.stack_id() else {
                     return Ok(());
                 };
                 (stack_id, &branch.name)
@@ -483,9 +472,7 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Commit { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::Worktree { .. }
-            | CliId::WorktreeUncommitted { .. }
+            | CliId::UncommittedArea { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 
@@ -498,7 +485,9 @@ impl App {
                 self.status_lines
                     .iter()
                     .filter_map(|line| match line.data.cli_id().map(|id| &**id) {
-                        Some(CliId::Branch(branch)) if branch.stack_id == Some(next_stack_id) => {
+                        Some(CliId::Branch(branch))
+                            if branch.lane.stack_id() == Some(next_stack_id) =>
+                        {
                             Some(branch.name.to_owned())
                         }
                         _ => None,
@@ -541,7 +530,7 @@ impl App {
         let Some(CliId::Branch(branch)) = selection.data.cli_id().map(|id| &**id) else {
             return;
         };
-        if branch.stack_id.is_none() {
+        if branch.lane.stack_id().is_none() {
             return;
         }
         self.mode
@@ -580,7 +569,7 @@ impl App {
             return Ok(());
         }
 
-        let Some(source_stack_id) = source.branch.stack_id else {
+        let Some(source_stack_id) = source.branch.lane.stack_id() else {
             return Ok(());
         };
         let current_stack_order = stack_ids_in_display_order(&self.status_lines);
@@ -769,14 +758,11 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
                 CliId::AnonymousSegment(..)
                 | CliId::Branch(..)
                 | CliId::Commit { .. }
-                | CliId::Uncommitted { .. }
-                | CliId::Worktree { .. }
-                | CliId::WorktreeUncommitted { .. }
+                | CliId::UncommittedArea { .. }
                 | CliId::Stack { .. } => None,
             },
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::MergeBase
@@ -817,16 +803,14 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
 
 fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
     match cli_id {
-        CliId::Branch(branch) => branch.stack_id,
-        CliId::AnonymousSegment(segment) => segment.stack_id,
+        CliId::Branch(branch) => branch.lane.stack_id(),
+        CliId::AnonymousSegment(segment) => segment.lane.stack_id(),
         CliId::Stack { stack_id, .. } => Some(*stack_id),
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::CommittedFile { .. }
         | CliId::CommittedHunk(..)
         | CliId::Commit { .. }
-        | CliId::Worktree { .. }
-        | CliId::WorktreeUncommitted { .. }
-        | CliId::Uncommitted { .. } => None,
+        | CliId::UncommittedArea { .. } => None,
     }
 }

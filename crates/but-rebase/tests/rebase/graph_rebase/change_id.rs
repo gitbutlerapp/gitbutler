@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, LookupStep, Step, ToSelector};
+use but_rebase::graph_rebase::{Editor, LookupStep, ToSelector};
 use gix::prelude::ObjectIdExt;
 use snapbox::prelude::*;
 
@@ -40,7 +40,7 @@ fn temporary_change_id_persisted() -> Result<()> {
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let target_selector = target.to_selector(&editor)?;
-    editor.replace(target_parent, Step::None)?;
+    editor.replace_with_none(target_parent)?;
 
     let outcome = editor.rebase()?;
 

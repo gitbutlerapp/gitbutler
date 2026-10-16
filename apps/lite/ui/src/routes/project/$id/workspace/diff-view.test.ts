@@ -1,6 +1,5 @@
 import { uncommittedChangesFileParent } from "#ui/addresses.ts";
 import type { DiffLineSelection } from "#ui/cursors.ts";
-import { lineSelectionsForRange } from "#ui/hunk.ts";
 import { getDiffView, prepareDiffFiles, resolveDiffSelection } from "./diff-view.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { describe, expect, it } from "vitest";
@@ -60,20 +59,7 @@ describe("resolveDiffSelection", () => {
 		const { fileByItemId } = viewFor(patch);
 		for (const diffStyle of ["split", "unified"] as const) {
 			const selection = resolveDiffSelection({ selection: firstBlock, fileByItemId, diffStyle });
-			expect(selection?.range).toBeTruthy();
-			if (!selection) throw new Error("Missing selection");
-			const file = fileByItemId.get(selection.id);
-			if (!file) throw new Error("Missing file");
-			expect(
-				lineSelectionsForRange({
-					hunks: file.item.fileDiff.hunks,
-					range: selection.range,
-					diffStyle,
-				}).flatMap((selection) => selection.lineGroups),
-			).toEqual([
-				{ side: "deletions", start: 1, lines: 3 },
-				{ side: "additions", start: 1, lines: 1 },
-			]);
+			expect(selection?.range).toEqual({ start: 1, end: 1, side: "deletions" });
 		}
 	});
 

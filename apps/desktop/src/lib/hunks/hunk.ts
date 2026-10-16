@@ -5,7 +5,7 @@ import {
 	SectionType,
 	type LineId,
 	type LineLock,
-} from "@gitbutler/ui/utils/diffParsing";
+} from "@gitbutler/ui-svelte/utils/diffParsing";
 import type { HunkLocks } from "$lib/hunks/dependencies";
 import type { DiffHunk, HunkHeader } from "@gitbutler/but-sdk";
 

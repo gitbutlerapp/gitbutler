@@ -6,9 +6,9 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { TestId } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import { intersectionObserver } from "@gitbutler/ui/utils/intersectionObserver";
+	import { TestId } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
+	import { intersectionObserver } from "@gitbutler/ui-svelte/utils/intersectionObserver";
 	import type { Snippet } from "svelte";
 
 	interface Props {

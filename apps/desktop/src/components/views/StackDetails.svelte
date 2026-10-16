@@ -33,9 +33,9 @@
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { TestId } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { TestId } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import { get } from "svelte/store";
 	import { fly } from "svelte/transition";
 	import type { Segment } from "@gitbutler/but-sdk";

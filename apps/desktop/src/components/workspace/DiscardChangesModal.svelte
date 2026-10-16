@@ -5,7 +5,7 @@
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { AsyncButton, Button, FileListItem, Modal, TestId } from "@gitbutler/ui";
+	import { AsyncButton, Button, FileListItem, Modal, TestId } from "@gitbutler/ui-svelte";
 	import type { SelectionId } from "$lib/selection/key";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 

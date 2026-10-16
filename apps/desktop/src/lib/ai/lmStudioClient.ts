@@ -8,7 +8,6 @@ import type { Prompt, AIClient, AIEvalOptions } from "$lib/ai/types";
 export const LM_STUDIO_DEFAULT_ENDPOINT = "http://127.0.0.1:1234";
 export const LM_STUDIO_DEFAULT_MODEL_NAME = "default";
 
-const DEFAULT_MAX_TOKENS = -1; // -1 means no limit
 const DEFAULT_TEMPERATURE = 0.7;
 
 /**
@@ -59,7 +58,7 @@ export class LMStudioClient implements AIClient {
 					model: this.modelName,
 					messages: messages,
 					temperature: DEFAULT_TEMPERATURE,
-					max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
+					max_tokens: options?.maxTokens,
 					stream: shouldStream,
 				}),
 			});

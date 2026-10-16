@@ -8,9 +8,13 @@ import type { InstallationStatus } from "#electron/updater-state.ts";
 import { guiSettingsQueryOptions } from "#ui/api/queries.ts";
 import { AppUpdater } from "#ui/AppUpdater.tsx";
 import { CheckForUpdatesButton } from "#ui/CheckForUpdatesButton.tsx";
-import { FieldControlStyles, FieldLabelStyles, FieldRootStyles } from "#ui/components/Field.tsx";
-import { Switch } from "#ui/components/Switch.tsx";
-import { Toasts } from "#ui/components/Toasts.tsx";
+import {
+	FieldControlStyles,
+	FieldLabelStyles,
+	FieldRootStyles,
+} from "@gitbutler/ui-react/Field.tsx";
+import { Switch } from "@gitbutler/ui-react/Switch.tsx";
+import { Toasts } from "@gitbutler/ui-react/Toasts.tsx";
 
 type Options = {
 	result: "Available" | "UpToDate" | "Unavailable" | "Error";
@@ -109,6 +113,8 @@ const Demo: FC = () => {
 const meta = preview.meta({
 	title: "App/Updater",
 	component: Demo,
+	// Demo wraps the updater for the story; there is no component here for the manifest.
+	tags: ["!manifest"],
 	beforeEach: () => {
 		let status: InstallationStatus = { _tag: "Idle" };
 		const client = new QueryClient({

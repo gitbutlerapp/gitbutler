@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { dismissToast, toastStore } from "$lib/notifications/toasts";
-	import { InfoMessage, Markdown, TestId } from "@gitbutler/ui";
+	import { InfoMessage, Markdown, TestId } from "@gitbutler/ui-svelte";
 	import { slide } from "svelte/transition";
 </script>
 

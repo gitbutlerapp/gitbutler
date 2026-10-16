@@ -6,7 +6,7 @@
 .list {
 	display: flex;
 	flex-direction: column;
-	padding: 4px;
+	padding: var(--padding-menu);
 }
 
 .row {
@@ -14,15 +14,6 @@
 	align-items: center;
 	min-width: 0;
 	gap: 8px;
-}
-
-.avatar {
-	flex: none;
-	width: 16px;
-	height: 16px;
-	object-fit: cover;
-	border-radius: 50%;
-	background-color: var(--bg-2);
 }
 
 .login {

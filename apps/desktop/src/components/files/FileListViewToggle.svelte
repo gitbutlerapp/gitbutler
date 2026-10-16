@@ -2,7 +2,7 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
-	import { SegmentControl, TestId } from "@gitbutler/ui";
+	import { SegmentControl, TestId } from "@gitbutler/ui-svelte";
 
 	type Mode = "tree" | "list";
 	type Props = {

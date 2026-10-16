@@ -3,14 +3,8 @@ import {
 	expectCurrentBranchChip,
 	openSingleBranchWorkspace,
 } from "./helpers.ts";
-import {
-	assertBranch,
-	assertCleanWorktree,
-	assertCommitSubjects,
-	assertRefDoesNotExist,
-} from "../../src/branch.ts";
+import { assertBranch, assertCleanWorktree, assertCommitSubjects } from "../../src/branch.ts";
 import { expect } from "../../src/expect.ts";
-import { applyUpstream } from "../../src/setup.ts";
 import { test } from "../../src/test.ts";
 import {
 	clickByTestId,
@@ -39,7 +33,6 @@ test.use({
 	gitbutlerOptions: {
 		config: {
 			onboardingComplete: true,
-			featureFlags: { singleBranch: true },
 		},
 	},
 });
@@ -95,33 +88,6 @@ async function expectBranchTipToBeOriginMaster(pathToRepo: string, branchName: s
 		.toBe(git(pathToRepo, ["rev-parse", TARGET_REMOTE_BRANCH]));
 }
 
-async function replacementBranchAtTarget(pathToRepo: string): Promise<string> {
-	await expect
-		.poll(() => findReplacementBranchAtTarget(pathToRepo), {
-			message: `Expected a new local branch at ${TARGET_REMOTE_BRANCH}`,
-			intervals: [100, 200, 500, 1000],
-		})
-		.not.toBeUndefined();
-	const replacementBranch = findReplacementBranchAtTarget(pathToRepo);
-	expect(replacementBranch).toBeDefined();
-	return replacementBranch!;
-}
-
-function findReplacementBranchAtTarget(pathToRepo: string): string | undefined {
-	const targetCommit = git(pathToRepo, ["rev-parse", TARGET_REMOTE_BRANCH]);
-	return git(pathToRepo, ["for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads"])
-		.split("\n")
-		.map((line) => line.trim().split(" "))
-		.find(([branchName, commitId]) => {
-			return (
-				!branchName.startsWith("gitbutler/") &&
-				branchName !== TARGET_BRANCH &&
-				branchName !== FULLY_INTEGRATED_BRANCH &&
-				commitId === targetCommit
-			);
-		})?.[0];
-}
-
 function git(pathToRepo: string, args: string[]): string {
 	return execFileSync("git", args, {
 		cwd: pathToRepo,
@@ -138,7 +104,7 @@ function gitSucceeds(pathToRepo: string, args: string[]): boolean {
 	}
 }
 
-test("creates a new branch on top of the advanced target after branch is fully integrated", async ({
+test("checks out the local target after branch is fully integrated", async ({
 	page,
 	gitbutler,
 }) => {
@@ -156,47 +122,16 @@ test("creates a new branch on top of the advanced target after branch is fully i
 	await syncAndIntegrateWorkspace(page);
 
 	await expectLocalBranchNotToExist(localClone, FULLY_INTEGRATED_BRANCH);
-	const replacementBranch = await replacementBranchAtTarget(localClone);
-	await expect(stack(page)).toHaveCount(1);
-	await expect(getByTestId(page, "branch-card")).toContainText(replacementBranch);
-	await assertBranch(replacementBranch, localClone);
-	await expectCurrentBranchChip(page, replacementBranch);
-	expect(git(localClone, ["rev-parse", replacementBranch])).toBe(
-		git(localClone, ["rev-parse", TARGET_REMOTE_BRANCH]),
-	);
+	await expectCurrentBranchChip(page, TARGET_BRANCH);
+	await assertBranch(TARGET_BRANCH, localClone);
+	await expectBranchTipToBeOriginMaster(localClone, TARGET_BRANCH);
+	await expect(stack(page)).toHaveCount(0);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(0);
 	await assertCleanWorktree(localClone);
 	await expectNoErrorToast(page);
 });
 
-test("checks out a new branch after all managed stacks are integrated", async ({
-	page,
-	gitbutler,
-}) => {
-	await gitbutler.runScript("project-with-stacks.sh");
-	await applyUpstream(gitbutler, "branch1", "branch2");
-	await openSingleBranchWorkspace(page);
-
-	const localClone = gitbutler.pathInWorkdir("local-clone");
-	await assertBranch("gitbutler/workspace", localClone);
-	await expect(stack(page)).toHaveCount(2);
-
-	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
-	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch2"]);
-	await syncAndIntegrateWorkspace(page);
-
-	await expectLocalBranchNotToExist(localClone, "branch1");
-	await expectLocalBranchNotToExist(localClone, "branch2");
-	await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
-	const replacementBranch = await replacementBranchAtTarget(localClone);
-	await assertBranch(replacementBranch, localClone);
-	await expectCurrentBranchChip(page, replacementBranch);
-	await expect(stack(page)).toHaveCount(1);
-	await expect(getByTestId(page, "branch-card")).toContainText(replacementBranch);
-	await assertCleanWorktree(localClone);
-	await expectNoErrorToast(page);
-});
-
-test("replaces an empty checked-out branch when its tracking tip is integrated", async ({
+test("checks out the local target when an empty branch's tracking tip is integrated", async ({
 	page,
 	gitbutler,
 }) => {
@@ -214,9 +149,11 @@ test("replaces an empty checked-out branch when its tracking tip is integrated",
 	await syncAndIntegrateWorkspace(page);
 
 	await expectLocalBranchNotToExist(localClone, EMPTY_INTEGRATED_BRANCH);
-	const replacementBranch = await replacementBranchAtTarget(localClone);
-	await expectCurrentBranchChip(page, replacementBranch);
-	await expectBranchTipToBeOriginMaster(localClone, replacementBranch);
+	await expectCurrentBranchChip(page, TARGET_BRANCH);
+	await assertBranch(TARGET_BRANCH, localClone);
+	await expectBranchTipToBeOriginMaster(localClone, TARGET_BRANCH);
+	await expect(stack(page)).toHaveCount(0);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(0);
 	await assertCleanWorktree(localClone);
 	await expectNoErrorToast(page);
 });

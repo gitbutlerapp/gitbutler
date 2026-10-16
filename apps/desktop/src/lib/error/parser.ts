@@ -4,8 +4,8 @@ import {
 	isPromiseRejection,
 	isReduxActionError as isReduxActionError,
 } from "$lib/error/typeguards";
-import { isStr } from "@gitbutler/ui/utils/string";
-import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
+import { isStr } from "@gitbutler/ui-svelte/utils/string";
+import { isErrorlike } from "@gitbutler/ui-svelte/utils/typeguards";
 
 export function parseError(error: unknown): NormalizedError {
 	if (isStr(error)) {

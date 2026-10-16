@@ -5,7 +5,7 @@
 	import { isTreeChange } from "$lib/hunks/change";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { AsyncButton, Button, Modal } from "@gitbutler/ui";
+	import { AsyncButton, Button, Modal } from "@gitbutler/ui-svelte";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	type ChangedFilesItem = {

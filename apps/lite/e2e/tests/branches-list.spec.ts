@@ -31,7 +31,11 @@ test.describe("branches list", () => {
 				// document, and they look just like this list from the outside.
 				const row = document.querySelector('[role="treeitem"][aria-label^="branch-"]');
 				const tree = row?.closest('[role="tree"]');
-				const scroller = tree?.parentElement;
+				// The nearest box that scrolls: the list sits in a ScrollArea, whose
+				// viewport wraps the tree in a content box of its own.
+				let scroller = tree?.parentElement ?? null;
+				while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY))
+					scroller = scroller.parentElement;
 				if (!tree || !scroller) throw new Error("Branches list has no scroller");
 
 				if (unfoldMounted) {
@@ -61,7 +65,10 @@ test.describe("branches list", () => {
 
 		await appWindow.evaluate(() => {
 			const row = document.querySelector('[role="treeitem"][aria-label^="branch-"]');
-			row?.closest('[role="tree"]')?.parentElement?.scrollTo({ top: 0 });
+			let scroller = row?.closest('[role="tree"]')?.parentElement ?? null;
+			while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY))
+				scroller = scroller.parentElement;
+			scroller?.scrollTo({ top: 0 });
 		});
 
 		await expect(branches.first()).toBeVisible();
@@ -169,10 +176,10 @@ test.describe("recent branch reviews", () => {
 			branch.getByText("Speed up branch listing in large repositories", { exact: true }),
 		).toBeVisible();
 		await expect(branch.getByText("performance", { exact: true })).toBeVisible();
-		await expect(branch.getByTitle("needs review", { exact: true })).not.toHaveCSS(
-			"background-color",
-			"rgba(0, 0, 0, 0)",
-		);
+		// A colourless label is still a pill, not bare text: the outline gives it its shape.
+		const colorless = branch.getByTitle("needs review", { exact: true });
+		await expect(colorless).toHaveCSS("border-top-style", "solid");
+		await expect(colorless).not.toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
 		await expect(branch.getByText(/by octocat/)).toBeVisible();
 		await expect(branch.getByText("2 commits", { exact: true })).toBeVisible();
 		await expect(

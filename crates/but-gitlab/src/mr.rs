@@ -10,7 +10,18 @@ pub async fn list(
     GitLabClient::from_storage(storage, preferred_account)?
         .list_open_mrs(project_id)
         .await
-        .map_err(classify_forge_error)
+        .map_err(|err| {
+            if err
+                .downcast_ref::<crate::client::HttpStatusError>()
+                .is_some_and(|http_err| http_err.status == reqwest::StatusCode::NOT_FOUND)
+            {
+                return err.context(but_error::Context::new_static(
+                    but_error::Code::GitLabProjectNotFound,
+                    "GitLab could not find this project, or your token cannot see it.",
+                ));
+            }
+            classify_review_listing_error(err)
+        })
         .context("Failed to list open merge requests")
 }
 
@@ -22,7 +33,7 @@ pub async fn list_recently_closed(
     GitLabClient::from_storage(storage, preferred_account)?
         .list_recently_closed_mrs(project_id)
         .await
-        .map_err(classify_forge_error)
+        .map_err(classify_review_listing_error)
         .context("Failed to list recently closed merge requests")
 }
 
@@ -35,7 +46,7 @@ pub async fn list_all_for_target(
     GitLabClient::from_storage(storage, preferred_account)?
         .list_mrs_for_target(project_id, target_branch)
         .await
-        .map_err(classify_forge_error)
+        .map_err(classify_review_listing_error)
         .context("Failed to list merge requests for target branch")
 }
 
@@ -48,7 +59,7 @@ pub async fn list_for_commit(
     GitLabClient::from_storage(storage, preferred_account)?
         .list_mrs_for_commit(project_id, commit_sha)
         .await
-        .map_err(classify_forge_error)
+        .map_err(classify_review_listing_error)
         .context("Failed to list merge requests for commit")
 }
 
@@ -56,7 +67,7 @@ pub async fn list_for_commit(
 /// can present them appropriately (silent for offline) and cached readers can
 /// keep serving the last known data, and a rejected token (HTTP 401) with
 /// `GitLabUnauthorized` so pollers stop until a replacement token is stored.
-/// Other statuses stay unclassified: a 403 on a read may be per-project.
+/// Other statuses stay unclassified; [`classify_review_listing_error`] adds 403.
 /// Only applied to read paths — mutations should still surface failures.
 pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
     if err
@@ -73,6 +84,18 @@ pub(crate) fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
         .is_some_and(|http_err| http_err.status == reqwest::StatusCode::UNAUTHORIZED)
     {
         return err.context(crate::GITLAB_UNAUTHORIZED);
+    }
+    err
+}
+
+/// A review listing GitLab refuses (403) will be refused on the next poll too.
+fn classify_review_listing_error(err: anyhow::Error) -> anyhow::Error {
+    let err = classify_forge_error(err);
+    if err
+        .downcast_ref::<crate::client::HttpStatusError>()
+        .is_some_and(|http_err| http_err.status == reqwest::StatusCode::FORBIDDEN)
+    {
+        return err.context(crate::GITLAB_FORBIDDEN);
     }
     err
 }

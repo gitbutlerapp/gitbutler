@@ -53,11 +53,11 @@
 		UserService as NewUserService,
 		USER_SERVICE as NEW_USER_SERVICE,
 	} from "@gitbutler/shared/users/userService";
-	import { ChipToastContainer } from "@gitbutler/ui";
+	import { ChipToastContainer } from "@gitbutler/ui-svelte";
 	import {
 		EXTERNAL_LINK_SERVICE,
 		type ExternalLinkService,
-	} from "@gitbutler/ui/utils/externalLinkService";
+	} from "@gitbutler/ui-svelte/utils/externalLinkService";
 	import { type Snippet } from "svelte";
 	import { readable } from "svelte/store";
 	import { env } from "$env/dynamic/public";

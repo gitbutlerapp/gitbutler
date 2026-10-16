@@ -21,8 +21,7 @@ In non-interactive mode, use `--path` or `--detect`.
 **Requirements:**
 - **GitButler CLI** installed (refer to the docs for installation instructions)
 - **An AI assistant with skills support** such as Agent Skills / `.agents/skills`, Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, Windsurf, or Poolside
-- A Git repository. Managed-workspace mode uses `but setup`; when experimental single-branch
-  mode is enabled, `but` registers the repository and infers its target on first use.
+- A Git repository.
 
 **Updating:**
 

@@ -10,8 +10,8 @@
 	import { POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 
-	import { Icon, Spacer, chipToasts } from "@gitbutler/ui";
-	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { Icon, Spacer, chipToasts } from "@gitbutler/ui-svelte";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import { onMount } from "svelte";
 
 	type Props = {

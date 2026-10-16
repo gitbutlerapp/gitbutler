@@ -10,7 +10,7 @@ use petgraph::{algo::toposort, visit::EdgeRef};
 use crate::graph_rebase::{
     Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
     cherry_pick::{CherryPickOutcome, cherry_pick},
-    util::collect_ordered_parents,
+    util::{OrderedParentKind, collect_ordered_parents},
 };
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
@@ -38,7 +38,11 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     output_graph.add_node(Step::Pick(pick))
                 }
                 Step::Pick(pick) => {
-                    let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+                    let graph_parents = collect_ordered_parents(
+                        &self.graph,
+                        step_idx,
+                        OrderedParentKind::CommitOnly,
+                    );
                     let ontos = match pick.preserved_parents.clone() {
                         Some(ontos) => ontos,
                         None => graph_parents
@@ -65,25 +69,33 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                         pick.sign_commit,
                     )?;
 
-                    if matches!(outcome, CherryPickOutcome::ConflictedCommit(_))
-                        && !pick.conflictable
-                    {
-                        bail!(
-                            "Commit {} was marked as not conflictable, but resulted in a conflicted state",
-                            pick.id
-                        );
-                    }
-
                     match outcome {
-                        CherryPickOutcome::Commit(new_id)
-                        | CherryPickOutcome::ConflictedCommit(new_id)
-                        | CherryPickOutcome::Identity(new_id) => {
+                        CherryPickOutcome::Commit {
+                            id: new_id,
+                            change_id,
+                            conflicted,
+                        }
+                        | CherryPickOutcome::Identity {
+                            id: new_id,
+                            change_id,
+                            conflicted,
+                        } => {
+                            if conflicted && !pick.conflictable {
+                                bail!(
+                                    "Commit {} was marked as not conflictable, but resulted in a conflicted state",
+                                    pick.id
+                                );
+                            }
+
                             let mut new_pick = pick.clone();
                             new_pick.id = new_id;
                             let new_idx = output_graph.add_node(Step::Pick(new_pick));
                             graph_mapping.insert(step_idx, new_idx);
                             if !pick.exclude_from_tracking {
                                 history.update_mapping(pick.id, new_id);
+                            }
+                            if conflicted {
+                                history.conflicted_commits.push((new_id, change_id));
                             }
 
                             new_idx
@@ -109,7 +121,11 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     // Immutable references are kept in the graph for traversal
                     // but never moved, created, or deleted.
                     if mutable {
-                        let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+                        let graph_parents = collect_ordered_parents(
+                            &self.graph,
+                            step_idx,
+                            OrderedParentKind::CommitOnly,
+                        );
                         let first_parent_idx = graph_parents
                             .first()
                             .context("References should have at least one parent")?;

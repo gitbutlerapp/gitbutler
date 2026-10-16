@@ -2,7 +2,7 @@
 	import emptyFileSvg from "$lib/assets/empty-state/empty-file.svg?raw";
 	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { inject } from "@gitbutler/core/context";
-	import { ImageDiff, EmptyStatePlaceholder } from "@gitbutler/ui";
+	import { ImageDiff, EmptyStatePlaceholder } from "@gitbutler/ui-svelte";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	type Props = {

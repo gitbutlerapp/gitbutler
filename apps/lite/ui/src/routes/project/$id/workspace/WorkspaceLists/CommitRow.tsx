@@ -9,12 +9,12 @@ import {
 	useEnterEditMode,
 } from "#ui/api/mutations.ts";
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
-import { classes } from "#ui/components/classes.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 import {
 	changesHotkeys,
 	sidebarHotkeys,
@@ -33,7 +33,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import type { Commit } from "@gitbutler/but-sdk";
-import { Toast, Toolbar, Tooltip } from "@base-ui/react";
+import { Toast, Toolbar } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { type ComponentProps, type FC, useId, useOptimistic, useTransition } from "react";
 import { RowCheckbox, RowToolbar } from "../Row.tsx";
@@ -52,7 +52,6 @@ export const CommitRow: FC<
 		projectId: string;
 		/** `null` on a stack without an id, where edit mode cannot be offered. */
 		stackId: string | null;
-		dryRunCommit: Commit | null;
 		checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 		amendCommit: () => void;
 		canAmendCommit: boolean;
@@ -71,7 +70,6 @@ export const CommitRow: FC<
 	commit,
 	projectId,
 	stackId,
-	dryRunCommit,
 	checkCommit,
 	amendCommit,
 	canAmendCommit,
@@ -106,6 +104,7 @@ export const CommitRow: FC<
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
+	const checkDisabled = !noOperationPending || !canCheck;
 	const isRewording = useAppSelector((state) => {
 		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
 		return (
@@ -122,7 +121,6 @@ export const CommitRow: FC<
 		...commit,
 		message: optimisticMessage,
 	};
-	const { hasConflicts } = dryRunCommit ? dryRunCommit : commitWithOptimisticMessage;
 
 	const { mutate: commitInsertBlank } = useCommitInsertBlank();
 	const { isPending: isCommitDiscardPending, mutate: commitDiscard } = useCommitDiscard();
@@ -265,11 +263,9 @@ export const CommitRow: FC<
 					dryRun: false,
 				});
 			} catch (error) {
-				toastManager.add({
-					type: "error",
+				addErrorToast(toastManager, {
 					title: "Failed to reword commit",
-					description: errorMessageForToast(error),
-					priority: "high",
+					error,
 				});
 			}
 		});
@@ -281,8 +277,8 @@ export const CommitRow: FC<
 		await window.lite.openInWebBrowser(mforgeUrl.url);
 	};
 
-	const title = commitTitle(commitWithOptimisticMessage.message);
-	const body = commitBody(commitWithOptimisticMessage.message);
+	const title = commitTitle(optimisticMessage);
+	const body = commitBody(optimisticMessage);
 
 	// Items that only read the commit, the whole menu of a commit outside the workspace.
 	const readOnlyMenuItems: Array<NativeMenuItem> = [
@@ -406,18 +402,22 @@ export const CommitRow: FC<
 					below={below}
 					behind={behind}
 				/>
-				<Tooltip.Root
+				<Tooltip
+					content={sidebarHotkeys.checkCommit.meta.name}
+					kbd={sidebarHotkeys.checkCommit.hotkey}
+					kbdScope="sidebar"
 					// This gets in the way when the user tries to move their hover to a
 					// sibling row.
 					disableHoverablePopup
+					// A checkbox that can't be checked has no shortcut to advertise.
+					disabled={checkDisabled}
 				>
 					<RowCheckbox
-						disabled={!noOperationPending || !canCheck}
+						disabled={checkDisabled}
 						aria-label={`Check commit ${title ?? "(no message)"}`}
 						checked={isChecked}
 						className={styles.checkbox}
 						nativeButton
-						render={<Tooltip.Trigger />}
 						onCheckedChange={(_checked, { event }) => {
 							const shiftKey =
 								(event instanceof MouseEvent || event instanceof KeyboardEvent) &&
@@ -425,16 +425,7 @@ export const CommitRow: FC<
 							checkCommit({ commitId: commit.id, shiftKey });
 						}}
 					/>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup
-								render={<TooltipPopup kbd={sidebarHotkeys.checkCommit.hotkey} kbdScope="sidebar" />}
-							>
-								{sidebarHotkeys.checkCommit.meta.name}
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
+				</Tooltip>
 			</div>
 
 			{isRewording ? (
@@ -453,7 +444,7 @@ export const CommitRow: FC<
 			) : (
 				<CommitRowContent
 					commit={commitWithOptimisticMessage}
-					hasConflicts={hasConflicts}
+					hasConflicts={commit.hasConflicts}
 					descriptionId={descriptionId}
 				/>
 			)}

@@ -103,7 +103,7 @@ fn uncommit_different_files_from_the_same_commit() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -155,7 +155,7 @@ Uncommitted from xkv
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -244,7 +244,7 @@ fn uncommit_command_on_commit() {
   ],
   "stacks": [
     {
-      "cliId": "k0",
+      "cliId": "i0",
       "assignedChanges": [],
       "branches": [
 ...
@@ -324,7 +324,7 @@ fn uncommit_branches() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -347,7 +347,7 @@ Uncommitted 'A', 'B', 'C'
 ┊   pl A B
 ┊   wx A C
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -375,7 +375,7 @@ Hint: run `but branch new` to create a new branch to work on
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 

@@ -569,9 +569,7 @@ mod config_feature {
 
     use crate::args::{
         Args, Subcommands,
-        config::{
-            FeatureFlag, FeatureStatus, Platform as ConfigPlatform, Subcommands as ConfigCmd,
-        },
+        config::{Platform as ConfigPlatform, Subcommands as ConfigCmd},
     };
 
     #[test]
@@ -590,19 +588,15 @@ mod config_feature {
     }
 
     #[test]
-    fn parses_feature_update() {
-        let args = Args::try_parse_from(["but", "config", "feature", "single-branch", "enable"])
-            .expect("parse feature update");
+    fn rejects_removed_single_branch_flag() {
+        let err = Args::try_parse_from(["but", "config", "feature", "single-branch", "enable"])
+            .expect_err("single-branch mode no longer has a feature flag");
 
-        assert!(matches!(
-            args.cmd,
-            Some(Subcommands::Config(ConfigPlatform {
-                cmd: Some(ConfigCmd::Feature {
-                    flag: Some(FeatureFlag::SingleBranch),
-                    status: Some(FeatureStatus::Enable),
-                }),
-            }))
-        ));
+        assert_eq!(
+            err.kind(),
+            clap::error::ErrorKind::InvalidValue,
+            "removed feature flags should not be accepted"
+        );
     }
 
     #[test]
@@ -611,11 +605,6 @@ mod config_feature {
             .expect_err("feature status without flag is invalid");
 
         assert_eq!(err.kind(), clap::error::ErrorKind::InvalidValue);
-    }
-
-    #[test]
-    fn json_keys_use_snake_case() {
-        assert_eq!(FeatureFlag::SingleBranch.as_json_key(), "single_branch");
     }
 }
 

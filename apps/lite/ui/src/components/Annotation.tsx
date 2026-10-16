@@ -1,8 +1,8 @@
-import { classes } from "#ui/components/classes.ts";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import type { FC, ReactNode, Ref } from "react";
 import styles from "./Annotation.module.css";
-import { FieldTextareaStyles } from "./Field.tsx";
+import { FieldTextareaStyles } from "@gitbutler/ui-react/Field.tsx";
 
 type Props = {
 	author: string;

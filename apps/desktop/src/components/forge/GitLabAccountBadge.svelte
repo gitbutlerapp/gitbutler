@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Badge } from "@gitbutler/ui";
+	import { Badge } from "@gitbutler/ui-svelte";
 	import type { GitlabAccountIdentifier } from "@gitbutler/but-sdk";
 
 	type Props = {

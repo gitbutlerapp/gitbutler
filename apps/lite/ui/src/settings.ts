@@ -17,18 +17,15 @@ export const defaultSettings = {
 	diffOverflow: "scroll",
 	diffStyle: "split",
 	diffTabSize: 4,
-	// Previewing while dragging runs a dry run for every target the pointer crosses, and
-	// each one takes the same workspace lock as the real operation. Off until that's cheap.
-	dryRunOperations: false,
 	// Show the folder tree until the user chooses a display mode.
 	fileDisplayMode: "tree",
 	filesPanelRight: false,
-	// Desktop apps keep the arrow over controls; the hand is a web convention (DESIGN.md, Cursors).
+	graphTrunk: false,
+	// Desktop apps keep the arrow over controls; the hand is a web convention (ui-react's design/foundations/cursors.md).
 	handCursor: false,
 	// Pierre's own default, named here so the setting has somewhere to fall back to.
 	lineDiffType: "word-alt",
 	// Experimental; opt in from the Experimental settings.
-	minimap: false,
 	// Lite has always led with the file name; desktop leads with the path.
 	pathFirst: false,
 	// Loud = the notification bell; quiet = tracked but nothing shown;

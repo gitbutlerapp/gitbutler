@@ -3,12 +3,14 @@ import { setCursor, useActiveList, useSelection } from "#ui/use-cursor.ts";
 import { useCommitAmend } from "#ui/api/mutations.ts";
 import {
 	changesInWorktreeQueryOptions,
+	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listReviewsQueryOptions,
 } from "#ui/api/queries.ts";
+import { defaultSettings } from "#ui/settings.ts";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { commitTitle } from "#ui/commit.ts";
 import {
 	branchAddress,
 	uncommittedChangesAddress,
@@ -21,36 +23,30 @@ import {
 } from "#ui/addresses.ts";
 import { useReviewedPaths } from "#ui/routes/project/$id/workspace/reviewed-paths.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { AddressC, OperationTarget, TreeItem } from "./TreeItem.tsx";
 import { WorktreeCard, WorktreeLane, WorktreeOnTip } from "./WorktreeLane.tsx";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
-import { classes } from "#ui/components/classes.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { addressSpaceIncludes, type AddressSpace } from "#ui/workspace/address-space.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import uiStyles from "#ui/components/ui.module.css";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
+import fileRowStyles from "../FileRow.module.css";
 import type {
 	BranchReference,
 	Commit,
 	Segment,
 	Stack,
-	PushStatus,
 	WorktreeChanges,
-	WorkspaceState,
 	Worktree,
 } from "@gitbutler/but-sdk";
 
-import { useMutationState, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Range, useVirtualizer } from "@tanstack/react-virtual";
-import type { PayloadFor } from "#electron/ipc.ts";
-import { Match } from "effect";
 import {
 	Activity,
 	type CSSProperties,
 	Fragment,
-	createContext,
-	use,
 	useCallback,
 	useLayoutEffect,
 	useMemo,
@@ -63,7 +59,7 @@ import {
 	type RefObject,
 } from "react";
 import styles from "./WorkspaceLists.module.css";
-import { Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
+import { RailedList, Row, RowLabel, RowLabelContainer, SectionHeaderRow } from "../Row.tsx";
 import { Section } from "../Graph/Section.tsx";
 import {
 	CARD_GAP,
@@ -81,25 +77,26 @@ import { StackCard } from "../StackCard.tsx";
 import stackCardStyles from "../StackCard.module.css";
 import { COMMIT_ROW_HEIGHT, treeItemId } from "../Row-utils.ts";
 import { useAddressSpace, WorkspaceListsProvider } from "./context.tsx";
-import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import {
 	GraphEdge,
 	GraphGap,
+	GraphRail,
 	GraphSegment,
 	type GraphSegmentStatus,
 } from "#ui/components/GraphSegment.tsx";
-import { useNow } from "#ui/components/useNow.ts";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { IncomingRows } from "./IncomingRows.tsx";
-import { BranchRow, type PushActivity } from "./BranchRow.tsx";
+import { BranchRow } from "./BranchRow.tsx";
+import { useStackMenuItems } from "./useStackMenuItems.ts";
+import { commitGraphStatus, segmentPushStatusToGraphSegmentStatus } from "./graph-status.ts";
+import { pushActivities, usePendingPushBranches, type PushActivity } from "./push-activity.ts";
 import { useActiveListsHotkeys } from "./hotkeys.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 import { LastCommitLine } from "./LastCommitLine.tsx";
 import { NoStacks } from "./NoStacks.tsx";
-import type { NewBranchActions } from "../useNewBranch.ts";
 import { ListFilterRow } from "../ListFilterRow.tsx";
 import { useListFilter } from "../useListFilter.ts";
 import { buildUncommittedFileRows } from "../file-row.ts";
@@ -112,7 +109,7 @@ import {
 } from "#ui/segment.ts";
 import { checkedRange, addressSpaceRange } from "#ui/checking.ts";
 import { focusScope, useAutofocusScope, type FocusScope } from "#ui/focus-scopes.ts";
-import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
+import { getRangeExtractorWithIndices } from "@gitbutler/ui-react/virtual.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import {
 	CommitForm,
@@ -124,9 +121,6 @@ import {
 } from "./commitTargetComboboxItems.ts";
 
 const uncommittedChangesHeadingId = "uncommitted-changes-heading";
-
-const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
-DryRunWorkspaceContext.displayName = "DryRunWorkspaceContext";
 
 /**
  * An element's height, kept current as it resizes: give the element the ref.
@@ -202,8 +196,6 @@ const UncommittedChanges: FC<
 	const recentFirst = useAppSelector((state) =>
 		projectSlice.selectors.selectUncommittedFilesRecentFirst(state, projectId),
 	);
-	// Ticks only while the recency view needs its labels and freshness to age.
-	const ageBadgeNow = useNow(recentFirst ? 30_000 : null);
 	const collapsedDirectories = useAppSelector((state) =>
 		projectSlice.selectors.selectUncommittedFilesCollapsedDirectories(state, projectId),
 	);
@@ -319,39 +311,36 @@ const UncommittedChanges: FC<
 				    is none, and the empty row would otherwise flash "No matching files"
 				    under a header still reading "Uncommitted". */}
 				<Activity mode={isClean || worktreeChanges === undefined ? "hidden" : "visible"}>
-					<FilesTree
-						className={styles.uncommittedFiles}
-						aria-labelledby={uncommittedChangesHeadingId}
-						canUncommit={false}
-						data-preview-source={activeList === "uncommitted"}
-						focusScope="uncommitted-files"
-						fileParent={uncommittedChangesFileParent}
-						reviewedPaths={reviewedUncommittedPaths}
-						rows={fileRows}
-						ageBadgeNow={recentFirst ? ageBadgeNow : null}
-						collapsedDirectories={collapsedDirectories}
-						onToggleDirectoryCollapsed={(path) =>
-							dispatch(
-								projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({
-									projectId,
-									path,
-								}),
-							)
-						}
-						addressSpace={addressSpace}
-						onRowSelection={selectActiveFile}
-						onEdgeSpill={spillEdge}
-						projectId={projectId}
-						ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
-						selection={fileSelection}
-						rail={trunk}
-						scrollElementRef={scrollElementRef}
-						scrollMargin={listOffset}
-						scrollPaddingStart={headHeight}
-						scrollPaddingEnd={footDock}
-						// Override the tree's inset to keep the rows on the uncommitted card's trunk.
-						style={{ "--row-padding-inline-start": "var(--graph-trunk-inset)" }}
-					/>
+					<RailedList rail={trunk} className={styles.files}>
+						<FilesTree
+							className={fileRowStyles.rows}
+							aria-labelledby={uncommittedChangesHeadingId}
+							data-preview-source={activeList === "uncommitted"}
+							focusScope="uncommitted-files"
+							fileParent={uncommittedChangesFileParent}
+							reviewedPaths={reviewedUncommittedPaths}
+							rows={fileRows}
+							collapsedDirectories={collapsedDirectories}
+							onToggleDirectoryCollapsed={(path) =>
+								dispatch(
+									projectSlice.actions.toggleUncommittedFilesDirectoryCollapsed({
+										projectId,
+										path,
+									}),
+								)
+							}
+							addressSpace={addressSpace}
+							onRowSelection={selectActiveFile}
+							onEdgeSpill={spillEdge}
+							projectId={projectId}
+							ref={useMergedRefs(fileListRef, useAutofocusScope(activeList === "uncommitted"))}
+							selection={fileSelection}
+							scrollElementRef={scrollElementRef}
+							scrollMargin={listOffset}
+							scrollPaddingStart={headHeight}
+							scrollPaddingEnd={footDock}
+						/>
+					</RailedList>
 				</Activity>
 
 				<Row interactive={false}>
@@ -377,24 +366,6 @@ const UncommittedChanges: FC<
 		</div>
 	);
 };
-
-const segmentPushStatusToGraphSegmentStatus = (pushStatus: PushStatus): GraphSegmentStatus => {
-	switch (pushStatus) {
-		case "nothingToPush":
-			return "LocalAndRemote";
-		case "unpushedCommits":
-		case "completelyUnpushed":
-			return "LocalOnly";
-		case "unpushedCommitsRequiringForce":
-			return "Diverged";
-		case "integrated":
-			return "Integrated";
-	}
-};
-
-/** A commit's glyph colour: its state's, or the diverged one's. */
-const commitGraphStatus = (commit: Commit): GraphSegmentStatus =>
-	commitIsDiverged(commit) ? "Diverged" : commit.state.type;
 
 const BranchSegment: FC<{
 	projectId: string;
@@ -444,6 +415,7 @@ const BranchSegment: FC<{
 	setSize,
 }) => {
 	const descriptionId = useId();
+	const stackMenuItems = useStackMenuItems(projectId, stack);
 	const address = branchAddress({ branchRef: refName.fullNameBytes });
 	const isRenaming = useAppSelector((state) => {
 		const pending = projectSlice.selectors.selectPendingOperation(state, projectId);
@@ -475,22 +447,25 @@ const BranchSegment: FC<{
 				descriptionId={descriptionId}
 				projectId={projectId}
 				refName={refName}
-				canTearOffBranch={canTearOffBranch}
-				canRemoveBranch={canRemoveBranch}
+				lane={{
+					type: "stack",
+					stackMenuItems,
+					canTearOff: canTearOffBranch,
+					canRemove: canRemoveBranch,
+					canUpdateFromRemote: canIntegrateUpstream(segment),
+					bottomRelativeTo: segmentBottomRelativeTo(segment),
+				}}
 				downstackPushStatus={downstackPushStatus}
 				pushActivity={pushActivity}
 				pushStatus={segment.pushStatus}
-				canUpdateFromRemote={canIntegrateUpstream(segment)}
 				remote={segment.remoteTrackingRefName}
 				incoming={segment.commitsOnRemote.length}
 				recordedPullRequest={recordedPullRequest(segment)}
 				graphStatus={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
-				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				startsRail={startsRail}
 				commitCount={segment.commits.length}
 				railBelow={railBelow}
 				behind={behind}
-				stack={stack}
 			/>
 
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
@@ -685,9 +660,6 @@ const SegmentContent: FC<{
 			));
 	}
 
-	const dryRunWorkspace = use(DryRunWorkspaceContext);
-	const dryRunHeadInfoIndex = dryRunWorkspace ? getHeadInfoIndex(dryRunWorkspace.headInfo) : null;
-
 	return (
 		<div ref={containerRef} className={styles.virtualContainer}>
 			{rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -696,11 +668,6 @@ const SegmentContent: FC<{
 				// The rail below the commit is the next one's; plain under the last.
 				const next = segment.commits[virtualRow.index + 1];
 
-				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
-				const dryRunCommit =
-					dryRunCommitId !== undefined
-						? (dryRunHeadInfoIndex?.commitContextByCommitId(dryRunCommitId)?.commit ?? null)
-						: null;
 				return (
 					<CommitItem
 						key={commit.id}
@@ -717,7 +684,6 @@ const SegmentContent: FC<{
 						checkCommit={checkCommit}
 						onAmendCommit={onAmendCommit}
 						canAmendCommit={canAmendCommit}
-						dryRunCommit={dryRunCommit}
 						ariaLevel={ariaLevel}
 						positionInSet={positionOffset + virtualRow.index + 1}
 						setSize={setSize}
@@ -751,7 +717,6 @@ const CommitItem: FC<{
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
-	dryRunCommit: Commit | null;
 	ariaLevel: number;
 	positionInSet: number;
 	setSize: number;
@@ -769,7 +734,6 @@ const CommitItem: FC<{
 	checkCommit,
 	onAmendCommit,
 	canAmendCommit,
-	dryRunCommit,
 	ariaLevel,
 	positionInSet,
 	setSize,
@@ -820,7 +784,6 @@ const CommitItem: FC<{
 								amendCommit={() => onAmendCommit(commit.id)}
 								canAmendCommit={canAmendCommit}
 								projectId={projectId}
-								dryRunCommit={dryRunCommit}
 								scrollSelectedIntoView={false}
 							/>
 						}
@@ -933,10 +896,7 @@ const StackC: FC<
 	};
 	// A card is a lane off the trunk, which runs behind it at the edge.
 	const behind = 1;
-	const topmostPendingPushIndex = stack.segments.findIndex(
-		(segment) =>
-			segment.refName && pendingPushBranches.has(decodeBytes(segment.refName.fullNameBytes)),
-	);
+	const segmentPushActivities = pushActivities(stack.segments, pendingPushBranches);
 	// Worktrees on the top branch's tip continue the card's line above it, so the
 	// branch row joins a rail that starts at the worktree rather than starting one.
 	const onTip = worktreesOnTip(worktrees, stack);
@@ -985,12 +945,7 @@ const StackC: FC<
 					if (key === undefined) return null;
 
 					const downstackPushStatus = assert(downstackPushStatuses[index]);
-					const pushActivity: PushActivity =
-						topmostPendingPushIndex !== -1
-							? index >= topmostPendingPushIndex
-								? "pushing"
-								: "blocked"
-							: "idle";
+					const pushActivity = assert(segmentPushActivities[index]);
 
 					return (
 						<Fragment key={key}>
@@ -1072,7 +1027,6 @@ const focusCommitMessageInput = () => {
 const Stacks: FC<{
 	projectId: string;
 	graph: Graph;
-	newBranch: NewBranchActions;
 	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
 	onAmendCommit: (commitId: string) => void;
 	canAmendCommit: boolean;
@@ -1088,7 +1042,6 @@ const Stacks: FC<{
 }> = ({
 	projectId,
 	graph,
-	newBranch,
 	checkCommit,
 	onAmendCommit,
 	canAmendCommit,
@@ -1103,38 +1056,13 @@ const Stacks: FC<{
 	const queryClient = useQueryClient();
 	const addressSpace = useAddressSpace();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: graphTrunk = defaultSettings.graphTrunk } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.graphTrunk ?? defaultSettings.graphTrunk,
+	});
 	const selection = useSelection("applied", addressSpace);
 	const activeList = useActiveList();
 	const dispatch = useAppDispatch();
-	const dryRunOperation = useAppSelector((state) => {
-		const pendingOperation = projectSlice.selectors.selectPendingOperation(state, projectId);
-
-		return Match.value(pendingOperation).pipe(
-			Match.tags({
-				Transfer: ({ value: mode }) => {
-					if (mode.placement === null) return;
-
-					const target = getTransferTarget(mode, selection, activeList);
-					if (!target) return;
-
-					return getOperation({
-						sources: mode.sources,
-						target,
-						placement: mode.placement,
-						kind: getTransferKind(mode),
-					})?.operation;
-				},
-			}),
-			Match.orElse(() => undefined),
-		);
-	});
-
-	// TODO: debounce?
-	const { data: dryRunOperationResult } = useDryRunOperation({
-		projectId,
-		operation: dryRunOperation,
-	});
-	const dryRunWorkspace = dryRunOperationResult?.workspace ?? null;
 	// Cards in the graph's order, the section below.
 	const { plan, stacks } = graph;
 	// Undefined `headInfo` is still loading, which is not the same as "empty" —
@@ -1143,20 +1071,7 @@ const Stacks: FC<{
 	const foldedSegments = useAppSelector((state) =>
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
-	const pendingPushBranchList = useMutationState({
-		filters: {
-			mutationKey: [projectId, "workspaceBranchAndAncestorsPush"],
-			status: "pending",
-		},
-		select: (mutation) =>
-			(mutation.state.variables as PayloadFor<"workspaceBranchAndAncestorsPush">).branch,
-	});
-	// React Compiler leaves components using useVirtualizer uncompiled, hence manual memo:
-	// a fresh Set every render would re-render every stack.
-	const pendingPushBranches = useMemo(
-		() => new Set(pendingPushBranchList),
-		[pendingPushBranchList],
-	);
+	const pendingPushBranches = usePendingPushBranches(projectId);
 	const retainScrollElement = useCallback(
 		(element: HTMLDivElement | null) => {
 			if (element) scrollElementRef.current = element;
@@ -1323,100 +1238,103 @@ const Stacks: FC<{
 	});
 
 	return (
-		<DryRunWorkspaceContext value={dryRunWorkspace}>
-			<div
-				ref={retainScrollElement}
-				className={classes(uiStyles.scroller, styles.stacksScroller)}
-				style={{
-					"--row-padding-inline-start": `${ROW_INSET}px`,
-					"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
-				}}
-			>
-				{/* Its own tree: the files walk with their own cursor, and the arrow
-				    keys spill into the cards' tree at its edge. */}
-				<div ref={headRef}>{head}</div>
-				<div className={styles.dock} style={{ "--dock-offset": `${dockOffset}px` }}>
-					{dock}
-				</div>
-				<GraphGap height={CARD_GAP} />
-				{/* One tree: the cards and the upstream section below them share the
-				    applied list's cursor, and arrow keys walk them in reading order. */}
-				<div
-					tabIndex={0}
-					role="tree"
-					aria-activedescendant={selection ? treeItemId(selection) : undefined}
-					className={classes(styles.tree, styles.content)}
-					data-focus-scope={"sidebar" satisfies FocusScope}
-					data-preview-source={activeList === "applied"}
-					ref={useMergedRefs<HTMLDivElement>(
-						hotkeysRef,
-						useAutofocusScope(activeList === "applied"),
-					)}
-				>
-					<div
-						className={classes(styles.stacks, styles.virtualContainer)}
-						ref={rowVirtualizer.containerRef}
-					>
-						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-							const stack = stacks[virtualRow.index];
-							if (stack === undefined) return null;
-
-							return (
-								<StackC
-									key={stack.id ?? virtualRow.index}
-									data-index={virtualRow.index}
-									ref={rowVirtualizer.measureElement}
-									projectId={projectId}
-									stack={stack}
-									checkCommit={checkCommit}
-									onAmendCommit={onAmendCommit}
-									canAmendCommit={canAmendCommit}
-									pendingPushBranches={pendingPushBranches}
-									scrollElementRef={scrollElementRef}
-									scrollPaddingEnd={scrollPaddingEnd}
-									stackScrollStart={virtualRow.start}
-									stackSize={virtualRow.size}
-									scrollMargin={scrollMargin}
-									worktrees={plan.worktrees}
-									selectedSegmentIndex={
-										selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
-									}
-									selectedCommitIndex={
-										selectedStackIndex === virtualRow.index ? selectedCommitIndex : undefined
-									}
-								/>
-							);
-						})}
-					</div>
-					{plan.worktrees.standalone.map((worktree) => (
-						<WorktreeCard
-							key={worktree.name}
-							projectId={projectId}
-							worktree={worktree}
-							worktrees={plan.worktrees}
-						/>
-					))}
-					<Section
-						projectId={projectId}
-						plan={plan}
-						onToggleIncoming={toggleIncoming}
-						onToggleHistory={toggleHistory}
-						onShowMoreHistory={() => void graph.showMoreHistory()}
-						historyMore={graph.historyMore}
-						onShowMoreRun={showMoreRun}
-						onFoldRun={foldRun}
-						scrollElementRef={scrollElementRef}
-					/>
-				</div>
-
-				{isEmpty && (
-					<div className={styles.empty}>
-						<NoStacks projectId={projectId} newBranch={newBranch} />
-					</div>
-				)}
-				<div className={styles.foot} />
+		<ScrollArea
+			viewportRef={retainScrollElement}
+			className={styles.stacksScroller}
+			viewportClassName={styles.stacksViewport}
+			style={{
+				"--row-padding-inline-start": `${ROW_INSET}px`,
+				// Edge to edge, the rows' own ends are all that stands them in from the window.
+				"--row-padding-inline-end": "12px",
+				"--graph-trunk-inset": `${GRAPH_TRUNK_INSET}px`,
+				"--graph-trunk": graphTrunk ? "shown" : "hidden",
+			}}
+		>
+			{/* Its own tree: the files walk with their own cursor, and the arrow
+			    keys spill into the cards' tree at its edge. */}
+			<div ref={headRef}>{head}</div>
+			<div className={styles.dock} style={{ "--dock-offset": `${dockOffset}px` }}>
+				{dock}
 			</div>
-		</DryRunWorkspaceContext>
+			<GraphGap height={CARD_GAP} />
+			{/* Where the cards would be: the panel has content, only the branches are
+			    missing, so this is an empty section in its place, not a block for the
+			    whole panel. */}
+			{isEmpty && (
+				<div className={styles.empty}>
+					<GraphRail />
+					<NoStacks projectId={projectId} />
+				</div>
+			)}
+			{/* One tree: the cards and the upstream section below them share the
+			    applied list's cursor, and arrow keys walk them in reading order. */}
+			<div
+				tabIndex={0}
+				role="tree"
+				aria-activedescendant={selection ? treeItemId(selection) : undefined}
+				className={classes(styles.tree, styles.content)}
+				data-focus-scope={"sidebar" satisfies FocusScope}
+				data-preview-source={activeList === "applied"}
+				ref={useMergedRefs<HTMLDivElement>(hotkeysRef, useAutofocusScope(activeList === "applied"))}
+			>
+				<div
+					className={classes(styles.stacks, styles.virtualContainer)}
+					ref={rowVirtualizer.containerRef}
+				>
+					{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+						const stack = stacks[virtualRow.index];
+						if (stack === undefined) return null;
+
+						return (
+							<StackC
+								key={stack.id ?? virtualRow.index}
+								data-index={virtualRow.index}
+								ref={rowVirtualizer.measureElement}
+								projectId={projectId}
+								stack={stack}
+								checkCommit={checkCommit}
+								onAmendCommit={onAmendCommit}
+								canAmendCommit={canAmendCommit}
+								pendingPushBranches={pendingPushBranches}
+								scrollElementRef={scrollElementRef}
+								scrollPaddingEnd={scrollPaddingEnd}
+								stackScrollStart={virtualRow.start}
+								stackSize={virtualRow.size}
+								scrollMargin={scrollMargin}
+								worktrees={plan.worktrees}
+								selectedSegmentIndex={
+									selectedStackIndex === virtualRow.index ? selectedSegmentIndex : undefined
+								}
+								selectedCommitIndex={
+									selectedStackIndex === virtualRow.index ? selectedCommitIndex : undefined
+								}
+							/>
+						);
+					})}
+				</div>
+				{plan.worktrees.standalone.map((worktree) => (
+					<WorktreeCard
+						key={worktree.name}
+						projectId={projectId}
+						worktree={worktree}
+						worktrees={plan.worktrees}
+					/>
+				))}
+				<Section
+					projectId={projectId}
+					plan={plan}
+					onToggleIncoming={toggleIncoming}
+					onToggleHistory={toggleHistory}
+					onShowMoreHistory={() => void graph.showMoreHistory()}
+					historyMore={graph.historyMore}
+					onShowMoreRun={showMoreRun}
+					onFoldRun={foldRun}
+					scrollElementRef={scrollElementRef}
+				/>
+			</div>
+
+			<div className={styles.foot} />
+		</ScrollArea>
 	);
 };
 
@@ -1430,7 +1348,6 @@ export const WorkspaceLists: FC<
 		absorptionTargetCommitIds: ReadonlySet<string>;
 		onActiveFileSelection: (selection: string) => void;
 		stacksHeaderActions?: ReactNode;
-		newBranch: NewBranchActions;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1440,7 +1357,6 @@ export const WorkspaceLists: FC<
 	absorptionTargetCommitIds,
 	onActiveFileSelection,
 	stacksHeaderActions,
-	newBranch,
 	...props
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
@@ -1628,7 +1544,6 @@ export const WorkspaceLists: FC<
 				<Stacks
 					projectId={projectId}
 					graph={graph}
-					newBranch={newBranch}
 					checkCommit={checkCommit}
 					onAmendCommit={amendCommit}
 					canAmendCommit={canAmendCommit}

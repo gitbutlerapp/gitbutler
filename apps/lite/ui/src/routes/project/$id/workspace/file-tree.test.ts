@@ -97,7 +97,16 @@ describe("buildFileTreeRows", () => {
 		expect(rows[0]).toMatchObject({
 			_tag: "Directory",
 			path: "src",
-			filePaths: ["src/ui/row.ts", "src/app.ts"],
+			items: [{ path: "src/ui/row.ts" }, { path: "src/app.ts" }],
+		});
+	});
+
+	test("a directory row keeps the files of its collapsed descendants", () => {
+		const rows = tree(["src/ui/row.ts", "src/ui/deep/leaf.ts", "src/app.ts"], { "src/ui": true });
+
+		expect(layout(rows)).toEqual(["src/", "  ui/", "  src/app.ts"]);
+		expect(rows[0]).toMatchObject({
+			items: [{ path: "src/ui/deep/leaf.ts" }, { path: "src/ui/row.ts" }, { path: "src/app.ts" }],
 		});
 	});
 
@@ -115,13 +124,11 @@ describe("buildFileTreeRows", () => {
 
 		const expanded = largeTree();
 		expect(expanded).toHaveLength(fileCount + 1);
-		expect(expanded[0]?._tag === "Directory" ? expanded[0].filePaths : []).toHaveLength(fileCount);
+		expect(expanded[0]?._tag === "Directory" ? expanded[0].items : []).toHaveLength(fileCount);
 
 		const collapsed = largeTree({ "target/debug": true });
 		expect(collapsed).toHaveLength(1);
-		expect(collapsed[0]?._tag === "Directory" ? collapsed[0].filePaths : []).toHaveLength(
-			fileCount,
-		);
+		expect(collapsed[0]?._tag === "Directory" ? collapsed[0].items : []).toHaveLength(fileCount);
 	});
 });
 

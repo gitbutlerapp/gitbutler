@@ -7,7 +7,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
 	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
-	import { Button, InfoMessage, EmailTextbox } from "@gitbutler/ui";
+	import { Button, InfoMessage, EmailTextbox } from "@gitbutler/ui-svelte";
 
 	const userService = inject(USER_SERVICE);
 	const loginService = inject(LOGIN_SERVICE);

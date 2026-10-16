@@ -32,18 +32,18 @@ import {
 	PR_DESCRIPTION_SYSTEM_PROMPT,
 	splitGeneratedDescription,
 } from "#ui/pr-description-generation.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 import { oversizedFile, toBase64, UPLOAD_SIZE_LIMIT } from "#ui/uploads.ts";
-import { createDiffSpec, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
+import { resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { commitAddress, addressEquals, type FileParent } from "#ui/addresses.ts";
+import { commitAddress, type Address, type FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
-import { type AppDispatch, useAppDispatch, useAppStore } from "#ui/store.ts";
-import { formatRelativeTime } from "#ui/time.ts";
+import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
+import { formatRelativeTime } from "@gitbutler/ui-react/time.ts";
 import { Toast } from "@base-ui/react";
 import { Match } from "effect";
 import type {
@@ -61,7 +61,7 @@ import type {
 } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { GUISettings } from "#electron/settings.ts";
-import { moveDraftPR } from "#ui/pr.ts";
+import { moveBranchChecklist, moveDraftPR } from "#ui/pr.ts";
 import { invalidateTags } from "#ui/api/tags.ts";
 import { presentableOperation } from "#ui/snapshot.ts";
 import { sameLogin } from "#ui/review-users.ts";
@@ -187,11 +187,9 @@ export const useApply = () => {
 							})().catch((error) => {
 								reportError(error);
 
-								toastManager.add({
-									type: "error",
+								addErrorToast(toastManager, {
 									title: "Failed to switch branch",
-									description: errorMessageForToast(error),
-									priority: "high",
+									error,
 								});
 							});
 						},
@@ -854,11 +852,9 @@ export const useSetReviewAutoMerge = (projectId: string) => {
 			void ctx.client.invalidateQueries({ queryKey: [input.projectId, "listReviews"] });
 			void ctx.client.invalidateQueries({ queryKey: [input.projectId, "getReview"] });
 
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: `Failed to ${input.enable ? "enable" : "disable"} pull request auto-merge`,
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		},
 	});
@@ -1145,7 +1141,6 @@ export const useDiscardFileChanges = ({
 	projectId: string;
 	fileParent: FileParent;
 }) => {
-	const store = useAppStore();
 	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();
 	const { isPending: isCommitDiscardChangesPending, mutate: commitDiscardChanges } =
@@ -1176,29 +1171,13 @@ export const useDiscardFileChanges = ({
 		);
 
 	/**
-	 * Discard `change`, extended to the checked files when `extendToCheckedFiles` — a row's menu
-	 * passes its own checked state, as dragging does; a list hotkey passes true, as cut and move do.
-	 * A caller with no row of its own, like the checked-set toolbar, passes a null `change` and
-	 * leans wholly on the checked set.
+	 * Discard the files `sources` names. Which files those are — one row, the files below a
+	 * directory, or the checked set — is the caller's to decide; see `useFileSetSubject`.
 	 */
-	const discard = async ({
-		change,
-		extendToCheckedFiles,
-	}: {
-		change: TreeChange | null;
-		extendToCheckedFiles: boolean;
-	}): Promise<void> => {
-		const sources = projectSlice.selectors.selectCheckedAddresses(store.getState(), projectId);
+	const discard = async (sources: Array<Address>): Promise<void> => {
+		if (sources.length === 0) return;
 
-		const areAllFilesUnder = () =>
-			sources.every(
-				(address) => address._tag === "File" && addressEquals(address.parent, fileParent),
-			);
-
-		if (!extendToCheckedFiles || sources.length === 0 || !areAllFilesUnder())
-			return change === null ? undefined : runDiscard([createDiffSpec(change, [])]);
-
-		// Checked files carry only paths, so their changes have to be looked up.
+		// The sources carry only paths, so their changes have to be looked up.
 		try {
 			const changes = await resolveDiffSpecs({ projectId, queryClient, sources });
 			// One of them gone stale fails resolution for the whole set — the reconciler is about to
@@ -1207,11 +1186,9 @@ export const useDiscardFileChanges = ({
 		} catch (error) {
 			reportError(error);
 
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: "Failed to discard changes",
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		}
 	};
@@ -1356,11 +1333,9 @@ export const useWorkspaceIntegrateUpstream = () => {
 			else void mutation.client.invalidateQueries({ queryKey });
 		},
 		onError: (error, input) => {
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: `Failed to update stack${pluralRules.select(input.updates.length) === "one" ? "" : "s"}`,
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		},
 	});
@@ -1434,11 +1409,9 @@ export const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onError: (error, input) => {
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: input._tag === "restore" ? "Failed to restore snapshot" : `Failed to ${input._tag}`,
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		},
 	});
@@ -1482,14 +1455,16 @@ export const useBranchRename = (projectId: string) => {
 			);
 			remapSearchBranch(decodeBytes(input.refName), decodeBytes(response.newRef.fullNameBytes));
 
-			await moveDraftPR({
+			const renamed = {
 				queryClient: mutation.client,
 				projectId: input.projectId,
 				oldBranch:
 					// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
 					decodeBytes(input.refName).replace(/^refs\/heads\//, ""),
 				newBranch: response.newRef.displayName,
-			});
+			};
+			await moveDraftPR(renamed);
+			await moveBranchChecklist(renamed);
 
 			dispatch(projectSlice.actions.clearPendingOperation({ projectId: input.projectId }));
 		},
@@ -1522,7 +1497,7 @@ export const useWorktreeSetArchived = (projectId: string) =>
 export const useWorktreeRemove = (projectId: string) =>
 	useMutation({
 		mutationKey: [projectId, "worktreeRemove"],
-		mutationFn: window.lite.worktreeRemove,
+		mutationFn: (name: string) => window.lite.worktreeRemove({ projectId, name, force: true }),
 		meta: { failureTitle: "Failed to remove the worktree" },
 	});
 

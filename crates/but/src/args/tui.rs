@@ -18,7 +18,7 @@ use crate::args::atoms::CliIdArg;
 pub struct Platform {
     /// When the TUI quits save the selection and restore it when re-opening.
     ///
-    /// If the saved selection cannot be restore the TUI launch normally as if
+    /// If the saved selection cannot be restored, the TUI launches normally as if
     /// `--remember-selection` wasn't passed.
     #[clap(long, default_value_t = false)]
     pub remember_selection: bool,
@@ -38,7 +38,7 @@ pub struct Platform {
 
 /// Dev only flags.
 ///
-/// Enabled with `--features tui-profiling`.
+/// Enabled with `--features tui-profiling`; `--quit-after` also supports `nightly`.
 #[derive(Debug, Clone, Copy, Default, clap::Args)]
 pub struct DevFlags {
     /// Show debug pane with selected-line metadata.
@@ -50,9 +50,10 @@ pub struct DevFlags {
 
     /// Quit after rendering this many frames.
     ///
-    /// Requires `tui-profiling` feature.
-    #[cfg(feature = "tui-profiling")]
+    /// Requires `nightly` or `tui-profiling` feature.
+    #[cfg(any(feature = "nightly", feature = "tui-profiling"))]
     #[clap(long)]
+    #[cfg_attr(not(feature = "tui-profiling"), clap(hide = true))]
     pub quit_after: Option<u64>,
 
     /// Run the TUI with an in-memory terminal and no terminal event polling.

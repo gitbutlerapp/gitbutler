@@ -40,6 +40,7 @@ export declare const apiParamNames: {
 	readonly commitInsertBlank: readonly ["projectId", "relativeTo", "side", "dryRun"];
 	readonly commitMove: readonly ["projectId", "subjectCommitIds", "relativeTo", "side", "dryRun"];
 	readonly commitMoveChangesBetween: readonly ["projectId", "sourceCommitId", "destinationCommitId", "changes", "dryRun"];
+	readonly commitRangeDiff: readonly ["projectId", "oldest", "newest"];
 	readonly commitReword: readonly ["projectId", "commitId", "message", "dryRun"];
 	readonly commitSquash: readonly ["projectId", "subjectCommitIds", "targetCommitId", "howToCombineMessages", "dryRun"];
 	readonly commitUncommit: readonly ["projectId", "subjectCommitIds", "assignTo", "dryRun"];
@@ -109,13 +110,13 @@ export declare const apiParamNames: {
 	readonly listSnapshots: readonly ["projectId", "limit", "sha", "excludeKind", "includeKind"];
 	readonly loginAndPersist: readonly ["token"];
 	readonly mergeReview: readonly ["projectId", "reviewId", "mergeMethod"];
-	readonly moveBranch: readonly ["projectId", "subjectBranch", "targetBranch", "dryRun"];
+	readonly moveBranch: readonly ["projectId", "subjectBranch", "relativeTo", "side", "dryRun"];
+	readonly newReviewTarget: readonly ["projectId", "branch"];
 	readonly openInProgram: readonly ["projectId", "programId", "path", "lineNr"];
 	readonly openInTerminal: readonly ["terminalId", "path"];
 	readonly operatingMode: readonly ["projectId"];
 	readonly peelRestoreSnapshot: readonly ["projectId", "sha"];
 	readonly publishReview: readonly ["projectId", "params"];
-	readonly removeBranch: readonly ["projectId", "stackId", "branchName"];
 	readonly removeCommentReaction: readonly ["projectId", "commentId", "reactionId"];
 	readonly removeReviewLabel: readonly ["projectId", "reviewId", "label"];
 	readonly removeReviewReaction: readonly ["projectId", "reviewId", "reactionId"];

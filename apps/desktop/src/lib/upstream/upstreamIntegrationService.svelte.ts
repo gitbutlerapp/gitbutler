@@ -25,11 +25,14 @@ export class UpstreamIntegrationService {
 		const stacks = await this.stackService.fetchStacks(projectId);
 		const updates = buildUpstreamIntegrationUpdates(stacks);
 
-		const preview = await this.backendApi.endpoints.workspaceIntegrateUpstream.mutate({
-			projectId,
-			updates,
-			dryRun: true,
-		});
+		const preview = await this.backendApi.endpoints.workspaceIntegrateUpstream.mutate(
+			{
+				projectId,
+				updates,
+				dryRun: true,
+			},
+			{ propertiesFn: () => ({ phase: "preview" }) },
+		);
 
 		return {
 			subject: deriveUpstreamIntegrationStatuses(stacks, preview.workspaceState.headInfo),
@@ -39,6 +42,8 @@ export class UpstreamIntegrationService {
 	}
 
 	integrateUpstream() {
-		return this.backendApi.endpoints.workspaceIntegrateUpstream.useMutation();
+		return this.backendApi.endpoints.workspaceIntegrateUpstream.useMutation({
+			propertiesFn: () => ({ phase: "execute" }),
+		});
 	}
 }

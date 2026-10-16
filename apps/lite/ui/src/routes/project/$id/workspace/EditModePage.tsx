@@ -12,10 +12,10 @@ import {
 	useOpenInProgram,
 	useSaveEditAndReturnToWorkspace,
 } from "#ui/api/mutations.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
-import { FileIcon } from "#ui/components/FileIcon.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
+import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { nativeMenuItem, showNativeContextMenu } from "#ui/native-menu.ts";
 import type { ConflictEntryPresence, EditModeMetadata } from "@gitbutler/but-sdk";
 import { type ConflictState, conflictHint, conflictStateOf } from "./edit-mode-conflicts.ts";
@@ -191,7 +191,7 @@ export const EditModePage: FC<{ projectId: string; metadata: EditModeMetadata }>
 	};
 
 	return (
-		<div className={styles.page}>
+		<ScrollArea className={styles.page} viewportClassName={styles.pageViewport}>
 			<div className={styles.panel}>
 				<h1 className={styles.title}>Editing commit</h1>
 				<span className={styles.commitRef}>{metadata.commitOid.slice(0, 10)}</span>
@@ -248,34 +248,20 @@ export const EditModePage: FC<{ projectId: string; metadata: EditModeMetadata }>
 
 				<div className={styles.buttons}>
 					{conflicted.length > 0 && preferredEditor && (
-						<button
-							type="button"
-							className={classes(getButtonClassName({ variant: "outline" }), styles.openAll)}
-							onClick={openConflictedFiles}
-						>
+						<Button variant="outline" className={styles.openAll} onClick={openConflictedFiles}>
 							{conflicted.length === 1
 								? `Open conflicted file in ${preferredEditor.name}`
 								: `Open ${conflicted.length} conflicted files in ${preferredEditor.name}`}
-						</button>
+						</Button>
 					)}
-					<button
-						type="button"
-						className={getButtonClassName({ variant: "pop" })}
-						disabled={busy}
-						onClick={() => void save()}
-					>
+					<Button variant="pop" disabled={busy} onClick={() => void save()}>
 						Save and return
-					</button>
-					<button
-						type="button"
-						className={classes(getButtonClassName({ variant: "outline" }))}
-						disabled={busy}
-						onClick={() => void cancel()}
-					>
+					</Button>
+					<Button variant="outline" disabled={busy} onClick={() => void cancel()}>
 						Cancel edit
-					</button>
+					</Button>
 				</div>
 			</div>
-		</div>
+		</ScrollArea>
 	);
 };

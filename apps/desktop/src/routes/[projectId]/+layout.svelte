@@ -32,7 +32,7 @@
 	import { debounce } from "$lib/utils/debounce";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
+	import { mergeUnlisten } from "@gitbutler/ui-svelte/utils/mergeUnlisten";
 	import { onDestroy, untrack, type Snippet } from "svelte";
 	import type { LayoutData } from "./$types";
 
@@ -374,7 +374,7 @@
 		{#if !baseBranch}
 			<NoBaseBranch {projectId} />
 		{:else if baseBranch}
-			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}
+			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || mode.subject.branchName}
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 					<AppLayout {projectId} sidebarDisabled={mode.type === "Edit"}>
 						{@render pageChildren()}

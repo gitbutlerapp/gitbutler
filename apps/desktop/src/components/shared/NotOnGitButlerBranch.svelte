@@ -7,7 +7,7 @@
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { AsyncButton, RadioButton, FileListItem, Link, TestId } from "@gitbutler/ui";
+	import { AsyncButton, RadioButton, FileListItem, Link, TestId } from "@gitbutler/ui-svelte";
 	import type { BaseBranch } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 

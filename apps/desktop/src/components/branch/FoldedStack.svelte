@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CollapseStackButton from "$components/branch/CollapseStackButton.svelte";
-	import { Icon } from "@gitbutler/ui";
+	import { Icon } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		branchNames?: string[];

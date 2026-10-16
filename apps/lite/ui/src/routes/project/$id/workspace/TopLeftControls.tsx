@@ -1,12 +1,12 @@
-import { getButtonClassName } from "#ui/components/Button.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
 import { sidebarFocusScopeOf } from "#ui/use-cursor.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
-import { Tooltip } from "@base-ui/react";
 import { useEffect, useState, type FC } from "react";
 import styles from "./TopLeftControls.module.css";
 
@@ -24,27 +24,19 @@ const FullWindowButton: FC = () => {
 	};
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<button
-						type="button"
-						className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
-						aria-label={workspaceHotkeys.toggleSidebar.meta.name}
-						onClick={toggle}
-					>
-						{fullWindow ? <Icon name="sidebar-narrow" /> : <Icon name="sidebar" />}
-					</button>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleSidebar.hotkey} />}>
-						{workspaceHotkeys.toggleSidebar.meta.name}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		<Tooltip
+			content={workspaceHotkeys.toggleSidebar.meta.name}
+			kbd={workspaceHotkeys.toggleSidebar.hotkey}
+		>
+			<Button
+				iconOnly
+				variant="ghost"
+				aria-label={workspaceHotkeys.toggleSidebar.meta.name}
+				onClick={toggle}
+			>
+				{fullWindow ? <Icon name="sidebar-narrow" /> : <Icon name="sidebar" />}
+			</Button>
+		</Tooltip>
 	);
 };
 
@@ -74,8 +66,21 @@ const MacSpacer: FC = () => {
 	return fullScreen ? null : <div className={styles.macSpacer} />;
 };
 
-export const TopLeftControls: FC = () => (
-	<div className={styles.container}>
+/**
+ * The window's controls, which stay put beside the traffic lights as the sidebar folds: the
+ * sidebar's header holds them, then the details header or, in the Uncommitted view, the diff's
+ * bar. `placement` names the container, so they undo its padding and land where the sidebar has them.
+ */
+export const TopLeftControls: FC<{ placement?: "sidebar" | "viewHeader" | "diffBar" }> = ({
+	placement = "sidebar",
+}) => (
+	<div
+		className={classes(
+			styles.container,
+			placement === "viewHeader" && styles.inViewHeader,
+			placement === "diffBar" && styles.inDiffBar,
+		)}
+	>
 		{isMac && <MacSpacer />}
 		<FullWindowButton />
 	</div>

@@ -20,10 +20,18 @@ CLI:
   - changed-files:
       - any-glob-to-any-file: apps/lite/**/*
 
-"@gitbutler/ui":
+"@gitbutler/ui-svelte":
   - changed-files:
-      - any-glob-to-any-file: packages/ui/**/*
+      - any-glob-to-any-file: packages/ui-svelte/**/*
+
+"@gitbutler/ui-react":
+  - changed-files:
+      - any-glob-to-any-file: packages/ui-react/**/*
 
 "@gitbutler/no-relative-imports":
   - changed-files:
       - any-glob-to-any-file: packages/no-relative-imports/**/*
+
+CSS:
+  - changed-files:
+      - any-glob-to-any-file: "**/*.css"

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { FileListItem } from "@gitbutler/ui";
+	import { FileListItem } from "@gitbutler/ui-svelte";
 	import type { ConflictState } from "$lib/files/conflictEntryPresence";
 	import type { ConflictEntryPresence } from "@gitbutler/but-sdk";
-	import type { FileStatus } from "@gitbutler/ui/components/file/types";
+	import type { FileStatus } from "@gitbutler/ui-svelte/components/file/types";
 
 	type Props = {
 		filePath: string;

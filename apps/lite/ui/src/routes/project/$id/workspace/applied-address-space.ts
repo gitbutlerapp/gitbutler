@@ -12,7 +12,7 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
 import { getTransferKind, type PendingOperation } from "#ui/operations/pending-operation.ts";
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
-import type { Stack, Worktree } from "@gitbutler/but-sdk";
+import type { Segment, Stack, Worktree } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { sectionAddresses, worktreesOnTip, type Plan } from "./Graph/layout.ts";
 
@@ -52,6 +52,8 @@ export const buildAppliedAddressSpace = ({
 	const foreign = (address: Address): Row => ({ address, owned: false });
 	// A lane's rows in reading order: files, then per segment its branch and its
 	// commits, each commit preceded by the lanes resting on it. Matches WorktreeLane.
+	const isFolded = (segment: Segment): boolean =>
+		segment.refName !== null && foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
 	const laneRows = (worktree: Worktree): Array<Row> => [
 		...(worktreeFiles.get(worktree.name) ?? []).map((path) =>
 			owned(fileAddress({ parent: worktreeChangesFileParent(worktree.name), path })),
@@ -62,7 +64,17 @@ export const buildAppliedAddressSpace = ({
 				: []),
 			...segment.commits.flatMap((commit) => [
 				...lanesOn(commit.id),
-				foreign(commitAddress({ commitId: commit.id, changeId: commit.changeId })),
+				...(isFolded(segment)
+					? []
+					: [
+							foreign(
+								commitAddress({
+									commitId: commit.id,
+									changeId: commit.changeId,
+									worktree: worktree.name,
+								}),
+							),
+						]),
 			]),
 		]),
 	];
@@ -74,24 +86,19 @@ export const buildAppliedAddressSpace = ({
 			// top branch; a folded segment hides its commits, so they are not
 			// navigable, but keeps the worktree lanes resting on them.
 			...worktreesOnTip(plan.worktrees, stack).flatMap(laneRows),
-			...stack.segments.flatMap((segment, segmentIndex) => {
-				const folded =
-					segment.refName !== null &&
-					foldedSegments[decodeBytes(segment.refName.fullNameBytes)] === true;
-				return [
-					...(segment.refName
-						? [owned(branchAddress({ branchRef: segment.refName.fullNameBytes }))]
-						: []),
-					...segment.commits.flatMap((commit, index) => [
-						...(segmentIndex === 0 && index === 0 && segment.refName !== null
-							? []
-							: lanesOn(commit.id)),
-						...(folded
-							? []
-							: [owned(commitAddress({ commitId: commit.id, changeId: commit.changeId }))]),
-					]),
-				];
-			}),
+			...stack.segments.flatMap((segment, segmentIndex) => [
+				...(segment.refName
+					? [owned(branchAddress({ branchRef: segment.refName.fullNameBytes }))]
+					: []),
+				...segment.commits.flatMap((commit, index) => [
+					...(segmentIndex === 0 && index === 0 && segment.refName !== null
+						? []
+						: lanesOn(commit.id)),
+					...(isFolded(segment)
+						? []
+						: [owned(commitAddress({ commitId: commit.id, changeId: commit.changeId }))]),
+				]),
+			]),
 		]),
 		...plan.worktrees.standalone.flatMap(laneRows),
 		...sectionAddresses(plan).map(foreign),

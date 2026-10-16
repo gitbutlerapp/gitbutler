@@ -43,10 +43,12 @@ impl Default for Mode {
 }
 
 impl Mode {
+    #[expect(dead_code)]
     pub fn bg(&self, theme: &'static Theme) -> Color {
         ModeDiscriminant::from(self).bg(theme)
     }
 
+    #[expect(dead_code)]
     pub fn fg(&self, theme: &'static Theme) -> Color {
         ModeDiscriminant::from(self).fg(theme)
     }
@@ -156,7 +158,7 @@ impl<'a> ModeRef<'a> {
             ModeRef::Normal(normal_mode) => normal_mode.marks.as_ref(),
             ModeRef::Squash(SquashMode { source, .. }) => match source {
                 SquashSource::Marks(marks) => marks.as_ref(),
-                SquashSource::Uncommitted
+                SquashSource::Uncommitted(..)
                 | SquashSource::Branch(..)
                 | SquashSource::Commit(..)
                 | SquashSource::CommittedFile(..)
@@ -175,8 +177,10 @@ impl<'a> ModeRef<'a> {
                 CommandReturnMode::Details(details_mode) => details_mode.return_mode.marks(),
             },
             ModeRef::Move(move_mode) => match &move_mode.source {
-                MoveSource::Marks(commits) => MarksRef::from_commits(commits),
-                MoveSource::Commit { .. } | MoveSource::Branch(..) => MarksRef::Empty,
+                MoveSource::Marks(marks) => marks.as_ref(),
+                MoveSource::Commit { .. }
+                | MoveSource::Branch(..)
+                | MoveSource::CommittedFile(..) => MarksRef::Empty,
             },
             ModeRef::CherryPick(cherry_pick_mode) => match &cherry_pick_mode.source {
                 CherryPickSource::Marks(marks) => marks.as_ref(),

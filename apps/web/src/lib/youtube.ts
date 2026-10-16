@@ -119,6 +119,83 @@ export async function fetchPlaylistVideos(playlistId: string): Promise<YouTubePl
 function getGitButlerPlaylistFallback(playlistId: string): YouTubePlaylist {
 	const videos: YouTubeVideo[] = [
 		{
+			id: "DsejRSPitEs",
+			title: "How to run Local LLMs",
+			description:
+				"Scott Chacon demonstrates how to run Meta's new Muse Glimmer open weight model via Ollama on a Mac M4 Studio with 36GB of RAM, using it to build a Twitter clone entirely on a free, open, local LLM.\n\nIf you would like to see how to run a good, free model on relatively normal commodity Apple hardware to do real work, check it out.\n\nM5 Max article: https://blog.gitbutler.com/local-llm-gauntlet\nOllama: https://ollama.com/\nMuse Glimmer model: https://ollama.com/library/muse-glimmer:30b-mlx\nGlimmer on Huggingface: https://huggingface.co/meta-models/Muse-Glimmer-30B",
+			thumbnail: "https://img.youtube.com/vi/DsejRSPitEs/maxresdefault.jpg",
+			publishedAt: "2026-09-10T13:12:11+00:00",
+			channelTitle: "GitButler",
+			videoId: "DsejRSPitEs",
+			url: getVideoUrl("DsejRSPitEs"),
+		},
+		{
+			id: "yho-9hpvETM",
+			title: "GitHub Stacked PRs",
+			description:
+				"Scott explains the new GitHub Stacked Pull Requests feature and demonstrates how to use GitButler to easily create and manage stacked PRs on GitHub with no extra tooling.",
+			thumbnail: "https://img.youtube.com/vi/yho-9hpvETM/maxresdefault.jpg",
+			publishedAt: "2026-08-11T15:42:27+00:00",
+			channelTitle: "GitButler",
+			videoId: "yho-9hpvETM",
+			url: getVideoUrl("yho-9hpvETM"),
+		},
+		{
+			id: "zFO210G5m7s",
+			title: "The GitButler TUI",
+			description:
+				"Join Scott while he covers the GitButler TUI - a magical terminal user interface that makes it lightning fast to stack, restack, split, absorb and generally do anything you want to your git history instantly.\n\nDocs: https://docs.gitbutler.com/gitbutler-tui",
+			thumbnail: "https://img.youtube.com/vi/zFO210G5m7s/maxresdefault.jpg",
+			publishedAt: "2026-06-19T15:51:24+00:00",
+			channelTitle: "GitButler",
+			videoId: "zFO210G5m7s",
+			url: getVideoUrl("zFO210G5m7s"),
+		},
+		{
+			id: "p-t44CsEDw0",
+			title: "GitButler CLI - Stacking Branches",
+			description:
+				"Join Scott while he walks through stacking branches using GitButler tooling (CLI, GUI)",
+			thumbnail: "https://img.youtube.com/vi/p-t44CsEDw0/maxresdefault.jpg",
+			publishedAt: "2026-03-11T14:26:25+00:00",
+			channelTitle: "GitButler",
+			videoId: "p-t44CsEDw0",
+			url: getVideoUrl("p-t44CsEDw0"),
+		},
+		{
+			id: "Jg8L3SbgZ3o",
+			title: "Intro to the GitButler CLI",
+			description:
+				"Scott walks through the GitButler CLI, a smart, drop-in replacement to the Git command line tool.\n\nWebsite: 👉 https://gitbutler.com/cli\nInstall: 👉 curl -fsSL https://gitbutler.com/install.sh | sh\nDocs 👉 https://docs.gitbutler.com/cli-overview\nGitHub repo 👉 https://github.com/gitbutlerapp/gitbutler/",
+			thumbnail: "https://img.youtube.com/vi/Jg8L3SbgZ3o/maxresdefault.jpg",
+			publishedAt: "2026-02-05T19:25:41+00:00",
+			channelTitle: "GitButler",
+			videoId: "Jg8L3SbgZ3o",
+			url: getVideoUrl("Jg8L3SbgZ3o"),
+		},
+		{
+			id: "eSNCg6_AAok",
+			title: "Gerrit Mode",
+			description:
+				"GitButler CEO Scott Chacon demonstrates GitButler's new Gerrit Mode - automatic Gerrit handling to make using the Gerrit code review system super simple. Scott shows how to enable Gerrit mode in GitButler and how to create Gerrit changes, update existing changes in both the desktop client and the CLI",
+			thumbnail: "https://img.youtube.com/vi/eSNCg6_AAok/maxresdefault.jpg",
+			publishedAt: "2025-11-14T18:59:49+00:00",
+			channelTitle: "GitButler",
+			videoId: "eSNCg6_AAok",
+			url: getVideoUrl("eSNCg6_AAok"),
+		},
+		{
+			id: "iHDF89sGI9M",
+			title: "Stacking Branches with Git and GitButler",
+			description:
+				"GitButler CEO Scott Chacon explains how to stack branches with GitButler and vanilla Git and how to set it up properly in the GitHub Pull Requests as dependencies. We will start a new feature, do a few commits, start a new branch based off of that, do some more commits and open PRs that are dependent on each other. We'll try this out both with Git and then see a much simpler way to do the same thing with GitButler.",
+			thumbnail: "https://img.youtube.com/vi/iHDF89sGI9M/maxresdefault.jpg",
+			publishedAt: "2025-10-28T14:24:45+00:00",
+			channelTitle: "GitButler",
+			videoId: "iHDF89sGI9M",
+			url: getVideoUrl("iHDF89sGI9M"),
+		},
+		{
 			id: "NOYK7LTFvZM",
 			title: "Using Cursor Hooks for automatic version control",
 			description:

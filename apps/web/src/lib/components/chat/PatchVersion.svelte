@@ -5,7 +5,7 @@
 	import { isFound } from "@gitbutler/shared/network/loadable";
 	import { type PatchVersionEvent } from "@gitbutler/shared/patchEvents/types";
 	import { getPatch } from "@gitbutler/shared/patches/patchCommitsPreview.svelte";
-	import { AvatarGroup, Icon } from "@gitbutler/ui";
+	import { AvatarGroup, Icon } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		event: PatchVersionEvent;

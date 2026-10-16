@@ -14,11 +14,12 @@ use crate::command::legacy::status::tui::tests::utils::{
 };
 use crate::command::legacy::status::tui::{BackstackEntry, Message, ReloadCause};
 use crate::command::legacy::status::{Selectable, TuiLaunchOptions, TuiOutcome, TuiRunOptions};
-use crate::tui::test_utils::TestTui;
+use crate::tui::test_utils::{Control, Shift, TestTui};
 use crate::{CliId, IdMap};
 
 mod branch_picker_tests;
 mod branch_tests;
+mod click_tests;
 mod command_tests;
 mod commit_tests;
 mod copy_tests;
@@ -204,6 +205,18 @@ fn help_popup_opens_over_status_view() {
 }
 
 #[test]
+fn help_popup_opens_when_question_mark_is_reported_with_shift() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    // Windows reports SHIFT along with `?`.
+    tui.input((KeyModifiers::SHIFT, '?'))
+        .assert_rendered_term_svg_eq(file!["snapshots/help_popup_opens_over_status_view_001.svg"]);
+}
+
+#[test]
 fn help_popup_searches_descriptions() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
@@ -346,8 +359,9 @@ fn basic_cursor_movement() {
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   tpm add A"]);
 
-    tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+    tui.input(KeyCode::Down).assert_current_line_eq(str![
+        "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+    ]);
 
     tui.input([
         KeyCode::Down,
@@ -357,7 +371,9 @@ fn basic_cursor_movement() {
         KeyCode::Down,
         KeyCode::Down,
     ])
-    .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+    .assert_current_line_eq(str![
+        "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+    ]);
 
     tui.input([
         KeyCode::Up,
@@ -405,7 +421,9 @@ fn section_jumps_shift_j_k() {
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ]);
 
     tui.input((KeyModifiers::SHIFT, 'K'))
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
@@ -455,6 +473,138 @@ fn shift_k_from_second_stack_commit_moves_to_its_header() {
 
     tui.input((KeyModifiers::SHIFT, 'K'))
         .assert_current_line_eq(str!["┊╭┄ h0 [B]"]);
+}
+
+#[test]
+fn mouse_scrolls_status() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 8,
+            ..Default::default()
+        },
+    );
+    tui.reload();
+    tui.input(Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollDown,
+        column: 1,
+        row: 1,
+        modifiers: KeyModifiers::NONE,
+    })))
+    .assert_current_line_eq(str!["┊╭┄ h0 [B]"])
+    .assert_rendered_term_svg_eq(file!["snapshots/mouse_scrolls_status_001.svg"]);
+    tui.input(Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollUp,
+        column: 1,
+        row: 1,
+        modifiers: KeyModifiers::NONE,
+    })))
+    .assert_current_line_eq(str!["┊●   tpm add A"])
+    .assert_rendered_term_svg_eq(file!["snapshots/mouse_scrolls_status_002.svg"]);
+    // At the top boundary, another wheel event must not change selection.
+    tui.input(Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollUp,
+        column: 1,
+        row: 1,
+        modifiers: KeyModifiers::NONE,
+    })))
+    .assert_current_line_eq(str!["┊●   tpm add A"])
+    .assert_rendered_term_svg_eq(file!["snapshots/mouse_scrolls_status_002.svg"]);
+    tui.input(KeyCode::Up)
+        .assert_current_line_eq(str!["┊╭┄ g0 [A]"])
+        .assert_rendered_term_svg_eq(file!["snapshots/mouse_scrolls_status_003.svg"]);
+}
+
+#[test]
+fn mouse_scroll_keeps_selection_inside_context_margins() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 11,
+            ..Default::default()
+        },
+    );
+    tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊╭┄ h0 [B]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/mouse_scroll_keeps_selection_inside_context_margins_001.svg"
+        ]);
+    tui.input(Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollDown,
+        column: 1,
+        row: 1,
+        modifiers: KeyModifiers::NONE,
+    })))
+    .assert_current_line_eq(str!["┊╭┄ h0 [B]"])
+    .assert_rendered_term_svg_eq(file![
+        "snapshots/mouse_scroll_keeps_selection_inside_context_margins_002.svg"
+    ]);
+    tui.input(Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollUp,
+        column: 1,
+        row: 1,
+        modifiers: KeyModifiers::NONE,
+    })))
+    .assert_current_line_eq(str!["┊╭┄ h0 [B]"])
+    .assert_rendered_term_svg_eq(file![
+        "snapshots/mouse_scroll_keeps_selection_inside_context_margins_001.svg"
+    ]);
+}
+
+#[test]
+fn mouse_scroll_does_not_move_selection_when_status_fits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let mut tui = test_status_tui(env);
+    tui.reload();
+    tui.input(Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollDown,
+        column: 1,
+        row: 1,
+        modifiers: KeyModifiers::NONE,
+    })))
+    .assert_current_line_eq(str!["╭┄ @ [uncommitted] (no changes)"])
+    .assert_rendered_term_svg_eq(file![
+        "snapshots/mouse_scroll_does_not_move_selection_when_status_fits_001.svg"
+    ]);
+}
+
+#[test]
+fn control_e_and_y_scroll_status_viewport() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 11,
+            ..Default::default()
+        },
+    );
+    tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊╭┄ h0 [B]"]);
+    tui.input(Control('e'))
+        .assert_current_line_eq(str!["┊╭┄ h0 [B]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/control_e_and_y_scroll_status_viewport_001.svg"
+        ]);
+    tui.input(Control('y'))
+        .assert_current_line_eq(str!["┊╭┄ h0 [B]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/control_e_and_y_scroll_status_viewport_002.svg"
+        ]);
+    tui.input('?');
+    tui.input('/');
+    tui.input("scroll status")
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/control_e_and_y_scroll_status_viewport_003.svg"
+        ]);
 }
 
 #[test]
@@ -565,7 +715,9 @@ fn moving_to_merge_base_scrolls_to_keep_selection_visible() {
         .assert_current_line_eq(str!["┊╭┄ h0 [B]"]);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ]);
 }
 
 #[test]
@@ -592,6 +744,59 @@ fn reload_preserves_visible_selection_when_scrolled() {
         "snapshots/reload_preserves_visible_selection_when_scrolled_001.svg"
     ])
     .assert_current_line_eq(str!["┊●   lrm add B"]);
+}
+
+#[test]
+fn status_scroll_is_ignored_during_inline_reword() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            height: 8,
+            ..Default::default()
+        },
+    );
+    tui.input([KeyCode::Down, KeyCode::Down]);
+    tui.input(KeyCode::Enter);
+    let scroll_down = Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollDown,
+        column: 1,
+        row: 1,
+        modifiers: KeyModifiers::NONE,
+    }));
+    let result = tui.input([scroll_down.clone(), scroll_down]);
+    assert_eq!(
+        result.app().cursor.index(),
+        3,
+        "scrolling cannot move away from the edited commit"
+    );
+    assert_eq!(
+        result.app().status_scroll.top(),
+        0,
+        "scrolling cannot hide the inline editor"
+    );
+    result.assert_rendered_term_svg_eq(file![
+        "snapshots/status_scroll_is_ignored_during_inline_reword_001.svg"
+    ]);
+    tui.input(Some(Event::Mouse(MouseEvent {
+        kind: MouseEventKind::ScrollUp,
+        column: 1,
+        row: 1,
+        modifiers: KeyModifiers::NONE,
+    })))
+    .assert_rendered_term_svg_eq(file![
+        "snapshots/status_scroll_is_ignored_during_inline_reword_001.svg"
+    ]);
+    tui.input(KeyCode::End);
+    tui.input(" updated").assert_rendered_term_svg_eq(file![
+        "snapshots/status_scroll_is_ignored_during_inline_reword_002.svg"
+    ]);
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   tpm add A updated"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/status_scroll_is_ignored_during_inline_reword_003.svg"
+        ]);
 }
 
 #[test]
@@ -852,7 +1057,9 @@ fn commit_file_toggle_on_commit_without_files_is_noop() {
         .assert_current_line_eq(str!["┊●   oun (no commit message) (no changes)"]);
 
     tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"])
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_file_toggle_on_commit_without_files_is_noop_final.svg"
         ]);
@@ -1363,9 +1570,7 @@ fn open_tui_on_uncommitted_hunk(show_diff: bool) -> TestTui<App> {
                 | CliId::CommittedHunk { .. }
                 | CliId::Branch(..)
                 | CliId::Commit { .. }
-                | CliId::Uncommitted { .. }
-                | CliId::Worktree { .. }
-                | CliId::WorktreeUncommitted { .. }
+                | CliId::UncommittedArea { .. }
                 | CliId::Stack { .. } => None,
             })
             .expect("target file should have a CLI ID");
@@ -1383,4 +1588,29 @@ fn open_tui_on_uncommitted_hunk(show_diff: bool) -> TestTui<App> {
             ..Default::default()
         },
     )
+}
+
+#[test]
+fn jumping_to_top_and_bottom_in_file_lists() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "");
+    env.file("two", "");
+    env.file("three", "");
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+    tui.input('f').assert_rendered_term_svg_eq(file![
+        "snapshots/jumping_to_top_and_bottom_in_file_lists_001.svg"
+    ]);
+    tui.input(Shift('g')).assert_rendered_term_svg_eq(file![
+        "snapshots/jumping_to_top_and_bottom_in_file_lists_002.svg"
+    ]);
+    tui.input('g').assert_rendered_term_svg_eq(file![
+        "snapshots/jumping_to_top_and_bottom_in_file_lists_003.svg"
+    ]);
 }

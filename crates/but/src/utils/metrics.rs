@@ -73,6 +73,8 @@ impl Subcommands {
             Subcommands::Metrics { .. } => Metrics,
             Subcommands::Help { .. } => Help,
             Subcommands::Onboarding => Onboarding,
+            Subcommands::Setup { .. } => Setup,
+            Subcommands::Init(_) => Init,
             Subcommands::AgentLog { .. } => AgentLog,
             #[cfg(feature = "legacy")]
             Subcommands::Actions(_) => Actions,
@@ -154,8 +156,6 @@ impl Subcommands {
                 Some(forge::pr::Subcommands::SetDraft { .. }) => SetReviewDraft,
                 Some(forge::pr::Subcommands::SetReady { .. }) => SetReviewReady,
             },
-            #[cfg(feature = "legacy")]
-            Subcommands::Setup { .. } => Setup,
             #[cfg(feature = "legacy")]
             Subcommands::Teardown { .. } => Teardown,
             Subcommands::Config(config::Platform { cmd }) => match cmd {

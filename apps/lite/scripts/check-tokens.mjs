@@ -8,7 +8,7 @@
  * to its fallback, its initial value, or whatever it inherits. That is how
  * `--radius-m` shipped square corners on two panels and `--font-mono` rendered
  * a generic monospace: each name was plausible next to a real token
- * (`--radius-md`, `--text-fontfamily-mono`) and nothing said otherwise.
+ * (`--radius-md`, `--font-family-mono`) and nothing said otherwise.
  *
  * Definitions are gathered from:
  *
@@ -19,6 +19,9 @@
  * - Lite's own CSS: `--x:` declarations and `@function --f(--a, --b)` params.
  * - Lite's TS/TSX: CSS in template strings, and any quoted `"--x"` name,
  *   which is a style key or an argument to setProperty or a local setter.
+ * - @gitbutler/ui-react, the same way. It ships source, not a build, so its
+ *   files are Lite's to compile and are checked here alongside Lite's own:
+ *   the variables its base.css declares count, and so do its references.
  *
  * Names in KNOWN_RUNTIME are set by code this script can't see; each entry
  * says who sets it. Add to that list only with the same justification.
@@ -26,12 +29,13 @@
  * Usage: node scripts/check-tokens.mjs   (exit 1 on any undefined reference)
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const liteRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const uiSrc = join(liteRoot, "ui", "src");
+const uiReactSrc = realpathSync(join(liteRoot, "node_modules", "@gitbutler", "ui-react", "src"));
 
 /** Variables set at runtime by code outside this repo's stylesheets. */
 const KNOWN_RUNTIME = new Map([
@@ -39,6 +43,19 @@ const KNOWN_RUNTIME = new Map([
 	["--anchor-width", "@base-ui-components/react positioner"],
 	["--available-height", "@base-ui-components/react positioner"],
 	["--transform-origin", "@base-ui-components/react positioner"],
+	// Base UI's scroll area writes the thumb's length on its scrollbar element.
+	["--scroll-area-thumb-height", "@base-ui/react scroll area scrollbar"],
+	["--scroll-area-thumb-width", "@base-ui/react scroll area scrollbar"],
+	// Base UI's tabs indicator carries the selected tab's box.
+	["--active-tab-top", "@base-ui/react tabs indicator"],
+	["--active-tab-height", "@base-ui/react tabs indicator"],
+	["--active-tab-width", "@base-ui/react tabs indicator"],
+	["--active-tab-left", "@base-ui/react tabs indicator"],
+	// Base UI's toast root carries its place in the stack and the heights it measured.
+	["--toast-index", "@base-ui/react toast root"],
+	["--toast-height", "@base-ui/react toast root"],
+	["--toast-frontmost-height", "@base-ui/react toast root"],
+	["--toast-offset-y", "@base-ui/react toast root"],
 	// Shiki's dual-theme output carries both themes as inline style.
 	["--shiki-light", "shiki dual-theme inline style"],
 	["--shiki-dark", "shiki dual-theme inline style"],
@@ -90,7 +107,9 @@ for (const { pkg, files } of DEPENDENCY_STYLES) {
 	for (const file of files) collect(DECLARATION, readFileSync(join(root, file), "utf8"), defined);
 }
 
-const sources = [...walk(uiSrc)].filter((p) => /\.(css|tsx?)$/.test(p) && statSync(p).isFile());
+const sources = [...walk(uiSrc), ...walk(uiReactSrc)].filter(
+	(p) => /\.(css|tsx?)$/.test(p) && statSync(p).isFile(),
+);
 for (const path of sources) {
 	const text = readFileSync(path, "utf8");
 	collect(DECLARATION, text, defined);

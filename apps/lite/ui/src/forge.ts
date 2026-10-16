@@ -73,6 +73,7 @@ export const forgeAuthFailure = (error: unknown): "missing" | "rejected" | null 
 
 	if (msg.startsWith("Not authenticated with")) return "missing";
 	if (msg.endsWith("authentication failed.")) return "rejected";
+	if (msg.endsWith("GitLab refused access for the token.")) return "rejected";
 
 	return null;
 };

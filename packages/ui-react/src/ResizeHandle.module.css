@@ -1,0 +1,114 @@
+.resizeHandle {
+	background-color: var(--border-section);
+
+	/* A horizontal group (side-by-side panels) reports a vertical separator. */
+	&[aria-orientation="vertical"] {
+		width: 1px;
+	}
+
+	&[aria-orientation="horizontal"] {
+		height: 1px;
+	}
+
+	&[data-separator="hover"],
+	&[data-separator="active"] {
+		background-color: var(--border-1);
+	}
+}
+
+/* The grab area after the hairline only: a 10px box laid over the next
+   panel's edge, since what lies before the hairline is the previous panel's
+   scrollbar, which takes a press before the page sees it. Pair with a group
+   whose resizeTargetMinimumSize is 1, or the library widens the area both ways. */
+.resizeHandle.grabAfter[aria-orientation="vertical"] {
+	z-index: 2;
+	position: relative;
+	width: 10px;
+	margin-inline-end: -9px;
+	background-color: transparent;
+
+	&::before {
+		position: absolute;
+		width: 1px;
+		inset-block: 0;
+		inset-inline-start: 0;
+		background-color: var(--border-section);
+		content: "";
+	}
+
+	&[data-separator="hover"]::before,
+	&[data-separator="active"]::before {
+		background-color: var(--border-1);
+	}
+}
+
+/* The space between panels set apart as cards. The gap is the grab area, and
+   a short grip centred in it fades and scales in on hover, and darkens and
+   grows while dragged. */
+.resizeHandle.gap {
+	position: relative;
+	background-color: transparent;
+
+	&[aria-orientation="vertical"] {
+		width: 6px;
+	}
+
+	&[aria-orientation="horizontal"] {
+		height: 6px;
+	}
+
+	&::before {
+		position: absolute;
+		margin: auto;
+		inset: 0;
+		scale: 0.75;
+		border-radius: var(--radius-full);
+		background-color: transparent;
+		content: "";
+		transition:
+			background-color var(--transition-fast),
+			scale var(--transition-medium) ease-out,
+			width var(--transition-medium) ease-out,
+			height var(--transition-medium) ease-out;
+
+		@media (prefers-reduced-motion: reduce) {
+			transition: background-color var(--transition-fast);
+		}
+	}
+
+	&[aria-orientation="vertical"]::before {
+		width: 2px;
+		height: 40px;
+	}
+
+	&[aria-orientation="horizontal"]::before {
+		width: 40px;
+		height: 2px;
+	}
+
+	&[data-separator] {
+		background-color: transparent;
+	}
+
+	/* :hover too, since a handle keeps focus after a drag and the library then
+	   reports "focus" in place of "hover". */
+	&:hover::before,
+	&[data-separator="hover"]::before,
+	&:focus-visible::before,
+	&[data-separator="active"]::before {
+		scale: 1;
+		background-color: var(--border-2);
+	}
+
+	&[data-separator="active"]::before {
+		background-color: var(--border-1);
+	}
+
+	&[aria-orientation="vertical"][data-separator="active"]::before {
+		height: 56px;
+	}
+
+	&[aria-orientation="horizontal"][data-separator="active"]::before {
+		width: 56px;
+	}
+}

@@ -1,7 +1,10 @@
 use bstr::ByteSlice;
 
 use crate::{
-    command::util::{self, commit_file_with_worktree_changes_as_two_hunks},
+    command::util::{
+        self, add_dirty_worktree, add_worktree_with_commit,
+        commit_file_with_worktree_changes_as_two_hunks, enable_worktree_manipulation,
+    },
     utils::{CommandExt as _, Sandbox},
 };
 
@@ -43,7 +46,7 @@ fn discard_removes_selected_change() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -80,7 +83,7 @@ fn discard_removes_path_prefix_mixed_with_file() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -127,7 +130,7 @@ fn concurrent_discard_to_independent_files_succeeds() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -215,7 +218,7 @@ fn discard_rename_does_not_discard_unrelated_changes() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -277,7 +280,7 @@ fn discard_the_whole_uncommitted_changes() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -339,7 +342,7 @@ fn discard_multiple_uncommitted_files_outputs_json() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -371,7 +374,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -414,7 +417,7 @@ Discarded commit tvn
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 ⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
 
 Hint: run `but help` for all commands
@@ -478,7 +481,7 @@ Discarded commit syk
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 ⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
 
 Hint: run `but help` for all commands
@@ -541,7 +544,7 @@ fn discard_multiple_commits_outputs_human() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -566,7 +569,7 @@ Discarded commits lmp, yqn
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -608,7 +611,7 @@ fn discard_committed_files_outputs_new_commit_in_json() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -645,7 +648,7 @@ Hint: run `but help` for all commands
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -723,7 +726,7 @@ Hint: Discard branches, commits, committed files, or uncommitted changes separat
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -776,7 +779,7 @@ Hint: Discard committed files from each commit separately
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -902,7 +905,7 @@ Discarded changes from A from sum to create sum
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -925,7 +928,7 @@ fn discard_single_committed_hunk_in_added_file_discards_addition() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -963,7 +966,7 @@ Discarded changes from A from tpm to create tpm
 ┊●   tpm add A (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1008,7 +1011,7 @@ Created commit xlx on branch 'a-branch-1'
 ┊│     xvz:u A file.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1053,7 +1056,7 @@ Discarded changes from renamed_file.txt from xlx to create xlx
 ┊│     xvz:u A file.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1100,7 +1103,7 @@ Created commit ylp on branch 'A'
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1138,7 +1141,7 @@ Discarded changes from B from ylp to create ylp
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1280,7 +1283,623 @@ Discarded uncommitted changes from src/discard-me.ts
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discarding_the_top_of_a_clean_worktree_removes_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    add_worktree_with_commit(&env, "wt-feature", "A");
+
+    env.but("discard wt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Removed worktree wt-feature
+
+"#]]);
+    env.but("worktree list")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+(none)
+
+Archived worktrees
+(none)
+
+"#]]);
+}
+
+#[test]
+fn discarding_the_top_of_a_dirty_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    add_dirty_worktree(&env, "wt-feature", "A");
+
+    env.but("discard wt")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-feature has uncommitted changes
+
+Hint: Use `but worktree remove --force wt-feature` to remove it anyway
+
+"#]]);
+}
+
+#[test]
+fn discarding_a_linked_worktrees_changes_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    env.but("discard")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot discard uncommitted changes in worktree wt-feature yet
+
+"#]]);
+
+    env.but("discard wt:@")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'wt:@' for '<CHANGES>'
+
+Cannot discard uncommitted changes in worktree wt-feature yet
+
+"#]]);
+
+    // Neither checkout lost its changes.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   qy A main.txt
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature}
+┊┊┊   nl A note.txt
+┊┊├┄ wt [wt-feature] (no commits)
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn bare_discard_in_an_unmanaged_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    env.but("discard")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-feature is not managed by GitButler
+
+Hint: Run `but worktree list` to see the worktrees GitButler manages
+
+"#]]);
+}
+
+#[test]
+fn discarding_top_branch_in_single_branch_mode_stack() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit -b middle --above bottom -m 'on middle'")
+        .assert()
+        .success();
+    env.but("commit -b top --above middle -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   rvm on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   ylm on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard top").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ mi [middle] [HEAD]
+┊●   ylm on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard middle").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard bottom").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn deleting_current_branch_in_single_branch_mode_preserves_changes_and_is_undoable() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("bottom.txt", "bottom\n");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.file("top.txt", "top\n");
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+    env.file("bottom.txt", "uncommitted bottom\n");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   tk M bottom.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   mqp on top
+┊│     mqp:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("branch delete top").assert().success();
+
+    // Deletion switches to the surviving branch and preserves unrelated tracked edits.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   tk M bottom.txt
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    // One undo restores both the branch and its checkout, without losing dirty changes.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   tk M bottom.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   mqp on top
+┊│     mqp:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   rtw on bottom
+┊│     rtw:t A bottom.txt
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn deleting_current_branch_in_single_branch_mode_preserves_conflicting_changes_and_is_undoable() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.file("top.txt", "top\n");
+    env.but("commit -b top --above bottom -m 'on top'")
+        .assert()
+        .success();
+    env.file("top.txt", "uncommitted top\n");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   my M top.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   row on top
+┊│     row:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────────────╮
+ my:6 M top.txt │
+────────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -top
+  ┊ 1 │ +uncommitted top
+
+"#]]);
+
+    env.but("branch delete top")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded branch 'top'
+
+⚠ A conflict occurred during checkout. Run `but status` for more information.
+
+"#]]);
+
+    // Removing the branch conflicts with its dirty file instead of losing the edit.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊    top.txt {conflicted}
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
+
+Hint: run `but help` for all commands
+
+"#]]);
+    // `but diff` omits conflicted files, so snapshot the preserved contents directly.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("top.txt")).unwrap(),
+        snapbox::str![[r#"
+uncommitted top
+
+"#]]
+    );
+
+    env.but("undo").assert().success();
+
+    // Undo restores the checked-out branch and the original uncommitted edit.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   my M top.txt
+┊
+┊╭┄ to [top] [HEAD]
+┊●   row on top
+┊│     row:m A top.txt
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+────────────────╮
+ my:6 M top.txt │
+────────────────╯
+
+@@ -1,1 +1,1 @@
+───────────────
+1 ┊   │ -top
+  ┊ 1 │ +uncommitted top
+
+"#]]);
+}
+
+#[test]
+fn discarding_multiple_branches_in_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("commit -b middle --above bottom -m 'on middle'")
+        .assert()
+        .success();
+    env.but("commit -b top --above middle -m 'on top'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   rvm on top (no changes)
+┊│
+┊├┄ mi [middle]
+┊●   ylm on middle (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard middle top").assert().success();
+
+    // HEAD follows the removed refs and commits to the first surviving branch.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discarding_empty_current_branch_in_single_branch_mode() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("commit -b bottom -m 'on bottom'")
+        .assert()
+        .success();
+    env.but("branch new top --above bottom").assert().success();
+
+    // Ensure this exercises removal of a checked-out ref with no commits of its own.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard top").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ bo [bottom] [HEAD]
+┊●   lsm on bottom (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn discarding_top_commit_in_single_branch_mode_stack() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    env.but("commit -b bottom -m 'one'").assert().success();
+    env.but("commit -b bottom -m 'two'").assert().success();
+    env.but("commit -b --above bottom -m 'three'")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD]
+┊●   mot three (no changes)
+┊│
+┊├┄ bo [bottom]
+┊●   mwt two (no changes)
+┊●   lsm one (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard mot").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   mwt two (no changes)
+┊●   lsm one (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard mwt").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom]
+┊●   lsm one (no changes)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("discard lsm").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ br [a-branch-1] [HEAD] (no commits)
+┊│
+┊├┄ bo [bottom] (no commits)
+├╯
+┊
+┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
 
 Hint: run `but help` for all commands
 

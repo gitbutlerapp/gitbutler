@@ -98,7 +98,7 @@ fn squash_two_commits() {
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -126,7 +126,7 @@ Squashed wmm into zxw
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -171,7 +171,7 @@ Squashed wmm, zxw into unl
 ┊│     unl:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -206,7 +206,7 @@ Squashed unl into wmm
 ┊│     zxw:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -237,7 +237,7 @@ Squashed wmm into unl
 ┊│     unl:o A three
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -268,7 +268,7 @@ fn use_target_message() {
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -299,7 +299,7 @@ fn use_source_message() {
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -332,7 +332,7 @@ Squashed branch 'a-branch-1' into unl
 ┊│     unl:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -365,7 +365,7 @@ Squashed branch 'a-branch-1' into zxw
 ┊│     zxw:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -414,7 +414,7 @@ fn squash_whole_branch_into_commit_on_other_branch() {
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -443,7 +443,7 @@ Squashed branches 'a-branch-1', 'add-file-branch' into tqv
 ┊│     tqv:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -497,7 +497,7 @@ fn squash_multiple_branches_into_commit_on_one_of_the_branch_sources() {
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -526,7 +526,7 @@ Squashed branches 'target-branch', 'a-branch-1', 'add-file-branch' into tqv
 ┊│     tqv:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -567,7 +567,7 @@ Squashed branch 'a-branch-1' into unl
 ┊│     unl:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -606,7 +606,7 @@ Squashed branch 'a-branch-1' into unl
 ┊│     unl:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -619,7 +619,7 @@ fn agent_squash_without_message_keeps_combined_message_instead_of_editor() {
 
     // Agents get no editor even if one is configured; a spawned editor would fail the test.
     env.but("squash a-branch-1")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .env("GIT_EDITOR", "false")
         .assert()
         .success();
@@ -638,7 +638,7 @@ fn agent_squash_without_message_keeps_combined_message_instead_of_editor() {
 ┊│     unl:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -669,7 +669,7 @@ fn json_squash_without_message_keeps_combined_message_instead_of_editor() {
 ┊│     unl:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -842,7 +842,7 @@ fn aborts_on_conflicts() {
 ┊│     oyv:u A file.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -881,7 +881,7 @@ fn cannot_squash_into_commits_on_unapplied_branches() {
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -933,7 +933,7 @@ fn cannot_squash_branch_with_one_commit_into_that_one_commit() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -974,7 +974,7 @@ Squashed wmm into zxw
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1008,7 +1008,7 @@ Squashed branch 'one' into uqr
 ┊│     slw:o A three
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1037,7 +1037,7 @@ fn amend_uncommitted_files_into_commit() {
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1064,7 +1064,7 @@ Amended tqv
 ┊│     tqv:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1088,7 +1088,7 @@ fn amend_all_uncommitted_changes_into_commit() {
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1115,7 +1115,7 @@ Amended tqv
 ┊│     tqv:t A two
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1220,7 +1220,7 @@ Amended wmm
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1254,7 +1254,7 @@ Amended zxw
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1280,7 +1280,7 @@ fn cannot_amend_files_from_different_commits() {
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1324,7 +1324,7 @@ fn cannot_amend_files_in_ways_that_cause_conflicts() {
 ┊│     lrm:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1369,7 +1369,7 @@ Amended wmm
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1425,7 +1425,7 @@ Error: --target cannot be an empty branch
 ┊●   tqv (no commit message) (no changes)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1484,7 +1484,7 @@ Uncommitted wmm
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1517,7 +1517,7 @@ fn squash_into_uncommitted_area_to_uncommit_file() {
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1546,7 +1546,7 @@ Uncommitted from wmm
 ┊│     unl:k A one
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1582,7 +1582,7 @@ fn cannot_uncommit_files_in_ways_that_cause_conflicts() {
 ┊│     lrm:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1730,7 +1730,7 @@ fn committed_file_to_uncommitted_area() {
   ],
   "stacks": [
     {
-      "cliId": "j0",
+      "cliId": "i0",
       "assignedChanges": [],
       "branches": [
         {
@@ -1773,7 +1773,7 @@ fn committed_file_to_uncommitted_area() {
 ...
     },
     {
-      "cliId": "k0",
+      "cliId": "j0",
       "assignedChanges": [],
       "branches": [
         {
@@ -1890,7 +1890,7 @@ fn uncommitted_hunk_to_commit_smoke() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -1932,7 +1932,7 @@ fn squash_path_prefix_into_commit() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -1967,7 +1967,7 @@ fn uncommitted_area_to_commit_smoke() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2021,7 +2021,7 @@ fn uncommitted_to_commit_consumes_renames() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2087,7 +2087,7 @@ fn uncommitted_file_to_commit_consumes_renames() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2149,7 +2149,7 @@ fn uncommitted_deleted_file_to_commit_keeps_unrelated_deleted_file() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2214,7 +2214,7 @@ fn commit_to_uncommitted_smoke() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2268,7 +2268,7 @@ fn commit_without_message_to_commit() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 "#]]);
 
@@ -2286,7 +2286,7 @@ fn commit_without_message_to_commit() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 "#]]);
 
@@ -2303,7 +2303,7 @@ fn commit_without_message_to_commit() {
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 "#]]);
 }
@@ -2417,7 +2417,7 @@ fn squash_amending_modified_and_renamed_file() {
 ┊│     ouv:k A file-2
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2440,7 +2440,7 @@ Hint: run `but help` for all commands
 ┊│     ouv:k A file-2
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -2459,7 +2459,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊│     ouv:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2496,7 +2496,7 @@ seven
 ┊●   knw Add file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2633,7 +2633,7 @@ seven
 ┊●   knw Add file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2770,7 +2770,7 @@ fn squash_deleted_committed_file_and_hunk_both_propagate_deletion() {
 ┊│     qss:n A deleted.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2804,7 +2804,7 @@ Hint: run `but help` for all commands
 ┊│     qss:n A deleted.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2850,7 +2850,7 @@ fn squash_renamed_committed_file_transfers_both_content_and_renaming() {
 ┊│     nxx:n A original.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2871,7 +2871,7 @@ Hint: run `but help` for all commands
 ┊│     nxx:n A original.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2911,7 +2911,7 @@ fn squash_hunk_from_renamed_committed_file_does_not_transfer_renaming() {
 ┊│     nxx:n A original.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2950,7 +2950,7 @@ Hint: run `but help` for all commands
 ┊│     nxx:n A original.txt
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -2980,7 +2980,7 @@ fn doesnt_open_editor_if_no_sources_have_message() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3002,7 +3002,7 @@ Hint: run `but help` for all commands
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3032,7 +3032,7 @@ fn doesnt_open_editor_if_no_target_has_message() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3054,7 +3054,7 @@ Hint: run `but help` for all commands
 ┊│     orn:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3086,7 +3086,7 @@ fn doesnt_open_editor_if_both_source_and_target_doesnt_have_a_message() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3109,7 +3109,7 @@ Hint: run `but help` for all commands
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3139,7 +3139,7 @@ fn squashing_into_branch_that_sits_below_empty_branch() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -3161,7 +3161,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊│     tpm:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3220,7 +3220,7 @@ fn squash_without_source_implies_uncommitted() {
 ┊│     tpm:t A A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
 
@@ -3245,7 +3245,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 ┊│     tpm:q A file
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3279,7 +3279,7 @@ fn squash_uncommit_branches() {
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3302,7 +3302,7 @@ Uncommitted 'A', 'B', 'C'
 ┊   pl A B
 ┊   wx A C
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -3330,7 +3330,7 @@ Hint: run `but branch new` to create a new branch to work on
 ┊│     lrm:p A B
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3353,7 +3353,7 @@ fn squash_uncommit_empty_branch() {
 ┊╭┄ br [a-branch-1] (no commits)
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3373,7 +3373,7 @@ Uncommitted 'a-branch-1'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -3425,6 +3425,41 @@ Squashed nsn into tpm
     );
 }
 
+#[test]
+fn squash_a_worktree_branch_into_its_bottom_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
+    env.invoke_bash(format!(
+        r#"cd "{}" && echo more >>wt-file.txt && git commit -q -am 'more W'"#,
+        wt_dir.display()
+    ));
+
+    env.but("squash wt-feature --message 'add W'")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Squashed branch 'wt-feature' into nsn
+
+"#]]);
+
+    // Both worktree commits become one, and the worktree's checkout follows it.
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+* edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
+| * 376d6e7 (HEAD -> wt-feature) add W
+|/  
+* 9477ae7 (A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
 /// A worktree's commit uncommits into that worktree's area, so `@` is refused for it and its
 /// own area is the target; a workspace commit cannot target a worktree's area either.
 #[test]
@@ -3470,14 +3505,14 @@ Uncommitted nsn
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ {worktree uncommitted}
+┊┊╭┄ wt:@ [uncommitted] {wt-feature}
 ┊┊┊   nv A wt-file.txt
-┊┊├┄ wt {wt-feature}
+┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -3491,4 +3526,178 @@ Hint: run `but help` for all commands
 
 "#]]
     );
+}
+
+#[test]
+fn squash_a_worktrees_whole_uncommitted_area_into_a_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    super::util::add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main-file.txt", "main change");
+
+    env.but("squash @ wt:@ --target lrm")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot use changes from the uncommitted area and worktree wt-feature together
+
+Hint: An operation can only take changes from one checkout at a time
+
+"#]]);
+
+    env.but("squash wt:@ --target lrm")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended lrm
+
+"#]]);
+
+    // The worktree's change lands in B's commit and leaves its area; main's change stays put.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted]
+┊   nu A main-file.txt
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature] (no commits)
+┊├╯
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+┊│     lrm:u A note.txt
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn squash_without_sources_in_a_linked_worktree_takes_its_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    super::util::enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main-file.txt", "main change");
+
+    env.but("squash --target lrm")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended lrm
+
+"#]]);
+
+    // The worktree's change lands in B's commit; main's change stays uncommitted.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted]
+┊   nu A main-file.txt
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-feature] (no commits)
+┊├╯
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+┊│     lrm:u A note.txt
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+#[test]
+fn squash_without_sources_in_an_unmanaged_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = super::util::add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main-file.txt", "main change");
+
+    env.but("squash --target lrm")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Worktree wt-feature is not managed by GitButler
+
+Hint: Run `but worktree list` to see the worktrees GitButler manages
+
+"#]]);
+}
+
+#[test]
+fn squash_whole_branch_with_message_from_stdin() {
+    let env = one_branch_three_commits();
+
+    env.but("squash a-branch-1 -F -")
+        .stdin("squashed a branch\n\nwith a body\n")
+        .assert()
+        .success();
+
+    // `-` reads the message from stdin, with surrounding whitespace trimmed.
+    env.but("show unl").assert().success().stdout_eq(str![[r#"
+Commit:    f644bc04b0cc83e4e27c0f30ab163021ea2a9c9a
+Change-ID: unllrlqkktorzunwnukvtrnwtunkoktw
+Author:    author <author@example.com>
+Date:      2000-01-02 00:00:00 +0000 (26y ago)
+Committer: committer <committer@example.com>
+
+squashed a branch
+
+with a body
+
+Files changed:
+  A one
+  A three
+  A two
+
+"#]]);
+}
+
+#[test]
+fn message_file_cannot_be_used_when_uncommitting() {
+    let env = one_branch_three_commits();
+
+    // `@` keeps no message, so a message from a file is rejected like `-m`.
+    env.but("squash unl -t @ -F -")
+        .stdin("unused\n")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: --message and --file cannot be used when uncommitting
+
+"#]]);
 }

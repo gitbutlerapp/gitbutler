@@ -1,7 +1,7 @@
 import { SilentError } from "$lib/error/error";
 import { showWarning } from "$lib/notifications/toasts";
 import { InjectionToken } from "@gitbutler/core/context";
-import { chipToasts } from "@gitbutler/ui";
+import { chipToasts } from "@gitbutler/ui-svelte";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { DiffSpec } from "@gitbutler/but-sdk";
 

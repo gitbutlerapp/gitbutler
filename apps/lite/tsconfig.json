@@ -1,5 +1,11 @@
 {
-	"files": [],
+	// The project's own checks run the referenced configs directly. This file is
+	// the one tools that start from the app's directory find, and Storybook's
+	// component manifest builds its TypeScript program from it: with no inputs of
+	// its own it read no component, so it includes the app's UI and the
+	// component library it documents, under the UI's compiler options.
+	"extends": "./ui/tsconfig.json",
+	"include": ["ui/src", "../../packages/ui-react/src"],
 	"references": [
 		{
 			"path": "./ui/tsconfig.json"

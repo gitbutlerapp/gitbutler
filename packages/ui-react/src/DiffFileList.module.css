@@ -1,0 +1,20 @@
+/* The spacing comes from `diffFileSpacing`, inline, so it has one source. */
+.list {
+	display: flex;
+	flex-direction: column;
+	background-color: var(--bg-1);
+
+	/* The space above the first card, kept while the diff scrolls: it sticks
+	   over the code passing above the stuck headers, which stick just below it.
+	   It is the list's top padding too, so the gap after it is taken back. */
+	&::before {
+		z-index: 3;
+		position: sticky;
+		top: 0;
+		flex-shrink: 0;
+		height: var(--diff-file-top);
+		margin-bottom: calc(-1 * var(--diff-file-gap));
+		background-color: var(--bg-1);
+		content: "";
+	}
+}

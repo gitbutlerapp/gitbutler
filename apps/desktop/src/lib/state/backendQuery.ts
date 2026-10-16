@@ -1,6 +1,6 @@
 import { isBackend, type IBackend } from "$lib/backend";
 import { IpcError, isNormalizedError, type NormalizedError } from "$lib/error/normalizedError";
-import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
+import { isErrorlike } from "@gitbutler/ui-svelte/utils/typeguards";
 import { type BaseQueryApi, type QueryReturnValue } from "@reduxjs/toolkit/query";
 import type { ExtraOptions } from "$lib/state/butlerModule";
 

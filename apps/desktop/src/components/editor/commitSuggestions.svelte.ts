@@ -1,7 +1,7 @@
 import { AIService } from "$lib/ai/service";
 
-import { GhostTextPlugin } from "@gitbutler/ui";
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { GhostTextPlugin } from "@gitbutler/ui-svelte";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import type { FileChange } from "$lib/ai/types";
 import type { ChangeDiff } from "$lib/hunks/diffService.svelte";
 import type { UiState } from "$lib/state/uiState.svelte";

@@ -3,7 +3,7 @@
 	import GitbutlerLogoLink from "$lib/components/GitbutlerLogoLink.svelte";
 	import HeaderAuthSection from "$lib/components/HeaderAuthSection.svelte";
 	import * as jsonLinks from "$lib/data/links.json";
-	import { Icon, type IconName } from "@gitbutler/ui";
+	import { Icon, type IconName } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		disableLogoLink?: boolean;

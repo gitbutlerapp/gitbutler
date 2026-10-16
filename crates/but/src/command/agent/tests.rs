@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use super::{
     files::{find_line_anchored, upsert_managed_block, upsert_managed_block_file},
-    plan::{collect_instruction_writes, collect_skill_installs, repository_setup_needed},
+    plan::{collect_instruction_writes, collect_skill_installs},
     *,
 };
 
@@ -72,7 +72,6 @@ fn intro_explains_wizard_flow_before_first_prompt() {
 fn scope_options_lead_with_global_and_name_repo() {
     let repo = RepoInfo {
         root: PathBuf::from("/tmp/gitbutler"),
-        needs_setup: false,
     };
 
     let options = scope_options(&repo);
@@ -140,7 +139,6 @@ fn agent_in_use_detects_repo_marker_but_ignores_shared_agents_md() {
     std::fs::write(dir.path().join("AGENTS.md"), "x").expect("write AGENTS.md");
     let repo = RepoInfo {
         root: dir.path().to_path_buf(),
-        needs_setup: false,
     };
 
     assert!(AgentTarget::ClaudeCode.in_use(None, Some(&repo)));
@@ -170,7 +168,6 @@ fn agent_in_use_detects_existing_skill_install() {
 fn repo_display_name_resolves_dot_to_current_folder_name() {
     let repo = RepoInfo {
         root: PathBuf::from("."),
-        needs_setup: false,
     };
     let expected =
         display_name_from_path(&std::env::current_dir().expect("current dir has a folder name"))
@@ -358,7 +355,6 @@ fn instruction_writes_group_shared_agents_by_file() {
     let dir = tempfile::tempdir().expect("tempdir");
     let repo = RepoInfo {
         root: dir.path().to_path_buf(),
-        needs_setup: false,
     };
 
     let (writes, notes) = collect_instruction_writes(
@@ -392,7 +388,6 @@ fn skill_installs_expand_both_scopes() {
     let dir = tempfile::tempdir().expect("tempdir");
     let repo = RepoInfo {
         root: dir.path().to_path_buf(),
-        needs_setup: false,
     };
 
     let installs = collect_skill_installs(&[AgentTarget::Codex], Scope::Both, Some(&repo))
@@ -558,7 +553,6 @@ fn skill_installs_copilot_repo_and_global_diverge() {
     let dir = tempfile::tempdir().expect("tempdir");
     let repo = RepoInfo {
         root: dir.path().to_path_buf(),
-        needs_setup: false,
     };
 
     let installs = collect_skill_installs(&[AgentTarget::GitHubCopilot], Scope::Both, Some(&repo))
@@ -669,6 +663,62 @@ fn instruction_writes_global_emits_print_note_for_agents_without_global_target()
 }
 
 #[test]
+fn repository_agent_setup_does_not_prepare_the_repository() {
+    let dir = tempfile::tempdir().expect("repository directory");
+    let repo = gix::init(dir.path()).expect("initialize ordinary Git repository");
+    let head_before = std::fs::read(repo.git_dir().join("HEAD")).expect("HEAD");
+    let config_before = std::fs::read(repo.git_dir().join("config")).expect("config");
+    let info = discover_repo(dir.path()).expect("discover repository without registering it");
+    let policy = render_managed_policy_block(&WizardAnswers::default());
+    let plan = Plan::new(
+        Some(&info),
+        Scope::Repository,
+        vec![AgentTarget::Codex],
+        policy,
+    )
+    .expect("plan agent installation without target or commits");
+    let mut review = String::new();
+    write_review(&mut review, &plan).expect("preview");
+    assert!(
+        !review.contains("Prepare this repository") && !review.contains("but setup"),
+        "agent setup must not offer obsolete repository preparation"
+    );
+
+    let mut out = OutputChannel::new(crate::args::OutputFormat::Json);
+    apply_plan(&mut out, &plan, SkillLayout::Full).expect("install agent files only");
+
+    assert!(
+        dir.path().join("AGENTS.md").is_file(),
+        "instructions installed"
+    );
+    assert!(
+        dir.path()
+            .join(".codex/skills/gitbutler/SKILL.md")
+            .is_file(),
+        "skill installed"
+    );
+    assert_eq!(
+        std::fs::read(repo.git_dir().join("HEAD")).unwrap(),
+        head_before,
+        "agent installation must not switch to a workspace"
+    );
+    assert_eq!(
+        std::fs::read(repo.git_dir().join("config")).unwrap(),
+        config_before,
+        "agent installation must not configure targets or remotes"
+    );
+    assert!(
+        !repo.git_dir().join("gitbutler").exists(),
+        "no repository metadata"
+    );
+    assert!(
+        !repo.git_dir().join("hooks/pre-commit").exists()
+            && !repo.git_dir().join("hooks/post-checkout").exists(),
+        "no managed hooks"
+    );
+}
+
+#[test]
 fn repo_scoped_planning_requires_a_repository() {
     assert!(collect_skill_installs(&[AgentTarget::Codex], Scope::Repository, None).is_err());
     assert!(collect_instruction_writes(&[AgentTarget::Codex], Scope::Repository, None,).is_err());
@@ -678,35 +728,4 @@ fn repo_scoped_planning_requires_a_repository() {
         .expect("global instructions need no repository");
     assert_eq!(writes.len(), 1);
     assert!(notes.is_empty());
-}
-
-#[test]
-fn global_only_plan_does_not_need_repository_setup() {
-    let repo = RepoInfo {
-        root: PathBuf::from("/tmp/repo"),
-        needs_setup: true,
-    };
-
-    assert!(!repository_setup_needed(Some(&repo), Scope::Global));
-}
-
-#[test]
-fn repository_targets_need_repository_setup_when_repo_is_not_setup() {
-    let repo = RepoInfo {
-        root: PathBuf::from("/tmp/repo"),
-        needs_setup: true,
-    };
-
-    assert!(repository_setup_needed(Some(&repo), Scope::Repository));
-    assert!(repository_setup_needed(Some(&repo), Scope::Both));
-}
-
-#[test]
-fn repository_targets_do_not_need_setup_when_repo_is_already_setup() {
-    let repo = RepoInfo {
-        root: PathBuf::from("/tmp/repo"),
-        needs_setup: false,
-    };
-
-    assert!(!repository_setup_needed(Some(&repo), Scope::Repository));
 }

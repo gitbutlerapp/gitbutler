@@ -3,7 +3,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { ForgeUserCard } from "@gitbutler/ui";
+	import { ForgeUserCard } from "@gitbutler/ui-svelte";
 	import { QueryStatus } from "@reduxjs/toolkit/query";
 	import type { GitlabAccountIdentifier } from "@gitbutler/but-sdk";
 

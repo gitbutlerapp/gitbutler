@@ -6,7 +6,7 @@
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, CardGroup, Spacer, Toggle } from "@gitbutler/ui";
+	import { Button, CardGroup, Spacer, Toggle } from "@gitbutler/ui-svelte";
 
 	const { projectId }: { projectId: string } = $props();
 

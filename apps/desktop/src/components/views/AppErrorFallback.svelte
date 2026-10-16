@@ -4,7 +4,7 @@
 	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
 	import { parseQueryError } from "$lib/error/error";
-	import { Button, InfoMessage } from "@gitbutler/ui";
+	import { Button, InfoMessage } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		projectId: string;

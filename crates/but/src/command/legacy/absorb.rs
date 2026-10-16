@@ -2,7 +2,7 @@ use crate::{
     id::{CommitId, CommitIdRef},
     theme::{self, Paint},
 };
-use bstr::ByteSlice as _;
+use bstr::{BStr, ByteSlice as _};
 use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_hunk_assignment::{
@@ -15,10 +15,21 @@ use gitbutler_oplog::{
 use itertools::Itertools;
 
 use crate::{
-    CliId, IdMap,
+    CliId, CliResult, IdMap, bad_input,
+    error::BadInput,
     id::{UncommittedHunkOrFile, parser::parse_sources},
-    utils::{OutputChannel, merged_upstream::MergedUpstream},
+    utils::{
+        OutputChannel,
+        change_source::{ChangeSourceId, InvokedFrom},
+        merged_upstream::MergedUpstream,
+    },
 };
+
+fn worktree_changes_cannot_be_absorbed(name: &BStr) -> BadInput {
+    bad_input(format!(
+        "Cannot absorb uncommitted changes in worktree {name} yet"
+    ))
+}
 
 /// Amends changes into the appropriate commits where they belong.
 ///
@@ -39,11 +50,12 @@ pub(crate) fn handle(
     source: Option<&str>,
     dry_run: bool,
     allow_merged: crate::args::atoms::AllowMergedArg,
-) -> anyhow::Result<()> {
+    invoked_from: &InvokedFrom,
+) -> CliResult<()> {
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
     let source: Option<CliId> = source
-        .map(|s| -> anyhow::Result<CliId> {
+        .map(|s| -> CliResult<CliId> {
             // Uncommitted selectors resolve in the uncommitted namespace first
             // so later commits cannot shadow them; branch selectors resolve in
             // the full namespace. A selector that names neither is an error —
@@ -58,14 +70,15 @@ pub(crate) fn handle(
                     || matches!(id, CliId::Branch(..))
             });
             let first = acceptable.next().ok_or_else(|| {
-                anyhow::anyhow!(
+                bad_input(format!(
                     "'{s}' does not name an uncommitted change or branch; refusing to absorb everything"
-                )
+                ))
             })?;
             if acceptable.next().is_some() {
-                anyhow::bail!(
+                return Err(bad_input(format!(
                     "'{s}' is ambiguous - it matches more than one uncommitted change. Use more characters to disambiguate."
-                );
+                ))
+                .into());
             }
             Ok(first)
         })
@@ -73,7 +86,10 @@ pub(crate) fn handle(
 
     let target = if let Some(source) = source {
         match source {
-            CliId::UncommittedHunkOrFile(UncommittedHunkOrFile { hunks, .. }) => {
+            CliId::UncommittedHunkOrFile(UncommittedHunkOrFile { hunks, source, .. }) => {
+                if let ChangeSourceId::Worktree(name) = source {
+                    return Err(worktree_changes_cannot_be_absorbed(name.as_ref()).into());
+                }
                 // Absorb this particular file
                 AbsorptionTarget::Hunks {
                     hunks: hunks.map(|id_and_hunk| id_and_hunk.hunk).into(),
@@ -86,10 +102,16 @@ pub(crate) fn handle(
                 }
             }
             _ => {
-                anyhow::bail!("Invalid source: expected an uncommitted file or branch");
+                return Err(anyhow::anyhow!(
+                    "Invalid source: expected an uncommitted file or branch"
+                )
+                .into());
             }
         }
     } else {
+        if let ChangeSourceId::Worktree(name) = invoked_from.managed_source(&id_map)? {
+            return Err(worktree_changes_cannot_be_absorbed(name.as_ref()).into());
+        }
         // Try to absorb everything uncommitted
         Default::default()
     };

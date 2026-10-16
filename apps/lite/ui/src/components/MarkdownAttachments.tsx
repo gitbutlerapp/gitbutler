@@ -1,13 +1,15 @@
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { Modal } from "#ui/components/Popup.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { FileIcon } from "@gitbutler/ui-react/FileIcon.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { List, ListItem } from "@gitbutler/ui-react/List.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
 import { useUploadFiles } from "#ui/api/mutations.ts";
 import { userProfileQueryOptions } from "#ui/api/queries.ts";
-import * as md from "#ui/markdown-editing.ts";
-import { applyToTextarea } from "#ui/markdown-textarea.ts";
+import * as md from "@gitbutler/ui-react/markdown-editing.ts";
+import { applyToTextarea } from "@gitbutler/ui-react/markdown-textarea.ts";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { ACCEPTED_FILE_TYPES, filesFromTransfer, uploadsToMarkdown } from "#ui/uploads.ts";
-import { Dialog, Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type RefObject, useEffect, useRef, useState } from "react";
 import styles from "./MarkdownAttachments.module.css";
@@ -108,64 +110,53 @@ export const MarkdownAttachments: FC<Props> = (p) => {
 				type="file"
 			/>
 
-			<Tooltip.Root>
-				{/* Disabled buttons swallow hover, so the wrapper span carries the tooltip. */}
-				<Tooltip.Trigger render={<span className={styles.triggerWrap} />}>
-					<button
-						aria-label="Attach a file"
-						className={getButtonClassName({ variant: "ghost", iconOnly: true })}
-						disabled={!enabled}
-						onClick={() => inputRef.current?.click()}
-						type="button"
-					>
-						<Icon name={uploadFiles.isPending ? "spinner" : "paperclip"} />
-					</button>
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup />}>{reason}</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			<Tooltip content={reason}>
+				<Button
+					aria-label="Attach a file"
+					variant="ghost"
+					iconOnly
+					focusableWhenDisabled
+					disabled={!enabled}
+					onClick={() => inputRef.current?.click()}
+				>
+					<Icon name={uploadFiles.isPending ? "spinner" : "paperclip"} />
+				</Button>
+			</Tooltip>
 
 			<Modal
 				alert
 				size="small"
-				className={styles.popup}
 				open={pending.length > 0}
 				onOpenChange={(open) => open || setPending([])}
 			>
-				<Dialog.Title>
-					{pending.length === 1 ? "Upload this file?" : `Upload these ${pending.length} files?`}
-				</Dialog.Title>
-				<Dialog.Description className={styles.description}>
-					They are uploaded to gitbutler.com and anyone with the link can open them, which is what
-					lets the forge show them in your description.
-				</Dialog.Description>
-				<ul className={styles.files}>
-					{pending.map((file, index) => (
-						// Names repeat — two pasted images are both "pasted-image" —
-						// and the list is fixed while the dialog is open.
-						// oxlint-disable-next-line react/no-array-index-key
-						<li key={index}>{file.name}</li>
-					))}
-				</ul>
-				<div className={styles.actions}>
-					<button
-						className={getButtonClassName({ variant: "ghost" })}
-						onClick={() => setPending([])}
-						type="button"
-					>
+				<ModalHeader
+					title={
+						pending.length === 1 ? "Upload this file?" : `Upload these ${pending.length} files?`
+					}
+					description="They are uploaded to gitbutler.com and anyone with the link can open them, which is what lets the forge show them in your description."
+				/>
+				<ModalBody>
+					<ScrollArea className={styles.files}>
+						<List>
+							{pending.map((file, index) => (
+								// Names repeat — two pasted images are both "pasted-image" —
+								// and the list is fixed while the dialog is open.
+								// oxlint-disable-next-line react/no-array-index-key
+								<ListItem key={index} marker={<FileIcon fileName={file.name} />}>
+									{file.name}
+								</ListItem>
+							))}
+						</List>
+					</ScrollArea>
+				</ModalBody>
+				<ModalFooter>
+					<Button variant="ghost" onClick={() => setPending([])}>
 						Cancel
-					</button>
-					<button
-						className={getButtonClassName({ variant: "pop" })}
-						onClick={confirm}
-						type="button"
-					>
-						Yes, upload
-					</button>
-				</div>
+					</Button>
+					<Button variant="gray" onClick={confirm}>
+						Upload
+					</Button>
+				</ModalFooter>
 			</Modal>
 		</>
 	);

@@ -2,7 +2,7 @@
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { ProfileButton } from "@gitbutler/ui";
+	import { ProfileButton } from "@gitbutler/ui-svelte";
 
 	const userService = inject(USER_SERVICE);
 	const { openGeneralSettings } = useSettingsModal();

@@ -203,7 +203,7 @@ fn get_merge_conflict_paths(
     if merge_result.has_unresolved_conflicts(conflict_kind) {
         for conflict in merge_result.conflicts.iter() {
             if conflict.is_unresolved(conflict_kind) {
-                let path = gix::path::from_bstr(conflict.ours.location())
+                let path = gix::path::from_bstr(conflict.ours.location())?
                     .to_string_lossy()
                     .to_string();
                 paths.push(path);

@@ -11,8 +11,8 @@
 	import { type UpstreamCommit } from "@gitbutler/but-sdk";
 	import { inject } from "@gitbutler/core/context";
 
-	import VirtualList from "@gitbutler/ui/components/VirtualList.svelte";
-	import { getColorFromBranchType } from "@gitbutler/ui/utils/getColorFromBranchType";
+	import VirtualList from "@gitbutler/ui-svelte/components/VirtualList.svelte";
+	import { getColorFromBranchType } from "@gitbutler/ui-svelte/utils/getColorFromBranchType";
 	import { onMount } from "svelte";
 
 	type Props = {

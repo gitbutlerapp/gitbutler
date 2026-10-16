@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { injectOptional } from "@gitbutler/core/context";
-	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
-	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui-svelte/drag/dragStateService.svelte";
+	import { pxToRem } from "@gitbutler/ui-svelte/utils/pxToRem";
 	import { untrack } from "svelte";
 
 	interface Props {

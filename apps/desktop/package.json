@@ -26,7 +26,7 @@
 		"@gitbutler/design-core": "2.2.2",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/svelte-comment-injector": "workspace:*",
-		"@gitbutler/ui": "workspace:*",
+		"@gitbutler/ui-svelte": "workspace:*",
 		"@reduxjs/toolkit": "catalog:redux",
 		"@sentry/sveltekit": "catalog:svelte",
 		"@sveltejs/adapter-static": "catalog:svelte",

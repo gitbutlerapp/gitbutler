@@ -1,20 +1,25 @@
+import { Avatar } from "@gitbutler/ui-react/Avatar.tsx";
 import { forgeAuthFailure, forgeDestination, isCloudForge } from "#ui/forge.ts";
 import { ForgeAuthPrompt } from "./ForgeAuthPrompt.tsx";
-import { ResizeHandle } from "#ui/components/ResizeHandle.tsx";
-import { TextLink } from "#ui/components/TextLink.tsx";
-import { startAbsorb, setCursor, useCanShowFiles, useSelection } from "#ui/use-cursor.ts";
-import uiStyles from "#ui/components/ui.module.css";
+import { ResizeHandle } from "@gitbutler/ui-react/ResizeHandle.tsx";
+import { TextLink } from "@gitbutler/ui-react/TextLink.tsx";
+import {
+	sidebarFocusScopeOf,
+	startAbsorb,
+	setCursor,
+	useCanShowFiles,
+	useSelection,
+} from "#ui/use-cursor.ts";
+import { FileList } from "@gitbutler/ui-react/FileList.tsx";
+import type { AggregateCIChecks } from "#ui/ci.ts";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	type PushBeforePublish,
 	useAddReviewLabels,
-	useCommitUncommitChanges,
-	useOpenInProgram,
 	useRequestReview,
 	useResolveCommitConflictHunks,
 	useSaveGUISettings,
 } from "#ui/api/mutations.ts";
-import { downstackPushStatusFromSegments } from "#ui/segment.ts";
 import {
 	type DraftPRExtras,
 	draftPRQueryOptions,
@@ -34,8 +39,10 @@ import {
 	getReviewQueryOptions,
 	guiSettingsQueryOptions,
 	headInfoQueryOptions,
+	listCIChecksQueryOptions,
 	listEditorsQueryOptions,
 	listReviewsQueryOptions,
+	newReviewTargetQueryOptions,
 	listReviewThreadsQueryOptions,
 	treeChangesDiffsQueryOptions,
 	workspaceFileQueryOptions,
@@ -60,7 +67,6 @@ import {
 	type FileAddress,
 	fileAddress,
 	hunkAddress,
-	addressEquals,
 	type FileParent,
 	type HunkAddress,
 	type Address,
@@ -74,12 +80,14 @@ import { checkedRange, addressSpaceRange, selectionAfterChecking } from "#ui/che
 import type { BranchTab, CheckableAddress } from "#ui/projects/project.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
-import { Badge } from "#ui/components/Badge.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { useCopied } from "#ui/components/useCopied.ts";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { Badge } from "@gitbutler/ui-react/Badge.tsx";
+import { DiffStats } from "@gitbutler/ui-react/DiffStats.tsx";
+import { DropdownButton } from "@gitbutler/ui-react/DropdownButton.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { CiStatus, type CiStatusType, MetaCount } from "@gitbutler/ui-react/MetaCount.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { PullRequestComments } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
 import {
@@ -90,17 +98,17 @@ import {
 	PullRequestDescription,
 	PullRequestMeta,
 	PullRequestForm,
-	PullRequestPrimaryAction,
 } from "#ui/routes/project/$id/workspace/PullRequestForm.tsx";
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
-import { classes } from "#ui/components/classes.ts";
-import { EmptyState } from "#ui/components/EmptyState.tsx";
-import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
+import { Toggle, ToggleGroup, Toolbar } from "@base-ui/react";
 import type {
 	CommitDetails as CommitDetailsData,
 	ConflictedFile,
 	ManualConflict,
 	TreeChange,
+	TreeChanges,
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
 import {
@@ -126,7 +134,6 @@ import {
 	type ReactNode,
 	type RefObject,
 	Suspense,
-	useId,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -145,9 +152,8 @@ import {
 } from "#ui/focus-scopes.ts";
 import { buildIndexByKey, getAdjacent } from "#ui/workspace/address-space.ts";
 import { ChangeStats } from "#ui/routes/project/$id/workspace/ChangeStats.tsx";
-import { ChangeScale } from "#ui/components/ChangeScale.tsx";
-import { DiffStats } from "#ui/components/DiffStats.tsx";
-import { ChangesHeaderRow } from "#ui/routes/project/$id/workspace/ChangesHeaderRow.tsx";
+import { DiffFileHeader as UIDiffFileHeader } from "@gitbutler/ui-react/DiffFileHeader.tsx";
+import { useChangesMenuItems } from "#ui/routes/project/$id/workspace/useChangesMenuItems.ts";
 import {
 	describeLineStats,
 	getLineStats,
@@ -155,8 +161,10 @@ import {
 	type LineStats,
 } from "#ui/routes/project/$id/workspace/lineStats.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
-import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
+import { ViewHeader, ViewHeaderButton } from "@gitbutler/ui-react/ViewHeader.tsx";
+import { Tab, Tabs } from "@gitbutler/ui-react/Tabs.tsx";
+import { CopyableId } from "@gitbutler/ui-react/CopyableId.tsx";
 import {
 	changeFileRowItem,
 	conflictFileRowItem,
@@ -172,7 +180,6 @@ import {
 	type FileTreeRow,
 } from "./file-tree.ts";
 import { useFileDisplayMode } from "./useFileDisplayMode.ts";
-import { ListFilterRow } from "./ListFilterRow.tsx";
 import { useListFilter } from "./useListFilter.ts";
 import {
 	contiguousSelectionByLine,
@@ -184,13 +191,17 @@ import {
 	type HunkLineSelection,
 	wholeHunkSelectionByLine,
 } from "#ui/hunk.ts";
-import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import {
+	nativeMenuItem,
+	showNativeContextMenu,
+	showNativeMenuFromTrigger,
+} from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getHeadInfoIndex, recordedPullRequest } from "#ui/api/ref-info.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
-import type { IconName } from "#ui/components/iconNames.ts";
+import { ScrollArea, ScrollBars } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { combineHashes, hash } from "#ui/hash.ts";
 import { compareFilePaths } from "#ui/file-order.ts";
 import { assert } from "#ui/assert.ts";
@@ -202,7 +213,7 @@ import { diffGutterUnsafeCSS, useDiffGutterCheckboxes } from "./diff-gutter.ts";
 import { useDiffHunkDrag } from "./diff-hunk-drag.ts";
 import { diffLineTargetFromElement, type DiffLineTarget } from "./diff-line-target.ts";
 import { useHunkMenuItems } from "./useHunkMenuItems.ts";
-import { useRevealInFolder } from "./useRevealInFolder.ts";
+import { useOpenPathInProgram, useRevealInFolder } from "./usePathActions.ts";
 import { reviewedPaths } from "./reviewed-paths.ts";
 import { AnnotationCard } from "#ui/routes/project/$id/workspace/AnnotationCard.tsx";
 import { DiffThreadCard } from "#ui/routes/project/$id/workspace/DiffThreadCard.tsx";
@@ -219,29 +230,22 @@ import {
 	type LocalAnnotationsByPath,
 	useCommentCreate,
 } from "#ui/annotation.ts";
-import { FileIcon } from "#ui/components/FileIcon.tsx";
 import {
 	type Annotation,
 	codeViewItemMetrics,
 	codeViewLayout,
 	type DiffView,
+	type DiffViewFile,
 	getDiffView,
 	hunkAddressIdentityKey,
 	prepareDiffFiles,
 	resolveDiffSelection,
 	withoutFoldedHunks,
 } from "./diff-view.ts";
-import { DiffMinimap } from "./DiffMinimap.tsx";
 import { ImageDiff } from "./ImageDiff.tsx";
 import { DiffSearchBar } from "./DiffSearchBar.tsx";
 import type { DiffSearchMatch } from "./diff-search.ts";
 import { diffSearchMarksUnsafeCSS, useDiffSearchMarks } from "./diff-search-marks.ts";
-import {
-	getMinimapFiles,
-	measureWrapColumns,
-	type MinimapFile,
-	type MinimapSelection,
-} from "./diff-minimap.ts";
 import {
 	type ReviewedFileVersions,
 	reviewedFilesQueryOptions,
@@ -250,6 +254,7 @@ import {
 } from "#ui/reviewed-files.ts";
 import { useApplyToWorkspace } from "./useApplyToWorkspace.ts";
 import { getRandomDadJoke } from "#ui/dad-jokes.ts";
+import { openLinkExternally } from "#ui/external-link.ts";
 
 export type DiffViewerHandle = CodeViewHandle<Annotation>;
 
@@ -261,6 +266,12 @@ const EMPTY_ANNOTATIONS_BY_PATH: LocalAnnotationsByPath = new Map();
 const EMPTY_THREADS_BY_PATH: ThreadsByPath = new Map();
 const EMPTY_CONFLICTS: Array<ConflictedFile> = [];
 const EMPTY_MANUAL: Array<ManualConflict> = [];
+
+// The diff-spec API treats additions/deletions as whole files, even when they have text hunks.
+const canCheckFileLines = (file: DiffViewFile | undefined): boolean =>
+	file?.patch?.type === "Patch" &&
+	!file.patch.subject.isResultOfBinaryToTextConversion &&
+	(file.change.status.type === "Modification" || file.change.status.type === "Rename");
 
 const isInteractiveElement = (target: EventTarget): boolean =>
 	target instanceof Element &&
@@ -401,14 +412,6 @@ const navigationHunkForSelectedLines = ({
 	return hunkByKey.get(hunkAddressIdentityKey(address))?.address ?? null;
 };
 
-const lineSelectionsEqual = (a: CodeViewLineSelection, b: CodeViewLineSelection): boolean =>
-	a.id === b.id &&
-	a.range.start === b.range.start &&
-	(a.range.side ?? "additions") === (b.range.side ?? "additions") &&
-	a.range.end === b.range.end &&
-	(a.range.endSide ?? a.range.side ?? "additions") ===
-		(b.range.endSide ?? b.range.side ?? "additions");
-
 const DiffFooter: FC = () => {
 	const dispatch = useAppDispatch();
 	const view = useAppSelector(interfaceSlice.selectors.selectDiffFooterView);
@@ -426,7 +429,9 @@ const DiffFooter: FC = () => {
 					<span>Thanks for testing GitButler Next Nightly! ❤️</span>
 					<span>
 						We’d love to hear what you think.{" "}
-						<TextLink href="https://discord.gg/MmFkmaJ42D">Share feedback on Discord</TextLink>
+						<TextLink href="https://discord.gg/MmFkmaJ42D" onClick={openLinkExternally}>
+							Share feedback on Discord
+						</TextLink>
 					</span>
 				</>
 			)}
@@ -465,9 +470,6 @@ const DiffContents: FC<{
 	didScrollToViaFileRef: RefObject<boolean>;
 	pendingFileRef: RefObject<FileAddress | null>;
 	renderAllFiles: boolean;
-	minimapFiles: Array<MinimapFile> | null;
-	canUncommit: boolean;
-	uncommit: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 }> = ({
 	activeFileItemId,
 	diffContextKey,
@@ -491,12 +493,11 @@ const DiffContents: FC<{
 	didScrollToViaFileRef,
 	pendingFileRef,
 	renderAllFiles,
-	minimapFiles,
-	canUncommit,
-	uncommit,
 }) => {
 	const dispatch = useAppDispatch();
 	const newFocusableAnnotationIdRef = useRef<string | null>(null);
+	// CodeView renders its own scroller, so the bars are drawn beside it rather than around it.
+	const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
 	const { mutate: createComment } = useCommentCreate();
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: settings } = useQuery({
@@ -511,7 +512,7 @@ const DiffContents: FC<{
 			theme: cfg.theme,
 		}),
 	});
-	const { mutate: openInProgram } = useOpenInProgram();
+	const { openPathInProgram } = useOpenPathInProgram(projectId);
 	const hunkMenuItems = useHunkMenuItems({ projectId });
 	const revealInFolder = useRevealInFolder(projectId);
 	const store = useAppStore();
@@ -568,9 +569,12 @@ const DiffContents: FC<{
 		[storedSelectedLines, fileByItemId, hunkByKey],
 	);
 	const diffSelection = storedSelectionHunk ?? visibleAddressSpace.items[0] ?? null;
-	const canCheckHunks = useAppSelector((state) =>
-		projectSlice.selectors.selectCanCheckHunks(state, projectId, fileParent),
-	);
+	const canCheckSelectedLines =
+		useAppSelector((state) =>
+			projectSlice.selectors.selectCanCheckFilesOrHunks(state, projectId, fileParent),
+		) &&
+		diffSelection !== null &&
+		canCheckFileLines(fileByItemId.get(weakFileIdentityKey(diffSelection.parent)));
 	const noOperationPending = useAppSelector(
 		(state) => projectSlice.selectors.selectPendingOperation(state, projectId)._tag === "None",
 	);
@@ -589,18 +593,6 @@ const DiffContents: FC<{
 		: null;
 	const selectedLines = storedSelectionHunk ? storedSelectedLines : cursorSelectedRange;
 
-	const minimapSelection = useMemo((): MinimapSelection | null => {
-		if (!selectedLines) return null;
-
-		const { start, end, side, endSide } = selectedLines.range;
-		return {
-			itemId: selectedLines.id,
-			side: side ?? "additions",
-			start,
-			endSide: endSide ?? side ?? "additions",
-			end,
-		};
-	}, [selectedLines]);
 	const selectedLinesHunk = storedSelectionHunk ?? diffSelection;
 	// Primitives, so the item list and header closures below only pick up new
 	// identities when the selection crosses into another file — not on every
@@ -651,7 +643,8 @@ const DiffContents: FC<{
 		const nextSelectedLines = selectedLinesForHunk(selection);
 		if (!nextSelectedLines) return;
 		pendingFileRef.current = null;
-		setCursor("diff", { file: selection.parent, range: nextSelectedLines.range });
+		const { start, side } = nextSelectedLines.range;
+		setCursor("diff", { file: selection.parent, range: { start, side, end: start } });
 
 		viewerRef.current?.scrollTo({
 			type: "range",
@@ -676,7 +669,11 @@ const DiffContents: FC<{
 
 				if (lineHunk) {
 					const hunkLines = selectedLinesForHunk(lineHunk.address);
-					if (hunkLines && !lineSelectionsEqual(selectedLines, hunkLines)) {
+					if (
+						hunkLines &&
+						(selectedLines.range.start !== hunkLines.range.start ||
+							selectedLines.range.side !== hunkLines.range.side)
+					) {
 						selectDiff(lineHunk.address);
 						return;
 					}
@@ -775,7 +772,7 @@ const DiffContents: FC<{
 		});
 	};
 
-	const moveSelectedLines = (offset: -1 | 1, extend: boolean): void => {
+	const moveSelectedLines = (offset: -1 | 1): void => {
 		if (!selectedLines) return;
 		const file = fileByItemId.get(selectedLines.id);
 		if (!file || file.patch?.type !== "Patch") return;
@@ -785,7 +782,6 @@ const DiffContents: FC<{
 			range: selectedLines.range,
 			diffStyle: effectiveDiffStyle,
 			offset,
-			extend,
 		});
 		if (!range) return;
 
@@ -815,22 +811,28 @@ const DiffContents: FC<{
 	): CodeViewLineSelection | null {
 		const addresses = addressesForSelectedLines(selection, "line");
 		if (addresses.length === 0) return null;
-		const state = store.getState();
-		const checked = !addresses.every((address) =>
-			projectSlice.selectors.selectAddressChecked(state, projectId, address),
-		);
-		dispatch(projectSlice.actions.checkAddresses({ projectId, addresses, checked }));
-
-		if (shiftKey) return null;
 		const { range, id } = selection;
 		if (
 			range.start !== range.end ||
 			(range.endSide ?? range.side ?? "additions") !== (range.side ?? "additions")
-		)
+		) {
+			const state = store.getState();
+			const checked = !addresses.every((address) =>
+				projectSlice.selectors.selectAddressChecked(state, projectId, address),
+			);
+			applyLineChecks(checked ? addresses : [], checked ? [] : addresses);
 			return null;
-		const currentAddress = addresses[0];
+		}
+		const currentAddress = getLineAddressAtLine({
+			itemId: id,
+			lineNumber: range.start,
+			side: range.side ?? "additions",
+			lineType: "change",
+		});
 		const file = fileByItemId.get(id);
 		if (!currentAddress || file?.patch?.type !== "Patch") return null;
+		checkLine(currentAddress, shiftKey);
+		if (shiftKey) return null;
 		const nextState = store.getState();
 		const next = selectionAfterChecking({
 			selection,
@@ -840,23 +842,26 @@ const DiffContents: FC<{
 					range,
 					diffStyle: effectiveDiffStyle,
 					offset,
-					extend: false,
 				});
 				return nextRange ? { id, range: nextRange } : null;
 			},
 			getChecked: (selection) => {
-				const addresses = addressesForSelectedLines(selection, "line");
+				const address = getLineAddressAtLine({
+					itemId: selection.id,
+					lineNumber: selection.range.start,
+					side: selection.range.side ?? "additions",
+					lineType: "change",
+				});
 				if (
-					addresses.length === 0 ||
-					addresses.some(
-						(address) =>
-							address.hunkHeader.oldStart !== currentAddress.hunkHeader.oldStart ||
-							address.hunkHeader.newStart !== currentAddress.hunkHeader.newStart,
-					)
+					!address ||
+					address.hunkHeader.oldStart !== currentAddress.hunkHeader.oldStart ||
+					address.hunkHeader.newStart !== currentAddress.hunkHeader.newStart
 				)
 					return null;
-				return addresses.every((address) =>
-					projectSlice.selectors.selectAddressChecked(nextState, projectId, address),
+				return projectSlice.selectors.selectAddressChecked(
+					nextState,
+					projectId,
+					hunkAddress(address),
 				);
 			},
 		});
@@ -903,7 +908,7 @@ const DiffContents: FC<{
 	useHotkeys([
 		{
 			hotkey: "ArrowUp",
-			callback: () => moveSelectedLines(-1, false),
+			callback: () => moveSelectedLines(-1),
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
@@ -912,7 +917,7 @@ const DiffContents: FC<{
 		},
 		{
 			hotkey: "K",
-			callback: () => moveSelectedLines(-1, false),
+			callback: () => moveSelectedLines(-1),
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
@@ -921,7 +926,7 @@ const DiffContents: FC<{
 		},
 		{
 			hotkey: "ArrowDown",
-			callback: () => moveSelectedLines(1, false),
+			callback: () => moveSelectedLines(1),
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
@@ -930,43 +935,7 @@ const DiffContents: FC<{
 		},
 		{
 			hotkey: "J",
-			callback: () => moveSelectedLines(1, false),
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedLines !== null,
-				target: focusScopeRef,
-			},
-		},
-		{
-			hotkey: "Shift+ArrowUp",
-			callback: () => moveSelectedLines(-1, true),
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedLines !== null,
-				target: focusScopeRef,
-			},
-		},
-		{
-			hotkey: "Shift+K",
-			callback: () => moveSelectedLines(-1, true),
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedLines !== null,
-				target: focusScopeRef,
-			},
-		},
-		{
-			hotkey: "Shift+ArrowDown",
-			callback: () => moveSelectedLines(1, true),
-			options: {
-				conflictBehavior: "allow",
-				enabled: selectedLines !== null,
-				target: focusScopeRef,
-			},
-		},
-		{
-			hotkey: "Shift+J",
-			callback: () => moveSelectedLines(1, true),
+			callback: () => moveSelectedLines(1),
 			options: {
 				conflictBehavior: "allow",
 				enabled: selectedLines !== null,
@@ -1111,24 +1080,21 @@ const DiffContents: FC<{
 				});
 				if (!address) return;
 
-				dispatch(
-					projectSlice.actions.checkAddresses({
-						projectId,
-						addresses: address.lineGroups.flatMap((group) =>
-							Array.from({ length: group.lines }, (_, index) =>
-								hunkAddress({
-									...address,
-									lineGroups: [{ side: group.side, start: group.start + index, lines: 1 }],
-								}),
-							),
+				applyLineChecks(
+					address.lineGroups.flatMap((group) =>
+						Array.from({ length: group.lines }, (_, index) =>
+							hunkAddress({
+								...address,
+								lineGroups: [{ side: group.side, start: group.start + index, lines: 1 }],
+							}),
 						),
-						checked: true,
-					}),
+					),
+					[],
 				);
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedLinesHunk !== null && canCheckHunks && noOperationPending,
+				enabled: selectedLinesHunk !== null && canCheckSelectedLines && noOperationPending,
 				ignoreInputs: true,
 				target: focusScopeRef,
 				meta: diffHotkeys.checkAll.meta,
@@ -1139,7 +1105,7 @@ const DiffContents: FC<{
 			callback: toggleSelectedLinesChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedLines !== null && canCheckHunks,
+				enabled: selectedLines !== null && canCheckSelectedLines,
 				preventDefault: false,
 				stopPropagation: false,
 				target: focusScopeRef,
@@ -1151,7 +1117,7 @@ const DiffContents: FC<{
 			callback: toggleSelectedLinesChecked,
 			options: {
 				conflictBehavior: "allow",
-				enabled: selectedLines !== null && canCheckHunks,
+				enabled: selectedLines !== null && canCheckSelectedLines,
 				preventDefault: false,
 				stopPropagation: false,
 				target: focusScopeRef,
@@ -1196,11 +1162,11 @@ const DiffContents: FC<{
 			callback: () =>
 				diffSelectionHunk &&
 				settings?.editor &&
-				openInProgram({
-					projectId,
+				void openPathInProgram({
 					programId: settings.editor.id,
 					path: diffSelectionHunk.file.change.path,
 					lineNr: selectedLines?.range.start ?? null,
+					worktree: fileParent.worktree,
 				}),
 			options: {
 				enabled: !!diffSelectionHunk && !!settings?.editor,
@@ -1213,7 +1179,7 @@ const DiffContents: FC<{
 			hotkey: diffHotkeys.revealInFolder.hotkey,
 			callback: () => {
 				if (!diffSelectionHunk) return;
-				void revealInFolder(diffSelectionHunk.file.change.path);
+				void revealInFolder(diffSelectionHunk.file.change.path, fileParent.worktree);
 			},
 			options: {
 				enabled: !!diffSelectionHunk,
@@ -1291,14 +1257,6 @@ const DiffContents: FC<{
 		setCursor("diff", { file: file.address, range: selection.range });
 	}
 
-	const handleLinesSelected = (selection: CodeViewLineSelection | null): void => {
-		// Keep the active line selected when it is clicked again: Lite treats line selection as a
-		// persistent operation target, not a toggle. Still clear it when its item leaves the view.
-		if (selection === null && selectedLines !== null && fileByItemId.has(selectedLines.id)) return;
-
-		applySelectedLines(selection);
-	};
-
 	const getLineAddressAtLine = ({
 		itemId,
 		lineNumber,
@@ -1331,16 +1289,16 @@ const DiffContents: FC<{
 	// useCallback with the render-local helpers as dependencies) invalidates the compiler's cached
 	// CodeView on focus, causing Pierre to rebuild its DOM during native text selection.
 	const handleLineNumberClick: NonNullable<CodeViewOptions<Annotation>["onLineNumberClick"]> =
-		useStableCallback(({ event, numberElement }, context) => {
-			if (event.detail !== 2) return;
+		useStableCallback(({ numberElement }, context) => {
 			const target = diffLineTargetFromElement({
 				element: numberElement,
 				itemId: context.item.id,
 			});
 			if (!target) return;
-			const address = getContiguousHunkAddressAtLine(target);
-			if (!address) return;
-			applySelectedLines(selectedLinesForHunk(address));
+			applySelectedLines({
+				id: target.itemId,
+				range: { start: target.lineNumber, end: target.lineNumber, side: target.side },
+			});
 		});
 
 	const getContextMenuAddressAtLine = ({
@@ -1359,14 +1317,45 @@ const DiffContents: FC<{
 		);
 	};
 
-	const checkedHunkKeys = (): Set<string> =>
-		new Set(
-			projectSlice.selectors
-				.selectCheckedAddresses(store.getState(), projectId)
-				.values()
-				.map((address) => (address._tag === "Hunk" ? hunkAddressIdentityKey(address) : null))
-				.filter((x) => x != null),
+	/**
+	 * A whole-file check stores no individual lines, and the reducer has no diff data.
+	 * Supply every changed line in affected files so it can retain the rest when a line
+	 * is unchecked, or collapse a complete line selection back to a whole-file check.
+	 */
+	function applyLineChecks(
+		checked: Array<Extract<CheckableAddress, { _tag: "Hunk" }>>,
+		unchecked: Array<Extract<CheckableAddress, { _tag: "Hunk" }>>,
+	): void {
+		const fileIds = new Set(
+			[...checked, ...unchecked].map((address) => weakFileIdentityKey(address.parent)),
 		);
+
+		const files = fileIds
+			.values()
+			.flatMap((id) => {
+				const file = fileByItemId.get(id);
+				if (!file || !canCheckFileLines(file)) return [];
+
+				// Expand the complete file, not the visible/folded range that triggered the check.
+				const lines = file.hunks.flatMap(({ address }) =>
+					address.lineGroups.flatMap((group) =>
+						Array.from({ length: group.lines }, (_, index) =>
+							hunkAddress({
+								...address,
+								lineGroups: [{ side: group.side, start: group.start + index, lines: 1 }],
+							}),
+						),
+					),
+				);
+
+				return [{ file: file.address, lines }];
+			})
+			.toArray();
+
+		if (files.length === 0) return;
+
+		dispatch(projectSlice.actions.checkLines({ projectId, files, checked, unchecked }));
+	}
 
 	const applyCheckedAddressGroups = ({
 		previous,
@@ -1377,25 +1366,15 @@ const DiffContents: FC<{
 		next: Set<string>;
 		addressesByKey: Map<string, Array<Extract<Address, { _tag: "Hunk" }>>>;
 	}): void => {
-		const addressesForKeys = (keys: Set<string>): Array<CheckableAddress> =>
+		const addressesForKeys = (keys: Set<string>): Array<Extract<Address, { _tag: "Hunk" }>> =>
 			keys
 				.values()
 				.flatMap((key) => addressesByKey.get(key) ?? [])
 				.toArray();
 
-		dispatch(
-			projectSlice.actions.checkAddresses({
-				projectId,
-				addresses: addressesForKeys(next.difference(previous)),
-				checked: true,
-			}),
-		);
-		dispatch(
-			projectSlice.actions.checkAddresses({
-				projectId,
-				addresses: addressesForKeys(previous.difference(next)),
-				checked: false,
-			}),
+		applyLineChecks(
+			addressesForKeys(next.difference(previous)),
+			addressesForKeys(previous.difference(next)),
 		);
 	};
 
@@ -1434,14 +1413,23 @@ const DiffContents: FC<{
 		visibleAddressSpace.items
 			.values()
 			.map((address) => {
+				if (!canCheckFileLines(fileByItemId.get(weakFileIdentityKey(address.parent)))) return null;
 				const selection = selectedLinesForHunk(address);
 				const lineAddresses = selection ? addressesForSelectedLines(selection, "line") : null;
 				return lineAddresses && lineAddresses.length > 0 ? { address, lineAddresses } : null;
 			})
 			.filter((x) => x != null);
 
-	// Checkbox Shift-click extends persistent checked ranges. Shift-clicking the surrounding gutter
-	// remains Pierre's active line-range gesture, unlike the whole-row shortcut on file/commit rows.
+	const checkedHunkKeys = (): Set<string> =>
+		new Set(
+			visibleHunkGroups()
+				.flatMap(({ lineAddresses }) => lineAddresses)
+				.filter((address) =>
+					projectSlice.selectors.selectAddressChecked(store.getState(), projectId, address),
+				)
+				.map(hunkAddressIdentityKey),
+		);
+
 	function checkLine(address: HunkAddress, shiftKey: boolean): void {
 		const key = hunkAddressIdentityKey(address);
 		const previous = shiftKey && lineCheckRangeAnchor.current !== null ? checkedHunkKeys() : null;
@@ -1478,7 +1466,7 @@ const DiffContents: FC<{
 		);
 		lineCheckRangeAnchor.current = key;
 		lineCheckRangeEnd.current = key;
-		dispatch(projectSlice.actions.checkAddress({ projectId, address: source, checked }));
+		applyLineChecks(checked ? [source] : [], checked ? [] : [source]);
 	}
 
 	function checkHunkLines(
@@ -1486,6 +1474,16 @@ const DiffContents: FC<{
 		lineAddresses: Array<Extract<Address, { _tag: "Hunk" }>>,
 		shiftKey: boolean,
 	): void {
+		if (lineAddresses.length === 0) {
+			const source = fileAddress(address.parent);
+			const checked = !projectSlice.selectors.selectAddressChecked(
+				store.getState(),
+				projectId,
+				source,
+			);
+			dispatch(projectSlice.actions.checkAddress({ projectId, address: source, checked }));
+			return;
+		}
 		const key = hunkAddressIdentityKey(address);
 		if (!shiftKey || hunkCheckRangeAnchor.current === null) {
 			const state = store.getState();
@@ -1494,9 +1492,7 @@ const DiffContents: FC<{
 			);
 			hunkCheckRangeAnchor.current = key;
 			hunkCheckRangeEnd.current = key;
-			dispatch(
-				projectSlice.actions.checkAddresses({ projectId, addresses: lineAddresses, checked }),
-			);
+			applyLineChecks(checked ? lineAddresses : [], checked ? [] : lineAddresses);
 			return;
 		}
 
@@ -1580,7 +1576,8 @@ const DiffContents: FC<{
 	const { onPostRender: handleDiffPostRender, portals: diffGutterPortals } =
 		useDiffGutterCheckboxes(
 			handleHunkPostRender,
-			getLineAddressAtLine,
+			(target) =>
+				canCheckFileLines(fileByItemId.get(target.itemId)) ? getLineAddressAtLine(target) : null,
 			getContiguousHunkAddressAtLine,
 			projectId,
 			checkLine,
@@ -1591,7 +1588,6 @@ const DiffContents: FC<{
 		onPostRender: handleMarkedDiffPostRender,
 		setSearchMatches,
 		getSearchSource,
-		searchMarks,
 	} = useDiffSearchMarks(handleDiffPostRender, items);
 
 	const handOffCollapsedSelection = (itemId: string): void => {
@@ -1738,6 +1734,7 @@ const DiffContents: FC<{
 		<>
 			<CodeView
 				ref={viewerRef}
+				containerRef={setScroller}
 				renderCodeViewFooter={() => <DiffFooter key={diffContextKey} />}
 				renderCustomHeader={(item) => {
 					const file = fileByItemId.get(item.id);
@@ -1768,8 +1765,6 @@ const DiffContents: FC<{
 							selected={item.id === selectedFileItemId}
 							setCollapsed={handleSetCollapsed(item.id)}
 							setReviewed={handleSetReviewed(item.id, file.change.path, version)}
-							canUncommit={canUncommit}
-							uncommit={uncommit}
 						/>
 					);
 				}}
@@ -1833,7 +1828,6 @@ const DiffContents: FC<{
 				className={styles.diffContents}
 				items={displayItems}
 				selectedLines={selectedLines}
-				onSelectedLinesChange={handleLinesSelected}
 				options={{
 					diffStyle: effectiveDiffStyle,
 					loadDiffFiles,
@@ -1842,7 +1836,6 @@ const DiffContents: FC<{
 					overflow: diffOverflow ?? defaultSettings.diffOverflow,
 					themeType: settings?.theme ?? defaultSettings.theme,
 					stickyHeaders: true,
-					enableLineSelection: true,
 					onLineNumberClick: handleLineNumberClick,
 					layout: codeViewLayout,
 					// This appears to validate before our custom header has been slotted, in which case - if
@@ -1866,10 +1859,65 @@ const DiffContents: FC<{
             background-color: var(--bg-1);
           }
 
+          /* ui-react's DiffFile card, drawn on Pierre's parts, since CodeView
+             creates each file's host itself and Lite can't render a DiffFile.
+             Keep in step with DiffFile.module.css.
+
+             The sides and bottom of the file's card; the header draws its top.
+             See .fileHeader in Details.module.css. */
           [data-diff] {
-            border-width: 0 1px 1px 1px;
-            border-style: solid;
-            border: none;
+            border: 1px solid var(--border-2);
+            border-top: none;
+            border-radius: 0 0 calc(var(--radius-card) * var(--diff-file-roundness)) calc(var(--radius-card) * var(--diff-file-roundness));
+          }
+
+          /* As a file scrolls away its card shrinks from the bottom, so the
+             frame stays whole and the stuck header is cut off by the card's
+             edge rather than pushed out of view. Over the card's last header
+             height sticky pushes the header up; the animation moves it down
+             by as much, and the host clips it to the card. Over the last two
+             radii the corners shrink with it, so the top and bottom curves
+             meet rather than cross. */
+          :host {
+            position: relative;
+            overflow: clip;
+            border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+            view-timeline: --diffs-file block;
+            animation: diffs-card-flatten linear both;
+            animation-timeline: --diffs-file;
+            animation-range: exit-crossing calc(100% - 2 * var(--radius-card)) exit-crossing 100%;
+          }
+
+          @keyframes diffs-card-flatten {
+            to {
+              --diff-file-roundness: 0;
+            }
+          }
+
+          [data-diffs-header] {
+            animation: diffs-header-hold linear both;
+            animation-timeline: --diffs-file;
+            animation-range: exit-crossing calc(100% - ${codeViewItemMetrics.diffHeaderHeight}px)
+              exit-crossing 100%;
+          }
+
+          @keyframes diffs-header-hold {
+            to {
+              translate: 0 ${codeViewItemMetrics.diffHeaderHeight}px;
+            }
+          }
+
+          /* The card's bottom edge, over a header the edge is cutting off. */
+          :host::after {
+            position: absolute;
+            z-index: 2;
+            height: calc(var(--radius-card) * var(--diff-file-roundness));
+            inset: auto 0 0;
+            border: 1px solid var(--border-2);
+            border-top: none;
+            border-radius: 0 0 calc(var(--radius-card) * var(--diff-file-roundness)) calc(var(--radius-card) * var(--diff-file-roundness));
+            content: "";
+            pointer-events: none;
           }
 
     		  /* Pierre doesn't support image diffs yet:
@@ -1897,24 +1945,19 @@ const DiffContents: FC<{
             [data-line-type="context"],
             [data-line-type="context-expanded"]
           ) {
-            --diffs-bg-selection-number-override: color-mix(
-              var(--fill-gray-bg) var(--opacity-bg-selected-blur),
-              transparent
-            );
+            --diffs-bg-selection-number-override: var(--bg-selected-inactive);
 
             color: var(--text-1);
           }
 
-          /* Pierre pins the leading hunk separator flush against the file header:
-             its virtual layout models no gap before the first separator, so a real
-             margin would desync item heights. Inset the band inside the row
-             instead — same box, a little air under the header. */
-          [data-separator="line-info"][data-separator-first] {
-            background-color: transparent;
-
-            & [data-separator-wrapper] {
-              top: 6px;
-              height: calc(100% - 6px);
+          /* Air under the file header. Pierre zeroes this padding when there is a
+             header; the selectors mirror that rule, and the virtual layout accounts
+             for it through the paddingTop item metric. */
+          [data-diffs-header] ~ [data-diff] {
+            & [data-code],
+            &[data-diff-type="split"][data-overflow="wrap"],
+            &[data-dehydrated][data-diff-type="split"][data-overflow="scroll"] {
+              padding-top: ${codeViewItemMetrics.paddingTop}px;
             }
           }
 
@@ -1930,6 +1973,8 @@ const DiffContents: FC<{
 				}}
 			/>
 
+			<ScrollBars scrollElement={scroller} className={styles.diffScrollBars} />
+
 			{diffGutterPortals}
 
 			<DiffSearchBar
@@ -1939,18 +1984,6 @@ const DiffContents: FC<{
 				onNavigate={navigateToSearchMatch}
 				onMatchesChange={setSearchMatches}
 			/>
-
-			{minimapFiles && (
-				<DiffMinimap
-					viewerRef={viewerRef}
-					files={minimapFiles}
-					diffStyle={effectiveDiffStyle}
-					annotationsByPath={annotationsByPath}
-					threadsByPath={threadsByPath}
-					selection={minimapSelection}
-					searchMarks={searchMarks}
-				/>
-			)}
 		</>
 	);
 };
@@ -1968,8 +2001,6 @@ type DiffFileHeaderProps = {
 	selected: boolean;
 	setCollapsed: (collapsed: boolean) => void;
 	setReviewed: (reviewed: boolean) => void;
-	canUncommit: boolean;
-	uncommit: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 };
 
 const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
@@ -1978,27 +2009,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 		address: p.address,
 		path: p.change.path,
 		change: p.change,
-		canUncommit: p.canUncommit,
-		uncommit: p.uncommit,
 	});
-
-	const lastSepIdx = p.change.path.lastIndexOf("/");
-	const directoryPath = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx) : null;
-	const fileName = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
-
-	// The counts read as added/removed lines on sight, but only to someone who
-	// knows the colouring: the wording carries the units, for the tooltip and for
-	// screen readers alike.
-	const lineStatsParts = p.lineStats === null ? [] : describeLineStats(p.lineStats);
-	const lineStatsLabel = lineStatsParts.length === 0 ? null : lineStatsParts.join(", ");
-
-	const collapseLabel = p.collapsed ? "Unfold" : "Fold";
-	const reviewLabel =
-		p.reviewState === "reviewed"
-			? "Reviewed"
-			: p.reviewState === "changed"
-				? "Needs review"
-				: "Not reviewed";
 
 	return (
 		<OperationSourceC
@@ -2008,7 +2019,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 			outline="inside"
 			acceptOriginDrop
 		>
-			<header
+			<UIDiffFileHeader
 				// Not a tab stop, but mouse-focusable: clicking the header's own chrome
 				// focuses it as the nearest focusable ancestor, so Tab walks this file's
 				// actions instead of restarting at the first file in the diff, which is
@@ -2020,139 +2031,107 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 				className={classes(
 					styles.fileHeader,
 					(p.collapsed || !p.hasDiff) && styles.lone,
+					p.collapsed && styles.folded,
 					p.selected && styles.fileHeaderSelected,
 				)}
-			>
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						aria-label={collapseLabel}
-						aria-expanded={!p.collapsed}
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
-						onClick={() => p.setCollapsed(!p.collapsed)}
-					>
-						<Icon name={p.collapsed ? "chevron-right" : "chevron-down"} />
-					</Tooltip.Trigger>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup
-								render={<TooltipPopup kbd={diffHotkeys.toggleFoldFile.hotkey} kbdScope="diff" />}
-							>
-								{collapseLabel}
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
-				<h4 className={classes("text-13", styles.filePath)}>
-					<FileIcon fileName={fileName} className={styles.icon} />
-					{fileName}
-					{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
-				</h4>
-				<div className={styles.fileHeaderEnd}>
-					{p.lineStats && lineStatsLabel !== null && (
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								render={
-									<div aria-label={lineStatsLabel} className={styles.fileMeta}>
-										<DiffStats
-											added={p.lineStats.linesAdded}
-											removed={p.lineStats.linesRemoved}
-											className="text-12"
-										/>
-										<ChangeScale
-											added={p.lineStats.linesAdded}
-											removed={p.lineStats.linesRemoved}
-										/>
-									</div>
-								}
-							/>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup />}>{lineStatsLabel}</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
-					)}
-
-					<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
-						<Toolbar.Separator className={styles.fileHeaderSeparator} />
-						{/* One button carrying checkbox semantics, with the box drawn inside it,
-						    rather than a real Checkbox nested in a button or a label. Both of
-						    those leave two controls where the design has one, and Base UI's
-						    checkbox renders unfocusable inside a label. "Changed since you
-						    reviewed it" is the mixed state; the tooltip spells that out. */}
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								render={
-									<Toolbar.Button
-										aria-pressed={
-											p.reviewState === "changed" ? "mixed" : p.reviewState === "reviewed"
-										}
-										className={classes(
-											getButtonClassName({ size: "small", variant: "ghost" }),
-											styles.fileReview,
-										)}
-										onClick={() => p.setReviewed(p.reviewState !== "reviewed")}
-									>
-										<span className={styles.fileReviewBox} aria-hidden="true">
-											{p.reviewState !== null && (
-												<Icon size={10} name={p.reviewState === "reviewed" ? "tick" : "minus"} />
-											)}
-										</span>
-										Reviewed
-									</Toolbar.Button>
-								}
-							/>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup />}>{reviewLabel}</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
-						<Toolbar.Button
-							aria-label="File menu"
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-							}}
-							className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
-						>
-							<Icon name="kebab" />
-						</Toolbar.Button>
-					</Toolbar.Root>
-				</div>
-			</header>
+				path={p.change.path}
+				added={p.lineStats?.linesAdded}
+				removed={p.lineStats?.linesRemoved}
+				collapsed={p.collapsed}
+				onCollapsedChange={p.setCollapsed}
+				collapseKbd={diffHotkeys.toggleFoldFile.hotkey}
+				collapseKbdScope="diff"
+				reviewState={p.reviewState ?? "unreviewed"}
+				onReviewedChange={p.setReviewed}
+				onMenu={(event) => {
+					void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+				}}
+			/>
 		</OperationSourceC>
 	);
 };
 
-const FilesToggle: FC<{ projectId: string }> = ({ projectId }) => {
+/**
+ * Shows and hides the files panel, as an icon. While the panel is hidden the button carries the
+ * change's file count and line totals, which the panel's header shows otherwise.
+ */
+const FilesToggle: FC<{ projectId: string; fileCount: number; lineStats: LineStats }> = ({
+	projectId,
+	fileCount,
+	lineStats,
+}) => {
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesVisible(state, projectId),
 	);
+	const label = [
+		workspaceHotkeys.toggleFiles.meta.name,
+		`${fileCount} ${fileCount === 1 ? "file" : "files"} changed`,
+		...describeLineStats(lineStats),
+	].join(", ");
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<button
-						type="button"
-						className={getButtonClassName({ iconOnly: true, variant: "ghost" })}
-						aria-label={workspaceHotkeys.toggleFiles.meta.name}
-						aria-pressed={filesVisible}
-						onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
-					>
-						{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-narrow" />}
-					</button>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleFiles.hotkey} />}>
-						{workspaceHotkeys.toggleFiles.meta.name}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		<Tooltip
+			content={workspaceHotkeys.toggleFiles.meta.name}
+			kbd={workspaceHotkeys.toggleFiles.hotkey}
+		>
+			<Button
+				variant="ghost"
+				iconOnly={filesVisible}
+				aria-label={label}
+				aria-pressed={filesVisible}
+				onClick={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
+			>
+				{filesVisible ? <Icon name="files-sidebar" /> : <Icon name="sidebar-narrow" />}
+				{!filesVisible && (
+					<>
+						<Badge variant="lightGray">{fileCount}</Badge>
+						<DiffStats
+							added={lineStats.linesAdded}
+							removed={lineStats.linesRemoved}
+							className="text-12"
+						/>
+					</>
+				)}
+			</Button>
+		</Tooltip>
+	);
+};
+
+/**
+ * Review hides the sidebar so the change has the whole window, the same mode the sidebar
+ * shortcut toggles; its menu marks every file reviewed at once.
+ */
+const ReviewButton: FC<{
+	allFilesReviewed: boolean;
+	canMarkAll: boolean;
+	onToggleAllReviewed: () => void;
+}> = ({ allFilesReviewed, canMarkAll, onToggleAllReviewed }) => {
+	const dispatch = useAppDispatch();
+	const fullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+
+	const toggle = () => {
+		dispatch(interfaceSlice.actions.setDetailsFullWindow({ fullWindow: !fullWindow }));
+		const sidebarFocusScope = sidebarFocusScopeOf();
+		requestAnimationFrame(() => focusScope(fullWindow ? sidebarFocusScope : "diff"));
+	};
+
+	return (
+		<DropdownButton
+			menuLabel="Review options"
+			onClick={toggle}
+			onMenuTrigger={(trigger) => {
+				void showNativeMenuFromTrigger(trigger, [
+					nativeMenuItem({
+						label: allFilesReviewed ? "Mark all unreviewed" : "Mark all reviewed",
+						enabled: canMarkAll,
+						onSelect: onToggleAllReviewed,
+					}),
+				]);
+			}}
+		>
+			{fullWindow ? "Exit review" : "Review"}
+		</DropdownButton>
 	);
 };
 
@@ -2166,25 +2145,16 @@ const DiffOverflowToggle: FC<
 	const { mutate: saveGUISettings } = useSaveGUISettings();
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<Toggle
-						{...toggleProps}
-						aria-label="Toggle line wrapping"
-						pressed={(diffOverflow ?? defaultSettings.diffOverflow) === "wrap"}
-						onPressedChange={(pressed) =>
-							saveGUISettings({ diffOverflow: pressed ? "wrap" : "scroll" })
-						}
-					/>
+		<Tooltip content="Toggle line wrapping">
+			<Toggle
+				{...toggleProps}
+				aria-label="Toggle line wrapping"
+				pressed={(diffOverflow ?? defaultSettings.diffOverflow) === "wrap"}
+				onPressedChange={(pressed) =>
+					saveGUISettings({ diffOverflow: pressed ? "wrap" : "scroll" })
 				}
 			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>Toggle line wrapping</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		</Tooltip>
 	);
 };
 
@@ -2198,23 +2168,14 @@ const DiffBackgroundsToggle: FC<
 	const { mutate: saveGUISettings } = useSaveGUISettings();
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<Toggle
-						{...toggleProps}
-						aria-label="Toggle diff backgrounds"
-						pressed={diffBackgrounds ?? defaultSettings.diffBackground}
-						onPressedChange={(enabled) => saveGUISettings({ diffBackground: enabled })}
-					/>
-				}
+		<Tooltip content="Toggle diff backgrounds">
+			<Toggle
+				{...toggleProps}
+				aria-label="Toggle diff backgrounds"
+				pressed={diffBackgrounds ?? defaultSettings.diffBackground}
+				onPressedChange={(enabled) => saveGUISettings({ diffBackground: enabled })}
 			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>Toggle diff backgrounds</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		</Tooltip>
 	);
 };
 
@@ -2231,30 +2192,22 @@ const DiffStyleToggleGroup: FC<
 	const { mutate: saveGUISettings } = useSaveGUISettings();
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<ToggleGroup
-						{...toggleGroupProps}
-						aria-label={diffHotkeys.toggleDiffStyle.meta.name}
-						value={[diffStyle ?? defaultSettings.diffStyle]}
-						onValueChange={(value: Array<NonNullable<GUISettings["diffStyle"]>>) => {
-							const head = value[0];
-							if (head === undefined) return;
+		<Tooltip
+			content={diffHotkeys.toggleDiffStyle.meta.name}
+			kbd={diffHotkeys.toggleDiffStyle.hotkey}
+		>
+			<ToggleGroup
+				{...toggleGroupProps}
+				aria-label={diffHotkeys.toggleDiffStyle.meta.name}
+				value={[diffStyle ?? defaultSettings.diffStyle]}
+				onValueChange={(value: Array<NonNullable<GUISettings["diffStyle"]>>) => {
+					const head = value[0];
+					if (head === undefined) return;
 
-							saveGUISettings({ diffStyle: head });
-						}}
-					/>
-				}
+					saveGUISettings({ diffStyle: head });
+				}}
 			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
-						{diffHotkeys.toggleDiffStyle.meta.name}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		</Tooltip>
 	);
 };
 
@@ -2330,7 +2283,6 @@ const Diff: FC<{
 	headerSlot,
 }) => {
 	const focusScopeRef = useRef<HTMLDivElement>(null);
-	const store = useAppStore();
 	const dispatch = useAppDispatch();
 	const { mutate: setFilesReviewed } = useSetFilesReviewed();
 	const [manualCollapseByItem, setManualCollapseByItem] = useState<Map<string, boolean>>(new Map());
@@ -2365,10 +2317,10 @@ const Diff: FC<{
 
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
-	// Change stats live in the files panel, or — in the uncommitted scope, which has no files
-	// panel — in the sidebar's "Uncommitted" row. Surface them in the toolbar below whenever
-	// whichever of those owns them is hidden, so they never disappear entirely.
-	const statsShownElsewhere = canShowFiles ? filesVisible : !detailsFullWindow;
+	// Where there is a files panel its toggle carries the change stats. The uncommitted scope has
+	// none: its stats live in the sidebar's "Uncommitted" row, so the toolbar shows them once the
+	// sidebar is hidden.
+	const statsShownElsewhere = canShowFiles || !detailsFullWindow;
 
 	const filesFilter = useAppSelector((state) =>
 		projectSlice.selectors.selectFilesFilter(state, projectId),
@@ -2399,51 +2351,16 @@ const Diff: FC<{
 		() =>
 			Match.value(selection).pipe(
 				Match.tags({
-					Branch: ({ branchRef }) => branchFileParent({ branchRef }),
+					Branch: ({ branchRef, worktree }) => branchFileParent({ branchRef, worktree }),
 					File: ({ parent }) => parent,
-					Commit: ({ commitId, changeId }) => commitFileParent({ commitId, changeId }),
+					Commit: ({ commitId, changeId, worktree }) =>
+						commitFileParent({ commitId, changeId, worktree }),
 				}),
 				Match.orElseAbsurd,
 			),
 		[selection],
 	);
 
-	const { isPending: isCommitUncommitChangesPending, mutate: commitUncommitChanges } =
-		useCommitUncommitChanges();
-
-	const uncommit = (change: TreeChange, extendToCheckedFiles: boolean): void => {
-		if (fileParent._tag !== "Commit") return;
-
-		const sources = projectSlice.selectors.selectCheckedAddresses(store.getState(), projectId);
-
-		let subjectChanges = [change];
-		if (
-			extendToCheckedFiles &&
-			sources.length > 0 &&
-			sources.every(
-				(address) => address._tag === "File" && addressEquals(address.parent, fileParent),
-			)
-		) {
-			const checkedChanges = sources
-				.values()
-				.map((source) =>
-					changes.find((candidate) => source._tag === "File" && candidate.path === source.path),
-				)
-				.filter((x) => x != null)
-				.toArray();
-			if (checkedChanges.length !== sources.length) return;
-
-			subjectChanges = checkedChanges;
-		}
-
-		commitUncommitChanges({
-			projectId,
-			commitId: fileParent.commitId,
-			assignTo: null,
-			changes: subjectChanges.map((change) => createDiffSpec(change, [])),
-			dryRun: false,
-		});
-	};
 	const reviewedFilesContextId = weakFileParentIdentityKey(fileParent);
 	const { data: reviewedFiles } = useSuspenseQuery(
 		reviewedFilesQueryOptions(projectId, reviewedFilesContextId),
@@ -2491,8 +2408,7 @@ const Diff: FC<{
 		enabled: threadReview != null,
 	});
 	// Grouped here rather than in `select`, which re-runs per render and would
-	// hand the minimap a new map every time — its paint loop compares by
-	// identity, so that would repaint the canvas on every scroll frame.
+	// hand the memos below, which compare by identity, a new map every time.
 	const threadsByPath = useMemo(
 		() =>
 			threads === undefined ? EMPTY_THREADS_BY_PATH : threadsByPathForScope(threads, fileParent),
@@ -2532,8 +2448,8 @@ const Diff: FC<{
 	// amend or rebase it has not seen moves the code underneath. A thread
 	// whose quoted line no longer matches is dropped rather than hung on
 	// whatever now occupies that number — filtered once here, so every
-	// surface reading the map (the annotations, their cards, the minimap's
-	// pins) agrees on which threads exist.
+	// surface reading the map (the annotations and their cards) agrees on
+	// which threads exist.
 	const anchoredThreadsByPath = useMemo((): ThreadsByPath => {
 		if (threadsByPath.size === 0) return threadsByPath;
 		const anchored = new Map<string, Array<AnchoredThread>>();
@@ -2586,9 +2502,7 @@ const Diff: FC<{
 			diffBackground: cfg.diffBackground,
 			diffOverflow: cfg.diffOverflow,
 			diffStyle: cfg.diffStyle,
-			diffTabSize: cfg.diffTabSize,
 			filesPanelRight: cfg.filesPanelRight,
-			minimap: cfg.minimap,
 		}),
 	});
 
@@ -2596,14 +2510,7 @@ const Diff: FC<{
 
 	const diffContentsEl = useRef<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
-	const [wrapColumns, setWrapColumns] = useState<number | null>(null);
 
-	// Wrapping stretches a long line over several rows, which the minimap has to
-	// model or its marks drift down the file it is mapping.
-	const wraps = (diffSettings?.diffOverflow ?? defaultSettings.diffOverflow) === "wrap";
-
-	// Split and unified lay hunks out differently, so the minimap has to model
-	// whichever style the viewer is actually rendering.
 	const diffStyle = canUseSplitDiff
 		? (diffSettings?.diffStyle ?? defaultSettings.diffStyle)
 		: "unified";
@@ -2632,27 +2539,7 @@ const Diff: FC<{
 		listRef: filesTreeRef,
 		enabled: filesVisible && changes.length > 0,
 	});
-
-	const tabSize = diffSettings?.diffTabSize ?? defaultSettings.diffTabSize;
-
-	const minimapShown = diffSettings?.minimap ?? defaultSettings.minimap;
-	// Modelling the map reads every line of the diff, so a ruler nobody asked for
-	// shouldn't be parsed for either.
-	const minimapFiles = useMemo(
-		() =>
-			minimapShown
-				? getMinimapFiles({
-						files:
-							shownFileIndex === null || shownFileIndex < 0
-								? preparedDiffFiles
-								: preparedDiffFiles.slice(shownFileIndex, shownFileIndex + 1),
-						diffStyle,
-						tabSize,
-						wrapColumns,
-					})
-				: [],
-		[minimapShown, shownFileIndex, preparedDiffFiles, diffStyle, tabSize, wrapColumns],
-	);
+	const changesMenuItems = useChangesMenuItems({ projectId, fileParent, changes });
 
 	useHotkeys([
 		{
@@ -2672,26 +2559,13 @@ const Diff: FC<{
 		},
 	]);
 
-	// Both of these are facts about the rendered pane rather than about the diff,
-	// so they are measured on the same resize rather than derived.
+	// A fact about the rendered pane rather than about the diff, so it is
+	// measured on resize rather than derived.
 	useLayoutEffect(() => {
 		const el = diffContentsEl.current;
 		if (!el) return;
 
-		const measure = () => {
-			setCanUseSplitDiff(el.getBoundingClientRect().width >= 700);
-
-			if (!wraps) {
-				setWrapColumns(null);
-				return;
-			}
-
-			// Held only once it can be read: a resize that lands between renders would
-			// otherwise drop the count and unwrap the whole model for a frame.
-			const viewer = viewerRef.current?.getInstance();
-			const columns = viewer ? measureWrapColumns(viewer) : null;
-			if (columns !== null) setWrapColumns(columns);
-		};
+		const measure = () => setCanUseSplitDiff(el.getBoundingClientRect().width >= 700);
 
 		measure();
 
@@ -2699,7 +2573,7 @@ const Diff: FC<{
 		resizeObserver.observe(el);
 
 		return () => resizeObserver.disconnect();
-	}, [diffContentsEl, viewerRef, wraps, diffViewSansAnno]);
+	}, [diffContentsEl]);
 
 	const layoutId = `project=${projectId}:details`;
 	const panelIds: Array<PanelId> = filesVisible ? ["files-panel", "diff-panel"] : ["diff-panel"];
@@ -2724,7 +2598,7 @@ const Diff: FC<{
 	// collapsing on the count alone takes that route away with them.
 	if (changes.length === 0 && conflicts.length === 0 && manualConflicts.length === 0) {
 		return (
-			<div className={classes(styles.diffTab, styles.diffTabEmpty)}>
+			<ScrollArea className={styles.diffTabEmpty} viewportClassName={styles.diffTabEmptyViewport}>
 				<EmptyState
 					illustration="waving"
 					title="No file changes"
@@ -2734,7 +2608,7 @@ const Diff: FC<{
 							: "Nothing on this branch changes any files"
 					}
 				/>
-			</div>
+			</ScrollArea>
 		);
 	}
 
@@ -2748,19 +2622,37 @@ const Diff: FC<{
 			groupResizeBehavior="preserve-pixel-size"
 		>
 			<div className={styles.filesPanelContent} ref={filesPanelRef}>
-				{fileFilter.rowProps === null ? (
-					<ChangesHeaderRow
-						projectId={projectId}
-						fileParent={fileParent}
-						changes={changes}
-						lineStats={lineStats}
-						onOpenFilter={fileFilter.open}
-					/>
-				) : (
-					<ListFilterRow {...fileFilter.rowProps} />
-				)}
-				<div
-					className={classes(uiStyles.scroller, uiStyles.scrollerWithSeparator, styles.diffFiles)}
+				<FileList
+					className={styles.diffFiles}
+					title="Changes"
+					count={changes.length}
+					added={lineStats.linesAdded}
+					removed={lineStats.linesRemoved}
+					onOpenFilter={fileFilter.open}
+					filter={
+						fileFilter.rowProps && {
+							value: fileFilter.rowProps.filter,
+							onChange: fileFilter.rowProps.onFilterChange,
+							onClose: fileFilter.rowProps.onClose,
+							onEnterList: fileFilter.rowProps.onEnterList,
+							inputId: fileFilter.rowProps.inputId,
+						}
+					}
+					onHeaderContextMenu={(event) => {
+						void showNativeContextMenu(event, changesMenuItems);
+					}}
+					actions={
+						<Button
+							variant="ghost"
+							iconOnly
+							aria-label="Changes menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, changesMenuItems);
+							}}
+						>
+							<Icon name="kebab" />
+						</Button>
+					}
 				>
 					<FilesTree
 						focusScope="files"
@@ -2775,11 +2667,9 @@ const Diff: FC<{
 						addressSpace={filesAddressSpace}
 						fileParent={fileParent}
 						reviewedPaths={reviewedFilePaths}
-						canUncommit={!isCommitUncommitChangesPending}
-						uncommit={uncommit}
 						ref={filesTreeRef}
 					/>
-				</div>
+				</FileList>
 			</div>
 		</Panel>
 	) : null;
@@ -2800,24 +2690,17 @@ const Diff: FC<{
 
 				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
 					<div className={styles.actions}>
-						{canShowFiles && <FilesToggle projectId={projectId} />}
-
 						{headerSlot}
 
 						{!statsShownElsewhere && (
 							<ChangeStats fileCount={changes.length} lineStats={lineStats} />
 						)}
 
+						{canShowFiles && (
+							<FilesToggle projectId={projectId} fileCount={changes.length} lineStats={lineStats} />
+						)}
+
 						<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
-							<Toolbar.Button
-								className={getButtonClassName({ variant: "outline" })}
-								disabled={
-									preparedDiffFiles.length === 0 || preparedDiffFiles.length !== changes.length
-								}
-								onClick={toggleAllFilesReviewed}
-							>
-								{allFilesReviewed ? "Mark all unreviewed" : "Mark all reviewed"}
-							</Toolbar.Button>
 							<ToggleGroupStyles>
 								<Toolbar.Button
 									render={
@@ -2851,6 +2734,14 @@ const Diff: FC<{
 								</DiffStyleToggleGroup>
 							)}
 						</Toolbar.Root>
+
+						<ReviewButton
+							allFilesReviewed={allFilesReviewed}
+							canMarkAll={
+								preparedDiffFiles.length > 0 && preparedDiffFiles.length === changes.length
+							}
+							onToggleAllReviewed={toggleAllFilesReviewed}
+						/>
 					</div>
 
 					{/* One panel child, so `.panel`'s two-row grid still sizes the
@@ -2895,14 +2786,11 @@ const Diff: FC<{
 								manualCollapseByItem={manualCollapseByItem}
 								setManualCollapse={setManualCollapse}
 								setFilesReviewed={setFilesReviewed}
-								canUncommit={!isCommitUncommitChangesPending}
-								uncommit={uncommit}
 								focusScopeRef={focusScopeRef}
 								viewerRef={viewerRef}
 								didScrollToViaFileRef={didScrollToViaFileRef}
 								pendingFileRef={pendingFileRef}
 								renderAllFiles={renderAllFiles}
-								minimapFiles={minimapShown ? minimapFiles : null}
 							/>
 						</div>
 					</div>
@@ -2919,48 +2807,18 @@ const Diff: FC<{
 	);
 };
 
-const CopyableId: FC<{
-	label: string;
-	icon: IconName;
-	displayValue: string;
-	copyValue: string;
-}> = ({ label, icon, displayValue, copyValue }) => {
-	const { copied, copy } = useCopied(copyValue);
-
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				className={styles.commitDetailsMetaSha}
-				onClick={copy}
-				render={<button type="button" aria-label={label} />}
-			>
-				<Icon size={14} name={copied ? "tick" : icon} />
-				<span>{copied ? "Copied!" : displayValue}</span>
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
+const copyToClipboard = (value: string) => void window.lite.clipboardWriteText(value);
 
 const CommitDetailsSkeleton: FC = () => {
 	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
 
 	return (
 		<div className={styles.container}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
-
-					<div className={styles.title}>
-						<Icon name="commit" />
-						<h3 className={classes("text-15", "text-semibold")}>Loading…</h3>
-					</div>
-				</div>
-			</div>
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
+				icon="commit"
+				title="Loading…"
+			/>
 		</div>
 	);
 };
@@ -2989,8 +2847,6 @@ const CommitDetails: FC<{
 	);
 	const canShowFiles = useCanShowFiles();
 	const filesVisible = canShowFiles && filesVisibleState;
-	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
-	const commitBodyId = useId();
 
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId: selection.commitId }),
@@ -3052,102 +2908,59 @@ const CommitDetails: FC<{
 
 	return (
 		<div className={styles.container} ref={ref}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
-
-					<div className={styles.title}>
-						<Icon name="commit" />
-						<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
-							<span className={styles.titleContent}>
-								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
+				icon="commit"
+				title={
+					<>
+						<span>{commitTitle(commitDetails.commit.message) ?? "(no message)"}</span>
+						{commitDetails.commit.hasConflicts && <Badge variant="danger">Conflicted</Badge>}
+					</>
+				}
+				metaTabs={review && <BranchTabs branchTab={tab} setBranchTab={setTab} />}
+				meta={
+					<>
+						<span className={styles.commitAuthor}>
+							<Avatar
+								src={commitDetails.commit.author.gravatarUrl}
+								seed={commitDetails.commit.author.email}
+								alt="Commit author avatar"
+							/>
+							<span>
+								<span title={commitDetails.commit.author.email}>
+									{commitDetails.commit.author.name}
+								</span>{" "}
+								at {fmtDate}
 							</span>
-							{commitDetails.commit.hasConflicts && (
-								<Badge variant="danger" className={styles.commitConflictBadge}>
-									Conflicted
-								</Badge>
-							)}
-
-							{commitBody(commitDetails.commit.message) !== undefined && (
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-controls={commitBodyId}
-										aria-expanded={!commitBodyCollapsed}
-										aria-label={commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-										aria-pressed={!commitBodyCollapsed}
-										className={classes(
-											getButtonClassName({
-												variant: commitBodyCollapsed ? "outline" : "gray",
-												iconOnly: true,
-												size: "small",
-											}),
-											styles.commitBodyToggle,
-										)}
-										onClick={() => setCommitBodyCollapsed(!commitBodyCollapsed)}
-									>
-										<Icon name="kebab" />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>
-												{commitBodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-							)}
-						</h3>
-					</div>
-				</div>
-
-				{body !== undefined && !commitBodyCollapsed && (
-					<p
-						id={commitBodyId}
-						className={classes("text-monospace", "text-body", styles.commitMessageBody)}
-					>
-						{body}
-					</p>
-				)}
-				<div className={classes("text-13", styles.commitDetailsMeta)}>
-					{review && (
-						<BranchTabToggle
-							branchTab={tab}
-							setBranchTab={setTab}
-							className={styles.commitDetailsMetaTabs}
+						</span>
+						<CopyableId
+							label="Copy change ID"
+							icon="finger-print"
+							value={commitDetails.commit.changeId}
+							display={shortCommitId(commitDetails.commit.changeId)}
+							onCopy={copyToClipboard}
 						/>
-					)}
-					<img
-						src={commitDetails.commit.author.gravatarUrl}
-						className={styles.avatar}
-						alt="Commit author avatar"
-					/>
-					<span>
-						<span title={commitDetails.commit.author.email}>
-							{commitDetails.commit.author.name}
-						</span>{" "}
-						at {fmtDate}
-					</span>
-					<CopyableId
-						label="Copy change ID"
-						icon="finger-print"
-						displayValue={shortCommitId(commitDetails.commit.changeId)}
-						copyValue={commitDetails.commit.changeId}
-					/>
-					<CopyableId
-						label="Copy commit ID"
-						icon="hash"
-						displayValue={shortCommitId(commitDetails.commit.id)}
-						copyValue={commitDetails.commit.id}
-					/>
-				</div>
-			</div>
+						<CopyableId
+							label="Copy commit ID"
+							icon="hash"
+							value={commitDetails.commit.id}
+							display={shortCommitId(commitDetails.commit.id)}
+							onCopy={copyToClipboard}
+						/>
+					</>
+				}
+			>
+				{body !== undefined && (
+					<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>{body}</p>
+				)}
+			</ViewHeader>
 
 			{review && tab === "pr" ? (
-				<div className={styles.prTabScroll}>
+				<ScrollArea className={styles.prTabScroll}>
 					<div className={styles.prTab}>
 						<LandedReviewView projectId={projectId} reviewId={review.number} />
 					</div>
-				</div>
+				</ScrollArea>
 			) : (
 				<Diff
 					changes={changes}
@@ -3173,9 +2986,15 @@ const CommitDetails: FC<{
 /**
  * A landed review fetched by number, for the surfaces that only know the
  * number: the target-commit listing, the branch listing's merged review, and
- * an integrated applied branch's stored identity.
+ * an integrated applied branch's stored identity. The branch's to-dos are
+ * kept under its local name, which only the branch surfaces know; the forge's
+ * name for it can differ.
  */
-const LandedReviewView: FC<{ projectId: string; reviewId: number }> = ({ projectId, reviewId }) => {
+const LandedReviewView: FC<{ projectId: string; reviewId: number; branchName?: string }> = ({
+	projectId,
+	reviewId,
+	branchName,
+}) => {
 	const { data: review, isError, error } = useQuery(getReviewQueryOptions({ projectId, reviewId }));
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const destination = forgeDestination(forgeInfo, review?.htmlUrl);
@@ -3209,7 +3028,7 @@ const LandedReviewView: FC<{ projectId: string; reviewId: number }> = ({ project
 		<ReviewView
 			key={review.number}
 			projectId={projectId}
-			sourceBranch={review.sourceBranch}
+			sourceBranch={branchName ?? review.sourceBranch}
 			review={review}
 		/>
 	);
@@ -3234,48 +3053,136 @@ const BranchDiff: FC<BranchDetailsProps> = ({
 		setCursor("files", selection);
 	};
 
+	const renderDiff = ({ data: branchDiff }: { data: TreeChanges }) => (
+		<Diff
+			changes={branchDiff.changes}
+			filesVisible={filesVisible}
+			canShowFiles={canShowFiles}
+			filesItems={branchDiff.changes.map((change) =>
+				changeFileRowItem({
+					change,
+					path: change.path,
+					dependencyCommitIds: [],
+				}),
+			)}
+			onPassiveFileSelection={selectFile}
+			selection={branchAddress(branch)}
+			projectId={projectId}
+			onActiveFileSelection={onActiveFileSelection}
+			viewerRef={viewerRef}
+			didScrollToViaFileRef={didScrollToViaFileRef}
+			pendingFileRef={pendingFileRef}
+		/>
+	);
+
 	return (
 		<SuspenseQuery
 			{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branch.branchRef) })}
 		>
-			{({ data: branchDiff }) => (
-				<Diff
-					changes={branchDiff.changes}
-					filesVisible={filesVisible}
-					canShowFiles={canShowFiles}
-					filesItems={branchDiff.changes.map((change) =>
-						changeFileRowItem({
-							change,
-							path: change.path,
-							dependencyCommitIds: [],
-						}),
-					)}
-					onPassiveFileSelection={selectFile}
-					selection={branchAddress(branch)}
-					projectId={projectId}
-					onActiveFileSelection={onActiveFileSelection}
-					viewerRef={viewerRef}
-					didScrollToViaFileRef={didScrollToViaFileRef}
-					pendingFileRef={pendingFileRef}
-				/>
-			)}
+			{renderDiff}
 		</SuspenseQuery>
 	);
 };
 
-const BranchTitleRow: FC<{ branchName: string }> = ({ branchName }) => {
-	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+const checksPhrase = (aggregate: AggregateCIChecks | null): string | null => {
+	if (aggregate === null) return null;
+	switch (aggregate.status) {
+		case "failure":
+			return `${aggregate.failure.length + aggregate.timedOut.length} of ${aggregate.total} checks failing`;
+		case "in_progress":
+			return `${aggregate.inProgress.length + aggregate.queued.length} of ${aggregate.total} checks running`;
+		case "success":
+			return `${aggregate.total} ${aggregate.total === 1 ? "check" : "checks"} passed`;
+		default:
+			return null;
+	}
+};
+
+const ciStatusOf = (aggregate: AggregateCIChecks | null): CiStatusType | null => {
+	switch (aggregate?.status) {
+		case "failure":
+			return "failed";
+		case "in_progress":
+			return "working";
+		case "success":
+			return "passed";
+		default:
+			return null;
+	}
+};
+
+/**
+ * Where the branch stands, under its name: how far it is ahead of the target and how far the
+ * workspace has fallen behind it, each led by its glyph. Each part shows only once it is known.
+ */
+const useBranchMeta = ({
+	projectId,
+	branchName,
+	applied,
+}: {
+	projectId: string;
+	branchName: string;
+	/** Only an applied branch sits on the workspace's base, so only it is behind with it. */
+	applied: boolean;
+}): ReactNode => {
+	const { data: target } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: (headInfo) => headInfo.target,
+	});
+	const { data: ahead } = useQuery({
+		...branchListQueryOptions(projectId),
+		select: (stacks) =>
+			stacks
+				.values()
+				.flatMap((stack) => stack.branches)
+				.find((listed) => listed.displayName === branchName)?.commitsAheadOfTarget ?? null,
+	});
+
+	const targetName = target
+		? `${target.remoteTrackingRef.remoteName}/${target.remoteTrackingRef.displayName}`
+		: null;
+	const behind = applied && target ? target.commitsAhead : 0;
+	if (ahead == null && behind === 0) return null;
 
 	return (
-		<div className={styles.titleRow}>
-			{detailsFullWindow && <TopLeftControls />}
-
-			<div className={styles.title}>
-				<Icon name="branch" />
-				<h3 className={classes(styles.titleContent, "text-15", "text-semibold")}>{branchName}</h3>
-			</div>
-		</div>
+		<>
+			{ahead != null && (
+				<MetaCount
+					type="commits"
+					title={targetName !== null ? `Ahead of ${targetName}` : undefined}
+				>
+					{ahead} {ahead === 1 ? "commit" : "commits"} ahead
+				</MetaCount>
+			)}
+			{behind > 0 && <MetaCount type="behind">{behind} behind</MetaCount>}
+		</>
 	);
+};
+
+/** A branch's pull request as its tab says it: its number for the label, its checks for a status. */
+const useReviewTab = ({
+	projectId,
+	branchName,
+	review,
+}: {
+	projectId: string;
+	branchName: string;
+	review: ForgeReview | null | undefined;
+}): { prLabel?: string; prStatus?: ReactNode } => {
+	const { data: checks } = useQuery({
+		...listCIChecksQueryOptions({ projectId, reference: branchName, polling: "passive" }),
+		enabled: !!review,
+		select: ({ aggregate }) => aggregate,
+	});
+	if (!review) return {};
+	const status = ciStatusOf(checks ?? null);
+	return {
+		prLabel: `${review.draft ? "Draft" : "PR"} #${review.number}`,
+		prStatus:
+			status !== null ? (
+				<CiStatus status={status} title={checksPhrase(checks ?? null) ?? undefined} />
+			) : undefined,
+	};
 };
 
 /**
@@ -3283,31 +3190,34 @@ const BranchTitleRow: FC<{ branchName: string }> = ({ branchName }) => {
  * the tab goes disabled and says so, where dropping the toggle would instead
  * read as the control having gone missing. The reason rides in the label
  * rather than a tooltip: it is the whole story of this tab, so it has to be
- * readable without hover (DESIGN.md → Empty states).
+ * readable without hover (ui-react's design/patterns/blocked-states.md).
  */
-const BranchTabToggle: FC<{
+const BranchTabs: FC<{
 	branchTab: BranchTab;
 	setBranchTab: (tab: BranchTab) => void;
 	prDisabled?: boolean;
+	prLabel?: string;
+	prStatus?: ReactNode;
 	className?: string;
-}> = ({ branchTab, setBranchTab, prDisabled = false, className }) => (
-	<ToggleGroup
-		render={<ToggleGroupStyles className={className} />}
-		value={[branchTab]}
-		onValueChange={(value: Array<BranchTab>) => {
-			const head = value[0];
-			if (head === undefined) return;
-			setBranchTab(head);
-		}}
+}> = ({ branchTab, setBranchTab, prDisabled = false, prLabel, prStatus, className }) => (
+	<Tabs
+		className={className}
+		value={branchTab}
+		onValueChange={(value: BranchTab) => setBranchTab(value)}
 		aria-label="Branch tab"
 	>
-		<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
+		<Tab value={"diff" satisfies BranchTab} icon={<Icon name="diff" />}>
 			Diff
-		</Toggle>
-		<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab} disabled={prDisabled}>
-			{prDisabled ? "No pull request" : "Pull Request"}
-		</Toggle>
-	</ToggleGroup>
+		</Tab>
+		<Tab
+			value={"pr" satisfies BranchTab}
+			icon={<Icon name="pr" />}
+			disabled={prDisabled}
+			status={prStatus}
+		>
+			{prDisabled ? "No pull request" : (prLabel ?? "Pull Request")}
+		</Tab>
+	</Tabs>
 );
 
 /** `[` and `]` step between a branch's tabs; with two of them, either key toggles. */
@@ -3388,7 +3298,12 @@ const ReviewLayout: FC<{
 				{hasConversation && <PullRequestComments projectId={projectId} review={review} />}
 			</div>
 
-			<PullRequestPanel projectId={projectId} review={review} />
+			<PullRequestPanel
+				projectId={projectId}
+				sourceBranch={sourceBranch}
+				review={review}
+				editing={editing}
+			/>
 		</div>
 	);
 };
@@ -3484,10 +3399,10 @@ type DetailsViewProps = {
 type BranchDetailsProps = { branch: BranchAddress } & DetailsViewProps;
 
 /**
- * A branch the workspace does not hold, as the branches tab lists them: its
- * changes, and its review when one already exists. Opening a review is not
- * offered — the base comes from a branch's position in a workspace stack, which
- * this branch has not got, so `publish_review` refuses it.
+ * A branch in no lane, as the branches tab lists them: its changes, and its
+ * review when one already exists. Opening a review is not offered — the base
+ * comes from the branches beneath it in its lane, which this branch has not
+ * got, so `publish_review` refuses it.
  */
 const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	branch,
@@ -3550,7 +3465,7 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 			review={review}
 		/>
 	) : landedReviewId !== null ? (
-		<LandedReviewView projectId={projectId} reviewId={landedReviewId} />
+		<LandedReviewView projectId={projectId} reviewId={landedReviewId} branchName={branchName} />
 	) : null;
 
 	const chosenTab = useAppSelector((state) =>
@@ -3569,6 +3484,9 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref, enabled: reviewTab !== null });
 
 	const { isPending: isApplyPending, apply } = useApplyToWorkspace(projectId);
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+	const branchMeta = useBranchMeta({ projectId, branchName, applied: false });
+	const prTab = useReviewTab({ projectId, branchName, review });
 	// A branch checked out in a linked worktree cannot be applied while it is; its
 	// commits show up in the worktree's lane instead.
 	const { data: worktreeName } = useQuery({
@@ -3583,45 +3501,46 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 
 	return (
 		<div className={styles.container} ref={ref}>
-			<div className={styles.headerWrap}>
-				<BranchTitleRow branchName={branchName} />
-
-				<div className={styles.tabsRow}>
-					<BranchTabToggle
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
+				icon="branch"
+				title={branchName}
+				meta={branchMeta}
+				toolbar={
+					<BranchTabs
 						branchTab={branchTab}
 						setBranchTab={setBranchTab}
 						prDisabled={reviewTab === null}
+						{...prTab}
 					/>
-
-					<div className={styles.tabsRowRight}>
-						{worktreeName === undefined ? (
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "gray" })}
-								disabled={isApplyPending}
-								onClick={() => apply(decodeBytes(branch.branchRef))}
-							>
-								{isApplyPending && <Icon name="spinner" />}
-								Apply to workspace
-							</button>
-						) : (
-							<span className={classes("text-12", rowStyles.fadedText)}>
-								Checked out in worktree {worktreeName}
-							</span>
-						)}
-					</div>
-				</div>
-			</div>
+				}
+				actions={
+					worktreeName === undefined ? (
+						<ViewHeaderButton
+							variant="gray"
+							disabled={isApplyPending}
+							onClick={() => apply(decodeBytes(branch.branchRef))}
+						>
+							{isApplyPending && <Icon name="spinner" />}
+							Apply to workspace
+						</ViewHeaderButton>
+					) : (
+						<span className={classes("text-12", rowStyles.fadedText)}>
+							Checked out in worktree {worktreeName}
+						</span>
+					)
+				}
+			/>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{reviewTab !== null && branchTab === "pr" ? (
-					<div className={styles.prTabScroll}>
+					<ScrollArea className={styles.prTabScroll}>
 						<div className={styles.prTab}>{reviewTab}</div>
-					</div>
+					</ScrollArea>
 				) : (
 					<BranchDiff
 						projectId={projectId}
-						branch={branch}
+						branch={{ ...branch, worktree: worktreeName }}
 						onActiveFileSelection={onActiveFileSelection}
 						viewerRef={viewerRef}
 						didScrollToViaFileRef={didScrollToViaFileRef}
@@ -3633,8 +3552,8 @@ const UnappliedBranchDetails: FC<BranchDetailsProps> = ({
 	);
 };
 
-/** A branch applied to the workspace: its changes, and the review of them. */
-const AppliedBranchDetails: FC<BranchDetailsProps> = ({
+/** A branch of a workspace stack or a linked worktree's lane: its changes, and the review of them. */
+const LaneBranchDetails: FC<BranchDetailsProps> = ({
 	branch,
 	projectId,
 	onActiveFileSelection,
@@ -3667,23 +3586,25 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	});
 	const authFailure = hasAccount === false ? "missing" : forgeAuthFailure(reviewError);
 	const canUseForge = accountsSuccess && hasAccount && authFailure === null;
-	const branchCtx = headInfoIndex?.branchContextByRefBytes(branch.branchRef);
+	const laneBranch = headInfoIndex?.laneBranchByRefBytes(branch.branchRef);
 	// A recorded PR missing from the open listing may be merged or closed.
 	// Keep it visible until verification rules out a merge.
 	const landedReviewId = useLandedReviewId(
 		projectId,
-		branchCtx ? recordedPullRequest(branchCtx.segment) : null,
+		laneBranch ? recordedPullRequest(laneBranch.segment) : null,
 		reviewsLoaded && !openReview && canUseForge,
 	);
 	const hasReview = !!openReview || landedReviewId !== null;
+	const { data: targetBranch } = useQuery({
+		...newReviewTargetQueryOptions({ projectId, branch: branchRef }),
+		enabled: !hasReview,
+	});
 
 	const chosenTab = useAppSelector((state) =>
 		projectSlice.selectors.selectBranchTab(state, projectId, branchName),
 	);
 	const defaultTab = supportsPullRequests && hasReview ? "pr" : "diff";
 	const branchTab = chosenTab ?? defaultTab;
-	const showCreatePullRequest =
-		branchTab === "diff" && supportsPullRequests && reviewsLoaded && !hasReview;
 
 	const setBranchTab = (tab: BranchTab) => {
 		dispatch(projectSlice.actions.setSelectedBranchTab({ projectId, branchName, tab }));
@@ -3701,18 +3622,14 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 	const ref = useRef<HTMLDivElement>(null);
 	useBranchTabHotkeys({ branchTab, setBranchTab, target: ref });
 
-	// Once the parent branch is integrated, the PR can target the workspace's base.
-	const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
-	const targetBranch =
-		!parentSegment || parentSegment.pushStatus === "integrated"
-			? headInfo?.target?.remoteTrackingRef.displayName
-			: parentSegment.refName?.displayName;
+	const detailsFullWindow = useAppSelector(interfaceSlice.selectors.selectDetailsFullWindow);
+	const branchMeta = useBranchMeta({ projectId, branchName, applied: true });
+	const prTab = useReviewTab({ projectId, branchName, review: openReview });
+
 	// A forge only opens a review on a branch it has, so a new PR pushes the
 	// branch and its ancestors first when any of them still has something to
 	// push. Conflicted commits cannot be pushed, and so cannot be reviewed yet.
-	const downstack = branchCtx
-		? downstackPushStatusFromSegments(branchCtx.stack.segments.slice(branchCtx.segmentIndex))
-		: null;
+	const downstack = laneBranch?.downstack ?? null;
 	const pushFirst: PushBeforePublish | null = downstack?.anyRequiresPush
 		? { branch: branchRef, withForce: downstack.anyPushRequiresForce }
 		: null;
@@ -3720,57 +3637,17 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 
 	return (
 		<div className={styles.container} ref={ref}>
-			<div className={styles.headerWrap}>
-				<BranchTitleRow branchName={branchName} />
-
-				<div className={styles.tabsRow}>
-					<BranchTabToggle branchTab={branchTab} setBranchTab={setBranchTab} />
-
-					{showCreatePullRequest && (
-						<div className={styles.tabsRowRight}>
-							<button
-								type="button"
-								className={getButtonClassName({ variant: "gray" })}
-								onClick={() => setBranchTab("pr")}
-							>
-								<Icon name="pr" />
-								Create pull request
-							</button>
-						</div>
-					)}
-
-					{branchTab === "pr" && supportsPullRequests && canUseForge && (
-						<Suspense>
-							<SuspenseQuery
-								{...listReviewsQueryOptions({
-									projectId,
-									cacheConfig: "noCache",
-								})}
-							>
-								{({ data }) => {
-									const review = data.reviewsBySourceBranch.get(branchName);
-									if (!review) return null;
-
-									return (
-										<div className={styles.tabsRowRight}>
-											<PullRequestPrimaryAction
-												projectId={projectId}
-												review={review}
-												isEditing={prEditing}
-												onStartEdit={startPrEdit}
-											/>
-										</div>
-									);
-								}}
-							</SuspenseQuery>
-						</Suspense>
-					)}
-				</div>
-			</div>
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
+				icon="branch"
+				title={branchName}
+				meta={branchMeta}
+				toolbar={<BranchTabs branchTab={branchTab} setBranchTab={setBranchTab} {...prTab} />}
+			/>
 
 			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{branchTab === "pr" ? (
-					<div className={styles.prTabScroll}>
+					<ScrollArea className={styles.prTabScroll}>
 						<div className={styles.prTab}>
 							{destination && accountsError ? (
 								<div className={classes(styles.loadingTab, "text-13")}>
@@ -3826,11 +3703,11 @@ const AppliedBranchDetails: FC<BranchDetailsProps> = ({
 								</SuspenseQuery>
 							)}
 						</div>
-					</div>
+					</ScrollArea>
 				) : (
 					<BranchDiff
 						projectId={projectId}
-						branch={branch}
+						branch={{ ...branch, worktree: laneBranch?.worktree ?? undefined }}
 						onActiveFileSelection={onActiveFileSelection}
 						viewerRef={viewerRef}
 						didScrollToViaFileRef={didScrollToViaFileRef}
@@ -3847,16 +3724,11 @@ const FileDetailsSkeleton: FC = () => {
 
 	return (
 		<div className={styles.container}>
-			<div className={styles.headerWrap}>
-				<div className={styles.titleRow}>
-					{detailsFullWindow && <TopLeftControls />}
-
-					<div className={styles.title}>
-						<Icon name="file" />
-						<h3 className={classes("text-15", "text-semibold")}>Uncommitted</h3>
-					</div>
-				</div>
-			</div>
+			<ViewHeader
+				leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
+				icon="file"
+				title="Uncommitted"
+			/>
 
 			<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>
 		</div>
@@ -3908,15 +3780,16 @@ const FileDetails: FC<{
 		else setCursor("applied", fileAddress({ parent, path: selection }));
 	};
 
+	const titleText =
+		parent.worktree === undefined ? "Uncommitted" : `Uncommitted in ${parent.worktree}`;
+	// With changes, the diff's bar is the view's only header, so the title rides in it.
 	const title = (
 		<>
-			{detailsFullWindow && <TopLeftControls />}
+			{detailsFullWindow && <TopLeftControls placement="diffBar" />}
 
 			<div className={styles.title}>
 				<Icon name="file-diff" />
-				<h3 className={classes("text-15", "text-semibold")}>
-					{parent.worktree === undefined ? "Uncommitted" : `Uncommitted in ${parent.worktree}`}
-				</h3>
+				<h2 className={classes("text-15", "text-semibold")}>{titleText}</h2>
 			</div>
 		</>
 	);
@@ -3939,9 +3812,11 @@ const FileDetails: FC<{
 					headerSlot={title}
 				/>
 			) : (
-				<div className={styles.headerWrap}>
-					<div className={styles.titleRow}>{title}</div>
-				</div>
+				<ViewHeader
+					leading={detailsFullWindow && <TopLeftControls placement="viewHeader" />}
+					icon="file-diff"
+					title={titleText}
+				/>
 			)}
 		</div>
 	);
@@ -4020,8 +3895,8 @@ export const Details: FC<
 	return Match.value(selection).pipe(
 		Match.tags({
 			Branch: (branch) =>
-				getHeadInfoIndex(headInfo).isApplied(branch.branchRef) ? (
-					<AppliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
+				getHeadInfoIndex(headInfo).laneBranchByRefBytes(branch.branchRef) ? (
+					<LaneBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
 				) : (
 					<UnappliedBranchDetails key={branchIdentityKey(branch)} branch={branch} {...viewProps} />
 				),

@@ -120,5 +120,11 @@ fn updates() -> Vec<EnvOp> {
         name: "MSYS",
         value: Cow::Owned(msys_for_git_bash_on_windows),
     }))
+    .chain(
+        std::env::var_os("GIX_TEST_FIXTURE_HASH").map(|object_hash| EnvOp::Add {
+            name: "GIT_DEFAULT_HASH",
+            value: Cow::Owned(object_hash),
+        }),
+    )
     .collect()
 }

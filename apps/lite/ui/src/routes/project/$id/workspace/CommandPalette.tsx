@@ -1,5 +1,5 @@
-import { Kbd } from "#ui/components/Kbd.tsx";
-import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
+import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
+import { PickerDialog, type PickerDialogGroup } from "@gitbutler/ui-react/PickerDialog.tsx";
 import type { CommandGroup } from "#ui/hotkeys.ts";
 import { iteratorConcat } from "#ui/iterator.ts";
 import {

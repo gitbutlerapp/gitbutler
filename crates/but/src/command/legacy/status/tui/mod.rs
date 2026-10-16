@@ -7,13 +7,12 @@ use bstr::BString;
 use but_api::open::program::ProgramSpec;
 use but_ctx::Context;
 use but_settings::AppSettingsWithDiskSync;
-use crossterm::event::{Event, MouseEventKind};
-use gitbutler_operating_modes::OperatingMode;
+use crossterm::event::{Event, MouseButton, MouseEventKind};
 use gix::refs::FullName;
 use ratatui::prelude::*;
 
 use crate::{
-    CliId, CliResult,
+    ChangeSourceId, CliId, CliResult,
     args::atoms::ResolvedCliIdArg,
     command::{
         legacy::status::{
@@ -58,7 +57,7 @@ mod cursor;
 mod details;
 mod file_browser;
 mod fps;
-mod fuzzy_picker;
+pub mod fuzzy_picker;
 mod graph_extension;
 mod help;
 mod highlight;
@@ -86,7 +85,6 @@ const DETAILS_MAX_SIZE_PERCENTAGE: u16 = 90;
 pub fn render_tui(
     ctx: &mut Context,
     out: &mut InputOutputChannel<'_>,
-    operating_mode: OperatingMode,
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
     launch_options: TuiLaunchOptions,
@@ -107,7 +105,6 @@ pub fn render_tui(
         Vec::from([watcher_rx]),
         head_sha,
         Clipboard::live(),
-        operating_mode,
     )?;
 
     let messages = Vec::new();
@@ -316,6 +313,14 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
             messages.push(Message::SetHasFocus(false));
         }
         Event::Mouse(event) => match event.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                if app.modal.is_none() {
+                    messages.push(Message::StatusClick(Position {
+                        x: event.column,
+                        y: event.row,
+                    }));
+                }
+            }
             MouseEventKind::ScrollDown => {
                 if mouse_is_over_help(app, terminal_area, event.column, event.row) {
                     messages.push(Message::Help(HelpMessage::ScrollDown(3)));
@@ -324,6 +329,10 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                         messages.push(Message::DebugScrollDown(3));
                     } else if mouse_is_over_details(app, terminal_area, event.column, event.row) {
                         messages.push(Message::Details(DetailsMessage::ScrollDown(3)));
+                    } else if render::status_area_for_app(app, terminal_area)
+                        .is_some_and(|area| area.contains((event.column, event.row).into()))
+                    {
+                        messages.push(Message::StatusScroll(1));
                     }
                 }
             }
@@ -335,6 +344,10 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
                         messages.push(Message::DebugScrollUp(3));
                     } else if mouse_is_over_details(app, terminal_area, event.column, event.row) {
                         messages.push(Message::Details(DetailsMessage::ScrollUp(3)));
+                    } else if render::status_area_for_app(app, terminal_area)
+                        .is_some_and(|area| area.contains((event.column, event.row).into()))
+                    {
+                        messages.push(Message::StatusScroll(-1));
                     }
                 }
             }
@@ -366,32 +379,57 @@ fn mouse_is_over_details(app: &App, terminal_area: Rect, column: u16, row: u16) 
         .is_some_and(|area| area.contains(Position { x: column, y: row }))
 }
 
-fn start_watcher(
-    ctx: &mut Context,
-    tx: Sender<Message>,
-) -> anyhow::Result<gitbutler_watcher::WatcherHandle> {
+fn start_watcher(ctx: &mut Context, tx: Sender<Message>) -> anyhow::Result<Sender<()>> {
+    let project_id = ctx.legacy_project.id.clone();
+    let workdir = ctx.workdir_or_fail()?.to_owned();
+    let events_tx = tx.clone();
+
+    let runtime = tokio::runtime::Handle::current();
+    let (stop_tx, stop_rx) = std::sync::mpsc::channel();
+
     let app_settings = app_settings_sync()?;
     let watch_mode = gitbutler_watcher::WatchMode::from_env_or_settings(
         &app_settings.get()?.feature_flags.watch_mode,
         |key| std::env::var(key).ok(),
     );
 
-    let handler = gitbutler_watcher::Handler::new(move |change| {
-        _ = tx.send(Message::WatcherEvent(change));
-        Ok(())
-    });
+    std::thread::Builder::new()
+        .name("tui-watcher-setup".into())
+        // spawn in new thread to prevent slow first render
+        .spawn(move || {
+            let _runtime = runtime.enter();
 
-    let project_id = ctx.legacy_project.id.clone();
+            let handler = gitbutler_watcher::Handler::new(move |change| {
+                _ = events_tx.send(Message::WatcherEvent(change));
+                Ok(())
+            });
 
-    let watcher = gitbutler_watcher::watch_in_background(
-        handler,
-        ctx.workdir_or_fail()?,
-        project_id,
-        app_settings,
-        watch_mode,
-    )?;
+            match gitbutler_watcher::watch_in_background(
+                handler,
+                workdir,
+                project_id,
+                app_settings,
+                watch_mode,
+            )
+            .context("failed to start watcher in background")
+            {
+                Ok(_watcher) => {
+                    // Immediately refresh as we might have missed events during watcher startup
+                    if tx.send(Message::Reload(None, ReloadCause::Manual)).is_ok() {
+                        // This blocks with the sole purpose of keeping watcher alive. On first
+                        // receive we move on and drop the watcher.
+                        let _ = stop_rx.recv();
+                    }
+                    // If send failed, TUI has already dropped the receiving channel (exited), so we
+                    // drop the watcher.
+                }
+                Err(err) => {
+                    let _ = tx.send(Message::FatalError(err));
+                }
+            };
+        })?;
 
-    Ok(watcher)
+    Ok(stop_tx)
 }
 
 fn app_settings_sync() -> anyhow::Result<AppSettingsWithDiskSync> {
@@ -412,8 +450,10 @@ pub enum Message {
     Quit,
     ConfirmAndQuit,
     EnterNormalModeAfterConfirmingOperation,
+    CloseCommitFileListAfterConfirmingOperation,
     Reload(Option<SelectAfterReload>, ReloadCause),
     ShowError(anyhow::Error),
+    FatalError(anyhow::Error),
     ShowToast {
         kind: ToastKind,
         text: Text<'static>,
@@ -423,6 +463,8 @@ pub enum Message {
     DropToBeDiscarded,
     GrowDetails,
     ShrinkDetails,
+    StatusClick(Position),
+    StatusScroll(isize),
     DebugScrollUp(usize),
     DebugScrollDown(usize),
     SetHasFocus(bool),
@@ -435,10 +477,11 @@ pub enum Message {
     MoveCursorDown(usize),
     MoveCursorPreviousSection,
     MoveCursorNextSection,
-    SelectUncommitted,
-    SelectMergeBase,
+    GotoTop,
+    GotoBottom,
     PickAndGotoBranch,
     SelectBranch(FullName),
+    SelectWorktree(BString),
 
     // Features
     Commit(CommitMessage),
@@ -643,7 +686,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 | FilesMessage::ToggleFilesForSelectedCommit => false,
             },
             Message::Move(message) => match message {
-                MoveMessage::Confirm => true,
+                MoveMessage::Confirm | MoveMessage::MoveToNewBranch => true,
                 MoveMessage::Start | MoveMessage::ToggleInsertSide => false,
             },
             Message::CherryPick(message) => match message {
@@ -727,11 +770,15 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             | Message::Crash
             | Message::ConfirmAndQuit
             | Message::EnterNormalModeAfterConfirmingOperation
+            | Message::CloseCommitFileListAfterConfirmingOperation
             | Message::ShowError(..)
+            | Message::FatalError(..)
             | Message::ShowToast { .. }
             | Message::DropToBeDiscarded
             | Message::GrowDetails
             | Message::ShrinkDetails
+            | Message::StatusClick(_)
+            | Message::StatusScroll(_)
             | Message::DebugScrollUp(_)
             | Message::DebugScrollDown(_)
             | Message::SetHasFocus(_)
@@ -741,10 +788,11 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             | Message::MoveCursorDown(_)
             | Message::MoveCursorPreviousSection
             | Message::MoveCursorNextSection
-            | Message::SelectUncommitted
-            | Message::SelectMergeBase
+            | Message::GotoTop
+            | Message::GotoBottom
             | Message::PickAndGotoBranch
             | Message::SelectBranch(..)
+            | Message::SelectWorktree(..)
             | Message::ToggleHelp
             | Message::Mark
             | Message::ClearMarks
@@ -784,7 +832,6 @@ pub enum Selectable {
     CommittedFile(CommittedFileId),
     Branch(BranchId),
     Commit(CommitId),
-    Worktree { id: String, name: BString },
     Uncommitted,
 }
 
@@ -820,19 +867,13 @@ impl PartialEq<CliId> for Selectable {
                 }
             }
             Selectable::Uncommitted => {
-                return matches!(other, CliId::Uncommitted { .. });
-            }
-            Selectable::Worktree {
-                id: id_lhs,
-                name: name_lhs,
-            } => {
-                if let CliId::Worktree {
-                    id: id_rhs,
-                    name: name_rhs,
-                } = other
-                {
-                    return id_lhs == id_rhs && name_lhs == name_rhs;
-                }
+                return matches!(
+                    other,
+                    CliId::UncommittedArea {
+                        source: ChangeSourceId::Head,
+                        ..
+                    }
+                );
             }
         }
         false

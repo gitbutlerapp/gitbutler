@@ -1,5 +1,5 @@
 import rowStyles from "./Row.module.css";
-import uiStyles from "#ui/components/ui.module.css";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import {
 	applyPlanEdits,
 	buildPreviewRows,
@@ -15,12 +15,12 @@ import {
 } from "#ui/api/mutations.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { classes } from "#ui/components/classes.ts";
-import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { authorTooltip, commitIsDiverged, commitTitle, shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import type { BranchIntegrationStrategy, FullRefName } from "@gitbutler/but-sdk";
@@ -396,25 +396,14 @@ const BranchUpdatePanel: FC<{
 							{errorMessageForToast(pushError)}
 						</span>
 					)}
-					<button
-						type="button"
-						className={getButtonClassName({
-							variant: applied.kind === "integrated" ? "outline" : "pop",
-						})}
-						onClick={onApplied}
-					>
+					<Button variant={applied.kind === "integrated" ? "outline" : "pop"} onClick={onApplied}>
 						Done
-					</button>
+					</Button>
 					{applied.kind === "integrated" && (
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "pop" })}
-							disabled={isPushing}
-							onClick={pushApplied}
-						>
+						<Button variant="pop" disabled={isPushing} onClick={pushApplied}>
 							{isPushing && <Icon name="spinner" />}
 							{applied.force ? "Force push" : "Push"}
-						</button>
+						</Button>
 					)}
 				</div>
 			</div>
@@ -459,13 +448,9 @@ const BranchUpdatePanel: FC<{
 
 				<div className={styles.viewRow}>
 					{edits.length > 0 && (
-						<button
-							type="button"
-							className={getButtonClassName({ variant: "outline", size: "small" })}
-							onClick={() => setEdits([])}
-						>
+						<Button variant="outline" size="small" onClick={() => setEdits([])}>
 							Reset {count(edits.length, "edit")}
-						</button>
+						</Button>
 					)}
 
 					{incomingCount !== null && keptCount !== null && (
@@ -480,8 +465,9 @@ const BranchUpdatePanel: FC<{
 			</div>
 
 			{/* Only the outcome: the sidebar already shows the current state. */}
-			<div
-				className={classes(uiStyles.scroller, styles.outline)}
+			<ScrollArea
+				className={styles.outline}
+				viewportClassName={styles.outlineViewport}
 				data-stale={isPreviewStale || isPlanStale ? true : undefined}
 			>
 				{isPreviewError ? (
@@ -498,7 +484,7 @@ const BranchUpdatePanel: FC<{
 						onRestore={restore}
 					/>
 				)}
-			</div>
+			</ScrollArea>
 
 			<div className={styles.footer}>
 				<div className={styles.footerNotes}>
@@ -522,9 +508,8 @@ const BranchUpdatePanel: FC<{
 						</span>
 					)}
 				</div>
-				<button
-					type="button"
-					className={getButtonClassName({ variant: "pop" })}
+				<Button
+					variant="pop"
 					// Held while either query still serves the previous key's data: applying then
 					// would run a plan the outline is about to replace.
 					disabled={
@@ -540,7 +525,7 @@ const BranchUpdatePanel: FC<{
 				>
 					{(isApplying || isPushing) && <Icon name="spinner" />}
 					{choice === "mine" ? "Force push" : choice === "theirs" ? "Replace branch" : "Integrate"}
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

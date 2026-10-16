@@ -138,10 +138,14 @@ fn focus_reload_preserves_merge_base_selection() {
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ]);
 
     tui.render_with_messages(Some(Event::FocusGained), Vec::new())
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
+        .assert_current_line_eq(str![
+            "┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M"
+        ]);
 }
 
 #[test]
@@ -447,10 +451,8 @@ fn create_and_switch_to_branch() {
     snapbox::assert_data_eq!(
         tui.env().git_log(),
         snapbox::str![[r#"
-*   cc54560 (gitbutler/workspace) GitButler Workspace Commit
-|/  
-| * 9477ae7 (A) add A
-|/  
+* edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
+* 9477ae7 (A) add A
 * 0dc3733 (HEAD -> c-branch-1, origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -473,10 +475,10 @@ fn create_and_switch_to_stacked_branch() {
     snapbox::assert_data_eq!(
         tui.env().git_log(),
         snapbox::str![[r#"
-*   c128bce (gitbutler/workspace) GitButler Workspace Commit
+*   1003164 (gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * 9477ae7 (HEAD -> c-branch-1, A) add A
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
+* | 9477ae7 (HEAD -> c-branch-1, A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -498,6 +500,36 @@ fn pick_and_switch_to_branches() {
         .assert_rendered_term_svg_eq(file!["snapshots/pick_and_switch_to_branches_002.svg"]);
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/pick_and_switch_to_branches_003.svg"]);
+}
+
+#[test]
+fn pick_and_switch_prioritizes_cursor_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+    tui.input('b');
+    tui.input([KeyCode::Down, KeyCode::Down]);
+    tui.input('s').assert_rendered_term_svg_eq(file![
+        "snapshots/pick_and_switch_prioritizes_cursor_branch_001.svg"
+    ]);
+    tui.input(KeyCode::Enter);
+
+    // Confirming the first entry switches to the cursor's branch, not branch A.
+    let ctx = tui.env().context();
+    let repo = ctx.repo.get().unwrap();
+    snapbox::assert_data_eq!(
+        repo.head_ref()
+            .unwrap()
+            .unwrap()
+            .name()
+            .as_bstr()
+            .to_string(),
+        str!["refs/heads/B"]
+    );
+    tui.input(None).assert_rendered_term_svg_eq(file![
+        "snapshots/pick_and_switch_prioritizes_cursor_branch_002.svg"
+    ]);
 }
 
 #[test]
@@ -601,57 +633,4 @@ fn switching_to_workspace() {
         .assert_rendered_term_svg_eq(file!["snapshots/switching_to_workspace_003.svg"]);
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/switching_to_workspace_004.svg"]);
-}
-
-#[test]
-fn switching_between_branch_mode_and_other_modes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-
-    let mut tui = test_status_tui(env);
-
-    tui.input('j');
-
-    // switch to squash mode without marks
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switching_between_branch_mode_and_other_modes_001.svg"
-    ]);
-    tui.input('r').assert_rendered_term_svg_eq(file![
-        "snapshots/switching_between_branch_mode_and_other_modes_002.svg"
-    ]);
-    tui.input(KeyCode::Esc);
-
-    // switch to squash mode marks
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switching_between_branch_mode_and_other_modes_003.svg"
-    ]);
-    tui.input(' ').assert_rendered_term_svg_eq(file![
-        "snapshots/switching_between_branch_mode_and_other_modes_004.svg"
-    ]);
-    tui.input('r').assert_rendered_term_svg_eq(file![
-        "snapshots/switching_between_branch_mode_and_other_modes_005.svg"
-    ]);
-    tui.input(KeyCode::Esc);
-    tui.input(KeyCode::Esc);
-
-    // can switch to move mode without marks
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switching_between_branch_mode_and_other_modes_006.svg"
-    ]);
-    tui.input('m').assert_rendered_term_svg_eq(file![
-        "snapshots/switching_between_branch_mode_and_other_modes_007.svg"
-    ]);
-    tui.input(KeyCode::Esc);
-
-    // can switch to move mode with marks
-    // this doesn't enter move mode because branches can only be moved one at a time
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/switching_between_branch_mode_and_other_modes_008.svg"
-    ]);
-    tui.input(' ').assert_rendered_term_svg_eq(file![
-        "snapshots/switching_between_branch_mode_and_other_modes_009.svg"
-    ]);
-    tui.input('m').assert_rendered_term_svg_eq(file![
-        "snapshots/switching_between_branch_mode_and_other_modes_010.svg"
-    ]);
 }

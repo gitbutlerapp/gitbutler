@@ -6,7 +6,7 @@ use crate::{
     args::atoms::CliIdArg,
     id::{CommitId, CommittedFileId, CommittedHunk},
     theme::Theme,
-    utils::{CliOutput, CliOutputHuman, WriteWithUtils},
+    utils::{CliOutput, CliOutputHuman, WriteWithUtils, change_source::ChangeSourceId},
 };
 
 #[derive(Serialize)]
@@ -44,9 +44,6 @@ enum Resource {
         path: String,
     },
     Uncommitted,
-    Worktree {
-        name: String,
-    },
     WorktreeUncommitted {
         name: String,
     },
@@ -85,7 +82,6 @@ impl std::fmt::Display for Resource {
             }
             Resource::PathPrefix { path } => write!(f, "path prefix: {path}"),
             Resource::Uncommitted => f.write_str("uncommitted area"),
-            Resource::Worktree { name } => write!(f, "worktree: {name}"),
             Resource::WorktreeUncommitted { name } => {
                 write!(f, "worktree uncommitted area: {name}")
             }
@@ -211,11 +207,14 @@ fn resources_from_cli_id(cli_id: CliId) -> Vec<Resource> {
                 .unwrap_or_else(|| "<no hunk header>".to_string()),
         }],
         CliId::PathPrefix { id, .. } => vec![Resource::PathPrefix { path: id }],
-        CliId::Uncommitted { .. } => vec![Resource::Uncommitted],
-        CliId::Worktree { name, .. } => vec![Resource::Worktree {
-            name: name.to_string(),
-        }],
-        CliId::WorktreeUncommitted { name, .. } => vec![Resource::WorktreeUncommitted {
+        CliId::UncommittedArea {
+            source: ChangeSourceId::Head,
+            ..
+        } => vec![Resource::Uncommitted],
+        CliId::UncommittedArea {
+            source: ChangeSourceId::Worktree(name),
+            ..
+        } => vec![Resource::WorktreeUncommitted {
             name: name.to_string(),
         }],
         CliId::Stack { stack_id, .. } => vec![Resource::Stack {

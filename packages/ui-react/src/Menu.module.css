@@ -1,0 +1,16 @@
+/* A floor, so a short list still reads as a menu rather than a tooltip, and at least as wide as
+   what opened it; a menu at a point has no width to match. */
+.menu {
+	min-width: max(160px, var(--anchor-width, 0px));
+	max-height: var(--available-height);
+}
+
+/* The popup clips to its rounded edge, so the rows scroll inside it when the window is shorter than
+   the list. */
+.list {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}

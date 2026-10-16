@@ -1,8 +1,8 @@
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { useNow } from "#ui/components/useNow.ts";
-import { formatCompactRelativeTime } from "#ui/time.ts";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { useNow } from "@gitbutler/ui-react/useNow.ts";
+import { formatCompactRelativeTime } from "@gitbutler/ui-react/time.ts";
 import type { RefInfo } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import type { FC } from "react";

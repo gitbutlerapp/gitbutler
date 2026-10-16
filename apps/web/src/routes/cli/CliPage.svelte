@@ -4,6 +4,8 @@
 	import Features from "./sections/Features.svelte";
 	import Hero from "./sections/Hero.svelte";
 	import OptimizedForAgents from "./sections/OptimizedForAgents.svelte";
+	import FeatureUpdates from "$home/sections/FeatureUpdates.svelte";
+	import SocialQuotes from "$home/sections/SocialQuotes.svelte";
 	import Footer from "$lib/components/marketing/Footer.svelte";
 </script>
 
@@ -21,6 +23,8 @@
 <Features />
 <ComparisonTable />
 <OptimizedForAgents />
+<FeatureUpdates />
+<SocialQuotes />
 <CtaSection />
 <Footer />
 

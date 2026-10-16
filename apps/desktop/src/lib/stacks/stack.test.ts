@@ -1,5 +1,5 @@
 import { cherryPickTargets, toMoveBranchWarning, type Stack } from "$lib/stacks/stack";
-import { TestId } from "@gitbutler/ui";
+import { TestId } from "@gitbutler/ui-svelte";
 import { describe, expect, test } from "vitest";
 
 function stackWithBranches(...branchNames: (string | null)[]): Stack {

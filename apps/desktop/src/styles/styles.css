@@ -1,4 +1,4 @@
-@import "@gitbutler/ui/main.css";
+@import "@gitbutler/ui-svelte/main.css";
 
 :root {
 	--dropzone-fill: oklch(from var(--clr-pop-50) l c h / 0.1);

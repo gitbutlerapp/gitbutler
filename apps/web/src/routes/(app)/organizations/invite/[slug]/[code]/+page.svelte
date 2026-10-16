@@ -6,7 +6,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
 	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
-	import { Button } from "@gitbutler/ui";
+	import { Button } from "@gitbutler/ui-svelte";
 
 	import { env } from "$env/dynamic/public";
 

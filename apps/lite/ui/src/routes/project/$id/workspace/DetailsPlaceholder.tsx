@@ -1,5 +1,6 @@
 import styles from "./DetailsPlaceholder.module.css";
-import { EmptyState } from "#ui/components/EmptyState.tsx";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import type { FC, ReactNode } from "react";
 
 /**
@@ -11,7 +12,7 @@ import type { FC, ReactNode } from "react";
  * for. Present tense — an instruction would be unfollowable, since there is
  * nothing in the list to act on.
  *
- * No actions, matching the component in ⚛️ Lite Core, which hides its actions
+ * No actions, matching the component in ⚛️ Core, which hides its actions
  * slot here: every action belonging to this state belongs to the section that
  * owns it, and would be out of context in the pane.
  */
@@ -19,7 +20,7 @@ export const DetailsPlaceholder: FC<{ title: string; description: ReactNode }> =
 	title,
 	description,
 }) => (
-	<div className={styles.host}>
+	<ScrollArea className={styles.host} viewportClassName={styles.hostViewport}>
 		<EmptyState illustration="waving" title={title} description={description} />
-	</div>
+	</ScrollArea>
 );

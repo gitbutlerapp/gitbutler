@@ -1,6 +1,35 @@
 # Lite
 
-JavaScript dependencies are sourced from pnpm. Commands are surfaced via pnpm.
+## Changing what users see
+
+For components, layout or the words on screen, load the `gitbutler-ui` skill
+(`packages/ui-react/skill/SKILL.md`).
+
+## Preparing the checkout
+
+Before implementing or validating Lite changes, ensure this checkout has installed dependencies, generated SDK types/native bindings, and the `but` CLI needed to seed E2E fixtures. In an unprepared checkout, run from the repository root:
+
+```console
+$ pnpm install
+$ pnpm build:sdk
+$ cargo build -p but
+```
+
+Reuse completed setup in this checkout. If another agent is preparing the same checkout, coordinate rather than starting duplicate installs/builds. Isolated checkouts need their own setup if missing. Read-only investigation does not require setup.
+
+pnpm manages Node.js runtime and dependency installation, so always use pnpm scripts or `pnpm exec`.
+
+Rebuild the SDK after Rust changes, not for frontend-only edits.
+
+## Running the app
+
+After preparing the checkout, run from the repository root:
+
+```console
+$ pnpm dev:lite
+```
+
+Verify running apps and servers belong to this checkout before reusing them, including the Vite server reused by E2E tests. Ask about port conflicts rather than stopping another checkout's processes.
 
 ## Writing the code
 
@@ -13,6 +42,8 @@ To bypass this issue, where Redux store values are only needed at event-time (i.
 ### Code smells
 
 `useEffect` is typically an anti-pattern. Think long and hard before declaring it the best option. Should it appear to be the best option, always ask for consent to include it.
+
+Changing `packages/ui-react` from a Lite task needs consent too, since every app draws with it; its `AGENTS.md` says how.
 
 ### Comments
 
@@ -29,47 +60,29 @@ Consider backwards compatibility for any persisted state.
 ## Design
 
 The visual language — how icons, color, and composition should look — is in
-`apps/lite/DESIGN.md`. Read it before changing anything users see. This section
-covers the tooling that enforces it.
+`packages/ui-react/DESIGN.md`, with the component library it describes, and
+what Lite decides for itself is in `DESIGN.md` beside this file; the
+`gitbutler-ui` skill says which parts to read. The library's own `AGENTS.md`
+covers its tooling: icons, stories, the checks to run. This section covers
+what is the app's own.
 
 ### Icons
 
 There are two icon sets with two separate scripts, and each script only walks
 its own directory:
 
-| Path                                      | Owner                                  | Script                                    |
-| ----------------------------------------- | -------------------------------------- | ----------------------------------------- |
-| `apps/lite/ui/src/components/icons/*.svg` | Lite                                   | `pnpm -F @gitbutler/lite optimize-icons`  |
-| `packages/ui/src/lib/icons/svg/*.svg`     | shared Svelte UI package (desktop/web) | `pnpm -F @gitbutler/ui optimize-ui-icons` |
+| Path                                         | Owner                                  | Script                                           |
+| -------------------------------------------- | -------------------------------------- | ------------------------------------------------ |
+| `packages/ui-react/src/icons/*.svg`          | React component library (Lite, panel)  | `pnpm -F @gitbutler/ui-react optimize-icons`     |
+| `packages/ui-svelte/src/lib/icons/svg/*.svg` | shared Svelte UI package (desktop/web) | `pnpm -F @gitbutler/ui-svelte optimize-ui-icons` |
 
 Running `optimize-ui-icons` will **not** touch a Lite icon, and vice versa.
 Dropping an SVG into the wrong folder is the most common reason an icon "won't
-optimize". File icons (`ui/src/components/file-icons/`) are deliberately not
+optimize". File icons (`packages/ui-react/src/file-icons/`) are deliberately not
 run through either script — recoloring them to `currentColor` would destroy
 them.
 
-To add an icon to Lite:
-
-1. Export it from Figma at 16×16 (⚛️ Lite Core library) as SVG.
-2. Save it to `ui/src/components/icons/` with a kebab-case name — the filename
-   _is_ the icon name (`folder-lock.svg` → `<Icon name="folder-lock" />`).
-3. Run:
-
-   ```console
-   $ pnpm -F @gitbutler/lite optimize-icons
-   ```
-
-4. Commit both the SVG and the regenerated `ui/src/components/iconNames.ts`.
-
-The script is `apps/lite/scripts/optimize-icons.mjs`; its header comment
-documents each transform and the export problems it can't fix. It is
-idempotent, so it's safe to run any time. `iconNames.ts` is generated — never
-hand-edit it; add or remove the SVG and re-run. Icons are inlined into the
-bundle as raw strings and injected with `dangerouslySetInnerHTML`, which is why
-the script minifies them.
-
-After running the script, render the icon in the app (or in `Icon.stories.tsx`)
-at both 16px and a larger size before committing.
+To add an icon, follow `packages/ui-react/AGENTS.md`.
 
 ### Tokens
 
@@ -85,7 +98,7 @@ sets it.
 
 ### Components
 
-Every component in `ui/src/components/` has a story beside it, and the story
+Every component in `packages/ui-react/src/` has a story beside it, and the story
 is how a component is checked on its own, in both themes, before it goes
 into a surface. Storybook runs on port 6007:
 
@@ -110,6 +123,33 @@ browser's inspector, or a Playwright script against the iframe URL) rather
 than by eye, and keep one screenshot as the proof. A story links its Figma
 component through the `design` parameter when one exists, so the two sides
 can be compared when either changes.
+
+Every story, the library's and the app's, also runs as a test in headless
+Chromium, as part of `pnpm -F @gitbutler/lite test` or on its own:
+
+```console
+$ pnpm -F @gitbutler/lite test:stories
+```
+
+A story fails when it throws while rendering or its `play` function fails.
+The tests need Playwright's Chromium, once per checkout:
+
+```console
+$ pnpm -F @gitbutler/lite playwright:install:unit
+```
+
+Storybook also writes the component manifest (`/manifests/components.json`)
+from every story, the app's included, and the import it lists for a
+component is the `@import` tag in that component's JSDoc, as
+`@import import { Markdown } from "#ui/components/Markdown.tsx";`. Give an
+app component with a story one, or mark a story that has no component
+behind it with `tags: ["!manifest"]`, as `AppUpdater.stories.tsx` does.
+`packages/ui-react/AGENTS.md` has the rest about the manifest.
+
+Lite's own components are drawn on the ⚙️ Meta page of the Client working file,
+<https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>, and drafts go on
+its 🚧 Drafts pages; the library's are in ⚛️ Core.
+`packages/ui-react/AGENTS.md`, under Figma, has the rules for both.
 
 ## Verifying your work
 

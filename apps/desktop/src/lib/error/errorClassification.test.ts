@@ -158,6 +158,7 @@ describe("classify", () => {
 			// Terminal: telemetry captures once per session and pollers stop.
 			expect(result.terminal).toBe(true);
 			expect(result.userMessage).toContain("permission");
+			expect(result.userMessage).toContain("IP allow list");
 		});
 
 		test("GitHubTokenLifetimeRestricted is terminal with token-expiration guidance", () => {
@@ -207,12 +208,31 @@ describe("classify", () => {
 			expect(result.userMessage).toContain("then try again");
 		});
 
+		test("GitLabProjectNotFound is terminal with host, path, and access guidance", () => {
+			const error = new IpcError(
+				{
+					message: "GitLab could not find this project, or your token cannot see it.",
+					code: "GitLabProjectNotFound",
+				},
+				"list_reviews",
+			);
+			const result = classify(error);
+			expect(result.code).toBe("GitLabProjectNotFound");
+			expect(result.severity).toBe("error");
+			expect(result.terminal).toBe(true);
+			expect(result.title).toBe("GitLab Project Not Found");
+			expect(result.userMessage).toContain("GitLab host URL");
+			expect(result.userMessage).toContain("path in your remote URL");
+			expect(result.userMessage).toContain("member");
+			expect(result.userMessage).toContain("then try again");
+		});
+
 		test.each<[Code, RegExp]>([
 			["GitLabUnauthorized", /new personal access token/],
-			["GitLabForbidden", /token scopes.*account permissions/],
-		])("%s is terminal with static reauthentication guidance", (code, guidance) => {
-			// `get_gl_user` tags a stored-token 401/403; the raw message carries
-			// no useful detail, so the static copy must say what to change.
+			["GitLabForbidden", /token scopes.*membership.*instance policies/],
+		])("%s is terminal with static access guidance", (code, guidance) => {
+			// `get_gl_user` and review listings tag GitLab 401/403; the raw message
+			// carries no useful detail, so the static copy must say what to check.
 			const error = new IpcError(
 				{ message: "Failed to get authenticated user", code },
 				"get_gl_user",

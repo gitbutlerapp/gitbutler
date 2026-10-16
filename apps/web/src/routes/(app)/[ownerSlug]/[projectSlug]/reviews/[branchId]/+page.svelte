@@ -33,11 +33,11 @@
 		RichTextEditor,
 		Textarea,
 		chipToasts,
-	} from "@gitbutler/ui";
+	} from "@gitbutler/ui-svelte";
 	import FileUploadPlugin, {
 		type DropFileResult,
-	} from "@gitbutler/ui/richText/plugins/FileUpload.svelte";
-	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
+	} from "@gitbutler/ui-svelte/richText/plugins/FileUpload.svelte";
+	import { copyToClipboard } from "@gitbutler/ui-svelte/utils/clipboard";
 	import dayjs from "dayjs";
 	import relativeTime from "dayjs/plugin/relativeTime";
 

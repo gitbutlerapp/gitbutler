@@ -17,5 +17,11 @@
 		"skipLibCheck": true,
 		"types": ["vite/client"]
 	},
-	"include": ["src", "../electron/src/ipc.ts", "vite.config.ts", "vitest.config.ts"]
+	"include": [
+		"src",
+		"../electron/src/ipc.ts",
+		"vite.config.ts",
+		"vitest.config.ts",
+		"../vitest.storybook.config.ts"
+	]
 }

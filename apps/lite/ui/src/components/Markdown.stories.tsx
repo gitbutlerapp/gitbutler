@@ -12,11 +12,13 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false 
 queryClient.setQueryData(guiSettingsQueryOptions.queryKey, defaultSettings as GUISettings);
 
 const meta = preview.meta({
+	title: "Lite/Markdown",
+	id: "components-markdown",
 	component: Markdown,
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=1930-1729",
+			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client?node-id=5314-14890",
 		},
 	},
 	decorators: [
@@ -71,7 +73,7 @@ $ but push
 
 ---
 
-[See the design notes](https://github.com/gitbutlerapp/gitbutler/blob/master/apps/lite/DESIGN.md)
+[See the design notes](https://github.com/gitbutlerapp/gitbutler/blob/master/packages/ui-react/DESIGN.md)
 
 Then run \`but status\` to check.`,
 	},

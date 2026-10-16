@@ -63,12 +63,6 @@ const toDownstackPushStatus = (segment: Segment): DownstackPushStatus =>
 export const downstackPushStatusDisabled = (dps: DownstackPushStatus): boolean =>
 	!dps.anyRequiresPush || dps.anyHasConflicts;
 
-export const downstackPushStatusFromSegments = (segments: Array<Segment>): DownstackPushStatus =>
-	segments.reduce(
-		(acc, segment) => concatDownstackPushStatus(acc, toDownstackPushStatus(segment)),
-		emptyDownstackPushStatus,
-	);
-
 /**
  * Per segment, what a push from it covers: itself, the segments below, and
  * `beneath`, which is what the last segment rests on. A stack rests on the

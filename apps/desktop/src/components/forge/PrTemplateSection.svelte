@@ -2,7 +2,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Toggle, Select, SelectItem, TestId } from "@gitbutler/ui";
+	import { Toggle, Select, SelectItem, TestId } from "@gitbutler/ui-svelte";
 	import { type Writable } from "svelte/store";
 
 	interface Props {

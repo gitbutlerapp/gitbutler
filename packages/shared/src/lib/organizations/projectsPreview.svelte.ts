@@ -7,7 +7,7 @@ import { reactive } from "$lib/reactiveUtils.svelte";
 import { APP_STATE } from "$lib/redux/store.svelte";
 import { type Reactive } from "$lib/storeUtils";
 import { inject } from "@gitbutler/core/context";
-import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 import type { Loadable } from "$lib/network/types";
 import type { LoadableProject } from "$lib/organizations/types";
 

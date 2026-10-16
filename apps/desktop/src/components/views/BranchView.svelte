@@ -13,7 +13,7 @@
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Icon, TestId, Tooltip, Button } from "@gitbutler/ui";
+	import { Icon, TestId, Tooltip, Button } from "@gitbutler/ui-svelte";
 	import type { Segment } from "@gitbutler/but-sdk";
 
 	interface Props {

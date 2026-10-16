@@ -264,7 +264,7 @@ pub fn stash_into_branch(
         perm,
     )?;
     let stack_id = {
-        let (_, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (_, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         ws.find_segment_and_stack_by_refname(full_ref_name.as_ref())
             .and_then(|(stack, _)| stack.id)
             .context("created stash branch is missing its stack id")?

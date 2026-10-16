@@ -105,6 +105,23 @@ const rejectedGitLabTokenError = {
 		code: "GitLabUnauthorized" as const,
 	},
 };
+// What `list_reviews` returns when GitLab answers 403 on a review listing.
+const forbiddenGitLabError = {
+	error: {
+		origin: "ipc" as const,
+		name: "API error: (list_reviews)",
+		message: "GitLab refused access for the token.",
+		code: "GitLabForbidden" as const,
+	},
+};
+const missingGitLabProjectError = {
+	error: {
+		origin: "ipc" as const,
+		name: "API error: (list_reviews)",
+		message: "GitLab could not find this project, or your token cannot see it.",
+		code: "GitLabProjectNotFound" as const,
+	},
+};
 const nonterminalError = {
 	error: {
 		origin: "ipc" as const,
@@ -161,6 +178,8 @@ type Response =
 	| typeof expiredTokenError
 	| typeof lifetimeError
 	| typeof rejectedGitLabTokenError
+	| typeof forbiddenGitLabError
+	| typeof missingGitLabProjectError
 	| typeof nonterminalError
 	| typeof unrecognizedForgeError;
 
@@ -283,6 +302,8 @@ describe("project review-list polling", () => {
 	test.each([
 		["GitHubInsufficientPermissions", terminalError],
 		["GitHubTokenExpired", expiredTokenError],
+		["GitLabForbidden", forbiddenGitLabError],
+		["GitLabProjectNotFound", missingGitLabProjectError],
 	])(
 		"keeps cached reviews, stops terminal polling, and recovers through explicit retries (%s)",
 		async (_code, terminal) => {
@@ -350,9 +371,13 @@ describe("project review-list polling", () => {
 		harness.storeState.unsubscribe();
 	});
 
-	test("resumes polling a rejected GitLab token only once a replacement is stored", async () => {
+	test.each([
+		["GitLabUnauthorized", rejectedGitLabTokenError],
+		["GitLabForbidden", forbiddenGitLabError],
+		["GitLabProjectNotFound", missingGitLabProjectError],
+	])("stops polling after %s until an accepted token refetches", async (code, refusal) => {
 		vi.useFakeTimers();
-		const harness = setup([success, rejectedGitLabTokenError, success], undefined, [
+		const harness = setup([success, refusal, success], undefined, [
 			rejectedTokenStore,
 			acceptedTokenStore,
 		]);
@@ -363,10 +388,10 @@ describe("project review-list polling", () => {
 		const rejected = (harness.api.endpoints as any).listPrs.select(PROJECT_ID)(
 			harness.store.getState(),
 		);
-		expect(rejected.data.ids, "a rejected token dropped the cached reviews").toEqual(["topic"]);
-		expect(rejected.error?.code).toBe("GitLabUnauthorized");
+		expect(rejected.data.ids, "the refusal dropped the cached reviews").toEqual(["topic"]);
+		expect(rejected.error?.code).toBe(code);
 		await vi.advanceTimersByTimeAsync(POLL_INTERVAL);
-		expect(harness.calls, "a rejected token scheduled another interval request").toBe(2);
+		expect(harness.calls, "the refusal scheduled another interval request").toBe(2);
 
 		// Storing a token GitLab also rejects invalidates nothing: the listing
 		// would only fail the same way again.

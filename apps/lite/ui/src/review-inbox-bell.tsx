@@ -8,14 +8,14 @@
  */
 
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { Toggle, ToggleGroup } from "@base-ui/react";
-import type { IconName } from "#ui/components/iconNames.ts";
-import { RelativeTime } from "#ui/components/RelativeTime.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { appliedRefsByName, openInboxEntry, type AppliedRefs } from "#ui/review-notifications.ts";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
+import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { laneRefsByName, openInboxEntry, type LaneRefs } from "#ui/review-notifications.ts";
 import {
 	entryHeadline,
 	inboxKindAttention,
@@ -26,7 +26,8 @@ import {
 	type InboxKind,
 } from "#ui/review-inbox.ts";
 import { usePrNotificationsLevel } from "#ui/review-seen.ts";
-import { Dropdown } from "#ui/components/Popup.tsx";
+import { Dropdown } from "@gitbutler/ui-react/Popup.tsx";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FC } from "react";
 import styles from "./review-inbox-bell.module.css";
@@ -55,16 +56,16 @@ const Entry: FC<{
 	projectId: string;
 	entry: InboxEntry;
 	/** Shared by the bell: one head-info subscription serves every row. */
-	appliedRefs: AppliedRefs | undefined;
+	laneRefs: LaneRefs | undefined;
 	/** The panel closes itself once a click has somewhere to go. */
 	onNavigate: () => void;
-}> = ({ projectId, entry, appliedRefs, onNavigate }) => {
+}> = ({ projectId, entry, laneRefs, onNavigate }) => {
 	const open = () => {
 		// Still loading is not "not in the workspace": acting now could open
 		// the forge for a local branch, and eat the unread mark doing it.
-		if (appliedRefs === undefined) return;
+		if (laneRefs === undefined) return;
 		onNavigate();
-		openInboxEntry(projectId, entry, appliedRefs);
+		openInboxEntry(projectId, entry, laneRefs);
 	};
 
 	return (
@@ -122,9 +123,9 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 	const unseen = humanUnseen + agentUnseen;
 	const entries = tab === "agents" ? agentEntries : humanEntries;
 	const tabUnseen = tab === "agents" ? agentUnseen : humanUnseen;
-	const { data: appliedRefs } = useQuery({
+	const { data: laneRefs } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: appliedRefsByName,
+		select: laneRefsByName,
 		enabled: shown,
 	});
 
@@ -137,14 +138,15 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 			sideOffset={6}
 			className={styles.panel}
 			trigger={
-				<button
-					type="button"
+				<Button
 					aria-label={unseen > 0 ? `Notifications, ${unseen} unread` : "Notifications"}
-					className={classes(getButtonClassName({ iconOnly: true, variant: "ghost" }), styles.bell)}
+					iconOnly
+					variant="ghost"
+					className={styles.bell}
 				>
 					<Icon name="bell" />
 					{unseen > 0 && <span aria-hidden className={styles.bellDot} />}
-				</button>
+				</Button>
 			}
 		>
 			<div className={styles.panelHeader}>
@@ -187,7 +189,7 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 					</button>
 				)}
 			</div>
-			<div className={styles.list}>
+			<ScrollArea className={styles.list}>
 				{entries.length === 0 ? (
 					<div className={classes("text-12", styles.empty)}>
 						{tab === "agents" ? "No agent notifications yet" : "No human notifications yet"}
@@ -198,12 +200,12 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 							key={entry.id}
 							projectId={projectId}
 							entry={entry}
-							appliedRefs={appliedRefs}
+							laneRefs={laneRefs}
 							onNavigate={() => setOpen(false)}
 						/>
 					))
 				)}
-			</div>
+			</ScrollArea>
 		</Dropdown>
 	);
 };

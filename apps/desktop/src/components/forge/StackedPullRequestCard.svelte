@@ -7,7 +7,7 @@
 	import { REPO_SERVICE } from "$lib/forge/repoService.svelte";
 	import { pullRequestTargetsBaseBranch } from "$lib/forge/shared/pullRequestTargets";
 	import { inject } from "@gitbutler/core/context";
-	import { AsyncButton, TestId } from "@gitbutler/ui";
+	import { AsyncButton, TestId } from "@gitbutler/ui-svelte";
 
 	import type { MergeMethod } from "$lib/forge/interface/types";
 	import type { Segment } from "@gitbutler/but-sdk";

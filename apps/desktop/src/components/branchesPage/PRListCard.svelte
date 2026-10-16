@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";
-	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from "@gitbutler/ui";
+	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from "@gitbutler/ui-svelte";
 	import type { ForgeUnitInfo } from "@gitbutler/but-sdk";
 	type basePrData = {
 		number: number;

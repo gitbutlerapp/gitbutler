@@ -3,7 +3,7 @@
 You can use the following commands to run front end tests.
 
 - `pnpm test` - All unit tests (desktop, web, shared, ui packages)
-- `pnpm test:ct` - Component tests (@gitbutler/ui with Playwright)
+- `pnpm test:ct` - Component tests (@gitbutler/ui-svelte with Playwright)
 - `pnpm test:e2e:playwright` - E2E tests (Playwright)
 - `pnpm test:e2e` - E2E tests (WebdriverIO, non-Tauri)
 - `pnpm test:e2e:blackbox` - Blackbox E2E tests (WebdriverIO)
@@ -24,7 +24,7 @@ pnpm test:ct -- "HardWrap.*"
 
 ```bash
 # Run tests in the ui package matching a pattern
-cd packages/ui && pnpm test -- -t BranchLane
+cd packages/ui-svelte && pnpm test -- -t BranchLane
 
 # Run tests in the desktop package
 cd apps/desktop && pnpm test -- -t myComponent.test

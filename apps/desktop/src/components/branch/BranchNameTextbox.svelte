@@ -2,7 +2,7 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { debounce } from "$lib/utils/debounce";
 	import { inject } from "@gitbutler/core/context";
-	import { Icon, Textbox } from "@gitbutler/ui";
+	import { Icon, Textbox } from "@gitbutler/ui-svelte";
 	import { onDestroy } from "svelte";
 
 	type Props = {

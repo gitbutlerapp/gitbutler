@@ -24,11 +24,11 @@ set -eu -o pipefail
 printf 'start\n' >> "$GIT_DIR/filter-starts"
 read_packet() {
     local header
-    IFS= read -r -N 4 header || return 1
+    IFS= read -r -d '' -n 4 header || return 1
     local size=$((16#$header - 4))
     packet=''
     if ((size > 0)); then
-        IFS= read -r -N "$size" packet
+        IFS= read -r -d '' -n "$size" packet
     fi
 }
 read_list() {

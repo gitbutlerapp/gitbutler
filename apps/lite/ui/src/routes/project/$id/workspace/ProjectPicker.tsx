@@ -1,6 +1,6 @@
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FolderIcon } from "#ui/components/FolderIcon.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { FolderIcon } from "@gitbutler/ui-react/FolderIcon.tsx";
 import {
 	Popup,
 	PopupEmpty,
@@ -8,13 +8,13 @@ import {
 	PopupSearch,
 	PopupSection,
 	PopupSectionLabel,
-} from "#ui/components/Popup.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+} from "@gitbutler/ui-react/Popup.tsx";
+import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { useAddLocalRepository } from "#ui/components/useAddLocalRepository.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { listProjectsQueryOptions, repoInfoQueryOptions } from "#ui/api/queries.ts";
-import { getRangeExtractorWithIndices } from "#ui/virtual.ts";
+import { getRangeExtractorWithIndices } from "@gitbutler/ui-react/virtual.ts";
 import {
 	readProjectsOpenedAt,
 	readProjectsRepoMarks,
@@ -23,8 +23,9 @@ import {
 	type ProjectRepoMarks,
 } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Button, Combobox, Tooltip } from "@base-ui/react";
-import type { IconName } from "#ui/components/iconNames.ts";
+import { Combobox } from "@base-ui/react";
+import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
+import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -170,55 +171,65 @@ const VirtualizedProjectList: FC<{
 	useImperativeHandle(virtualizerRef, () => virtualizer);
 
 	return (
-		<Combobox.List ref={scrollElementRef} className={styles.list}>
-			{virtualProjects.length > 0 && (
-				<div ref={virtualizer.containerRef} role="presentation" className={styles.virtualContainer}>
-					{virtualizer.getVirtualItems().map((virtualItem) => {
-						const row = virtualProjects[virtualItem.index];
-						if (row === undefined) return null;
-						const group = filteredGroups[row.groupIndex];
-						if (group === undefined) return null;
+		<ScrollArea
+			viewportRef={scrollElementRef}
+			className={styles.list}
+			viewportClassName={styles.listViewport}
+		>
+			<Combobox.List>
+				{virtualProjects.length > 0 && (
+					<div
+						ref={virtualizer.containerRef}
+						role="presentation"
+						className={styles.virtualContainer}
+					>
+						{virtualizer.getVirtualItems().map((virtualItem) => {
+							const row = virtualProjects[virtualItem.index];
+							if (row === undefined) return null;
+							const group = filteredGroups[row.groupIndex];
+							if (group === undefined) return null;
 
-						return (
-							<div
-								key={virtualItem.key}
-								ref={virtualizer.measureElement}
-								data-index={virtualItem.index}
-								role="presentation"
-								className={styles.virtualProject}
-							>
-								{row.isFirstInGroup && (
-									<PopupSectionLabel
-										id={`${groupDescriptionId}-${row.groupIndex}`}
-										aria-hidden="true"
-										divided={row.groupIndex > 0}
-									>
-										{group.value}
-									</PopupSectionLabel>
-								)}
-
-								<PopupItem
-									icon={projectIcon(marksById[row.project.id])}
-									trailing={row.project.id === currentProjectId ? "tick" : undefined}
-									className={styles.projectItem}
-									render={
-										<Combobox.Item
-											index={virtualItem.index}
-											value={row.project}
-											aria-describedby={`${groupDescriptionId}-${row.groupIndex}`}
-											aria-setsize={virtualProjects.length}
-											aria-posinset={virtualItem.index + 1}
-										/>
-									}
+							return (
+								<div
+									key={virtualItem.key}
+									ref={virtualizer.measureElement}
+									data-index={virtualItem.index}
+									role="presentation"
+									className={styles.virtualProject}
 								>
-									{row.project.title}
-								</PopupItem>
-							</div>
-						);
-					})}
-				</div>
-			)}
-		</Combobox.List>
+									{row.isFirstInGroup && (
+										<PopupSectionLabel
+											id={`${groupDescriptionId}-${row.groupIndex}`}
+											aria-hidden="true"
+											divided={row.groupIndex > 0}
+										>
+											{group.value}
+										</PopupSectionLabel>
+									)}
+
+									<PopupItem
+										icon={projectIcon(marksById[row.project.id])}
+										trailing={row.project.id === currentProjectId ? "tick" : undefined}
+										className={styles.projectItem}
+										render={
+											<Combobox.Item
+												index={virtualItem.index}
+												value={row.project}
+												aria-describedby={`${groupDescriptionId}-${row.groupIndex}`}
+												aria-setsize={virtualProjects.length}
+												aria-posinset={virtualItem.index + 1}
+											/>
+										}
+									>
+										{row.project.title}
+									</PopupItem>
+								</div>
+							);
+						})}
+					</div>
+				)}
+			</Combobox.List>
+		</ScrollArea>
 	);
 };
 
@@ -305,28 +316,19 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 				}
 			}}
 		>
-			<Tooltip.Root>
+			<Tooltip
+				content={globalHotkeys.selectProject.meta.name}
+				kbd={globalHotkeys.selectProject.hotkey}
+			>
 				<Combobox.Trigger
-					className={classes(
-						getButtonClassName({ variant: "ghost" }),
-						"text-15",
-						"text-bold",
-						headerStyles.workspaceName,
-					)}
+					className={classes("text-15", "text-bold", headerStyles.workspaceName)}
 					aria-label={`${globalHotkeys.selectProject.meta.name} (current: ${p.project.title})`}
-					render={<Button render={<Tooltip.Trigger />} />}
+					render={<Button variant="ghost" />}
 				>
 					<FolderIcon className={headerStyles.workspaceNameFolder} />
 					<span className={headerStyles.workspaceNameLabel}>{p.project.title}</span>
 				</Combobox.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={globalHotkeys.selectProject.hotkey} />}>
-							{globalHotkeys.selectProject.meta.name}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			</Tooltip>
 
 			<Combobox.Portal>
 				<Combobox.Positioner align="start" sideOffset={4}>

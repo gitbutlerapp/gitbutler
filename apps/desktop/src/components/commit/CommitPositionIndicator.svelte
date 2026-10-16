@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Badge, TestId } from "@gitbutler/ui";
+	import { Badge, TestId } from "@gitbutler/ui-svelte";
 
 	type Props = {
 		commitId: string | undefined;

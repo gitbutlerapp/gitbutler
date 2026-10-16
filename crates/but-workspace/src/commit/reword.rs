@@ -5,7 +5,7 @@ use bstr::BStr;
 use but_core::RefMetadata;
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector},
+    graph_rebase::{Editor, Selector, SuccessfulRebase, ToCommitSelector},
 };
 
 /// This action will rewrite a commit and any relevant history so it uses
@@ -25,7 +25,7 @@ pub fn reword<'ws, 'meta, M: RefMetadata>(
     );
     let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?;
 
-    editor.replace(target_selector, Step::new_pick(new_id))?;
+    editor.amend_pick(target_selector, new_id)?;
 
     let outcome = editor.rebase()?;
 

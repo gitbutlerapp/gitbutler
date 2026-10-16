@@ -18,6 +18,7 @@ import {
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
 import type { DiffLineSelection } from "#ui/cursors.ts";
 import type { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import { diffFileHeaderHeight, diffFileSpacing } from "@gitbutler/ui-react/diffFileLayout.ts";
 import {
 	processFile,
 	type CodeViewDiffItem,
@@ -36,19 +37,17 @@ export type Annotation =
 	/** Workaround to render images w/o native library support. */
 	| { _tag: "image" };
 
-/**
- * Layout and metrics handed to CodeView. Shared because the minimap models item
- * positions from the same numbers, and would drift silently if they diverged.
- */
+/** Layout and metrics handed to CodeView. */
 export const codeViewLayout: CodeViewLayout = {
+	// The toolbar above the scroller supplies the top (see .actions).
 	paddingTop: 0,
-	// Match --panel-padding-block.
-	paddingBottom: 12,
-	gap: 10,
+	paddingBottom: diffFileSpacing.bottom,
+	gap: diffFileSpacing.gap,
 };
 
 export const codeViewItemMetrics = {
-	diffHeaderHeight: 38,
+	diffHeaderHeight: diffFileHeaderHeight,
+	paddingTop: 6,
 	paddingBottom: 9,
 } satisfies Partial<VirtualFileMetrics>;
 
@@ -106,8 +105,12 @@ export const resolveDiffSelection = ({
 	const file = fileByItemId.get(weakFileIdentityKey(selection.file));
 	if (!file) return null;
 
-	const range = selection.range ?? file.hunks[0]?.ranges[diffStyle];
-	return range ? { id: file.item.id, range } : null;
+	// Only user interactions and defaults are single-line; externally supplied cursors retain
+	// their full range for rendering and operations.
+	if (selection.range) return { id: file.item.id, range: selection.range };
+	const range = file.hunks[0]?.ranges[diffStyle];
+	if (!range) return null;
+	return { id: file.item.id, range: { start: range.start, end: range.start, side: range.side } };
 };
 
 const parseFileDiff = (
@@ -151,9 +154,8 @@ export const prepareDiffFiles = ({
 		];
 	});
 
-export const parsePreparedDiffFile = (
-	file: PreparedDiffFile,
-): CodeViewDiffItem<Annotation>["fileDiff"] => parseFileDiff(file.patch, String(file.version));
+const parsePreparedDiffFile = (file: PreparedDiffFile): CodeViewDiffItem<Annotation>["fileDiff"] =>
+	parseFileDiff(file.patch, String(file.version));
 
 /** Build relationships between our SDK data and Pierre's view. */
 export const getDiffView = (files: Array<PreparedDiffFile>): DiffView => {

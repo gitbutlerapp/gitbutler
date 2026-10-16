@@ -1,6 +1,6 @@
 import type { ForgeDestination } from "#ui/forge.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { EmptyState } from "#ui/components/EmptyState.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
 import { useAppDispatch } from "#ui/store.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import type { FC } from "react";
@@ -20,9 +20,7 @@ export const ForgeAuthPrompt: FC<Props> = ({ destination, hasAccount }) => {
 	return (
 		<div className={styles.empty}>
 			<EmptyState title={title} description={description}>
-				<button
-					type="button"
-					className={getButtonClassName({})}
+				<Button
 					onClick={() =>
 						dispatch(
 							interfaceSlice.actions.openDialog({
@@ -32,7 +30,7 @@ export const ForgeAuthPrompt: FC<Props> = ({ destination, hasAccount }) => {
 					}
 				>
 					{title}
-				</button>
+				</Button>
 			</EmptyState>
 		</div>
 	);

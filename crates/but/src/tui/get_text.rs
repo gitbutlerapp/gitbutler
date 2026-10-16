@@ -7,7 +7,10 @@ use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_error::Code;
 
-const REST_TEXT_MARKER: &str = "# --- ignore-rest ---";
+/// The line below which everything is ignored, starting with `comment_prefix` so that it reads as a comment.
+fn ignore_rest_marker(comment_prefix: &str) -> String {
+    format!("{comment_prefix} --- ignore-rest ---")
+}
 
 /// Launches the user's preferred text editor to edit some `initial_text`,
 /// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
@@ -15,34 +18,45 @@ const REST_TEXT_MARKER: &str = "# --- ignore-rest ---";
 ///
 /// Returns the edited text (*without known encoding*), with comment lines (starting with `#`) removed.
 pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
-    let content = from_editor(filename_safe_intent, initial_text, None, ".txt")?;
-    let filtered_lines = filter_content_from_editor(content.as_bstr());
+    let content = from_editor(filename_safe_intent, initial_text, ".txt")?;
+    let filtered_lines = filter_content_from_editor(content.as_bstr(), "#");
     Ok(filtered_lines.into_iter().collect())
 }
 
 /// Like `from_editor_no_comments` but uses ".patch" file extension that enables syntax
-/// highlighting in some editors.
+/// highlighting in some editors, and treats lines starting with `comment_prefix` as comments.
 ///
-/// If `diff_text` is `Some`, appends it after a `REST_TEXT_MARKER` separator line in the editor.
+/// If `diff_text` is `Some`, appends it after an ignore-rest marker line in the editor.
 /// The marker and everything below it is automatically stripped from the returned text.
 ///
-/// Returns the edited text (*without known encoding*), with comment lines (starting with `#`) removed.
+/// Returns the edited text (*without known encoding*), with comment lines removed.
 pub fn from_editor_no_comments_as_patch(
     filename_safe_intent: &str,
     initial_text: &str,
     diff_text: Option<&str>,
+    comment_prefix: &str,
 ) -> Result<BString> {
-    let content = from_editor(filename_safe_intent, initial_text, diff_text, ".patch")?;
-    let filtered_lines = filter_content_from_editor(content.as_bstr());
+    let mut text = initial_text.to_owned();
+    if let Some(diff_text) = diff_text {
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push_str(&ignore_rest_marker(comment_prefix));
+        text.push('\n');
+        text.push_str(diff_text);
+    }
+    let content = open_editor(filename_safe_intent, &text, ".patch", comment_prefix)?;
+    let filtered_lines = filter_content_from_editor(content.as_bstr(), comment_prefix);
     Ok(filtered_lines.into_iter().collect())
 }
 
-/// Strip comment lines (starting with '#') and everything below `REST_TEXT_MARKER`.
-fn filter_content_from_editor(content: &BStr) -> Vec<&BStr> {
+/// Strip comment lines (starting with `comment_prefix`) and everything below the ignore-rest marker.
+fn filter_content_from_editor<'a>(content: &'a BStr, comment_prefix: &str) -> Vec<&'a BStr> {
+    let marker = ignore_rest_marker(comment_prefix);
     content
         .lines_with_terminator()
-        .take_while(|line| !line.trim_start().starts_with_str(REST_TEXT_MARKER))
-        .filter(|line| !line.trim_start().starts_with_str("#"))
+        .take_while(|line| !line.starts_with_str(&marker))
+        .filter(|line| !line.starts_with_str(comment_prefix))
         .map(|line| line.as_bstr())
         .collect()
 }
@@ -58,8 +72,18 @@ fn filter_content_from_editor(content: &BStr) -> Vec<&BStr> {
 pub fn from_editor(
     filename_safe_intent: &str,
     initial_text: &str,
-    rest_text: Option<&str>,
     file_suffix: &str,
+) -> Result<BString> {
+    open_editor(filename_safe_intent, initial_text, file_suffix, "#")
+}
+
+/// Like [`from_editor`], but the built-in editor leaves lines starting with `comment_prefix`
+/// unwrapped when editing a commit message.
+fn open_editor(
+    filename_safe_intent: &str,
+    initial_text: &str,
+    file_suffix: &str,
+    comment_prefix: &str,
 ) -> Result<BString> {
     const ALLOWED_SUFFIXES: &[&str] = &[".txt", ".md", ".patch"]; // feel free to add more allowed suffixes
     if !ALLOWED_SUFFIXES.contains(&file_suffix) {
@@ -71,14 +95,10 @@ pub fn from_editor(
     }
 
     match get_editor_command() {
-        Some(editor_cmd) => from_external_editor(
-            &editor_cmd,
-            filename_safe_intent,
-            initial_text,
-            rest_text,
-            file_suffix,
-        ),
-        None => from_builtin_editor(filename_safe_intent, initial_text, rest_text),
+        Some(editor_cmd) => {
+            from_external_editor(&editor_cmd, filename_safe_intent, initial_text, file_suffix)
+        }
+        None => from_builtin_editor(filename_safe_intent, initial_text, comment_prefix),
     }
 }
 
@@ -87,7 +107,6 @@ fn from_external_editor(
     editor_cmd: &str,
     filename_safe_intent: &str,
     initial_text: &str,
-    rest_text: Option<&str>,
     file_suffix: &str,
 ) -> Result<BString> {
     // Create a temporary file with the initial text
@@ -97,14 +116,6 @@ fn from_external_editor(
         .tempfile()?;
 
     write!(&mut tempfile, "{initial_text}")?;
-
-    if let Some(rest_text) = rest_text {
-        if !initial_text.ends_with('\n') {
-            writeln!(&mut tempfile)?;
-        }
-        writeln!(&mut tempfile, "{REST_TEXT_MARKER}")?;
-        writeln!(&mut tempfile, "{rest_text}")?;
-    }
 
     // The editor command is allowed to be a shell expression, e.g. "code --wait" is somewhat common.
     // We need to execute within a shell to make sure we don't get "No such file or directory" errors.
@@ -130,30 +141,23 @@ fn from_external_editor(
 fn from_builtin_editor(
     filename_safe_intent: &str,
     initial_text: &str,
-    rest_text: Option<&str>,
+    comment_prefix: &str,
 ) -> Result<BString> {
+    use super::editor::{EditorMode, hard_wrap_commit_message, run_builtin_editor};
+
     // Determine editor mode based on the intent
     let mode = if filename_safe_intent.contains("commit") {
-        super::editor::EditorMode::CommitMessage
+        EditorMode::CommitMessage
     } else if filename_safe_intent.contains("branch") {
-        super::editor::EditorMode::BranchName
+        EditorMode::BranchName
     } else {
-        super::editor::EditorMode::PullRequest
+        EditorMode::PullRequest
     };
 
-    let editor_output = if let Some(rest_text) = rest_text {
-        let mut initial_text = initial_text.to_owned();
-        if !initial_text.ends_with('\n') {
-            initial_text.push('\n');
+    match run_builtin_editor(filename_safe_intent, initial_text, mode)? {
+        Some(content) if mode == EditorMode::CommitMessage => {
+            Ok(hard_wrap_commit_message(&content, comment_prefix).into())
         }
-        initial_text.push_str(REST_TEXT_MARKER);
-        initial_text.push('\n');
-        initial_text.push_str(rest_text);
-        super::editor::run_builtin_editor(filename_safe_intent, &initial_text, mode)?
-    } else {
-        super::editor::run_builtin_editor(filename_safe_intent, initial_text, mode)?
-    };
-    match editor_output {
         Some(content) => Ok(content.into()),
         None => bail!("Editor cancelled"),
     }
@@ -313,7 +317,7 @@ mod tests {
         // The controlling terminal tends to go insane when this test fails, but at least it
         // doesn't hang forever :)
         let (tx, rx) = std::sync::mpsc::channel();
-        thread::spawn(move || tx.send(from_editor("filename", "", None, ".notasuffix")));
+        thread::spawn(move || tx.send(from_editor("filename", "", ".notasuffix")));
         let err = rx
             .recv_timeout(Duration::from_secs(1))
             .expect("Test timed out after 1 second")
@@ -389,7 +393,7 @@ This should remain
 
     #[test]
     fn test_filter_content_from_editor() {
-        let raw_content = BString::from(format!(
+        let raw_content = BString::from(
             r#"commit message
 
 here is a longer description about the commit
@@ -399,14 +403,14 @@ here is a longer description about the commit
 
 # this line will be ignored
 # as will this
-{REST_TEXT_MARKER}
+# --- ignore-rest ---
 all
 this
 will
 be
-ignored"#
-        ));
-        let filtered_content = filter_content_from_editor(raw_content.as_bstr());
+ignored"#,
+        );
+        let filtered_content = filter_content_from_editor(raw_content.as_bstr(), "#");
 
         assert_eq!(
             filtered_content,
@@ -419,6 +423,24 @@ ignored"#
                 "2. It does the other thing\n",
                 "\n",
             ])
+        );
+    }
+
+    #[test]
+    fn filter_content_from_editor_uses_comment_prefix() {
+        let raw_content = BString::from(
+            "#123 fix the thing\n\n; a comment\n  ; indented, so not a comment\n; --- ignore-rest ---\n# diff\n",
+        );
+        let filtered_content = filter_content_from_editor(raw_content.as_bstr(), ";");
+
+        assert_eq!(
+            filtered_content,
+            Vec::from([
+                "#123 fix the thing\n",
+                "\n",
+                "  ; indented, so not a comment\n"
+            ]),
+            "like Git, only lines starting with ';' in column zero are comments, and everything from the marker on is dropped"
         );
     }
 }

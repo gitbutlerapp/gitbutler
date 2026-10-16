@@ -35,7 +35,7 @@ pub(super) struct Reconciled {
 pub(super) fn reconcile_after_land(ctx: &mut but_ctx::Context) -> anyhow::Result<Reconciled> {
     let mut guard = ctx.exclusive_worktree_access();
 
-    let updates = bottom_updates(ctx, guard.write_permission())?;
+    let updates = bottom_updates(ctx, guard.read_permission())?;
     if updates.is_empty() {
         return Ok(Reconciled {
             workspace: current_state(ctx, guard.read_permission())?,
@@ -84,17 +84,24 @@ fn current_state(
     ctx.invalidate_workspace_cache()?;
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
-    WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, BTreeMap::new(), &mut db)
+    WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        Vec::new(),
+        &mut db,
+    )
 }
 
 /// Build one `Rebase` update per applied stack, selecting its bottom-most commit (or the bottom
 /// segment's reference when that segment carries no commits of its own). Mirrors the frontend's
 /// `buildUpstreamIntegrationUpdates`.
 fn bottom_updates(
-    ctx: &mut but_ctx::Context,
-    perm: &mut but_core::sync::RepoExclusive,
+    ctx: &but_ctx::Context,
+    perm: &but_core::sync::RepoShared,
 ) -> anyhow::Result<Vec<BottomUpdate>> {
-    let (repo, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
     let head_info = but_workspace::graph_to_ref_info(
         &ws,
         &repo,
@@ -106,5 +113,10 @@ fn bottom_updates(
         },
     )?;
 
-    Ok(crate::workspace::rebase_stack_bottoms(&head_info))
+    Ok(crate::workspace::rebase_lane_bottoms(
+        head_info
+            .stacks
+            .iter()
+            .map(but_workspace::branch::Stack::lane),
+    ))
 }

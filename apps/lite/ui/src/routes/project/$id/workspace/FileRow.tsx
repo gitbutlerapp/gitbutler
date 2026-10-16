@@ -1,34 +1,20 @@
-import { ConflictIcon } from "#ui/components/ConflictIcon.tsx";
-import { FileIcon } from "#ui/components/FileIcon.tsx";
-import { FileStatusBadge } from "#ui/components/FileStatusBadge.tsx";
-import rowStyles from "./Row.module.css";
+import { Checkbox } from "@gitbutler/ui-react/Checkbox.tsx";
+import { FileListItem } from "@gitbutler/ui-react/FileList.tsx";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import type { FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import { useAppSelector } from "#ui/store.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { classes } from "#ui/components/classes.ts";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
 import { Toolbar, Tooltip } from "@base-ui/react";
-import type { ComponentProps, CSSProperties, FC, ReactNode } from "react";
-import styles from "./FileRow.module.css";
-import treeStyles from "./FilesTree.module.css";
-import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
-import { getRowButtonClassName } from "./Row-utils.ts";
+import type { ComponentProps, FC } from "react";
+import { PresentationalRowButton } from "./Row.tsx";
+import { getRowButtonClassName, rowPointerProps } from "./Row-utils.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
-import { TreeSteps } from "./TreeSteps.tsx";
-import { ageBadgeOpacity, formatAgeBadge, formatRelativeTime } from "#ui/time.ts";
-import type { TreeChange } from "@gitbutler/but-sdk";
 import type { FileRowTooltipPayload } from "./FileRowTooltip.tsx";
-
-/** Pulse lifetime. The 30s clock driving it can stretch this by up to a tick. */
-const FRESH_CHANGE_MAX_AGE_MS = 60_000;
-
-/** From this age up, the badge is coarse or hidden, so hover carries the full time ago. */
-const AGE_TOOLTIP_MIN_AGE_MS = 60 * 60_000;
 
 type FileRowProps = {
 	item: FileRowItem;
@@ -36,9 +22,8 @@ type FileRowProps = {
 	fileParent: FileParent;
 	branchNameByCommitId: (commitId: string) => string | undefined;
 	canCheck: boolean;
-	canUncommit: boolean;
-	uncommit?: (change: TreeChange, extendToCheckedFiles: boolean) => void;
 	isChecked: boolean;
+	isIndeterminate?: boolean;
 	/** Whether the diff on show has been reviewed; the row says so in place of its change type. */
 	isReviewed: boolean;
 	checkFile: (evt: { path: string; shiftKey: boolean }) => void;
@@ -51,32 +36,18 @@ type FileRowProps = {
 	pathDisplay: "lead" | "trail" | "hidden";
 	focusScope: FocusScope;
 	tooltipHandle: Tooltip.Handle<FileRowTooltipPayload>;
-	/** See {@link FilesTree}'s prop of the same name. */
-	ageBadgeNow?: number | null;
-	/** See {@link FilesTree}'s prop of the same name. */
-	rail?: ReactNode;
-} & Omit<ComponentProps<typeof Row>, "projectId">;
+	isSelected: boolean;
+	onSelect: () => void;
+} & ComponentProps<"div">;
 
-type FileRowPresentationalProps = Omit<FileRowProps, "canUncommit" | "uncommit"> & {
+type FileRowPresentationalProps = FileRowProps & {
 	anyOperationPending: boolean;
 	menuItems: ReturnType<typeof useFileMenuItems>;
 	presentationalOnly?: boolean;
 };
 
-const PresentationalRowButton: FC<{ icon: "kebab" | "link" }> = ({ icon }) => (
-	<button
-		type="button"
-		inert
-		aria-hidden="true"
-		tabIndex={-1}
-		className={getRowButtonClassName({ iconOnly: true })}
-	>
-		<Icon name={icon} />
-	</button>
-);
-
-export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) => {
-	const { item, projectId, fileParent } = props;
+export const FileRow: FC<FileRowProps> = (props) => {
+	const { item, projectId, fileParent, isReviewed } = props;
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const anyOperationPending = useAppSelector(
@@ -87,8 +58,7 @@ export const FileRow: FC<FileRowProps> = ({ canUncommit, uncommit, ...props }) =
 		address: { parent: fileParent, path: relativePath },
 		path: relativePath,
 		change: item._tag === "Change" ? item.change : undefined,
-		canUncommit,
-		uncommit,
+		isReviewed,
 	});
 
 	return (
@@ -107,6 +77,7 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	branchNameByCommitId,
 	canCheck,
 	isChecked,
+	isIndeterminate = false,
 	isReviewed,
 	checkFile,
 	depth,
@@ -116,24 +87,11 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	menuItems,
 	presentationalOnly = false,
 	tooltipHandle,
-	ageBadgeNow = null,
-	rail,
+	isSelected,
+	onSelect,
 	...restProps
 }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
-
-	const modifiedAtMs = item.modifiedAtMs ?? null;
-	const ageMs =
-		ageBadgeNow !== null && modifiedAtMs !== null ? Math.max(0, ageBadgeNow - modifiedAtMs) : null;
-	const ageBadge = ageMs === null ? null : formatAgeBadge(ageMs);
-	const isFresh = ageMs !== null && ageMs <= FRESH_CHANGE_MAX_AGE_MS;
-	const agedTooltip =
-		ageBadgeNow !== null &&
-		modifiedAtMs !== null &&
-		ageMs !== null &&
-		ageMs > AGE_TOOLTIP_MIN_AGE_MS
-			? formatRelativeTime(modifiedAtMs, ageBadgeNow)
-			: null;
 
 	const hasConflictHint = item._tag === "Conflict" && fileParent._tag === "UncommittedChanges";
 	// An uncommitted conflict is a state to get out of, so the row says how.
@@ -145,42 +103,30 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 	const fileName = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
 
 	return (
-		<Row
+		<FileListItem
 			{...restProps}
-			className={classes(restProps.className, isFresh && styles.freshChange)}
-			isChecked={isChecked}
-			onShiftSelect={
-				!presentationalOnly && !anyOperationPending && canCheck
-					? () => checkFile({ path: relativePath, shiftKey: true })
-					: undefined
-			}
-			onContextMenu={
-				presentationalOnly
-					? undefined
-					: (event) => {
-							// Hand the file path along so a plugin host can add its own
-							// actions (the app's native menus ignore it).
-							void showNativeContextMenu(
-								event,
-								menuItems,
-								fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
-							);
-						}
-			}
-		>
-			{rail}
-			<TreeSteps depth={depth} />
-
-			<div className={treeStyles.leading}>
-				<FileIcon
-					fileName={fileName}
-					className={classes(treeStyles.leadingMark, isReviewed && styles.reviewedFade)}
-				/>
-				<RowCheckbox
+			{...rowPointerProps({
+				...restProps,
+				onSelect,
+				onShiftSelect:
+					!presentationalOnly && !anyOperationPending && canCheck
+						? () => checkFile({ path: relativePath, shiftKey: true })
+						: undefined,
+			})}
+			name={fileName}
+			directory={pathDisplay === "hidden" ? null : directoryPath}
+			directoryPosition={pathDisplay === "lead" ? "lead" : "trail"}
+			status={item._tag === "Change" ? item.change.status.type : undefined}
+			reviewed={isReviewed}
+			conflicted={item._tag === "Conflict"}
+			selected={isSelected}
+			depth={depth}
+			checkbox={
+				<Checkbox
 					disabled={anyOperationPending || !canCheck}
 					aria-label={`Check file ${relativePath}`}
 					checked={isChecked}
-					className={treeStyles.leadingCheckbox}
+					indeterminate={isIndeterminate}
 					nativeButton
 					render={
 						presentationalOnly ? (
@@ -207,40 +153,34 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 								}
 					}
 				/>
-			</div>
-
-			<Tooltip.Trigger
-				handle={tooltipHandle}
-				payload={{
-					content: agedTooltip !== null ? `${rowTooltip} — ${agedTooltip}` : rowTooltip,
-				}}
-				render={<RowLabelContainer className={classes(isReviewed && styles.reviewedFade)} />}
-			>
-				{item._tag === "Conflict" && (
-					<ConflictIcon
-						variant="conflict"
-						className={styles.conflictIcon}
-						aria-label="Conflicted"
-					/>
-				)}
-				<RowLabel singleLine>
-					{directoryPath !== null && pathDisplay === "lead" && (
-						<span className={classes(styles.pathLead, rowStyles.fadedText)}>{directoryPath}/</span>
-					)}
-					{fileName}
-					{directoryPath !== null && pathDisplay === "trail" && (
-						<span className={classes(styles.pathInit, rowStyles.fadedText)}>{directoryPath}</span>
-					)}
-				</RowLabel>
-			</Tooltip.Trigger>
-
-			{!anyOperationPending &&
-				(presentationalOnly ? (
-					<RowToolbar aria-hidden="true">
-						<PresentationalRowButton icon="kebab" />
-					</RowToolbar>
+			}
+			labelRender={
+				<Tooltip.Trigger
+					handle={tooltipHandle}
+					payload={{ content: rowTooltip }}
+					render={<div />}
+				/>
+			}
+			statusRender={
+				<Tooltip.Trigger
+					handle={tooltipHandle}
+					payload={{
+						content:
+							item._tag === "Conflict"
+								? "Conflicted"
+								: isReviewed
+									? "Reviewed"
+									: item.change.status.type,
+					}}
+					// A tooltip trigger is a button by default, and the status isn't one.
+					render={<span />}
+				/>
+			}
+			actions={
+				anyOperationPending ? undefined : presentationalOnly ? (
+					<PresentationalRowButton icon="kebab" />
 				) : (
-					<Toolbar.Root aria-label="File actions" render={<RowToolbar />}>
+					<Toolbar.Root aria-label="File actions">
 						<Toolbar.Button
 							aria-label="File menu"
 							onClick={(event) => {
@@ -255,63 +195,47 @@ export const FileRowPresentational: FC<FileRowPresentationalProps> = ({
 							<Icon name="kebab" />
 						</Toolbar.Button>
 					</Toolbar.Root>
-				))}
-
-			{ageBadge !== null && ageMs !== null && (
-				<span
-					className={styles.ageBadge}
-					style={{ "--age-badge-opacity": String(ageBadgeOpacity(ageMs)) } as CSSProperties}
-				>
-					{ageBadge}
-				</span>
-			)}
-
-			{!anyOperationPending &&
+				)
+			}
+			marks={
+				!anyOperationPending &&
 				item._tag === "Change" &&
 				fileParent._tag === "UncommittedChanges" &&
-				item.dependencyCommitIds.length > 0 &&
-				(presentationalOnly ? (
-					<RowToolbar forceVisible aria-hidden="true">
+				item.dependencyCommitIds.length > 0 ? (
+					presentationalOnly ? (
 						<PresentationalRowButton icon="link" />
-					</RowToolbar>
-				) : (
-					<Toolbar.Root aria-label="File actions" render={<RowToolbar forceVisible />}>
-						<Toolbar.Button
-							render={
-								<DependencyIndicator
-									projectId={projectId}
-									commitIds={item.dependencyCommitIds}
-									branchNameByCommitId={branchNameByCommitId}
-									tooltipHandle={tooltipHandle}
-									className={getRowButtonClassName({ iconOnly: true })}
-								/>
-							}
-						>
-							<Icon name="link" />
-						</Toolbar.Button>
-					</Toolbar.Root>
-				))}
-
-			{item._tag === "Change" && (
-				<Tooltip.Trigger
-					handle={tooltipHandle}
-					payload={{ content: isReviewed ? "Reviewed" : item.change.status.type }}
-					// By default it's a button, but we don't want this to be
-					// interactive.
-					render={
-						isReviewed ? (
-							// The tick stands in for the change type rather than joining it: a
-							// reviewed file's news is that it is done with, and the type is a
-							// hover away.
-							<span aria-label="Reviewed" className={styles.reviewedMark}>
-								<Icon size={11} name="tick" />
-							</span>
-						) : (
-							<FileStatusBadge status={item.change.status.type} />
-						)
-					}
-				/>
-			)}
-		</Row>
+					) : (
+						<Toolbar.Root aria-label="File actions">
+							<Toolbar.Button
+								render={
+									<DependencyIndicator
+										projectId={projectId}
+										commitIds={item.dependencyCommitIds}
+										branchNameByCommitId={branchNameByCommitId}
+										tooltipHandle={tooltipHandle}
+										className={getRowButtonClassName({ iconOnly: true })}
+									/>
+								}
+							>
+								<Icon name="link" />
+							</Toolbar.Button>
+						</Toolbar.Root>
+					)
+				) : undefined
+			}
+			onContextMenu={
+				presentationalOnly
+					? undefined
+					: (event) => {
+							// Hand the file path along so a plugin host can add its own
+							// actions (the app's native menus ignore it).
+							void showNativeContextMenu(
+								event,
+								menuItems,
+								fileParent._tag === "UncommittedChanges" ? { path: relativePath } : undefined,
+							);
+						}
+			}
+		/>
 	);
 };

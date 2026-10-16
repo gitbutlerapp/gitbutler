@@ -4,7 +4,7 @@
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { LISTING_SERVICE } from "$lib/forge/listingService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, TimeAgo, Icon, TestId } from "@gitbutler/ui";
+	import { Button, TimeAgo, Icon, TestId } from "@gitbutler/ui-svelte";
 
 	interface Props {
 		projectId: string;

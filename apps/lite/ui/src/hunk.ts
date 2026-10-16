@@ -483,19 +483,17 @@ export const hunkSelectionForLineNavigation = <
 		: (positioned.findLast(({ end }) => end < active)?.selection ?? null);
 };
 
-/** Move the active end of Pierre's range by one rendered row. */
+/** Move the selected line by one rendered row. */
 export const moveSelectedLineRange = ({
 	hunks,
 	range,
 	diffStyle,
 	offset,
-	extend,
 }: {
 	hunks: Array<Hunk>;
 	range: SelectedLineRange;
 	diffStyle: DiffStyle;
 	offset: -1 | 1;
-	extend: boolean;
 }): SelectedLineRange | null => {
 	const lineIndex = getDiffLineIndex(hunks, diffStyle);
 	const activeSide = range.endSide ?? range.side ?? "additions";
@@ -506,14 +504,7 @@ export const moveSelectedLineRange = ({
 	const next = nextRow[activeSide] ?? nextRow.additions ?? nextRow.deletions;
 	if (!next) return null;
 
-	if (!extend) return { start: next.line, side: next.side, end: next.line };
-
-	return {
-		start: range.start,
-		...(range.side !== undefined ? { side: range.side } : {}),
-		end: next.line,
-		...(next.side !== range.side ? { endSide: next.side } : {}),
-	};
+	return { start: next.line, side: next.side, end: next.line };
 };
 
 export const diffSpecHunkHeadersForLineSelection = (

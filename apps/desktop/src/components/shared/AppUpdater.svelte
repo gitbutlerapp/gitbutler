@@ -2,7 +2,7 @@
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import { UPDATER_SERVICE, type InstallStatus } from "$lib/updater/updater";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, Modal, Markdown } from "@gitbutler/ui";
+	import { Button, Modal, Markdown } from "@gitbutler/ui-svelte";
 	import { fade } from "svelte/transition";
 	import { env } from "$env/dynamic/public";
 

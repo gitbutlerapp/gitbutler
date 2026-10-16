@@ -12,7 +12,7 @@
 	padding: 0 8px;
 	gap: 4px;
 	border: none;
-	border-radius: 14px;
+	border-radius: var(--radius-full);
 	background-color: var(--bg-2);
 	color: var(--text-2);
 }
@@ -42,20 +42,20 @@
 	--button-width: 24px;
 	--button-padding-inline: 4px;
 
-	border-radius: 50%;
+	border-radius: var(--radius-full);
 }
 
 /* A horizontal row rather than the popup's usual stack of rows. */
 .reactionPicker {
 	flex-direction: row;
-	padding: 4px;
+	padding: var(--padding-menu);
 	gap: 2px;
 }
 
 .pickerItem {
 	padding: 4px 6px;
 	border: none;
-	border-radius: var(--radius-button);
+	border-radius: var(--radius-control);
 	background: none;
 	font-size: 14px;
 

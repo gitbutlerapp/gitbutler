@@ -139,9 +139,7 @@ fn target_page_failure_preserves_integration_and_its_undo_entry() -> anyhow::Res
             target.tree_id()?,
             target.id
         );
-        let id = repo
-            .write_buf(gix::objs::Kind::Commit, data.as_bytes())
-            .map_err(anyhow::Error::from_boxed)?;
+        let id = repo.write_buf(gix::objs::Kind::Commit, data.as_bytes())?;
         repo.reference(
             "refs/remotes/origin/main",
             id,

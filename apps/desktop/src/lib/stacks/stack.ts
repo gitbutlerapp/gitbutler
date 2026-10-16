@@ -1,5 +1,5 @@
 import { showWarning } from "$lib/notifications/toasts";
-import { TestId } from "@gitbutler/ui";
+import { TestId } from "@gitbutler/ui-svelte";
 import type { BranchIconName } from "$lib/branches/branchIcon";
 import type { DropResult } from "$lib/dragging/dropResult";
 import type { ApplyOutcome, PushStatus, Segment, Stack as RefInfoStack } from "@gitbutler/but-sdk";

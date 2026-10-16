@@ -73,9 +73,6 @@ fn shell_quote_path(path: &std::path::Path) -> String {
 
 fn repo_with_unpushed_single_branch() -> (Sandbox, std::path::PathBuf) {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
 
     let remote = env.app_data_dir().join("origin with spaces.git");
     let remote_arg = shell_quote_path(&remote);
@@ -97,12 +94,12 @@ fn assert_single_branch_status_before_push(env: &Sandbox) {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main]
+┊╭┄ ma [main] [HEAD]
 ┊●   pxt unpushed work
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┴ e31e6ca (common base) 2000-01-02 add init
+┴ e31e6ca (common base, origin/main) 2000-01-02 add init
 
 Hint: run `but help` for all commands
 
@@ -117,7 +114,7 @@ fn assert_single_branch_status_after_push(env: &Sandbox) {
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ma [main] (merged upstream)
+┊╭┄ ma [main] [HEAD] (merged upstream)
 ┊●   pxt unpushed work
 ┊●   nmy M (no changes)
 ├╯
@@ -259,7 +256,7 @@ fn push_dry_run_agent_reports_human_summary() {
 
     let output = env
         .but("push --dry-run branchB")
-        .env("PI_CODING_AGENT", "true")
+        .as_agent()
         .output()
         .unwrap();
     assert!(

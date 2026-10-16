@@ -7,7 +7,8 @@ use command_group::AsyncCommandGroup;
 
 use crate::{
     args::Args,
-    utils::{Confirm, ConfirmDefault, OutputChannel, binary_path::current_exe_for_but_exec},
+    error::{CliResult, bad_input},
+    utils::{OutputChannel, binary_path::current_exe_for_but_exec},
 };
 
 #[derive(Default)]
@@ -103,15 +104,23 @@ pub fn init_ctx(
     args: &Args,
     options: InitCtxOptions,
     out: &mut OutputChannel,
-) -> anyhow::Result<Context> {
+) -> CliResult<Context> {
     let app_settings = crate::app_settings()?;
     // lets try to get the repo from the current directory
     let repo = match but_ctx::discover_main_repo(&args.current_dir) {
         Ok(repo) => repo,
-        Err(_) => anyhow::bail!(
-            "No git repository found at {}\nPlease run 'but setup' to initialize the project.",
-            &args.current_dir.display()
-        ),
+        Err(_) => {
+            return Err(bad_input(format!(
+                "No git repository found at {}",
+                args.current_dir
+                    .strip_prefix(".")
+                    .unwrap_or(&args.current_dir)
+                    .join(".git")
+                    .display()
+            ))
+            .hint("Run `but init` to initialize a Git repository.")
+            .into());
+        }
     };
 
     // Check if we're on gitbutler/workspace with non-workspace commits on top
@@ -122,29 +131,26 @@ pub fn init_ctx(
 
     let (ctx, fetch_interval_minutes, last_fetch) = {
         let Some(workdir) = repo.workdir() else {
-            anyhow::bail!("Bare repositories are not supported.");
+            return Err(anyhow::anyhow!("Bare repositories are not supported.").into());
         };
         #[cfg(feature = "legacy")]
         {
             use but_ctx::LegacyProject;
 
-            use crate::command::legacy::setup::check_project_setup;
-
-            if app_settings.feature_flags.single_branch {
-                let project = match LegacyProject::find_by_worktree_dir(workdir) {
-                    Ok(project) => project,
-                    Err(_) => match gitbutler_project::add(workdir)? {
-                        gitbutler_project::AddProjectOutcome::Added(project)
-                        | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => project,
-                        outcome => outcome.try_project()?,
-                    },
-                };
-                let mut ctx =
-                    Context::new_from_legacy_project_and_settings(&project, app_settings.clone())?;
-                if matches!(options.target_requirement, TargetRequirement::Required)
-                    && ctx.project_meta()?.target_ref.is_none()
-                {
-                    let target_ref = {
+            let project = match LegacyProject::find_by_worktree_dir(workdir) {
+                Ok(project) => project,
+                Err(_) => match gitbutler_project::add(workdir)? {
+                    gitbutler_project::AddProjectOutcome::Added(project)
+                    | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => project,
+                    outcome => outcome.try_project()?,
+                },
+            };
+            let mut ctx =
+                Context::new_from_legacy_project_and_settings(&project, app_settings.clone())?;
+            if matches!(options.target_requirement, TargetRequirement::Required)
+                && ctx.project_meta()?.target_ref.is_none()
+            {
+                let target_ref = {
                         let repo = ctx.repo.get()?;
                         but_workspace::init::infer_default_target_ref(&repo)?
                     }
@@ -153,102 +159,20 @@ pub fn init_ctx(
                             "No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one."
                         )
                     })?;
-                    but_api::workspace::set_target_ref_and_init_project(
-                        &mut ctx,
-                        target_ref.as_ref(),
-                        None,
-                    )?;
-                }
-
-                let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
-                let last_fetch = ctx
-                    .legacy_project
-                    .project_data_last_fetch
-                    .as_ref()
-                    .map(|f| f.timestamp());
-                (ctx, fetch_interval_minutes, last_fetch)
-            } else {
-                // Try to find an existing project, or prompt for setup if not found
-                let project = match LegacyProject::find_by_worktree_dir(workdir) {
-                    Ok(project) => project,
-                    Err(_) => {
-                        let message =
-                            format!("No GitButler project found at {}", workdir.display());
-                        match prompt_for_setup(out, &message) {
-                            SetupPromptResult::RunSetup => {
-                                // Run setup
-                                let mut ctx = Context::from_repo_with_settings(
-                                    repo.clone(),
-                                    app_settings.clone(),
-                                )?;
-                                let mut guard = ctx.exclusive_worktree_access();
-                                crate::command::legacy::setup::repo(
-                                    &mut ctx,
-                                    &args.current_dir,
-                                    out,
-                                    guard.write_permission(),
-                                )?;
-                                // Retry finding the project after setup
-                                LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
-                                    anyhow::anyhow!(
-                                        "Setup completed but project still not found at {}",
-                                        workdir.display()
-                                    )
-                                })?
-                            }
-                            SetupPromptResult::Declined => {
-                                anyhow::bail!(
-                                    "Setup required: {message} - run `but setup` to configure the project"
-                                );
-                            }
-                        }
-                    }
-                };
-
-                // Check project setup, prompt for setup if needed
-                let mut ctx =
-                    Context::new_from_legacy_project_and_settings(&project, app_settings.clone())?;
-                {
-                    let mut guard = ctx.exclusive_worktree_access();
-                    if let Err(e) = check_project_setup(&ctx, guard.read_permission()) {
-                        let message = e.to_string();
-                        match prompt_for_setup(out, &message) {
-                            SetupPromptResult::RunSetup => {
-                                // Run setup to fix the project configuration
-                                crate::command::legacy::setup::repo(
-                                    &mut ctx,
-                                    &args.current_dir,
-                                    out,
-                                    guard.write_permission(),
-                                )?;
-                                // Re-find and re-check the project after setup
-                                let _project = LegacyProject::find_by_worktree_dir(workdir)
-                                    .map_err(|_| {
-                                        anyhow::anyhow!(
-                                            "Setup completed but project still not found at {}",
-                                            workdir.display()
-                                        )
-                                    })?;
-                                check_project_setup(&ctx, guard.read_permission())?;
-                            }
-                            SetupPromptResult::Declined => {
-                                anyhow::bail!(
-                                    "Setup required: {message} - run `but setup` to configure the project"
-                                );
-                            }
-                        }
-                    }
-                    ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
-                }
-
-                let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
-                let last_fetch = ctx
-                    .legacy_project
-                    .project_data_last_fetch
-                    .as_ref()
-                    .map(|f| f.timestamp());
-                (ctx, fetch_interval_minutes, last_fetch)
+                but_api::workspace::set_target_ref_and_init_project(
+                    &mut ctx,
+                    target_ref.as_ref(),
+                    None,
+                )?;
             }
+
+            let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
+            let last_fetch = ctx
+                .legacy_project
+                .project_data_last_fetch
+                .as_ref()
+                .map(|f| f.timestamp());
+            (ctx, fetch_interval_minutes, last_fetch)
         }
         #[cfg(not(feature = "legacy"))]
         {
@@ -459,52 +383,6 @@ fn spawn_background_sync(
         )
         .ok();
     }
-}
-
-/// Represents the result of prompting the user for setup
-enum SetupPromptResult {
-    /// User agreed to run setup
-    RunSetup,
-    /// User declined or non-interactive terminal
-    Declined,
-}
-
-fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult {
-    use std::fmt::Write;
-    let mut progress = out.progress_channel();
-
-    // Progress channel only writes when the output format allows progress, so we can write unconditionally.
-    _ = writeln!(
-        progress,
-        "The current project is not configured to be managed by GitButler.\n"
-    );
-    writeln!(progress, "{}\n", theme::get().error.paint(message)).ok();
-
-    // Check if we have an interactive terminal and prompt the user
-    if let Some(mut inout) = out.prepare_for_terminal_input() {
-        _ = writeln!(
-            progress,
-            "In order to manage projects with GitButler, we need to do some changes:\n\n - Switch you to a special `gitbutler/workspace` branch to enable parallel branches\n - Install Git hooks to help manage the tooling\n\nYou can go back to normal git workflows at any time by either:\n\n - Running `but teardown`\n - Manually checking out a normal branch with `git checkout <branch>`\n",
-        );
-
-        if let Ok(Confirm::Yes) =
-            inout.confirm("Would you like to run setup now?", ConfirmDefault::Yes)
-        {
-            return SetupPromptResult::RunSetup;
-        }
-    }
-
-    // The declined/non-interactive cases end in the caller's "Setup required" error,
-    // which carries the `but setup` remediation for every format; JSON additionally
-    // gets it as a structured value.
-    if let Some(json_out) = out.for_json() {
-        _ = json_out.write_value(serde_json::json!({
-            "error": "setup_required",
-            "message": message.to_string(),
-            "hint": "run `but setup` to configure the project"
-        }));
-    }
-    SetupPromptResult::Declined
 }
 
 /// Check if we're on gitbutler/workspace with non-workspace commits on top.

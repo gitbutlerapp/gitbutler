@@ -3,9 +3,9 @@ import {
 	useCommitDiscardChanges,
 	useCommitUncommit,
 	useCommitUncommitChanges,
-	useDiscardFileChanges,
 	useDiscardWorktreeChanges,
 } from "#ui/api/mutations.ts";
+import { useFileSetActions } from "./useFileSetActions.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
@@ -14,7 +14,7 @@ import {
 	uncommittedChangesFileParent,
 	type Address,
 } from "#ui/addresses.ts";
-import type { ButtonVariant } from "#ui/components/Button.tsx";
+import type { ButtonVariant } from "@gitbutler/ui-react/Button.tsx";
 import { focusScope } from "#ui/focus-scopes.ts";
 import {
 	changesFileHotkeys,
@@ -42,8 +42,7 @@ type CheckedAction = {
 
 /**
  * The acts available on the checked set, as the row menus offer them but addressed to the set
- * rather than to a row. Checking is confined to one kind at a time, so which acts apply follows
- * from what is checked; an unactionable set gets none, and the bar shows its count alone.
+ * rather than to a row. Files and lines may mix within one parent; whole commits stay separate.
  */
 export const useCheckedActions = ({
 	projectId,
@@ -56,6 +55,9 @@ export const useCheckedActions = ({
 	const checkedAddresses = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddresses(state, projectId),
 	);
+	const checkedContext = useAppSelector((state) =>
+		projectSlice.selectors.selectCheckedAddressesContext(state, projectId),
+	);
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
@@ -64,7 +66,7 @@ export const useCheckedActions = ({
 	// Hooks cannot be conditional, so a non-file set still has to name a parent; it gets no file
 	// actions below, so which one it names is immaterial.
 	const fileParent = fileParentFromSources(checkedAddresses);
-	const { canDiscard, discard } = useDiscardFileChanges({
+	const fileActions = useFileSetActions({
 		projectId,
 		fileParent: fileParent ?? uncommittedChangesFileParent,
 	});
@@ -87,258 +89,227 @@ export const useCheckedActions = ({
 		},
 	});
 
-	const [first] = checkedAddresses;
-	if (!first) return [];
+	if (checkedContext === null) return [];
 
-	return Match.value(first).pipe(
+	return Match.value(checkedContext).pipe(
 		Match.withReturnType<Array<CheckedAction>>(),
-		Match.tags({
-			Commit: () => {
-				if (!checkedAddresses.every((address) => address._tag === "Commit")) return [];
-				const subjectCommitIds = checkedAddresses.map((address) => address.commitId);
+		Match.when("Commit", () => {
+			if (!checkedAddresses.every((address) => address._tag === "Commit")) return [];
+			const subjectCommitIds = checkedAddresses.map((address) => address.commitId);
 
-				return [
-					{
-						label: "Copy",
-						hotkey: sidebarHotkeys.copy.hotkey,
-						enabled: true,
-						run: () => {
-							startKeyboardTransfer({
-								sources: checkedAddresses,
-								kind: "copy",
-								placement: "above",
-							});
-							focusScope("sidebar");
-						},
+			return [
+				{
+					label: "Copy",
+					hotkey: sidebarHotkeys.copy.hotkey,
+					enabled: true,
+					run: () => {
+						startKeyboardTransfer({
+							sources: checkedAddresses,
+							kind: "copy",
+							placement: "above",
+						});
+						focusScope("sidebar");
 					},
-					cut(checkedAddresses),
+				},
+				cut(checkedAddresses),
+				{
+					label: "Uncommit",
+					hotkey: sidebarHotkeys.uncommitCommit.hotkey,
+					enabled: !isCommitUncommitPending,
+					run: () => commitUncommit({ projectId, assignTo: null, subjectCommitIds, dryRun: false }),
+				},
+				{
+					label: "Delete",
+					hotkey: sidebarHotkeys.deleteCommit.hotkey,
+					variant: "danger",
+					enabled: !isCommitDiscardPending,
+					run: () => {
+						// The cursor has to leave the set before it goes; anchoring on the topmost
+						// checked commit lands it beside the set rather than inside it.
+						const anchor = checkedAddresses.reduce((topmost, address) => {
+							const indexOf = (candidate: typeof address) =>
+								appliedAddressSpace.indexByKey.get(addressIdentityKey(candidate)) ??
+								Number.POSITIVE_INFINITY;
+							return indexOf(address) < indexOf(topmost) ? address : topmost;
+						});
+						const selectionAfterDiscard = selectAfterDiscardedCommits({
+							addressSpace: appliedAddressSpace,
+							commit: anchor,
+							discardedCommitIds: new Set(subjectCommitIds),
+							headInfoIndex,
+						});
+
+						commitDiscard(
+							{ projectId, subjectCommitIds, dryRun: false },
+							{
+								onSuccess: (response) => {
+									let latest = selectionAfterDiscard;
+
+									rewrite: if (latest?._tag === "Commit") {
+										const newId = response.workspace.replacedCommits[latest.commitId];
+										if (newId === undefined) break rewrite;
+
+										latest = commitAddress({ commitId: newId, changeId: latest.changeId });
+									}
+
+									setCursor("applied", latest);
+								},
+							},
+						);
+					},
+				},
+			];
+		}),
+
+		// A file/line mixture uses the change-spec actions, not the file-only actions.
+		Match.whenOr("Hunk", "FileAndHunk", () => {
+			if (fileParent === null) return [];
+			// We currently don't support any operations on branch hunks.
+			const parent = fileParent;
+			if (parent._tag === "Branch") return [];
+
+			// Lines recovered from a binary file have no diff spec to name them by.
+			const canUseHunks = checkedAddresses.every(
+				(address) => address._tag !== "Hunk" || !address.isResultOfBinaryToTextConversion,
+			);
+			// Taking lines away names them within their whole hunk, which is not the form the
+			// parent alone implies for uncommitted lines.
+			const resolveForRemoval = () =>
+				resolveDiffSpecs({
+					projectId,
+					queryClient,
+					sources: checkedAddresses,
+					hunkAction: "discard",
+				});
+
+			const cutLines: CheckedAction = { ...cut(checkedAddresses), enabled: canUseHunks };
+			const discardLines: CheckedAction = {
+				label: "Discard",
+				variant: "danger",
+				enabled:
+					canUseHunks &&
+					(checkedContext !== "FileAndHunk" || fileActions.canDiscard) &&
+					(parent._tag === "Commit" ? !isCommitDiscardChangesPending : !isDiscardWorktreePending),
+				run: () =>
+					void resolveForRemoval().then((changes) => {
+						if (!changes) return;
+
+						if (parent._tag === "Commit") {
+							commitDiscardChanges({
+								projectId,
+								commitId: parent.commitId,
+								changes,
+								dryRun: false,
+							});
+						} else {
+							discardWorktreeChanges({ projectId, worktreeChanges: changes });
+						}
+					}),
+			};
+
+			if (parent._tag === "Commit") {
+				return [
+					cutLines,
 					{
 						label: "Uncommit",
-						hotkey: sidebarHotkeys.uncommitCommit.hotkey,
-						enabled: !isCommitUncommitPending,
+						enabled: canUseHunks && !isUncommitChangesPending,
 						run: () =>
-							commitUncommit({ projectId, assignTo: null, subjectCommitIds, dryRun: false }),
-					},
-					{
-						label: "Delete",
-						hotkey: sidebarHotkeys.deleteCommit.hotkey,
-						variant: "danger",
-						enabled: !isCommitDiscardPending,
-						run: () => {
-							// The cursor has to leave the set before it goes; anchoring on the topmost
-							// checked commit lands it beside the set rather than inside it.
-							const anchor = checkedAddresses.reduce((topmost, address) => {
-								const indexOf = (candidate: typeof address) =>
-									appliedAddressSpace.indexByKey.get(addressIdentityKey(candidate)) ??
-									Number.POSITIVE_INFINITY;
-								return indexOf(address) < indexOf(topmost) ? address : topmost;
-							});
-							const selectionAfterDiscard = selectAfterDiscardedCommits({
-								addressSpace: appliedAddressSpace,
-								commit: anchor,
-								discardedCommitIds: new Set(subjectCommitIds),
-								headInfoIndex,
-							});
+							void resolveForRemoval().then((changes) => {
+								if (!changes) return;
 
-							commitDiscard(
-								{ projectId, subjectCommitIds, dryRun: false },
-								{
-									onSuccess: (response) => {
-										let latest = selectionAfterDiscard;
-
-										rewrite: if (latest?._tag === "Commit") {
-											const newId = response.workspace.replacedCommits[latest.commitId];
-											if (newId === undefined) break rewrite;
-
-											latest = commitAddress({ commitId: newId, changeId: latest.changeId });
-										}
-
-										setCursor("applied", latest);
-									},
-								},
-							);
-						},
-					},
-				];
-			},
-
-			Hunk: (hunk) => {
-				if (!checkedAddresses.every((address) => address._tag === "Hunk")) return [];
-				// We currently don't support any operations on branch hunks.
-				const parent = hunk.parent.parent;
-				if (parent._tag === "Branch") return [];
-
-				// Lines recovered from a binary file have no diff spec to name them by.
-				const canUseHunks = checkedAddresses.every(
-					(address) => !address.isResultOfBinaryToTextConversion,
-				);
-				// Taking lines away names them within their whole hunk, which is not the form the
-				// parent alone implies for uncommitted lines.
-				const resolveForRemoval = () =>
-					resolveDiffSpecs({
-						projectId,
-						queryClient,
-						sources: checkedAddresses,
-						hunkAction: "discard",
-					});
-
-				const cutLines: CheckedAction = { ...cut(checkedAddresses), enabled: canUseHunks };
-				const discardLines: CheckedAction = {
-					label: "Discard",
-					variant: "danger",
-					enabled:
-						canUseHunks &&
-						(parent._tag === "Commit" ? !isCommitDiscardChangesPending : !isDiscardWorktreePending),
-					run: () =>
-						void resolveForRemoval().then((changes) => {
-							if (!changes) return;
-
-							if (parent._tag === "Commit") {
-								commitDiscardChanges({
+								commitUncommitChanges({
 									projectId,
 									commitId: parent.commitId,
+									assignTo: null,
 									changes,
 									dryRun: false,
 								});
-							} else {
-								discardWorktreeChanges({ projectId, worktreeChanges: changes });
-							}
-						}),
-				};
-
-				if (parent._tag === "Commit") {
-					return [
-						cutLines,
-						{
-							label: "Uncommit",
-							enabled: canUseHunks && !isUncommitChangesPending,
-							run: () =>
-								void resolveForRemoval().then((changes) => {
-									if (!changes) return;
-
-									commitUncommitChanges({
-										projectId,
-										commitId: parent.commitId,
-										assignTo: null,
-										changes,
-										dryRun: false,
-									});
-								}),
-						},
-						discardLines,
-					];
-				}
-
-				return [
-					{
-						label: "Absorb",
-						hotkey: diffHotkeys.absorb.hotkey,
-						enabled: canUseHunks,
-						run: () => {
-							// Checked hunks carry a path, but an absorb target names files by their bytes,
-							// so their changes have to be looked up. One gone stale fails the whole set.
-							const changesByPath = new Map(
-								queryClient
-									.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey)
-									?.changes.map((change) => [change.path, change]),
-							);
-							const hunks = checkedAddresses
-								.values()
-								.map((address) => {
-									const change = changesByPath.get(address.parent.path);
-									return change
-										? { pathBytes: change.pathBytes, hunkHeader: address.hunkHeader }
-										: null;
-								})
-								.filter((x) => x != null)
-								.toArray();
-							if (hunks.length !== checkedAddresses.length) return;
-
-							startAbsorb({
-								sources: checkedAddresses,
-								sourceTarget: { type: "hunks", subject: { hunks } },
-							});
-							focusScope("sidebar");
-						},
+							}),
 					},
-					cutLines,
 					discardLines,
 				];
-			},
+			}
 
-			File: () => {
-				if (fileParent === null || !checkedAddresses.every((address) => address._tag === "File"))
-					return [];
+			if (checkedContext === "FileAndHunk") return [cutLines, discardLines];
 
-				const discardChanges: CheckedAction = {
-					label: "Discard",
-					hotkey: changesFileHotkeys.discard.hotkey,
-					variant: "danger",
-					enabled: canDiscard,
-					run: () => void discard({ change: null, extendToCheckedFiles: true }),
-				};
+			return [
+				{
+					label: "Absorb",
+					hotkey: diffHotkeys.absorb.hotkey,
+					enabled: canUseHunks,
+					run: () => {
+						if (!checkedAddresses.every((address) => address._tag === "Hunk")) return;
+						// Checked hunks carry a path, but an absorb target names files by their bytes,
+						// so their changes have to be looked up. One gone stale fails the whole set.
+						const changesByPath = new Map(
+							queryClient
+								.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey)
+								?.changes.map((change) => [change.path, change]),
+						);
+						const hunks = checkedAddresses
+							.values()
+							.map((address) => {
+								const change = changesByPath.get(address.parent.path);
+								return change
+									? { pathBytes: change.pathBytes, hunkHeader: address.hunkHeader }
+									: null;
+							})
+							.filter((x) => x != null)
+							.toArray();
+						if (hunks.length !== checkedAddresses.length) return;
 
-				return Match.value(fileParent).pipe(
-					Match.withReturnType<Array<CheckedAction>>(),
-					Match.tagsExhaustive({
-						UncommittedChanges: () => [
-							{
-								label: "Absorb",
-								hotkey: changesFileHotkeys.absorb.hotkey,
-								enabled: true,
-								run: () => {
-									// Checked files carry only paths, so their changes have to be looked up.
-									// One of them gone stale fails the whole set, as discarding one does.
-									const paths = new Set(checkedAddresses.map((address) => address.path));
-									const changes = queryClient
-										.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey)
-										?.changes.filter((change) => paths.has(change.path));
-									if (!changes || changes.length !== paths.size) return;
+						startAbsorb({
+							sources: checkedAddresses,
+							sourceTarget: { type: "hunks", subject: { hunks } },
+						});
+						focusScope("sidebar");
+					},
+				},
+				cutLines,
+				discardLines,
+			];
+		}),
 
-									startAbsorb({
-										sources: checkedAddresses,
-										sourceTarget: {
-											type: "treeChanges",
-											subject: { changes, assignedStackId: null },
-										},
-									});
-									focusScope("sidebar");
-								},
-							},
-							cut(checkedAddresses),
-							discardChanges,
-						],
-						Commit: ({ commitId }) => [
-							cut(checkedAddresses),
-							{
-								label: "Uncommit",
-								hotkey: changesFileHotkeys.uncommit.hotkey,
-								enabled: !isUncommitChangesPending,
-								run: () => {
-									void resolveDiffSpecs({
-										projectId,
-										queryClient,
-										sources: checkedAddresses,
-									}).then((changes) => {
-										if (!changes) return;
+		Match.when("File", () => {
+			if (fileParent === null || !checkedAddresses.every((address) => address._tag === "File"))
+				return [];
+			const files = checkedAddresses;
 
-										commitUncommitChanges({
-											projectId,
-											commitId,
-											assignTo: null,
-											changes,
-											dryRun: false,
-										});
-									});
-								},
-							},
-							discardChanges,
-						],
-						// We currently don't support any operations on branch files.
-						Branch: () => [],
-					}),
-				);
-			},
+			const discardChanges: CheckedAction = {
+				label: "Discard",
+				hotkey: changesFileHotkeys.discard.hotkey,
+				variant: "danger",
+				enabled: fileActions.canDiscard,
+				run: () => void fileActions.discard(files),
+			};
+
+			return Match.value(fileParent).pipe(
+				Match.withReturnType<Array<CheckedAction>>(),
+				Match.tagsExhaustive({
+					UncommittedChanges: () => [
+						{
+							label: "Absorb",
+							hotkey: changesFileHotkeys.absorb.hotkey,
+							enabled: fileActions.canAbsorb,
+							run: () => fileActions.absorb(files),
+						},
+						cut(checkedAddresses),
+						discardChanges,
+					],
+					Commit: () => [
+						cut(checkedAddresses),
+						{
+							label: "Uncommit",
+							hotkey: changesFileHotkeys.uncommit.hotkey,
+							enabled: fileActions.canUncommit,
+							run: () => fileActions.uncommit(files),
+						},
+						discardChanges,
+					],
+					// We currently don't support any operations on branch files.
+					Branch: () => [],
+				}),
+			);
 		}),
 		Match.orElse(() => []),
 	);

@@ -59,7 +59,7 @@ fn integration_from_editor(
     initial: &but_workspace::branch::InitialBranchIntegration,
 ) -> anyhow::Result<json::InteractiveIntegration> {
     let script = build_integration_editor_script(initial);
-    let edited = get_text::from_editor("branch-integration", &script, None, ".txt")?;
+    let edited = get_text::from_editor("branch-integration", &script, ".txt")?;
     let steps = but_workspace::branch::parse_integration_steps_script(
         edited.as_slice(),
         &initial.divergence,

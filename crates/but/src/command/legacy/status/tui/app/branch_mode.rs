@@ -1,10 +1,5 @@
-use std::time::SystemTime;
-
-use anyhow::Context as _;
-use bstr::ByteSlice as _;
 use but_ctx::Context;
 use gix::refs::Category;
-use nonempty::NonEmpty;
 use ratatui::{style::Style, text::Span};
 
 use crate::{
@@ -31,14 +26,13 @@ use crate::{
                 render::{ModeRender, RenderSingleLineSpans, SpanExt as _},
             },
         },
-        switch::{self, SwitchOperation},
+        switch::{self, SwitchBranchItem, SwitchOperation, switch_branch_items},
     },
-    id::CommitId,
     theme::Theme,
-    utils::{targeting::Side, time::format_relative_time},
+    utils::targeting::Side,
 };
 
-use super::{Cursor, MoveCursorDiration, MoveSource, SquashMarks, SquashSource};
+use super::MoveCursorDiration;
 
 #[derive(Debug, Clone)]
 pub struct BranchMode {
@@ -152,61 +146,10 @@ impl App {
             }
         };
 
-        let new_mode = match &*self.mode {
-            Mode::Squash(squash_mode) => match &squash_mode.source {
-                SquashSource::Branch(branch_id) => {
-                    let Some(cursor_at_branch) =
-                        Cursor::select_branch(&branch_id.name, &self.status_lines)
-                    else {
-                        return;
-                    };
-                    self.cursor = cursor_at_branch;
-                    Mode::Branch(BranchMode {
-                        marks: marks.to_owned(),
-                        side: Side::Above,
-                    })
-                }
-                SquashSource::Marks(squash_marks) => match squash_marks {
-                    SquashMarks::Branches(branches) => Mode::Branch(BranchMode {
-                        marks: Marks::Branches(branches.to_owned()),
-                        side: Side::Above,
-                    }),
-                    SquashMarks::Hunks(..)
-                    | SquashMarks::Commits(..)
-                    | SquashMarks::CommittedFiles(..) => return,
-                },
-                SquashSource::Uncommitted
-                | SquashSource::Commit(..)
-                | SquashSource::UncommittedHunk(..)
-                | SquashSource::CommittedFile(..) => return,
-            },
-            Mode::Move(move_mode) => match &move_mode.source {
-                MoveSource::Branch(branch_id) => {
-                    let Some(cursor_at_branch) =
-                        Cursor::select_branch(&branch_id.name, &self.status_lines)
-                    else {
-                        return;
-                    };
-                    self.cursor = cursor_at_branch;
-                    Mode::Branch(BranchMode {
-                        marks: marks.to_owned(),
-                        side: Side::Above,
-                    })
-                }
-                MoveSource::Marks(marks) => {
-                    // if one day you can move something else than commits this'll trigger a type
-                    // error so we're reminded to update it. Likely that means changing to
-                    // `match marks { ... }`
-                    _ = std::convert::identity::<&NonEmpty<CommitId>>(marks);
-                    return;
-                }
-                MoveSource::Commit(..) => return,
-            },
-            _ => Mode::Branch(BranchMode {
-                marks: marks.to_owned(),
-                side: Side::Above,
-            }),
-        };
+        let new_mode = Mode::Branch(BranchMode {
+            marks: marks.to_owned(),
+            side: Side::Above,
+        });
 
         self.mode
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
@@ -236,7 +179,7 @@ impl App {
         let branch = Category::LocalBranch.to_full_name(&*branch_id.name)?;
 
         let mut guard = ctx.exclusive_worktree_access();
-        let _outcome = r#switch::run(
+        let _outcome = switch::run(
             ctx,
             guard.write_permission(),
             SwitchOperation::Branch { branch },
@@ -264,64 +207,24 @@ impl App {
     }
 
     fn handle_branch_pick_and_switch(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        let current_branch = {
-            let repo = ctx.repo.get()?;
-            repo.head_ref()?
-                .map(|head_ref| head_ref.name().shorten().to_owned())
-        };
-        let branch_listings = but_api::branch::branch_list(ctx)
-            .context("Failed to list branches available to switch to")?
-            .into_iter()
-            .flat_map(|stack| stack.branches)
-            .map(|listed_branch| listed_branch.branch)
-            .filter(|branch| branch.has_local)
-            .filter(|branch| {
-                current_branch
-                    .as_ref()
-                    .is_none_or(|current_branch| current_branch.as_bstr() != *branch.display_name)
+        let selected_branch = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|line| line.data.cli_id())
+            .and_then(|id| {
+                if let CliId::Branch(branch) = &**id {
+                    Some(branch.name.as_str())
+                } else {
+                    None
+                }
             });
 
-        let now = SystemTime::now();
-        let mut branches = branch_listings
-            .map(|listing| SwitchBranchItem::Branch {
-                name: listing.display_name.to_str_lossy().into_owned(),
-                updated_at: listing.updated_at_ms,
-                updated_at_display: listing
-                    .updated_at_ms
-                    .map(|updated_at| format_relative_time(now, updated_at / 1000))
-                    .unwrap_or_default(),
-            })
-            .collect::<Vec<_>>();
-        branches.sort_by(|a, b| match (a, b) {
-            (SwitchBranchItem::Workspace, _) | (_, SwitchBranchItem::Workspace) => {
-                std::cmp::Ordering::Less
-            }
-            (
-                SwitchBranchItem::Branch {
-                    name: a_name,
-                    updated_at: a_updated_at,
-                    ..
-                },
-                SwitchBranchItem::Branch {
-                    name: b_name,
-                    updated_at: b_updated_at,
-                    ..
-                },
-            ) => b_updated_at
-                .cmp(a_updated_at)
-                .then_with(|| a_name.cmp(b_name)),
-        });
-
-        let items = if crate::utils::in_single_branch_mode(ctx)? {
-            NonEmpty {
-                head: SwitchBranchItem::Workspace,
-                tail: branches,
-            }
-        } else {
-            let Some(items) = NonEmpty::from_vec(branches) else {
-                return Ok(());
-            };
-            items
+        let items = {
+            let guard = ctx.shared_worktree_access();
+            switch_branch_items(ctx, guard.read_permission(), selected_branch, true)?
+        };
+        let Some(items) = items else {
+            return Ok(());
         };
 
         let picker = FuzzyPicker::new(items, self.theme, |item, ctx, messages| {
@@ -404,7 +307,6 @@ impl App {
                 outcome.name.shorten().to_string()
             }
             StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::WorktreeUncommitted { .. }
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::UncommittedFile { .. } => {
@@ -450,16 +352,6 @@ impl App {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum SwitchBranchItem {
-    Workspace,
-    Branch {
-        name: String,
-        updated_at: Option<i64>,
-        updated_at_display: String,
-    },
-}
-
 impl FuzzyPickerItem for SwitchBranchItem {
     fn columns(&self, searchable: SearchableToken) -> impl IntoIterator<Item = Col<'_>> {
         match self {
@@ -490,10 +382,14 @@ impl FuzzyPickerItem for SwitchBranchItem {
         }
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         match self {
             SwitchBranchItem::Branch { .. } => theme.local_branch,
             SwitchBranchItem::Workspace => theme.info,
         }
+    }
+
+    fn secondary_style(&self, theme: &Theme) -> Style {
+        theme.hint
     }
 }

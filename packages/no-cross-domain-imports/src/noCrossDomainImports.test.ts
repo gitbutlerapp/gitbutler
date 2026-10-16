@@ -70,7 +70,7 @@ tester.run("no-cross-domain-imports", noCrossDomainImports, {
 		{
 			filename: "/project/src/components/commit/CommitView.svelte",
 			code: `
-				import A from "@gitbutler/ui/Button.svelte";
+				import A from "@gitbutler/ui-svelte/Button.svelte";
 				import B from "$lib/stores/commit";
 				import C from "../relative/path";
 			`,

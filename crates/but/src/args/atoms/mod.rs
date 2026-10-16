@@ -15,6 +15,9 @@ pub use commit_arg::*;
 mod cli_id;
 pub use cli_id::*;
 
+mod message_file;
+pub use message_file::*;
+
 /// Escape hatch for the merged-upstream guard, shared by mutation commands.
 #[derive(Debug, Clone, Copy, Default, clap::Args)]
 pub struct AllowMergedArg {

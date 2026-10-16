@@ -17,10 +17,16 @@
 	import { ScrollSelectionLock } from "$lib/selection/scrollSelectionLock.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, FileViewHeader, HunkDiffSkeleton, Icon, VirtualList } from "@gitbutler/ui";
-	import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
-	import { type FocusableOptions } from "@gitbutler/ui/focus/focusTypes";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import {
+		Button,
+		FileViewHeader,
+		HunkDiffSkeleton,
+		Icon,
+		VirtualList,
+	} from "@gitbutler/ui-svelte";
+	import { FOCUS_MANAGER } from "@gitbutler/ui-svelte/focus/focusManager";
+	import { type FocusableOptions } from "@gitbutler/ui-svelte/focus/focusTypes";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 	import { tick, untrack } from "svelte";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 

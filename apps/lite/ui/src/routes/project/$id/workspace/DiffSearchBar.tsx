@@ -1,9 +1,9 @@
 import { assert } from "#ui/assert.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
-import { classes } from "#ui/components/classes.ts";
-import { FieldControlStyles, FieldRootStyles } from "#ui/components/Field.tsx";
-import { Icon } from "#ui/components/Icon.tsx";
-import { Popup } from "#ui/components/Popup.tsx";
+import { Button } from "@gitbutler/ui-react/Button.tsx";
+import { classes } from "@gitbutler/ui-react/classes.ts";
+import { FieldControlStyles, FieldRootStyles } from "@gitbutler/ui-react/Field.tsx";
+import { Icon } from "@gitbutler/ui-react/Icon.tsx";
+import { Popup } from "@gitbutler/ui-react/Popup.tsx";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { diffHotkeys } from "#ui/hotkeys.ts";
 import { Field } from "@base-ui/react";
@@ -174,32 +174,29 @@ export const DiffSearchBar: FC<Props> = ({
 					</>
 				)}
 				<div className={styles.buttons}>
-					<button
-						type="button"
+					<Button
 						aria-label="Previous match"
 						disabled={matches.length === 0}
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+						size="small"
+						variant="ghost"
+						iconOnly
 						onClick={() => step(-1)}
 					>
 						<Icon name="arrow-up" />
-					</button>
-					<button
-						type="button"
+					</Button>
+					<Button
 						aria-label="Next match"
 						disabled={matches.length === 0}
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
+						size="small"
+						variant="ghost"
+						iconOnly
 						onClick={() => step(1)}
 					>
 						<Icon name="arrow-down" />
-					</button>
-					<button
-						type="button"
-						aria-label="Close search"
-						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
-						onClick={close}
-					>
+					</Button>
+					<Button aria-label="Close search" size="small" variant="ghost" iconOnly onClick={close}>
 						<Icon name="cross" />
-					</button>
+					</Button>
 				</div>
 			</div>
 		</Popup>

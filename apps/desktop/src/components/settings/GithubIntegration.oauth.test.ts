@@ -3,7 +3,7 @@ import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 import { URL_SERVICE } from "$lib/backend/url";
 import { GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
 import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
-import { chipToasts } from "@gitbutler/ui";
+import { chipToasts } from "@gitbutler/ui-svelte";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";

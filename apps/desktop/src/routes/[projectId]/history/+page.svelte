@@ -15,8 +15,8 @@
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createSnapshotSelection, type SelectionId } from "$lib/selection/key";
 	import { inject } from "@gitbutler/core/context";
-	import { EmptyStatePlaceholder, Icon, Button } from "@gitbutler/ui";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { EmptyStatePlaceholder, Icon, Button } from "@gitbutler/ui-svelte";
+	import { focusable } from "@gitbutler/ui-svelte/focus/focusable";
 	import type { Snapshot } from "$lib/history/types";
 
 	// TODO: Refactor so we don't need non-null assertion.

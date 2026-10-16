@@ -69,7 +69,7 @@
 		},
 		"//#globallint": {
 			"dependsOn": [
-				"@gitbutler/ui#package",
+				"@gitbutler/ui-svelte#package",
 				"@gitbutler/shared#package",
 				"@gitbutler/no-relative-imports#package",
 				"@gitbutler/no-cross-domain-imports#package"

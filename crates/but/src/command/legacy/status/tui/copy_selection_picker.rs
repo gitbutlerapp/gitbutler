@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::BTreeSet};
 
 use anyhow::Context as _;
-use bstr::{BString, ByteSlice as _};
+use bstr::{BStr, BString, ByteSlice as _};
 use but_core::{CommitOwned, TreeChange, commit::Headers, diff::CommitDetails};
 use but_ctx::Context;
 use gix::{prelude::ObjectIdExt as _, refs::FullName};
@@ -12,7 +12,7 @@ use crate::{
     command::legacy::status::tui::{
         Col, FuzzyPicker, FuzzyPickerItem, Message, SearchableToken, ToastKind,
     },
-    id::{ShortId, UncommittedHunkOrFile},
+    id::{LaneId, ShortId, UncommittedHunkOrFile},
     theme::Theme,
 };
 
@@ -35,16 +35,41 @@ pub fn commit_picker(
     )
 }
 
-pub fn branch_picker(branch: FullName, theme: &'static Theme) -> FuzzyPicker<CopySelectionItem> {
-    picker(
-        NonEmpty::from_slice(&[
-            CopySelectionItem::BranchName(branch.clone()),
-            CopySelectionItem::PullRequestUrl(branch.clone()),
-            CopySelectionItem::BranchDiff(branch.clone()),
-        ])
-        .unwrap(),
-        theme,
-    )
+pub fn branch_picker(
+    branch: FullName,
+    id: ShortId,
+    lane: &LaneId,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    let mut items = NonEmpty::new(CopySelectionItem::BranchName(branch.clone()));
+    items.extend([
+        CopySelectionItem::ShortId(id),
+        CopySelectionItem::PullRequestUrl(branch.clone()),
+        CopySelectionItem::BranchDiff(branch),
+    ]);
+    items.extend(lane.worktree_name().into_iter().flat_map(worktree_items));
+    picker(items, theme)
+}
+
+pub fn anonymous_segment_picker(
+    id: ShortId,
+    lane: &LaneId,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    let mut items = NonEmpty::new(CopySelectionItem::ShortId(id));
+    items.extend(lane.worktree_name().into_iter().flat_map(worktree_items));
+    picker(items, theme)
+}
+
+pub fn worktree_picker(name: &BStr, theme: &'static Theme) -> FuzzyPicker<CopySelectionItem> {
+    picker(NonEmpty::from_slice(&worktree_items(name)).unwrap(), theme)
+}
+
+fn worktree_items(name: &BStr) -> [CopySelectionItem; 2] {
+    [
+        CopySelectionItem::WorktreePath(name.to_owned()),
+        CopySelectionItem::WorktreeName(name.to_owned()),
+    ]
 }
 
 pub fn uncommitted_hunk_picker(
@@ -63,6 +88,23 @@ pub fn uncommitted_hunk_picker(
     )
 }
 
+pub fn details_hunk_picker(
+    id: ShortId,
+    path: &BStr,
+    text: String,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    picker(
+        NonEmpty::from_slice(&[
+            CopySelectionItem::ShortId(id),
+            CopySelectionItem::DetailsHunkDiff(text),
+            CopySelectionItem::FilePath(path.to_str_lossy().into_owned()),
+        ])
+        .unwrap(),
+        theme,
+    )
+}
+
 pub fn committed_file_picker(
     path: BString,
     id: ShortId,
@@ -73,22 +115,6 @@ pub fn committed_file_picker(
         NonEmpty::from_slice(&[
             CopySelectionItem::ShortId(id),
             CopySelectionItem::FilePath(path.to_string()),
-        ])
-        .unwrap(),
-        theme,
-    )
-}
-
-pub fn worktree_picker(
-    name: BString,
-    id: ShortId,
-    theme: &'static Theme,
-) -> FuzzyPicker<CopySelectionItem> {
-    picker(
-        NonEmpty::from_slice(&[
-            CopySelectionItem::ShortId(id),
-            CopySelectionItem::WorktreePath(name.clone()),
-            CopySelectionItem::WorktreeName(name),
         ])
         .unwrap(),
         theme,
@@ -132,8 +158,9 @@ pub enum CopySelectionItem {
     BranchDiff(FullName),
     PullRequestUrl(FullName),
 
-    // uncommitted files/hunks
+    // files/hunks
     HunkDiff(Box<UncommittedHunkOrFile>),
+    DetailsHunkDiff(String),
 
     // worktrees
     WorktreeName(BString),
@@ -151,7 +178,8 @@ impl CopySelectionItem {
             CopySelectionItem::CommitAuthor(_) => "Author",
             CopySelectionItem::CommitDiff(_)
             | CopySelectionItem::BranchDiff(_)
-            | CopySelectionItem::HunkDiff(_) => "Diff",
+            | CopySelectionItem::HunkDiff(_)
+            | CopySelectionItem::DetailsHunkDiff(_) => "Diff",
             CopySelectionItem::BranchName(_) => "Branch name",
             CopySelectionItem::PullRequestUrl(_) => "Pull Request URL",
             CopySelectionItem::ShortId(_) => "Short ID",
@@ -249,6 +277,7 @@ impl CopySelectionItem {
             CopySelectionItem::HunkDiff(uncommitted_hunk_or_file) => {
                 uncommitted_hunk_or_file_to_diff(ctx, uncommitted_hunk_or_file)
             }
+            CopySelectionItem::DetailsHunkDiff(text) => Ok(text.clone()),
             CopySelectionItem::FilePath(path) => Ok(path.to_owned()),
             CopySelectionItem::WorktreePath(name) => {
                 let entry = ctx
@@ -271,7 +300,7 @@ impl FuzzyPickerItem for CopySelectionItem {
         }]
     }
 
-    fn style(&self, theme: &'static Theme) -> Style {
+    fn style(&self, theme: &Theme) -> Style {
         theme.default
     }
 }
