@@ -69,6 +69,14 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
     ]
 }
 
+const RISKY: &[&str] = &[
+    "Discard hunk",
+    "Discard file",
+    "Discard or delete selection",
+    "Uncommit",
+    "Push branch",
+];
+
 struct Command {
     label: &'static str,
     action: Box<dyn Action>,
@@ -184,8 +192,12 @@ impl AppView {
         let Some(command) = palette.commands.into_iter().nth(ix) else {
             return;
         };
-        self.recent_commands.retain(|label| *label != command.label);
-        self.recent_commands.insert(0, command.label);
+        // Recent commands come first, so ⌘K then Enter repeats one; never one that throws
+        // work away.
+        if !RISKY.contains(&command.label) {
+            self.recent_commands.retain(|label| *label != command.label);
+            self.recent_commands.insert(0, command.label);
+        }
         // Run it where it was offered.
         if let Some(focus) = palette.restore_focus {
             window.focus(&focus, cx);

@@ -3,15 +3,18 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
 use futures::{StreamExt as _, channel::mpsc};
-use gpui::{AsyncApp, Context, EventEmitter, SharedString, Subscription, Task, WeakEntity};
+use gpui::{
+    AppContext as _, AsyncApp, Context, EventEmitter, SharedString, Subscription, Task, WeakEntity,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::backend::watch::Watcher;
-use crate::backend::{self, Commit, CommitId, FileChange, Project, Workspace};
+use crate::backend::{self, Commit, CommitId, FileChange, Project, SnapshotId, Workspace};
 
 pub type ProjectId = SharedString;
 
@@ -42,7 +45,8 @@ pub enum Cut {
     Files {
         project: ProjectId,
         from: Option<CommitId>,
-        files: Vec<FileChange>,
+        /// Shared, since every row a drag passes over works out what a drop would do.
+        files: Arc<[FileChange]>,
     },
 }
 
@@ -66,15 +70,17 @@ pub enum StoreEvent {
     /// A project's workspace was (re)loaded.
     Loaded(ProjectId),
     SelectionChanged,
+    /// Files of a project were marked reviewed or not, which folds or unfolds them.
+    Reviewed(ProjectId),
 }
 
 /// Something to tell the user, shown the way GitButler's other apps do.
 pub enum Notice {
-    /// A one-line result at the bottom centre. `undo` names the project an Undo would
-    /// restore, for operations that rewrote it.
+    /// A one-line result at the bottom centre. `undo` is the oplog entry the operation
+    /// recorded, which the snackbar's Undo restores.
     Snackbar {
         message: SharedString,
-        undo: Option<ProjectId>,
+        undo: Option<(ProjectId, SnapshotId)>,
     },
     /// A failure: a card at the bottom right with the error kept for copying.
     Error {
@@ -123,13 +129,17 @@ pub struct Store {
     pub dragging: Option<Cut>,
     /// Pane widths the user dragged away from their defaults.
     widths: HashMap<Pane, f32>,
+    /// What was open when the app last quit, until the first project listing uses it.
+    restored: Restored,
+    /// The saved state as last written, so unchanged state isn't written again.
+    last_saved: Vec<u8>,
     /// File lists show a tree of directories rather than a flat list.
     pub file_tree: bool,
     pub toasts: Vec<Toast>,
     /// The label of the mutation in flight, if any. Mutations run one at a time.
     pub busy: Option<SharedString>,
-    /// The project the last mutation ran on, which an Undo offered for it restores.
-    last_run: Option<ProjectId>,
+    /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
+    last_snapshot: Option<(ProjectId, SnapshotId)>,
     next_toast: usize,
     seen: Seen,
     /// The commits each project had before the app's last operation on it. Commits that
@@ -183,11 +193,16 @@ impl Store {
             dragging: None,
             toasts: Vec::new(),
             busy: None,
-            last_run: None,
+            last_snapshot: None,
             next_toast: 0,
             seen: saved.seen,
             widths: saved.widths,
             file_tree: saved.file_tree,
+            restored: Restored {
+                expanded: saved.expanded,
+                selection: saved.selection,
+            },
+            last_saved: Vec::new(),
             rebaseline: HashMap::new(),
             save_task: Task::ready(()),
             save_queued: false,
@@ -264,7 +279,9 @@ impl Store {
     }
 
     fn set_projects(&mut self, projects: Vec<Project>, cx: &mut Context<Self>) {
-        let saved = Saved::load();
+        // What was open last time applies to the first listing only; later ones add
+        // projects the user just added, which start closed.
+        let restored = std::mem::take(&mut self.restored);
         let previous: HashSet<ProjectId> = self.projects.iter().map(|p| p.id.clone()).collect();
         let mut old: Vec<ProjectEntry> = std::mem::take(&mut self.projects);
         self.projects = projects
@@ -277,7 +294,7 @@ impl Store {
                     return entry;
                 }
                 ProjectEntry {
-                    expanded: saved.expanded.contains(id.as_ref()),
+                    expanded: restored.expanded.contains(id.as_ref()),
                     id,
                     project,
                     workspace: None,
@@ -307,7 +324,7 @@ impl Store {
             }
         }
         if first_load {
-            let open = saved
+            let open = restored
                 .selection
                 .and_then(|id| self.project(&id).filter(|entry| entry.expanded))
                 .or_else(|| self.projects.iter().find(|entry| entry.expanded))
@@ -677,6 +694,7 @@ impl Store {
                 entry.remove(&file.path);
             }
         }
+        cx.emit(StoreEvent::Reviewed(project.clone()));
         self.save_soon(cx);
         cx.notify();
     }
@@ -713,7 +731,7 @@ impl Store {
 
     /// A snackbar offering to undo the mutation that just ran.
     pub fn snack_undoable(&mut self, message: impl Into<SharedString>, cx: &mut Context<Self>) {
-        let undo = self.last_run.clone();
+        let undo = self.last_snapshot.clone();
         self.notify_user(
             Notice::Snackbar {
                 message: message.into(),
@@ -791,6 +809,22 @@ impl Store {
         );
     }
 
+    /// Undo the operation that recorded `snapshot`, as long as nothing came after it.
+    pub fn undo_snapshot(
+        &mut self,
+        project: &ProjectId,
+        snapshot: SnapshotId,
+        cx: &mut Context<Self>,
+    ) {
+        self.run(
+            project,
+            "Undo",
+            move |path| backend::undo_snapshot(path, snapshot),
+            |store, operation, cx| store.snack(format!("Undone: {operation}"), cx),
+            cx,
+        );
+    }
+
     pub fn dismiss_toast(&mut self, id: usize, cx: &mut Context<Self>) {
         self.toasts.retain(|toast| toast.id != id);
         cx.notify();
@@ -815,7 +849,6 @@ impl Store {
             return;
         };
         self.busy = Some(label.clone());
-        self.last_run = Some(project.clone());
         self.cut = None;
         let before: HashSet<String> = self.workspace(project).map_or_else(HashSet::new, |ws| {
             ws.branches()
@@ -826,14 +859,24 @@ impl Store {
         cx.notify();
         let project = project.clone();
         cx.spawn(async move |this, cx| {
-            let result = backend::run(move || op(&path)).await;
+            // Which oplog entry the operation recorded, if it did, for its Undo button.
+            let result = backend::run(move || {
+                let before = backend::oplog_head(&path);
+                let value = op(&path)?;
+                let recorded = backend::oplog_head(&path).filter(|after| Some(*after) != before);
+                Ok((value, recorded))
+            })
+            .await;
             this.update(cx, |store, cx| {
                 store.busy = None;
                 // Set here rather than at the start, so a load the watcher started
                 // mid-operation can't use it up.
                 store.rebaseline.insert(project.clone(), before);
                 match result {
-                    Ok(value) => done(store, value, cx),
+                    Ok((value, recorded)) => {
+                        store.last_snapshot = recorded.map(|snapshot| (project.clone(), snapshot));
+                        done(store, value, cx)
+                    }
                     Err(err) => store.error(format!("{label} failed"), format!("{err:#}"), cx),
                 }
                 store.reload(&project, cx);
@@ -869,16 +912,38 @@ impl Store {
             cx.background_executor()
                 .timer(Duration::from_millis(500))
                 .await;
-            this.update(cx, |store, _| {
+            let Ok(Some(bytes)) = this.update(cx, |store, _| {
                 store.save_queued = false;
-                store.save();
-            })
-            .ok();
+                store.changed_state()
+            }) else {
+                return;
+            };
+            cx.background_spawn(async move { Saved::write(&bytes) })
+                .await;
         });
     }
 
-    fn save(&self) {
-        let saved = Saved {
+    /// Write the saved state now, as on quit, even if a background save of the same state
+    /// hasn't finished: the process may end before it does.
+    fn save(&mut self) {
+        if let Ok(bytes) = serde_json::to_vec_pretty(&self.saved()) {
+            Saved::write(&bytes);
+            self.last_saved = bytes;
+        }
+    }
+
+    /// The state to save, unless it's what was saved last.
+    fn changed_state(&mut self) -> Option<Vec<u8>> {
+        let bytes = serde_json::to_vec_pretty(&self.saved()).ok()?;
+        if bytes == self.last_saved {
+            return None;
+        }
+        self.last_saved = bytes.clone();
+        Some(bytes)
+    }
+
+    fn saved(&self) -> Saved {
+        Saved {
             expanded: self
                 .projects
                 .iter()
@@ -889,8 +954,7 @@ impl Store {
             seen: self.seen.clone(),
             widths: self.widths.clone(),
             file_tree: self.file_tree,
-        };
-        saved.store();
+        }
     }
 
     pub fn set_file_tree(&mut self, tree: bool, cx: &mut Context<Self>) {
@@ -942,8 +1006,16 @@ impl Pane {
     }
 }
 
+/// The part of the saved state that's only read at startup.
+#[derive(Default)]
+struct Restored {
+    expanded: HashSet<String>,
+    selection: Option<String>,
+}
+
 /// The little the app remembers between launches.
 #[derive(Default, Serialize, Deserialize)]
+#[serde(default)]
 struct Saved {
     expanded: HashSet<String>,
     selection: Option<String>,
@@ -970,15 +1042,32 @@ impl Saved {
     }
 
     fn load() -> Self {
-        Self::path()
-            .and_then(|path| std::fs::read(path).ok())
-            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-            .unwrap_or_default()
+        let Some(path) = Self::path() else {
+            return Self::default();
+        };
+        let Ok(bytes) = std::fs::read(&path) else {
+            return Self::default();
+        };
+        serde_json::from_slice(&bytes).unwrap_or_else(|err| {
+            // Keep what couldn't be read rather than write over it.
+            tracing::warn!("couldn't read {}: {err}", path.display());
+            std::fs::rename(&path, path.with_extension("json.bak")).ok();
+            Self::default()
+        })
     }
 
-    fn store(&self) {
-        if let (Some(path), Ok(bytes)) = (Self::path(), serde_json::to_vec_pretty(self)) {
-            std::fs::write(path, bytes).ok();
+    /// Through a temporary file, so a crash mid-write leaves the last state rather than
+    /// half a file, which would read back as nothing at all.
+    fn write(bytes: &[u8]) {
+        // One writer at a time: a background save can still be going when quit saves.
+        static WRITING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _writing = WRITING.lock();
+        let Some(path) = Self::path() else {
+            return;
+        };
+        let temporary = path.with_extension("json.tmp");
+        if std::fs::write(&temporary, bytes).is_ok() {
+            std::fs::rename(&temporary, &path).ok();
         }
     }
 }

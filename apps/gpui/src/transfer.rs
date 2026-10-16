@@ -1,6 +1,8 @@
 //! What happens when something cut or dragged lands somewhere. Drag-and-drop and
 //! ⌘X/⌘V share this, so both always agree on what a drop means.
 
+use std::sync::Arc;
+
 use gpui::{Context, SharedString};
 
 use crate::backend::{self, CommitId, Destination, FileChange};
@@ -10,7 +12,7 @@ pub enum Transfer {
     Uncommit(CommitId),
     UncommitFiles {
         from: CommitId,
-        files: Vec<FileChange>,
+        files: Arc<[FileChange]>,
     },
     MoveCommit {
         id: CommitId,
@@ -22,17 +24,17 @@ pub enum Transfer {
     },
     Amend {
         into: CommitId,
-        files: Vec<FileChange>,
+        files: Arc<[FileChange]>,
     },
     MoveFiles {
         from: CommitId,
         to: CommitId,
-        files: Vec<FileChange>,
+        files: Arc<[FileChange]>,
     },
     /// Uncommitted files dropped on a branch: get them ready to commit there.
     StageOnBranch {
         branch: String,
-        files: Vec<FileChange>,
+        files: Arc<[FileChange]>,
     },
 }
 
@@ -227,7 +229,7 @@ impl Transfer {
                 |store, rewritten, cx| store.follow(&rewritten, cx),
                 cx,
             ),
-            Transfer::StageOnBranch { branch, files } => return Some((branch, files)),
+            Transfer::StageOnBranch { branch, files } => return Some((branch, files.to_vec())),
         }
         None
     }

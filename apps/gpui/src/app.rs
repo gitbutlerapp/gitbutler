@@ -3,6 +3,7 @@
 
 use std::collections::HashSet;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, ClickEvent, ClipboardItem, Context, Entity, FocusHandle, Focusable,
@@ -247,7 +248,7 @@ impl AppView {
     pub fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
         self.store
             .update(cx, |store, cx| store.select(Some(selection), cx));
-        window.focus(&self.nav_focus, cx);
+        self.focus_main(window, cx);
     }
 
     fn selection(&self, cx: &App) -> Option<Selection> {
@@ -640,6 +641,15 @@ impl AppView {
         cx: &mut Context<Self>,
         on_submit: impl Fn(&mut AppView, String, &mut Window, &mut Context<AppView>) + 'static,
     ) {
+        // A prompt Git is waiting on, for credentials, stays until answered: replacing it
+        // would fail the push that asked.
+        if self
+            .prompt
+            .as_ref()
+            .is_some_and(|prompt| prompt.on_cancel.is_some())
+        {
+            return;
+        }
         let subscription =
             cx.subscribe_in(
                 &input,
@@ -650,7 +660,7 @@ impl AppView {
                         if let Some(prompt) = this.prompt.take() {
                             (prompt.on_submit)(this, text, window, cx);
                         }
-                        window.focus(&this.nav_focus, cx);
+                        this.focus_main(window, cx);
                         cx.notify();
                     }
                     InputEvent::Cancel => {
@@ -684,7 +694,7 @@ impl AppView {
         {
             on_cancel(self);
         }
-        window.focus(&self.nav_focus, cx);
+        self.focus_main(window, cx);
         cx.notify();
     }
 
@@ -738,7 +748,7 @@ impl AppView {
                 (!files.is_empty()).then_some(Cut::Files {
                     project,
                     from: None,
-                    files,
+                    files: files.into(),
                 })
             }
             _ => None,
@@ -764,7 +774,7 @@ impl AppView {
         &mut self,
         project: ProjectId,
         from: Option<CommitId>,
-        files: Vec<backend::FileChange>,
+        files: Arc<[backend::FileChange]>,
         cx: &mut Context<Self>,
     ) {
         let cut = Cut::Files {
@@ -823,7 +833,7 @@ impl AppView {
                 .detail
                 .update(cx, |detail, cx| detail.clear_text_selection(cx))
             {
-                window.focus(&self.nav_focus, cx);
+                self.focus_main(window, cx);
             }
             return;
         }
@@ -839,7 +849,24 @@ impl AppView {
     }
 
     fn focus_navigator(&mut self, _: &FocusNavigator, window: &mut Window, cx: &mut Context<Self>) {
+        // Asking for the navigator brings it back.
+        if !self.navigator_open || self.zoomed {
+            self.navigator_open = true;
+            self.zoomed = false;
+            self.sync_chrome(cx);
+        }
         window.focus(&self.nav_focus, cx);
+    }
+
+    /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
+    /// always reach something visible.
+    fn focus_main(&self, window: &mut Window, cx: &mut App) {
+        if self.navigator_open && !self.zoomed {
+            window.focus(&self.nav_focus, cx);
+        } else {
+            self.detail
+                .update(cx, |detail, cx| detail.focus(window, cx));
+        }
     }
 
     fn focus_changes(&mut self, _: &FocusChanges, window: &mut Window, cx: &mut Context<Self>) {
@@ -934,11 +961,14 @@ impl AppView {
     pub fn toggle_navigator(
         &mut self,
         _: &ToggleNavigator,
-        _: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.navigator_open = !self.navigator_open;
         self.sync_chrome(cx);
+        if self.nav_focus.contains_focused(window, cx) {
+            self.focus_main(window, cx);
+        }
     }
 
     fn command_palette(&mut self, _: &CommandPalette, window: &mut Window, cx: &mut Context<Self>) {
@@ -949,9 +979,12 @@ impl AppView {
         }
     }
 
-    fn toggle_zoom(&mut self, _: &ToggleZoom, _: &mut Window, cx: &mut Context<Self>) {
+    fn toggle_zoom(&mut self, _: &ToggleZoom, window: &mut Window, cx: &mut Context<Self>) {
         self.zoomed = !self.zoomed;
         self.sync_chrome(cx);
+        if self.nav_focus.contains_focused(window, cx) {
+            self.focus_main(window, cx);
+        }
     }
 
     /// The details pane draws its own header, so it needs to know what's around it.
@@ -1144,7 +1177,7 @@ impl AppView {
                             .text_size(px(12.))
                             .shadow_lg()
                             .child(message.clone())
-                            .when_some(undo.clone(), |el, project| {
+                            .when_some(undo.clone(), |el, (project, snapshot)| {
                                 el.child(
                                     div()
                                         .w(px(1.))
@@ -1163,7 +1196,7 @@ impl AppView {
                                         .on_click(cx.listener(move |this, _, _, cx| {
                                             this.store.update(cx, |store, cx| {
                                                 store.dismiss_toast(id, cx);
-                                                store.undo(&project, cx);
+                                                store.undo_snapshot(&project, snapshot, cx);
                                             })
                                         })),
                                 )

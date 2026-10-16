@@ -8,6 +8,7 @@ mod panes;
 
 use std::collections::HashSet;
 use std::ops::Range;
+use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, Context, Entity, FocusHandle, Focusable, KeyBinding, ListAlignment,
@@ -71,7 +72,7 @@ struct DiffKey {
 
 struct LoadedDiff {
     key: DiffKey,
-    files: Vec<FileDiff>,
+    files: Arc<Vec<FileDiff>>,
     rows: Vec<DiffRow>,
 }
 
@@ -145,8 +146,19 @@ impl Detail {
                     this.refresh_diff(true, cx);
                 }
                 StoreEvent::Loaded(project) => {
-                    if this.selected_project(cx).as_ref() == Some(project) {
+                    // A reload that didn't touch the files shown, like the forge poll's,
+                    // shouldn't re-highlight them.
+                    let store = this.store.read(cx);
+                    let unchanged = store
+                        .workspace(project)
+                        .is_some_and(|ws| this.shows_worktree(&ws.uncommitted));
+                    if this.selected_project(cx).as_ref() == Some(project) && !unchanged {
                         this.refresh_diff(false, cx);
+                    }
+                }
+                StoreEvent::Reviewed(project) => {
+                    if this.selected_project(cx).as_ref() == Some(project) {
+                        this.rebuild_rows(cx);
                     }
                 }
             }),
@@ -158,8 +170,8 @@ impl Detail {
                 }
                 InputEvent::Changed => cx.notify(),
             }),
-            // Reviewing a file folds it, and review state lives in the store.
-            cx.observe(&store, |this, _, cx| this.rebuild_rows(cx)),
+            // What the side panel shows comes from the store.
+            cx.observe(&store, |_, _, cx| cx.notify()),
         ];
         let mut detail = Self {
             store,
@@ -257,8 +269,23 @@ impl Detail {
         };
         self.loading = Some(key.clone());
         let source = key.source;
+        let worktree = (source == DiffSource::Worktree)
+            .then(|| self.store.read(cx).workspace(&key.project))
+            .flatten()
+            .map(|ws| ws.uncommitted.clone());
+        let previous = self
+            .diff
+            .as_ref()
+            .filter(|diff| diff.key == key)
+            .map(|diff| diff.files.clone());
         self._load = cx.spawn(async move |this, cx| {
-            let result = backend::run(move || backend::load_diff(&path, source)).await;
+            // Running j through commits replaces this task before the blocking load, which
+            // nothing can stop once it starts, so only the commit landed on is loaded.
+            cx.background_executor()
+                .timer(std::time::Duration::from_millis(40))
+                .await;
+            let result =
+                backend::run(move || backend::load_diff(&path, source, worktree, previous)).await;
             this.update(cx, |this, cx| {
                 if this.loading.as_ref() != Some(&key) {
                     return;
@@ -298,7 +325,11 @@ impl Detail {
                         if this.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
                             this.text_selection = None;
                         }
-                        this.diff = Some(LoadedDiff { key, files, rows });
+                        this.diff = Some(LoadedDiff {
+                            key,
+                            files: Arc::new(files),
+                            rows,
+                        });
                         this.diff_error = None;
                     }
                     Err(err) => this.diff_error = Some(format!("{err:#}").into()),
@@ -480,14 +511,32 @@ impl Detail {
         else {
             return Cursor::default();
         };
+        // The file went, say discarded: stay where it was, on what moved up into its
+        // place, rather than jumping to the first file the next key would act on.
         let Some(file) = files.iter().position(|f| f.file.path == old.file.path) else {
-            return Cursor::default();
+            return Cursor {
+                file: self.cursor.file.min(files.len().saturating_sub(1)),
+                hunk: None,
+            };
         };
         let hunk = self.cursor.hunk.and_then(|ix| {
             let key = *hunk_keys(old).get(ix)?;
             hunk_keys(&files[file]).iter().position(|k| *k == key)
         });
         Cursor { file, hunk }
+    }
+
+    /// Whether the loaded diff is the worktree's and shows exactly `files` as they are now.
+    fn shows_worktree(&self, files: &[FileChange]) -> bool {
+        self.diff.as_ref().is_some_and(|diff| {
+            diff.key.source == DiffSource::Worktree
+                && diff.files.len() == files.len()
+                && diff.files.iter().zip(files).all(|(shown, now)| {
+                    shown.file.path == now.path
+                        && shown.file.modified == now.modified
+                        && shown.file.base() == now.base()
+                })
+        })
     }
 
     /// The diff line at `row`, if that row is one.
@@ -755,6 +804,15 @@ impl Detail {
             .into_iter()
             .filter_map(|file| {
                 let hunks = self.worktree_hunks(&file.path);
+                // Hunks left out but not loaded to tell which: leave the file alone rather
+                // than take all of it.
+                let some_left_out = self
+                    .unchecked_hunks
+                    .iter()
+                    .any(|(path, _)| *path == file.path);
+                if hunks.is_empty() && some_left_out {
+                    return None;
+                }
                 let picked: Vec<HunkKey> = hunks
                     .iter()
                     .filter(|key| !self.unchecked_hunks.contains(&(file.path.clone(), **key)))

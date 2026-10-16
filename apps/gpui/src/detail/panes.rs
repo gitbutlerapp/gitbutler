@@ -1,9 +1,11 @@
 //! The column beside the diff and the header above both: what's selected, its files,
 //! and the actions that fit it.
 
+use std::ops::Range;
+
 use gpui::{
     AnyElement, ClickEvent, Context, Div, ElementId, Focusable as _, Hsla, MouseButton,
-    MouseDownEvent, SharedString, Stateful, Window, div, prelude::*, px,
+    MouseDownEvent, SharedString, Stateful, Window, div, prelude::*, px, uniform_list,
 };
 
 use super::file_tree::{self, TreeRow};
@@ -45,16 +47,7 @@ impl Detail {
                 Selection::Project(_) => {}
                 Selection::Uncommitted(project) => {
                     crumbs.push(("Uncommitted changes".into(), None));
-                    let unreviewed: Vec<FileChange> = workspace
-                        .map(|ws| {
-                            ws.uncommitted
-                                .iter()
-                                .filter(|file| store.review(project, file) != Review::Reviewed)
-                                .cloned()
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    if !unreviewed.is_empty() {
+                    if store.to_review(project) > 0 {
                         let project = project.clone();
                         let store_handle = self.store.clone();
                         actions.push(
@@ -63,6 +56,15 @@ impl Detail {
                                 .style(ButtonStyle::Ghost)
                                 .on_click(move |_, _, cx| {
                                     store_handle.update(cx, |store, cx| {
+                                        let unreviewed: Vec<FileChange> = store
+                                            .workspace(&project)
+                                            .map(|ws| ws.uncommitted.clone())
+                                            .unwrap_or_default()
+                                            .into_iter()
+                                            .filter(|f| {
+                                                store.review(&project, f) != Review::Reviewed
+                                            })
+                                            .collect();
                                         store.set_reviewed(&project, &unreviewed, true, cx)
                                     })
                                 })
@@ -349,44 +351,106 @@ impl Detail {
             .into_any_element()
     }
 
-    /// A file list's rows: flat, or as a tree when the user chose that.
-    fn file_list_rows(
+    /// A file list, flat or as a tree as the user chose, drawn only as far as it's on
+    /// screen: an agent can leave thousands of files.
+    fn file_list(&self, id: &'static str, source: FileSource, cx: &Context<Self>) -> AnyElement {
+        let tree = self.store.read(cx).file_tree;
+        let paths: Vec<&str> = match &source {
+            FileSource::Uncommitted(project) => self
+                .store
+                .read(cx)
+                .workspace(project)
+                .map(|ws| ws.uncommitted.iter().map(|f| f.path.as_str()).collect())
+                .unwrap_or_default(),
+            FileSource::Diff(..) => self
+                .diff
+                .as_ref()
+                .map(|diff| diff.files.iter().map(|f| f.file.path.as_str()).collect())
+                .unwrap_or_default(),
+        };
+        let rows: Vec<TreeRow> = if tree {
+            file_tree::tree_rows(&paths, &self.collapsed_dirs)
+        } else {
+            (0..paths.len())
+                .map(|pos| TreeRow::File { pos, depth: 0 })
+                .collect()
+        };
+        uniform_list(
+            id,
+            rows.len(),
+            cx.processor(move |this, range: Range<usize>, _, cx| {
+                let theme = Theme::get(cx).clone();
+                range
+                    .filter_map(|ix| match &rows[ix] {
+                        TreeRow::Dir {
+                            path,
+                            name,
+                            depth,
+                            collapsed,
+                            files,
+                        } => Some(this.render_dir_row(
+                            path.clone(),
+                            name.clone(),
+                            *depth,
+                            *collapsed,
+                            *files,
+                            &theme,
+                            cx,
+                        )),
+                        TreeRow::File { pos, depth } => {
+                            let depth = tree.then_some(*depth);
+                            this.render_source_file(&source, *pos, depth, &theme, cx)
+                        }
+                    })
+                    // A list item is as wide as its content unless a column stretches it.
+                    .map(|row| v_flex().w_full().child(row))
+                    .collect::<Vec<_>>()
+            }),
+        )
+        .flex_1()
+        .min_h(px(0.))
+        .into_any_element()
+    }
+
+    /// The `pos`th file of `source`, with what its list shows beside it.
+    fn render_source_file(
         &self,
-        files: Vec<(usize, &FileChange, FileRow)>,
+        source: &FileSource,
+        pos: usize,
+        depth: Option<usize>,
         theme: &Theme,
         cx: &Context<Self>,
-    ) -> Vec<AnyElement> {
-        if !self.store.read(cx).file_tree {
-            return files
-                .into_iter()
-                .map(|(ix, file, extras)| self.render_file_row(ix, file, extras, theme, cx))
-                .collect();
-        }
-        let paths: Vec<&str> = files
-            .iter()
-            .map(|&(_, file, _)| file.path.as_str())
-            .collect();
-        let rows = file_tree::tree_rows(&paths, &self.collapsed_dirs);
-        let mut files: Vec<Option<_>> = files.into_iter().map(Some).collect();
-        rows.into_iter()
-            .filter_map(|row| match row {
-                TreeRow::Dir {
-                    path,
-                    name,
+    ) -> Option<AnyElement> {
+        match source {
+            FileSource::Uncommitted(project) => {
+                let store = self.store.read(cx);
+                let file = store.workspace(project)?.uncommitted.get(pos)?;
+                let stats = self
+                    .diff
+                    .as_ref()
+                    .filter(|diff| diff.key.source == DiffSource::Worktree)
+                    .and_then(|diff| diff.files.iter().find(|f| f.file.path == file.path))
+                    .map(FileDiff::stats);
+                let extras = FileRow {
+                    stats,
+                    checkbox: self.composing.then(|| self.file_check(&file.path)),
+                    review: Some(store.review(project, file)),
+                    drag_from: Some((project.clone(), None)),
                     depth,
-                    collapsed,
-                    files,
-                } => Some(self.render_dir_row(path, name, depth, collapsed, files, theme, cx)),
-                TreeRow::File { pos, depth } => {
-                    let (ix, file, extras) = files.get_mut(pos)?.take()?;
-                    let extras = FileRow {
-                        depth: Some(depth),
-                        ..extras
-                    };
-                    Some(self.render_file_row(ix, file, extras, theme, cx))
-                }
-            })
-            .collect()
+                };
+                Some(self.render_file_row(pos, file, extras, theme, cx))
+            }
+            FileSource::Diff(project, commit) => {
+                let file = self.diff.as_ref()?.files.get(pos)?;
+                let extras = FileRow {
+                    stats: Some(file.stats()),
+                    drag_from: commit.map(|id| (project.clone(), Some(id))),
+                    depth,
+                    ..Default::default()
+                };
+                Some(self.render_file_row(pos, &file.file, extras, theme, cx))
+            }
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -561,7 +625,7 @@ impl Detail {
             let payload = Cut::Files {
                 project: project.clone(),
                 from,
-                files: vec![file.clone()],
+                files: vec![file.clone()].into(),
             };
             let label: SharedString = file.path.clone().into();
             let menu_payload = payload.clone();
@@ -647,29 +711,11 @@ impl Detail {
         let Some(workspace) = store.workspace(project) else {
             return empty_state("Loading…", "", theme);
         };
-        let stats_by_path = |path: &str| {
-            self.diff
-                .as_ref()
-                .filter(|d| d.key.source == DiffSource::Worktree)
-                .and_then(|d| d.files.iter().find(|f| f.file.path == path))
-                .map(FileDiff::stats)
-        };
-        let files = workspace
-            .uncommitted
-            .iter()
-            .enumerate()
-            .map(|(ix, file)| {
-                let extras = FileRow {
-                    stats: stats_by_path(&file.path),
-                    checkbox: self.composing.then(|| self.file_check(&file.path)),
-                    review: Some(store.review(project, file)),
-                    drag_from: Some((project.clone(), None)),
-                    depth: None,
-                };
-                (ix, file, extras)
-            })
-            .collect();
-        let files = self.file_list_rows(files, theme, cx);
+        let files = self.file_list(
+            "uncommitted-files",
+            FileSource::Uncommitted(project.clone()),
+            cx,
+        );
         let (added, removed) = self.diff.as_ref().map_or((0, 0), |d| {
             d.files
                 .iter()
@@ -746,24 +792,19 @@ impl Detail {
         v_flex()
             .size_full()
             .child(list_header)
-            .child(
-                div()
-                    .id("uncommitted-files")
-                    .flex_1()
-                    .min_h(px(0.))
-                    .overflow_y_scroll()
-                    .children(files)
-                    .when(workspace.uncommitted.is_empty(), |el| {
-                        el.child(
-                            div()
-                                .px(px(16.))
-                                .py(px(8.))
-                                .text_size(px(12.))
-                                .text_color(theme.text_2)
-                                .child("Your working directory matches the last commit"),
-                        )
-                    }),
-            )
+            .child(v_flex().flex_1().min_h(px(0.)).child(files).when(
+                workspace.uncommitted.is_empty(),
+                |el| {
+                    el.child(
+                        div()
+                            .px(px(16.))
+                            .py(px(8.))
+                            .text_size(px(12.))
+                            .text_color(theme.text_2)
+                            .child("Your working directory matches the last commit"),
+                    )
+                },
+            ))
             .when(!workspace.uncommitted.is_empty(), |el| el.child(footer))
             .into_any_element()
     }
@@ -1134,55 +1175,78 @@ impl Detail {
             PushState::NeverPushed => "Not pushed yet",
             PushState::Integrated => "Integrated",
         };
-        let commits: Vec<AnyElement> = branch
-            .commits
-            .iter()
-            .enumerate()
-            .map(|(ix, commit)| {
-                let selection = Selection::Commit(project.clone(), commit.id);
-                let store = self.store.clone();
-                h_flex()
-                    .id(("branch-commit", ix))
-                    .h(px(28.))
-                    .px(px(10.))
-                    .mx(px(6.))
-                    .gap(px(8.))
-                    .rounded(px(4.))
-                    .hover(|el| el.bg(theme.hover()))
-                    .child(
-                        small_icon(match commit.state {
-                            CommitState::Local => Icon::Commit,
-                            CommitState::Pushed => Icon::CommitFill,
-                            CommitState::Integrated => Icon::Tick,
-                        })
-                        .text_color(
-                            if commit.state == CommitState::Local {
-                                theme.blue
-                            } else {
-                                theme.text_3
-                            },
-                        ),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .truncate()
-                            .child(commit.title.clone()),
-                    )
-                    .child(
-                        div()
-                            .flex_none()
-                            .text_size(px(11.))
-                            .text_color(theme.text_3)
-                            .child(relative_time(commit.time)),
-                    )
-                    .on_click(move |_, _, cx| {
-                        store.update(cx, |store, cx| store.select(Some(selection.clone()), cx))
+        // Drawn only as far as they're on screen: a long-lived branch has hundreds.
+        let count = branch.commits.len();
+        let (list_project, list_ref) = (project.clone(), ref_name.to_owned());
+        let commits = uniform_list(
+            "branch-commits",
+            count,
+            cx.processor(move |this, range: Range<usize>, _, cx| {
+                let theme = Theme::get(cx).clone();
+                let store = this.store.read(cx);
+                let Some(branch) = store
+                    .workspace(&list_project)
+                    .and_then(|ws| ws.find_branch(&list_ref))
+                else {
+                    return Vec::new();
+                };
+                let project = &list_project;
+                range
+                    .filter_map(|ix| {
+                        let commit = branch.commits.get(ix)?;
+                        let theme = &theme;
+                        let selection = Selection::Commit(project.clone(), commit.id);
+                        let store = this.store.clone();
+                        Some(
+                            h_flex()
+                                .id(("branch-commit", ix))
+                                .h(px(28.))
+                                .px(px(10.))
+                                .mx(px(6.))
+                                .gap(px(8.))
+                                .rounded(px(4.))
+                                .hover(|el| el.bg(theme.hover()))
+                                .child(
+                                    small_icon(match commit.state {
+                                        CommitState::Local => Icon::Commit,
+                                        CommitState::Pushed => Icon::CommitFill,
+                                        CommitState::Integrated => Icon::Tick,
+                                    })
+                                    .text_color(
+                                        if commit.state == CommitState::Local {
+                                            theme.blue
+                                        } else {
+                                            theme.text_3
+                                        },
+                                    ),
+                                )
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w(px(0.))
+                                        .truncate()
+                                        .child(commit.title.clone()),
+                                )
+                                .child(
+                                    div()
+                                        .flex_none()
+                                        .text_size(px(11.))
+                                        .text_color(theme.text_3)
+                                        .child(relative_time(commit.time)),
+                                )
+                                .on_click(move |_, _, cx| {
+                                    store.update(cx, |store, cx| {
+                                        store.select(Some(selection.clone()), cx)
+                                    })
+                                })
+                                .into_any_element(),
+                        )
                     })
-                    .into_any_element()
-            })
-            .collect();
+                    .map(|row| v_flex().w_full().child(row))
+                    .collect::<Vec<_>>()
+            }),
+        )
+        .h(px((count as f32 * 28.).min(252.)));
         let files = self.render_diff_file_list(project, None, theme, cx);
         v_flex()
             .size_full()
@@ -1225,7 +1289,7 @@ impl Detail {
                     .py(px(4.))
                     .border_b_1()
                     .border_color(theme.border_3)
-                    .children(commits)
+                    .child(commits)
                     .when(branch.commits.is_empty(), |el| {
                         el.child(div().px(px(16.)).py(px(6.)).text_size(px(12.)).text_color(theme.text_2).child(
                             "No commits yet. Drop uncommitted files here to commit to this branch.",
@@ -1258,20 +1322,7 @@ impl Detail {
                 })
                 .into_any_element();
         };
-        let rows = diff
-            .files
-            .iter()
-            .enumerate()
-            .map(|(ix, file)| {
-                let extras = FileRow {
-                    stats: Some(file.stats()),
-                    drag_from: commit.map(|id| (project.clone(), Some(id))),
-                    ..Default::default()
-                };
-                (ix, &file.file, extras)
-            })
-            .collect();
-        let rows = self.file_list_rows(rows, theme, cx);
+        let rows = self.file_list("diff-files", FileSource::Diff(project.clone(), commit), cx);
         v_flex()
             .flex_1()
             .min_h(px(0.))
@@ -1292,14 +1343,7 @@ impl Detail {
                     )
                     .child(self.tree_toggle(cx)),
             )
-            .child(
-                div()
-                    .id("diff-files")
-                    .flex_1()
-                    .min_h(px(0.))
-                    .overflow_y_scroll()
-                    .children(rows),
-            )
+            .child(rows)
             .into_any_element()
     }
 }
@@ -1363,6 +1407,13 @@ fn render_review(review: &backend::Review, theme: &Theme, cx: &Context<Detail>) 
                 }),
         )
         .into_any_element()
+}
+
+/// Where a file list's files come from.
+enum FileSource {
+    Uncommitted(ProjectId),
+    /// The loaded diff's files: a commit's, or a branch's with no commit.
+    Diff(ProjectId, Option<backend::CommitId>),
 }
 
 /// What a file row shows besides the file itself.
