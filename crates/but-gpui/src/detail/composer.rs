@@ -1,12 +1,17 @@
 //! The commit composer: which changes go in, the message, and the branch they land on.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use gpui::{AnyElement, App, Context, Focusable as _, Toggled, Window, div, prelude::*, px};
 
-use super::{ChecksChanged, Detail, hunk_keys};
+use super::{ChecksChanged, Detail};
 use crate::app::MenuItem;
-use crate::backend::{self, CommitId, Destination, DiffSource, FileChange, HunkKey, Selected, ai};
+use but_core::HunkHeader;
+
+use crate::backend::{
+    self, CommitId, Destination, DiffBody, DiffSource, FileChange, Hunk, HunkKey, LineKind,
+    Selected, ai,
+};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
@@ -18,6 +23,7 @@ impl Detail {
         self.composing = false;
         self.unchecked.clear();
         self.unchecked_hunks.clear();
+        self.line_picks.clear();
         cx.emit(ChecksChanged);
         cx.notify();
     }
@@ -37,30 +43,32 @@ impl Detail {
             .collect()
     }
 
-    /// The checked uncommitted changes: checked files, narrowed to their checked hunks.
+    /// The checked uncommitted changes: checked files, narrowed to their checked hunks and
+    /// lines.
     pub fn selected_changes(&self, cx: &App) -> Vec<Selected> {
         self.checked_uncommitted(cx)
             .into_iter()
             .filter_map(|file| {
-                let hunks = self.worktree_hunks(&file.path);
+                let hunks = self.worktree_file_hunks(&file.path);
+                let partial = self.file_check(&file.path) == Toggled::Mixed;
                 // Hunks left out but not loaded to tell which: leave the file alone rather
                 // than take all of it.
-                let some_left_out = self
-                    .unchecked_hunks
-                    .iter()
-                    .any(|(path, _)| *path == file.path);
-                if hunks.is_empty() && some_left_out {
+                if hunks.is_empty() && partial {
                     return None;
                 }
                 let picked: Vec<HunkKey> = hunks
                     .iter()
-                    .filter(|key| !self.unchecked_hunks.contains(&(file.path.clone(), **key)))
-                    .copied()
+                    .flat_map(|hunk| match self.hunk_check(&file.path, hunk.key) {
+                        Toggled::True => vec![hunk.key],
+                        Toggled::Mixed => {
+                            picked_lines(hunk, &self.line_picks[&(file.path.clone(), hunk.key)])
+                        }
+                        Toggled::False => Vec::new(),
+                    })
                     .collect();
                 if picked.is_empty() && !hunks.is_empty() {
                     return None;
                 }
-                let partial = picked.len() < hunks.len();
                 Some(Selected {
                     file,
                     hunks: partial.then_some(picked),
@@ -69,38 +77,67 @@ impl Detail {
             .collect()
     }
 
-    fn worktree_hunks(&self, path: &str) -> Vec<HunkKey> {
+    /// The hunks of `path` in the loaded worktree diff.
+    fn worktree_file_hunks(&self, path: &str) -> &[Hunk] {
         self.diff
             .as_ref()
             .filter(|diff| diff.key.source == DiffSource::Worktree)
             .and_then(|diff| diff.files.iter().find(|f| f.file.path == path))
-            .map(hunk_keys)
+            .and_then(|file| match &file.body {
+                DiffBody::Hunks { hunks, .. } => Some(hunks.as_slice()),
+                _ => None,
+            })
             .unwrap_or_default()
+    }
+
+    fn worktree_hunks(&self, path: &str) -> Vec<HunkKey> {
+        self.worktree_file_hunks(path)
+            .iter()
+            .map(|hunk| hunk.key)
+            .collect()
     }
 
     pub(super) fn file_check(&self, path: &str) -> Toggled {
         if self.unchecked.contains(path) {
             return Toggled::False;
         }
-        let excluded = self
-            .unchecked_hunks
-            .iter()
-            .filter(|(hunk_path, _)| hunk_path == path)
-            .count();
-        if excluded == 0 {
-            Toggled::True
-        } else {
+        let partial = self.unchecked_hunks.iter().any(|(p, _)| p == path)
+            || self.line_picks.keys().any(|(p, _)| p == path);
+        if partial {
             Toggled::Mixed
+        } else {
+            Toggled::True
+        }
+    }
+
+    pub(super) fn hunk_check(&self, path: &str, key: HunkKey) -> Toggled {
+        let entry = (path.to_owned(), key);
+        if self.unchecked.contains(path) || self.unchecked_hunks.contains(&entry) {
+            Toggled::False
+        } else if self.line_picks.contains_key(&entry) {
+            Toggled::Mixed
+        } else {
+            Toggled::True
         }
     }
 
     pub(super) fn hunk_checked(&self, path: &str, key: HunkKey) -> bool {
-        !self.unchecked.contains(path) && !self.unchecked_hunks.contains(&(path.to_owned(), key))
+        self.hunk_check(path, key) != Toggled::False
+    }
+
+    /// Whether the changed line at `line` of a hunk goes in the next commit.
+    pub(super) fn line_checked(&self, path: &str, key: HunkKey, line: usize) -> bool {
+        match self.hunk_check(path, key) {
+            Toggled::Mixed => self.line_picks[&(path.to_owned(), key)].contains(&line),
+            check => check == Toggled::True,
+        }
     }
 
     pub(super) fn toggle_hunk(&mut self, path: &str, key: HunkKey, cx: &mut Context<Self>) {
         let entry = (path.to_owned(), key);
-        if self.unchecked.remove(path) {
+        if self.line_picks.remove(&entry).is_some() {
+            // Partly in: all of it now.
+        } else if self.unchecked.remove(path) {
             // The whole file was out; bring back only this hunk.
             for other in self.worktree_hunks(path) {
                 if other != key {
@@ -110,6 +147,55 @@ impl Detail {
         } else if !self.unchecked_hunks.remove(&entry) {
             self.unchecked_hunks.insert(entry);
         }
+        self.settle_checks(path, cx);
+    }
+
+    /// Put one changed line of a hunk in the next commit, or take it out. Into a hunk
+    /// that's out, it brings just that line.
+    pub(super) fn toggle_line(
+        &mut self,
+        path: &str,
+        key: HunkKey,
+        line: usize,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(hunk) = self.worktree_file_hunks(path).iter().find(|h| h.key == key) else {
+            return;
+        };
+        let changed: BTreeSet<usize> = hunk
+            .lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.kind != LineKind::Context)
+            .map(|(ix, _)| ix)
+            .collect();
+        let entry = (path.to_owned(), key);
+        let mut picks = match self.hunk_check(path, key) {
+            Toggled::True => changed.clone(),
+            Toggled::Mixed => self.line_picks.remove(&entry).unwrap_or_default(),
+            Toggled::False => BTreeSet::new(),
+        };
+        if !picks.remove(&line) {
+            picks.insert(line);
+        }
+        if self.unchecked.remove(path) {
+            for other in self.worktree_hunks(path) {
+                if other != key {
+                    self.unchecked_hunks.insert((path.to_owned(), other));
+                }
+            }
+        }
+        self.unchecked_hunks.remove(&entry);
+        if picks.is_empty() {
+            self.unchecked_hunks.insert(entry);
+        } else if picks != changed {
+            self.line_picks.insert(entry, picks);
+        }
+        self.settle_checks(path, cx);
+    }
+
+    /// A file none of whose hunks are in is out as a whole.
+    fn settle_checks(&mut self, path: &str, cx: &mut Context<Self>) {
         let hunks = self.worktree_hunks(path);
         if hunks
             .iter()
@@ -152,6 +238,7 @@ impl Detail {
                 .map(|f| f.path.clone())
                 .collect();
             // Hunks stay out only where the staged change left them out.
+            self.line_picks.clear();
             self.unchecked_hunks.retain(|(path, key)| {
                 keep.get(path.as_str())
                     .is_some_and(|hunks| hunks.is_some_and(|picked| !picked.contains(key)))
@@ -345,7 +432,6 @@ impl Detail {
 
     /// The checked changes as a unified diff, for the AI to read.
     fn checked_diff_text(&self) -> String {
-        use crate::backend::{DiffBody, LineKind};
         let Some(diff) = self
             .diff
             .as_ref()
@@ -367,11 +453,14 @@ impl Detail {
             for hunk in hunks.iter().filter(|h| self.hunk_checked(path, h.key)) {
                 text.push_str(&hunk.header);
                 text.push('\n');
-                for line in &hunk.lines {
+                for (ix, line) in hunk.lines.iter().enumerate() {
+                    // A line left out reads as it stays: a removal kept, an addition absent.
+                    let picked = self.line_checked(path, hunk.key, ix);
                     text.push(match line.kind {
-                        LineKind::Added => '+',
-                        LineKind::Removed => '-',
-                        LineKind::Context => ' ',
+                        LineKind::Added if picked => '+',
+                        LineKind::Added => continue,
+                        LineKind::Removed if picked => '-',
+                        LineKind::Removed | LineKind::Context => ' ',
                     });
                     text.push_str(&line.text);
                     text.push('\n');
@@ -437,6 +526,8 @@ impl Detail {
         let check = self.file_check(path);
         self.unchecked_hunks
             .retain(|(hunk_path, _)| hunk_path != path);
+        self.line_picks
+            .retain(|(hunk_path, _), _| hunk_path != path);
         match check {
             Toggled::True | Toggled::Mixed => {
                 self.unchecked.insert(path.to_owned());
@@ -637,5 +728,91 @@ impl Detail {
                 app.update(cx, |app, cx| app.open_menu(position, items, cx))
                     .ok();
             })
+    }
+}
+
+/// Sub-hunks of `hunk` that take only its changed lines at `picks`: each run of picked
+/// added lines, or removed ones, marked as one side only with `0,0` on the other, as the
+/// commit engine expects.
+fn picked_lines(hunk: &Hunk, picks: &BTreeSet<usize>) -> Vec<HunkKey> {
+    let mut runs: Vec<HunkHeader> = Vec::new();
+    let mut previous = None;
+    for (ix, line) in hunk.lines.iter().enumerate() {
+        let kind = (picks.contains(&ix) && line.kind != LineKind::Context).then_some(line.kind);
+        match (kind, runs.last_mut()) {
+            (Some(LineKind::Added), Some(run)) if previous == kind => run.new_lines += 1,
+            (Some(LineKind::Removed), Some(run)) if previous == kind => run.old_lines += 1,
+            (Some(LineKind::Added), _) => runs.push(HunkHeader {
+                old_start: 0,
+                old_lines: 0,
+                new_start: line.new.unwrap_or_default(),
+                new_lines: 1,
+            }),
+            (Some(_), _) => runs.push(HunkHeader {
+                old_start: line.old.unwrap_or_default(),
+                old_lines: 1,
+                new_start: 0,
+                new_lines: 0,
+            }),
+            (None, _) => {}
+        }
+        previous = kind;
+    }
+    runs.into_iter().map(HunkKey).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use but_core::HunkHeader;
+
+    use super::picked_lines;
+    use crate::backend::{DiffLine, Hunk, HunkKey, LineKind};
+
+    fn header(old_start: u32, old_lines: u32, new_start: u32, new_lines: u32) -> HunkHeader {
+        HunkHeader {
+            old_start,
+            old_lines,
+            new_start,
+            new_lines,
+        }
+    }
+
+    #[test]
+    fn picked_lines_become_one_sided_runs() {
+        let line = |kind, old, new| DiffLine {
+            kind,
+            old,
+            new,
+            text: "".into(),
+            spans: Vec::new(),
+            emph: Vec::new(),
+        };
+        let hunk = Hunk {
+            key: HunkKey(header(1, 4, 1, 4)),
+            header: String::new(),
+            lines: vec![
+                line(LineKind::Context, Some(1), Some(1)),
+                line(LineKind::Removed, Some(2), None),
+                line(LineKind::Removed, Some(3), None),
+                line(LineKind::Added, None, Some(2)),
+                line(LineKind::Added, None, Some(3)),
+                line(LineKind::Context, Some(4), Some(4)),
+            ],
+            scope: Vec::new(),
+        };
+        let picks = BTreeSet::from([1, 2, 4]);
+        assert_eq!(
+            picked_lines(&hunk, &picks),
+            vec![HunkKey(header(2, 2, 0, 0)), HunkKey(header(0, 0, 3, 1))],
+            "both removals run together, the second addition stands alone"
+        );
+        let picks = BTreeSet::from([1, 3]);
+        assert_eq!(
+            picked_lines(&hunk, &picks),
+            vec![HunkKey(header(2, 1, 0, 0)), HunkKey(header(0, 0, 2, 1))],
+            "a removal and an addition never share a run"
+        );
     }
 }

@@ -131,6 +131,8 @@ pub struct Decor {
     pub current: bool,
     /// The file shows only its header.
     pub folded: bool,
+    /// Clicking a line's numbers puts it in the next commit or takes it out.
+    pub toggle: Option<OnToggle>,
     /// Lets the pointer select a line's text.
     pub select: Option<LineSelect>,
     /// The part of a line's text that's selected.
@@ -150,6 +152,7 @@ pub struct LineSelect {
 
 pub type OnLineDown = Rc<dyn Fn(usize, &MouseDownEvent, &mut Window, &mut App)>;
 pub type OnLineDrag = Rc<dyn Fn(usize, &mut Window, &mut App)>;
+pub type OnToggle = Rc<dyn Fn(&mut Window, &mut App)>;
 
 pub fn render_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor) -> AnyElement {
     div()
@@ -166,6 +169,7 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
         excluded,
         current,
         folded,
+        toggle,
         select,
         selected,
         found,
@@ -398,8 +402,22 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 .when_some(bg, |el, bg| el.bg(bg))
                 .when(last, |el| el.border_b_1().rounded_b(px(6.)))
                 .overflow_hidden()
-                .child(number(line.old))
-                .child(number(line.new))
+                .child(
+                    h_flex()
+                        .id(("line-numbers", row_id))
+                        .flex_none()
+                        .child(number(line.old))
+                        .child(number(line.new))
+                        .when_some(toggle, |el, toggle| {
+                            el.cursor(CursorStyle::PointingHand).on_mouse_down(
+                                MouseButton::Left,
+                                move |_, window, cx| {
+                                    cx.stop_propagation();
+                                    toggle(window, cx)
+                                },
+                            )
+                        }),
+                )
                 .child(
                     div()
                         .flex_none()

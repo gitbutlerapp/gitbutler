@@ -12,7 +12,7 @@ use gpui::{
 
 use super::{Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleReviewed, checkbox_box};
 use crate::app::AppView;
-use crate::backend::{DiffBody, DiffLine, DiffSource, Selected};
+use crate::backend::{DiffBody, DiffLine, DiffSource, LineKind, Selected};
 use crate::state::{Cut, ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, Decor, DiffRow, LineSelect};
@@ -387,11 +387,7 @@ impl Detail {
                     .then(|| hunk_key(file, hunk))
                     .flatten()
                     .map(|(path, key)| {
-                        let check = if self.hunk_checked(&path, key) {
-                            Toggled::True
-                        } else {
-                            Toggled::False
-                        };
+                        let check = self.hunk_check(&path, key);
                         let entity = entity.clone();
                         checkbox_box(("hunk-check", ix), check, theme)
                             .on_click(move |_, _, cx| {
@@ -446,6 +442,23 @@ impl Detail {
             DiffRow::Line {
                 file, hunk, line, ..
             } => {
+                let changed = matches!(&diff.files[file].body, DiffBody::Hunks { hunks, .. }
+                    if hunks[hunk].lines[line].kind != LineKind::Context);
+                let picking = (self.composing && worktree && changed)
+                    .then(|| hunk_key(file, hunk))
+                    .flatten();
+                let excluded = match &picking {
+                    Some((path, key)) => !self.line_checked(path, *key, line),
+                    None => excluded(file, hunk),
+                };
+                let toggle = picking.map(|(path, key)| {
+                    let entity = entity.clone();
+                    Rc::new(move |_: &mut Window, cx: &mut App| {
+                        entity
+                            .update(cx, |detail, cx| detail.toggle_line(&path, key, line, cx))
+                            .ok();
+                    }) as diff::OnToggle
+                });
                 let (down, drag) = (entity.clone(), entity);
                 let select = LineSelect {
                     down: Rc::new(move |at, event, window, cx| {
@@ -465,7 +478,8 @@ impl Detail {
                     &diff.files,
                     theme,
                     Decor {
-                        excluded: excluded(file, hunk),
+                        excluded,
+                        toggle,
                         select: Some(select),
                         selected: self.selected_in_row(ix),
                         found: self.found_on((file, hunk, line)),
