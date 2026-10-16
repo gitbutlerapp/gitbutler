@@ -97,13 +97,7 @@ const Name: FC<{ tooltip: ReactNode; className: string; children: ReactNode }> =
 			<span className={styles.run}>{children}</span>
 		</span>
 	);
-	return tooltip === undefined ? (
-		name
-	) : (
-		<Tooltip content={tooltip} side="bottom">
-			{name}
-		</Tooltip>
-	);
+	return tooltip === undefined ? name : <Tooltip content={tooltip}>{name}</Tooltip>;
 };
 
 /** A slot the host filled with nothing (`null`, `false`) is no slot: the row keeps the room and
@@ -425,7 +419,7 @@ const TwoLineBranch: FC<
 							{tooltip === undefined ? (
 								title
 							) : (
-								<Tooltip content={tooltip} side="bottom">
+								<Tooltip content={tooltip}>
 									<span>{title}</span>
 								</Tooltip>
 							)}

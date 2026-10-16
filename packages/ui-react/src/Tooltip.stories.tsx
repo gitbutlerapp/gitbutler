@@ -35,7 +35,7 @@ export const Default = meta.story({
 	args: {
 		content: "This is a tooltip",
 		kbd: "Mod+A",
-		side: "top",
+		side: "bottom",
 		children: <Button>Hover me</Button>,
 	},
 });

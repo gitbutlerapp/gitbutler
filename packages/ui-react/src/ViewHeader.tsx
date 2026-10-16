@@ -100,7 +100,7 @@ export const ViewHeader: FC<Props> = ({
 									{typeof title === "string" ? <span>{title}</span> : title}
 								</h2>
 								{hasBody && (
-									<Tooltip side="bottom" content={bodyOpen ? "Hide full message" : "Full message"}>
+									<Tooltip content={bodyOpen ? "Hide full message" : "Full message"}>
 										<Button
 											variant="ghost"
 											size="small"
