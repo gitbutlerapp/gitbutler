@@ -622,6 +622,8 @@ impl Store {
         let settles = self.settling.as_ref() == Some(&id);
         cx.notify();
         cx.spawn(async move |this, cx| {
+            // While editing, what's resolved changes with the files, so it's read again too.
+            let shown = shown.filter(|shown| shown.editing.is_none());
             let result = backend::run(move || match shown {
                 Some(shown) => {
                     backend::load_uncommitted(&path).map(|uncommitted| backend::Workspace {
@@ -772,6 +774,20 @@ impl Store {
         settled: bool,
         cx: &mut Context<Self>,
     ) {
+        // While a commit is being edited there's nothing else to look at or act on, and
+        // what was seen and reviewed waits for the workspace to come back.
+        if workspace.editing.is_some() {
+            if let Some(entry) = self.project_mut(id) {
+                entry.workspace = Some(workspace);
+                entry.error = None;
+            }
+            let elsewhere = (self.selection.as_ref())
+                .is_some_and(|s| s.project() == id && !matches!(s, Selection::Project(_)));
+            if elsewhere {
+                self.select(Some(Selection::Project(id.clone())), cx);
+            }
+            return;
+        }
         let commits: HashSet<&str> = workspace
             .commits()
             .map(|commit| commit.key.as_str())

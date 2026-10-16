@@ -1671,6 +1671,7 @@ dependencies = [
  "deltoids",
  "futures",
  "gitbutler-filemonitor",
+ "gitbutler-operating-modes",
  "gitbutler-project",
  "gix",
  "gpui",

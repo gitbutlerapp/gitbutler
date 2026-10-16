@@ -57,6 +57,9 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(project) else {
             return;
         };
+        if self.editing(project, cx).is_some() {
+            return;
+        }
         let seen = self.upstream_fingerprint(project, cx);
         let current = self.upstream.as_ref().filter(|u| u.project == *project);
         if !force

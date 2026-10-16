@@ -15,7 +15,7 @@ use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::{ButtonStyle, button, h_flex, plural, v_flex};
 
-actions!(resolve, [ResolveConflicts]);
+actions!(resolve, [ResolveConflicts, EditByHand]);
 
 /// Lines of unconflicted context shown around each conflict.
 const CONTEXT_LINES: usize = 3;
@@ -385,6 +385,20 @@ impl Render for ResolveView {
                                 .on_click(cx.listener(|this, _, _, cx| this.rest_with_ai(cx))),
                         )
                     })
+                    .child(
+                        button("resolve-by-hand", "Edit by hand")
+                            .style(ButtonStyle::Ghost)
+                            .tooltip(
+                                "Check the commit out to resolve its conflicts in any editor, \
+                                 or have an agent do it",
+                            )
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                let (project, commit) = (this.project.clone(), this.commit);
+                                this.store
+                                    .update(cx, |store, cx| store.edit_commit(&project, commit, cx));
+                                cx.emit(DismissEvent);
+                            })),
+                    )
                     .child(div().flex_1())
                     .child(
                         button("resolve-cancel", "Cancel")
@@ -409,6 +423,16 @@ impl Render for ResolveView {
 }
 
 impl crate::app::AppView {
+    /// Check the selected commit out to resolve its conflicts by hand.
+    pub fn edit_by_hand(&mut self, _: &EditByHand, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some(crate::state::Selection::Commit(project, commit)) =
+            self.store.read(cx).selection.clone()
+        {
+            self.store
+                .update(cx, |store, cx| store.edit_commit(&project, commit, cx));
+        }
+    }
+
     /// Open the resolver for the selected commit, when it's conflicted.
     pub fn resolve_conflicts(
         &mut self,
