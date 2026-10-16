@@ -34,7 +34,7 @@ mod reconcile;
 
 use std::path::Path;
 
-use anyhow::bail;
+use anyhow::{Context as _, bail};
 use but_api_macros::but_api;
 use but_ctx::Context;
 use gitbutler_git::GitContextExt as _;
@@ -159,6 +159,40 @@ pub mod json {
     }
 }
 
+/// Reject target configurations that the current remote-backed landing path cannot handle.
+/// Call this before confirmation or mutation; landing checks it again after reloading the repo.
+pub fn ensure_landable_target(
+    project_meta: &but_core::ref_metadata::ProjectMeta,
+    repo: &gix::Repository,
+) -> anyhow::Result<()> {
+    let local = project_meta.target_ref_or_err()?;
+    let upstream = project_meta
+        .remote_target_ref(repo)?
+        .context("Merging without a remote isn't supported yet")?;
+    let (fetch_remote, upstream_branch) =
+        but_core::extract_remote_name_and_short_name(upstream.as_ref(), &repo.remote_names())
+            .context("Could not determine the target upstream's remote")?;
+    let push_remote = project_meta
+        .push_remote
+        .as_deref()
+        .filter(|name| !name.is_empty())
+        .unwrap_or(&fetch_remote);
+    if push_remote != fetch_remote {
+        bail!(
+            "`but merge` does not yet support triangular remotes (fetch `{fetch_remote}`, \
+             push `{push_remote}`). Merge via a pull request instead, or configure a single \
+             remote for the target branch."
+        );
+    }
+    if local.shorten() != upstream_branch {
+        bail!(
+            "`but merge` requires matching local and upstream branch names (local `{}`, upstream `{upstream_branch}`). Merge via a pull request instead.",
+            local.shorten(),
+        );
+    }
+    Ok(())
+}
+
 /// Land `branch` directly onto the configured target ref.
 ///
 /// `branch` is the short name of the branch to land (its `refs/heads/<branch>` ref). The branch
@@ -192,8 +226,9 @@ pub fn branch_land(
             // A caller may have checked the checkout already, as the CLI does before its
             // confirmation prompt. Reload so this check sees HEAD as it is now.
             ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
-            let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+            let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
             ensure_landable_checkout(&ws)?;
+            ensure_landable_target(&ws.graph.project_meta, &repo)?;
         }
         crate::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())?
             .ok_or_else(|| anyhow::anyhow!("No base branch configured"))?
@@ -203,32 +238,44 @@ pub fn branch_land(
     if target_branch_name.is_empty() {
         bail!("Configured target branch has no branch name");
     }
-    let fetch_remote_name = base_branch.remote_name.clone();
-    let push_remote_name = if base_branch.push_remote_name.is_empty() {
+    let fetch_remote_name = base_branch
+        .remote_name
+        .clone()
+        .context("Merging without a remote isn't supported yet")?;
+    let push_remote_name = if base_branch
+        .push_remote_name
+        .as_ref()
+        .context("Merging without a remote isn't supported yet")?
+        .is_empty()
+    {
         fetch_remote_name.clone()
     } else {
-        base_branch.push_remote_name.clone()
+        base_branch
+            .push_remote_name
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
+            .clone()
     };
     if push_remote_name.is_empty() {
         bail!("Configured target branch has no push remote");
     }
 
-    // Triangular remotes (fetch remote != push remote) are out of scope for now: the post-land
-    // reconcile reads the fetch remote's tracking ref, so a push to a different remote would not
-    // advance it and the reconcile would silently no-op. Refuse before mutating anything.
-    if push_remote_name != fetch_remote_name {
-        bail!(
-            "`but merge` does not yet support triangular remotes (fetch `{fetch_remote_name}`, \
-             push `{push_remote_name}`). Merge via a pull request instead, or configure a single \
-             remote for the target branch."
-        );
-    }
-
     let target_display = format!("{push_remote_name}/{target_branch_name}");
-    let push_remote_url = if base_branch.push_remote_url.is_empty() {
-        &base_branch.remote_url
+    let push_remote_url = if base_branch
+        .push_remote_url
+        .as_ref()
+        .context("Merging without a remote isn't supported yet")?
+        .is_empty()
+    {
+        base_branch
+            .remote_url
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
     } else {
-        &base_branch.push_remote_url
+        base_branch
+            .push_remote_url
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
     };
     let update_target_locally = {
         let repo = ctx.repo.get()?;

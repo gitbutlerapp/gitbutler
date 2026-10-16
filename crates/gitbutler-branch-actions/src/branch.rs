@@ -108,15 +108,16 @@ pub fn list_branches(
         .into_iter()
         .filter_map(|s| GitButlerStack::try_new(s, &remote_names, &reviews_by_head).transpose())
         .collect::<Result<Vec<_>, _>>()?;
-    let workspace_target_ref_name = info.target_ref.map(|r| r.ref_name);
-
     branches.extend(stacks.iter().map(|s| GroupBranch::Virtual(s.clone())));
-    let target_ref_name = if let Some(target_ref_name) = workspace_target_ref_name {
-        target_ref_name
-    } else {
-        ctx.project_meta()?.target_ref_or_err()?.clone()
-    };
-    let mut branches = combine_branches(branches, &repo, target_ref_name.as_ref())?;
+    let project_meta = ctx.project_meta()?;
+    let local_target = project_meta.target_ref_or_err()?;
+    let upstream_target = project_meta.remote_target_ref(&repo)?;
+    let mut branches = combine_branches(
+        branches,
+        &repo,
+        local_target,
+        upstream_target.as_ref().map(AsRef::as_ref),
+    )?;
 
     // Apply the filter
     branches.retain(|branch| !has_filter || matches_all(branch, filter));
@@ -188,10 +189,13 @@ fn configured_workspace_target(
         return Ok(None);
     };
     let project_meta = ctx.project_meta()?;
-    Ok(project_meta
-        .target_ref
-        .clone()
-        .zip(project_meta.target_commit_id))
+    let Some(target_ref) = project_meta.target_ref.as_ref() else {
+        return Ok(None);
+    };
+    Ok(Some((
+        target_ref.as_local_full_name_ref().to_owned(),
+        project_meta.resolve_target_commit(repo)?,
+    )))
 }
 
 fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
@@ -212,17 +216,18 @@ fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
 fn combine_branches(
     group_branches: Vec<GroupBranch>,
     repo: &gix::Repository,
-    target_ref_name: &gix::refs::FullNameRef,
+    local_target: &but_core::ref_metadata::LocalRefName,
+    upstream_target: Option<&gix::refs::FullNameRef>,
 ) -> Result<Vec<BranchListing>> {
     let remotes = repo.remote_names();
     let packed = repo.refs.cached_packed_buffer()?;
-    let target_branch_identity = target_identity_from_ref_name(target_ref_name, &remotes)?;
+    let target_branch_identity = local_target.shorten().try_into()?;
 
     // Group branches by identity
     let mut groups: HashMap<BranchIdentity, Vec<GroupBranch>> = HashMap::new();
     for branch in group_branches {
-        // Skip the target branch, like 'main' or 'master'
-        if branch.is_remote_branch(target_ref_name) {
+        // Exclude the configured upstream, which need not share the local target's name.
+        if upstream_target.is_some_and(|name| branch.is_remote_branch(name)) {
             continue;
         }
 
@@ -261,25 +266,6 @@ fn combine_branches(
             }
         })
         .collect())
-}
-
-/// Derive the target branch identity while tolerating stale target remotes.
-///
-/// Branch listing should keep working when GitButler's stored target points to a
-/// preserved remote-tracking ref like `refs/remotes/origin/main`, even if the
-/// matching remote has since been removed or renamed in `.git/config`. When the
-/// remote is configured, keep using it so remote names containing slashes remain
-/// unambiguous.
-fn target_identity_from_ref_name(
-    target_ref_name: &gix::refs::FullNameRef,
-    remotes: &gix::remote::Names,
-) -> Result<BranchIdentity> {
-    if let Ok(identity) = target_ref_name.identity(remotes) {
-        return Ok(identity);
-    }
-    let (_remote, short_name) = extract_remote_name_and_short_name(target_ref_name, remotes)
-        .context("failed to derive target branch identity from target ref")?;
-    Ok(short_name.as_bstr().try_into()?)
 }
 
 /// Converts a group of branches with the same identity into a single branch entry
@@ -715,10 +701,10 @@ pub fn get_branch_listing_details(
         } else {
             let project_meta = ctx.project_meta()?;
             (
-                repo.find_reference(project_meta.target_ref_or_err()?.as_ref())?
+                repo.find_reference(project_meta.target_ref_or_err()?.as_local_full_name_ref())?
                     .peel_to_commit()?
                     .id,
-                project_meta.target_commit_id_or_err()?,
+                project_meta.resolve_target_commit(&repo)?,
             )
         }
     };
