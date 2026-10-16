@@ -148,6 +148,9 @@ pub struct Store {
     pub busy: Option<SharedString>,
     /// The project a finished mutation waits on. Its next load to start ends `busy`.
     settling: Option<ProjectId>,
+    /// The project an operation is changing right now. Its own reload follows and sees all
+    /// of it, so the watcher's reloads for it would only queue in front.
+    mutating: Option<ProjectId>,
     /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
     last_snapshot: Option<(ProjectId, SnapshotId)>,
     next_toast: usize,
@@ -203,6 +206,9 @@ impl Store {
                 }
                 let Ok(()) = this.update(cx, |store, cx| {
                     for (id, git) in ids {
+                        if store.mutating.as_ref() == Some(&id) {
+                            continue;
+                        }
                         // Worktree files alone can't move commits or branches.
                         store.load(&id, git, cx);
                     }
@@ -223,6 +229,7 @@ impl Store {
             toasts: Vec::new(),
             busy: None,
             settling: None,
+            mutating: None,
             last_snapshot: None,
             next_toast: 0,
             seen: saved.seen,
@@ -986,6 +993,7 @@ impl Store {
             return;
         };
         self.busy = Some(label.clone());
+        self.mutating = Some(project.clone());
         self.cut = None;
         let before: HashSet<String> = self.workspace(project).map_or_else(HashSet::new, |ws| {
             ws.branches()
@@ -1005,6 +1013,7 @@ impl Store {
             })
             .await;
             this.update(cx, |store, cx| {
+                store.mutating = None;
                 store.settling = Some(project.clone());
                 // Set here rather than at the start, so a load the watcher started
                 // mid-operation can't use it up.
