@@ -37,6 +37,8 @@ pub enum Pick {
     Current,
     Incoming,
     Both,
+    /// Let the AI set up in Settings merge the two.
+    Ai,
 }
 
 pub fn conflicts(path: &Path, commit: CommitId) -> Result<Conflicts> {
@@ -88,6 +90,7 @@ pub fn resolve(
         .iter()
         .map(|(file, ix, pick)| {
             let resolution = match pick {
+                Pick::Ai => HunkResolution::Ai,
                 Pick::Current => HunkResolution::Ours,
                 Pick::Incoming => HunkResolution::Theirs,
                 Pick::Both => {

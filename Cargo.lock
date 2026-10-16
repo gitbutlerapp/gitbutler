@@ -1666,6 +1666,7 @@ dependencies = [
  "but-forge",
  "but-github",
  "but-gitlab",
+ "but-llm",
  "but-oplog",
  "but-path",
  "but-rebase",

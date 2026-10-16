@@ -4,10 +4,11 @@
 
 use gpui::{
     App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, PromptLevel,
-    SharedString, Window, actions, div, prelude::*, px,
+    SharedString, Task, Window, actions, div, prelude::*, px,
 };
 
 use crate::app::AppView;
+use crate::backend::ai;
 use crate::backend::reviews::{self, MergeMethod};
 use crate::backend::{self, PushState, ReviewState};
 use crate::state::{Overlay, ProjectId, Selection, Store};
@@ -49,6 +50,9 @@ pub struct ReviewView {
     /// The branch it would merge into, once known.
     target: Option<String>,
     draft: bool,
+    /// The title and description being written with AI: the task streaming them into
+    /// the fields, and the one asking for them.
+    writing: Option<(Task<()>, Task<()>)>,
 }
 
 impl EventEmitter<DismissEvent> for ReviewView {}
@@ -157,7 +161,71 @@ impl ReviewView {
             body,
             target: None,
             draft: false,
+            writing: None,
         }
+    }
+
+    /// Write the title and description with AI from the branch's commit messages, streaming
+    /// them into the fields. What's written so far guides it.
+    fn write_with_ai(&mut self, cx: &mut Context<Self>) {
+        if self.writing.is_some() {
+            return;
+        }
+        // Oldest first, the order the work happened in.
+        let messages: Vec<String> = self
+            .store
+            .read(cx)
+            .workspace(&self.project)
+            .and_then(|ws| ws.find_branch(&self.branch))
+            .map(|b| b.commits.iter().rev().map(|c| c.message.clone()).collect())
+            .unwrap_or_default();
+        let (title, body) = (
+            self.title.read(cx).text().to_owned(),
+            self.body.read(cx).text().to_owned(),
+        );
+        let prompt = ai::pr_prompt(&title, &body, &messages);
+        let (sender, mut tokens) = futures::channel::mpsc::unbounded::<String>();
+        let fields = (self.title.clone(), self.body.clone());
+        let pump = cx.spawn(async move |_, cx| {
+            let mut text = String::new();
+            while let Some(token) = futures::StreamExt::next(&mut tokens).await {
+                text.push_str(&token);
+                let (title, body) = ai::split_title_body(&text);
+                fields.0.update(cx, |input, cx| input.set_text(title, cx));
+                fields.1.update(cx, |input, cx| input.set_text(body, cx));
+            }
+        });
+        let write = cx.spawn(async move |this, cx| {
+            let written = backend::run(move || {
+                ai::stream(ai::PR_SYSTEM, prompt, move |token| {
+                    sender.unbounded_send(token.to_owned()).ok();
+                })
+            })
+            .await;
+            this.update(cx, |this, cx| {
+                this.writing = None;
+                match written {
+                    Ok(text) => {
+                        let (new_title, new_body) = ai::split_title_body(&text);
+                        this.title
+                            .update(cx, |input, cx| input.set_text(new_title, cx));
+                        this.body
+                            .update(cx, |input, cx| input.set_text(new_body, cx));
+                    }
+                    Err(err) => {
+                        this.title.update(cx, |input, cx| input.set_text(title, cx));
+                        this.body.update(cx, |input, cx| input.set_text(body, cx));
+                        this.store.update(cx, |store, cx| {
+                            store.error("Couldn't write the description", format!("{err:#}"), cx)
+                        });
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        });
+        self.writing = Some((pump, write));
+        cx.notify();
     }
 
     fn submit(&mut self, cx: &mut Context<Self>) {
@@ -281,7 +349,25 @@ impl Render for ReviewView {
                     .child(label("Title"))
                     .child(field(&self.title, false))
                     .child(div().h(px(6.)))
-                    .child(label("Description"))
+                    .child(
+                        h_flex()
+                            .child(div().flex_1().child(label("Description")))
+                            .child(
+                                button(
+                                    "pr-write",
+                                    if self.writing.is_some() {
+                                        "Writing…"
+                                    } else {
+                                        "Write with AI"
+                                    },
+                                )
+                                .small()
+                                .style(ButtonStyle::Ghost)
+                                .disabled(self.writing.is_some())
+                                .tooltip("Write the title and description from the commits")
+                                .on_click(cx.listener(|this, _, _, cx| this.write_with_ai(cx))),
+                            ),
+                    )
                     .child(field(&self.body, true))
                     .when(creating, |el| {
                         el.child(

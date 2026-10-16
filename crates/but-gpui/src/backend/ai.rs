@@ -1,0 +1,147 @@
+//! Writing commit messages and pull request descriptions with the AI provider set up in
+//! Settings, streamed so the text appears as it's written. The prompts are Lite's, so the
+//! apps write alike.
+
+use anyhow::{Context as _, Result};
+use but_llm::{ChatMessage, LLMProvider};
+
+pub const COMMIT_SYSTEM: &str = "You write Git commit messages. Return only the commit message, without Markdown or commentary.";
+
+const COMMIT_INSTRUCTIONS: &str = "Write a commit message for these changes.
+Only respond with the commit message, without notes or Markdown.
+Explain what changed and why, focusing on the most important changes.
+Use present tense and a semantic commit prefix.
+Keep the title under 50 characters and hard-wrap body lines at 72 characters.
+Do not use emoji or start lines with the hash symbol.";
+
+pub const PR_SYSTEM: &str = "You write pull requests.
+Return the title on the first line, then a blank line, then the description body as Markdown.
+The title is plain text: no leading \"#\", no quotes, no prefix.
+Never repeat the title as a heading or first line of the body — it is shown above the body already.
+Return nothing else: no commentary, no surrounding code fence.";
+
+/// How much diff or history goes to the model.
+const CONTEXT_LIMIT: usize = 5_000;
+
+fn clipped(text: &str) -> &str {
+    match text.char_indices().nth(CONTEXT_LIMIT) {
+        Some((at, _)) => &text[..at],
+        None => text,
+    }
+}
+
+/// What to ask for a commit message of `diff`, with what the author already wrote as notes.
+pub fn commit_prompt(notes: &str, diff: &str) -> String {
+    let notes = match notes.trim() {
+        "" => String::new(),
+        notes => format!("\n\nThe author's notes on it:\n```\n{notes}\n```"),
+    };
+    format!(
+        "{COMMIT_INSTRUCTIONS}{notes}\n\nSelected changes:\n```diff\n{}\n```",
+        clipped(diff)
+    )
+}
+
+/// What to ask for a pull request's title and description, from its commit messages
+/// (oldest first) and what's written so far.
+pub fn pr_prompt(title: &str, body: &str, messages: &[String]) -> String {
+    let messages = messages.join("\n\n---\n\n");
+    let mut sections = vec![
+        "Write the title and description for this pull request.".to_owned(),
+        "List the most important changes. Use bullet points. Be concise.".to_owned(),
+    ];
+    if !title.trim().is_empty() {
+        sections.push(format!("Working title:\n```\n{}\n```", title.trim()));
+    }
+    if !body.trim().is_empty() {
+        sections.push(format!(
+            "Description so far, to build on:\n```\n{}\n```",
+            body.trim()
+        ));
+    }
+    sections.push(format!(
+        "Commit messages:\n```\n{}\n```",
+        clipped(&messages)
+    ));
+    sections.join("\n\n")
+}
+
+/// Ask the configured provider, calling `on_text` with each piece of the answer as it
+/// arrives. Returns the whole answer.
+pub fn stream(
+    system: &str,
+    prompt: String,
+    on_text: impl Fn(&str) + Send + Sync + 'static,
+) -> Result<String> {
+    let config = gix::config(None, &gix::open::Options::default())?;
+    let provider = LLMProvider::from_git_config(&config)
+        .context("AI isn't set up. Choose a provider in Settings → AI.")?;
+    let model = provider.model_or_default();
+    provider
+        .stream_response(system, vec![ChatMessage::User(prompt)], &model, on_text)?
+        .filter(|answer| !answer.trim().is_empty())
+        .context("The AI provider answered with nothing")
+}
+
+/// Split a generated pull request into its title and body, dropping a fence around the
+/// whole answer and a first body line that only repeats the title. Safe on a partial
+/// answer, as it streams.
+pub fn split_title_body(text: &str) -> (String, String) {
+    let text = strip_fence(text);
+    let clean = |line: &str| {
+        line.trim()
+            .trim_start_matches('#')
+            .trim()
+            .trim_matches(|c| matches!(c, '"' | '\'' | '`'))
+            .trim()
+            .to_owned()
+    };
+    let Some((title, rest)) = text.split_once('\n') else {
+        return (clean(text), String::new());
+    };
+    let title = clean(title);
+    let rest = rest.trim();
+    let (first, after) = rest.split_once('\n').unwrap_or((rest, ""));
+    let body = if !title.is_empty() && clean(first).eq_ignore_ascii_case(&title) {
+        after.trim()
+    } else {
+        rest
+    };
+    (title, body.to_owned())
+}
+
+fn strip_fence(text: &str) -> &str {
+    let text = text.trim();
+    let Some(after) = text.strip_prefix("```") else {
+        return text;
+    };
+    // Past the opener's language tag; a lone opener mid-stream goes too.
+    let Some((_, inner)) = after.split_once('\n') else {
+        return "";
+    };
+    match inner.trim_end().strip_suffix("```") {
+        Some(inner) if !inner.contains("```") => inner.trim(),
+        Some(_) => text,
+        None if inner.contains("```") => text,
+        None => inner.trim(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_title_body;
+
+    #[test]
+    fn splits_title_from_body_and_drops_an_echoed_heading() {
+        let (title, body) =
+            split_title_body("```markdown\n# Add search\n\n# Add search\n- Fast\n```");
+        assert_eq!(title, "Add search", "fence and heading marks go");
+        assert_eq!(body, "- Fast", "the body doesn't repeat the title");
+        let (title, body) = split_title_body("Add search");
+        assert_eq!(
+            (title.as_str(), body.as_str()),
+            ("Add search", ""),
+            "a partial answer is all title"
+        );
+    }
+}

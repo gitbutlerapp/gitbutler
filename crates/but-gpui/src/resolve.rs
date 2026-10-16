@@ -92,6 +92,20 @@ impl ResolveView {
         cx.notify();
     }
 
+    /// Leave every conflict not picked yet to the AI, then resolve them all.
+    fn rest_with_ai(&mut self, cx: &mut Context<Self>) {
+        if let Some(Ok(found)) = &self.conflicts {
+            for file in &found.files {
+                for ix in 0..file.hunks.len() {
+                    self.picks
+                        .entry((file.path.clone(), ix))
+                        .or_insert(Pick::Ai);
+                }
+            }
+        }
+        self.apply(cx);
+    }
+
     fn apply(&mut self, cx: &mut Context<Self>) {
         let Some(Ok(found)) = self.conflicts.clone() else {
             return;
@@ -363,6 +377,15 @@ impl Render for ResolveView {
                     .py(px(12.))
                     .border_t_1()
                     .border_color(theme.border_3)
+                    .when(picked < total, |el| {
+                        el.child(
+                            button("resolve-ai", "Rest with AI")
+                                .style(ButtonStyle::Ghost)
+                                .tooltip("Let the AI set up in Settings merge the conflicts not picked yet")
+                                .on_click(cx.listener(|this, _, _, cx| this.rest_with_ai(cx))),
+                        )
+                    })
+                    .child(div().flex_1())
                     .child(
                         button("resolve-cancel", "Cancel")
                             .style(ButtonStyle::Ghost)
