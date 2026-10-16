@@ -6,6 +6,8 @@ mod diff_view;
 mod file_tree;
 mod panes;
 
+pub use diff_view::DiffPane;
+
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;
@@ -1234,7 +1236,8 @@ impl Render for Detail {
                                 .child(resize_handle(Pane::Files, self.store.clone(), &theme)),
                         )
                     })
-                    .child(self.render_diff(&theme, cx))
+                    // `DiffPane` draws the diff over this space.
+                    .child(div().flex_1())
                     .into_any_element()
             }
         };

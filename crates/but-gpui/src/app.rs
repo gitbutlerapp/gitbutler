@@ -11,7 +11,7 @@ use gpui::{
 };
 
 use crate::backend::{self, CommitId};
-use crate::detail::Detail;
+use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
 use crate::palette::Palette;
 use crate::state::{Cut, Notice, Pane, ProjectId, Selection, Store};
@@ -19,8 +19,8 @@ use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, list_row, popover,
-    resize_pane, shortcut, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, list_row,
+    popover, resize_pane, shortcut, v_flex,
 };
 
 actions!(
@@ -175,6 +175,7 @@ struct Prompt {
 pub struct AppView {
     pub store: Entity<Store>,
     pub detail: Entity<Detail>,
+    diff: Entity<DiffPane>,
     navigator: Entity<Navigator>,
     pub menu: Option<ContextMenu>,
     prompt: Option<Prompt>,
@@ -188,10 +189,24 @@ pub struct AppView {
 }
 
 impl AppView {
+    /// Where the diff starts beside the detail's file list, when the selection has a diff.
+    fn diff_left(&self, cx: &App) -> Option<f32> {
+        let store = self.store.read(cx);
+        let has_diff = matches!(
+            store.selection,
+            Some(Selection::Uncommitted(_) | Selection::Commit(..) | Selection::Branch(..))
+        );
+        has_diff.then(|| match self.detail.read(cx).zoomed {
+            true => 0.,
+            false => store.width(Pane::Files),
+        })
+    }
+
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = cx.new(Store::new);
         let app = cx.entity().downgrade();
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
+        let diff = cx.new(|cx| DiffPane::new(&detail, cx));
         let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), window, cx));
         window.focus(&navigator.focus_handle(cx), cx);
         let subscriptions = vec![
@@ -205,6 +220,7 @@ impl AppView {
         Self {
             store,
             detail,
+            diff,
             navigator,
             menu: None,
             prompt: None,
@@ -1313,11 +1329,31 @@ impl Render for AppView {
                         )
                     })
                     .child(
-                        div().flex_1().min_w(px(0.)).h_full().child(
-                            self.detail
-                                .clone()
-                                .cached(StyleRefinement::default().size_full()),
-                        ),
+                        div()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .h_full()
+                            .relative()
+                            .child(
+                                self.detail
+                                    .clone()
+                                    .cached(StyleRefinement::default().size_full()),
+                            )
+                            .when_some(self.diff_left(cx), |el, left| {
+                                el.child(
+                                    div()
+                                        .absolute()
+                                        .top(px(HEADER_HEIGHT))
+                                        .bottom_0()
+                                        .right_0()
+                                        .left(px(left))
+                                        .child(
+                                            self.diff
+                                                .clone()
+                                                .cached(StyleRefinement::default().size_full()),
+                                        ),
+                                )
+                            }),
                     ),
             )
             .child(self.render_status_bar(window, cx))
