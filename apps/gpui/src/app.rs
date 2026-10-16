@@ -1,25 +1,26 @@
 //! The window's root: the project navigator on the left, details on the right, and the
 //! overlays (menus, prompts, toasts) above both.
 
-use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, ClipboardItem, Context, Entity, FocusHandle, Focusable,
-    KeyBinding, MouseButton, PathPromptOptions, Pixels, Point, PromptLevel, ScrollHandle,
-    SharedString, Subscription, Window, actions, anchored, deferred, div, prelude::*, px,
+    Action, AnyElement, App, ClickEvent, ClipboardItem, Context, Entity, FocusHandle, Focusable,
+    KeyBinding, MouseButton, PathPromptOptions, Pixels, Point, PromptLevel, SharedString,
+    StyleRefinement, Subscription, Window, actions, anchored, deferred, div, prelude::*, px,
 };
 
 use crate::backend::{self, CommitId};
 use crate::detail::Detail;
+use crate::navigator::Navigator;
 use crate::palette::Palette;
-use crate::state::{Cut, Notice, Pane, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{Cut, Notice, Pane, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, resize_pane, v_flex,
+    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, list_row, popover,
+    resize_pane, shortcut, v_flex,
 };
 
 actions!(
@@ -92,10 +93,11 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("k", SelectPrevious, nav),
         KeyBinding::new("down", SelectNext, nav),
         KeyBinding::new("j", SelectNext, nav),
-        KeyBinding::new("right", Expand, nav),
+        // The arrows come last, so menus show them.
         KeyBinding::new("l", Expand, nav),
-        KeyBinding::new("left", Collapse, nav),
+        KeyBinding::new("right", Expand, nav),
         KeyBinding::new("h", Collapse, nav),
+        KeyBinding::new("left", Collapse, nav),
         KeyBinding::new("enter", Confirm, nav),
         KeyBinding::new("space", Confirm, nav),
         KeyBinding::new("r", RenameSelection, nav),
@@ -138,6 +140,16 @@ impl MenuItem {
         }
     }
 
+    /// An item that dispatches `action` where focus is, showing the keys bound to it.
+    pub fn action(label: impl Into<SharedString>, action: &dyn Action, cx: &App) -> Self {
+        let key = shortcut(action, cx);
+        let action = action.boxed_clone();
+        Self::new(label, move |_, window, cx| {
+            window.dispatch_action(action.boxed_clone(), cx)
+        })
+        .key(key)
+    }
+
     pub fn key(mut self, key: Option<SharedString>) -> Self {
         self.key = key;
         self
@@ -163,12 +175,7 @@ struct Prompt {
 pub struct AppView {
     pub store: Entity<Store>,
     pub detail: Entity<Detail>,
-    pub nav_focus: FocusHandle,
-    pub nav_scroll: ScrollHandle,
-    /// Branches showing all their commits instead of the first few.
-    pub unfolded_branches: HashSet<(ProjectId, String)>,
-    /// Narrows the navigator to projects whose name contains this text.
-    pub filter: Entity<TextInput>,
+    navigator: Entity<Navigator>,
     pub menu: Option<ContextMenu>,
     prompt: Option<Prompt>,
     pub navigator_open: bool,
@@ -184,57 +191,21 @@ impl AppView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = cx.new(Store::new);
         let app = cx.entity().downgrade();
-        let detail = cx.new(|cx| Detail::new(store.clone(), app, window, cx));
+        let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
+        let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), window, cx));
+        window.focus(&navigator.focus_handle(cx), cx);
         let subscriptions = vec![
             cx.observe(&store, |_, _, cx| cx.notify()),
-            cx.subscribe(&store, |this, _, event, cx| {
-                if let StoreEvent::SelectionChanged = event {
-                    this.scroll_selection_into_view(cx);
-                }
-            }),
             cx.observe_window_appearance(window, |_, window, cx| {
                 cx.set_global(Theme::for_appearance(window.appearance(), cx));
                 cx.refresh_windows();
             }),
         ];
-        let nav_focus = cx.focus_handle();
-        window.focus(&nav_focus, cx);
-        let filter = cx.new(|cx| TextInput::new("Filter projects", false, cx));
-        let filter_subscription = cx.subscribe_in(
-            &filter,
-            window,
-            |this, filter, event, window, cx| match event {
-                InputEvent::Changed => cx.notify(),
-                InputEvent::Submit => {
-                    // Jump into the first match.
-                    let query = filter.read(cx).text().to_lowercase();
-                    let first = this
-                        .store
-                        .read(cx)
-                        .projects
-                        .iter()
-                        .find(|entry| entry.project.name.to_lowercase().contains(&query))
-                        .map(|entry| entry.id.clone());
-                    if let Some(id) = first {
-                        this.select(Selection::Project(id), window, cx);
-                    }
-                }
-                InputEvent::Cancel => {
-                    filter.update(cx, |filter, cx| filter.set_text("", cx));
-                    window.focus(&this.nav_focus, cx);
-                }
-            },
-        );
-        let mut subscriptions = subscriptions;
-        subscriptions.push(filter_subscription);
         Self::listen_for_credential_prompts(window, cx);
         Self {
             store,
             detail,
-            nav_focus,
-            nav_scroll: ScrollHandle::new(),
-            unfolded_branches: HashSet::new(),
-            filter,
+            navigator,
             menu: None,
             prompt: None,
             navigator_open: true,
@@ -292,7 +263,7 @@ impl AppView {
 
     fn fetch(&mut self, _: &Fetch, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
-            self.fetch_project(project, cx);
+            self.store.update(cx, |store, cx| store.fetch(&project, cx));
         }
     }
 
@@ -331,72 +302,89 @@ impl AppView {
         );
     }
 
-    pub fn fetch_project(&mut self, project: ProjectId, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| {
-            store.run(
-                &project,
-                "Fetch",
-                backend::fetch,
-                |store, (), cx| store.snack("Fetched", cx),
-                cx,
-            )
-        });
-    }
-
-    /// Rebase the project's branches onto its target's latest commits.
-    pub fn update_project(&mut self, project: ProjectId, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| {
-            store.run(
-                &project,
-                "Update",
-                backend::update_from_target,
-                |store, (), cx| store.snack_undoable("Updated from target", cx),
-                cx,
-            )
-        });
-    }
-
-    pub fn push(&mut self, project: ProjectId, ref_name: String, cx: &mut Context<Self>) {
-        let force = self
-            .store
-            .read(cx)
-            .workspace(&project)
-            .and_then(|ws| ws.find_branch(&ref_name))
-            .is_some_and(|branch| branch.push == backend::PushState::NeedsForce);
-        let name = short_ref(&ref_name).to_owned();
-        let project_for_refresh = project.clone();
-        self.store.update(cx, |store, cx| {
-            store.run(
-                &project,
-                format!("Push {name}"),
-                move |path| backend::push(path, &ref_name, force),
-                move |store, (), cx| {
-                    store.snack(format!("Pushed {name}"), cx);
-                    // A push can open or move a pull request's checks.
-                    store.refresh_forge(&project_for_refresh, cx);
-                },
-                cx,
-            )
-        });
+    /// The selected branch, or the branch of the selected commit, by project and ref.
+    fn selected_branch(&self, cx: &App) -> Option<(ProjectId, String)> {
+        let selection = self.selection(cx)?;
+        let branch = self.store.read(cx).branch_for(&selection)?;
+        Some((selection.project().clone(), branch.ref_name.clone()))
     }
 
     fn push_selected(&mut self, _: &Push, _: &mut Window, cx: &mut Context<Self>) {
-        let branch = match self.selection(cx) {
-            Some(Selection::Branch(project, ref_name)) => Some((project, ref_name)),
-            Some(Selection::Commit(project, id)) => self
-                .store
-                .read(cx)
-                .workspace(&project)
-                .and_then(|ws| ws.find_commit(id))
-                .map(|(branch, _)| (project.clone(), branch.ref_name.clone())),
-            _ => None,
-        };
-        if let Some((project, ref_name)) = branch {
-            self.push(project, ref_name, cx);
+        if let Some((project, ref_name)) = self.selected_branch(cx) {
+            self.store
+                .update(cx, |store, cx| store.push(&project, ref_name, cx));
         }
     }
 
-    pub fn rename_branch(
+    fn delete_selection(
+        &mut self,
+        _: &DeleteSelection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match self.selection(cx) {
+            Some(Selection::Commit(project, id)) => self.discard_commit(project, id, window, cx),
+            Some(Selection::Branch(project, ref_name)) => {
+                self.remove_branch(project, ref_name, window, cx)
+            }
+            Some(Selection::Uncommitted(project)) => {
+                let changes = self.detail.read(cx).selected_changes(cx);
+                self.discard(project, changes, window, cx);
+            }
+            _ => {}
+        }
+    }
+
+    fn rename_selection(
+        &mut self,
+        _: &RenameSelection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match self.selection(cx) {
+            Some(Selection::Branch(project, ref_name)) => {
+                self.rename_branch(project, ref_name, window, cx)
+            }
+            Some(Selection::Commit(..)) => self
+                .detail
+                .update(cx, |detail, cx| detail.start_reword(window, cx)),
+            _ => {}
+        }
+    }
+
+    fn new_branch_on_top(
+        &mut self,
+        _: &NewBranchOnTop,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some((project, ref_name)) = self
+            .selected_branch(cx)
+            .filter(|(_, ref_name)| !ref_name.is_empty())
+        {
+            self.add_branch_on_top(project, ref_name, window, cx);
+        }
+    }
+
+    fn uncommit_selection(
+        &mut self,
+        _: &UncommitSelection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match self.selection(cx) {
+            Some(Selection::Commit(project, id)) => {
+                self.store
+                    .update(cx, |store, cx| store.uncommit(&project, id, cx));
+            }
+            Some(Selection::Branch(project, ref_name)) => {
+                self.remove_branch(project, ref_name, window, cx)
+            }
+            _ => {}
+        }
+    }
+
+    fn rename_branch(
         &mut self,
         project: ProjectId,
         ref_name: String,
@@ -431,7 +419,7 @@ impl AppView {
         );
     }
 
-    pub fn add_branch_on_top(
+    fn add_branch_on_top(
         &mut self,
         project: ProjectId,
         below: String,
@@ -465,7 +453,7 @@ impl AppView {
         );
     }
 
-    pub fn remove_branch(
+    fn remove_branch(
         &mut self,
         project: ProjectId,
         ref_name: String,
@@ -495,19 +483,7 @@ impl AppView {
         );
     }
 
-    pub fn uncommit(&mut self, project: ProjectId, id: CommitId, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| {
-            store.run(
-                &project,
-                "Uncommit",
-                move |path| backend::uncommit(path, &[id]),
-                |store, (), cx| store.snack_undoable("Uncommitted", cx),
-                cx,
-            )
-        });
-    }
-
-    pub fn discard_commit(
+    fn discard_commit(
         &mut self,
         project: ProjectId,
         id: CommitId,
@@ -843,9 +819,9 @@ impl AppView {
     }
 
     fn focus_filter(&mut self, _: &FocusFilter, window: &mut Window, cx: &mut Context<Self>) {
-        self.filter
-            .update(cx, |filter, cx| filter.select_all_text(cx));
-        window.focus(&self.filter.focus_handle(cx), cx);
+        let filter = self.navigator.read(cx).filter.clone();
+        filter.update(cx, |filter, cx| filter.select_all_text(cx));
+        window.focus(&filter.focus_handle(cx), cx);
     }
 
     fn focus_navigator(&mut self, _: &FocusNavigator, window: &mut Window, cx: &mut Context<Self>) {
@@ -855,14 +831,14 @@ impl AppView {
             self.zoomed = false;
             self.sync_chrome(cx);
         }
-        window.focus(&self.nav_focus, cx);
+        window.focus(&self.navigator.focus_handle(cx), cx);
     }
 
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
     /// always reach something visible.
     fn focus_main(&self, window: &mut Window, cx: &mut App) {
         if self.navigator_open && !self.zoomed {
-            window.focus(&self.nav_focus, cx);
+            window.focus(&self.navigator.focus_handle(cx), cx);
         } else {
             self.detail
                 .update(cx, |detail, cx| detail.focus(window, cx));
@@ -904,18 +880,10 @@ impl AppView {
     /// Open the pull request of the selected branch, or of the branch the selected commit
     /// is on, in the browser.
     fn open_pull_request(&mut self, _: &OpenPullRequest, _: &mut Window, cx: &mut Context<Self>) {
-        let store = self.store.read(cx);
-        let url = match self.selection(cx) {
-            Some(Selection::Branch(project, ref_name)) => store
-                .workspace(&project)
-                .and_then(|ws| ws.find_branch(&ref_name))
-                .and_then(|branch| branch.review.as_ref()?.url.clone()),
-            Some(Selection::Commit(project, id)) => store
-                .workspace(&project)
-                .and_then(|ws| ws.find_commit(id))
-                .and_then(|(branch, _)| branch.review.as_ref()?.url.clone()),
-            _ => None,
-        };
+        let url = self.selection(cx).and_then(|selection| {
+            let branch = self.store.read(cx).branch_for(&selection)?;
+            branch.review.as_ref()?.url.clone()
+        });
         match url {
             Some(url) => cx.open_url(&url),
             None => self
@@ -954,7 +922,8 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
-            self.update_project(project, cx);
+            self.store
+                .update(cx, |store, cx| store.update_from_target(&project, cx));
         }
     }
 
@@ -966,7 +935,7 @@ impl AppView {
     ) {
         self.navigator_open = !self.navigator_open;
         self.sync_chrome(cx);
-        if self.nav_focus.contains_focused(window, cx) {
+        if self.navigator.focus_handle(cx).contains_focused(window, cx) {
             self.focus_main(window, cx);
         }
     }
@@ -982,7 +951,7 @@ impl AppView {
     fn toggle_zoom(&mut self, _: &ToggleZoom, window: &mut Window, cx: &mut Context<Self>) {
         self.zoomed = !self.zoomed;
         self.sync_chrome(cx);
-        if self.nav_focus.contains_focused(window, cx) {
+        if self.navigator.focus_handle(cx).contains_focused(window, cx) {
             self.focus_main(window, cx);
         }
     }
@@ -1013,20 +982,15 @@ impl AppView {
         let theme = Theme::get(cx);
         let items = menu.items.iter().enumerate().map(|(ix, item)| {
             let handler = item.handler.clone();
-            h_flex()
-                .id(("menu-item", ix))
-                .h(px(28.))
-                .px(px(8.))
+            list_row(("menu-item", ix), false, theme)
                 .mx(px(4.))
                 .gap(px(16.))
-                .rounded(px(4.))
                 .text_size(px(13.))
                 .text_color(if item.danger {
                     theme.danger
                 } else {
                     theme.text_1
                 })
-                .hover(|el| el.bg(theme.hover()))
                 .child(div().flex_1().child(item.label.clone()))
                 .when_some(item.key.clone(), |el, key| el.child(keycap(&key, theme)))
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -1041,15 +1005,12 @@ impl AppView {
                     .position(menu.position)
                     .snap_to_window_with_margin(px(8.))
                     .child(
-                        v_flex()
+                        popover(theme)
                             .id("context-menu")
+                            // Clicks on an item stop here, not on the row under it.
+                            .occlude()
                             .min_w(px(180.))
                             .py(px(4.))
-                            .rounded(px(8.))
-                            .bg(theme.bg_1)
-                            .border_1()
-                            .border_color(theme.border_2)
-                            .shadow_lg()
                             .children(items)
                             .on_mouse_down_out(cx.listener(|this, _, _, cx| {
                                 this.menu = None;
@@ -1083,17 +1044,13 @@ impl AppView {
                     }),
                 )
                 .child(
-                    v_flex()
+                    popover(theme)
                         .id("prompt")
                         .w(px(380.))
                         .h_auto()
                         .p(px(16.))
                         .gap(px(12.))
                         .rounded(px(10.))
-                        .bg(theme.bg_1)
-                        .border_1()
-                        .border_color(theme.border_2)
-                        .shadow_lg()
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .child(
                             div()
@@ -1207,16 +1164,11 @@ impl AppView {
                 Notice::Error { title, detail } => {
                     let copied = detail.to_string();
                     errors.push(
-                        v_flex()
+                        popover(theme)
                             .id(("error", id))
                             .w(px(320.))
                             .p(px(14.))
                             .gap(px(8.))
-                            .rounded(px(8.))
-                            .bg(theme.bg_1)
-                            .border_1()
-                            .border_color(theme.border_2)
-                            .shadow_lg()
                             .child(
                                 h_flex()
                                     .gap(px(8.))
@@ -1283,8 +1235,8 @@ impl AppView {
 }
 
 impl Focusable for AppView {
-    fn focus_handle(&self, _: &App) -> FocusHandle {
-        self.nav_focus.clone()
+    fn focus_handle(&self, cx: &App) -> FocusHandle {
+        self.navigator.focus_handle(cx)
     }
 }
 
@@ -1297,7 +1249,7 @@ impl Render for AppView {
             // Drop targets read ⌥ to tell moving from squashing.
             .on_modifiers_changed(cx.listener(|this, _, _, cx| {
                 if cx.has_active_drag() || this.store.read(cx).cut.is_some() {
-                    cx.notify();
+                    this.navigator.update(cx, |_, cx| cx.notify());
                 }
             }))
             .on_action(cx.listener(Self::quit))
@@ -1341,14 +1293,31 @@ impl Render for AppView {
                     .min_h(px(0.))
                     .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
                     .when(self.navigator_open && !self.zoomed, |el| {
-                        el.child(self.render_navigator(window, cx))
+                        let width = self.store.read(cx).width(Pane::Navigator);
+                        el.child(
+                            div()
+                                // Navigator keys that open prompts, which the window owns.
+                                .on_action(cx.listener(Self::delete_selection))
+                                .on_action(cx.listener(Self::rename_selection))
+                                .on_action(cx.listener(Self::new_branch_on_top))
+                                .on_action(cx.listener(Self::uncommit_selection))
+                                .w(px(width))
+                                .flex_none()
+                                .h_full()
+                                // Drawn again only when it changes, not when the diff does.
+                                .child(
+                                    self.navigator
+                                        .clone()
+                                        .cached(StyleRefinement::default().size_full()),
+                                ),
+                        )
                     })
                     .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .h_full()
-                            .child(self.detail.clone()),
+                        div().flex_1().min_w(px(0.)).h_full().child(
+                            self.detail
+                                .clone()
+                                .cached(StyleRefinement::default().size_full()),
+                        ),
                     ),
             )
             .child(self.render_status_bar(window, cx))

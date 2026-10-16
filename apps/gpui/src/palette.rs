@@ -18,7 +18,7 @@ use crate::detail::{
 };
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{h_flex, keycap, shortcut, v_flex};
+use crate::ui::{h_flex, keycap, list_row, popover, shortcut, v_flex};
 
 actions!(palette, [PaletteUp, PaletteDown]);
 
@@ -239,16 +239,8 @@ impl AppView {
             .map(|(row, &ix)| {
                 let command = &palette.commands[ix];
                 let selected = row == palette.selected;
-                h_flex()
-                    .id(("command", ix))
-                    .flex_none()
-                    .h(px(28.))
-                    .mx(px(4.))
-                    .px(px(8.))
+                list_row(("command", ix), selected, &theme)
                     .gap(px(12.))
-                    .rounded(px(4.))
-                    .when(selected, |el| el.bg(theme.selected_unfocused()))
-                    .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
                     .child(div().flex_1().child(command.label))
                     .when_some(command.key.clone(), |el, key| {
                         el.child(keycap(&key, &theme))
@@ -274,18 +266,13 @@ impl AppView {
                     cx.listener(|this, _, window, cx| this.close_palette(window, cx)),
                 )
                 .child(
-                    v_flex()
+                    popover(&theme)
                         .id("palette")
                         .key_context("Palette")
                         .on_action(cx.listener(Self::palette_up))
                         .on_action(cx.listener(Self::palette_down))
                         .w(px(520.))
                         .max_h(px(440.))
-                        .rounded(px(8.))
-                        .bg(theme.bg_1)
-                        .border_1()
-                        .border_color(theme.border_2)
-                        .shadow_lg()
                         .overflow_hidden()
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .child(

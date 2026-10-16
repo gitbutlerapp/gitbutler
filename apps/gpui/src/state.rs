@@ -15,8 +15,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    self, Commit, CommitId, FileChange, Project, Selected, SnapshotId, Workspace,
+    self, Branch, Commit, CommitId, FileChange, Project, PushState, Selected, SnapshotId, Workspace,
 };
+use crate::transfer::short_ref;
 
 pub type ProjectId = SharedString;
 
@@ -270,6 +271,16 @@ impl Store {
 
     pub fn path(&self, id: &str) -> Option<PathBuf> {
         Some(self.project(id)?.project.path.clone())
+    }
+
+    /// The branch `selection` is, or the one holding the commit it is.
+    pub fn branch_for(&self, selection: &Selection) -> Option<&Branch> {
+        let workspace = self.workspace(selection.project())?;
+        match selection {
+            Selection::Branch(_, ref_name) => workspace.find_branch(ref_name),
+            Selection::Commit(_, id) => workspace.find_commit(*id).map(|(branch, _)| branch),
+            Selection::Project(_) | Selection::Uncommitted(_) => None,
+        }
     }
 
     pub fn load_projects(&mut self, cx: &mut Context<Self>) {
@@ -842,6 +853,57 @@ impl Store {
             "Undo",
             move |path| backend::undo_snapshot(path, snapshot),
             |store, operation, cx| store.snack(format!("Undone: {operation}"), cx),
+            cx,
+        );
+    }
+
+    pub fn fetch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        self.run(
+            project,
+            "Fetch",
+            backend::fetch,
+            |store, (), cx| store.snack("Fetched", cx),
+            cx,
+        );
+    }
+
+    /// Rebase the project's branches onto its target's latest commits.
+    pub fn update_from_target(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        self.run(
+            project,
+            "Update",
+            backend::update_from_target,
+            |store, (), cx| store.snack_undoable("Updated from target", cx),
+            cx,
+        );
+    }
+
+    pub fn push(&mut self, project: &ProjectId, ref_name: String, cx: &mut Context<Self>) {
+        let force = self
+            .workspace(project)
+            .and_then(|ws| ws.find_branch(&ref_name))
+            .is_some_and(|branch| branch.push == PushState::NeedsForce);
+        let name = short_ref(&ref_name).to_owned();
+        let pushed = project.clone();
+        self.run(
+            project,
+            format!("Push {name}"),
+            move |path| backend::push(path, &ref_name, force),
+            move |store, (), cx| {
+                store.snack(format!("Pushed {name}"), cx);
+                // A push can open or move a pull request's checks.
+                store.refresh_forge(&pushed, cx);
+            },
+            cx,
+        );
+    }
+
+    pub fn uncommit(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
+        self.run(
+            project,
+            "Uncommit",
+            move |path| backend::uncommit(path, &[id]),
+            |store, (), cx| store.snack_undoable("Uncommitted", cx),
             cx,
         );
     }

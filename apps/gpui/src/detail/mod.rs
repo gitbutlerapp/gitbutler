@@ -11,9 +11,9 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Context, Entity, FocusHandle, Focusable, KeyBinding, ListAlignment,
-    ListOffset, ListState, SharedString, Subscription, Task, WeakEntity, Window, actions, div,
-    prelude::*, px,
+    AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
+    ListAlignment, ListOffset, ListState, SharedString, Subscription, Task, WeakEntity, Window,
+    actions, div, prelude::*, px,
 };
 
 use crate::app::AppView;
@@ -76,9 +76,12 @@ struct LoadedDiff {
     rows: Vec<DiffRow>,
 }
 
+/// The files checked for the next commit changed.
+pub struct ChecksChanged;
+
 pub struct Detail {
     store: Entity<Store>,
-    /// For app-level actions like pushing, which live on the root view.
+    /// For what the window owns: focus, menus, and prompts that ask first.
     app: WeakEntity<AppView>,
     focus: FocusHandle,
     diff: Option<LoadedDiff>,
@@ -119,6 +122,8 @@ pub struct Detail {
     pub beside_traffic_lights: bool,
     _subscriptions: Vec<Subscription>,
 }
+
+impl EventEmitter<ChecksChanged> for Detail {}
 
 impl Detail {
     pub fn new(
@@ -785,6 +790,7 @@ impl Detail {
         self.composing = false;
         self.unchecked.clear();
         self.unchecked_hunks.clear();
+        cx.emit(ChecksChanged);
         cx.notify();
     }
 
@@ -886,6 +892,7 @@ impl Detail {
                 .retain(|(hunk_path, _)| hunk_path != path);
             self.unchecked.insert(path.to_owned());
         }
+        cx.emit(ChecksChanged);
         cx.notify();
     }
 
@@ -923,6 +930,7 @@ impl Detail {
                     .is_some_and(|hunks| hunks.is_some_and(|picked| !picked.contains(key)))
             });
         }
+        cx.emit(ChecksChanged);
         self.focus_message(window, cx);
     }
 
@@ -1070,6 +1078,7 @@ impl Detail {
                 self.unchecked.remove(path);
             }
         }
+        cx.emit(ChecksChanged);
         cx.notify();
     }
 
