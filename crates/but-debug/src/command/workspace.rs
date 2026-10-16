@@ -3,10 +3,6 @@
 use std::io;
 
 use anyhow::{Context as _, Result};
-use but_workspace::branch::{
-    OnWorkspaceMergeConflict,
-    apply::{WorkspaceMerge, WorkspaceReferenceNaming},
-};
 
 use crate::args::{ApplyArgs, Args, DebugWorkspaceArgs, UnapplyArgs};
 
@@ -29,10 +25,6 @@ pub(crate) fn apply(
         &repo,
         &mut meta,
         but_workspace::branch::apply::Options {
-            workspace_merge: WorkspaceMerge::MergeIfNeeded,
-            on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
-            workspace_reference_naming: WorkspaceReferenceNaming::Default,
-            order: None,
             new_stack_id: None,
             ..Default::default()
         },

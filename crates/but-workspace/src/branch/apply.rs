@@ -21,9 +21,7 @@ use gix::{
 };
 use tracing::instrument;
 
-use crate::branch::{
-    OnWorkspaceMergeConflict, setup_local_tracking_configuration, try_find_validated_ref,
-};
+use crate::branch::{setup_local_tracking_configuration, try_find_validated_ref};
 use crate::{
     WorkspaceCommit,
     branch::{anon_stacks, ensure_no_missing_stacks},
@@ -86,7 +84,7 @@ pub struct Outcome {
     /// The workspace as it looks like now.
     ///
     /// The returned workspace can also be a proposed state that was not persisted because
-    /// [Options::on_workspace_conflict] aborted the operation. Check [Outcome::conflicting_stacks]
+    /// there was a conflict. Check [Outcome::conflicting_stacks]
     /// and [Outcome::status] to tell whether anything was actually persisted.
     pub workspace: but_graph::Workspace,
     /// The precise kind of apply operation that completed.
@@ -103,7 +101,7 @@ pub struct Outcome {
     pub applied_branches: Vec<gix::refs::FullName>,
     /// `true` if we created the given workspace ref as it didn't exist yet.
     pub workspace_ref_created: bool,
-    /// If not `None`, an actual merge was attempted, but depending on [the settings](OnWorkspaceMergeConflict),
+    /// If not `None`, an actual merge was attempted, but depending on whether there was a conflict,
     /// this was persisted or not.
     pub workspace_merge: Option<crate::commit::merge::Outcome>,
     /// Stacks that conflicted while trying to apply the branch.
@@ -152,44 +150,9 @@ impl std::fmt::Debug for Outcome {
     }
 }
 
-/// How the newly applied branch should be merged into the workspace commit.
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
-pub enum WorkspaceMerge {
-    /// Do nothing but to merge it into the workspace commit, *even* if it's not needed as the workspace reference
-    /// can connect directly with the *one* workspace base.
-    /// This also ensures that there is a workspace merge commit, even if it is none-sensical.
-    #[default]
-    AlwaysMerge,
-    /// Only create a merge commit if a new commit is effectively merged in. This avoids *unnecessary* merge commits,
-    /// but also requires support for this when creating commits (which may then have to create a merge-commit themselves).
-    // TODO: make this the default
-    MergeIfNeeded,
-}
-
-/// Decide how a newly created workspace reference should be named.
-#[derive(Default, Debug, Clone)]
-pub enum WorkspaceReferenceNaming {
-    /// Create a default workspace branch
-    #[default]
-    Default,
-    /// Create a workspace with the given name instead.
-    Given(gix::refs::FullName),
-}
-
 /// Options for [apply()].
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// How the branch should be brought into the workspace.
-    pub workspace_merge: WorkspaceMerge,
-    /// Decide how to deal with conflicts when creating the workspace merge commit to bring in each stack.
-    pub on_workspace_conflict: OnWorkspaceMergeConflict,
-    /// How the workspace reference should be named should it be created.
-    /// The creation is always needed if there are more than one branch applied.
-    pub workspace_reference_naming: WorkspaceReferenceNaming,
-    /// If not `None`, the applied branch should be merged into the workspace commit at the N'th parent position.
-    /// This is useful if the tip of a branch (at a specific position) was unapplied, and a segment within that branch
-    /// should now be re-applied, but of course, be placed at the same spot and not end up at the end of the workspace.
-    pub order: Option<usize>,
     /// Create new stack id, which by default is a function that generates a new StackId.
     pub new_stack_id: Option<fn(&gix::refs::FullNameRef) -> StackId>,
     /// By default applying branches that are already applied is considered an error. Setting this
@@ -234,10 +197,6 @@ pub fn apply(
     repo: &gix::Repository,
     meta: &mut impl RefMetadata,
     Options {
-        workspace_merge: integration_mode,
-        on_workspace_conflict,
-        workspace_reference_naming,
-        order,
         new_stack_id,
         allow_applying_already_applied_branch_when_outside_workspace,
     }: Options,
@@ -320,7 +279,7 @@ pub fn apply(
                 .as_ref()
                 .context("Workspace metadata must be available to repair stale applied state")?;
             let mut ws_md = meta.workspace(ws_ref_name.as_ref())?;
-            add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), order, new_stack_id);
+            add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), new_stack_id);
             persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
         }
         let ws = ws
@@ -382,12 +341,8 @@ pub fn apply(
             // We need to switch over to a possibly existing workspace.
             // We know that the current branch is *not* reachable from the workspace or isn't naturally included,
             // so it needs to be added as well.
-            let next_ws_ref_name = match workspace_reference_naming {
-                WorkspaceReferenceNaming::Default => {
-                    gix::refs::FullName::try_from(WORKSPACE_REF_NAME).expect("known statically")
-                }
-                WorkspaceReferenceNaming::Given(name) => name,
-            };
+            let next_ws_ref_name =
+                gix::refs::FullName::try_from(WORKSPACE_REF_NAME).expect("known statically");
             let mut current_unmanaged_head_branch_name = ws.ref_name().map(|rn| rn.to_owned());
             if let Some(ref current_head_ref) = current_unmanaged_head_branch_name {
                 // If our current branch is related to the next workspace's target, don't add it to the
@@ -477,7 +432,7 @@ pub fn apply(
             }
         }
         for rn in &branches_to_apply {
-            add_branch_as_stack_forcefully(ws_mut, rn.as_ref(), order, new_stack_id);
+            add_branch_as_stack_forcefully(ws_mut, rn.as_ref(), new_stack_id);
         }
     }
     let ws_md_retry_base = ws_md.clone();
@@ -550,7 +505,7 @@ pub fn apply(
         let ws_commit_with_new_message = ws_commit_with_new_message.id.detach();
         let (graph, new_head_id) = if (ws_commit_with_new_message != head_id
             && ws.kind.has_managed_commit())
-            || needs_workspace_commit_without_remerge(&ws, integration_mode)
+            || needs_workspace_commit_without_remerge(&ws)
         {
             let graph = ws.graph.redo_traversal_with_overlay(
                 repo,
@@ -612,7 +567,7 @@ pub fn apply(
     ensure_no_missing_stacks(&merge_result)?;
     drop(existing_stacks_superseded_by_branch);
 
-    if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
+    if merge_result.has_conflicts() {
         let conflicting_stacks =
             correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
         return Ok(Outcome {
@@ -654,7 +609,7 @@ pub fn apply(
             .iter()
             .filter(|rn| !unapplied_branches.contains(rn))
         {
-            add_branch_as_stack_forcefully(ws_mut, branch_to_add.as_ref(), order, new_stack_id);
+            add_branch_as_stack_forcefully(ws_mut, branch_to_add.as_ref(), new_stack_id);
         }
         for rn in &unapplied_branches {
             // Here we have to check if the new ref would be able to become its own stack,
@@ -726,7 +681,7 @@ pub fn apply(
         )?;
         ensure_no_missing_stacks(&merge_result)?;
 
-        if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
+        if merge_result.has_conflicts() {
             let conflicting_stacks =
                 correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
             return Ok(Outcome {
@@ -984,11 +939,10 @@ fn find_superseded_stacks(
 fn add_branch_as_stack_forcefully(
     ws_md: &mut Workspace,
     rn: &FullNameRef,
-    order: Option<usize>,
     new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
 ) {
     let (stack_idx, branch_idx) =
-        ws_md.add_or_insert_new_stack_if_not_present(rn, order, Merged, new_stack_id);
+        ws_md.add_or_insert_new_stack_if_not_present(rn, None, Merged, new_stack_id);
 
     let stack = &mut ws_md.stacks[stack_idx];
     if branch_idx != 0 && !stack.is_in_workspace() {
@@ -1077,20 +1031,14 @@ fn set_head_to_reference(
     Ok(())
 }
 
-fn needs_workspace_commit_without_remerge(
-    ws: &but_graph::Workspace,
-    integration_mode: WorkspaceMerge,
-) -> bool {
-    match integration_mode {
-        WorkspaceMerge::AlwaysMerge => match ws.kind {
-            WorkspaceKind::Managed { .. } => false,
-            WorkspaceKind::AdHoc => {
-                // If it's still ad-hoc, there must be a reason, and we don't try to create a managed commit
-                false
-            }
-            WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => true,
-        },
-        WorkspaceMerge::MergeIfNeeded => false,
+fn needs_workspace_commit_without_remerge(ws: &but_graph::Workspace) -> bool {
+    match ws.kind {
+        WorkspaceKind::Managed { .. } => false,
+        WorkspaceKind::AdHoc => {
+            // If it's still ad-hoc, there must be a reason, and we don't try to create a managed commit
+            false
+        }
+        WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => true,
     }
 }
 
