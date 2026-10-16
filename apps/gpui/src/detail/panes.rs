@@ -20,8 +20,8 @@ use crate::ui::diff;
 use crate::ui::review as ui_review;
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, button, empty_state, h_flex, icon, icon_button,
-    relative_time, shortcut, small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, button, empty_state, h_flex, icon, icon_button,
+    list_row, relative_time, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -82,7 +82,7 @@ impl Detail {
                             } else {
                                 "Push"
                             };
-                            let app = self.app.clone();
+                            let store_handle = self.store.clone();
                             actions.push(
                                 button("push", label)
                                     .icon(Icon::ArrowUp)
@@ -93,10 +93,9 @@ impl Detail {
                                         shortcut(&crate::app::Push, cx),
                                     )
                                     .on_click(move |_, _, cx| {
-                                        app.update(cx, |app, cx| {
-                                            app.push(project.clone(), ref_name.clone(), cx)
+                                        store_handle.update(cx, |store, cx| {
+                                            store.push(&project, ref_name.clone(), cx)
                                         })
-                                        .ok();
                                     })
                                     .into_any_element(),
                             );
@@ -109,16 +108,16 @@ impl Detail {
                             Selection::Branch(project.clone(), branch.ref_name.clone());
                         crumbs.push((branch.name.clone().into(), Some(branch_selection)));
                         crumbs.push((commit.id.short().into(), None));
-                        let (p, id) = (project.clone(), *id);
-                        let app = self.app.clone();
+                        let (project, id) = (project.clone(), *id);
+                        let store_handle = self.store.clone();
                         actions.push(
                             button("uncommit", "Uncommit")
                                 .style(ButtonStyle::Ghost)
                                 .disabled(store.busy.is_some())
                                 .tooltip("Turn this commit back into uncommitted changes")
                                 .on_click(move |_, _, cx| {
-                                    app.update(cx, |app, cx| app.uncommit(p.clone(), id, cx))
-                                        .ok();
+                                    store_handle
+                                        .update(cx, |store, cx| store.uncommit(&project, id, cx))
                                 })
                                 .into_any_element(),
                         );
@@ -311,18 +310,14 @@ impl Detail {
                         })),
                     )
                     .when(expanded, |el| {
-                        let app = self.app.clone();
-                        let fetch_id = id.clone();
+                        let id = id.clone();
                         el.child(
                             button("fetch", "Fetch")
                                 .icon(Icon::Refresh)
                                 .disabled(store.busy.is_some())
-                                .on_click(move |_, _, cx| {
-                                    app.update(cx, |app, cx| {
-                                        app.fetch_project(fetch_id.clone(), cx)
-                                    })
-                                    .ok();
-                                }),
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.store.update(cx, |store, cx| store.fetch(&id, cx))
+                                })),
                         )
                     })
                     .when_some(
@@ -331,19 +326,17 @@ impl Detail {
                             .filter(|target| expanded && target.needs_update)
                             .map(|target| target.name.clone()),
                         |el, target| {
-                            let app = self.app.clone();
-                            let update_id = id.clone();
+                            let id = id.clone();
                             el.child(
                                 button("update", format!("Update from {target}"))
                                     .icon(Icon::ArrowDown)
                                     .style(ButtonStyle::Pop)
                                     .disabled(store.busy.is_some())
-                                    .on_click(move |_, _, cx| {
-                                        app.update(cx, |app, cx| {
-                                            app.update_project(update_id.clone(), cx)
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.store.update(cx, |store, cx| {
+                                            store.update_from_target(&id, cx)
                                         })
-                                        .ok();
-                                    }),
+                                    })),
                             )
                         },
                     ),
@@ -464,16 +457,10 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        h_flex()
-            .id(ElementId::Name(format!("dir-{path}").into()))
-            .h(px(28.))
+        list_row(ElementId::Name(format!("dir-{path}").into()), false, theme)
             .pl(px(10. + TREE_INDENT * depth as f32))
-            .pr(px(8.))
-            .mx(px(6.))
             .gap(px(6.))
-            .rounded(px(4.))
             .text_color(theme.text_2)
-            .hover(|el| el.bg(theme.hover()))
             .child(
                 small_icon(if collapsed {
                     Icon::ChevronRight
@@ -535,16 +522,8 @@ impl Detail {
             .map_or(0., |depth| TREE_INDENT * depth as f32 + 18.);
         let dir = if extras.depth.is_some() { "" } else { dir };
         let mut row =
-            h_flex()
-                .id(("file", ix))
-                .h(px(28.))
+            list_row(("file", ix), current, theme)
                 .pl(px(10. + indent))
-                .pr(px(8.))
-                .mx(px(6.))
-                .gap(px(8.))
-                .rounded(px(4.))
-                .when(current, |el| el.bg(theme.selected_unfocused()))
-                .when(!current, |el| el.hover(|el| el.bg(theme.hover())))
                 .when_some(extras.checkbox, |el, check| {
                     let path = path.clone();
                     el.child(
@@ -1195,14 +1174,8 @@ impl Detail {
                         let selection = Selection::Commit(project.clone(), commit.id);
                         let store = this.store.clone();
                         Some(
-                            h_flex()
-                                .id(("branch-commit", ix))
-                                .h(px(28.))
+                            list_row(("branch-commit", ix), false, theme)
                                 .px(px(10.))
-                                .mx(px(6.))
-                                .gap(px(8.))
-                                .rounded(px(4.))
-                                .hover(|el| el.bg(theme.hover()))
                                 .child(
                                     small_icon(match commit.state {
                                         CommitState::Local => Icon::Commit,
@@ -1243,7 +1216,7 @@ impl Detail {
                     .collect::<Vec<_>>()
             }),
         )
-        .h(px((count as f32 * 28.).min(252.)));
+        .h(px((count as f32 * ROW_HEIGHT).min(252.)));
         let files = self.render_diff_file_list(project, None, theme, cx);
         v_flex()
             .size_full()

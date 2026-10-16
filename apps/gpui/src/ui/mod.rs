@@ -8,7 +8,7 @@ use std::borrow::Cow;
 
 use gpui::{
     AnyElement, App, AssetSource, ClickEvent, CursorStyle, Div, DragMoveEvent, ElementId,
-    EmptyView, Entity, Hsla, SharedString, Svg, Window, div, prelude::*, px, svg,
+    EmptyView, Entity, Hsla, SharedString, Stateful, Svg, Window, div, prelude::*, px, svg,
 };
 
 use crate::state::{Pane, Store};
@@ -155,6 +155,30 @@ pub fn h_flex() -> Div {
 
 pub fn v_flex() -> Div {
     div().flex().flex_col()
+}
+
+/// A row of a list or menu, shaded when `selected` and otherwise under the pointer.
+pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .flex_none()
+        .h(px(ROW_HEIGHT))
+        .mx(px(6.))
+        .px(px(8.))
+        .gap(px(8.))
+        .rounded(px(4.))
+        .when(selected, |el| el.bg(theme.selected_unfocused()))
+        .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
+}
+
+/// The card that menus, dialogs, toasts and tooltips float on.
+pub fn popover(theme: &Theme) -> Div {
+    v_flex()
+        .rounded(px(8.))
+        .bg(theme.bg_1)
+        .border_1()
+        .border_color(theme.border_2)
+        .shadow_lg()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -328,7 +352,6 @@ impl RenderOnce for Button {
     }
 }
 
-/// A plain text tooltip.
 /// A plain text tooltip, with the keys that do the same thing at its end.
 pub struct Tooltip {
     text: SharedString,
@@ -348,20 +371,15 @@ impl Tooltip {
 impl Render for Tooltip {
     fn render(&mut self, _window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
-        div()
+        popover(theme)
+            .flex_row()
+            .items_center()
             .mt(px(4.))
             .px(px(8.))
             .py(px(4.))
-            .rounded(px(6.))
-            .bg(theme.bg_1)
-            .border_1()
-            .border_color(theme.border_2)
-            .shadow_md()
             .text_size(px(12.))
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())
-            .flex()
-            .items_center()
             .gap(px(7.))
             .child(self.text.clone())
             .when_some(self.key.clone(), |el, key| el.child(keycap(&key, theme)))
