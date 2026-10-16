@@ -149,6 +149,9 @@ pub struct Detail {
     /// Files folded or unfolded by hand; otherwise reviewed files fold.
     folded: HashSet<String>,
     unfolded: HashSet<String>,
+    /// The commit message being written with AI: the task streaming it into the box, and
+    /// the one asking for it.
+    writing: Option<(Task<()>, Task<()>)>,
     /// The find bar over the diff, while it's open.
     find: Option<find::Find>,
     /// The project page's target history, for the project it shows.
@@ -294,6 +297,7 @@ impl Detail {
             selecting: false,
             folded: HashSet::new(),
             unfolded: HashSet::new(),
+            writing: None,
             find: None,
             upstream: None,
             upstream_scroll: UniformListScrollHandle::new(),

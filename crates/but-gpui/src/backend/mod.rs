@@ -2,6 +2,7 @@
 //! meant to run on a background thread; results are plain [`model`] data.
 
 pub mod accounts;
+pub mod ai;
 mod annotate;
 pub mod askpass;
 pub mod branches;

@@ -47,6 +47,7 @@ macro_rules! icons {
 }
 
 icons! {
+    Ai => "ai",
     ArrowDown => "arrow-down",
     ArrowUp => "arrow-up",
     Branch => "branch",

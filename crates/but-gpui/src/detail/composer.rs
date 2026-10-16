@@ -6,12 +6,12 @@ use gpui::{AnyElement, App, Context, Focusable as _, Toggled, Window, div, prelu
 
 use super::{ChecksChanged, Detail, hunk_keys};
 use crate::app::MenuItem;
-use crate::backend::{self, CommitId, Destination, DiffSource, FileChange, HunkKey, Selected};
+use crate::backend::{self, CommitId, Destination, DiffSource, FileChange, HunkKey, Selected, ai};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, button, h_flex, shortcut, small_icon, v_flex};
+use crate::ui::{ButtonStyle, Icon, button, h_flex, icon_button, shortcut, small_icon, v_flex};
 
 impl Detail {
     pub(super) fn close_composer(&mut self, cx: &mut Context<Self>) {
@@ -343,6 +343,96 @@ impl Detail {
         window.focus(&self.focus, cx);
     }
 
+    /// The checked changes as a unified diff, for the AI to read.
+    fn checked_diff_text(&self) -> String {
+        use crate::backend::{DiffBody, LineKind};
+        let Some(diff) = self
+            .diff
+            .as_ref()
+            .filter(|d| d.key.source == DiffSource::Worktree)
+        else {
+            return String::new();
+        };
+        let mut text = String::new();
+        for file in diff.files.iter() {
+            let path = &file.file.path;
+            if self.file_check(path) == Toggled::False {
+                continue;
+            }
+            text.push_str(&format!("File: {path} ({})\n", file.file.kind.word()));
+            let DiffBody::Hunks { hunks, .. } = &file.body else {
+                text.push_str("Binary or too large to show.\n");
+                continue;
+            };
+            for hunk in hunks.iter().filter(|h| self.hunk_checked(path, h.key)) {
+                text.push_str(&hunk.header);
+                text.push('\n');
+                for line in &hunk.lines {
+                    text.push(match line.kind {
+                        LineKind::Added => '+',
+                        LineKind::Removed => '-',
+                        LineKind::Context => ' ',
+                    });
+                    text.push_str(&line.text);
+                    text.push('\n');
+                }
+            }
+            text.push('\n');
+        }
+        text
+    }
+
+    /// Write the commit message with AI, streaming it into the box. What was in the box
+    /// guides it.
+    pub(super) fn write_message(&mut self, cx: &mut Context<Self>) {
+        let diff = self.checked_diff_text();
+        if diff.trim().is_empty() || self.writing.is_some() {
+            return;
+        }
+        let notes = self.message.read(cx).text().to_owned();
+        let prompt = ai::commit_prompt(&notes, &diff);
+        let (sender, mut tokens) = futures::channel::mpsc::unbounded::<String>();
+        let input = self.message.clone();
+        let pump = cx.spawn(async move |_, cx| {
+            let mut text = String::new();
+            while let Some(token) = futures::StreamExt::next(&mut tokens).await {
+                text.push_str(&token);
+                let shown = text.trim_start().to_owned();
+                input.update(cx, |input, cx| input.set_text(shown, cx));
+            }
+        });
+        let write = cx.spawn(async move |this, cx| {
+            let written = backend::run(move || {
+                ai::stream(ai::COMMIT_SYSTEM, prompt, move |token| {
+                    sender.unbounded_send(token.to_owned()).ok();
+                })
+            })
+            .await;
+            this.update(cx, |this, cx| {
+                this.writing = None;
+                match written {
+                    Ok(message) => {
+                        let message =
+                            but_action::commit_format::format_commit_message(message.trim());
+                        this.message
+                            .update(cx, |input, cx| input.set_text(message, cx));
+                    }
+                    Err(err) => {
+                        this.message
+                            .update(cx, |input, cx| input.set_text(notes, cx));
+                        this.store.update(cx, |store, cx| {
+                            store.error("Couldn't write the message", format!("{err:#}"), cx)
+                        });
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        });
+        self.writing = Some((pump, write));
+        cx.notify();
+    }
+
     pub(super) fn toggle_checked(&mut self, path: &str, cx: &mut Context<Self>) {
         let check = self.file_check(path);
         self.unchecked_hunks
@@ -399,25 +489,46 @@ impl Detail {
             )
             .child(
                 div()
-                    .id("message-box")
-                    .min_h(px(84.))
-                    .max_h(px(260.))
-                    .overflow_y_scroll()
-                    .px(px(10.))
-                    .py(px(8.))
-                    .rounded(px(6.))
-                    .border_1()
-                    .border_color(if message_focused {
-                        theme.pop
-                    } else {
-                        theme.border_2
-                    })
-                    .bg(theme.bg_1)
-                    .text_size(px(13.))
-                    .line_height(px(19.))
-                    .cursor_text()
-                    .on_click(cx.listener(|this, _, window, cx| this.focus_message(window, cx)))
-                    .child(self.message.clone()),
+                    .relative()
+                    .child(
+                        div()
+                            .id("message-box")
+                            .min_h(px(84.))
+                            .max_h(px(260.))
+                            .overflow_y_scroll()
+                            .pl(px(10.))
+                            // Clear of the AI button in the corner.
+                            .pr(px(30.))
+                            .py(px(8.))
+                            .rounded(px(6.))
+                            .border_1()
+                            .border_color(if message_focused {
+                                theme.pop
+                            } else {
+                                theme.border_2
+                            })
+                            .bg(theme.bg_1)
+                            .text_size(px(13.))
+                            .line_height(px(19.))
+                            .cursor_text()
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.focus_message(window, cx)),
+                            )
+                            .child(self.message.clone()),
+                    )
+                    .child(
+                        div().absolute().top(px(4.)).right(px(4.)).child(
+                            icon_button("write-message", Icon::Ai)
+                                .small()
+                                .disabled(self.writing.is_some() || checked == 0)
+                                .tooltip(if self.writing.is_some() {
+                                    "Writing…"
+                                } else {
+                                    "Write the message with AI, guided by what's in the box"
+                                })
+                                .on_click(cx.listener(|this, _, _, cx| this.write_message(cx))),
+                        ),
+                    ),
             )
             .child(
                 h_flex()
