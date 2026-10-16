@@ -3135,8 +3135,8 @@ dependencies = [
  "but-workspace",
  "deltoids",
  "futures",
+ "gitbutler-filemonitor",
  "gitbutler-project",
- "gitbutler-watcher",
  "gix",
  "gpui",
  "gpui_platform",
@@ -3268,28 +3268,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.21",
  "tokio",
-]
-
-[[package]]
-name = "gitbutler-watcher"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-core",
- "but-ctx",
- "but-db",
- "but-graph",
- "but-hunk-assignment",
- "but-hunk-dependency",
- "but-project-handle",
- "but-settings",
- "gitbutler-filemonitor",
- "gitbutler-operating-modes",
- "gix",
- "serde-error",
- "tokio",
- "tokio-util",
- "tracing",
 ]
 
 [[package]]

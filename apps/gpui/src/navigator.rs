@@ -680,7 +680,7 @@ impl AppView {
                     let payload = Cut::Files {
                         project: entry.id.clone(),
                         from: None,
-                        files,
+                        files: files.into(),
                     };
                     el.on_drag(payload, drag_preview(self.store.clone(), label))
                 })

@@ -14,6 +14,10 @@ license-file = "../../LICENSE.md"
 name = "gitbutler-gpui"
 path = "src/main.rs"
 
+# `image` is only there to give the dev script's screenshots PNG support; nothing names it.
+[package.metadata.cargo-machete]
+ignored = ["image"]
+
 [features]
 ## Scripted input and frame screenshots for development, see `src/dev.rs`.
 dev-script = ["gpui/test-support", "gpui_platform/test-support", "dep:image"]
@@ -44,7 +48,7 @@ but-rebase = { path = "../../crates/but-rebase" }
 but-settings = { path = "../../crates/but-settings" }
 but-workspace = { path = "../../crates/but-workspace", features = ["legacy"] }
 gitbutler-project = { path = "../../crates/gitbutler-project" }
-gitbutler-watcher = { path = "../../crates/gitbutler-watcher" }
+gitbutler-filemonitor = { path = "../../crates/gitbutler-filemonitor" }
 bstr = "1.12.1"
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "79f388066484c445c038823b2201220e34b0b312", default-features = false, features = ["sha1"] }
 tokio = { version = "1.50.0", features = ["rt-multi-thread"] }

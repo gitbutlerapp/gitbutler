@@ -10,6 +10,7 @@ pub mod watch;
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
@@ -271,13 +272,24 @@ fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
         .collect())
 }
 
-pub fn load_diff(path: &Path, source: DiffSource) -> Result<Vec<FileDiff>> {
+/// The diff of `source`. A worktree diff takes the `worktree` files the workspace just
+/// listed, rather than looking at the worktree a second time. Files whose patch is the same
+/// as in `previous` keep their highlighting, which is most of what loading costs.
+pub fn load_diff(
+    path: &Path,
+    source: DiffSource,
+    worktree: Option<Vec<FileChange>>,
+    previous: Option<Arc<Vec<FileDiff>>>,
+) -> Result<Vec<FileDiff>> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     let changes: Vec<FileChange> = match source {
         // With modification times, so review marks match the workspace's file list.
-        DiffSource::Worktree => worktree_files(&repo)?,
+        DiffSource::Worktree => match worktree {
+            Some(files) => files,
+            None => worktree_files(&repo)?,
+        },
         DiffSource::Commit(id) => {
             let details =
                 but_api::diff::commit_details(&ctx, id.0, but_api::diff::ComputeLineStats::No)?;
@@ -300,8 +312,14 @@ pub fn load_diff(path: &Path, source: DiffSource) -> Result<Vec<FileDiff>> {
         }
     };
     let context_lines = ctx.settings.context_lines;
-    // Both sides of each file, as the patch was computed from them, for scope names.
-    let mut sides = Vec::with_capacity(changes.len());
+    let previous: HashMap<&str, &FileDiff> = previous
+        .iter()
+        .flat_map(|files| files.iter())
+        .map(|file| (file.file.path.as_str(), file))
+        .collect();
+    // What each file still needs: nothing when reused, else highlighting and, with both
+    // sides as the patch was computed from them, scope names.
+    let mut todo = Vec::with_capacity(changes.len());
     let mut diffs = changes
         .into_iter()
         .map(|file| {
@@ -313,9 +331,21 @@ pub fn load_diff(path: &Path, source: DiffSource) -> Result<Vec<FileDiff>> {
             let patch = file
                 .change
                 .unified_patch_with_filter(&repo, context_lines, &mut filter)?;
+            let fingerprint = fingerprint(&patch);
+            if let Some(old) = previous
+                .get(file.path.as_str())
+                .filter(|old| old.fingerprint == fingerprint)
+            {
+                todo.push(None);
+                return Ok(FileDiff {
+                    file,
+                    body: old.body.clone(),
+                    fingerprint,
+                });
+            }
             let small = matches!(&patch, Some(but_core::UnifiedPatch::Patch { lines_added, lines_removed, .. })
                 if lines_added + lines_removed <= HIGHLIGHT_LIMIT);
-            sides.push(small.then(|| scope_sides(&filter)).flatten());
+            todo.push(Some(small.then(|| scope_sides(&filter)).flatten()));
             let body = match patch {
                 None => DiffBody::Empty,
                 Some(but_core::UnifiedPatch::Binary) => DiffBody::Binary,
@@ -333,16 +363,35 @@ pub fn load_diff(path: &Path, source: DiffSource) -> Result<Vec<FileDiff>> {
                     removed: lines_removed,
                 },
             };
-            Ok(FileDiff { file, body })
+            Ok(FileDiff {
+                file,
+                body,
+                fingerprint,
+            })
         })
         .collect::<Result<Vec<_>>>()?;
-    annotate_all(&mut diffs, sides);
+    annotate_all(&mut diffs, todo);
     tracing::debug!(elapsed = ?started.elapsed(), ?source, "loaded diff");
     Ok(diffs)
 }
 
 /// The old and new text of a file, when neither side is binary.
 type Sides = Option<(String, String)>;
+
+/// A hash of a file's patch, hunk headers included, so two equal ones have the same lines.
+fn fingerprint(patch: &Option<but_core::UnifiedPatch>) -> u64 {
+    use std::hash::{Hash as _, Hasher as _};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    match patch {
+        Some(but_core::UnifiedPatch::Patch { hunks, .. }) => {
+            hunks.iter().for_each(|hunk| hunk.diff.hash(&mut hasher))
+        }
+        Some(but_core::UnifiedPatch::TooLarge { size_in_bytes }) => size_in_bytes.hash(&mut hasher),
+        Some(but_core::UnifiedPatch::Binary) => "binary".hash(&mut hasher),
+        None => "empty".hash(&mut hasher),
+    }
+    hasher.finish()
+}
 
 /// Files bigger than this, both sides together, aren't parsed for scope names: that
 /// parses all of both sides, however small the change.
@@ -373,11 +422,13 @@ const HIGHLIGHT_LIMIT: u32 = 4000;
 
 /// Highlight every file, mark the words that changed and name the scopes of its hunks,
 /// spread over all cores: this costs far more than the diff itself.
-fn annotate_all(diffs: &mut [FileDiff], sides: Vec<Sides>) {
+/// `todo` has an entry per file: `None` for one reused as it was.
+fn annotate_all(diffs: &mut [FileDiff], todo: Vec<Option<Sides>>) {
     let next = std::sync::atomic::AtomicUsize::new(0);
     let files: Vec<std::sync::Mutex<(&mut FileDiff, Sides)>> = diffs
         .iter_mut()
-        .zip(sides)
+        .zip(todo)
+        .filter_map(|(file, todo)| Some((file, todo?)))
         .map(std::sync::Mutex::new)
         .collect();
     let threads = std::thread::available_parallelism()
@@ -422,6 +473,24 @@ fn annotate_all(diffs: &mut [FileDiff], sides: Vec<Sides>) {
 }
 
 /// Files with more changed lines than this aren't highlighted, to keep big diffs fast.
+/// Lines longer than this, as in minified files, are cut short: shaping and highlighting
+/// them costs far more than anyone reads.
+const LINE_LIMIT: usize = 2000;
+
+/// A diff line as shown: tabs as spaces, no carriage return, and cut at [`LINE_LIMIT`].
+fn display_text(raw: &str) -> String {
+    let mut text = raw.trim_end_matches('\r').replace('\t', "    ");
+    if text.len() > LINE_LIMIT {
+        let cut = (0..=LINE_LIMIT)
+            .rev()
+            .find(|ix| text.is_char_boundary(*ix))
+            .unwrap_or(0);
+        text.truncate(cut);
+        text.push('…');
+    }
+    text
+}
+
 fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
     let mut old = hunk.old_start;
     let mut new = hunk.new_start;
@@ -458,7 +527,7 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
             kind,
             old: old_no,
             new: new_no,
-            text: rest.trim_end_matches('\r').replace('\t', "    "),
+            text: display_text(rest),
             spans: Vec::new(),
             emph: Vec::new(),
         });

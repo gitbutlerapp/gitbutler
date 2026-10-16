@@ -9,9 +9,9 @@ use gpui::{AnyElement, App, Context, MouseButton, WeakEntity, div, list, prelude
 use super::{
     Check, Cursor, Detail, DiscardHunk, NextHunk, PreviousHunk, ToggleReviewed, checkbox_box,
 };
-use crate::app::MenuItem;
+use crate::app::{AppView, MenuItem};
 use crate::backend::{DiffBody, DiffSource, Selected};
-use crate::state::Review;
+use crate::state::{ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, Decor, DiffRow, LineSelect};
 use crate::ui::{ButtonStyle, Icon, button, empty_state, h_flex, icon_button, shortcut};
@@ -147,7 +147,23 @@ impl Detail {
                             })
                             .into_any_element()
                     });
-                let toolbar = hunk_toolbar(ix, file, hunk, worktree, current, entity.clone(), cx);
+                // What discarding this hunk means, fixed now: by the time a click lands, a
+                // reload may have moved other hunks into this row's indices.
+                let discard = hunk_key(file, hunk).filter(|_| worktree).map(|(_, key)| {
+                    let change = Selected {
+                        file: diff.files[file].file.clone(),
+                        hunks: Some(vec![key]),
+                    };
+                    Rc::new((diff.key.project.clone(), change))
+                });
+                let toolbar = hunk_toolbar(
+                    ix,
+                    (file, hunk),
+                    discard.clone(),
+                    current,
+                    (entity.clone(), self.app.clone()),
+                    cx,
+                );
                 let element = diff::render_row(
                     row,
                     &diff.files,
@@ -161,25 +177,17 @@ impl Detail {
                     },
                 );
                 // Right-click offers the same discard, with its key.
-                let discard = hunk_key(file, hunk).map(|(_, key)| {
-                    (
-                        diff.key.project.clone(),
-                        Selected {
-                            file: diff.files[file].file.clone(),
-                            hunks: Some(vec![key]),
-                        },
-                    )
-                });
                 div()
                     .id(("hunk", ix))
                     .group("hunk-row")
                     .child(element)
-                    .when_some(discard.filter(|_| worktree), |el, (project, change)| {
+                    .when_some(discard, |el, discard| {
                         let app = self.app.clone();
                         el.on_mouse_down(MouseButton::Right, move |event, _, cx| {
-                            let (project, change) = (project.clone(), change.clone());
+                            let discard = discard.clone();
                             let item = MenuItem::new("Discard hunk", move |app, window, cx| {
-                                app.discard(project.clone(), vec![change.clone()], window, cx)
+                                let (project, change) = (*discard).clone();
+                                app.discard(project, vec![change], window, cx)
                             })
                             .key(shortcut(&DiscardHunk, cx))
                             .danger();
@@ -274,11 +282,10 @@ fn review_button(
 /// cursor and on the one under the pointer.
 fn hunk_toolbar(
     ix: usize,
-    file: usize,
-    hunk: usize,
-    worktree: bool,
+    (file, hunk): (usize, usize),
+    discard: Option<Rc<(ProjectId, Selected)>>,
     current: bool,
-    entity: WeakEntity<Detail>,
+    (entity, app): (WeakEntity<Detail>, WeakEntity<AppView>),
     cx: &App,
 ) -> AnyElement {
     let step = |forward: bool| {
@@ -295,7 +302,6 @@ fn hunk_toolbar(
                 .ok();
         }
     };
-    let discard = entity.clone();
     h_flex()
         .flex_none()
         .gap(px(2.))
@@ -315,17 +321,15 @@ fn hunk_toolbar(
                 .tooltip_with_key("Next hunk", shortcut(&NextHunk, cx))
                 .on_click(step(true)),
         )
-        .when(worktree, |el| {
+        .when_some(discard, |el, discard| {
             el.child(
                 button(("hunk-discard", ix), "Discard")
                     .small()
                     .style(ButtonStyle::Ghost)
                     .tooltip_with_key("Throw this hunk away", shortcut(&DiscardHunk, cx))
                     .on_click(move |_, window, cx| {
-                        discard
-                            .update(cx, |detail, cx| {
-                                detail.discard(file, Some(hunk), window, cx)
-                            })
+                        let (project, change) = (*discard).clone();
+                        app.update(cx, |app, cx| app.discard(project, vec![change], window, cx))
                             .ok();
                     }),
             )

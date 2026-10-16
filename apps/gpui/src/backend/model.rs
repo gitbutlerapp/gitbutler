@@ -98,6 +98,10 @@ pub struct Branch {
     pub review: Option<Review>,
 }
 
+/// An entry in a project's operation log, which Undo restores.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SnapshotId(pub(crate) gix::ObjectId);
+
 /// A branch's pull request, as the forge cache last saw it.
 #[derive(Debug, Clone)]
 pub struct Review {
@@ -180,6 +184,20 @@ pub struct FileChange {
     pub(crate) change: but_core::TreeChange,
 }
 
+impl FileChange {
+    /// What the change is against: the file as committed, or nothing for an addition.
+    /// Committing part of a file moves it without touching the file itself.
+    pub fn base(&self) -> Option<gix::ObjectId> {
+        use but_core::TreeStatus as S;
+        match &self.change.status {
+            S::Addition { .. } => None,
+            S::Deletion { previous_state }
+            | S::Modification { previous_state, .. }
+            | S::Rename { previous_state, .. } => Some(previous_state.id),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChangeKind {
     Added,
@@ -203,6 +221,8 @@ impl ChangeKind {
 pub struct FileDiff {
     pub file: FileChange,
     pub body: DiffBody,
+    /// A hash of the patch, which tells a later load the file hasn't changed.
+    pub fingerprint: u64,
 }
 
 impl FileDiff {
