@@ -8,6 +8,7 @@ mod diff_view;
 mod file_tree;
 mod history;
 mod panes;
+mod upstream;
 
 pub use diff_view::DiffPane;
 
@@ -142,6 +143,10 @@ pub struct Detail {
     /// Files folded or unfolded by hand; otherwise reviewed files fold.
     folded: HashSet<String>,
     unfolded: HashSet<String>,
+    /// The project page's target history, for the project it shows.
+    upstream: Option<upstream::Upstream>,
+    upstream_scroll: UniformListScrollHandle,
+    _upstream_load: Task<()>,
     /// The Branches page's branches, for the project it shows, and its filter.
     branches: Option<branches::Branches>,
     branch_filter: Entity<TextInput>,
@@ -195,6 +200,9 @@ impl Detail {
                         Some(Selection::Branches(project)) => {
                             this.load_branches(&project, true, cx)
                         }
+                        Some(Selection::Project(project)) => {
+                            this.load_upstream(&project, false, true, cx)
+                        }
                         _ => {}
                     }
                     this.refresh_diff(true, cx);
@@ -206,6 +214,9 @@ impl Detail {
                         }
                         Some(Selection::Branches(shown)) if shown == *project => {
                             this.load_branches(project, false, cx)
+                        }
+                        Some(Selection::Project(shown)) if shown == *project => {
+                            this.load_upstream(project, false, false, cx)
                         }
                         _ => {}
                     }
@@ -273,6 +284,9 @@ impl Detail {
             selecting: false,
             folded: HashSet::new(),
             unfolded: HashSet::new(),
+            upstream: None,
+            upstream_scroll: UniformListScrollHandle::new(),
+            _upstream_load: Task::ready(()),
             branches: None,
             branch_filter,
             branches_scroll: UniformListScrollHandle::new(),
@@ -300,7 +314,7 @@ impl Detail {
         let selection = self.selection(cx)?;
         let store = self.store.read(cx);
         let source = match &selection {
-            Selection::Project(_) => return None,
+            Selection::Project(project) => self.upstream_source(project)?,
             Selection::History(project) => self.history_source(project)?,
             Selection::Branches(project) => self.branches_source(project)?,
             Selection::Uncommitted(_) => DiffSource::Worktree,
@@ -866,7 +880,6 @@ impl Render for Detail {
                     &theme,
                 )
             }
-            Some(Selection::Project(project)) => self.render_project(project, &theme, cx),
             Some(selection) => {
                 let side = match selection {
                     Selection::Uncommitted(project) => {
@@ -882,7 +895,7 @@ impl Render for Detail {
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)
                     }
-                    Selection::Project(_) => unreachable!("handled above"),
+                    Selection::Project(project) => self.render_upstream_side(project, &theme, cx),
                 };
                 let width = self.store.read(cx).width(Pane::Files);
                 h_flex()

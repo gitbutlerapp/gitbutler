@@ -211,7 +211,7 @@ impl AppView {
     /// Where the diff starts beside the detail's file list, when the selection has a diff.
     fn diff_left(&self, cx: &App) -> Option<f32> {
         let store = self.store.read(cx);
-        let has_diff = !matches!(store.selection, None | Some(Selection::Project(_)));
+        let has_diff = store.selection.is_some();
         has_diff.then(|| match self.detail.read(cx).zoomed {
             true => 0.,
             false => store.width(Pane::Files),
@@ -1316,6 +1316,7 @@ impl Render for AppView {
             .on_action(|_: &Zoom, window, _| window.zoom_window())
             .on_action(cx.listener(Self::add_project))
             .on_action(cx.listener(Self::open_settings))
+            .on_action(cx.listener(Self::go_to_branch))
             .on_action(cx.listener(Self::resolve_conflicts))
             .on_action(cx.listener(Self::open_selected_in_terminal))
             .on_action(cx.listener(Self::refresh))
@@ -1407,8 +1408,8 @@ impl Render for AppView {
             .child(self.render_status_bar(window, cx))
             .child(self.render_toasts(cx))
             .children(self.render_prompt(cx))
-            .children(self.render_palette(cx))
             .children(self.render_modal(cx))
+            .children(self.render_palette(cx))
             .children(self.render_menu(cx))
     }
 }

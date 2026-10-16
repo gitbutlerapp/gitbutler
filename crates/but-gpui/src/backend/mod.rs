@@ -10,6 +10,7 @@ pub mod history;
 pub mod model;
 mod ops;
 pub mod settings;
+pub mod upstream;
 pub mod watch;
 
 use std::collections::HashMap;

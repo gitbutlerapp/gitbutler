@@ -45,7 +45,41 @@ impl Detail {
             ));
             let workspace = entry.workspace.as_ref();
             match selection {
-                Selection::Project(_) => {}
+                Selection::Project(_) => {
+                    let needs_update = workspace
+                        .and_then(|ws| ws.target.as_ref())
+                        .filter(|target| target.needs_update)
+                        .map(|target| target.name.clone());
+                    actions.push(
+                        button("fetch", "Fetch")
+                            .icon(Icon::Refresh)
+                            .style(ButtonStyle::Ghost)
+                            .tooltip_with_key(
+                                "Fetch from the project's remotes",
+                                shortcut(&crate::app::Fetch, cx),
+                            )
+                            .on_click(|_, window, cx| {
+                                window.dispatch_action(Box::new(crate::app::Fetch), cx)
+                            })
+                            .into_any_element(),
+                    );
+                    if let Some(target) = needs_update {
+                        actions.push(
+                            button("update", format!("Update from {target}"))
+                                .icon(Icon::ArrowDown)
+                                .style(ButtonStyle::Pop)
+                                .tooltip_with_key(
+                                    "Rebase every stack onto the target's new commits",
+                                    shortcut(&crate::app::UpdateFromTarget, cx),
+                                )
+                                .on_click(|_, window, cx| {
+                                    window
+                                        .dispatch_action(Box::new(crate::app::UpdateFromTarget), cx)
+                                })
+                                .into_any_element(),
+                        );
+                    }
+                }
                 Selection::Uncommitted(project) => {
                     crumbs.push(("Uncommitted changes".into(), None));
                     if store.to_review(project) > 0 {
@@ -221,52 +255,6 @@ impl Detail {
                 app.update(cx, |app, cx| app.select(target.clone(), window, cx))
                     .ok();
             })
-    }
-
-    /// A project's name, path and load error. Its counts and actions are on its row in the
-    /// navigator.
-    pub(super) fn render_project(
-        &self,
-        project: &ProjectId,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let Some(entry) = self.store.read(cx).project(project) else {
-            return empty_state("Project not found", "", theme);
-        };
-        v_flex()
-            .p(px(24.))
-            .gap(px(16.))
-            .child(
-                v_flex()
-                    .gap(px(4.))
-                    .child(
-                        div()
-                            .text_size(px(20.))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(entry.project.name.clone()),
-                    )
-                    .child(
-                        div()
-                            .font_family(theme.mono_font.clone())
-                            .text_size(px(12.))
-                            .text_color(theme.text_2)
-                            .child(entry.project.path.display().to_string()),
-                    ),
-            )
-            .when_some(entry.error.clone(), |el, err| {
-                el.child(
-                    h_flex()
-                        .gap(px(8.))
-                        .p(px(10.))
-                        .rounded(px(6.))
-                        .bg(theme.danger.opacity(0.08))
-                        .text_color(theme.danger)
-                        .child(icon(Icon::Warning))
-                        .child(div().flex_1().child(err)),
-                )
-            })
-            .into_any_element()
     }
 
     /// A file list, flat or as a tree as the user chose, drawn only as far as it's on
