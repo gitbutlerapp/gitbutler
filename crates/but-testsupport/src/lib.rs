@@ -205,6 +205,15 @@ impl CommandExt for std::process::Command {
     }
 }
 
+fn uncolored_graph(log: std::process::Output) -> String {
+    assert!(log.status.success());
+    let graph = log.stdout.to_str().expect("no illformed UTF-8");
+    regex::Regex::new(r"\x1b\[[0-9;]*m")
+        .unwrap()
+        .replace_all(graph, "")
+        .into_owned()
+}
+
 /// Produce a graph of all commits reachable from `refspec`.
 pub fn visualize_commit_graph(
     repo: &gix::Repository,
@@ -221,8 +230,7 @@ pub fn visualize_commit_graph(
         ])
         .arg(refspec.to_string())
         .output()?;
-    assert!(log.status.success());
-    Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
+    Ok(uncolored_graph(log))
 }
 
 /// Produce a graph of all commits reachable from all refs.
@@ -244,8 +252,7 @@ pub fn visualize_commit_graph_all_from_dir(dir: impl AsRef<Path>) -> std::io::Re
             "--all",
         ])
         .output()?;
-    assert!(log.status.success());
-    Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
+    Ok(uncolored_graph(log))
 }
 
 /// Run a condensed status on `repo`.

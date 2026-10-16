@@ -1180,7 +1180,8 @@ Created branch 'two'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* cb1c5e1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 3a4cfbb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
 * b1540e5 (origin/main, origin/HEAD, two, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1208,7 +1209,8 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* cb1c5e1 (gitbutler/workspace) GitButler Workspace Commit
+* 3a4cfbb (gitbutler/workspace) GitButler Workspace Commit
+|/
 * b1540e5 (HEAD -> one, origin/main, origin/HEAD, two, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1240,7 +1242,8 @@ Created branch 'three'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 31c5e9f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 2e32dec (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
 * b1540e5 (origin/main, origin/HEAD, two, three, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1343,7 +1346,8 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* be30254 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* f114f38 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
 * b1540e5 (origin/main, origin/HEAD, new-branch, middle, main, gitbutler/target, bottom) M
 * e31e6ca add init
 
