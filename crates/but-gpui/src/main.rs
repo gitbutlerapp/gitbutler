@@ -22,6 +22,8 @@ mod palette;
 #[cfg(target_os = "macos")]
 mod pr;
 #[cfg(target_os = "macos")]
+mod projects;
+#[cfg(target_os = "macos")]
 mod resolve;
 #[cfg(target_os = "macos")]
 mod settings;
@@ -104,6 +106,7 @@ fn main() {
                 ]),
                 Menu::new("File").items([
                     MenuItem::action("Add Project…", app::AddProject),
+                    MenuItem::action("Clone Repository…", projects::CloneRepository),
                     MenuItem::action("Reload", app::Refresh),
                 ]),
                 Menu::new("Window").items([

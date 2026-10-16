@@ -44,7 +44,8 @@ pub fn list_projects() -> Result<Vec<Project>> {
             } else {
                 git_dir.to_owned()
             };
-            path.exists().then(|| Project {
+            // Kept when the folder is gone, so the app can say so and offer to find it.
+            Some(Project {
                 id: project.id.to_string(),
                 name: project.title.clone(),
                 path,
