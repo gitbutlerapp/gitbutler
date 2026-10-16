@@ -54,7 +54,13 @@ export const CrumbMenuButton: FC<Omit<ComponentProps<"button">, "children">> = (
 
 const Level: FC<{ crumb: Crumb }> = ({ crumb }) => (
 	<>
-		<Tooltip side="bottom" content={crumb.label}>
+		<Tooltip
+			content={crumb.label}
+			// The full name says something only when the level is cut short: whole, it would repeat it.
+			onOpenChange={(open, { trigger, cancel }) => {
+				if (open && trigger !== undefined && trigger.scrollWidth <= trigger.clientWidth) cancel();
+			}}
+		>
 			{linked(crumb) ? (
 				<a className={styles.crumb} href={crumb.href} onClick={crumb.onClick}>
 					{crumb.label}
