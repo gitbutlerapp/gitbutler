@@ -33,6 +33,9 @@ pub struct Theme {
     pub diff_removed_bg: Hsla,
     pub diff_added_gutter: Hsla,
     pub diff_removed_gutter: Hsla,
+    /// Behind the words that changed within a line.
+    pub diff_added_emph: Hsla,
+    pub diff_removed_emph: Hsla,
     pub ui_font: SharedString,
     pub mono_font: SharedString,
     syntax: [Hsla; 7],
@@ -95,6 +98,8 @@ impl Theme {
             diff_removed_bg: danger.opacity(if dark { 0.13 } else { 0.10 }),
             diff_added_gutter: safe.opacity(if dark { 0.22 } else { 0.20 }),
             diff_removed_gutter: danger.opacity(if dark { 0.22 } else { 0.20 }),
+            diff_added_emph: safe.opacity(if dark { 0.34 } else { 0.30 }),
+            diff_removed_emph: danger.opacity(if dark { 0.34 } else { 0.28 }),
             ui_font: ui_font.into(),
             mono_font: mono_font.into(),
             // In `Token` order: comment, string, constant, keyword, function, type, tag.

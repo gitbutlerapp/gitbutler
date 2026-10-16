@@ -55,7 +55,7 @@ impl Cut {
 
     pub fn describe(&self) -> String {
         match self {
-            Cut::Commit(_, id) => format!("Commit {}", id.short()),
+            Cut::Commit(_, id) => format!("commit {}", id.short()),
             Cut::Files { files, .. } if files.len() == 1 => files[0].path.clone(),
             Cut::Files { files, .. } => format!("{} files", files.len()),
         }
@@ -119,6 +119,8 @@ pub struct Store {
     pub projects_loaded: bool,
     pub selection: Option<Selection>,
     pub cut: Option<Cut>,
+    /// What the pointer is dragging. Only meaningful while GPUI has a drag active.
+    pub dragging: Option<Cut>,
     pub toasts: Vec<Toast>,
     /// The label of the mutation in flight, if any. Mutations run one at a time.
     pub busy: Option<SharedString>,
@@ -165,6 +167,7 @@ impl Store {
             projects_loaded: false,
             selection: None,
             cut: None,
+            dragging: None,
             toasts: Vec::new(),
             busy: None,
             last_run: None,
@@ -499,9 +502,25 @@ impl Store {
         if let Some(reviewed) = self.seen.files.get_mut(id.as_ref()) {
             reviewed.retain(|path, _| files.contains(path.as_str()));
         }
+        // An agent amending or rebasing the selected commit gives it a new id but keeps its
+        // change id; stay on it.
+        let rewritten = match &self.selection {
+            Some(Selection::Commit(project, commit)) if project == id => self
+                .workspace(id)
+                .and_then(|old| old.find_commit(*commit))
+                .filter(|_| workspace.find_commit(*commit).is_none())
+                .and_then(|(_, old)| {
+                    let mut commits = workspace.branches().flat_map(|branch| &branch.commits);
+                    commits.find(|new| new.key == old.key).map(|new| new.id)
+                }),
+            _ => None,
+        };
         if let Some(entry) = self.project_mut(id) {
             entry.workspace = Some(workspace);
             entry.error = None;
+        }
+        if let Some(commit) = rewritten {
+            self.select(Some(Selection::Commit(id.clone(), commit)), cx);
         }
         self.save_soon(cx);
     }
@@ -657,7 +676,10 @@ impl Store {
             project,
             "Undo",
             backend::undo,
-            |store, undone, cx| store.snack(if undone { "Undone" } else { "Nothing to undo" }, cx),
+            |store, undone, cx| match undone {
+                Some(operation) => store.snack(format!("Undone: {operation}"), cx),
+                None => store.snack("Nothing to undo", cx),
+            },
             cx,
         );
     }

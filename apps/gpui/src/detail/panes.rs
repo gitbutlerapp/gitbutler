@@ -426,13 +426,10 @@ impl Detail {
             let label: SharedString = file.path.clone().into();
             let menu_payload = payload.clone();
             row = row
-                .on_drag(payload, move |payload, _, _, cx| {
-                    let label = label.clone();
-                    cx.new(|_| crate::navigator::DragPreview {
-                        label,
-                        payload: payload.clone(),
-                    })
-                })
+                .on_drag(
+                    payload,
+                    crate::navigator::drag_preview(self.store.clone(), label),
+                )
                 .on_mouse_down(
                     MouseButton::Right,
                     cx.listener(move |this, event: &MouseDownEvent, window, cx| {

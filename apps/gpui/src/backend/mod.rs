@@ -1,6 +1,7 @@
 //! The only part of the app that talks to GitButler. Everything here is blocking and
 //! meant to run on a background thread; results are plain [`model`] data.
 
+mod annotate;
 pub mod askpass;
 mod highlight;
 pub mod model;
@@ -219,10 +220,23 @@ pub fn load_diff(path: &Path, source: DiffSource) -> Result<Vec<FileDiff>> {
         }
     };
     let context_lines = ctx.settings.context_lines;
+    // Both sides of each file, as the patch was computed from them, for scope names.
+    let mut sides = Vec::with_capacity(changes.len());
     let mut diffs = changes
         .into_iter()
         .map(|file| {
-            let body = match file.change.unified_patch(&repo, context_lines)? {
+            let mut filter = but_core::unified_diff::filter_from_state(
+                &repo,
+                file.change.status.state(),
+                but_core::UnifiedPatch::CONVERSION_MODE,
+            )?;
+            let patch = file
+                .change
+                .unified_patch_with_filter(&repo, context_lines, &mut filter)?;
+            let small = matches!(&patch, Some(but_core::UnifiedPatch::Patch { lines_added, lines_removed, .. })
+                if lines_added + lines_removed <= HIGHLIGHT_LIMIT);
+            sides.push(small.then(|| scope_sides(&filter)).flatten());
+            let body = match patch {
                 None => DiffBody::Empty,
                 Some(but_core::UnifiedPatch::Binary) => DiffBody::Binary,
                 Some(but_core::UnifiedPatch::TooLarge { size_in_bytes }) => DiffBody::TooLarge {
@@ -242,19 +256,50 @@ pub fn load_diff(path: &Path, source: DiffSource) -> Result<Vec<FileDiff>> {
             Ok(FileDiff { file, body })
         })
         .collect::<Result<Vec<_>>>()?;
-    highlight_all(&mut diffs);
+    annotate_all(&mut diffs, sides);
     tracing::debug!(elapsed = ?started.elapsed(), ?source, "loaded diff");
     Ok(diffs)
+}
+
+/// The old and new text of a file, when neither side is binary.
+type Sides = Option<(String, String)>;
+
+/// Files bigger than this, both sides together, aren't parsed for scope names: that
+/// parses all of both sides, however small the change.
+const SCOPE_LIMIT: usize = 1 << 20;
+
+/// Both sides of a text change the patch was computed from, if small enough to parse.
+fn scope_sides(filter: &gix::diff::blob::Platform) -> Sides {
+    let (old, new) = filter.resources()?;
+    let (old, new) = (side_bytes(old.data)?, side_bytes(new.data)?);
+    (old.len() + new.len() <= SCOPE_LIMIT).then(|| {
+        let text = |bytes| String::from_utf8_lossy(bytes).into_owned();
+        (text(old), text(new))
+    })
+}
+
+/// One side of a change: empty when it doesn't exist, `None` when binary.
+fn side_bytes(data: gix::diff::blob::platform::resource::Data<'_>) -> Option<&[u8]> {
+    use gix::diff::blob::platform::resource::Data;
+    match data {
+        Data::Missing => Some(&[]),
+        Data::Buffer { buf, .. } => Some(buf),
+        Data::Binary { .. } => None,
+    }
 }
 
 /// Files with more changed lines than this aren't highlighted, to keep big diffs fast.
 const HIGHLIGHT_LIMIT: u32 = 4000;
 
-/// Highlight every file, spread over all cores: it costs far more than the diff itself.
-fn highlight_all(diffs: &mut [FileDiff]) {
+/// Highlight every file, mark the words that changed and name the scopes of its hunks,
+/// spread over all cores: this costs far more than the diff itself.
+fn annotate_all(diffs: &mut [FileDiff], sides: Vec<Sides>) {
     let next = std::sync::atomic::AtomicUsize::new(0);
-    let files: Vec<std::sync::Mutex<&mut FileDiff>> =
-        diffs.iter_mut().map(std::sync::Mutex::new).collect();
+    let files: Vec<std::sync::Mutex<(&mut FileDiff, Sides)>> = diffs
+        .iter_mut()
+        .zip(sides)
+        .map(std::sync::Mutex::new)
+        .collect();
     let threads = std::thread::available_parallelism()
         .map_or(4, |n| n.get())
         .min(files.len());
@@ -264,7 +309,8 @@ fn highlight_all(diffs: &mut [FileDiff]) {
                 while let Some(file) =
                     files.get(next.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
                 {
-                    let mut file = file.lock().expect("each file is taken once");
+                    let mut guard = file.lock().expect("each file is taken once");
+                    let (file, sides) = &mut *guard;
                     let path = file.file.path.clone();
                     let DiffBody::Hunks {
                         hunks,
@@ -277,13 +323,17 @@ fn highlight_all(diffs: &mut [FileDiff]) {
                     if *added + *removed > HIGHLIGHT_LIMIT {
                         continue;
                     }
-                    for hunk in hunks {
+                    for hunk in hunks.iter_mut() {
+                        annotate::emphasize(hunk);
                         let Some(mut highlighter) = highlight::Highlighter::for_path(&path) else {
-                            break;
+                            continue;
                         };
                         for line in &mut hunk.lines {
                             line.spans = highlighter.line(&line.text);
                         }
+                    }
+                    if let Some((old, new)) = sides {
+                        annotate::label_scopes(hunks, old, new, &path);
                     }
                 }
             });
@@ -330,11 +380,13 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
             new: new_no,
             text: rest.trim_end_matches('\r').replace('\t', "    "),
             spans: Vec::new(),
+            emph: Vec::new(),
         });
     }
     Hunk {
         key: HunkKey(hunk.into()),
         header,
         lines,
+        scope: Vec::new(),
     }
 }

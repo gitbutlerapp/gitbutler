@@ -472,6 +472,12 @@ impl Detail {
         Cursor { file, hunk }
     }
 
+    /// The path of the file under the cursor, in any diff.
+    pub fn cursor_path(&self) -> Option<String> {
+        let diff = self.diff.as_ref()?;
+        Some(diff.files.get(self.cursor.file)?.file.path.clone())
+    }
+
     /// The uncommitted file under the cursor, with the project it's in.
     fn cursor_file(&self) -> Option<(ProjectId, FileDiff)> {
         let diff = self

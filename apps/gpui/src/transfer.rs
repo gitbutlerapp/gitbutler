@@ -70,6 +70,12 @@ impl Transfer {
                         into: *target_id,
                     }
                 } else {
+                    // Already right above it.
+                    let (branch, _) = workspace.find_commit(*id)?;
+                    let below = branch.commits.iter().skip_while(|c| c.id != *id).nth(1);
+                    if below.is_some_and(|commit| commit.id == *target_id) {
+                        return None;
+                    }
                     Transfer::MoveCommit {
                         id: *id,
                         to: Destination::AboveCommit(*target_id),
@@ -119,6 +125,25 @@ impl Transfer {
             },
             _ => return None,
         })
+    }
+
+    /// What a drop does, said from the target row's point of view.
+    pub fn verb(&self) -> &'static str {
+        match self {
+            Transfer::Uncommit(_) | Transfer::UncommitFiles { .. } => "Uncommit",
+            Transfer::MoveCommit {
+                to: Destination::Branch(_),
+                ..
+            } => "Move to top",
+            Transfer::MoveCommit {
+                to: Destination::AboveCommit(_),
+                ..
+            } => "Move above",
+            Transfer::Squash { .. } => "Squash into",
+            Transfer::Amend { .. } => "Amend",
+            Transfer::MoveFiles { .. } => "Move into",
+            Transfer::StageOnBranch { .. } => "Commit here",
+        }
     }
 
     /// A short verb phrase for hints, like "Squash into a1b2c3d".

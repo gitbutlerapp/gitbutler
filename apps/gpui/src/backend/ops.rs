@@ -346,29 +346,41 @@ pub fn fetch(path: &Path) -> Result<()> {
 }
 
 /// Restore what the last undo took back. Returns `false` when there's nothing to redo.
-pub fn redo(path: &Path) -> Result<bool> {
+pub fn redo(path: &Path) -> Result<Option<&'static str>> {
     let mut ctx = open(path)?;
     let Some(snapshot) = but_api::legacy::oplog::get_redo_target_snapshot(&ctx)? else {
-        return Ok(false);
+        return Ok(None);
     };
-    but_api::legacy::oplog::restore_snapshot_with_kind(
-        &mut ctx,
-        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaRedo,
-        snapshot.commit_id,
-    )?;
-    Ok(true)
+    let title = snapshot.details.map(|details| details.operation.title());
+    let kind = but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaRedo;
+    restore(&mut ctx, snapshot.commit_id, title, kind).map(Some)
 }
 
-/// Restore the workspace to before the last operation. Returns `false` when there's nothing to undo.
-pub fn undo(path: &Path) -> Result<bool> {
+/// Restore the workspace to before the last operation. Returns what that operation was,
+/// or `None` when there's nothing to undo.
+pub fn undo(path: &Path) -> Result<Option<&'static str>> {
     let mut ctx = open(path)?;
     let Some(snapshot) = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)? else {
-        return Ok(false);
+        return Ok(None);
     };
-    but_api::legacy::oplog::restore_snapshot_with_kind(
-        &mut ctx,
-        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
-        snapshot.commit_id,
-    )?;
-    Ok(true)
+    let title = snapshot.details.map(|details| details.operation.title());
+    let kind = but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo;
+    restore(&mut ctx, snapshot.commit_id, title, kind).map(Some)
+}
+
+/// Restore snapshot `id` and name the operation it takes back, as the CLI does: when `id`
+/// is itself an undo or redo, it's the operation that one restored.
+fn restore(
+    ctx: &mut but_ctx::Context,
+    id: gix::ObjectId,
+    title: Option<&'static str>,
+    kind: but_api::legacy::oplog::RestoreKind,
+) -> Result<&'static str> {
+    let title = but_api::legacy::oplog::peel_restore_snapshot(ctx, id)?
+        .map_or(title, |peeled| {
+            peeled.details.map(|details| details.operation.title())
+        })
+        .unwrap_or("Unknown operation");
+    but_api::legacy::oplog::restore_snapshot_with_kind(ctx, kind, id)?;
+    Ok(title)
 }
