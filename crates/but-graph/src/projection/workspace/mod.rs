@@ -188,12 +188,12 @@ impl TargetRef {
     /// This can happen if a reference is configured, but not actually present as reference.
     /// Note that `commits_ahead` isn't set yet, see [`Self::commits_ahead()`].
     fn from_ref_name_without_commits_ahead(
-        ref_name: &gix::refs::FullName,
+        ref_name: &gix::refs::FullNameRef,
         graph: &Graph,
     ) -> Option<Self> {
         Some(TargetRef {
             ref_name: ref_name.to_owned(),
-            segment_index: graph.segment_by_ref_name(ref_name.as_ref())?.id,
+            segment_index: graph.segment_by_ref_name(ref_name)?.id,
             commits_ahead: 0,
         })
     }

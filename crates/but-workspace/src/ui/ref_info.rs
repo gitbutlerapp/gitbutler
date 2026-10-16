@@ -85,28 +85,90 @@ impl RemoteTrackingReference {
     }
 }
 
+/// A local or remote-tracking reference used as the integration target.
+#[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct TargetReference {
+    /// The full ref name, preserving the local or remote-tracking namespace.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes")
+    )]
+    pub full_name_bytes: BString,
+    /// The branch name for display, without the remote name.
+    pub display_name: String,
+    /// The remote name for a remote-tracking target, or `None` for a local target.
+    pub remote_name: Option<String>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TargetReference);
+
+impl TargetReference {
+    fn for_ui(
+        ref_name: gix::refs::FullName,
+        remote_names: &gix::remote::Names,
+    ) -> anyhow::Result<TargetReference> {
+        if ref_name.category() == Some(Category::LocalBranch) {
+            let branch = BranchReference::from(ref_name);
+            return Ok(TargetReference {
+                full_name_bytes: branch.full_name_bytes,
+                display_name: branch.display_name,
+                remote_name: None,
+            });
+        }
+        let remote = RemoteTrackingReference::for_ui(ref_name, remote_names)?;
+        Ok(TargetReference {
+            full_name_bytes: remote.full_name_bytes,
+            display_name: remote.display_name,
+            remote_name: Some(remote.remote_name),
+        })
+    }
+}
+
 /// Information about the target reference, the one we want to integrate with.
 #[derive(serde::Serialize, Debug, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Target {
-    /// The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`.
-    pub remote_tracking_ref: RemoteTrackingReference,
+    /// The local or remote-tracking branch to integrate with.
+    pub ref_name: TargetReference,
     /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
-    /// Whether the stored target commit is where the target ref points right now.
-    ///
-    /// Only a workspace update advances the stored target, so `false` means an update has work to do.
-    pub is_current: bool,
+    /// The derived upstream, or `None` when the target has no upstream configuration.
+    pub upstream: Option<TargetUpstream>,
     /// Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
     /// the stored target commit.
     ///
     /// Updating only some of them leaves the others so, which means an update has work to do
-    /// even while [`Self::is_current`] holds.
+    /// even when the stored cutoff matches the upstream tip.
     pub has_lanes_behind: bool,
+    /// Whether pull can safely advance the local target to the upstream tip.
+    /// False for equal, ahead, diverged, missing, or checked-out local targets.
+    pub can_fast_forward_local_target: bool,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Target);
+
+/// The target's configured upstream, distinct from the local target itself.
+#[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct TargetUpstream {
+    /// The derived tracking ref, retained even when its tip is unavailable.
+    pub ref_name: TargetReference,
+    /// The locally available upstream tip, or `None` if the ref cannot be resolved.
+    #[serde(with = "but_serde::object_id_opt")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::object_id_opt")
+    )]
+    pub tip: Option<gix::ObjectId>,
+    /// Whether the stored cutoff equals the available upstream tip. False if either is absent.
+    pub cutoff_matches_tip: bool,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TargetUpstream);
 
 impl Target {
     fn for_ui(
@@ -116,14 +178,24 @@ impl Target {
             commits_ahead,
         }: but_graph::workspace::TargetRef,
         remote_names: &gix::remote::Names,
-        is_current: bool,
+        upstream: Option<crate::TargetUpstream>,
         has_lanes_behind: bool,
+        can_fast_forward_local_target: bool,
     ) -> anyhow::Result<Self> {
         Ok(Target {
-            remote_tracking_ref: RemoteTrackingReference::for_ui(ref_name, remote_names)?,
+            ref_name: TargetReference::for_ui(ref_name, remote_names)?,
             commits_ahead,
-            is_current,
+            upstream: upstream
+                .map(|upstream| -> anyhow::Result<_> {
+                    Ok(TargetUpstream {
+                        ref_name: TargetReference::for_ui(upstream.ref_name, remote_names)?,
+                        tip: upstream.tip,
+                        cutoff_matches_tip: upstream.cutoff_matches_tip,
+                    })
+                })
+                .transpose()?,
             has_lanes_behind,
+            can_fast_forward_local_target,
         })
     }
 }
@@ -250,7 +322,8 @@ impl inner::RefInfo {
             stacks,
             target_ref,
             target_commit: _,
-            is_target_current,
+            target_upstream,
+            can_fast_forward_local_target,
             has_lanes_behind_target,
             lower_bound: _,
             ancestor_workspace_commit: _,
@@ -268,8 +341,9 @@ impl inner::RefInfo {
                     Target::for_ui(
                         t,
                         &symbolic_remote_names,
-                        is_target_current,
+                        target_upstream,
                         has_lanes_behind_target,
+                        can_fast_forward_local_target,
                     )
                 })
                 .transpose()?,

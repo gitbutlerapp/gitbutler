@@ -61,19 +61,25 @@ impl Workspace {
 
 /// # Sets of Interest
 impl Workspace {
-    /// Return all target-reference commits that are ahead of the workspace base,
-    /// which is the commits counted with
-    /// [`field@crate::workspace::TargetRef::commits_ahead`]
+    /// Return upstream commits ahead of the workspace base, or an empty list without an upstream.
     ///
-    /// The traversal starts at the resolved target reference and stops at the
+    /// The traversal starts at the configured target's upstream and stops at the
     /// workspace lower bound or at commits already marked as belonging to the
     /// workspace. The result is ordered in graph traversal order from newer
-    /// commits toward older commits.
-    pub fn incoming_target_commit_ids(&self) -> anyhow::Result<Vec<gix::ObjectId>> {
-        let target_ref = self
-            .target_ref
-            .as_ref()
-            .context("incoming target commits require a workspace with a target ref")?;
+    /// commits toward older commits. Errors if the upstream is absent from the graph.
+    pub fn incoming_target_commit_ids(
+        &self,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Vec<gix::ObjectId>> {
+        let Some(upstream_ref) = self.graph.project_meta.remote_target_ref(repo)? else {
+            return Ok(Vec::new());
+        };
+        let upstream_segment = self
+            .graph
+            .segment_by_ref_name(upstream_ref.as_ref())
+            .with_context(|| {
+                format!("target upstream '{upstream_ref}' is absent from the graph")
+            })?;
         let lower_bound = self
             .lower_bound_segment_id
             .map(|segment_id| (segment_id, self.graph[segment_id].generation));
@@ -81,7 +87,7 @@ impl Workspace {
         let mut commit_ids = Vec::new();
         TargetRef::visit_upstream_commits(
             &self.graph,
-            target_ref.segment_index,
+            upstream_segment.id,
             lower_bound,
             |segment| {
                 commit_ids.extend(segment.commits.iter().map(|commit| commit.id));

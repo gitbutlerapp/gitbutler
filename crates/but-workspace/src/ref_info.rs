@@ -612,10 +612,32 @@ pub fn graph_to_ref_info(
     };
     // Ask the repo where the ref points and compare the stored id itself: the graph
     // may drop `target_commit` and may leave the ref's own segment without commits.
-    let is_target_current = match (target_ref, graph.project_meta.target_commit_id) {
-        (Some(tr), Some(stored)) => repo
-            .try_find_reference(tr.ref_name.as_ref())?
-            .is_some_and(|mut r| r.peel_to_id().is_ok_and(|id| id == stored)),
+    let target_upstream = graph
+        .project_meta
+        .remote_target_ref(repo)?
+        .map(|ref_name| -> anyhow::Result<_> {
+            let tip = repo
+                .try_find_reference(ref_name.as_ref())?
+                .and_then(|mut reference| reference.peel_to_id().ok().map(|id| id.detach()));
+            Ok(crate::TargetUpstream {
+                ref_name,
+                tip,
+                cutoff_matches_tip: tip.is_some() && tip == graph.project_meta.target_commit_id,
+            })
+        })
+        .transpose()?;
+    let can_fast_forward_local_target = match (
+        graph.project_meta.target_ref.as_ref(),
+        target_upstream.as_ref().and_then(|upstream| upstream.tip),
+    ) {
+        (Some(local), Some(tip)) => {
+            let local = local.as_local_full_name_ref();
+            repo.try_find_reference(local)?.is_some()
+                && crate::upstream_integration::local_tracking_branch_to_fast_forward(
+                    repo, local, tip,
+                )?
+                .is_some()
+        }
         _ => false,
     };
     let mut info = RefInfo {
@@ -627,7 +649,8 @@ pub fn graph_to_ref_info(
             .collect::<anyhow::Result<_>>()?,
         target_ref: target_ref.clone(),
         target_commit: target_commit.clone(),
-        is_target_current,
+        target_upstream,
+        can_fast_forward_local_target,
         has_lanes_behind_target: false,
         ancestor_workspace_commit,
         worktrees: worktrees

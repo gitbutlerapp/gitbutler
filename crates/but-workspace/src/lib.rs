@@ -96,25 +96,26 @@ pub struct RefInfo {
     /// This is an empty array if the `HEAD` is unborn.
     /// Otherwise, there is one or more stacks.
     pub stacks: Vec<branch::Stack>,
-    /// The target to integrate workspace stacks into.
+    /// The projected target reference, retained for UI conversion.
     ///
-    /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
-    /// This happens when there is a local branch checked out without a remote tracking branch.
-    pub target_ref: Option<but_graph::workspace::TargetRef>,
-    /// A commit reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
-    /// past its computed lower bound.
+    /// This field is intentionally private: It describes what the UI shows, not the project's
+    /// target configuration. Use `ProjectMeta` to get the configured local target branch and its
+    /// upstream.
+    target_ref: Option<but_graph::workspace::TargetRef>,
+    /// The workspace projection's selected cutoff commit.
     ///
-    /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
+    /// It can exist without a projected target reference and need not be reachable from the local target.
     pub target_commit: Option<TargetCommit>,
-    /// Whether the stored target commit is where [`Self::target_ref`] points right now.
-    ///
-    /// Only a workspace update advances the stored target, so `false` means an update has work to do.
-    pub is_target_current: bool,
+    /// The target's derived upstream, including its availability and relation to the stored cutoff.
+    pub target_upstream: Option<TargetUpstream>,
+    /// Whether pull can safely advance the local target to its upstream tip.
+    /// False for equal, ahead, diverged, missing, or checked-out local targets.
+    pub can_fast_forward_local_target: bool,
     /// Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
     /// the stored target commit.
     ///
     /// Updating only some lanes advances the stored target past the others, so `true` means an
-    /// update has work to do even while [`Self::is_target_current`] holds.
+    /// update has work to do even when the stored cutoff matches the upstream tip.
     pub has_lanes_behind_target: bool,
     /// The bound can be imagined as the segment from which all other commits in the workspace originate.
     /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
@@ -146,7 +147,8 @@ impl std::fmt::Debug for RefInfo {
             stacks,
             target_ref,
             target_commit,
-            is_target_current,
+            target_upstream,
+            can_fast_forward_local_target,
             has_lanes_behind_target,
             lower_bound,
             ancestor_workspace_commit,
@@ -157,7 +159,11 @@ impl std::fmt::Debug for RefInfo {
             .field("stacks", stacks)
             .field("target_ref", target_ref)
             .field("target_commit", target_commit)
-            .field("is_target_current", is_target_current)
+            .field("target_upstream", target_upstream)
+            .field(
+                "can_fast_forward_local_target",
+                can_fast_forward_local_target,
+            )
             .field("lower_bound", lower_bound)
             .field("ancestor_workspace_commit", ancestor_workspace_commit);
         if *has_lanes_behind_target {
@@ -168,6 +174,17 @@ impl std::fmt::Debug for RefInfo {
         }
         s.finish()
     }
+}
+
+/// The upstream derived from the local target's tracking configuration.
+#[derive(Debug, Clone)]
+pub struct TargetUpstream {
+    /// The configured tracking ref, retained even when it is missing.
+    pub ref_name: gix::refs::FullName,
+    /// Its locally available tip, or `None` when it cannot be resolved.
+    pub tip: Option<gix::ObjectId>,
+    /// Whether an explicitly stored cutoff equals the available upstream tip.
+    pub cutoff_matches_tip: bool,
 }
 
 /// Describes a workspace commit that is in the ancestry of a managed workspace reference,

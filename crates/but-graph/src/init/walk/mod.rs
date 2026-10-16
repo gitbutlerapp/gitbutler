@@ -1031,6 +1031,15 @@ pub fn possibly_split_occupied_segment(
 
     // Standins will cause this, avoid self-connection.
     if src_sidx != bottom_sidx {
+        if top_cidx.is_none()
+            && let Some(ref_name) = graph[src_sidx].ref_name().map(ToOwned::to_owned)
+        {
+            // The empty segment already represents this ref. Leaving it on the
+            // commit would create a second reference node in the editor.
+            graph[bottom_sidx].commits[bottom_cidx]
+                .refs
+                .retain(|info| info.ref_name != ref_name);
+        }
         graph.connect_segments_with_ids(
             src_sidx,
             top_cidx,

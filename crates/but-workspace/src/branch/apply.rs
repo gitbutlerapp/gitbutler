@@ -206,7 +206,7 @@ pub fn apply(
     let branch_orig = branch;
     let (mut branch_ref, mut incoming_branch_is_remote_tracking_without_local_tracking) =
         (try_find_validated_ref(repo, branch, "apply")?, false);
-    if ws.is_branch_the_target_or_its_local_tracking_branch(branch) {
+    if ws.is_target_or_upstream(branch, repo)? {
         bail!("Cannot add the target '{branch}' branch to its own workspace");
     }
     let mut branch = branch.to_owned();
@@ -349,7 +349,15 @@ pub fn apply(
                 // soon-to-be-created workspace.
                 // This is a 'trick' to allow callers to prevent 'main' to be added to the workspace automatically
                 // even though the new workspace is supposed to have it as target.
-                if ws.is_branch_the_target_or_its_local_tracking_branch(current_head_ref.as_ref()) {
+                if ws
+                    .graph
+                    .project_meta
+                    .target_ref
+                    .as_ref()
+                    .is_some_and(|target| {
+                        target.as_local_full_name_ref() == current_head_ref.as_ref()
+                    })
+                {
                     current_unmanaged_head_branch_name.take();
                 }
             }
