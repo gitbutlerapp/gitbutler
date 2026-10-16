@@ -4,10 +4,11 @@ An experimental native GitButler client built on [GPUI](https://gpui.rs), the UI
 
 ## Run it
 
+From the repository root, on macOS:
+
 ```bash
-cd apps/gpui
 cargo build -p gitbutler-git --bins   # once: the askpass helper that push and fetch run
-cargo run
+cargo run -p but-gpui
 ```
 
 The project list comes from the app data of the build's channel, which is `dev` by default. Build with `CHANNEL=nightly` (or `release`) to see the projects of an installed GitButler.
@@ -85,10 +86,10 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 - `src/palette.rs` is the command palette and `src/status_bar.rs` the strip along the bottom.
 - `src/ui` has the small components GPUI doesn't ship: buttons, a text field and diff rows.
 
-It is a Cargo workspace of its own. GPUI is a git dependency on Zed that needs Rust 1.98.1 and brings around 900 crates, so keeping it here leaves the main `Cargo.lock`, toolchain and CI untouched. Deleting this directory removes the app.
+It is a member of the main workspace, so `cargo check --workspace` catches `but-api` changes that break it. GPUI is a git dependency on Zed that brings around 900 crates and needs Rust 1.98. Only macOS builds the client. Elsewhere GPUI needs system libraries the workspace's Linux and Windows CI don't install, so `main` is a stub there and GPUI isn't compiled. Nothing else in the workspace depends on this crate.
 
 ## Development
 
 - `GITBUTLER_GPUI_APPEARANCE=dark` (or `light`) overrides the system appearance.
 - `E2E_TEST_APP_DATA_DIR=<dir>` points GitButler's app data and settings at a sandbox.
-- Build with `--features dev-script` and set `GITBUTLER_GPUI_SCRIPT=<file>` to replay clicks, drags and keystrokes and save screenshots of the window. `src/dev.rs` documents the commands.
+- Build with `cargo build -p but-gpui --features dev-script` and set `GITBUTLER_GPUI_SCRIPT=<file>` to replay clicks, drags and keystrokes and save screenshots of the window. `src/dev.rs` documents the commands.

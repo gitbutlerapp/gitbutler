@@ -1,5 +1,0 @@
-[toolchain]
-# GPUI tracks Zed's toolchain, which runs ahead of the main GitButler workspace.
-channel = "1.98.1"
-profile = "minimal"
-components = ["rustfmt", "clippy"]

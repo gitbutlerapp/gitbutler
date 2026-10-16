@@ -1,25 +1,44 @@
+//! An experimental native GitButler client built on GPUI. Only macOS builds it for now;
+//! elsewhere GPUI needs system libraries the workspace's CI doesn't install.
+
+#[cfg(target_os = "macos")]
 mod app;
+#[cfg(target_os = "macos")]
 mod backend;
+#[cfg(target_os = "macos")]
 mod detail;
-#[cfg(feature = "dev-script")]
+#[cfg(all(target_os = "macos", feature = "dev-script"))]
 mod dev;
+#[cfg(target_os = "macos")]
 mod navigator;
+#[cfg(target_os = "macos")]
 mod palette;
+#[cfg(target_os = "macos")]
 mod state;
+#[cfg(target_os = "macos")]
 mod status_bar;
+#[cfg(target_os = "macos")]
 mod theme;
+#[cfg(target_os = "macos")]
 mod transfer;
+#[cfg(target_os = "macos")]
 mod ui;
 
-use gpui::{
-    App, Bounds, Menu, MenuItem, QuitMode, TitlebarOptions, WindowBounds, WindowOptions, point,
-    prelude::*, px, size,
-};
-
-use crate::app::AppView;
-use crate::theme::Theme;
-
+#[cfg(not(target_os = "macos"))]
 fn main() {
+    eprintln!("The GPUI client only builds on macOS for now.");
+}
+
+#[cfg(target_os = "macos")]
+fn main() {
+    use gpui::{
+        App, Bounds, Menu, MenuItem, QuitMode, TitlebarOptions, WindowBounds, WindowOptions, point,
+        prelude::*, px, size,
+    };
+
+    use crate::app::AppView;
+    use crate::theme::Theme;
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
