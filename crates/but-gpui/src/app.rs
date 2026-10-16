@@ -212,7 +212,8 @@ impl AppView {
     fn diff_left(&self, cx: &App) -> Option<f32> {
         let store = self.store.read(cx);
         let has_diff = store.selection.is_some();
-        has_diff.then(|| match self.detail.read(cx).zoomed {
+        let detail = self.detail.read(cx);
+        has_diff.then(|| match detail.zoomed || detail.files_hidden {
             true => 0.,
             false => store.width(Pane::Files),
         })

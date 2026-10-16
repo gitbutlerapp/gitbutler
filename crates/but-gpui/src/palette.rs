@@ -90,6 +90,10 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Find in diff", Box::new(crate::detail::FindInDiff)),
         ("Wrap long lines", Box::new(crate::detail::ToggleWrap)),
         (
+            "Show or hide the files",
+            Box::new(crate::detail::ToggleFiles),
+        ),
+        (
             "Create pull request",
             Box::new(crate::pr::CreatePullRequest),
         ),
