@@ -131,29 +131,14 @@ fn common_base_uses_configured_nonstandard_default() {
     );
     env.invoke_git("branch trunk origin/main");
     env.invoke_git("update-ref refs/remotes/origin/trunk origin/main");
-    env.invoke_git("config gitbutler.project.targetRef refs/remotes/origin/trunk");
+    env.invoke_git("branch --set-upstream-to=origin/trunk trunk");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/trunk");
     env.but("status")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 ...
 ┴ 0dc3733 (common base, trunk, origin/trunk) 2000-01-02 add M
-...
-"#]]);
-}
-
-#[test]
-fn common_base_omits_missing_local_default() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings(
-        "one-stack-three-dependent-branches",
-    );
-    env.invoke_git("branch -D main");
-    env.but("status")
-        .assert()
-        .success()
-        .stdout_eq(snapbox::str![[r#"
-...
-┴ 0dc3733 (common base, origin/main) 2000-01-02 add M
 ...
 "#]]);
 }
@@ -185,8 +170,9 @@ fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
         project_meta
             .target_ref
             .as_ref()
-            .expect("target is persisted"),
-        "refs/remotes/origin/main",
+            .expect("target is persisted")
+            .as_local_full_name_ref(),
+        "refs/heads/main",
         "the inferred target should be persisted"
     );
     assert_eq!(
@@ -371,12 +357,17 @@ fn first_commit_no_workspace() {
 "#]]
     );
 
-    // TODO: make this work
+    // Local main is inferred as the target even without a remote or workspace commit.
     env.but("status --verbose")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ 85efbe4 (common base, main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
 }
@@ -957,12 +948,27 @@ Applied remote branch 'origin/document-but-pr-skill' to workspace
 ├╯
 ┊
 ┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base, main, origin/main) 2000-01-02 merge document-but-pr-skill
+├╯ 080592b (common base) 2000-01-02 add document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   55165db (origin/main, origin/HEAD, main, gitbutler/target) merge document-but-pr-skill
+|\  
+| | * ef247f6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| |/  
+| * 080592b (origin/document-but-pr-skill, document-but-pr-skill) add document-but-pr-skill
+|/  
+* 563a7fc add base
+
+"#]]
+        .raw()
+    );
 
     assert_pull_removes_merged_upstream_branch(&env);
 }
@@ -1041,15 +1047,47 @@ fn unmerged_empty_branch_above_merged_one_is_not_treated_as_merged() {
 ├╯
 ┊
 ┊● 334227d (upstream: origin/main) 1 new commit
-├╯ 334227d (common base, main, origin/main) 2000-01-02 merge bottom
+├╯ 141de4f (common base) 2000-01-02 add bottom
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
 
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 07e525c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| *   334227d (origin/main, origin/HEAD, main) merge bottom
+| |\  
+| |/  
+|/|   
+* | 141de4f (origin/top, origin/bottom, top, bottom) add bottom
+|/  
+* 563a7fc add base
+
+"#]]
+        .raw()
+    );
+
     env.invoke_git("remote set-url origin .");
     env.but("pull").env("NO_BG_TASKS", "1").assert().success();
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* dc0b7ae (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   334227d (origin/main, origin/HEAD, top, main, gitbutler/target) merge bottom
+|\  
+| | * 07e525c (origin/gitbutler/workspace) GitButler Workspace Commit
+| |/  
+| * 141de4f (origin/top, origin/bottom) add bottom
+|/  
+* 563a7fc add base
+
+"#]]
+        .raw()
+    );
 
     let branches: Vec<String> = status_json(&env)["stacks"]
         .as_array()
@@ -1409,6 +1447,32 @@ fn status_shows_rewritten_branch_with_remote_and_local_commits() {
         .stdout_eq(snapbox::file![
             "snapshots/status/classification/status-shows-rewritten-branch-with-remote-and-local-commits.stdout.term.svg"
         ]);
+}
+
+#[test]
+fn status_marks_rewritten_commit_when_old_workspace_contains_remote_version() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("status-pushed");
+    env.setup_metadata(&["A"]);
+    env.but("switch A").assert().success();
+    env.file("A", "amended\n");
+    env.but("amend A --target A").assert().success();
+
+    // seeing ◐ is the important bit here, it tells the user that the commit has been rewritten
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A] [HEAD]
+┊◐   [..] add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]

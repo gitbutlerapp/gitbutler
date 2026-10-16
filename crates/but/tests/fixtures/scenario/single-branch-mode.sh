@@ -16,3 +16,4 @@ git checkout main
   commit M
 
 setup_target_to_match_main
+git branch --set-upstream-to=origin/main main

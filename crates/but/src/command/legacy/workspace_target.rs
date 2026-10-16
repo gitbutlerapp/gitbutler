@@ -169,12 +169,12 @@ mod tests {
     fn base_branch(base_sha: gix::ObjectId) -> gitbutler_branch_actions::BaseBranch {
         gitbutler_branch_actions::BaseBranch {
             branch_name: "refs/remotes/origin/main".to_string(),
-            remote_name: "origin".to_string(),
-            remote_url: "https://example.com/origin".to_string(),
-            push_remote_name: "origin".to_string(),
-            push_remote_url: "https://example.com/origin".to_string(),
+            remote_name: Some("origin".to_string()),
+            remote_url: Some("https://example.com/origin".to_string()),
+            push_remote_name: Some("origin".to_string()),
+            push_remote_url: Some("https://example.com/origin".to_string()),
             base_sha,
-            current_sha: base_sha,
+            current_sha: Some(base_sha),
             behind: 0,
             upstream_commits: vec![],
             recent_commits: vec![],
@@ -194,9 +194,17 @@ mod tests {
         };
         let base_branch = base_branch(oid("2222222222222222222222222222222222222222"));
 
-        let status_target = resolved_target.for_status(Some(&base_branch));
+        let status_target = resolved_target.for_status(Some(&base_branch), None);
 
         assert_eq!(status_target.commit_id, base_branch.base_sha);
+        assert_eq!(status_target.display_name, "origin/main");
+
+        let lower_bound = oid("5555555555555555555555555555555555555555");
+        let status_target = resolved_target.for_status(Some(&base_branch), Some(lower_bound));
+        assert_eq!(
+            status_target.commit_id, lower_bound,
+            "the displayed common base is independent of the selected cutoff"
+        );
         assert_eq!(status_target.display_name, "origin/main");
     }
 
@@ -208,7 +216,7 @@ mod tests {
             push_remote_name: None,
         };
 
-        let status_target = resolved_target.for_status(None);
+        let status_target = resolved_target.for_status(None, None);
 
         assert_eq!(status_target.commit_id, resolved_target.oid());
         assert_eq!(status_target.display_name, "3333333");
@@ -217,7 +225,7 @@ mod tests {
     #[test]
     fn base_branch_display_name_avoids_empty_separator() {
         let mut base_branch = base_branch(oid("4444444444444444444444444444444444444444"));
-        base_branch.remote_name.clear();
+        base_branch.remote_name.as_mut().unwrap().clear();
 
         assert_eq!(display_name_from_base_branch(&base_branch), "main");
     }
