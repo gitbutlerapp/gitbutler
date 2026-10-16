@@ -2,6 +2,7 @@ import { useAddressSpace } from "./context.tsx";
 import { startKeyboardTransfer, setCursor, startInlineEdit } from "#ui/use-cursor.ts";
 import {
 	useBranchCreate,
+	useBranchNameSegment,
 	useCommitDiscard,
 	useCommitInsertBlank,
 	useCommitReword,
@@ -65,6 +66,8 @@ export const CommitRow: FC<
 		 * outside the workspace, so the actions that rewrite it stay off.
 		 */
 		worktree?: string;
+		/** Whether `worktree` has its `HEAD` detached at this commit. */
+		isDetachedHead?: boolean;
 	} & ComponentProps<"div">
 > = ({
 	commit,
@@ -74,6 +77,7 @@ export const CommitRow: FC<
 	amendCommit,
 	canAmendCommit,
 	worktree,
+	isDetachedHead = false,
 	below,
 	behind,
 	...restProps
@@ -128,6 +132,8 @@ export const CommitRow: FC<
 	const { mutateAsync: commitReword } = useCommitReword();
 	const { mutate: enterEditMode } = useEnterEditMode(projectId);
 	const { mutate: branchCreate } = useBranchCreate();
+	const { isPending: isBranchNameSegmentPending, mutate: branchNameSegment } =
+		useBranchNameSegment();
 
 	const insertBlankCommit = (side: "above" | "below") => {
 		commitInsertBlank({
@@ -150,6 +156,22 @@ export const CommitRow: FC<
 						side,
 					},
 				},
+			},
+			{
+				onSuccess: (response) => {
+					setCursor("applied", branchAddress({ branchRef: response.newRef.fullNameBytes }));
+				},
+			},
+		);
+	};
+
+	const nameDetachedHead = (worktree: string) => {
+		branchNameSegment(
+			{
+				projectId,
+				checkout: { type: "worktree", subject: worktree },
+				commitId: commit.id,
+				newRef: null,
 			},
 			{
 				onSuccess: (response) => {
@@ -375,7 +397,19 @@ export const CommitRow: FC<
 			onSelect: uncommitCommit,
 		}),
 	];
-	const menuItems = inWorkspace ? workspaceMenuItems : readOnlyMenuItems;
+	const worktreeMenuItems: Array<NativeMenuItem> =
+		worktree !== undefined && isDetachedHead
+			? [
+					...readOnlyMenuItems,
+					nativeMenuSeparator,
+					nativeMenuItem({
+						label: "Name Branch",
+						enabled: noOperationPending && !isBranchNameSegmentPending,
+						onSelect: () => nameDetachedHead(worktree),
+					}),
+				]
+			: readOnlyMenuItems;
+	const menuItems = inWorkspace ? workspaceMenuItems : worktreeMenuItems;
 
 	return (
 		<ItemRow

@@ -223,6 +223,17 @@ export const useBranchCreate = () => {
 	});
 };
 
+export const useBranchNameSegment = () => {
+	const dispatch = useAppDispatch();
+	return useMutation({
+		mutationFn: window.lite.branchNameSegment,
+		onSuccess: async (response, input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+		},
+		meta: { failureTitle: "Failed to name branch" },
+	});
+};
+
 /**
  * Creates a branch at the target and checks it out, leaving the workspace
  * behind the way a plain `git checkout -b` would — the counterpart to
