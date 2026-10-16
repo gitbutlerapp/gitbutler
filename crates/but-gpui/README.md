@@ -60,7 +60,7 @@ On a project hosted on a forge, a branch without a pull request offers Create pu
 
 Branch rows show a pull request's state (open, draft, merged or closed) and number, and a glyph for its checks. The app reads these from GitButler's forge cache, which it refreshes in the background every minute and after each push, using the GitHub account GitButler already has.
 
-⌘F finds text in the diff, marking every match and stepping through them with Enter and ⇧Enter, unfolding a folded file to reach one. Long lines run off the edge unless wrapping is on (⌥Z, or Settings).
+⌘F finds text in the diff, marking every match and stepping through them with Enter and ⇧Enter, unfolding a folded file to reach one. / (or the magnifier above the file list) filters the file list and the diff to paths with every word typed in them; Escape clears it. Long lines run off the edge unless wrapping is on (⌥Z, or Settings).
 
 While a file scrolls, its header stays at the top of the diff until the next file pushes it off. Lists and diffs show a scrollbar while the pointer is over them; drag its thumb, or press the track to jump. Text in a diff selects like text anywhere: drag across lines, double-click a word, triple-click a line, shift-click to extend, and ⌘C copies it without the `+` and `-`. File lists can show a tree of folders instead of a flat list, with the button beside the file count; folders holding nothing but one folder merge into one row (`src/backend`). Right-click a folder to cut, mark reviewed, discard or uncommit everything under it.
 
@@ -107,6 +107,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | ⌘F, ⌘G, ⇧⌘G | find in the diff, next match, previous match |
 | ⌥Z | wrap long lines, or stop |
 | f | hide or show the file list beside the diff |
+| / | filter the files by path |
 
 ## How it's built
 

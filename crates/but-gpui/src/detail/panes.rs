@@ -9,7 +9,7 @@ use gpui::{
 };
 
 use super::file_tree::{self, TreeRow};
-use super::{Detail, checkbox_box};
+use super::{Detail, FilterFiles, checkbox_box, keeps_path};
 use crate::app::StartCommit;
 use crate::app::{AppView, MenuItem};
 use crate::backend::{self, CommitState, DiffSource, FileChange, FileDiff, PushState, Selected};
@@ -278,6 +278,7 @@ impl Detail {
     fn file_list(&self, id: &'static str, source: FileSource, cx: &Context<Self>) -> AnyElement {
         let store = self.store.read(cx);
         let tree = store.file_tree;
+        let terms = self.filter_terms(cx);
         // Each shown file's position in its source, as files a pending operation takes away
         // aren't shown.
         let (index, paths): (Vec<usize>, Vec<&str>) = match &source {
@@ -287,7 +288,9 @@ impl Detail {
                     ws.uncommitted
                         .iter()
                         .enumerate()
-                        .filter(|(_, f)| !store.hides_file(project, &f.path))
+                        .filter(|(_, f)| {
+                            !store.hides_file(project, &f.path) && keeps_path(&terms, &f.path)
+                        })
                         .map(|(pos, f)| (pos, f.path.as_str()))
                         .unzip()
                 })
@@ -299,6 +302,7 @@ impl Detail {
                     diff.files
                         .iter()
                         .enumerate()
+                        .filter(|(_, f)| keeps_path(&terms, &f.file.path))
                         .map(|(pos, f)| (pos, f.file.path.as_str()))
                         .unzip()
                 })
@@ -485,6 +489,54 @@ impl Detail {
                 cx.notify();
             }));
         Some(row.into_any_element())
+    }
+
+    /// A file list's header while the file filter is open: the filter, how many of the
+    /// list's `paths` it keeps, and a way to close it.
+    fn filter_header<'a>(
+        &self,
+        paths: impl Iterator<Item = &'a str>,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Div {
+        let terms = self.filter_terms(cx);
+        let (kept, total) = paths.fold((0, 0), |(kept, total), path| {
+            (kept + usize::from(keeps_path(&terms, path)), total + 1)
+        });
+        h_flex()
+            .h(px(36.))
+            .pl(px(16.))
+            .pr(px(8.))
+            .gap(px(8.))
+            .flex_none()
+            .text_size(px(12.))
+            .child(small_icon(Icon::Search).text_color(theme.text_3))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w(px(0.))
+                    .text_size(px(13.))
+                    .child(self.file_filter.clone()),
+            )
+            .child(
+                div()
+                    .flex_none()
+                    .text_color(theme.text_3)
+                    .child(format!("{kept} of {total}")),
+            )
+            .child(
+                icon_button("close-filter", Icon::Cross)
+                    .small()
+                    .tooltip("Close the filter")
+                    .on_click(cx.listener(|this, _, window, cx| this.close_filter(window, cx))),
+            )
+    }
+
+    fn filter_button(&self, cx: &Context<Self>) -> impl IntoElement {
+        icon_button("filter-files", Icon::Search)
+            .small()
+            .tooltip_with_key("Filter files", shortcut(&FilterFiles, cx))
+            .on_click(cx.listener(|this, _, window, cx| this.open_filter(window, cx)))
     }
 
     fn tree_toggle(&self, cx: &Context<Self>) -> impl IntoElement {
@@ -764,36 +816,42 @@ impl Detail {
         });
         let to_review = store.to_review(project);
 
-        let list_header = h_flex()
-            .h(px(36.))
-            .px(px(16.))
-            .gap(px(8.))
-            .flex_none()
-            .text_size(px(12.))
-            .child(div().font_weight(gpui::FontWeight::SEMIBOLD).child(
-                match workspace.uncommitted.len() {
-                    0 => "No changes".to_owned(),
-                    1 => "1 file".to_owned(),
-                    n => format!("{n} files"),
-                },
-            ))
-            .child(diff::stats(added, removed, theme))
-            .child(div().flex_1())
-            .child(self.tree_toggle(cx))
-            .when(!workspace.uncommitted.is_empty(), |el| {
-                el.child(
-                    div()
-                        .text_color(if to_review > 0 {
-                            theme.warn
-                        } else {
-                            theme.text_3
-                        })
-                        .child(match to_review {
-                            0 => "All reviewed".to_owned(),
-                            n => format!("{n} to review"),
-                        }),
-                )
-            });
+        let paths = workspace.uncommitted.iter().map(|f| f.path.as_str());
+        let list_header = if self.filtering {
+            self.filter_header(paths, theme, cx)
+        } else {
+            h_flex()
+                .h(px(36.))
+                .px(px(16.))
+                .gap(px(8.))
+                .flex_none()
+                .text_size(px(12.))
+                .child(div().font_weight(gpui::FontWeight::SEMIBOLD).child(
+                    match workspace.uncommitted.len() {
+                        0 => "No changes".to_owned(),
+                        1 => "1 file".to_owned(),
+                        n => format!("{n} files"),
+                    },
+                ))
+                .child(diff::stats(added, removed, theme))
+                .child(div().flex_1())
+                .child(self.filter_button(cx))
+                .child(self.tree_toggle(cx))
+                .when(!workspace.uncommitted.is_empty(), |el| {
+                    el.child(
+                        div()
+                            .text_color(if to_review > 0 {
+                                theme.warn
+                            } else {
+                                theme.text_3
+                            })
+                            .child(match to_review {
+                                0 => "All reviewed".to_owned(),
+                                n => format!("{n} to review"),
+                            }),
+                    )
+                })
+        };
 
         let footer = if !self.composing {
             let target = self
@@ -1133,26 +1191,32 @@ impl Detail {
                 .into_any_element();
         };
         let rows = self.file_list("diff-files", FileSource::Diff(project.clone(), commit), cx);
+        let header = if self.filtering {
+            let paths = diff.files.iter().map(|f| f.file.path.as_str());
+            self.filter_header(paths, theme, cx)
+        } else {
+            h_flex()
+                .h(px(36.))
+                .px(px(16.))
+                .gap(px(4.))
+                .flex_none()
+                .text_size(px(12.))
+                .child(
+                    div()
+                        .flex_1()
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .child(match diff.files.len() {
+                            1 => "1 file changed".to_owned(),
+                            n => format!("{n} files changed"),
+                        }),
+                )
+                .child(self.filter_button(cx))
+                .child(self.tree_toggle(cx))
+        };
         v_flex()
             .flex_1()
             .min_h(px(0.))
-            .child(
-                h_flex()
-                    .h(px(36.))
-                    .px(px(16.))
-                    .flex_none()
-                    .text_size(px(12.))
-                    .child(
-                        div()
-                            .flex_1()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(match diff.files.len() {
-                                1 => "1 file changed".to_owned(),
-                                n => format!("{n} files changed"),
-                            }),
-                    )
-                    .child(self.tree_toggle(cx)),
-            )
+            .child(header)
             .child(rows)
             .into_any_element()
     }

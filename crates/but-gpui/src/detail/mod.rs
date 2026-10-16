@@ -50,6 +50,7 @@ actions!(
         AmendTop,
         ToggleWrap,
         ToggleFiles,
+        FilterFiles,
     ]
 );
 
@@ -72,6 +73,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("shift-space", PageUp, c),
         KeyBinding::new("alt-z", ToggleWrap, c),
         KeyBinding::new("f", ToggleFiles, c),
+        KeyBinding::new("/", FilterFiles, c),
         // Works while typing the message too, as the composer's other key does.
         KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
     ]);
@@ -138,6 +140,9 @@ pub struct Detail {
     unchecked_hunks: HashSet<(String, HunkKey)>,
     /// Hunks only some of whose changed lines go in the next commit: those lines, by index.
     line_picks: HashMap<(String, HunkKey), BTreeSet<usize>>,
+    /// Narrows the file list and the diff to the paths it matches, while `filtering`.
+    file_filter: Entity<TextInput>,
+    filtering: bool,
     /// Files shown whole, by path, with their lines once read.
     whole: HashMap<String, Option<FileLines>>,
     /// The commit message being edited, with the subscription that saves it.
@@ -202,6 +207,7 @@ impl Detail {
     ) -> Self {
         let message = cx.new(|cx| TextInput::new("Commit message", true, cx));
         let branch_filter = cx.new(|cx| TextInput::new("Filter branches", false, cx));
+        let file_filter = cx.new(|cx| TextInput::new("Filter files", false, cx));
         let subscriptions = vec![
             cx.subscribe(&store, |this, _, event, cx| match event {
                 StoreEvent::SelectionChanged => {
@@ -258,6 +264,15 @@ impl Detail {
                     }
                 }
             }),
+            cx.subscribe_in(
+                &file_filter,
+                window,
+                |this, _, event, window, cx| match event {
+                    InputEvent::Changed => this.rebuild_rows(cx),
+                    InputEvent::Submit => window.focus(&this.focus, cx),
+                    InputEvent::Cancel => this.close_filter(window, cx),
+                },
+            ),
             cx.subscribe_in(&message, window, |this, _, event, window, cx| match event {
                 InputEvent::Submit => this.commit(window, cx),
                 InputEvent::Cancel => {
@@ -297,6 +312,8 @@ impl Detail {
             unchecked: HashSet::new(),
             unchecked_hunks: HashSet::new(),
             line_picks: HashMap::new(),
+            file_filter,
+            filtering: false,
             whole: HashMap::new(),
             rewording: None,
             checks_project: None,
@@ -586,6 +603,7 @@ impl Detail {
     fn build_rows(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> Vec<DiffRow> {
         let store = self.store.read(cx);
         let worktree = key.source == DiffSource::Worktree;
+        let terms = self.filter_terms(cx);
         diff::rows(
             files,
             |file| {
@@ -594,7 +612,10 @@ impl Detail {
                     && (self.folded.contains(path)
                         || (worktree && store.review(&key.project, &file.file) == Review::Reviewed))
             },
-            |file| worktree && store.hides_file(&key.project, &file.file.path),
+            |file| {
+                (worktree && store.hides_file(&key.project, &file.file.path))
+                    || !keeps_path(&terms, &file.file.path)
+            },
             |file| match self.whole.get(&file.file.path) {
                 Some(Some((fingerprint, lines))) if *fingerprint == file.fingerprint => {
                     Some(lines.len() as u32)
@@ -602,6 +623,32 @@ impl Detail {
                 _ => None,
             },
         )
+    }
+
+    /// What the open file filter keeps paths by: each term, lowercased, somewhere in them.
+    fn filter_terms(&self, cx: &App) -> Vec<String> {
+        if !self.filtering {
+            return Vec::new();
+        }
+        (self.file_filter.read(cx).text().split_whitespace())
+            .map(str::to_lowercase)
+            .collect()
+    }
+
+    fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.filtering = true;
+        self.file_filter
+            .update(cx, |input, cx| input.select_all_text(cx));
+        window.focus(&self.file_filter.focus_handle(cx), cx);
+        self.rebuild_rows(cx);
+    }
+
+    pub(super) fn close_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.filtering = false;
+        self.file_filter
+            .update(cx, |input, cx| input.set_text("", cx));
+        window.focus(&self.focus, cx);
+        self.rebuild_rows(cx);
     }
 
     /// The diff to draw: the loaded one, or while the next loads the previous one, until
@@ -1014,6 +1061,9 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PageDown, _, cx| this.page(1., cx)))
             .on_action(cx.listener(|this, _: &PageUp, _, cx| this.page(-1., cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
+            .on_action(
+                cx.listener(|this, _: &FilterFiles, window, cx| this.open_filter(window, cx)),
+            )
             .on_action(cx.listener(|this, _: &ToggleFiles, _, cx| {
                 this.files_hidden = !this.files_hidden;
                 cx.notify();
@@ -1038,6 +1088,15 @@ impl Render for Detail {
             .child(self.render_header(selection.as_ref(), &theme, cx))
             .child(div().flex_1().min_h(px(0.)).child(body))
     }
+}
+
+/// Whether `path` has every one of `terms` in it.
+fn keeps_path(terms: &[String], path: &str) -> bool {
+    if terms.is_empty() {
+        return true;
+    }
+    let path = path.to_lowercase();
+    terms.iter().all(|term| path.contains(term.as_str()))
 }
 
 fn hunk_keys(file: &FileDiff) -> Vec<HunkKey> {
