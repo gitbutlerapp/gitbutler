@@ -116,6 +116,8 @@ pub struct Navigator {
     reveal_selection: bool,
     /// Branches showing all their commits instead of the first few.
     unfolded_branches: HashSet<(ProjectId, String)>,
+    /// Branches showing none of their commits, unless one is selected.
+    closed_branches: HashSet<(ProjectId, String)>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -145,6 +147,7 @@ impl Navigator {
             list: ListState::new(0, ListAlignment::Top, px(200.)),
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
+            closed_branches: HashSet::new(),
             _subscriptions: subscriptions,
         }
     }
@@ -182,7 +185,13 @@ impl Navigator {
                     } else {
                         FOLD_AFTER
                     };
+                    let closed = self.closed_branches.contains(&key)
+                        && !matches!(&store.selection, Some(Selection::Commit(p, c))
+                            if p == id && branch.commits.iter().any(|commit| commit.id == *c));
                     rows.push(Row::Item(Selection::Branch(key.0, key.1)));
+                    if closed {
+                        continue;
+                    }
                     rows.extend(
                         store
                             .new_commits(id, &branch.ref_name)
@@ -294,17 +303,52 @@ impl Navigator {
     }
 
     fn expand(&mut self, _: &Expand, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some(Selection::Project(id)) = self.store.read(cx).selection.clone() {
-            self.store
-                .update(cx, |store, cx| store.set_expanded(&id, true, cx));
-        }
-    }
-
-    fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
         match self.store.read(cx).selection.clone() {
             Some(Selection::Project(id)) => {
                 self.store
+                    .update(cx, |store, cx| store.set_expanded(&id, true, cx));
+            }
+            Some(Selection::Branch(project, ref_name)) => {
+                self.closed_branches.remove(&(project, ref_name));
+                cx.notify();
+            }
+            _ => {}
+        }
+    }
+
+    /// Close a branch to its row or open it again, as double-clicking a folder does.
+    fn toggle_branch(&mut self, key: (ProjectId, String), cx: &mut Context<Self>) {
+        if !self.closed_branches.remove(&key) {
+            self.closed_branches.insert(key);
+        }
+        cx.notify();
+    }
+
+    /// Step out the way a tree does: a commit to its branch, an open branch closed, and
+    /// anything else up to its project.
+    fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let selection = store.selection.clone();
+        let closes = matches!(&selection, Some(item @ Selection::Branch(project, ref_name))
+            if store.branch_for(item).is_some_and(|branch| !branch.commits.is_empty())
+                && !self.closed_branches.contains(&(project.clone(), ref_name.clone())));
+        match selection {
+            Some(Selection::Project(id)) => {
+                self.store
                     .update(cx, |store, cx| store.set_expanded(&id, false, cx));
+            }
+            Some(Selection::Branch(project, ref_name)) if closes => {
+                self.closed_branches.insert((project, ref_name));
+                cx.notify();
+            }
+            Some(Selection::Commit(project, id)) => {
+                let branch = store
+                    .workspace(&project)
+                    .and_then(|ws| ws.find_commit(id))
+                    .map(|(branch, _)| branch.ref_name.clone());
+                if let Some(ref_name) = branch {
+                    self.select(Selection::Branch(project, ref_name), window, cx);
+                }
             }
             // Jump up to the project, like closing a folder in a tree.
             Some(selection) => {
@@ -744,6 +788,8 @@ impl Navigator {
             (None, PushState::Integrated) => (Icon::Tick, theme.safe),
             (None, _) => (Icon::Branch, style.muted()),
         };
+        let key = (id.clone(), ref_name.to_owned());
+        let closed = self.closed_branches.contains(&key) && !branch.commits.is_empty();
         Some(
             style
                 .row(format!("branch-{id}-{ref_name}"), 6.)
@@ -806,6 +852,13 @@ impl Navigator {
                             .child("empty"),
                     )
                 })
+                .when(closed, |el| {
+                    el.child(count(
+                        Some(Icon::Commit),
+                        branch.commits.len(),
+                        style.muted(),
+                    ))
+                })
                 .when(
                     branch
                         .commits
@@ -820,6 +873,11 @@ impl Navigator {
                         .border_color(theme.pop)
                 })
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                    if event.click_count() == 2 {
+                        this.toggle_branch(key.clone(), cx)
+                    }
+                }))
                 .when(!ref_name.is_empty(), |el| {
                     let payload = Cut::Branch(id.clone(), ref_name.to_owned());
                     el.on_drag(
@@ -993,8 +1051,28 @@ impl Navigator {
     }
 
     /// What right-clicking `target` offers. Right-clicking selects the row first, so the
-    /// items run the same actions as their keys.
+    /// items run the same actions as their keys. A branch with commits starts with hiding
+    /// or showing them.
     fn menu_items(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
+        let mut items = self.row_actions(target, cx);
+        if let Selection::Branch(project, ref_name) = target
+            && let Some(first) = items.first_mut()
+            && (self.store.read(cx).branch_for(target)).is_some_and(|b| !b.commits.is_empty())
+        {
+            *first = first.clone().separated();
+            let key = (project.clone(), ref_name.clone());
+            items.insert(
+                0,
+                match self.closed_branches.contains(&key) {
+                    true => MenuItem::action("Show commits", &Expand, cx),
+                    false => MenuItem::action("Hide commits", &Collapse, cx),
+                },
+            );
+        }
+        items
+    }
+
+    fn row_actions(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
         let store = self.store.read(cx);
         let action =
             |label: &'static str, action: &dyn gpui::Action| MenuItem::action(label, action, cx);
