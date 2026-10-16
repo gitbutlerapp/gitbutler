@@ -6,12 +6,12 @@ use gpui::{AnyElement, App, Context, Focusable as _, Toggled, Window, div, prelu
 
 use super::{ChecksChanged, Detail, hunk_keys};
 use crate::app::MenuItem;
-use crate::backend::{self, Destination, DiffSource, FileChange, HunkKey, Selected};
+use crate::backend::{self, CommitId, Destination, DiffSource, FileChange, HunkKey, Selected};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
-use crate::transfer::short_ref;
+use crate::transfer::{Transfer, short_ref};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, button, h_flex, small_icon, v_flex};
+use crate::ui::{ButtonStyle, Icon, button, h_flex, shortcut, small_icon, v_flex};
 
 impl Detail {
     pub(super) fn close_composer(&mut self, cx: &mut Context<Self>) {
@@ -309,6 +309,40 @@ impl Detail {
         });
     }
 
+    /// The newest commit on the branch new commits go to, which Amend adds to.
+    fn amend_target(&self, project: &ProjectId, cx: &App) -> Option<(CommitId, String)> {
+        let target = self.effective_target(project, cx)?;
+        let workspace = self.store.read(cx).workspace(project)?;
+        let top = workspace.find_branch(&target)?.commits.first()?;
+        Some((top.id, top.title.clone()))
+    }
+
+    /// Add the checked changes to the newest commit of the target branch, keeping its
+    /// message.
+    pub(super) fn amend_top(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
+            return;
+        };
+        let Some((into, _)) = self.amend_target(&project, cx) else {
+            return;
+        };
+        let files = self.selected_changes(cx);
+        if files.is_empty() {
+            self.store
+                .update(cx, |store, cx| store.snack("Nothing checked to amend", cx));
+            return;
+        }
+        self.store.update(cx, |store, cx| {
+            Transfer::Amend {
+                into,
+                files: files.into(),
+            }
+            .perform(&project, store, cx);
+        });
+        self.close_composer(cx);
+        window.focus(&self.focus, cx);
+    }
+
     pub(super) fn toggle_checked(&mut self, path: &str, cx: &mut Context<Self>) {
         let check = self.file_check(path);
         self.unchecked_hunks
@@ -409,6 +443,21 @@ impl Detail {
                                 window.focus(&this.focus, cx);
                             })),
                     )
+                    .when_some(self.amend_target(project, cx), |el, (_, title)| {
+                        el.child(
+                            button("amend", "Amend")
+                                .small()
+                                .style(ButtonStyle::Outline)
+                                .disabled(checked == 0)
+                                .tooltip_with_key(
+                                    format!("Add the checked changes to \"{title}\""),
+                                    shortcut(&super::AmendTop, cx),
+                                )
+                                .on_click(
+                                    cx.listener(|this, _, window, cx| this.amend_top(window, cx)),
+                                ),
+                        )
+                    })
                     .child(
                         button("commit", "Commit")
                             .small()

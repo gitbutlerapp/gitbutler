@@ -6,7 +6,7 @@ use std::sync::Arc;
 use gpui::{Context, SharedString};
 
 use crate::backend::{self, CommitId, Destination, Selected};
-use crate::state::{Cut, Overlay, Selection, Store};
+use crate::state::{Cut, Overlay, Remap, Selection, Store};
 
 pub enum Transfer {
     Uncommit(CommitId),
@@ -30,6 +30,16 @@ pub enum Transfer {
         from: CommitId,
         to: CommitId,
         files: Arc<[Selected]>,
+    },
+    /// A copy of the commit, leaving it where it is.
+    CherryPick {
+        id: CommitId,
+        to: Destination,
+    },
+    /// Stack a branch, and those above it, on another.
+    StackBranch {
+        branch: String,
+        onto: String,
     },
     /// Uncommitted files dropped on a branch: get them ready to commit there.
     StageOnBranch {
@@ -84,6 +94,31 @@ impl Transfer {
                     }
                 }
             }
+            (Cut::Pick(_, id), Selection::Branch(_, branch)) => Transfer::CherryPick {
+                id: *id,
+                to: Destination::Branch(branch.clone()),
+            },
+            (Cut::Pick(_, id), Selection::Commit(_, target_id)) if id != target_id => {
+                Transfer::CherryPick {
+                    id: *id,
+                    to: Destination::AboveCommit(*target_id),
+                }
+            }
+            (Cut::Branch(_, branch), Selection::Branch(_, onto)) if branch != onto => {
+                // Already right on top of it.
+                let (stack, at) = workspace.stack_of(branch)?;
+                if stack
+                    .branches
+                    .get(at + 1)
+                    .is_some_and(|b| b.ref_name == *onto)
+                {
+                    return None;
+                }
+                Transfer::StackBranch {
+                    branch: branch.clone(),
+                    onto: onto.clone(),
+                }
+            }
             (Cut::Files { from, files, .. }, target) => match (*from, target) {
                 (None, Selection::Commit(_, into)) => Transfer::Amend {
                     into: *into,
@@ -117,9 +152,19 @@ impl Transfer {
                 ..
             } => "Move to top",
             Transfer::MoveCommit {
-                to: Destination::AboveCommit(_),
+                to: Destination::AboveCommit(_) | Destination::AboveBranch(_),
                 ..
             } => "Move above",
+            Transfer::MoveCommit {
+                to: Destination::BelowCommit(_),
+                ..
+            } => "Move below",
+            Transfer::CherryPick {
+                to: Destination::Branch(_),
+                ..
+            } => "Copy to top",
+            Transfer::CherryPick { .. } => "Copy above",
+            Transfer::StackBranch { .. } => "Stack on top",
             Transfer::Squash { .. } => "Squash into",
             Transfer::Amend { .. } => "Amend",
             Transfer::MoveFiles { .. } => "Move into",
@@ -131,14 +176,9 @@ impl Transfer {
     pub fn describe(&self) -> SharedString {
         match self {
             Transfer::Uncommit(_) | Transfer::UncommitFiles { .. } => "Uncommit".into(),
-            Transfer::MoveCommit {
-                to: Destination::Branch(branch),
-                ..
-            } => format!("Move to {}", short_ref(branch)).into(),
-            Transfer::MoveCommit {
-                to: Destination::AboveCommit(id),
-                ..
-            } => format!("Move above {}", id.short()).into(),
+            Transfer::MoveCommit { to, .. } => format!("Move {}", place(to)).into(),
+            Transfer::CherryPick { to, .. } => format!("Copy {}", place(to)).into(),
+            Transfer::StackBranch { onto, .. } => format!("Stack on {}", short_ref(onto)).into(),
             Transfer::Squash { into, .. } => format!("Squash into {}", into.short()).into(),
             Transfer::Amend { into, .. } => format!("Amend {}", into.short()).into(),
             Transfer::MoveFiles { to, .. } => format!("Move into {}", to.short()).into(),
@@ -174,15 +214,32 @@ impl Transfer {
                 label,
                 Overlay::default(),
                 move |path, remap| {
-                    let to = match to {
-                        Destination::AboveCommit(above) => {
-                            Destination::AboveCommit(remap.get(above)?)
-                        }
-                        branch => branch,
-                    };
-                    backend::move_commits(path, &[remap.get(id)?], &to)
+                    backend::move_commits(path, &[remap.get(id)?], &remapped(to, remap)?)
                 },
                 |store, rewritten, cx| store.follow(&rewritten, cx),
+                cx,
+            ),
+            Transfer::CherryPick { id, to } => store.run(
+                project,
+                label,
+                Overlay::default(),
+                move |path, remap| {
+                    // A commit from outside the workspace can't have been rewritten.
+                    let id = remap.get(id).unwrap_or(id);
+                    backend::cherry_pick(path, id, &remapped(to, remap)?)
+                },
+                |store, rewritten, cx| {
+                    store.follow(&rewritten, cx);
+                    store.snack_undoable("Copied", cx)
+                },
+                cx,
+            ),
+            Transfer::StackBranch { branch, onto } => store.run(
+                project,
+                label,
+                Overlay::default(),
+                move |path, _| backend::stack_branch(path, &branch, &onto),
+                |store, (), cx| store.snack_undoable("Branch moved", cx),
                 cx,
             ),
             Transfer::Squash { id, into } => store.run(
@@ -221,6 +278,25 @@ impl Transfer {
         }
         None
     }
+}
+
+/// Where `to` is, said after a verb: "to feature-x", "above a1b2c3d".
+fn place(to: &Destination) -> String {
+    match to {
+        Destination::Branch(branch) => format!("to {}", short_ref(branch)),
+        Destination::AboveBranch(branch) => format!("above {}", short_ref(branch)),
+        Destination::AboveCommit(id) => format!("above {}", id.short()),
+        Destination::BelowCommit(id) => format!("below {}", id.short()),
+    }
+}
+
+/// `to`, with the commit it's relative to as it is after the operations queued before.
+pub fn remapped(to: Destination, remap: &Remap) -> anyhow::Result<Destination> {
+    Ok(match to {
+        Destination::AboveCommit(id) => Destination::AboveCommit(remap.get(id)?),
+        Destination::BelowCommit(id) => Destination::BelowCommit(remap.get(id)?),
+        branch => branch,
+    })
 }
 
 pub fn short_ref(ref_name: &str) -> &str {

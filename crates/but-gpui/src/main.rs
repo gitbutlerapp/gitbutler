@@ -9,6 +9,7 @@ mod backend;
 mod detail;
 #[cfg(all(target_os = "macos", feature = "dev-script"))]
 mod dev;
+mod edits;
 #[cfg(target_os = "macos")]
 mod navigator;
 #[cfg(target_os = "macos")]
@@ -59,6 +60,7 @@ fn main() {
             cx.set_global(Theme::for_appearance(cx.window_appearance()));
             ui::text_input::bind_keys(cx);
             app::bind_keys(cx);
+            edits::bind_keys(cx);
             detail::bind_keys(cx);
             palette::bind_keys(cx);
             cx.on_action(|_: &app::Quit, cx| cx.quit());

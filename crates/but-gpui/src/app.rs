@@ -131,6 +131,8 @@ pub struct MenuItem {
     /// The keys that do the same, shown at the end of the row.
     pub key: Option<SharedString>,
     pub danger: bool,
+    /// Starts a new group, with a line above it.
+    pub separated: bool,
     pub handler: MenuHandler,
 }
 
@@ -143,6 +145,7 @@ impl MenuItem {
             label: label.into(),
             key: None,
             danger: false,
+            separated: false,
             handler: Rc::new(handler),
         }
     }
@@ -164,6 +167,11 @@ impl MenuItem {
 
     pub fn danger(mut self) -> Self {
         self.danger = true;
+        self
+    }
+
+    pub fn separated(mut self) -> Self {
+        self.separated = true;
         self
     }
 }
@@ -558,7 +566,7 @@ impl AppView {
 
     /// Ask for a branch name, then run `op` with it and select the branch it returns.
     #[allow(clippy::too_many_arguments)]
-    fn prompt_branch(
+    pub(crate) fn prompt_branch(
         &mut self,
         project: ProjectId,
         title: &str,
@@ -707,6 +715,9 @@ impl AppView {
     fn cut_selection(&mut self, _: &CutSelection, _: &mut Window, cx: &mut Context<Self>) {
         let cut = match self.selection(cx) {
             Some(Selection::Commit(project, id)) => Some(Cut::Commit(project, id)),
+            Some(Selection::Branch(project, ref_name)) if !ref_name.is_empty() => {
+                Some(Cut::Branch(project, ref_name))
+            }
             Some(Selection::Uncommitted(project)) => {
                 let files = self.detail.read(cx).selected_changes(cx);
                 (!files.is_empty()).then_some(Cut::Files {
@@ -731,7 +742,12 @@ impl AppView {
     }
 
     pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
-        let message = format!("Cut {}. Pick a spot and press ⌘V.", cut.describe());
+        let verb = if matches!(cut, Cut::Pick(..)) {
+            "Copied"
+        } else {
+            "Cut"
+        };
+        let message = format!("{verb} {}. Pick a spot and press ⌘V.", cut.describe());
         self.store.update(cx, |store, cx| {
             store.set_cut(Some(cut), cx);
             store.snack(message, cx);
@@ -866,10 +882,15 @@ impl AppView {
             Selection::Uncommitted(_) | Selection::History(_) => None,
         });
         if let Some(text) = text {
-            cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
-            self.store
-                .update(cx, |store, cx| store.snack(copied(&text), cx));
+            self.copy_text(text, cx);
         }
+    }
+
+    /// Put `text` on the clipboard and say so.
+    pub fn copy_text(&mut self, text: String, cx: &mut Context<Self>) {
+        let message = copied(&text);
+        cx.write_to_clipboard(ClipboardItem::new_string(text));
+        self.store.update(cx, |store, cx| store.snack(message, cx));
     }
 
     fn update_selected_project(
@@ -880,7 +901,7 @@ impl AppView {
     ) {
         if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
             self.store
-                .update(cx, |store, cx| store.update_from_target(&project, cx));
+                .update(cx, |store, cx| store.update_from_target(&project, None, cx));
         }
     }
 
@@ -937,9 +958,17 @@ impl AppView {
     fn render_menu(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let menu = self.menu.as_ref()?;
         let theme = Theme::get(cx);
-        let items = menu.items.iter().enumerate().map(|(ix, item)| {
+        let items = menu.items.iter().enumerate().flat_map(|(ix, item)| {
             let handler = item.handler.clone();
-            list_row(("menu-item", ix), false, theme)
+            let line = (item.separated && ix > 0).then(|| {
+                div()
+                    .h(px(1.))
+                    .mx(px(10.))
+                    .my(px(4.))
+                    .bg(theme.border_3)
+                    .into_any_element()
+            });
+            let row = list_row(("menu-item", ix), false, theme)
                 .mx(px(4.))
                 .gap(px(16.))
                 .text_size(px(13.))
@@ -955,6 +984,8 @@ impl AppView {
                     handler(this, window, cx);
                     cx.notify();
                 }))
+                .into_any_element();
+            line.into_iter().chain([row])
         });
         Some(
             deferred(
@@ -1262,6 +1293,7 @@ impl Render for AppView {
                         el.child(
                             div()
                                 // Navigator keys that open prompts, which the window owns.
+                                .map(|el| self.edit_actions(el, cx))
                                 .on_action(cx.listener(Self::delete_selection))
                                 .on_action(cx.listener(Self::rename_selection))
                                 .on_action(cx.listener(Self::new_branch_on_top))

@@ -14,12 +14,13 @@ use crate::backend::watch::Watcher;
 use crate::backend::{
     self, Branch, Commit, CommitId, FileChange, Project, Selected, SnapshotId, Workspace,
 };
+use crate::transfer::short_ref;
 
 mod mutation;
 mod saved;
 
 use mutation::Queued;
-pub use mutation::{Overlay, SLOW};
+pub use mutation::{Overlay, Remap, SLOW};
 pub use saved::{Pane, saved_window_place};
 use saved::{Restored, Saved};
 
@@ -51,6 +52,10 @@ impl Selection {
 #[derive(Debug, Clone)]
 pub enum Cut {
     Commit(ProjectId, CommitId),
+    /// A commit to put a copy of somewhere else: a cherry-pick.
+    Pick(ProjectId, CommitId),
+    /// A branch to stack on another, with the branches above it.
+    Branch(ProjectId, String),
     /// Files from the worktree (`from: None`), down to the hunks checked, or from a commit.
     Files {
         project: ProjectId,
@@ -63,13 +68,17 @@ pub enum Cut {
 impl Cut {
     pub fn project(&self) -> &ProjectId {
         match self {
-            Cut::Commit(project, _) | Cut::Files { project, .. } => project,
+            Cut::Commit(project, _)
+            | Cut::Pick(project, _)
+            | Cut::Branch(project, _)
+            | Cut::Files { project, .. } => project,
         }
     }
 
     pub fn describe(&self) -> String {
         match self {
-            Cut::Commit(_, id) => format!("commit {}", id.short()),
+            Cut::Commit(_, id) | Cut::Pick(_, id) => format!("commit {}", id.short()),
+            Cut::Branch(_, ref_name) => short_ref(ref_name).to_owned(),
             Cut::Files { files, .. } if files.len() == 1 => files[0].file.path.clone(),
             Cut::Files { files, .. } => format!("{} files", files.len()),
         }

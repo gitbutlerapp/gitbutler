@@ -53,6 +53,14 @@ impl Workspace {
         self.branches().find(|branch| branch.ref_name == ref_name)
     }
 
+    /// The stack holding the branch `ref_name`, and the branch's place in it from the top.
+    pub fn stack_of(&self, ref_name: &str) -> Option<(&Stack, usize)> {
+        self.stacks.iter().find_map(|stack| {
+            let at = stack.branches.iter().position(|b| b.ref_name == ref_name)?;
+            Some((stack, at))
+        })
+    }
+
     /// When anything last happened here, in seconds: a file written or a commit made.
     pub fn last_activity(&self) -> Option<i64> {
         let edited = self
@@ -167,6 +175,13 @@ pub struct Commit {
     pub time: i64,
     pub state: CommitState,
     pub conflicted: bool,
+}
+
+impl Commit {
+    /// Whether `key` is a change ID rather than the commit's sha.
+    pub fn has_change_id(&self) -> bool {
+        gix::ObjectId::from_hex(self.key.as_bytes()).ok() != Some(self.id.0)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
