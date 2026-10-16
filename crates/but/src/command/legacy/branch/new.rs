@@ -72,7 +72,12 @@ fn resolve(
         switch,
     } = args;
 
-    let merged = MergedUpstream::new(&*ctx.repo.get()?, head_info, allow_merged);
+    let merged = MergedUpstream::new(
+        &*ctx.repo.get()?,
+        &ctx.project_meta()?,
+        head_info,
+        allow_merged,
+    );
 
     let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
 

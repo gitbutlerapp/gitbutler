@@ -141,7 +141,13 @@ pub fn workspace_recreate_with_perm(
             .context("HEAD must refer to a local branch")?
             .to_owned();
 
-        if !ws.is_branch_the_target_or_its_local_tracking_branch(head_name.as_ref()) {
+        if ws
+            .graph
+            .project_meta
+            .target_ref
+            .as_ref()
+            .is_none_or(|target| target.as_local_full_name_ref() != head_name.as_ref())
+        {
             // Applying the current branch enters the workspace with one branch applied.
             let outcome = but_workspace::branch::apply(
                 head_name.as_ref(),
@@ -315,7 +321,9 @@ pub fn workspace_fetch_from_remotes(
                 .ok()
                 .and_then(|meta| {
                     let target = meta
-                        .target_ref
+                        .remote_target_ref(&repo)
+                        .ok()
+                        .flatten()
                         .as_ref()
                         .and_then(|target_ref| {
                             extract_remote_name_and_short_name(target_ref.as_ref(), &remote_names)
@@ -497,7 +505,8 @@ pub fn set_target_ref_and_init_project(
     let guard = ctx.exclusive_worktree_access();
     {
         let repo = ctx.repo.get()?;
-        but_workspace::init::set_target_ref_and_init_project(&repo, target_ref, push_remote)?;
+        let target_ref = but_core::ref_metadata::LocalRefName::new(target_ref.to_owned())?;
+        but_workspace::init::set_target_ref_and_init_project(&repo, &target_ref, push_remote)?;
     }
     ctx.invalidate_workspace_cache()?;
     drop(guard);
@@ -696,22 +705,17 @@ pub fn rebase_lane_bottoms<'a>(
         .collect()
 }
 
-pub(crate) fn target_branch_name(
-    symbolic_remote_names: &[String],
+/// The name of the target branch within its remote, like `main` for `refs/remotes/origin/main`.
+///
+/// Errors if no target is set, or if its remote cannot be determined.
+pub fn remote_target_short_name(
     project_meta: &but_core::ref_metadata::ProjectMeta,
-) -> Option<String> {
-    let target_ref = project_meta.target_ref.as_ref()?;
-    let mut symbolic_remote_names = symbolic_remote_names.iter().collect::<Vec<_>>();
-    symbolic_remote_names.sort_by_key(|name| name.len());
-    let remote_names = symbolic_remote_names
-        .iter()
-        .map(|name| name.as_bytes().as_bstr().to_owned())
-        .collect();
-    Some(
-        extract_remote_name_and_short_name(target_ref.as_ref(), &remote_names)
-            .map(|(_, short_name)| short_name.to_string())
-            .unwrap_or_else(|| target_ref.shorten().to_string()),
-    )
+    repo: &gix::Repository,
+) -> anyhow::Result<String> {
+    let target_ref = project_meta.remote_target_ref_or_err(repo)?;
+    but_core::extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
+        .map(|(_remote_name, short_name)| short_name.to_string())
+        .with_context(|| format!("failed to determine remote for branch {target_ref}"))
 }
 
 fn review_integration_hints_from_reviews(
@@ -751,15 +755,14 @@ fn forge_review_integration_hints(
     workspace: &but_graph::Workspace,
     project_meta: &but_core::ref_metadata::ProjectMeta,
     db: &but_db::DbHandle,
+    repo: &gix::Repository,
 ) -> anyhow::Result<Vec<ReviewIntegrationHint>> {
-    let Some(target_branch_name) =
-        target_branch_name(&workspace.graph.symbolic_remote_names, project_meta)
-    else {
+    let Ok(target_branch_name) = remote_target_short_name(project_meta, repo) else {
         return Ok(vec![]);
     };
 
     let incoming_commit_ids = workspace
-        .incoming_target_commit_ids()?
+        .incoming_target_commit_ids(repo)?
         .into_iter()
         .map(|id| id.to_hex().to_string())
         .collect::<HashSet<_>>();
@@ -845,13 +848,16 @@ pub fn workspace_integrate_upstream_with_perm(
             return Ok(None);
         };
         let repo = ctx.repo.get()?;
-        let Some(target_reference) = repo.try_find_reference(target_ref)? else {
+        let Some(upstream) = project_meta.remote_target_ref(&repo)? else {
+            return Ok(None);
+        };
+        let Some(mut upstream_reference) = repo.try_find_reference(upstream.as_ref())? else {
             return Ok(None);
         };
         but_workspace::local_tracking_branch_to_fast_forward(
             &repo,
-            target_reference.name(),
-            target_reference.id().detach(),
+            target_ref.as_local_full_name_ref(),
+            upstream_reference.peel_to_id()?.detach(),
         )
     })();
     let local_target_ref = match local_target_ref {
@@ -898,7 +904,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
     let (workspace_state, worktree_conflicts) = {
         let project_meta = ctx.project_meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db) {
+        let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db, &repo) {
             Ok(review_hints) => review_hints,
             Err(err) => {
                 warn!(
@@ -939,7 +945,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
         project_meta.persist(&repo)?;
         if let Err(err) = but_workspace::fast_forward_local_tracking_branch(
             &repo,
-            project_meta.target_ref_or_err()?.as_ref(),
+            project_meta.target_ref_or_err()?.as_local_full_name_ref(),
             project_meta.target_commit_id_or_err()?,
         ) {
             warn!(?err, "failed to fast-forward local target branch");
@@ -971,9 +977,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        review_integration_hints_from_reviews, target_branch_name, workspace_fetch_from_remotes,
-    };
+    use super::{review_integration_hints_from_reviews, workspace_fetch_from_remotes};
     use but_core::RefMetadata;
     use but_testsupport::{CommandExt, git_at_dir, open_repo};
     use std::collections::HashSet;
@@ -981,7 +985,7 @@ mod tests {
 
     fn repo_with_feature_branch() -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
         let tmp = tempfile::tempdir()?;
-        git_at_dir(tmp.path()).args(["init"]).run();
+        git_at_dir(tmp.path()).args(["init", "-b", "main"]).run();
         git_at_dir(tmp.path())
             .args(["config", "user.name", "GitButler"])
             .run();
@@ -997,6 +1001,9 @@ mod tests {
             .run();
         git_at_dir(tmp.path())
             .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["branch", "--set-upstream-to=origin/main", "main"])
             .run();
         write_file(tmp.path(), "file.txt", "two\n")?;
         git_at_dir(tmp.path()).args(["commit", "-am", "two"]).run();
@@ -1045,6 +1052,9 @@ mod tests {
             .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
             .run();
         git_at_dir(&work)
+            .args(["branch", "--set-upstream-to=origin/main", "main"])
+            .run();
+        git_at_dir(&work)
             .args(["remote", "add", "broken", "/nonexistent/path/broken.git"])
             .run();
         Ok((open_repo(&work)?, tmp))
@@ -1055,7 +1065,7 @@ mod tests {
         disable_askpass();
         let (repo, _tmp) = repo_with_healthy_and_broken_remotes()?;
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+        let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
         super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
 
         workspace_fetch_from_remotes(&mut ctx, None)
@@ -1097,11 +1107,17 @@ mod tests {
     fn fetch_fails_when_the_targets_own_remote_fails() -> anyhow::Result<()> {
         disable_askpass();
         let (repo, tmp) = repo_with_healthy_and_broken_remotes()?;
-        git_at_dir(tmp.path().join("repo"))
+        drop(repo);
+        let work = tmp.path().join("repo");
+        git_at_dir(&work)
             .args(["update-ref", "refs/remotes/broken/main", "HEAD"])
             .run();
+        git_at_dir(&work)
+            .args(["branch", "--set-upstream-to=broken/main", "main"])
+            .run();
+        let repo = open_repo(&work)?;
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        let target_ref = gix::refs::FullName::try_from("refs/remotes/broken/main")?;
+        let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
         super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
 
         workspace_fetch_from_remotes(&mut ctx, None)
@@ -1124,7 +1140,7 @@ mod tests {
         disable_askpass();
         let (repo, _tmp) = repo_with_healthy_and_broken_remotes()?;
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+        let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
         super::set_target_ref_and_init_project(
             &mut ctx,
             target_ref.as_ref(),
@@ -1162,10 +1178,16 @@ mod tests {
     }
 
     #[test]
-    fn set_target_ref_accepts_remote_tracking_ref_and_persists_metadata() -> anyhow::Result<()> {
+    fn set_target_ref_persists_local_target_and_upstream_cutoff() -> anyhow::Result<()> {
         let (repo, _tmp) = repo_with_feature_branch()?;
+        let upstream_tip = repo.rev_parse_single("refs/remotes/origin/main")?.detach();
+        assert_ne!(
+            repo.head_id()?.detach(),
+            upstream_tip,
+            "local main is ahead of its upstream"
+        );
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+        let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
 
         super::set_target_ref_and_init_project(
             &mut ctx,
@@ -1174,8 +1196,18 @@ mod tests {
         )?;
 
         let stored_meta = ctx.project_meta()?;
-        assert_eq!(stored_meta.target_ref.as_ref(), Some(&target_ref));
-        assert!(stored_meta.target_commit_id.is_some());
+        assert_eq!(
+            stored_meta.target_ref,
+            Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            "metadata stores the local target branch"
+        );
+        assert_eq!(
+            stored_meta.target_commit_id,
+            Some(upstream_tip),
+            "initialization uses the upstream cutoff, not the local tip"
+        );
         assert_eq!(stored_meta.push_remote.as_deref(), Some("origin"));
 
         Ok(())
@@ -1190,7 +1222,7 @@ mod tests {
             .run();
         let repo = open_repo(tmp.path())?;
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-        let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+        let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
         super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
         let before = ctx.project_meta()?;
 
@@ -1204,23 +1236,32 @@ mod tests {
     }
 
     #[test]
-    fn set_target_ref_rejects_local_branch_refs() -> anyhow::Result<()> {
+    fn set_target_ref_accepts_local_branch_refs() -> anyhow::Result<()> {
         let (repo, _tmp) = repo_with_feature_branch()?;
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
         let target_ref = gix::refs::FullName::try_from("refs/heads/feature")?;
 
-        let err = super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)
-            .expect_err("local branches are not valid default targets");
+        super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
+        let stored = ctx.project_meta()?;
         assert_eq!(
-            err.to_string(),
-            "target ref 'refs/heads/feature' must be a remote tracking branch"
+            stored.target_ref,
+            Some(but_core::ref_metadata::LocalRefName::new(target_ref)?),
+            "the local target is persisted"
+        );
+        assert!(
+            stored.target_commit_id.is_some(),
+            "the local target has a validated base"
+        );
+        assert_eq!(
+            stored.push_remote, None,
+            "a local target does not require a push remote"
         );
 
         Ok(())
     }
 
     #[test]
-    fn set_target_ref_uses_merge_base_not_target_tip() -> anyhow::Result<()> {
+    fn changing_target_uses_merge_base_when_stored_cutoff_is_not_reachable() -> anyhow::Result<()> {
         let (_repo, tmp) = repo_with_feature_branch()?;
         git_at_dir(tmp.path()).args(["checkout", "feature"]).run();
         write_file(tmp.path(), "feature.txt", "feature\n")?;
@@ -1231,10 +1272,13 @@ mod tests {
         git_at_dir(tmp.path())
             .args(["update-ref", "refs/remotes/origin/feature", "HEAD"])
             .run();
+        git_at_dir(tmp.path())
+            .args(["branch", "--set-upstream-to=origin/feature", "feature"])
+            .run();
         git_at_dir(tmp.path()).args(["checkout", "main"]).run();
 
         let repo = open_repo(tmp.path())?;
-        let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/feature")?;
+        let target_ref = gix::refs::FullName::try_from("refs/heads/feature")?;
         let target_tip = repo
             .find_reference(target_ref.as_ref())?
             .peel_to_id()?
@@ -1244,9 +1288,23 @@ mod tests {
             .merge_base(current_head, target_tip)?
             .expect("the feature branch shares history with main")
             .detach();
-        assert_ne!(expected_merge_base, target_tip);
+        assert_ne!(
+            expected_merge_base, target_tip,
+            "the target has its own history"
+        );
+        assert_ne!(
+            expected_merge_base, current_head,
+            "the stored cutoff is not reachable from the new target"
+        );
 
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        ctx.set_project_meta(but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            target_commit_id: Some(current_head),
+            push_remote: None,
+        })?;
         super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
 
         let project_meta = ctx.project_meta()?;
@@ -1293,22 +1351,32 @@ mod tests {
     }
 
     #[test]
-    fn target_branch_name_prefers_longest_matching_remote_name() {
+    fn remote_target_short_name_uses_upstream_and_longest_matching_remote() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = repo_with_feature_branch()?;
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("remote.foo.url", "../foo")?;
+            config.set_raw_value("remote.foo.fetch", "+refs/heads/*:refs/remotes/foo/*")?;
+            config.set_raw_value("remote.foo/bar.url", "../bar")?;
+            config.set_raw_value(
+                "remote.foo/bar.fetch",
+                "+refs/heads/*:refs/remotes/foo/bar/*",
+            )?;
+            config.set_raw_value("branch.feature.remote", "foo/bar")?;
+            config.set_raw_value("branch.feature.merge", "refs/heads/trunk")?;
+        }
         let project_meta = but_core::ref_metadata::ProjectMeta {
-            target_ref: Some(
-                "refs/remotes/foo/bar/main"
-                    .try_into()
-                    .expect("target ref is a valid full ref name"),
-            ),
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/feature".try_into()?,
+            )?),
             ..Default::default()
         };
-        let remote_names = vec!["foo".to_string(), "foo/bar".to_string()];
-
         assert_eq!(
-            target_branch_name(&remote_names, &project_meta).as_deref(),
-            Some("main"),
-            "the longest matching remote name should be stripped from the target ref"
+            super::remote_target_short_name(&project_meta, &repo)?,
+            "trunk",
+            "review matching uses the upstream branch, not the local name or a shorter remote prefix"
         );
+        Ok(())
     }
 
     #[test]

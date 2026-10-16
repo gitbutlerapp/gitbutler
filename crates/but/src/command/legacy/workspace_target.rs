@@ -31,18 +31,21 @@ pub(crate) struct StatusTarget {
 
 impl ResolvedTarget {
     /// Build a resolved target from workspace projection data.
-    pub(crate) fn from_workspace(workspace: &but_graph::Workspace) -> Result<Self> {
+    pub(crate) fn from_workspace(
+        workspace: &but_graph::Workspace,
+        repo: &gix::Repository,
+    ) -> Result<Self> {
         Ok(Self {
             oid: target_oid_from_workspace(workspace)?,
             ref_name: target_ref_name_from_workspace(workspace),
-            push_remote_name: workspace.push_remote_name(),
+            push_remote_name: workspace.push_remote_name(repo)?,
         })
     }
 
     /// Resolve the effective workspace target while reusing an existing repository permission.
     pub(crate) fn resolve_with_perm(ctx: &Context, perm: &RepoShared) -> Result<Self> {
-        let (_, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
-        Self::from_workspace(&ws)
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
+        Self::from_workspace(&ws, &repo)
     }
 
     /// Return the effective target commit ID.
@@ -66,19 +69,21 @@ impl ResolvedTarget {
     }
 
     /// Build the status-facing target information for display in `but status`.
+    /// Prefer the graph's shared lower bound over the selected cutoff for the common-base row.
     pub(crate) fn for_status(
         &self,
         base_branch: Option<&gitbutler_branch_actions::BaseBranch>,
+        lower_bound: Option<gix::ObjectId>,
     ) -> StatusTarget {
         if let Some(base_branch) = base_branch {
             return StatusTarget {
-                commit_id: base_branch.base_sha,
+                commit_id: lower_bound.unwrap_or(base_branch.base_sha),
                 display_name: display_name_from_base_branch(base_branch),
             };
         }
 
         StatusTarget {
-            commit_id: self.oid(),
+            commit_id: lower_bound.unwrap_or(self.oid()),
             display_name: self
                 .display_name()
                 .unwrap_or_else(|| self.oid().to_hex_with_len(7).to_string()),
@@ -89,13 +94,16 @@ impl ResolvedTarget {
 /// Build the display name `but status` should show for a legacy base branch.
 fn display_name_from_base_branch(base_branch: &gitbutler_branch_actions::BaseBranch) -> String {
     match (
-        base_branch.remote_name.is_empty(),
+        base_branch
+            .remote_name
+            .as_deref()
+            .filter(|name| !name.is_empty()),
         base_branch.short_name.is_empty(),
     ) {
-        (true, true) => base_branch.branch_name.clone(),
-        (true, false) => base_branch.short_name.clone(),
-        (false, true) => base_branch.remote_name.clone(),
-        (false, false) => format!("{}/{}", base_branch.remote_name, base_branch.short_name),
+        (None, true) => base_branch.branch_name.clone(),
+        (None, false) => base_branch.short_name.clone(),
+        (Some(remote), true) => remote.to_owned(),
+        (Some(remote), false) => format!("{remote}/{}", base_branch.short_name),
     }
 }
 
@@ -110,13 +118,14 @@ fn target_oid_from_workspace(workspace: &but_graph::Workspace) -> Result<gix::Ob
         )
 }
 
-/// Resolve the effective target reference name from workspace projection data.
+/// Return the configured local target reference name.
 fn target_ref_name_from_workspace(workspace: &but_graph::Workspace) -> Option<gix::refs::FullName> {
     workspace
+        .graph
+        .project_meta
         .target_ref
         .as_ref()
-        .map(|target| target.ref_name.clone())
-        .or_else(|| workspace.graph.project_meta.target_ref.clone())
+        .map(|name| name.as_local_full_name_ref().to_owned())
 }
 
 /// Find the merge base between `branch_oid` and the effective workspace target.
@@ -129,18 +138,18 @@ pub(crate) fn merge_base_with_target_with_perm(
 ) -> Result<(gix::ObjectId, ResolvedTarget)> {
     let (repo, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
 
-    if let Some((merge_base, target_oid)) = workspace.merge_base_with_target_branch(branch_oid) {
+    if let Some((merge_base, target_oid)) = workspace.merge_base_with_target_commit(branch_oid) {
         return Ok((
             merge_base,
             ResolvedTarget {
                 oid: target_oid,
                 ref_name: target_ref_name_from_workspace(&workspace),
-                push_remote_name: workspace.push_remote_name(),
+                push_remote_name: workspace.push_remote_name(&repo)?,
             },
         ));
     }
 
-    let target = ResolvedTarget::from_workspace(&workspace)?;
+    let target = ResolvedTarget::from_workspace(&workspace, &repo)?;
     let merge_base = repo
         .merge_base(branch_oid, target.oid())
         .context("Failed to find merge base with workspace target")?
@@ -160,12 +169,12 @@ mod tests {
     fn base_branch(base_sha: gix::ObjectId) -> gitbutler_branch_actions::BaseBranch {
         gitbutler_branch_actions::BaseBranch {
             branch_name: "refs/remotes/origin/main".to_string(),
-            remote_name: "origin".to_string(),
-            remote_url: "https://example.com/origin".to_string(),
-            push_remote_name: "origin".to_string(),
-            push_remote_url: "https://example.com/origin".to_string(),
+            remote_name: Some("origin".to_string()),
+            remote_url: Some("https://example.com/origin".to_string()),
+            push_remote_name: Some("origin".to_string()),
+            push_remote_url: Some("https://example.com/origin".to_string()),
             base_sha,
-            current_sha: base_sha,
+            current_sha: Some(base_sha),
             behind: 0,
             upstream_commits: vec![],
             recent_commits: vec![],
@@ -185,9 +194,17 @@ mod tests {
         };
         let base_branch = base_branch(oid("2222222222222222222222222222222222222222"));
 
-        let status_target = resolved_target.for_status(Some(&base_branch));
+        let status_target = resolved_target.for_status(Some(&base_branch), None);
 
         assert_eq!(status_target.commit_id, base_branch.base_sha);
+        assert_eq!(status_target.display_name, "origin/main");
+
+        let lower_bound = oid("5555555555555555555555555555555555555555");
+        let status_target = resolved_target.for_status(Some(&base_branch), Some(lower_bound));
+        assert_eq!(
+            status_target.commit_id, lower_bound,
+            "the displayed common base is independent of the selected cutoff"
+        );
         assert_eq!(status_target.display_name, "origin/main");
     }
 
@@ -199,7 +216,7 @@ mod tests {
             push_remote_name: None,
         };
 
-        let status_target = resolved_target.for_status(None);
+        let status_target = resolved_target.for_status(None, None);
 
         assert_eq!(status_target.commit_id, resolved_target.oid());
         assert_eq!(status_target.display_name, "3333333");
@@ -208,7 +225,7 @@ mod tests {
     #[test]
     fn base_branch_display_name_avoids_empty_separator() {
         let mut base_branch = base_branch(oid("4444444444444444444444444444444444444444"));
-        base_branch.remote_name.clear();
+        base_branch.remote_name.as_mut().unwrap().clear();
 
         assert_eq!(display_name_from_base_branch(&base_branch), "main");
     }

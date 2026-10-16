@@ -294,6 +294,9 @@ pub struct Graph {
     pub worktree_tips: Vec<init::WorktreeTip>,
     /// Project-wide metadata used for target ref, target commit, and push remote resolution.
     pub project_meta: but_core::ref_metadata::ProjectMeta,
+    /// Configured target upstream, derived during traversal even if its ref or segment is absent.
+    /// Refreshed when traversal is redone; projection must not infer it from segment links.
+    target_upstream_ref: Option<gix::refs::FullName>,
     /// All remote names that aren't URLs and that were retrieved during the traversal.
     ///
     /// They are useful to extract remote names from remote tracking refs like `refs/remotes/origin/master`,

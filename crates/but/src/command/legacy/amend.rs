@@ -27,7 +27,12 @@ pub fn amend(
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
-    let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
+    let merged = MergedUpstream::new(
+        &*ctx.repo.get()?,
+        &ctx.project_meta()?,
+        &head_info,
+        args.allow_merged,
+    );
 
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
     let operation = resolve(args, &ws, &repo, &id_map, &head_info, &merged, invoked_from)?;

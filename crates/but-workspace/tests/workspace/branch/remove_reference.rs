@@ -46,11 +46,10 @@ fn deletion_result_distinguishes_missing_refs_from_configuration_cleanup() -> an
 
 #[test]
 fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, mut repo, mut meta, desc, _db) =
-        named_writable_scenario_with_args_and_description_and_graph(
+    let (_tmp, mut repo, mut meta, desc, mut db) =
+        crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_args_and_description(
             "single-branch-no-ws-commit-no-target",
             ["A", "B"],
-            |_| {},
         )?;
     snapbox::assert_data_eq!(
         desc,
@@ -67,7 +66,10 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = graph.into_workspace()?;
+    let ws = crate::ref_info::with_workspace_commit::utils::graph_with_cutoff_only(
+        &repo, &meta, &mut db,
+    )?
+    .into_workspace()?;
     // the workspace is empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -157,7 +159,7 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
 └── ≡📙:A on 3183e43 {0}
     ├── 📙:A
     │   └── ·c2878fb (🏘️) ►A2
@@ -188,7 +190,7 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
 └── ≡:anon: on 3183e43
     └── :anon:
         ├── ·c2878fb (🏘️)
@@ -238,7 +240,7 @@ Two commits in main, target setup, ws commit, many more usable branches
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
 └── ≡📙:A on bce0c5e {0}
     ├── 📙:A
     ├── 📙:A2-3
@@ -272,7 +274,7 @@ Two commits in main, target setup, ws commit, many more usable branches
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
 └── ≡📙:A1-1 on bce0c5e {0}
     ├── 📙:A1-1
     │   └── ·43f9472 (🏘️)
@@ -301,7 +303,7 @@ Two commits in main, target setup, ws commit, many more usable branches
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on bce0c5e
 └── ≡📙:A1-3 on bce0c5e {0}
     └── 📙:A1-3
         ├── ·43f9472 (🏘️)
@@ -332,15 +334,13 @@ Two commits in main, target setup, ws commit, many more usable branches
 
 #[test]
 fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, mut repo, mut meta, desc, _db) =
-        named_writable_scenario_with_args_and_description_and_graph(
+    let (_tmp, mut repo, mut meta, desc, mut db) =
+        crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_args_and_description(
             "single-branch-no-ws-commit-no-target",
             ["A", "B", "C", "D", "E"],
-            |meta| {
-                add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &["B", "C"]);
-                add_stack_with_segments(meta, 1, "D", StackState::InWorkspace, &["E"]);
-            },
         )?;
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &["B", "C"]);
+    add_stack_with_segments(&mut meta, 1, "D", StackState::InWorkspace, &["E"]);
     snapbox::assert_data_eq!(
         desc,
         snapbox::str![[r#"
@@ -356,7 +356,10 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 "#]]
     );
 
-    let ws = graph.into_workspace()?;
+    let ws = crate::ref_info::with_workspace_commit::utils::graph_with_cutoff_only(
+        &repo, &meta, &mut db,
+    )?
+    .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"

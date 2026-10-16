@@ -26,7 +26,7 @@ fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
         "edit_mode.sh",
         None::<String>,
         gix_testtools::Creation::Execute,
-        2,
+        3,
         move |fixture| {
             if fixture.is_uninitialized() {
                 let repo = open_repo(&fixture.path().join(&folder_for_post))?;
@@ -59,7 +59,9 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
     meta.set_changed_to_necessitate_write();
     meta.write_unreconciled()?;
     ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
         push_remote: Some("origin".to_owned()),
     }

@@ -275,9 +275,9 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
     // including the remote branch to integrate and the project's target ref.
     let upstream_ref_name = resolve_tracking_branch_ref_name(ref_name, repo)?;
     let target_ref_name = workspace
-        .target_ref
-        .as_ref()
-        .map(|target| target.ref_name.clone())
+        .graph
+        .project_meta
+        .remote_target_ref(repo)?
         .filter(|target_ref_name| *target_ref_name != *upstream_ref_name);
 
     let editor = Editor::create(workspace, meta, repo, db)?;

@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use anyhow::Result;
 use but_core::{
     RefMetadata, WORKSPACE_REF_NAME,
-    branch::resolve_tracking_branch_ref_name,
     ref_metadata::{
         StackId, StackKind, Workspace, WorkspaceCommitRelation, WorkspaceStack,
         WorkspaceStackBranch,
@@ -139,13 +138,40 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
     pub fn branch_stacks(&self) -> Result<BranchStacks> {
         let graph = &self.graph;
         let project_meta = &self.workspace.graph.project_meta;
-        let base = project_meta
-            .target_commit_id
-            .and_then(|id| find_pick(graph, id))
-            .or_else(|| {
-                let target_ref = project_meta.target_ref.as_ref()?;
-                first_commit(graph, find_reference(graph, target_ref.as_ref())?)
-            });
+        let base = match project_meta.target_commit_id {
+            Some(id) => {
+                let mappings = self.history.commit_mappings();
+                let rewritten = mappings.get(&id).copied().unwrap_or(id);
+                // An excluded boundary has no step. Do not replace it with another cutoff.
+                find_pick(graph, rewritten)
+            }
+            None => {
+                let target = project_meta.remote_target_ref(&self.repo)?.or_else(|| {
+                    project_meta
+                        .target_ref
+                        .as_ref()
+                        .map(|name| name.as_local_full_name_ref().to_owned())
+                });
+                // Prefer the rewritten ref position so pending ref-only moves are visible.
+                // A traversal may omit the ref node but still include its tip commit.
+                match target {
+                    Some(name) => match find_reference(graph, name.as_ref()) {
+                        Some(reference) => first_commit(graph, reference),
+                        None => self
+                            .repo
+                            .try_find_reference(name.as_ref())?
+                            .map(|mut reference| reference.peel_to_commit().map(|commit| commit.id))
+                            .transpose()?
+                            .and_then(|id| {
+                                let mappings = self.history.commit_mappings();
+                                let rewritten = mappings.get(&id).copied().unwrap_or(id);
+                                find_pick(graph, rewritten)
+                            }),
+                    },
+                    None => None,
+                }
+            }
+        };
 
         let mut head = None;
         let mut worktrees = Vec::new();
@@ -239,15 +265,14 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
             && !refname.as_bstr().starts_with_str("refs/heads/gitbutler/");
         let is_the_target_branch = base.is_some()
             && first_commit(&self.graph, ix) == base
-            && self.tracks_target(refname.as_ref());
+            && self.is_target(refname.as_ref());
         (is_user_branch && !is_the_target_branch).then(|| refname.clone())
     }
 
-    fn tracks_target(&self, name: &gix::refs::FullNameRef) -> bool {
+    fn is_target(&self, name: &gix::refs::FullNameRef) -> bool {
         let Some(target_ref) = self.workspace.graph.project_meta.target_ref.as_ref() else {
             return false;
         };
-        resolve_tracking_branch_ref_name(name, &self.repo)
-            .is_ok_and(|tracking| tracking.as_ref() == target_ref.as_ref())
+        name == target_ref.as_local_full_name_ref()
     }
 }

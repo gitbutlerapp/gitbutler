@@ -30,7 +30,7 @@ pub fn writable_context(script_name: &str, repo_name: &str) -> Result<(Context, 
         } else {
             gix_testtools::Creation::CopyFromReadOnly
         },
-        4,
+        5,
         move |fixture| {
             if fixture.is_uninitialized() {
                 let repo = open_repo(&fixture.path().join(&repo_name_for_post))?;
@@ -51,7 +51,7 @@ pub fn read_only_context(script_name: &str, repo_name: &str) -> Result<Context> 
     let script_name_for_post = script_name.clone();
     let (root, _) = gix_testtools::scripted_fixture_read_only_with_post(
         script_name.clone(),
-        4,
+        5,
         move |fixture| {
             if fixture.is_uninitialized() {
                 if script_name_for_post == "for-listing.sh" {
@@ -184,7 +184,9 @@ fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) ->
     meta.write_unreconciled()?;
 
     ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
         push_remote: Some("origin".to_owned()),
     }

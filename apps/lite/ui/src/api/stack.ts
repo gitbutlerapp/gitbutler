@@ -45,5 +45,7 @@ export const rebaseAllUpdates = (headInfo: RefInfo): Array<BottomUpdate> =>
 		.filter((relativeTo) => relativeTo != null)
 		.map((relativeTo) => ({ kind: "rebase", selector: relativeTo }));
 
-/** Whether a pull has work to do: the stored target trails its ref, or a lane has yet to catch up with it. */
-export const pullHasWork = (target: Target): boolean => !target.isCurrent || target.hasLanesBehind;
+/** Pull requires an available upstream and a cutoff, lane, or local target to update. */
+export const pullHasWork = (target: Target): boolean =>
+	target.upstream?.tip != null &&
+	(!target.upstream.cutoffMatchesTip || target.hasLanesBehind || target.canFastForwardLocalTarget);

@@ -290,7 +290,8 @@ Hint: run `but help` for all commands
 
     env.but("pull").assert().success();
 
-    // The base moves to the newer `main` and `A` is rebased onto it, keeping its merge.
+    // The cutoff moves to the newer `main` and `A` is rebased onto it, keeping its merge.
+    // The workspace's old base parent keeps its displayed common base at `add M`.
     env.but("status")
         .assert()
         .success()
@@ -311,7 +312,7 @@ Hint: run `but help` for all commands
 ┊●   kvk add B1
 ├╯
 ┊
-┴ c39f3a2 (common base, origin/main) 2000-01-02 add main3
+┴ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 
@@ -411,7 +412,8 @@ Hint: run `but help` for all commands
 
     env.but("pull").assert().success();
 
-    // The base moves to the newer `main`; the merge and the local commit stay in `A`.
+    // The cutoff moves to the newer `main`; the merge and the local commit stay in `A`.
+    // The workspace's old base parent keeps its displayed common base at `add M`.
     env.but("status")
         .assert()
         .success()
@@ -433,7 +435,7 @@ Hint: run `but help` for all commands
 ┊●   kvk add B1
 ├╯
 ┊
-┴ c39f3a2 (common base, origin/main) 2000-01-02 add main3
+┴ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: run `but help` for all commands
 

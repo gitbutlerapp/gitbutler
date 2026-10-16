@@ -14,6 +14,8 @@ setup_target_to_match_main
 
 git checkout -b A main
 remote_tracking_caught_up A
+git config branch.A.remote origin
+git config branch.A.merge refs/heads/A
 
 tick
 echo local >shared.txt

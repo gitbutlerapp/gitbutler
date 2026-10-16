@@ -38,15 +38,22 @@ pub fn workspace_branch_and_ancestors_push(
     let to_push = branch_and_ancestor_segments(ref_info, branch);
 
     let remote_names = repo.remote_names();
-    let target_ref_name = ws
-        .target_ref_name()
-        .context("failed to get target reference name")?
-        .to_owned();
+    let target_branch_name = if gerrit_mode {
+        let upstream = ws
+            .graph
+            .project_meta
+            .remote_target_ref(repo)?
+            .context("Gerrit push requires a target upstream")?;
+        Some(target_branch_name_from_ref_name(
+            upstream.as_ref(),
+            &remote_names,
+        )?)
+    } else {
+        None
+    };
     let push_remote = ws
-        .push_remote_name()
+        .push_remote_name(repo)?
         .context("failed to get target push remote name")?;
-    let target_branch_name =
-        target_branch_name_from_ref_name(target_ref_name.as_ref(), &remote_names)?;
     let mut result = PushResult {
         remote: push_remote.clone(),
         branch_to_remote: vec![],
@@ -108,9 +115,9 @@ pub fn workspace_branch_and_ancestors_push(
         let gerrit_push_args = gerrit_push_args(
             gerrit_mode,
             local_sha.id,
-            target_branch_name.as_bstr(),
+            target_branch_name.as_ref().map(|name| name.as_bstr()),
             &push_opts,
-        );
+        )?;
         let push_output = push_with_askpass(
             repo,
             local_sha.id,
@@ -169,10 +176,12 @@ struct GerritPushArgs {
 fn gerrit_push_args(
     gerrit_mode: bool,
     head: gix::ObjectId,
-    target_branch_name: &BStr,
+    target_branch_name: Option<&BStr>,
     push_flags: &[but_gerrit::PushFlag],
-) -> GerritPushArgs {
-    if gerrit_mode {
+) -> Result<GerritPushArgs> {
+    Ok(if gerrit_mode {
+        let target_branch_name =
+            target_branch_name.context("Gerrit push requires a target upstream")?;
         GerritPushArgs {
             refspec: Some(format!("{head}:refs/for/{target_branch_name}")),
             push_opts: push_flags.iter().map(|flag| flag.to_string()).collect(),
@@ -182,7 +191,7 @@ fn gerrit_push_args(
             refspec: None,
             push_opts: vec![],
         }
-    }
+    })
 }
 
 /// Derive the target branch name while tolerating stale target remotes.

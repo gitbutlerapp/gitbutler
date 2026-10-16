@@ -136,8 +136,8 @@ Failed to merge branch. Refusing to land `B`: it is stacked on top of 1 other se
         env.git_log(),
         str![[r#"
 * 1ceb1d7 (HEAD -> B) add B
-* 39ac5be (origin/main, origin/HEAD) add A
-* b1540e5 (main, gitbutler/target) M
+* 39ac5be (origin/main, origin/HEAD, main) add A
+* b1540e5 (gitbutler/target) M
 * e31e6ca add init
 
 "#]]
@@ -155,7 +155,7 @@ Failed to merge branch. Refusing to land `B`: it is stacked on top of 1 other se
 ┊●   wrp add B
 ├╯
 ┊
-┴ 39ac5be (common base, origin/main) 2000-01-02 add A
+┴ 39ac5be (common base, main, origin/main) 2000-01-02 add A
 
 Hint: run `but help` for all commands
 
@@ -178,6 +178,7 @@ fn merge_first_branch_into_origin() {
     env.invoke_git(&format!("remote set-url origin {}", remote.display()));
     env.invoke_git("push origin main:main");
     env.invoke_git("fetch origin");
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
 
     assert_eq!(
@@ -198,8 +199,6 @@ fn merge_first_branch_into_origin() {
         .assert()
         .success();
 
-    let main_before = env.invoke_git("rev-parse main");
-
     let output = env
         .but("merge first-branch --yes")
         .assert()
@@ -217,11 +216,11 @@ fn merge_first_branch_into_origin() {
         "land must not promise a clean `but undo` on the real-remote push path; got:\n{stdout}"
     );
 
-    // Only the remote target advanced, and as a fast-forward (no merge commit).
+    // Reconciliation safely fast-forwards local main to the published target.
     assert_eq!(
-        main_before,
+        first_branch_tip,
         env.invoke_git("rev-parse main"),
-        "land must not move the local main ref"
+        "reconciliation advances the local target when it has no divergent history"
     );
     assert_eq!(
         env.invoke_git("rev-parse origin/main"),
@@ -305,6 +304,7 @@ Renamed branch 'next-branch' to 'my-branch'
 fn merge_fast_forwards_self_remote() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
 
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
     env.but("branch new first-branch").assert().success();
     env.file("file1.txt", "content1");
@@ -375,6 +375,7 @@ fn merge_fast_forwards_self_remote() {
 #[test]
 fn merge_refuses_self_remote_target_checked_out_in_worktree() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
     env.but("branch new first-branch").assert().success();
     env.file("file1.txt", "content1");
@@ -412,6 +413,7 @@ Failed to merge branch. Cannot land onto `main`: it is checked out in [..]main-w
 fn merge_no_ff_creates_signed_merge_commit() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
 
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
 
     // Configure SSH commit signing, keeping the key outside the worktree so it can't pollute status.
@@ -492,6 +494,7 @@ fn merge_no_ff_creates_signed_merge_commit() {
 #[test]
 fn merge_ignores_unreachable_unrelated_remote() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
     env.invoke_git("remote add broken /nonexistent/path/broken.git");
 
@@ -516,6 +519,7 @@ fn merge_ignores_unreachable_unrelated_remote() {
 #[test]
 fn merge_refuses_non_bottom_stack_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
 
     // Build a 2-segment stack: bottom-seg, then top-seg stacked on top of it.
@@ -566,6 +570,7 @@ fn merge_refuses_non_bottom_stack_segment() {
 #[test]
 fn merge_whole_stack_lands_top_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
 
     env.but("branch new bottom-seg").assert().success();
@@ -652,6 +657,7 @@ fn merge_whole_stack_refuses_conflicted_lower_segment() {
 #[test]
 fn merge_whole_stack_refuses_non_top_segment() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
 
     env.but("branch new bottom-seg").assert().success();
@@ -699,6 +705,7 @@ fn merge_whole_stack_refuses_non_top_segment() {
 #[test]
 fn merge_rename_no_silent_mismerge() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
 
     // Seed a shared base file on the target via a clean fast-forward land.
@@ -767,6 +774,7 @@ fn merge_rename_no_silent_mismerge() {
 #[test]
 fn merge_without_yes_refuses_non_interactively() {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
     env.but("branch new first-branch").assert().success();
     env.file("file1.txt", "content1");
@@ -926,8 +934,101 @@ fn merge_never_deletes_a_differently_named_upstream() {
 
 /// A sandbox whose `origin` is a real bare repository holding `main`, with the workspace set up —
 /// the shape the remote-copy cleanup tests need to observe deletions on the remote side.
+#[test]
+fn merge_refuses_target_without_upstream_before_confirmation() {
+    let (env, remote) = sandbox_with_bare_origin();
+    env.but("branch new topic").assert().success();
+    env.file("topic.txt", "topic");
+    env.but("commit -b topic -m topic").assert().success();
+    env.invoke_git("config --remove-section branch.main");
+    assert_target_rejection_preserves_repository(
+        &env,
+        &remote,
+        str![[r#"
+Failed to merge branch. Merging without a remote isn't supported yet
+
+"#]],
+    );
+}
+
+#[test]
+fn merge_refuses_differently_named_target_before_confirmation() {
+    let (env, remote) = sandbox_with_bare_origin();
+    env.but("branch new topic").assert().success();
+    env.file("topic.txt", "topic");
+    env.but("commit -b topic -m topic").assert().success();
+    env.invoke_git("branch -m main integration");
+    env.but("config target integration").assert().success();
+    assert_target_rejection_preserves_repository(
+        &env,
+        &remote,
+        str![[r#"
+Failed to merge branch. `but merge` requires matching local and upstream branch names (local `integration`, upstream `main`). Merge via a pull request instead.
+
+"#]],
+    );
+}
+
+#[test]
+fn merge_refuses_triangular_remotes_before_confirmation() {
+    let (env, remote) = sandbox_with_bare_origin();
+    env.but("branch new topic").assert().success();
+    env.file("topic.txt", "topic");
+    env.but("commit -b topic -m topic").assert().success();
+    env.invoke_git("remote add fork ../fork");
+    env.invoke_git("config gitbutler.project.pushRemote fork");
+    assert_target_rejection_preserves_repository(
+        &env,
+        &remote,
+        str![[r#"
+Failed to merge branch. `but merge` does not yet support triangular remotes (fetch `origin`, push `fork`). Merge via a pull request instead, or configure a single remote for the target branch.
+
+"#]],
+    );
+}
+
+fn assert_target_rejection_preserves_repository(
+    env: &Sandbox,
+    remote: &std::path::Path,
+    expected_error: impl snapbox::IntoData,
+) {
+    env.file("topic.txt", "dirty topic");
+    let refs_before = env.invoke_git("show-ref");
+    let head_before = env.invoke_git("symbolic-ref HEAD");
+    let config_before = env.invoke_git("config --local --list");
+    let diff_before = env.invoke_git("diff HEAD");
+    let remote_refs = format!("--git-dir={} show-ref", remote.display());
+    let remote_before = env.invoke_git(&remote_refs);
+    env.but("merge topic")
+        .assert()
+        .failure()
+        .stderr_eq(expected_error);
+    assert_eq!(env.invoke_git("show-ref"), refs_before, "no refs move");
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        head_before,
+        "HEAD stays put"
+    );
+    assert_eq!(
+        env.invoke_git("config --local --list"),
+        config_before,
+        "target metadata is unchanged"
+    );
+    assert_eq!(
+        env.invoke_git("diff HEAD"),
+        diff_before,
+        "dirty work is preserved"
+    );
+    assert_eq!(
+        env.invoke_git(&remote_refs),
+        remote_before,
+        "nothing was published"
+    );
+}
+
 fn sandbox_with_bare_origin() -> (Sandbox, std::path::PathBuf) {
     let (env, remote) = sandbox_from_with_bare_origin("repo-with-remote-and-head");
+    env.but("config target main").assert().success();
     env.but("switch --workspace").assert().success();
     (env, remote)
 }

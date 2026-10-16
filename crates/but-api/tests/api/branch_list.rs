@@ -168,8 +168,13 @@ fn groups_classifies_and_enriches_from_cache() -> anyhow::Result<()> {
     );
     assert_eq!(
         main.branch.commits_ahead_of_target,
+        Some(0),
+        "main is the configured local target and cannot be ahead of itself"
+    );
+    assert_eq!(
+        main.branch.commit_count,
         Some(1),
-        "main has one commit on top of the target"
+        "main owns one commit above the stored cutoff"
     );
     Ok(())
 }

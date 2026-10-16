@@ -1,3 +1,66 @@
+use snapbox::IntoJson;
+
+#[test]
+fn head_info_with_local_target_converts_for_ui() -> anyhow::Result<()> {
+    let repo = crate::utils::read_only_in_memory_scenario_named("one-commit-detached", "")?;
+    let meta = std::mem::ManuallyDrop::new(but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?);
+    let mut db = but_testsupport::in_memory_db();
+    assert!(repo.remote_names().is_empty(), "the fixture has no remotes");
+    let ref_info = but_workspace::head_info(
+        &repo,
+        &*meta,
+        &mut db,
+        but_workspace::ref_info::Options {
+            project_meta: but_core::ref_metadata::ProjectMeta {
+                target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                    "refs/heads/main".try_into()?,
+                )?),
+                target_commit_id: Some(repo.rev_parse_single("refs/heads/main")?.detach()),
+                push_remote: None,
+            },
+            ..Default::default()
+        },
+    )?;
+    let ui_info: but_workspace::ui::RefInfo = ref_info.try_into()?;
+    let target = ui_info.target.expect("local target is retained");
+    // The transport preserves the local namespace without inventing a remote.
+    snapbox::assert_data_eq!(
+        (&target).into_json(),
+        snapbox::str![[r#"
+{
+  "refName": {
+    "fullNameBytes": [
+      114,
+      101,
+      102,
+      115,
+      47,
+      104,
+      101,
+      97,
+      100,
+      115,
+      47,
+      109,
+      97,
+      105,
+      110
+    ],
+    "displayName": "main",
+    "remoteName": null
+  },
+  "commitsAhead": 0,
+  "upstream": null,
+  "hasLanesBehind": false,
+  "canFastForwardLocalTarget": false
+}
+"#]]
+    );
+    Ok(())
+}
+
 mod changes_in_branch {
     use but_graph::init::Options;
     use but_testsupport::visualize_commit_graph_all;
@@ -8,6 +71,50 @@ mod changes_in_branch {
         ref_info::with_workspace_commit::utils::{project_meta, read_only_in_memory_scenario},
         utils::r,
     };
+
+    #[test]
+    fn inactive_branch_diff_preserves_local_target_changes_above_cutoff() -> anyhow::Result<()> {
+        let repo = but_testsupport::read_only_in_memory_scenario_named(
+            "branch-diff-local-target-ahead",
+            "",
+        )?;
+        let meta = but_testsupport::InMemoryRefMetadata::default();
+        let mut db = but_testsupport::in_memory_db();
+        let cutoff = repo.rev_parse_single("base")?.detach();
+        let project_meta = but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            target_commit_id: Some(cutoff),
+            ..Default::default()
+        };
+        let ws =
+            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
+                .into_workspace()?;
+        let branch = r("refs/heads/inactive");
+        assert!(
+            ws.find_segment_by_refname(branch).is_none(),
+            "the inactive branch must use the fallback diff path"
+        );
+        assert_eq!(
+            ws.target_commit.as_ref().map(|target| target.commit_id),
+            Some(cutoff),
+            "the selected cutoff must remain below local main"
+        );
+
+        let changes = ui::diff::changes_in_branch(&repo, &ws, branch)?;
+        let paths: Vec<_> = changes
+            .changes
+            .iter()
+            .map(|change| change.path_bytes.as_slice())
+            .collect();
+        assert_eq!(
+            paths,
+            Vec::from([b"feature-only".as_slice(), b"local-only".as_slice()]),
+            "the diff must include local target changes above the cutoff"
+        );
+        Ok(())
+    }
 
     #[test]
     fn multiple_inside_and_outside_of_workspace() -> anyhow::Result<()> {
@@ -281,27 +388,18 @@ TreeChanges {
     }
   ],
   "target": {
-    "remoteTrackingRef": {
+    "refName": {
       "fullNameBytes": [
         114,
         101,
         102,
         115,
         47,
-        114,
+        104,
         101,
-        109,
-        111,
-        116,
-        101,
+        97,
+        100,
         115,
-        47,
-        111,
-        114,
-        105,
-        103,
-        105,
-        110,
         47,
         109,
         97,
@@ -309,11 +407,45 @@ TreeChanges {
         110
       ],
       "displayName": "main",
-      "remoteName": "origin"
+      "remoteName": null
     },
     "commitsAhead": 0,
-    "isCurrent": true,
-    "hasLanesBehind": false
+    "upstream": {
+      "refName": {
+        "fullNameBytes": [
+          114,
+          101,
+          102,
+          115,
+          47,
+          114,
+          101,
+          109,
+          111,
+          116,
+          101,
+          115,
+          47,
+          111,
+          114,
+          105,
+          103,
+          105,
+          110,
+          47,
+          109,
+          97,
+          105,
+          110
+        ],
+        "displayName": "main",
+        "remoteName": "origin"
+      },
+      "tip": "c166d42d4ef2e5e742d33554d03805cfb0b24d11",
+      "cutoffMatchesTip": true
+    },
+    "hasLanesBehind": false,
+    "canFastForwardLocalTarget": false
   },
   "worktrees": []
 }

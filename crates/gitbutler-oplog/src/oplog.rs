@@ -46,7 +46,11 @@ const BRANCH_ORDER_FILE: &str = "branch_order.toml";
 struct SnapshotProjectMeta {
     #[serde(skip_serializing_if = "Option::is_none")]
     target_ref: Option<String>,
-    target_commit_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_commit_id: Option<String>,
+    /// Captured cutoff when metadata leaves it unset. Older snapshots use target_commit_id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resolved_target_commit_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     push_remote: Option<String>,
 }
@@ -68,48 +72,66 @@ struct SnapshotTarget {
     push_remote_name: Option<String>,
 }
 
-impl TryFrom<&ProjectMeta> for SnapshotProjectMeta {
-    type Error = anyhow::Error;
-
-    fn try_from(meta: &ProjectMeta) -> Result<Self> {
-        let target_commit_id = meta.target_commit_id_or_err()?;
-        if target_commit_id.is_null() {
+impl SnapshotProjectMeta {
+    fn new(
+        meta: &ProjectMeta,
+        resolved_target_commit_id: gix::ObjectId,
+    ) -> Result<SnapshotProjectMeta> {
+        if resolved_target_commit_id.is_null()
+            || meta.target_commit_id.is_some_and(|id| id.is_null())
+        {
             bail!("cannot snapshot a null target commit id");
         }
-        Ok(Self {
+        Ok(SnapshotProjectMeta {
             target_ref: meta.target_ref.as_ref().map(ToString::to_string),
-            target_commit_id: target_commit_id.to_string(),
+            target_commit_id: meta.target_commit_id.map(|id| id.to_string()),
+            resolved_target_commit_id: meta
+                .target_commit_id
+                .is_none()
+                .then(|| resolved_target_commit_id.to_string()),
             push_remote: meta.push_remote.clone(),
         })
     }
-}
 
-impl TryFrom<SnapshotProjectMeta> for ProjectMeta {
-    type Error = anyhow::Error;
-
-    fn try_from(meta: SnapshotProjectMeta) -> Result<Self> {
-        let target_ref = meta
+    fn try_into_project_meta(self, repo: &gix::Repository) -> Result<(ProjectMeta, gix::ObjectId)> {
+        let target_ref = self
             .target_ref
             .map(|name| {
                 let name: gix::refs::FullName = name
                     .try_into()
                     .context("invalid targetRef in project_meta.toml")?;
-                if name.category() != Some(gix::refs::Category::RemoteBranch) {
-                    bail!("targetRef in project_meta.toml is not a remote-tracking branch");
-                }
-                Ok(name)
+                but_core::ref_metadata::resolve_local_target(name.as_ref(), repo)
+                    .context("failed to resolve targetRef in project_meta.toml")
             })
             .transpose()?;
-        let target_commit_id = gix::ObjectId::from_str(&meta.target_commit_id)
+        let target_commit_id = self
+            .target_commit_id
+            .as_deref()
+            .map(gix::ObjectId::from_str)
+            .transpose()
             .context("invalid targetCommitId in project_meta.toml")?;
-        if target_commit_id.is_null() {
+        if target_commit_id.is_some_and(|id| id.is_null()) {
             bail!("targetCommitId in project_meta.toml is null");
         }
-        Ok(Self {
-            target_ref,
-            target_commit_id: Some(target_commit_id),
-            push_remote: meta.push_remote,
-        })
+        let resolved_target_commit_id = self
+            .resolved_target_commit_id
+            .as_deref()
+            .map(gix::ObjectId::from_str)
+            .transpose()
+            .context("invalid resolvedTargetCommitId in project_meta.toml")?
+            .or(target_commit_id)
+            .context("snapshot has no captured target commit")?;
+        if resolved_target_commit_id.is_null() {
+            bail!("resolvedTargetCommitId in project_meta.toml is null");
+        }
+        Ok((
+            ProjectMeta {
+                target_ref,
+                target_commit_id,
+                push_remote: self.push_remote,
+            },
+            resolved_target_commit_id,
+        ))
     }
 }
 
@@ -258,8 +280,8 @@ impl OplogExt for Context {
         details: SnapshotDetails,
         perm: &mut RepoExclusive,
     ) -> Result<gix::ObjectId> {
-        let target = self.project_meta()?.target_commit_id_or_err()?;
         let repo = self.repo.get()?;
+        let (_, _, _, target) = snapshot_metadata(&repo.find_tree(snapshot_tree_id)?, &repo)?;
         commit_snapshot(self, &repo, snapshot_tree_id, details, perm, target)
     }
 
@@ -631,6 +653,7 @@ fn snapshot_metadata(
     ProjectMeta,
     VirtualBranches,
     Option<but_db::BranchOrderSnapshot>,
+    gix::ObjectId,
 )> {
     let vb_toml_entry = snapshot_tree
         .lookup_entry_by_path("virtual_branches.toml")?
@@ -646,7 +669,9 @@ fn snapshot_metadata(
     )
     .context("failed to parse virtual_branches.toml")?;
 
-    let project_meta = match snapshot_tree.lookup_entry_by_path(PROJECT_META_FILE)? {
+    let (project_meta, resolved_target_commit_id) = match snapshot_tree
+        .lookup_entry_by_path(PROJECT_META_FILE)?
+    {
         Some(entry) => {
             let blob = repo
                 .find_blob(entry.id())
@@ -654,30 +679,33 @@ fn snapshot_metadata(
             let stored: SnapshotProjectMeta =
                 toml::from_str(from_utf8(&blob.data).context("project_meta.toml is not UTF-8")?)
                     .context("failed to parse project_meta.toml")?;
-            stored.try_into()?
+            stored.try_into_project_meta(repo)?
         }
         None => {
             let target = default_target
                 .as_ref()
                 .context("snapshot has neither project_meta.toml nor a legacy default target")?;
-            ProjectMeta {
-                target_ref: Some(
-                    format!(
-                        "refs/remotes/{remote}/{branch}",
-                        remote = target.remote_name,
-                        branch = target.branch_name
-                    )
-                    .try_into()?,
-                ),
-                target_commit_id: Some(
-                    gix::ObjectId::from_str(&target.sha)
-                        .context("invalid legacy default target sha")?,
-                ),
-                push_remote: target.push_remote_name.clone(),
-            }
+            let remote_target: gix::refs::FullName = format!(
+                "refs/remotes/{remote}/{branch}",
+                remote = target.remote_name,
+                branch = target.branch_name
+            )
+            .try_into()?;
+            let target_commit_id = gix::ObjectId::from_str(&target.sha)
+                .context("invalid legacy default target sha")?;
+            (
+                ProjectMeta {
+                    target_ref: Some(but_core::ref_metadata::resolve_local_target(
+                        remote_target.as_ref(),
+                        repo,
+                    )?),
+                    target_commit_id: Some(target_commit_id),
+                    push_remote: target.push_remote_name.clone(),
+                },
+                target_commit_id,
+            )
         }
     };
-    project_meta.target_commit_id_or_err()?;
     let branch_order = snapshot_tree
         .lookup_entry_by_path(BRANCH_ORDER_FILE)?
         .map(|entry| -> Result<_> {
@@ -694,7 +722,12 @@ fn snapshot_metadata(
             Ok(snapshot)
         })
         .transpose()?;
-    Ok((project_meta, virtual_branches, branch_order))
+    Ok((
+        project_meta,
+        virtual_branches,
+        branch_order,
+        resolved_target_commit_id,
+    ))
 }
 
 mod legacy_virtual_branches {
@@ -813,7 +846,7 @@ fn prepare_snapshot_with_target_and_refs(
 
     // Grab the target once so every representation in this snapshot agrees.
     let project_meta = ctx.project_meta()?;
-    let default_target_commit_id = project_meta.target_commit_id_or_err()?;
+    let default_target_commit_id = project_meta.resolve_target_commit(&repo)?;
     let target_tree_id = repo
         .find_commit(default_target_commit_id)?
         .tree_id()?
@@ -837,8 +870,9 @@ fn prepare_snapshot_with_target_and_refs(
     snapshot_tree.upsert("target_tree", EntryKind::Tree, target_tree_id)?;
     snapshot_tree.upsert("conflicts", EntryKind::Tree, conflicts_tree_id)?;
     snapshot_tree.upsert("virtual_branches", EntryKind::Tree, empty_tree_id)?;
-    let project_meta_blob = repo.write_blob(toml::to_string(&SnapshotProjectMeta::try_from(
+    let project_meta_blob = repo.write_blob(toml::to_string(&SnapshotProjectMeta::new(
         &project_meta,
+        default_target_commit_id,
     )?)?)?;
     snapshot_tree.upsert(PROJECT_META_FILE, EntryKind::Blob, project_meta_blob)?;
     let branch_order = ctx.db.get_cache()?.branch_order().get_snapshot()?;
@@ -1163,11 +1197,10 @@ fn restore_snapshot_tree(
     let snapshot_tree = repo.find_tree(tree_id)?;
     // Validate all metadata formats before creating the before-restore snapshot or mutating the
     // worktree, refs, config, TOML, or database.
-    let (restored_project_meta, restored_virtual_branches, restored_branch_order) =
+    let (restored_project_meta, restored_virtual_branches, restored_branch_order, restored_target) =
         snapshot_metadata(&snapshot_tree, &repo)?;
     let restored_checkout = snapshot_checkout(&snapshot_tree, &repo)?;
     let restored_references = snapshot_references(&snapshot_tree, &repo)?;
-    let restored_target = restored_project_meta.target_commit_id_or_err()?;
     let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
 
     for reference in &restored_references {
@@ -1502,8 +1535,7 @@ fn tree_from_applied_vbranches(
         .context("no entry at 'target_entry'")?;
     let target_tree_id = target_tree_entry.id().detach();
 
-    let (project_meta, vbs_from_toml, _) = snapshot_metadata(&snapshot_tree, repo)?;
-    let default_target_oid = project_meta.target_commit_id_or_err()?;
+    let (_, vbs_from_toml, _, default_target_oid) = snapshot_metadata(&snapshot_tree, repo)?;
     let applied_branch_trees: Vec<_> = legacy_virtual_branches::in_workspace_stacks(&vbs_from_toml)
         .map(|stack| {
             let head_oid =

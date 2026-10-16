@@ -11,7 +11,7 @@ pub struct Outcome<'workspace> {
     ///
     /// This is set when the operation switches back to the enclosing workspace ref after unapplying the checked-out stack,
     /// when [WorkspaceDisposition] allows deleting the workspace reference and switching away from it,
-    /// or when unapplying an ad-hoc branch checks out the target's local tracking branch.
+    /// or when unapplying an ad-hoc branch checks out the local target branch.
     pub checked_out: Option<gix::refs::FullName>,
     /// If not `None`, a non-conflicting workspace merge was materialized while rebuilding the
     /// workspace merge commit after removing the stack.
@@ -85,11 +85,11 @@ pub enum WorkspaceDisposition {
     /// Use this if the workspace should be dissolved as soon as it serves no purpose anymore.
     ///
     /// Direct checkout can happen when the future workspace has exactly one named tip, or when it has no tips and the
-    /// workspace target has a local tracking branch to fall back to. If there is no such reference, unapply keeps the
+    /// workspace has a local target branch to fall back to. If there is no such reference, unapply keeps the
     /// workspace reference checked out and keeps its metadata.
     ///
-    /// For an ad-hoc workspace, unapplying its checked-out branch switches to the target's local
-    /// tracking branch without deleting the unapplied branch. Without a distinct local target,
+    /// For an ad-hoc workspace, unapplying its checked-out branch switches to the local target
+    /// branch without deleting the unapplied branch. Without a distinct local target,
     /// the operation fails.
     PreventUnnecessaryWorkspaceReferences,
     /// Like [WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences], but always keep the workspace
@@ -166,7 +166,7 @@ pub(crate) mod function {
     /// - Validate that `branch` is a real, non-symbolic ref and reject stale workspaces with a
     ///   workspace commit buried in history. Workspaces without a workspace commit are allowed.
     /// - When unapplying the checked-out ad-hoc branch, require a disposition that allows switching,
-    ///   safely check out the target's local tracking branch, and reproject without deleting any refs.
+    ///   safely check out the local target branch, and reproject without deleting any refs.
     ///   Callers must separately update any retained managed-workspace metadata.
     /// - Early-exit for missing branches, branches outside the workspace, and metadata-only no-ops.
     /// - Remove the branch from workspace metadata.
@@ -226,12 +226,12 @@ pub(crate) mod function {
                 "Cannot unapply branch '{branch}' from an ad-hoc workspace because the workspace cannot be empty",
                 branch = branch.shorten()
             );
-            let destination = local_tracking_branch_of_target(ws)?.context(
-                "Cannot unapply the last branch because the target has no local tracking branch",
+            let destination = local_target_to_checkout(ws)?.context(
+                "Cannot unapply the last branch because no local target branch is available",
             )?;
             ensure!(
                 destination.ref_name.as_ref() != branch,
-                "Cannot unapply the target's local tracking branch"
+                "Cannot unapply the local target branch"
             );
             safe_checkout_ref_to_checkout(
                 repo,
@@ -639,11 +639,11 @@ pub(crate) mod function {
             .filter(move |(_, tip)| excluded_tip_id.is_none_or(|id| tip.commit_id != id))
     }
 
-    /// Local tracking branch of target ref or the most recent named stack tip.
+    /// Local target branch or the most recent named stack tip.
     fn ref_to_checkout_after_workspace_unapply(
         ws: &but_graph::Workspace,
     ) -> anyhow::Result<RefToCheckout> {
-        if let Some(target) = local_tracking_branch_of_target(ws)? {
+        if let Some(target) = local_target_to_checkout(ws)? {
             return Ok(target);
         }
         named_stack_with_lowest_generation(ws)?.with_context(
@@ -779,7 +779,7 @@ pub(crate) mod function {
 
         match ws.stacks.first() {
             None => {
-                if let Some(fallback) = local_tracking_branch_of_target(ws)? {
+                if let Some(fallback) = local_target_to_checkout(ws)? {
                     return Ok(Some(fallback));
                 }
 
@@ -816,25 +816,23 @@ pub(crate) mod function {
             .transpose()
     }
 
-    /// Return the local branch to check out for the workspace target.
-    ///
-    /// `ws` is the current graph projection with adjusted metadata. The workspace target already
-    /// carries the local tracking branch inferred while building the graph, including the peeled
-    /// commit id to check out.
-    fn local_tracking_branch_of_target(
+    /// Return the configured local target and its exact commit in the current graph.
+    fn local_target_to_checkout(
         ws: &but_graph::Workspace,
     ) -> anyhow::Result<Option<RefToCheckout>> {
-        let Some(target_ref) = ws.target_ref.as_ref() else {
+        let Some(target_ref) = ws.graph.project_meta.target_ref.as_ref() else {
             return Ok(None);
         };
-        let Some(local_target_ref_sidx) = ws.graph[target_ref.segment_index].sibling_segment_id
+        let Some((_, commit)) = ws
+            .graph
+            .segment_and_commit_by_ref_name(target_ref.as_local_full_name_ref())
         else {
             return Ok(None);
         };
-        let Some(ref_info) = ws.graph[local_target_ref_sidx].ref_info.as_ref() else {
-            return Ok(None);
-        };
-        RefToCheckout::from_segment_ref_info(ws, local_target_ref_sidx, ref_info).map(Some)
+        Ok(Some(RefToCheckout {
+            ref_name: target_ref.as_local_full_name_ref().to_owned(),
+            commit_id: commit.id,
+        }))
     }
 
     /// Ref name and peeled commit id selected from the workspace projection for checkout.

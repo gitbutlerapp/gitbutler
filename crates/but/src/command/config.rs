@@ -1833,12 +1833,9 @@ async fn target_config(
                             t.config_value.paint(&target_branch.branch_name)
                         )?;
                         writeln!(out)?;
-                        writeln!(
-                            out,
-                            "  {}: {}",
-                            t.hint.paint("Remote"),
-                            target_branch.remote_url
-                        )?;
+                        if let Some(remote_url) = &target_branch.remote_url {
+                            writeln!(out, "  {}: {}", t.hint.paint("Remote"), remote_url)?;
+                        }
                         writeln!(
                             out,
                             "  {}:    {}",
@@ -1891,12 +1888,34 @@ async fn target_config(
                     .with_context(|| format!("Failed to find push remote '{push_remote}'"))?;
             }
 
-            let target_ref: gix::refs::FullName = format!("refs/remotes/{new_branch}")
-                .try_into()
-                .context("Invalid target branch name")?;
+            let target_ref = {
+                let repo = ctx.repo.get()?;
+                let ref_name: gix::refs::FullName = if new_branch.starts_with("refs/") {
+                    new_branch
+                        .as_str()
+                        .try_into()
+                        .context("Invalid target branch name")?
+                } else {
+                    let local_ref: gix::refs::FullName = format!("refs/heads/{new_branch}")
+                        .try_into()
+                        .context("Invalid target branch name")?;
+                    if repo.try_find_reference(local_ref.as_ref())?.is_some() {
+                        local_ref
+                    } else {
+                        format!("refs/remotes/{new_branch}")
+                            .try_into()
+                            .context("Invalid target branch name")?
+                    }
+                };
+                if ref_name.category() == Some(gix::refs::Category::RemoteBranch) {
+                    repo.try_find_reference(ref_name.as_ref())?
+                        .with_context(|| format!("Target branch '{new_branch}' not found"))?;
+                }
+                but_core::ref_metadata::resolve_local_target(ref_name.as_ref(), &repo)?
+            };
             but_api::workspace::set_target_ref_and_init_project(
                 ctx,
-                target_ref.as_ref(),
+                target_ref.as_local_full_name_ref(),
                 push_remote,
             )?;
         }

@@ -88,7 +88,9 @@ pub enum Subcommands {
     /// View or set the target branch.
     ///
     /// Without arguments, displays the current target branch.
-    /// With a branch name, sets the target branch.
+    ///
+    /// With a branch name, sets the target branch. Local branches take precedence;
+    /// remote-tracking branches resolve to their unique local tracking branch.
     ///
     /// ## Examples
     ///
@@ -101,16 +103,19 @@ pub enum Subcommands {
     /// Set target branch:
     ///
     /// ```text
-    /// but config target origin/main
+    /// but config target main
     /// ```
     ///
     /// Set a target branch and push branches to a fork:
     ///
     /// ```text
-    /// but config target upstream/main --push-remote origin
+    /// but config target main --push-remote origin
     /// ```
+    ///
+    /// Assumes main tracks upstream/main and origin points to your fork.
     Target {
-        /// New target branch to set (e.g., "origin/main")
+        /// Local or remote-tracking branch (e.g., "main" or "origin/main").
+        /// Use refs/heads/... or refs/remotes/... to disambiguate.
         branch: Option<String>,
         /// Remote to push branches to (e.g., "origin" for a fork).
         #[clap(long, value_name = "REMOTE", requires = "branch")]

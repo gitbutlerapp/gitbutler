@@ -992,7 +992,7 @@ fn can_create_new_branches_above_merged_branches_but_not_below() {
 ├╯
 ┊
 ┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base, main, origin/main) 2000-01-02 merge document-but-pr-skill
+├╯ 080592b (common base) 2000-01-02 add document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
@@ -1021,7 +1021,7 @@ Created branch 'a-branch-1' above branch 'document-but-pr-skill'
 ├╯
 ┊
 ┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base, main, origin/main) 2000-01-02 merge document-but-pr-skill
+├╯ 080592b (common base) 2000-01-02 add document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch

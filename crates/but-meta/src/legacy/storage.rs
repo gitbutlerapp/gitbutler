@@ -28,7 +28,11 @@ struct LegacyTarget {
 
 /// Read the project metadata that older versions stored in `virtual_branches.toml` without
 /// opening or migrating the project database.
-pub fn read_legacy_project_meta(path: &Path) -> anyhow::Result<Option<ProjectMeta>> {
+/// Legacy remote targets must resolve to exactly one local tracking branch in `repo`.
+pub fn read_legacy_project_meta(
+    path: &Path,
+    repo: &gix::Repository,
+) -> anyhow::Result<Option<ProjectMeta>> {
     let content = match std::fs::read_to_string(path) {
         Ok(content) => content,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -38,10 +42,11 @@ pub fn read_legacy_project_meta(path: &Path) -> anyhow::Result<Option<ProjectMet
         return Ok(None);
     };
     let target_commit_id = gix::ObjectId::from_str(&target.sha)?;
+    let remote_target: gix::refs::FullName =
+        format!("refs/remotes/{}/{}", target.remote_name, target.branch_name).try_into()?;
+    let target_ref = but_core::ref_metadata::resolve_local_target(remote_target.as_ref(), repo)?;
     Ok(Some(ProjectMeta {
-        target_ref: Some(
-            format!("refs/remotes/{}/{}", target.remote_name, target.branch_name).try_into()?,
-        ),
+        target_ref: Some(target_ref),
         target_commit_id: (!target_commit_id.is_null()).then_some(target_commit_id),
         push_remote: target.push_remote_name,
     }))
@@ -359,7 +364,10 @@ fn legacy_to_snapshot(
         out_stacks.push(VbStack {
             id: stack_id.to_string(),
             source_refname: source_refname.as_ref().map(ToString::to_string),
-            upstream_remote_name: upstream.as_ref().map(|up| up.remote().to_owned()),
+            upstream_remote_name: upstream
+                .as_ref()
+                .and_then(|up| up.remote())
+                .map(|remote| remote.to_owned()),
             upstream_branch_name: upstream.as_ref().map(|up| up.branch().to_owned()),
             sort_order: i64::try_from(*order).context("Stack order exceeds i64")?,
             in_workspace: *in_workspace,

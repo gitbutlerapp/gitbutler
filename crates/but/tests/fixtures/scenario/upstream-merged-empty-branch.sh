@@ -15,5 +15,7 @@ git checkout main
 git merge --no-ff -m "merge document-but-pr-skill" document-but-pr-skill
 
 setup_target_to_match_main
+git config branch.main.remote origin
+git config branch.main.merge refs/heads/main
 turn_into_remote_branch document-but-pr-skill document-but-pr-skill
 create_workspace_commit_once

@@ -1,10 +1,12 @@
 use but_api::json::HexHash;
 use but_testsupport::{CommandExt, git_at_dir, open_repo};
 
-use crate::support::{repo_with_feature_branch, write_file};
+use crate::support::{repo_with_feature_branch, set_project_target_to_feature, write_file};
 
 fn incoming_target() -> anyhow::Result<(but_ctx::Context, tempfile::TempDir)> {
     let (repo, tmp) = repo_with_feature_branch()?;
+    // Record the workspace cutoff before the upstream advances.
+    set_project_target_to_feature(&repo)?;
     write_file(tmp.path(), "file.txt", "three\n")?;
     git_at_dir(tmp.path())
         .args(["commit", "-am", "three"])
@@ -28,7 +30,7 @@ fn incoming_target() -> anyhow::Result<(but_ctx::Context, tempfile::TempDir)> {
 
     let mut ctx =
         but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
-    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
     Ok((ctx, tmp))
 }
@@ -219,7 +221,7 @@ fn github_merge_commit_names_its_pull_request_from_the_message() -> anyhow::Resu
 
     let mut ctx =
         but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
-    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
 
     let page = but_api::target_commits::workspace_target_commits(&ctx, None, None)?;
@@ -292,6 +294,12 @@ fn merge_integrated_stack_bounds_the_walk_at_its_base() -> anyhow::Result<()> {
         .args(["remote", "add", "origin", "../origin"])
         .run();
     git_at_dir(tmp.path())
+        .args(["config", "branch.main.remote", "origin"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["config", "branch.main.merge", "refs/heads/main"])
+        .run();
+    git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
         .run();
     git_at_dir(tmp.path()).args(["switch", "feature"]).run();
@@ -309,7 +317,7 @@ fn merge_integrated_stack_bounds_the_walk_at_its_base() -> anyhow::Result<()> {
 
     let mut ctx =
         but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
-    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
     let feature_ref = gix::refs::FullName::try_from("refs/heads/feature")?;
     but_api::branch::apply_only(&mut ctx, feature_ref.as_ref())?;
@@ -390,7 +398,7 @@ fn continuation_stops_gracefully_in_a_shallow_clone() -> anyhow::Result<()> {
 
     let mut ctx =
         but_ctx::Context::from_repo_for_testing(open_repo(&clone_dir)?)?.with_memory_app_cache();
-    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
     let head_id = ctx.repo.get()?.head_id()?.detach();
 
@@ -423,7 +431,7 @@ fn ordinary_checkout_lists_the_persisted_target() -> anyhow::Result<()> {
 
     let mut ctx =
         but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
-    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
     let (main_tip, feature_tip) = {
         let repo = ctx.repo.get()?;

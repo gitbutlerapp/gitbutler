@@ -828,7 +828,7 @@ impl ForgeRepository {
     fn from_context(ctx: &but_ctx::Context) -> Result<Self> {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let remote_url = project_meta.remote_url_with_fallback(&repo)?;
+        let remote_url = project_meta.target_remote_url(&repo)?;
         #[cfg(feature = "legacy")]
         let override_forge = ctx
             .legacy_project
