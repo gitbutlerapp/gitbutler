@@ -4,6 +4,7 @@ import { CiStatus, MetaCount, type MetaCountType } from "./MetaCount.tsx";
 const types: Array<MetaCountType> = [
 	"behind",
 	"unpushed",
+	"rebased",
 	"commits",
 	"empty",
 	"head",
@@ -40,6 +41,7 @@ export const Default = meta.story({ args: { type: "unpushed", children: "4" } })
 const sample: Record<MetaCountType, string> = {
 	behind: "3",
 	unpushed: "4",
+	rebased: "2",
 	commits: "5",
 	empty: "empty",
 	head: "detached",

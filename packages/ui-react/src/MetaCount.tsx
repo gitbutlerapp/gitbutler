@@ -8,6 +8,7 @@ import styles from "./MetaCount.module.css";
 export type MetaCountType =
 	| "behind"
 	| "unpushed"
+	| "rebased"
 	| "commits"
 	| "empty"
 	| "head"
@@ -24,6 +25,7 @@ export type MetaCountType =
 const glyph: Record<MetaCountType, IconName> = {
 	behind: "arrow-down",
 	unpushed: "arrow-up",
+	rebased: "arrow-up",
 	commits: "commit",
 	empty: "commit",
 	head: "branch",
@@ -42,7 +44,9 @@ const glyph: Record<MetaCountType, IconName> = {
  * A glyph and a short value in a row's meta: a count, an age, a branch's name. The type sets both.
  * Amber is work waiting on you (`behind`, `uncommitted`, `agent-waiting`), blue is work to send
  * (`unpushed`), green is an agent at work (`agent-working`); the rest are neutral, `stack` among
- * them: where a branch sits in its stack, "1/3 in stack". Quietest of all
+ * them: where a branch sits in its stack, "1/3 in stack". `rebased` is the unpushed arrow in that
+ * neutral grey: commits that were pushed and have been rewritten since, most often by a rebase onto
+ * the target, so a push replaces them rather than sending new work. Quietest of all
  * are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
  * (`empty`, `detached`); a row shows either first, ahead of its counts.
  *
