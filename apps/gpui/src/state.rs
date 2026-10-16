@@ -121,6 +121,8 @@ pub struct Store {
     pub cut: Option<Cut>,
     /// What the pointer is dragging. Only meaningful while GPUI has a drag active.
     pub dragging: Option<Cut>,
+    /// Pane widths the user dragged away from their defaults.
+    widths: HashMap<Pane, f32>,
     pub toasts: Vec<Toast>,
     /// The label of the mutation in flight, if any. Mutations run one at a time.
     pub busy: Option<SharedString>,
@@ -162,6 +164,7 @@ impl Store {
                 };
             }
         });
+        let saved = Saved::load();
         let mut store = Self {
             projects: Vec::new(),
             projects_loaded: false,
@@ -172,7 +175,8 @@ impl Store {
             busy: None,
             last_run: None,
             next_toast: 0,
-            seen: Saved::load().seen,
+            seen: saved.seen,
+            widths: saved.widths,
             rebaseline: HashMap::new(),
             save_task: Task::ready(()),
             save_queued: false,
@@ -780,8 +784,51 @@ impl Store {
                 .collect(),
             selection: self.selection.as_ref().map(|s| s.project().to_string()),
             seen: self.seen.clone(),
+            widths: self.widths.clone(),
         };
         saved.store();
+    }
+
+    pub fn width(&self, pane: Pane) -> f32 {
+        self.widths
+            .get(&pane)
+            .copied()
+            .unwrap_or(pane.default_width())
+    }
+
+    /// Resize `pane`, within its limits, or put it back to its default with `None`.
+    pub fn set_width(&mut self, pane: Pane, width: Option<f32>, cx: &mut Context<Self>) {
+        let (min, max) = pane.limits();
+        match width {
+            Some(width) => self.widths.insert(pane, width.clamp(min, max)),
+            None => self.widths.remove(&pane),
+        };
+        self.save_soon(cx);
+        cx.notify();
+    }
+}
+
+/// A pane whose width can be dragged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Pane {
+    Navigator,
+    /// The file list beside a diff.
+    Files,
+}
+
+impl Pane {
+    fn default_width(self) -> f32 {
+        match self {
+            Pane::Navigator => 340.,
+            Pane::Files => 300.,
+        }
+    }
+
+    fn limits(self) -> (f32, f32) {
+        match self {
+            Pane::Navigator => (220., 640.),
+            Pane::Files => (200., 560.),
+        }
     }
 }
 
@@ -792,6 +839,8 @@ struct Saved {
     selection: Option<String>,
     #[serde(default)]
     seen: Seen,
+    #[serde(default)]
+    widths: HashMap<Pane, f32>,
 }
 
 /// What the user has looked at, so new work by agents stands out. Per project id.

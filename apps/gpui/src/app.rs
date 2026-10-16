@@ -13,11 +13,13 @@ use gpui::{
 use crate::backend::{self, CommitId};
 use crate::detail::Detail;
 use crate::palette::Palette;
-use crate::state::{Cut, Notice, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{Cut, Notice, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, v_flex};
+use crate::ui::{
+    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, resize_pane, v_flex,
+};
 
 actions!(
     gitbutler,
@@ -1263,6 +1265,7 @@ impl Render for AppView {
                     .flex_row()
                     .flex_1()
                     .min_h(px(0.))
+                    .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
                     .when(self.navigator_open && !self.zoomed, |el| {
                         el.child(self.render_navigator(window, cx))
                     })

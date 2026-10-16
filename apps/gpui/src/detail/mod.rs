@@ -17,12 +17,12 @@ use crate::app::AppView;
 use crate::backend::{
     self, Destination, DiffBody, DiffSource, FileChange, FileDiff, HunkKey, Selected,
 };
-use crate::state::{ProjectId, Review, Selection, Store, StoreEvent};
+use crate::state::{Pane, ProjectId, Review, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::short_ref;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{Icon, empty_state, h_flex, small_icon, v_flex};
+use crate::ui::{Icon, empty_state, h_flex, resize_handle, resize_pane, small_icon, v_flex};
 
 actions!(
     detail,
@@ -60,8 +60,6 @@ struct Cursor {
     file: usize,
     hunk: Option<usize>,
 }
-
-const FILE_LIST_WIDTH: f32 = 300.;
 
 #[derive(Debug, Clone, PartialEq)]
 struct DiffKey {
@@ -924,18 +922,22 @@ impl Render for Detail {
                     }
                     Selection::Project(_) => unreachable!("handled above"),
                 };
+                let width = self.store.read(cx).width(Pane::Files);
                 h_flex()
                     .size_full()
                     .items_start()
+                    .on_drag_move(resize_pane(Pane::Files, self.store.clone()))
                     .when(!self.zoomed, |el| {
                         el.child(
                             v_flex()
-                                .w(px(FILE_LIST_WIDTH))
+                                .w(px(width))
                                 .flex_none()
+                                .relative()
                                 .h_full()
                                 .border_r_1()
                                 .border_color(theme.border_3)
-                                .child(side),
+                                .child(side)
+                                .child(resize_handle(Pane::Files, self.store.clone(), &theme)),
                         )
                     })
                     .child(self.render_diff(&theme, cx))

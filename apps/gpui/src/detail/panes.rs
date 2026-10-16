@@ -2,8 +2,8 @@
 //! and the actions that fit it.
 
 use gpui::{
-    AnyElement, ClickEvent, Context, Focusable as _, MouseButton, MouseDownEvent, SharedString,
-    Window, div, prelude::*, px,
+    AnyElement, ClickEvent, Context, Div, ElementId, Focusable as _, Hsla, MouseButton,
+    MouseDownEvent, SharedString, Stateful, Window, div, prelude::*, px,
 };
 
 use super::{Check, Detail, checkbox_box};
@@ -28,17 +28,21 @@ impl Detail {
         cx: &Context<Self>,
     ) -> impl IntoElement {
         let store = self.store.read(cx);
-        let mut crumbs: Vec<SharedString> = Vec::new();
+        // Each crumb but the last links to what it names.
+        let mut crumbs: Vec<(SharedString, Option<Selection>)> = Vec::new();
         let mut actions: Vec<AnyElement> = Vec::new();
         if let Some(selection) = selection
             && let Some(entry) = store.project(selection.project())
         {
-            crumbs.push(entry.project.name.clone().into());
+            crumbs.push((
+                entry.project.name.clone().into(),
+                Some(Selection::Project(entry.id.clone())),
+            ));
             let workspace = entry.workspace.as_ref();
             match selection {
                 Selection::Project(_) => {}
                 Selection::Uncommitted(project) => {
-                    crumbs.push("Uncommitted changes".into());
+                    crumbs.push(("Uncommitted changes".into(), None));
                     let unreviewed: Vec<FileChange> = workspace
                         .map(|ws| {
                             ws.uncommitted
@@ -65,7 +69,7 @@ impl Detail {
                     }
                 }
                 Selection::Branch(project, ref_name) => {
-                    crumbs.push(short_ref(ref_name).to_owned().into());
+                    crumbs.push((short_ref(ref_name).to_owned().into(), None));
                     if let Some(branch) = workspace.and_then(|ws| ws.find_branch(ref_name)) {
                         let (project, ref_name) = (project.clone(), ref_name.clone());
                         if branch.push.can_push() {
@@ -97,8 +101,10 @@ impl Detail {
                 }
                 Selection::Commit(project, id) => {
                     if let Some((branch, commit)) = workspace.and_then(|ws| ws.find_commit(*id)) {
-                        crumbs.push(branch.name.clone().into());
-                        crumbs.push(commit.id.short().into());
+                        let branch_selection =
+                            Selection::Branch(project.clone(), branch.ref_name.clone());
+                        crumbs.push((branch.name.clone().into(), Some(branch_selection)));
+                        crumbs.push((commit.id.short().into(), None));
                         let (p, id) = (project.clone(), *id);
                         let app = self.app.clone();
                         actions.push(
@@ -135,22 +141,46 @@ impl Detail {
             .gap(px(6.))
             .border_b_1()
             .border_color(theme.border_3)
-            .children(crumbs.into_iter().enumerate().flat_map(|(ix, crumb)| {
-                let sep =
-                    (ix > 0).then(|| div().text_color(theme.text_3).child("/").into_any_element());
-                let el = div()
-                    .when(ix == last, |el| {
-                        el.font_weight(gpui::FontWeight::SEMIBOLD)
-                            .text_color(theme.text_1)
-                    })
-                    .when(ix != last, |el| el.text_color(theme.text_2))
-                    .truncate()
-                    .child(crumb)
-                    .into_any_element();
-                sep.into_iter().chain([el])
-            }))
+            .children(
+                crumbs
+                    .into_iter()
+                    .enumerate()
+                    .flat_map(|(ix, (crumb, target))| {
+                        let sep = (ix > 0)
+                            .then(|| div().text_color(theme.text_3).child("/").into_any_element());
+                        let el = match target.filter(|_| ix != last) {
+                            Some(target) => self
+                                .link(("crumb", ix), target, theme.text_1)
+                                .text_color(theme.text_2)
+                                .truncate()
+                                .child(crumb)
+                                .into_any_element(),
+                            None => div()
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .text_color(theme.text_1)
+                                .truncate()
+                                .child(crumb)
+                                .into_any_element(),
+                        };
+                        sep.into_iter().chain([el])
+                    }),
+            )
             .child(div().flex_1())
             .children(actions)
+    }
+
+    /// Something that selects `target` when clicked, underlined and in `hover` under the
+    /// pointer.
+    fn link(&self, id: impl Into<ElementId>, target: Selection, hover: Hsla) -> Stateful<Div> {
+        let app = self.app.clone();
+        div()
+            .id(id)
+            .cursor_pointer()
+            .hover(move |el| el.underline().text_color(hover))
+            .on_click(move |_, window, cx| {
+                app.update(cx, |app, cx| app.select(target.clone(), window, cx))
+                    .ok();
+            })
     }
 
     pub(super) fn render_project(
@@ -923,10 +953,14 @@ impl Detail {
                             .text_size(px(12.))
                             .child(small_icon(Icon::Branch).text_color(theme.text_2))
                             .child(
-                                div()
-                                    .font_family(theme.mono_font.clone())
-                                    .text_color(theme.blue)
-                                    .child(branch.name.clone()),
+                                self.link(
+                                    "commit-branch",
+                                    Selection::Branch(project.clone(), branch.ref_name.clone()),
+                                    theme.blue,
+                                )
+                                .font_family(theme.mono_font.clone())
+                                .text_color(theme.blue)
+                                .child(branch.name.clone()),
                             )
                             .child(div().flex_1())
                             .child(

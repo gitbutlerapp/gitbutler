@@ -11,18 +11,16 @@ use crate::app::{
     SelectNext, SelectPrevious, UncommitSelection,
 };
 use crate::backend::{Branch, Commit, CommitState, PushState};
-use crate::state::{Cut, ProjectEntry, Selection, Store};
+use crate::state::{Cut, Pane, ProjectEntry, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, h_flex, icon,
-    icon_button, just_now, relative_time, small_icon, v_flex,
+    icon_button, just_now, relative_time, resize_handle, small_icon, v_flex,
 };
 
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
-
-const NAV_WIDTH: f32 = 340.;
 
 /// Rows in display order. Only the variants holding a [`Selection`] can be selected.
 enum Row<'a> {
@@ -294,6 +292,7 @@ impl AppView {
         let alt = window.modifiers().alt;
         let rows = rows(store, self, cx);
         let project_count = store.projects.len();
+        let nav_width = store.width(Pane::Navigator);
         let loaded = store.projects_loaded;
 
         let mut children: Vec<AnyElement> = Vec::with_capacity(rows.len());
@@ -404,8 +403,9 @@ impl AppView {
             .on_action(cx.listener(Self::rename_selection))
             .on_action(cx.listener(Self::new_branch_on_top))
             .on_action(cx.listener(Self::uncommit_selection))
-            .w(px(NAV_WIDTH))
+            .w(px(nav_width))
             .flex_none()
+            .relative()
             .h_full()
             .bg(theme.bg_2)
             .border_r_1()
@@ -433,6 +433,7 @@ impl AppView {
                 )
             })
             .child(list)
+            .child(resize_handle(Pane::Navigator, self.store.clone(), &theme))
     }
 
     #[allow(clippy::too_many_arguments)]

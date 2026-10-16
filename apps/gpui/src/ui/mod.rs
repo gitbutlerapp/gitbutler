@@ -6,10 +6,11 @@ pub mod text_input;
 use std::borrow::Cow;
 
 use gpui::{
-    AnyElement, App, AssetSource, ClickEvent, Div, ElementId, Hsla, SharedString, Svg, Window, div,
-    prelude::*, px, svg,
+    AnyElement, App, AssetSource, ClickEvent, CursorStyle, Div, DragMoveEvent, ElementId,
+    EmptyView, Entity, Hsla, SharedString, Svg, Window, div, prelude::*, px, svg,
 };
 
+use crate::state::{Pane, Store};
 use crate::theme::Theme;
 
 pub const ROW_HEIGHT: f32 = 28.;
@@ -483,4 +484,39 @@ pub fn empty_state(
                 .child(detail.into()),
         )
         .into_any_element()
+}
+
+/// A strip along a pane's right edge: drag it to resize the pane, double-click to put it
+/// back. The pane needs `.relative()`, and an ancestor that starts where the pane does
+/// listens with [`resize_pane`].
+pub fn resize_handle(pane: Pane, store: Entity<Store>, theme: &Theme) -> impl IntoElement {
+    div()
+        .id(ElementId::Name(format!("resize-{pane:?}").into()))
+        .absolute()
+        .top_0()
+        .bottom_0()
+        .right(px(-2.))
+        .w(px(5.))
+        .cursor(CursorStyle::ResizeLeftRight)
+        .hover(|el| el.bg(theme.pop.opacity(0.5)))
+        .on_drag(pane, |_, _, _, cx| cx.new(|_| EmptyView))
+        .on_click(move |event, _, cx| {
+            if event.click_count() == 2 {
+                store.update(cx, |store, cx| store.set_width(pane, None, cx));
+            }
+        })
+}
+
+/// Resize `pane` while its handle is dragged, measuring from the left of the element this
+/// listens on.
+pub fn resize_pane(
+    pane: Pane,
+    store: Entity<Store>,
+) -> impl Fn(&DragMoveEvent<Pane>, &mut Window, &mut App) + 'static {
+    move |event, _, cx| {
+        if *event.drag(cx) == pane {
+            let width = f32::from(event.event.position.x - event.bounds.left());
+            store.update(cx, |store, cx| store.set_width(pane, Some(width), cx));
+        }
+    }
 }
