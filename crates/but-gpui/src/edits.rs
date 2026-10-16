@@ -6,7 +6,7 @@
 use gpui::{App, Context, Div, KeyBinding, Window, actions, prelude::*};
 
 use crate::app::AppView;
-use crate::backend::{self, CommitId, Destination, Workspace};
+use crate::backend::{self, CommitId, Destination, Selected, Workspace};
 use crate::state::{Cut, Overlay, ProjectId, Selection};
 use crate::transfer::{Transfer, remapped, short_ref};
 
@@ -432,5 +432,72 @@ impl AppView {
             commit.message.clone()
         };
         self.copy_text(text, cx);
+    }
+}
+
+impl AppView {
+    /// Move `files` out of `commit` into a new commit right above it, and select that one.
+    pub fn split_off(
+        &mut self,
+        project: ProjectId,
+        commit: CommitId,
+        files: std::sync::Arc<[Selected]>,
+        cx: &mut Context<Self>,
+    ) {
+        let selected = project.clone();
+        self.store.update(cx, |store, cx| {
+            store.run(
+                &project,
+                "Split commit",
+                Overlay::default(),
+                move |path, remap| backend::split_off(path, remap.get(commit)?, &files),
+                move |store, (rewritten, new), cx| {
+                    store.follow(&rewritten, cx);
+                    store.select(Some(Selection::Commit(selected, new)), cx);
+                    store.snack_undoable("Split into a new commit", cx)
+                },
+                cx,
+            )
+        });
+    }
+
+    /// Take `files` out of `commit` as if it had never made them, after asking.
+    pub fn discard_from_commit(
+        &mut self,
+        project: ProjectId,
+        commit: CommitId,
+        files: std::sync::Arc<[Selected]>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let what = match &*files {
+            [file] if file.hunks.is_some() => "this hunk".to_owned(),
+            [file] => file.file.path.clone(),
+            files => format!("{} files", files.len()),
+        };
+        self.confirm_then(
+            format!("Discard {what} from commit {}?", commit.short()),
+            "The commit, and the ones after it, lose the change. You can undo this with ⌘Z.",
+            "Discard",
+            window,
+            cx,
+            move |this, cx| {
+                this.store.update(cx, |store, cx| {
+                    store.run(
+                        &project,
+                        "Discard from commit",
+                        Overlay::default(),
+                        move |path, remap| {
+                            backend::discard_from_commit(path, remap.get(commit)?, &files)
+                        },
+                        |store, rewritten, cx| {
+                            store.follow(&rewritten, cx);
+                            store.snack_undoable("Discarded from the commit", cx)
+                        },
+                        cx,
+                    )
+                });
+            },
+        );
     }
 }

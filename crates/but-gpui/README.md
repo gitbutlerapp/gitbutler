@@ -43,6 +43,10 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 | a commit's file | another commit | moves the change between commits |
 | a commit's file | uncommitted changes | uncommits just that file |
 | a branch | another branch | stacks it, with the branches above it, on top of that one |
+| a hunk of uncommitted changes | a commit or branch | as its file would, with just that hunk |
+| a hunk of a commit | another commit, or uncommitted changes | moves just that hunk, or uncommits it |
+
+Drag a hunk by its header in the diff. Right-click a hunk or file header there for the same moves as a menu, plus, in a commit, Split into a new commit (the hunk moves into a new commit right above, in one undoable step) and Discard from commit.
 
 "Cherry-pick" in a commit's menu picks it up the same way, and ⌘V puts a copy on top of a branch or above a commit, leaving the original where it is.
 

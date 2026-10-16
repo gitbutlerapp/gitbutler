@@ -4,8 +4,8 @@
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, ElementId, Hsla, MouseButton, MouseDownEvent,
-    SharedString, Stateful, Toggled, Window, div, prelude::*, px, uniform_list,
+    AnyElement, ClickEvent, Context, Div, ElementId, Hsla, MouseButton, MouseDownEvent, Pixels,
+    Point, SharedString, Stateful, Toggled, Window, div, prelude::*, px, uniform_list,
 };
 
 use super::file_tree::{self, TreeRow};
@@ -569,14 +569,22 @@ impl Detail {
                 .on_mouse_down(
                     MouseButton::Right,
                     cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        this.file_menu(menu_payload.clone(), event, cx)
+                        this.changes_menu(menu_payload.clone(), None, event.position, cx)
                     }),
                 );
         }
         row.into_any_element()
     }
 
-    fn file_menu(&mut self, payload: Cut, event: &MouseDownEvent, cx: &mut Context<Self>) {
+    /// What right-clicking files or a hunk offers: moving them, taking them out, and for a
+    /// single file opening or copying its path. `line` is where an editor should open.
+    pub(super) fn changes_menu(
+        &mut self,
+        payload: Cut,
+        line: Option<u32>,
+        position: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) {
         let Cut::Files {
             project,
             from,
@@ -585,37 +593,65 @@ impl Detail {
         else {
             return;
         };
-        let (files_for_paths, project_for_paths) = (files.clone(), project.clone());
+        let hunk = files.iter().any(|f| f.hunks.is_some());
+        let what = if hunk { "hunk" } else { "file" };
         let cut = payload.clone();
         let mut items = vec![MenuItem::new("Cut", move |this: &mut AppView, _, cx| {
             this.cut(cut.clone(), cx)
         })];
-        items.push(match from {
-            None => MenuItem::new("Discard changes…", move |this, window, cx| {
-                this.discard(project.clone(), files.to_vec(), window, cx)
-            })
-            .danger(),
-            Some(_) => MenuItem::new("Uncommit file", move |this, window, cx| {
+        match from {
+            None => {
+                let (project, files) = (project.clone(), files.clone());
+                items.push(
+                    MenuItem::new("Discard changes…", move |this, window, cx| {
+                        this.discard(project.clone(), files.to_vec(), window, cx)
+                    })
+                    .danger(),
+                );
+            }
+            Some(commit) => {
+                let uncommit = payload.clone();
                 let uncommitted = Selection::Uncommitted(project.clone());
-                this.transfer(&payload, &uncommitted, false, window, cx);
-            }),
-        });
-        if let [file] = &*files_for_paths
-            && let Some(root) = self.store.read(cx).path(&project_for_paths)
+                let (split_project, split_files) = (project.clone(), files.clone());
+                let (drop_project, drop_files) = (project.clone(), files.clone());
+                items.extend([
+                    MenuItem::new(format!("Uncommit {what}"), move |this, window, cx| {
+                        this.transfer(&uncommit, &uncommitted, false, window, cx);
+                    }),
+                    MenuItem::new("Split into a new commit", move |this, _, cx| {
+                        this.split_off(split_project.clone(), commit, split_files.clone(), cx)
+                    }),
+                    MenuItem::new(
+                        format!("Discard {what} from commit…"),
+                        move |this, window, cx| {
+                            this.discard_from_commit(
+                                drop_project.clone(),
+                                commit,
+                                drop_files.clone(),
+                                window,
+                                cx,
+                            )
+                        },
+                    )
+                    .danger(),
+                ]);
+            }
+        }
+        if let [file] = &*files
+            && let Some(root) = self.store.read(cx).path(&project)
         {
             let relative = file.file.path.clone();
             let absolute = root.join(&relative);
             let full = absolute.display().to_string();
-            let (open_project, open_file) = (project_for_paths.clone(), relative.clone());
+            let (open_project, open_file) = (project.clone(), relative.clone());
             let label = self
                 .app
                 .upgrade()
                 .map(|app| app.read(cx).open_in_editor_label(cx))
                 .unwrap_or_default();
-            let position = event.position;
             items.extend([
                 MenuItem::new(label, move |this, _, cx| {
-                    this.open_in_editor(&open_project, Some(open_file.clone()), None, position, cx)
+                    this.open_in_editor(&open_project, Some(open_file.clone()), line, position, cx)
                 })
                 .separated(),
                 MenuItem::new("Copy path", move |this, _, cx| {
@@ -629,7 +665,6 @@ impl Detail {
                 }),
             ]);
         }
-        let position = event.position;
         self.app
             .update(cx, |app, cx| app.open_menu(position, items, cx))
             .ok();

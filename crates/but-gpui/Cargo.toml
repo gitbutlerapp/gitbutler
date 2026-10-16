@@ -59,9 +59,11 @@ but-github.workspace = true
 but-gitlab.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 but-path.workspace = true
+but-oplog.workspace = true
 but-rebase.workspace = true
 but-secret.workspace = true
 but-settings.workspace = true
+but-transaction.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 gitbutler-project.workspace = true
 gitbutler-filemonitor.workspace = true
