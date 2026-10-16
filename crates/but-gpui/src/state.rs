@@ -4,7 +4,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use futures::{StreamExt as _, channel::mpsc};
@@ -168,14 +168,30 @@ pub struct Store {
 impl EventEmitter<StoreEvent> for Store {}
 
 impl Store {
+    /// Projects listed and nothing loading or mutating, for the dev script's timings.
+    #[cfg(feature = "dev-script")]
+    pub fn is_settled(&self) -> bool {
+        self.projects_loaded
+            && self.busy.is_none()
+            && self.projects.iter().all(|p| !p.loading && !p.reload_queued)
+    }
+
     pub fn new(cx: &mut Context<Self>) -> Self {
         let (changes, mut changed) = mpsc::unbounded::<ProjectId>();
         let listener = cx.spawn(async move |this, cx| {
+            // While an agent keeps writing, reload at most this often: each reload runs a
+            // full status, and back to back they kept a core busy.
+            const MIN_INTERVAL: Duration = Duration::from_millis(500);
+            let mut last: Option<Instant> = None;
             while let Some(id) = changed.next().await {
                 // Watchers fire in bursts; let a burst settle before reloading.
+                let throttle = last.map_or(Duration::ZERO, |at| {
+                    MIN_INTERVAL.saturating_sub(at.elapsed())
+                });
                 cx.background_executor()
-                    .timer(Duration::from_millis(60))
+                    .timer(throttle.max(Duration::from_millis(60)))
                     .await;
+                last = Some(Instant::now());
                 let mut ids = HashSet::from([id]);
                 while let Ok(id) = changed.try_recv() {
                     ids.insert(id);

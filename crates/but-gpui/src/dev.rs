@@ -11,19 +11,32 @@
 //! click 120 300          # also dclick and tclick for double and triple clicks
 //! rclick 120 300
 //! drag 120 300 120 500    # append `alt` to hold option, `hold` to keep the button down
+//! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! shot /tmp/view.png      # render the current frame to a PNG
+//! perf next key down      # time an input until loads settle, plus one frame
+//! perf startup            # time from launch until the first loads settle
 //! quit
 //! ```
 
 use std::path::PathBuf;
-use std::time::Duration;
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Keystroke, Modifiers, ModifiersChangedEvent,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PlatformInput, Point, Window, point,
-    px,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PlatformInput, Point, ScrollDelta,
+    ScrollWheelEvent, TouchPhase, Window, point, px,
 };
+
+use crate::app::AppView;
+
+static LAUNCHED: OnceLock<Instant> = OnceLock::new();
+
+/// Called first thing in `main`, so `perf startup` can time from launch.
+pub fn mark_launch() {
+    LAUNCHED.get_or_init(Instant::now);
+}
 
 pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
     let Some(path) = std::env::var_os("GITBUTLER_GPUI_SCRIPT").map(PathBuf::from) else {
@@ -55,6 +68,41 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                     cx.update(|cx| cx.quit());
                     Ok(())
                 }
+                "perf" => {
+                    let (label, input) = rest.split_once(' ').unwrap_or((rest, ""));
+                    // Draw first so the timing doesn't include catching up on earlier steps.
+                    cx.update_window(window, |_, window, cx| window.draw(cx).clear(cx))?;
+                    let started = match label {
+                        "startup" => *LAUNCHED.get().context("mark_launch wasn't called")?,
+                        _ => Instant::now(),
+                    };
+                    if !input.is_empty() {
+                        let (command, rest) = input.split_once(' ').unwrap_or((input, ""));
+                        cx.update_window(window, |_, window, cx| {
+                            dispatch(command, rest, window, cx)
+                        })??;
+                    }
+                    while !cx.update_window(window, |_, window, cx| settled(window, cx))?
+                        && started.elapsed() < Duration::from_secs(60)
+                    {
+                        cx.background_executor()
+                            .timer(Duration::from_millis(1))
+                            .await;
+                    }
+                    let data = started.elapsed();
+                    let draw = cx.update_window(window, |_, window, cx| {
+                        let start = Instant::now();
+                        window.draw(cx).clear(cx);
+                        start.elapsed()
+                    })?;
+                    println!(
+                        "PERF {label} total={:.1}ms data={:.1}ms draw={:.1}ms",
+                        (data + draw).as_secs_f64() * 1e3,
+                        data.as_secs_f64() * 1e3,
+                        draw.as_secs_f64() * 1e3,
+                    );
+                    Ok(())
+                }
                 _ => cx
                     .update_window(window, |_, window, cx| run(command, rest, window, cx))
                     .and_then(|result| result),
@@ -72,10 +120,22 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
     .detach();
 }
 
+/// Nothing loading or mutating anywhere, so the screen shows the latest state.
+fn settled(window: &mut Window, cx: &mut App) -> bool {
+    window.root::<AppView>().flatten().is_some_and(|app| {
+        let app = app.read(cx);
+        app.store.read(cx).is_settled() && app.detail.read(cx).is_settled()
+    })
+}
+
 fn run(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Result<()> {
     // macOS stops drawing windows that aren't on screen; draw now so hit-testing and
     // screenshots see the current state.
     window.draw(cx).clear(cx);
+    dispatch(command, rest, window, cx)
+}
+
+fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Result<()> {
     let numbers = || -> Result<Vec<f32>> {
         rest.split_whitespace()
             .filter(|part| !matches!(*part, "alt" | "hold"))
@@ -118,6 +178,20 @@ fn run(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Result<(
                     position: point(px(x), px(y)),
                     pressed_button: None,
                     modifiers: Modifiers::default(),
+                }),
+                cx,
+            );
+        }
+        "scroll" => {
+            let [x, y, dy] = numbers()?[..] else {
+                bail!("scroll takes x y dy");
+            };
+            window.dispatch_event(
+                PlatformInput::ScrollWheel(ScrollWheelEvent {
+                    position: point(px(x), px(y)),
+                    delta: ScrollDelta::Pixels(point(px(0.), px(-dy))),
+                    modifiers: Modifiers::default(),
+                    touch_phase: TouchPhase::Moved,
                 }),
                 cx,
             );

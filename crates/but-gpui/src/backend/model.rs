@@ -223,6 +223,9 @@ pub struct FileDiff {
     pub body: DiffBody,
     /// A hash of the patch, which tells a later load the file hasn't changed.
     pub fingerprint: u64,
+    /// Highlighted and given scope names. A load can leave files past the first few
+    /// plain, for a later one to fill in.
+    pub annotated: bool,
 }
 
 impl FileDiff {

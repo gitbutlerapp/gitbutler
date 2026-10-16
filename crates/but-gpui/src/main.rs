@@ -31,6 +31,8 @@ fn main() {
 
 #[cfg(target_os = "macos")]
 fn main() {
+    #[cfg(feature = "dev-script")]
+    dev::mark_launch();
     use gpui::{
         App, Bounds, Menu, MenuItem, QuitMode, TitlebarOptions, WindowBounds, WindowOptions, point,
         prelude::*, px, size,
