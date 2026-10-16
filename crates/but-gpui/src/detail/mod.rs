@@ -47,6 +47,7 @@ actions!(
         PageUp,
         AmendTop,
         ToggleWrap,
+        ToggleFiles,
     ]
 );
 
@@ -68,6 +69,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("pageup", PageUp, c),
         KeyBinding::new("shift-space", PageUp, c),
         KeyBinding::new("alt-z", ToggleWrap, c),
+        KeyBinding::new("f", ToggleFiles, c),
         // Works while typing the message too, as the composer's other key does.
         KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
     ]);
@@ -164,6 +166,8 @@ pub struct Detail {
     _history_load: Task<()>,
     /// The diff takes the whole window.
     pub zoomed: bool,
+    /// The file list beside the diff is hidden, for more room.
+    pub files_hidden: bool,
     /// The header starts where the window's traffic lights are.
     pub beside_traffic_lights: bool,
     _subscriptions: Vec<Subscription>,
@@ -302,6 +306,7 @@ impl Detail {
             history_scroll: UniformListScrollHandle::new(),
             _history_load: Task::ready(()),
             zoomed: false,
+            files_hidden: false,
             beside_traffic_lights: false,
             _subscriptions: subscriptions,
         };
@@ -923,7 +928,7 @@ impl Render for Detail {
                     .size_full()
                     .items_start()
                     .on_drag_move(resize_pane(Pane::Files, self.store.clone()))
-                    .when(!self.zoomed, |el| {
+                    .when(!self.zoomed && !self.files_hidden, |el| {
                         el.child(
                             v_flex()
                                 .w(px(width))
@@ -966,6 +971,10 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PageDown, _, cx| this.page(1., cx)))
             .on_action(cx.listener(|this, _: &PageUp, _, cx| this.page(-1., cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
+            .on_action(cx.listener(|this, _: &ToggleFiles, _, cx| {
+                this.files_hidden = !this.files_hidden;
+                cx.notify();
+            }))
             .on_action(
                 cx.listener(|this, _: &find::FindInDiff, window, cx| this.open_find(window, cx)),
             )

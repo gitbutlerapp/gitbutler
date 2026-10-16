@@ -83,6 +83,8 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | In the navigator | |
 |---|---|
 | ↑ ↓ or j k | move through the tree |
+| ⇧↑ ⇧↓ | previous or next branch or project |
+| Home End, gg ⇧G | first or last row |
 | ← → or h l | collapse or expand |
 | r, b, ⇧P | rename, new branch on top, push |
 | o | open the pull request |
@@ -100,6 +102,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | ⌥⌘Z, ⌘⌫ | discard the hunk, discard the file |
 | ⌘F, ⌘G, ⇧⌘G | find in the diff, next match, previous match |
 | ⌥Z | wrap long lines, or stop |
+| f | hide or show the file list beside the diff |
 
 ## How it's built
 

@@ -5,8 +5,8 @@ use std::collections::HashSet;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable, Hsla,
-    ListAlignment, ListState, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Stateful,
-    Subscription, WeakEntity, Window, div, list, prelude::*, px,
+    KeyBinding, ListAlignment, ListState, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
+    Stateful, Subscription, WeakEntity, Window, actions, div, list, prelude::*, px,
 };
 
 use crate::app::{
@@ -33,6 +33,24 @@ use crate::ui::{
 
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
+
+actions!(
+    navigator,
+    [SelectFirst, SelectLast, PreviousSection, NextSection]
+);
+
+/// Jumps through the tree, as in Lite: to either end, and between branches and projects.
+pub fn bind_keys(cx: &mut App) {
+    let nav = Some("Navigator && !TextInput");
+    cx.bind_keys([
+        KeyBinding::new("g g", SelectFirst, nav),
+        KeyBinding::new("home", SelectFirst, nav),
+        KeyBinding::new("shift-g", SelectLast, nav),
+        KeyBinding::new("end", SelectLast, nav),
+        KeyBinding::new("shift-up", PreviousSection, nav),
+        KeyBinding::new("shift-down", NextSection, nav),
+    ]);
+}
 
 /// Rows in display order. Only [`Row::Item`] can be selected.
 enum Row {
@@ -240,6 +258,31 @@ impl Navigator {
         };
         let next = items[next].clone();
         self.select(next, window, cx);
+    }
+
+    /// Select the first item before (`forward` false) or after the selection that starts a
+    /// section: a project or a branch.
+    fn jump_section(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let items: Vec<&Selection> = self
+            .rows
+            .iter()
+            .filter_map(|row| match row {
+                Row::Item(item) => Some(item),
+                _ => None,
+            })
+            .collect();
+        let current = self.store.read(cx).selection.as_ref();
+        let at = current.and_then(|s| items.iter().position(|item| *item == s));
+        let heads =
+            |item: &&&Selection| matches!(item, Selection::Project(_) | Selection::Branch(..));
+        let next = match (at, forward) {
+            (Some(at), true) => items[at + 1..].iter().find(heads),
+            (Some(at), false) => items[..at].iter().rev().find(heads),
+            (None, _) => items.first(),
+        };
+        if let Some(next) = next.map(|item| (*item).clone()) {
+            self.select(next, window, cx);
+        }
     }
 
     fn select_previous(&mut self, _: &SelectPrevious, window: &mut Window, cx: &mut Context<Self>) {
@@ -1194,6 +1237,22 @@ impl Render for Navigator {
             .track_focus(&self.focus)
             .on_action(cx.listener(Self::select_previous))
             .on_action(cx.listener(Self::select_next))
+            .on_action(cx.listener(|this, _: &SelectFirst, window, cx| {
+                this.step(isize::MIN / 2, window, cx)
+            }))
+            .on_action(
+                cx.listener(|this, _: &SelectLast, window, cx| {
+                    this.step(isize::MAX / 2, window, cx)
+                }),
+            )
+            .on_action(cx.listener(|this, _: &PreviousSection, window, cx| {
+                this.jump_section(false, window, cx)
+            }))
+            .on_action(
+                cx.listener(|this, _: &NextSection, window, cx| {
+                    this.jump_section(true, window, cx)
+                }),
+            )
             .on_action(cx.listener(Self::expand))
             .on_action(cx.listener(Self::collapse))
             .on_action(cx.listener(Self::confirm))
