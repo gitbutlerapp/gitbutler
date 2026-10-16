@@ -3,6 +3,7 @@
 
 mod annotate;
 pub mod askpass;
+pub mod branches;
 pub mod conflicts;
 mod highlight;
 pub mod history;
@@ -123,12 +124,7 @@ fn describe_reviews(ctx: &Context, stacks: &mut [Stack]) {
         if let Some(cached) = reviews.get(&review.number) {
             review.title = cached.title.clone();
             review.url = Some(cached.html_url.clone());
-            review.state = match (&cached.merged_at, &cached.closed_at, cached.draft) {
-                (Some(_), _, _) => ReviewState::Merged,
-                (None, Some(_), _) => ReviewState::Closed,
-                (None, None, true) => ReviewState::Draft,
-                (None, None, false) => ReviewState::Open,
-            };
+            review.state = review_state(cached);
         }
         // A merged pull request drops out of the open ones the forge lists.
         if branch.push == PushState::Integrated {
@@ -138,6 +134,15 @@ fn describe_reviews(ctx: &Context, stacks: &mut [Stack]) {
         let checks = but_api::legacy::forge::list_ci_checks_for_ref(ctx, &branch.name, cache_only)
             .unwrap_or_default();
         review.checks = (!checks.is_empty()).then(|| summarize_checks(&checks));
+    }
+}
+
+fn review_state(review: &but_forge::ForgeReview) -> ReviewState {
+    match (&review.merged_at, &review.closed_at, review.draft) {
+        (Some(_), _, _) => ReviewState::Merged,
+        (None, Some(_), _) => ReviewState::Closed,
+        (None, None, true) => ReviewState::Draft,
+        (None, None, false) => ReviewState::Open,
     }
 }
 
@@ -263,6 +268,11 @@ pub enum DiffSource {
         oldest: CommitId,
         newest: CommitId,
     },
+    /// What a branch outside the workspace changes: from where it forked off the target to
+    /// its tip `tip`, as its pull request would show.
+    Branch {
+        tip: CommitId,
+    },
     /// What the operation that snapshot `id` was taken for changed: up to the snapshot
     /// after it, `newer`, or to now.
     Snapshot {
@@ -322,6 +332,21 @@ pub fn load_diff(
                 .next()
                 .map(|id| id.detach());
             but_core::diff::tree_changes(&repo, base, newest.0)?
+                .into_iter()
+                .map(file_change)
+                .collect()
+        }
+        DiffSource::Branch { tip } => {
+            let target = ctx
+                .project_meta()?
+                .target_ref
+                .and_then(|name| repo.find_reference(name.as_ref()).ok())
+                .and_then(|mut target| target.peel_to_id().ok())
+                .map(|id| id.detach());
+            let base = target
+                .and_then(|target| repo.merge_base(tip.0, target).ok().flatten())
+                .map(|id| id.detach());
+            but_core::diff::tree_changes(&repo, base, tip.0)?
                 .into_iter()
                 .map(file_change)
                 .collect()

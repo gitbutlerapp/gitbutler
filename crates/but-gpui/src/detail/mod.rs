@@ -2,6 +2,7 @@
 //! Uncommitted changes are for reviewing what an agent did, and committing it;
 //! a commit shows its message.
 
+mod branches;
 mod composer;
 mod diff_view;
 mod file_tree;
@@ -141,6 +142,11 @@ pub struct Detail {
     /// Files folded or unfolded by hand; otherwise reviewed files fold.
     folded: HashSet<String>,
     unfolded: HashSet<String>,
+    /// The Branches page's branches, for the project it shows, and its filter.
+    branches: Option<branches::Branches>,
+    branch_filter: Entity<TextInput>,
+    branches_scroll: UniformListScrollHandle,
+    _branches_load: Task<()>,
     /// The History page's operations, for the project it shows.
     history: Option<history::History>,
     history_scroll: UniformListScrollHandle,
@@ -168,6 +174,7 @@ impl Detail {
         cx: &mut Context<Self>,
     ) -> Self {
         let message = cx.new(|cx| TextInput::new("Commit message", true, cx));
+        let branch_filter = cx.new(|cx| TextInput::new("Filter branches", false, cx));
         let subscriptions = vec![
             cx.subscribe(&store, |this, _, event, cx| match event {
                 StoreEvent::SelectionChanged => {
@@ -183,16 +190,24 @@ impl Detail {
                         this.close_composer(cx);
                         this.commit_target = None;
                     }
-                    if let Some(Selection::History(project)) = this.selection(cx) {
-                        this.load_history(&project, false, cx);
+                    match this.selection(cx) {
+                        Some(Selection::History(project)) => this.load_history(&project, false, cx),
+                        Some(Selection::Branches(project)) => {
+                            this.load_branches(&project, true, cx)
+                        }
+                        _ => {}
                     }
                     this.refresh_diff(true, cx);
                 }
                 StoreEvent::Loaded(project) => {
-                    if let Some(Selection::History(shown)) = this.selection(cx)
-                        && shown == *project
-                    {
-                        this.load_history(project, false, cx);
+                    match this.selection(cx) {
+                        Some(Selection::History(shown)) if shown == *project => {
+                            this.load_history(project, false, cx)
+                        }
+                        Some(Selection::Branches(shown)) if shown == *project => {
+                            this.load_branches(project, false, cx)
+                        }
+                        _ => {}
                     }
                     // A reload that didn't touch the files shown, like the forge poll's,
                     // shouldn't re-highlight them.
@@ -219,6 +234,11 @@ impl Detail {
                 // The input draws itself; nothing here shows the message, and notifying
                 // would redraw the diff on every keystroke.
                 InputEvent::Changed => {}
+            }),
+            cx.subscribe(&branch_filter, |_, _, event, cx| {
+                if let InputEvent::Changed = event {
+                    cx.notify()
+                }
             }),
             // What the side panel shows comes from the store.
             cx.observe(&store, |_, _, cx| cx.notify()),
@@ -253,6 +273,10 @@ impl Detail {
             selecting: false,
             folded: HashSet::new(),
             unfolded: HashSet::new(),
+            branches: None,
+            branch_filter,
+            branches_scroll: UniformListScrollHandle::new(),
+            _branches_load: Task::ready(()),
             history: None,
             history_scroll: UniformListScrollHandle::new(),
             _history_load: Task::ready(()),
@@ -278,6 +302,7 @@ impl Detail {
         let source = match &selection {
             Selection::Project(_) => return None,
             Selection::History(project) => self.history_source(project)?,
+            Selection::Branches(project) => self.branches_source(project)?,
             Selection::Uncommitted(_) => DiffSource::Worktree,
             Selection::Commit(_, id) => DiffSource::Commit(*id),
             Selection::Branch(project, ref_name) => {
@@ -854,6 +879,9 @@ impl Render for Detail {
                         self.render_branch_side(project, ref_name, &theme, cx)
                     }
                     Selection::History(project) => self.render_history_side(project, &theme, cx),
+                    Selection::Branches(project) => {
+                        self.render_branches_side(project, &theme, window, cx)
+                    }
                     Selection::Project(_) => unreachable!("handled above"),
                 };
                 let width = self.store.read(cx).width(Pane::Files);

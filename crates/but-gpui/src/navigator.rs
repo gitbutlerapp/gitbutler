@@ -193,6 +193,7 @@ impl Navigator {
             if workspace.stacks.is_empty() {
                 rows.push(Row::Note("No branches yet".into(), false));
             }
+            rows.push(Row::Item(Selection::Branches(id.clone())));
             rows.push(Row::Item(Selection::History(id.clone())));
         }
         let mut collapsed = store
@@ -409,7 +410,22 @@ impl Navigator {
             Selection::Uncommitted(id) => Some(self.uncommitted_row(item, id, style, cx)),
             Selection::Branch(id, ref_name) => self.branch_row(item, id, ref_name, style, cx),
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
-            Selection::History(id) => Some(self.history_row(item, id, style, cx)),
+            Selection::Branches(id) => Some(self.page_row(
+                item,
+                format!("branches-{id}"),
+                Icon::Branch,
+                "Branches",
+                style,
+                cx,
+            )),
+            Selection::History(id) => Some(self.page_row(
+                item,
+                format!("history-{id}"),
+                Icon::Clock,
+                "History",
+                style,
+                cx,
+            )),
         };
         match el {
             Some(el) => self.drop_target(el, item.clone(), window, theme, cx),
@@ -578,18 +594,21 @@ impl Navigator {
         )
     }
 
-    fn history_row(
+    /// A quiet row at the end of a project that opens one of its pages.
+    fn page_row(
         &self,
         item: &Selection,
-        id: &ProjectId,
+        id: String,
+        glyph: Icon,
+        label: &'static str,
         style: RowStyle,
         cx: &Context<Self>,
     ) -> AnyElement {
         style
-            .row(format!("history-{id}"), 6.)
+            .row(id, 6.)
             .text_color(style.muted())
-            .child(icon(Icon::Clock).text_color(style.muted()))
-            .child(div().flex_1().child("History"))
+            .child(icon(glyph).text_color(style.muted()))
+            .child(div().flex_1().child(label))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
             .into_any_element()
     }
@@ -1069,7 +1088,7 @@ impl Navigator {
                 ]);
                 items
             }
-            Selection::History(_) => Vec::new(),
+            Selection::Branches(_) | Selection::History(_) => Vec::new(),
         }
     }
 }

@@ -50,6 +50,7 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 # GitButler, consumed only from `src/backend`.
 but-action.workspace = true
 but-api = { workspace = true, features = ["legacy"] }
+but-branches.workspace = true
 but-askpass.workspace = true
 but-core.workspace = true
 but-forge.workspace = true

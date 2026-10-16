@@ -22,7 +22,7 @@ use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, button, empty_state, h_flex, icon, icon_button, list_row,
-    relative_time, shortcut, small_icon, v_flex,
+    plural, relative_time, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -94,6 +94,45 @@ impl Detail {
                                 .on_click(|_, window, cx| {
                                     window.dispatch_action(Box::new(crate::app::Push), cx)
                                 })
+                                .into_any_element(),
+                        );
+                    }
+                }
+                Selection::Branches(project) => {
+                    crumbs.push(("Branches".into(), Some(selection.clone())));
+                    if let Some(branch) = self.selected_other_branch(project) {
+                        crumbs.push((branch.name.clone().into(), None));
+                        let local = branch.local;
+                        if let Some(summary) = self.other_branch_summary(project) {
+                            actions.push(
+                                div()
+                                    .text_size(px(12.))
+                                    .text_color(theme.text_2)
+                                    .child(summary)
+                                    .into_any_element(),
+                            );
+                        }
+                        if local {
+                            let project = project.clone();
+                            actions.push(
+                                button("delete-other", "Delete…")
+                                    .style(ButtonStyle::Ghost)
+                                    .on_click(cx.listener(
+                                        move |this, _: &ClickEvent, window, cx| {
+                                            this.delete_other_branch(&project, window, cx)
+                                        },
+                                    ))
+                                    .into_any_element(),
+                            );
+                        }
+                        let project = project.clone();
+                        actions.push(
+                            button("apply-branch", "Apply")
+                                .style(ButtonStyle::Pop)
+                                .tooltip("Add it to the workspace, beside your other branches")
+                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    this.apply_branch(&project, cx)
+                                }))
                                 .into_any_element(),
                         );
                     }
@@ -951,7 +990,10 @@ impl Detail {
                         div()
                             .text_size(px(12.))
                             .text_color(theme.text_2)
-                            .child(format!("{} commits · {push}", branch.commits.len())),
+                            .child(format!(
+                                "{} · {push}",
+                                plural(branch.commits.len(), "commit")
+                            )),
                     ),
             )
             .when_some(branch.review.as_ref(), |el, review| {

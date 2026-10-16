@@ -513,6 +513,14 @@ pub fn just_now(seconds: i64) -> bool {
     now() - seconds < 120
 }
 
+/// "1 commit", "3 commits".
+pub fn plural(n: usize, word: &str) -> String {
+    match n {
+        1 => format!("1 {word}"),
+        n => format!("{n} {word}s"),
+    }
+}
+
 pub fn relative_time(seconds: i64) -> String {
     let delta = (now() - seconds).max(0);
     match delta {
