@@ -441,6 +441,15 @@ pub fn fetch(path: &Path) -> Result<()> {
     but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))
 }
 
+/// Put `branch` (a short name), or with `whole_stack` it and every branch below it,
+/// straight onto the target and push the target. Returns whether the other branches still
+/// need an update to sit on the moved target.
+pub fn land(path: &Path, branch: &str, whole_stack: bool) -> Result<bool> {
+    let mut ctx = open(path)?;
+    let landed = but_api::land::branch_land(&mut ctx, branch.to_owned(), false, whole_stack)?;
+    Ok(landed.reconcile_skipped)
+}
+
 #[cfg(test)]
 mod tests {
     use std::process::Command;

@@ -21,13 +21,15 @@ use crate::edits::{
     MoveUp, NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
     UpdateStack,
 };
+use crate::state::Selection;
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{h_flex, keycap, list_row, popover, shortcut, v_flex};
 
-actions!(palette, [PaletteUp, PaletteDown]);
+actions!(palette, [PaletteUp, PaletteDown, GoToBranch]);
 
 pub fn bind_keys(cx: &mut gpui::App) {
+    cx.bind_keys([KeyBinding::new("cmd-p", GoToBranch, None)]);
     // Registered after the text field's own keys, so these win inside the palette.
     let c = Some("Palette > TextInput");
     cx.bind_keys([
@@ -69,6 +71,7 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("New branch ending here", Box::new(NewBranchHere)),
         ("Unstack branch", Box::new(Unstack)),
         ("Unapply stack", Box::new(UnapplyStack)),
+        ("Land branch on target", Box::new(crate::edits::LandBranch)),
         ("Update stack from target", Box::new(UpdateStack)),
         ("Rewrap commit message", Box::new(RewrapMessage)),
         ("Copy change ID", Box::new(CopyChangeId)),
@@ -83,6 +86,7 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Go to changes", Box::new(FocusChanges)),
         ("Add project…", Box::new(AddProject)),
         ("Settings", Box::new(crate::settings::OpenSettings)),
+        ("Go to branch", Box::new(GoToBranch)),
         (
             "Resolve conflicts",
             Box::new(crate::resolve::ResolveConflicts),
@@ -101,19 +105,46 @@ const RISKY: &[&str] = &[
     "Uncommit",
     "Squash all commits",
     "Unapply stack",
+    "Land branch on target",
     "Push branch",
 ];
 
-struct Command {
-    label: &'static str,
-    action: Box<dyn Action>,
+type Run = Box<dyn FnOnce(&mut AppView, &mut Window, &mut Context<AppView>)>;
+
+/// A row of the palette: what it's called, what it says at its end (keys, or a detail like
+/// the project a branch is in), and what picking it does.
+pub struct Choice {
+    label: SharedString,
     key: Option<SharedString>,
+    detail: Option<SharedString>,
+    run: Run,
 }
 
+impl Choice {
+    pub fn new(
+        label: impl Into<SharedString>,
+        run: impl FnOnce(&mut AppView, &mut Window, &mut Context<AppView>) + 'static,
+    ) -> Self {
+        Self {
+            label: label.into(),
+            key: None,
+            detail: None,
+            run: Box::new(run),
+        }
+    }
+
+    pub fn detail(mut self, detail: impl Into<SharedString>) -> Self {
+        self.detail = Some(detail.into());
+        self
+    }
+}
+
+/// The command palette, or another list to pick from the same way.
 pub struct Palette {
     input: Entity<TextInput>,
-    /// The commands that applied where focus was when the palette opened.
-    commands: Vec<Command>,
+    choices: Vec<Choice>,
+    /// What Enter does, for the hint at the bottom.
+    verb: &'static str,
     selected: usize,
     restore_focus: Option<FocusHandle>,
     _subscription: Subscription,
@@ -146,24 +177,83 @@ fn score(label: &str, query: &str) -> Option<i32> {
 
 impl AppView {
     pub fn open_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let restore_focus = window.focused(cx);
-        let mut commands: Vec<Command> = commands()
+        let mut commands: Vec<(&'static str, Box<dyn Action>)> = commands()
             .into_iter()
             .filter(|(_, action)| window.is_action_available(action.as_ref(), cx))
-            .map(|(label, action)| Command {
-                label,
-                key: shortcut(action.as_ref(), cx),
-                action,
-            })
             .collect();
         // Recently run commands first, as in Zed.
-        commands.sort_by_key(|command| {
+        commands.sort_by_key(|(label, _)| {
             self.recent_commands
                 .iter()
-                .position(|label| *label == command.label)
+                .position(|recent| recent == label)
                 .unwrap_or(usize::MAX)
         });
-        let input = cx.new(|cx| TextInput::new("Search commands", false, cx));
+        let choices = commands
+            .into_iter()
+            .map(|(label, action)| {
+                let key = shortcut(action.as_ref(), cx);
+                Choice {
+                    key,
+                    ..Choice::new(label, move |this, window, cx| {
+                        // Recent commands come first, so ⌘K then Enter repeats one; never
+                        // one that throws work away.
+                        if !RISKY.contains(&label) {
+                            this.recent_commands.retain(|recent| *recent != label);
+                            this.recent_commands.insert(0, label);
+                        }
+                        window.dispatch_action(action, cx);
+                    })
+                }
+            })
+            .collect();
+        self.open_picker("Search commands", "Run", choices, window, cx);
+    }
+
+    /// Pick a branch of any loaded project by name, and select it.
+    pub fn go_to_branch(&mut self, _: &GoToBranch, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let several = store
+            .projects
+            .iter()
+            .filter(|p| p.workspace.is_some())
+            .count()
+            > 1;
+        let choices = store
+            .projects
+            .iter()
+            .filter_map(|entry| Some((entry, entry.workspace.as_ref()?)))
+            .flat_map(|(entry, workspace)| {
+                workspace
+                    .branches()
+                    .filter(|branch| !branch.ref_name.is_empty())
+                    .map(move |branch| {
+                        let selection =
+                            Selection::Branch(entry.id.clone(), branch.ref_name.clone());
+                        let choice = Choice::new(branch.name.clone(), move |this, window, cx| {
+                            this.select(selection, window, cx)
+                        });
+                        if several {
+                            choice.detail(entry.project.name.clone())
+                        } else {
+                            choice
+                        }
+                    })
+            })
+            .collect();
+        self.open_picker("Go to branch", "Go", choices, window, cx);
+    }
+
+    /// Show `choices` to filter by typing and pick one with Enter or a click.
+    pub fn open_picker(
+        &mut self,
+        placeholder: &'static str,
+        verb: &'static str,
+        choices: Vec<Choice>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let restore_focus = window.focused(cx);
+        let input = cx.new(|cx| TextInput::new(placeholder, false, cx));
         let subscription =
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
                 InputEvent::Changed => {
@@ -179,7 +269,8 @@ impl AppView {
         self.menu = None;
         self.palette = Some(Palette {
             input,
-            commands,
+            choices,
+            verb,
             selected: 0,
             restore_focus,
             _subscription: subscription,
@@ -202,10 +293,10 @@ impl AppView {
         };
         let query = palette.input.read(cx).text().trim().to_owned();
         let mut scored: Vec<(i32, usize)> = palette
-            .commands
+            .choices
             .iter()
             .enumerate()
-            .filter_map(|(ix, command)| score(command.label, &query).map(|score| (score, ix)))
+            .filter_map(|(ix, choice)| score(&choice.label, &query).map(|score| (score, ix)))
             .collect();
         // Stable, so equal scores keep the recent-first order.
         scored.sort_by_key(|(score, _)| -score);
@@ -216,20 +307,14 @@ impl AppView {
         let Some(palette) = self.palette.take() else {
             return;
         };
-        let Some(command) = palette.commands.into_iter().nth(ix) else {
+        let Some(choice) = palette.choices.into_iter().nth(ix) else {
             return;
         };
-        // Recent commands come first, so ⌘K then Enter repeats one; never one that throws
-        // work away.
-        if !RISKY.contains(&command.label) {
-            self.recent_commands.retain(|label| *label != command.label);
-            self.recent_commands.insert(0, command.label);
-        }
         // Run it where it was offered.
         if let Some(focus) = palette.restore_focus {
             window.focus(&focus, cx);
         }
-        window.dispatch_action(command.action, cx);
+        (choice.run)(self, window, cx);
         cx.notify();
     }
 
@@ -264,14 +349,20 @@ impl AppView {
             .iter()
             .enumerate()
             .map(|(row, &ix)| {
-                let command = &palette.commands[ix];
+                let choice = &palette.choices[ix];
                 let selected = row == palette.selected;
                 list_row(("command", ix), selected, &theme)
                     .gap(px(12.))
-                    .child(div().flex_1().child(command.label))
-                    .when_some(command.key.clone(), |el, key| {
-                        el.child(keycap(&key, &theme))
+                    .child(div().flex_1().truncate().child(choice.label.clone()))
+                    .when_some(choice.detail.clone(), |el, detail| {
+                        el.child(
+                            div()
+                                .text_size(px(12.))
+                                .text_color(theme.text_2)
+                                .child(detail),
+                        )
                     })
+                    .when_some(choice.key.clone(), |el, key| el.child(keycap(&key, &theme)))
                     .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                         this.run_command(ix, window, cx)
                     }))
@@ -284,6 +375,8 @@ impl AppView {
                 .id("palette-backdrop")
                 .absolute()
                 .inset_0()
+                // Over a modal, a click outside closes only the palette.
+                .occlude()
                 .flex()
                 .justify_center()
                 .items_start()
@@ -348,7 +441,12 @@ impl AppView {
                                         .child(keycap("↑ ↓", &theme))
                                         .child("Move"),
                                 )
-                                .child(h_flex().gap(px(4.)).child(keycap("↩", &theme)).child("Run"))
+                                .child(
+                                    h_flex()
+                                        .gap(px(4.))
+                                        .child(keycap("↩", &theme))
+                                        .child(palette.verb),
+                                )
                                 .child(
                                     h_flex()
                                         .gap(px(4.))

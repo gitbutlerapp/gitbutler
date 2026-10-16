@@ -108,3 +108,26 @@ pub fn test_signing(path: &Path) -> Result<()> {
 pub fn remove_project(id: &str) -> Result<()> {
     projects::delete_project(id.parse().context("Invalid project id")?)
 }
+
+/// The project's remote branches, like `refs/remotes/origin/main`, to pick a target from.
+pub fn remote_branches(path: &Path) -> Result<Vec<String>> {
+    let ctx = open(path)?;
+    let repo = ctx.repo.get()?;
+    let mut names: Vec<String> = repo
+        .references()?
+        .remote_branches()?
+        .filter_map(Result::ok)
+        .map(|reference| reference.name().as_bstr().to_string())
+        .filter(|name| !name.ends_with("/HEAD"))
+        .collect();
+    names.sort();
+    Ok(names)
+}
+
+/// Make `target` (a remote branch's full ref) what the workspace integrates into. Only the
+/// project's settings change; branches rebase onto it at the next update.
+pub fn set_target(path: &Path, target: &str) -> Result<()> {
+    let mut ctx = open(path)?;
+    let name = gix::refs::FullName::try_from(target)?;
+    but_api::workspace::set_target_ref_and_init_project(&mut ctx, name.as_ref(), None)
+}

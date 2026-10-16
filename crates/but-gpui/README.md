@@ -26,8 +26,8 @@ The right side shows whatever is selected, under a breadcrumb whose project and 
   Diffs mark the words that changed within a line, and each hunk is titled with the function or type it sits in (`impl Counter › pub fn bump(&mut self, by: i32) -> i32`) rather than its `@@` line numbers. Both come from [deltoids](https://github.com/juanibiapina/deltoids), which parses the two sides with tree-sitter.
 - **A commit.** Its title, with the rest of the message behind the button beside it, its files and its diff. Edit the message, uncommit it or discard it. Its right-click menu also adds an empty commit above or below, starts a new branch ending at it, rewraps a message with lines too long for `git log`, and copies its ID, change ID or message. ⌥↑ and ⌥↓ move it one step, into the next branch of its stack at either end.
 - **A conflicted commit.** It says so above its files, and Resolve… (also on its right-click menu) lists every conflict with the current side, what the commit now sits on, next to the incoming side, the commit's own change. Accept current, incoming or both for each, or all at once; conflicts left unpicked stay for later. Resolving rewrites the commit and can be undone.
-- **A branch.** Its commits and combined diff, Push, and its pull request: title, number, state and how its CI checks stand, with a button to open it. Its right-click menu adds a branch on top or below, an empty commit on top, squashes all its commits into one, takes it out of its stack, updates just its stack from the target, or unapplies it.
-- **A project.** Counts, Fetch, and Update to rebase every stack onto the latest target.
+- **A branch.** Its commits and combined diff, Push, and its pull request: title, number, state and how its CI checks stand, with a button to open it. Its right-click menu adds a branch on top or below, an empty commit on top, squashes all its commits into one, takes it out of its stack, updates just its stack from the target, or unapplies it. The bottom branch of a stack can land on the target, its commits going straight onto it and pushed, skipping review; from the top branch the whole stack lands. Both ask first, as a push can't be undone.
+- **A project.** Where it is, when it last fetched (and why a fetch failed), and its target's history: the commits new on the target first, then the ones your workspace already has, each with the pull request that landed it, paging further back on request. Select one to see its diff. Fetch and Update (rebase every stack onto the target's new commits) are in the header.
 - **Branches.** Next to History at the end of each project: the branches the workspace doesn't have applied, local ones first, then the ones only a remote has, like a teammate's, with a filter by name or author. Each shows what it changes against the target, as its pull request would, and Apply adds it to the workspace (a remote branch gets a local branch first). Local branches can be deleted.
 - **History.** The last row of each project lists what GitButler did to it, newest first, including what agents ran from the CLI. Select an operation to see the files it changed, then restore the project to how it was before it; the restore can be undone too. "Take snapshot" records the project as it is now, to come back to later.
 
@@ -46,7 +46,7 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 
 "Cherry-pick" in a commit's menu picks it up the same way, and ⌘V puts a copy on top of a branch or above a commit, leaving the original where it is.
 
-Settings (⌘,) has a search box that finds a setting in any section. General picks light, dark or the system appearance, the editor files open in and the terminal; Git sets how often expanded projects fetch in the background (GitButler's other apps share it); Project renames the project, protects force pushes, turns commit signing on and tests it, and removes the project from GitButler. Press e in the diff to open the file under the cursor in your editor at its hunk; the first time, a menu asks which editor. A project's menu opens it in the editor or the terminal.
+Settings (⌘,) has a search box that finds a setting in any section. General picks light, dark or the system appearance, the editor files open in and the terminal; Git sets how often expanded projects fetch in the background (GitButler's other apps share it); Project renames the project, changes its target branch, protects force pushes, turns commit signing on and tests it, and removes the project from GitButler. Press e in the diff to open the file under the cursor in your editor at its hunk; the first time, a menu asks which editor. A project's menu opens it in the editor or the terminal.
 
 Branch rows show a pull request's state (open, draft, merged or closed) and number, and a glyph for its checks. The app reads these from GitButler's forge cache, which it refreshes in the background every minute and after each push, using the GitHub account GitButler already has.
 
@@ -59,6 +59,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | Anywhere | |
 |---|---|
 | ⌘K | command palette (⌘⇧P works too) |
+| ⌘P | go to a branch by name, in any project |
 | ⌘1, ⌘2 | focus the navigator, focus the changes |
 | ⇧Esc | zoom the diff to the whole window |
 | . | show or hide the navigator |

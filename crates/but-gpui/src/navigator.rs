@@ -1028,6 +1028,17 @@ impl Navigator {
                         cx,
                     ));
                 }
+                if let (Some(target), Some(whole)) = (
+                    workspace.target.as_ref(),
+                    crate::edits::land_scope(workspace, ref_name),
+                ) {
+                    let label = if whole {
+                        format!("Land the stack on {}…", target.name)
+                    } else {
+                        format!("Land on {}…", target.name)
+                    };
+                    items.push(MenuItem::action(label, &crate::edits::LandBranch, cx));
+                }
                 items.push(action(
                     if stacked {
                         "Unapply stack"

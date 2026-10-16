@@ -27,6 +27,7 @@ actions!(
         RewrapMessage,
         CopyChangeId,
         CopyMessage,
+        LandBranch,
     ]
 );
 
@@ -75,6 +76,22 @@ fn step(workspace: &Workspace, id: CommitId, up: bool) -> Option<Destination> {
     }
 }
 
+/// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
+/// branch of a stack lands alone, the top one of a taller stack lands the whole stack.
+pub fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
+    let (stack, at) = workspace.stack_of(ref_name)?;
+    let branch = &stack.branches[at];
+    if branch.commits.is_empty() || branch.commits.iter().any(|c| c.conflicted) {
+        return None;
+    }
+    let bottom = at + 1 == stack.branches.len();
+    match (at, bottom) {
+        (_, true) => Some(false),
+        (0, false) => Some(true),
+        _ => None,
+    }
+}
+
 impl AppView {
     /// Register the edits that apply to `selection` on the element around the navigator.
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
@@ -101,7 +118,8 @@ impl AppView {
                 .on_action(cx.listener(Self::new_branch_below))
                 .on_action(cx.listener(Self::unstack))
                 .on_action(cx.listener(Self::unapply_stack))
-                .on_action(cx.listener(Self::update_stack)),
+                .on_action(cx.listener(Self::update_stack))
+                .on_action(cx.listener(Self::land_branch)),
             _ => el,
         }
     }
@@ -311,6 +329,60 @@ impl AppView {
                 store.update_from_target(&project, Some(ref_name), cx)
             });
         }
+    }
+
+    /// Put the selected branch onto the target and push it there, after asking: the push
+    /// can't be undone. The bottom branch of a stack lands alone; the top one with the
+    /// branches below it.
+    fn land_branch(&mut self, _: &LandBranch, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((project, ref_name)) = self.selected_branch_ref(cx) else {
+            return;
+        };
+        let store = self.store.read(cx);
+        let Some(workspace) = store.workspace(&project) else {
+            return;
+        };
+        let Some(target) = workspace.target.as_ref().map(|t| t.name.clone()) else {
+            return;
+        };
+        let Some(whole_stack) = land_scope(workspace, &ref_name) else {
+            return;
+        };
+        let name = short_ref(&ref_name).to_owned();
+        let what = if whole_stack {
+            format!("{name} and the branches below it")
+        } else {
+            name.clone()
+        };
+        self.confirm_then(
+            format!("Land {what} on {target}?"),
+            &format!(
+                "Their commits go straight onto {target} and get pushed, skipping review. \
+                 A push can't be undone."
+            ),
+            "Land",
+            window,
+            cx,
+            move |this, cx| {
+                let label = format!("Land {name}");
+                this.store.update(cx, |store, cx| {
+                    store.run(
+                        &project,
+                        label,
+                        Overlay::default(),
+                        move |path, _| backend::land(path, &name, whole_stack),
+                        move |store, update_needed, cx| {
+                            let mut message = format!("Landed on {target}");
+                            if update_needed {
+                                message.push_str(". Update to bring the other branches along");
+                            }
+                            store.snack(message, cx)
+                        },
+                        cx,
+                    )
+                });
+            },
+        );
     }
 
     fn rewrap_message(&mut self, _: &RewrapMessage, _: &mut Window, cx: &mut Context<Self>) {
