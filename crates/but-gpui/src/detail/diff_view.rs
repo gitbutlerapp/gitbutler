@@ -13,7 +13,7 @@ use gpui::{
 use super::{Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleReviewed, checkbox_box};
 use crate::app::AppView;
 use crate::backend::{DiffBody, DiffLine, DiffSource, Selected};
-use crate::state::{ProjectId, Review};
+use crate::state::{Cut, ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, Decor, DiffRow, LineSelect};
 use crate::ui::scrollbar::{Scroll, scrollbar};
@@ -302,6 +302,39 @@ impl Detail {
             }
             _ => None,
         };
+        // What dragging or right-clicking a file or one of its hunks carries: changes of the
+        // worktree or of one commit. A branch's diff spans commits, so it carries nothing.
+        let from = match diff.key.source {
+            DiffSource::Worktree => Some(None),
+            DiffSource::Commit(id) => Some(Some(id)),
+            _ => None,
+        };
+        let payload = |file: usize, hunk: Option<usize>| {
+            let hunks = match hunk {
+                Some(hunk) => Some(vec![hunk_key(file, hunk)?.1]),
+                None => None,
+            };
+            Some(Cut::Files {
+                project: diff.key.project.clone(),
+                from: from?,
+                files: vec![Selected {
+                    file: diff.files[file].file.clone(),
+                    hunks,
+                }]
+                .into(),
+            })
+        };
+        let menu = |payload: Option<Cut>, line: Option<u32>, entity: WeakEntity<Detail>| {
+            move |event: &gpui::MouseDownEvent, _: &mut Window, cx: &mut App| {
+                if let Some(payload) = payload.clone() {
+                    entity
+                        .update(cx, |detail, cx| {
+                            detail.changes_menu(payload, line, event.position, cx)
+                        })
+                        .ok();
+                }
+            }
+        };
         let excluded = |file: usize, hunk: usize| {
             self.composing
                 && worktree
@@ -327,6 +360,10 @@ impl Detail {
                 div()
                     .id(("file-header", ix))
                     .child(header)
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        menu(payload(file, None), None, toggle.clone()),
+                    )
                     .on_click(move |_, _, cx| {
                         toggle
                             .update(cx, |detail, cx| detail.toggle_fold(file, cx))
@@ -380,10 +417,24 @@ impl Detail {
                         ..Default::default()
                     },
                 );
+                let line = hunk_key(file, hunk).map(|(_, key)| key.0.new_start);
+                let carried = payload(file, Some(hunk));
                 div()
                     .id(("hunk", ix))
                     .group("hunk-row")
                     .child(element)
+                    .on_mouse_down(MouseButton::Right, menu(carried.clone(), line, entity))
+                    .when_some(carried, |el, carried| {
+                        let label = format!(
+                            "{} · line {}",
+                            diff.files[file].file.path,
+                            line.unwrap_or_default()
+                        );
+                        el.on_drag(
+                            carried,
+                            crate::navigator::drag_preview(self.store.clone(), label.into()),
+                        )
+                    })
                     .into_any_element()
             }
             DiffRow::Line { file, hunk, .. } => {

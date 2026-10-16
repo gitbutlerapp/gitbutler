@@ -374,6 +374,43 @@ pub fn move_files(
     Ok(rewritten(&outcome.workspace))
 }
 
+/// Take `files` (or some of their hunks) out of `commit` as if it had never made them.
+pub fn discard_from_commit(path: &Path, commit: CommitId, files: &[Selected]) -> Result<Rewritten> {
+    let mut ctx = open(path)?;
+    let outcome = but_api::commit::discard_commit::commit_discard_changes(
+        &mut ctx,
+        commit.0,
+        selected_specs(files),
+        DryRun::No,
+    )?;
+    Ok(rewritten(&outcome.workspace))
+}
+
+/// Move `files` (or some of their hunks) out of `commit` into a new commit right above it,
+/// in one step that one undo takes back. Returns the rewrites and the new commit.
+pub fn split_off(
+    path: &Path,
+    commit: CommitId,
+    files: &[Selected],
+) -> Result<(Rewritten, CommitId)> {
+    use but_oplog::legacy::{OperationKind, SnapshotDetails};
+    let mut ctx = open(path)?;
+    let mut meta = ctx.meta()?;
+    let changes = selected_specs(files);
+    let (new, workspace) = but_transaction::with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::MoveCommitFile),
+        DryRun::No,
+        |mut tx| {
+            let blank = tx.insert_blank_commit(RelativeTo::Commit(commit.0), InsertSide::Above)?;
+            let moved = tx.move_committed_changes_between(commit.0, blank.id, changes)?;
+            Ok(but_transaction::Commit(CommitId(moved.id)))
+        },
+    )?;
+    Ok((rewritten(&workspace), new))
+}
+
 pub fn reword(path: &Path, commit: CommitId, message: &str) -> Result<Rewritten> {
     let mut ctx = open(path)?;
     let outcome =
