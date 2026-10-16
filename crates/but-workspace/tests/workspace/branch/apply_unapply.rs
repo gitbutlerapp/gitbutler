@@ -2536,7 +2536,6 @@ Outcome {
 
 mod unapply_checked_out {
     use but_testsupport::gix_testtools::tempfile::TempDir;
-    use snapbox::prelude::*;
 
     use super::*;
 

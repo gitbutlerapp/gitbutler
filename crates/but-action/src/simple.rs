@@ -84,7 +84,7 @@ pub(crate) fn handle_changes(
         }
     }
     // Go over the stack_assignments and flatten the diff specs for each stack.
-    for (_, specs) in stack_assignments.iter_mut() {
+    for specs in stack_assignments.values_mut() {
         *specs = but_workspace::flatten_diff_specs(specs.clone());
     }
 

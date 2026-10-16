@@ -260,7 +260,7 @@ where
 
                 let valid_executable = if peer_stat.ino == askpath_stat.ino {
                     if peer_stat.dev != askpath_stat.dev {
-                        return Err(Error::<E>::AskpassDeviceMismatch)?;
+                        Err(Error::<E>::AskpassDeviceMismatch)?;
                     }
 
                     true
@@ -269,7 +269,7 @@ where
                 };
 
                 if !valid_executable {
-                    return Err(Error::<E>::AskpassExecutableMismatch)?;
+                    Err(Error::<E>::AskpassExecutableMismatch)?;
                 }
 
                 // await for peer to send secret
@@ -277,7 +277,7 @@ where
 
                 // check the secret
                 if peer_secret.trim() != secret {
-                    return Err(Error::<E>::AskpassSecretMismatch)?;
+                    Err(Error::<E>::AskpassSecretMismatch)?;
                 }
 
                 // get the prompt

@@ -253,7 +253,7 @@ pub fn set_review_template(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     if let Some(path) = template_path {
-        let message = format!("Set review template path to: {}", &path);
+        let message = format!("Set review template path to: {path}");
         but_api::legacy::forge::set_review_template(ctx, Some(path))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{message}")?;
@@ -290,7 +290,7 @@ pub fn set_review_template(
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("Could not determine selected review template"))?
         };
-        let message = format!("Set review template path to: {}", &selected_template);
+        let message = format!("Set review template path to: {selected_template}");
         but_api::legacy::forge::set_review_template(ctx, Some(selected_template.clone()))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{message}")?;
@@ -787,7 +787,7 @@ fn print_new_pr_info(
         t.pr_number.paint(&review.unit_symbol),
         t.pr_number.paint(review.number.to_string())
     )?;
-    writeln!(out, "  {} {}", t.hint.paint("Title:"), &review.title)?;
+    writeln!(out, "  {} {}", t.hint.paint("Title:"), review.title)?;
     writeln!(
         out,
         "  {} {}",

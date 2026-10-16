@@ -4081,7 +4081,7 @@ mod util {
                 diff_context_lines: _,
             } = self.inner;
             let commits_count = self.inner.commit_ids().len();
-            writeln!(f, "workspace_and_remote_commits_count: {}", &commits_count)?;
+            writeln!(f, "workspace_and_remote_commits_count: {commits_count}")?;
             id_list_if_not_empty(f, "branches", self.inner.branch_ids().into_iter().sorted())?;
             id_list_if_not_empty(
                 f,

@@ -276,7 +276,7 @@ pub fn visualize_index(index: &gix::index::State) -> String {
         writeln!(
             &mut buf,
             "{mode:o}:{id} {path}{stage}",
-            id = &entry.id.to_hex_with_len(7),
+            id = entry.id.to_hex_with_len(7),
             mode = entry.mode.bits(),
             stage = {
                 let stage = entry.flags.stage();
@@ -301,7 +301,7 @@ pub fn visualize_index_with_content(repo: &gix::Repository, index: &gix::index::
         writeln!(
             &mut buf,
             "{mode:o}:{id} {path} {content:?}",
-            id = &entry.id.to_hex_with_len(7),
+            id = entry.id.to_hex_with_len(7),
             mode = entry.mode.bits(),
             content = repo
                 .find_blob(entry.id)

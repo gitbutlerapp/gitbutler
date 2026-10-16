@@ -372,9 +372,8 @@ fn worktree_changes_inner(
             status::Item::IndexWorktree(index_worktree::Item::Rewrite {
                 source,
                 dirwalk_entry,
-                // This ID is usually null, but might be set if used for comparisons.
+                // `dirwalk_entry_id` is usually null, but might be set if used for comparisons.
                 // However, this wouldn't mean the object exists.
-                dirwalk_entry_id: _,
                 ..
             }) => {
                 let previous_path: BString = source.rela_path().into();
