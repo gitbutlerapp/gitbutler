@@ -72,6 +72,7 @@ icons! {
     PrClose => "pr-close",
     PrDraft => "pr-draft",
     Refresh => "refresh",
+    Search => "search",
     Sidebar => "sidebar",
     Stack => "stack",
     TextBlock => "text-block",

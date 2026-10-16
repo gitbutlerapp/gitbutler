@@ -92,6 +92,7 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Settings", Box::new(crate::settings::OpenSettings)),
         ("Go to branch", Box::new(GoToBranch)),
         ("Find in diff", Box::new(crate::detail::FindInDiff)),
+        ("Filter files", Box::new(crate::detail::FilterFiles)),
         ("Wrap long lines", Box::new(crate::detail::ToggleWrap)),
         (
             "Show or hide the files",
