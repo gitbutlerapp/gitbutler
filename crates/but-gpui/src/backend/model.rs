@@ -26,6 +26,9 @@ pub struct Project {
 pub struct Workspace {
     /// The branch everything integrates into, like `origin/main`.
     pub target: Option<Target>,
+    /// The forge that hosts the target, like "GitHub", when there is one to make pull
+    /// requests on.
+    pub forge: Option<String>,
     pub stacks: Vec<Stack>,
     pub uncommitted: Vec<FileChange>,
 }

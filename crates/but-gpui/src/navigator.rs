@@ -716,12 +716,20 @@ impl Navigator {
                     )
                     .when_some(review.checks, |el, checks| {
                         let (glyph, color, text) = review::checks_summary(checks, theme);
+                        let tip = format!("{text}. Click to check again");
+                        let (store, project) = (self.store.clone(), id.clone());
                         el.child(
                             div()
                                 .id(ElementId::Name(format!("checks-{ref_name}").into()))
                                 .child(small_icon(glyph).text_color(style.meta(color)))
                                 .tooltip(move |_, cx| {
-                                    Tooltip::with_key(text.clone().into(), None, cx)
+                                    Tooltip::with_key(tip.clone().into(), None, cx)
+                                })
+                                .on_click(move |_, _, cx| {
+                                    store.update(cx, |store, cx| {
+                                        store.refresh_forge(&project);
+                                        store.snack("Checking CI again", cx)
+                                    })
                                 }),
                         )
                     })
@@ -996,6 +1004,32 @@ impl Navigator {
                 }
                 if branch.review.as_ref().is_some_and(|r| r.url.is_some()) {
                     items.push(action("Open pull request", &OpenPullRequest));
+                }
+                if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
+                    use crate::backend::ReviewState as S;
+                    use crate::pr::*;
+                    match branch.review.as_ref().map(|r| r.state) {
+                        None if !branch.commits.is_empty() => {
+                            items.push(action("Create pull request…", &CreatePullRequest))
+                        }
+                        Some(state @ (S::Open | S::Draft)) => items.extend([
+                            action("Edit pull request…", &EditPullRequest),
+                            action(
+                                if state == S::Draft {
+                                    "Mark ready for review"
+                                } else {
+                                    "Convert to draft"
+                                },
+                                &ToggleDraft,
+                            ),
+                            action("Merge pull request…", &MergePullRequest),
+                            action("Close pull request…", &ClosePullRequest),
+                        ]),
+                        Some(S::Closed) => {
+                            items.push(action("Reopen pull request", &ClosePullRequest))
+                        }
+                        _ => {}
+                    }
                 }
                 if ref_name.is_empty() {
                     return items;
