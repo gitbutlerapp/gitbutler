@@ -203,6 +203,28 @@ impl Store {
         );
     }
 
+    /// Move commit `id` into a new branch of its own, and select that branch.
+    pub fn move_to_new_branch(
+        &mut self,
+        project: &ProjectId,
+        id: CommitId,
+        cx: &mut Context<Self>,
+    ) {
+        let shown = project.clone();
+        self.run(
+            project,
+            "Move to a new branch",
+            Overlay::commits(self.key_of(project, id)),
+            move |path, remap| backend::move_to_new_branch(path, remap.get(id)?),
+            move |store, (rewritten, branch), cx| {
+                store.follow(&rewritten, cx);
+                store.select(Some(Selection::Branch(shown, branch)), cx);
+                store.snack_undoable("Moved to a new branch", cx)
+            },
+            cx,
+        );
+    }
+
     /// Check commit `id` out in the worktree to resolve it by hand, and show its page.
     pub fn edit_commit(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
         let shown = project.clone();
