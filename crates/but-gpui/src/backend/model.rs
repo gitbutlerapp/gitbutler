@@ -67,6 +67,12 @@ impl Workspace {
         })
     }
 
+    /// Whether `ref_name` has branches stacked on it. Pulling its remote's commits into it
+    /// then moves its reference to the top of the stack, so the app doesn't offer it.
+    pub fn has_branches_above(&self, ref_name: &str) -> bool {
+        self.stack_of(ref_name).is_some_and(|(_, at)| at > 0)
+    }
+
     /// When anything last happened here, in seconds: a file written or a commit made.
     pub fn last_activity(&self) -> Option<i64> {
         let edited = self
@@ -110,8 +116,8 @@ pub struct Branch {
     pub ref_name: String,
     /// Newest first.
     pub commits: Vec<Commit>,
-    /// Commits on the remote branch that aren't local yet.
-    pub upstream_only: usize,
+    /// The titles of the commits only the branch's remote has, newest first.
+    pub incoming: Vec<String>,
     pub push: PushState,
     pub review: Option<Review>,
 }

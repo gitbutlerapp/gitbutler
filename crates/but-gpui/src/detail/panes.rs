@@ -1163,6 +1163,11 @@ impl Detail {
             .when_some(branch.review.as_ref(), |el, review| {
                 el.child(render_review(review, theme, cx))
             })
+            .when(!branch.incoming.is_empty(), |el| {
+                let stacked =
+                    (store.workspace(project)).is_some_and(|ws| ws.has_branches_above(ref_name));
+                el.child(render_incoming(&branch.incoming, !stacked, theme, cx))
+            })
             .child(files)
             .into_any_element()
     }
@@ -1219,6 +1224,68 @@ impl Detail {
             .child(rows)
             .into_any_element()
     }
+}
+
+/// The commits only the branch's remote has, as an agent or a teammate pushed them, and
+/// a way to bring them in.
+fn render_incoming(
+    titles: &[String],
+    can_pull: bool,
+    theme: &Theme,
+    cx: &Context<Detail>,
+) -> AnyElement {
+    v_flex()
+        .flex_none()
+        .px(px(16.))
+        .py(px(10.))
+        .gap(px(4.))
+        .border_b_1()
+        .border_color(theme.border_3)
+        .text_size(px(12.))
+        .child(
+            h_flex()
+                .gap(px(8.))
+                .child(div().flex_1().text_color(theme.warn).child(format!(
+                    "{} on the remote, not here",
+                    plural(titles.len(), "commit")
+                )))
+                .when(can_pull, |el| {
+                    el.child(
+                        button("pull-remote", "Pull")
+                            .small()
+                            .tooltip("Bring them in, with this branch's own commits on top")
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.app
+                                    .update(cx, |app, cx| app.pull_remote(false, window, cx))
+                                    .ok();
+                            })),
+                    )
+                }),
+        )
+        .when(!can_pull, |el| {
+            el.child(
+                div()
+                    .text_color(theme.text_3)
+                    .child("Pulling into a branch with others stacked on it isn't possible yet."),
+            )
+        })
+        .children(titles.iter().map(|title| {
+            h_flex()
+                .gap(px(6.))
+                .text_color(theme.text_2)
+                .child(small_icon(Icon::ArrowDown).text_color(theme.text_3))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .child(match title.as_str() {
+                            "" => "No message".to_owned(),
+                            title => title.to_owned(),
+                        }),
+                )
+        }))
+        .into_any_element()
 }
 
 /// A branch's pull request in two lines, as t3code shows one: what it is, then its number,

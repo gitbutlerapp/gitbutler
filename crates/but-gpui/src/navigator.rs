@@ -18,8 +18,8 @@ use crate::backend::{CommitId, CommitState, PushState};
 use crate::detail::{ChecksChanged, Detail};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage, MoveDown,
-    MoveUp, NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, SquashPicked, UnapplyStack,
-    Unstack, UpdateStack,
+    MoveUp, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage, SquashAll, SquashPicked,
+    TakeRemote, UnapplyStack, Unstack, UpdateStack,
 };
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
@@ -27,8 +27,8 @@ use crate::transfer::Transfer;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, h_flex, icon,
-    icon_button, just_now, list_row, popover, relative_time, resize_handle, review, small_icon,
-    v_flex,
+    icon_button, just_now, list_row, plural, popover, relative_time, resize_handle, review,
+    small_icon, v_flex,
 };
 
 /// Commits shown per branch before folding the rest into "N more".
@@ -853,10 +853,10 @@ impl Navigator {
                         )
                     })
                 })
-                .when(branch.upstream_only > 0, |el| {
+                .when(!branch.incoming.is_empty(), |el| {
                     el.child(count(
                         Some(Icon::ArrowDown),
-                        branch.upstream_only,
+                        branch.incoming.len(),
                         style.meta(theme.warn),
                     ))
                 })
@@ -1156,6 +1156,19 @@ impl Navigator {
                 };
                 if branch.push.can_push() {
                     items.push(action("Push", &Push));
+                }
+                if !branch.incoming.is_empty() && !workspace.has_branches_above(ref_name) {
+                    items.extend([
+                        MenuItem::action(
+                            format!(
+                                "Pull {} from the remote",
+                                plural(branch.incoming.len(), "commit")
+                            ),
+                            &PullRemote,
+                            cx,
+                        ),
+                        action("Take the remote's version…", &TakeRemote),
+                    ]);
                 }
                 if branch.review.as_ref().is_some_and(|r| r.url.is_some()) {
                     items.push(action("Open pull request", &OpenPullRequest));

@@ -30,6 +30,8 @@ actions!(
         CopyChangeId,
         CopyMessage,
         LandBranch,
+        PullRemote,
+        TakeRemote,
     ]
 );
 
@@ -122,9 +124,63 @@ impl AppView {
                 .on_action(cx.listener(Self::unstack))
                 .on_action(cx.listener(Self::unapply_stack))
                 .on_action(cx.listener(Self::update_stack))
-                .on_action(cx.listener(Self::land_branch)),
+                .on_action(cx.listener(Self::land_branch))
+                .on_action(cx.listener(|this, _: &PullRemote, window, cx| {
+                    this.pull_remote(false, window, cx)
+                }))
+                .on_action(cx.listener(|this, _: &TakeRemote, window, cx| {
+                    this.pull_remote(true, window, cx)
+                })),
             _ => el,
         }
+    }
+
+    /// Bring the commits only the selected branch's remote has into it, the local ones
+    /// rebased on top; with `theirs`, after asking, swap the branch for the remote's.
+    pub fn pull_remote(&mut self, theirs: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((project, ref_name)) = self.selected_branch_ref(cx) else {
+            return;
+        };
+        let Some(workspace) = self.store.read(cx).workspace(&project) else {
+            return;
+        };
+        let incoming = (workspace.find_branch(&ref_name)).map_or(0, |b| b.incoming.len());
+        if incoming == 0 || workspace.has_branches_above(&ref_name) {
+            return;
+        }
+        let name = short_ref(&ref_name).to_owned();
+        let question = format!("Make {name} the remote's version?");
+        let run = move |this: &mut AppView, cx: &mut Context<AppView>| {
+            let (label, done) = if theirs {
+                (
+                    "Take the remote's version",
+                    format!("{name} is the remote's now"),
+                )
+            } else {
+                ("Pull from the remote", format!("Pulled into {name}"))
+            };
+            this.store.update(cx, |store, cx| {
+                store.run(
+                    &project,
+                    label,
+                    Overlay::default(),
+                    move |path, _| backend::pull_remote(path, &ref_name, theirs),
+                    move |store, (), cx| store.snack_undoable(done, cx),
+                    cx,
+                )
+            });
+        };
+        if !theirs {
+            return run(self, cx);
+        }
+        self.confirm_then(
+            question,
+            "Its commits the remote doesn't have are dropped. You can undo this with ⌘Z.",
+            "Take the remote's",
+            window,
+            cx,
+            run,
+        );
     }
 
     fn selected_commit(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
