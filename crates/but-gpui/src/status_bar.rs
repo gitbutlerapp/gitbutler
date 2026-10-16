@@ -5,7 +5,7 @@ use gpui::{Action, AnyElement, Context, Window, div, prelude::*, px};
 
 use crate::app::{AppView, CommandPalette, CutSelection, PasteHere, ToggleNavigator, Undo};
 use crate::detail::{DiscardHunk, NextFile, NextHunk, ToggleReviewed};
-use crate::state::Selection;
+use crate::state::{SLOW, Selection};
 use crate::theme::Theme;
 use crate::ui::{Icon, STATUS_BAR_HEIGHT, h_flex, icon_button, keycap, shortcut, small_icon};
 
@@ -18,11 +18,21 @@ impl AppView {
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
         let state: AnyElement = if let Some(busy) = &store.busy {
+            // How long it's taking once that's noticeable, and what waits behind it.
+            let elapsed = store
+                .busy_for()
+                .filter(|t| *t >= SLOW)
+                .map(|t| format!(" {:.1}s", t.as_secs_f32()))
+                .unwrap_or_default();
+            let queued = match store.queued() {
+                0 => String::new(),
+                n => format!(" · {n} more queued"),
+            };
             h_flex()
                 .gap(px(6.))
                 .text_color(theme.pop)
                 .child(small_icon(Icon::Clock))
-                .child(format!("{busy}…"))
+                .child(format!("{busy}…{elapsed}{queued}"))
                 .into_any_element()
         } else if let Some(cut) = &store.cut {
             h_flex()

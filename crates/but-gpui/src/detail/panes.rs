@@ -87,7 +87,6 @@ impl Detail {
                                 button("push", label)
                                     .icon(Icon::ArrowUp)
                                     .style(ButtonStyle::Pop)
-                                    .disabled(store.busy.is_some())
                                     .tooltip_with_key(
                                         "Push this branch and the ones below it",
                                         shortcut(&crate::app::Push, cx),
@@ -288,14 +287,11 @@ impl Detail {
                     )
                     .when(expanded, |el| {
                         let id = id.clone();
-                        el.child(
-                            button("fetch", "Fetch")
-                                .icon(Icon::Refresh)
-                                .disabled(store.busy.is_some())
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.store.update(cx, |store, cx| store.fetch(&id, cx))
-                                })),
-                        )
+                        el.child(button("fetch", "Fetch").icon(Icon::Refresh).on_click(
+                            cx.listener(move |this, _, _, cx| {
+                                this.store.update(cx, |store, cx| store.fetch(&id, cx))
+                            }),
+                        ))
                     })
                     .when_some(
                         workspace
@@ -308,7 +304,6 @@ impl Detail {
                                 button("update", format!("Update from {target}"))
                                     .icon(Icon::ArrowDown)
                                     .style(ButtonStyle::Pop)
-                                    .disabled(store.busy.is_some())
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.store.update(cx, |store, cx| {
                                             store.update_from_target(&id, cx)
@@ -324,18 +319,32 @@ impl Detail {
     /// A file list, flat or as a tree as the user chose, drawn only as far as it's on
     /// screen: an agent can leave thousands of files.
     fn file_list(&self, id: &'static str, source: FileSource, cx: &Context<Self>) -> AnyElement {
-        let tree = self.store.read(cx).file_tree;
-        let paths: Vec<&str> = match &source {
-            FileSource::Uncommitted(project) => self
-                .store
-                .read(cx)
+        let store = self.store.read(cx);
+        let tree = store.file_tree;
+        // Each shown file's position in its source, as files a pending operation takes away
+        // aren't shown.
+        let (index, paths): (Vec<usize>, Vec<&str>) = match &source {
+            FileSource::Uncommitted(project) => store
                 .workspace(project)
-                .map(|ws| ws.uncommitted.iter().map(|f| f.path.as_str()).collect())
+                .map(|ws| {
+                    ws.uncommitted
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, f)| !store.hides_file(project, &f.path))
+                        .map(|(pos, f)| (pos, f.path.as_str()))
+                        .unzip()
+                })
                 .unwrap_or_default(),
             FileSource::Diff(..) => self
                 .diff
                 .as_ref()
-                .map(|diff| diff.files.iter().map(|f| f.file.path.as_str()).collect())
+                .map(|diff| {
+                    diff.files
+                        .iter()
+                        .enumerate()
+                        .map(|(pos, f)| (pos, f.file.path.as_str()))
+                        .unzip()
+                })
                 .unwrap_or_default(),
         };
         let rows: Vec<TreeRow> = if tree {
@@ -369,7 +378,7 @@ impl Detail {
                         )),
                         TreeRow::File { pos, depth } => {
                             let depth = tree.then_some(*depth);
-                            this.render_source_file(&source, *pos, depth, &theme, cx)
+                            this.render_source_file(&source, index[*pos], depth, &theme, cx)
                         }
                     })
                     // A list item is as wide as its content unless a column stretches it.
@@ -850,7 +859,7 @@ impl Detail {
                         button("commit", "Commit")
                             .small()
                             .style(ButtonStyle::Pop)
-                            .disabled(store.busy.is_some() || checked == 0)
+                            .disabled(checked == 0)
                             .tooltip_with_key("Commit the checked changes", Some("⌘↩".into()))
                             .on_click(cx.listener(|this, _, window, cx| this.commit(window, cx))),
                     ),

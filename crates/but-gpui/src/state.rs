@@ -1,12 +1,12 @@
 //! App state shared by every view: the projects with their loaded workspaces, the
 //! selection, what's been cut, and the operation in flight.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{
     AppContext as _, AsyncApp, Context, EventEmitter, SharedString, Subscription, Task, WeakEntity,
@@ -69,13 +69,96 @@ impl Cut {
     }
 }
 
+/// How long a mutation runs before the status bar says how long it's taking.
+pub const SLOW: Duration = Duration::from_millis(800);
+
+#[derive(Debug)]
 pub enum StoreEvent {
     /// A project's workspace was (re)loaded.
     Loaded(ProjectId),
     SelectionChanged,
     /// Files of a project were marked reviewed or not, which folds or unfolds them.
     Reviewed(ProjectId),
+    /// An operation on a project was queued, started or finished, which hides or shows
+    /// what it takes away.
+    Pending(ProjectId),
 }
+
+/// What a running or queued operation takes away, hidden until the reload after it shows
+/// the result, and the commit it makes, shown as a stand-in meanwhile. Nothing here predicts
+/// what git will do; the reload always has the last word.
+#[derive(Default)]
+pub struct Overlay {
+    /// Commits leaving, by key.
+    pub commits: HashSet<String>,
+    /// Uncommitted files leaving whole, by path.
+    pub files: HashSet<String>,
+    /// The branch (full ref) a new commit goes on top of, and its title.
+    pub new_commit: Option<(String, SharedString)>,
+}
+
+impl Overlay {
+    pub fn commits(keys: impl IntoIterator<Item = String>) -> Self {
+        Self {
+            commits: keys.into_iter().collect(),
+            ..Self::default()
+        }
+    }
+
+    /// Hides the files taken whole; ones with only some hunks taken stay.
+    pub fn files<'a>(selected: impl IntoIterator<Item = &'a backend::Selected>) -> Self {
+        Self {
+            files: selected
+                .into_iter()
+                .filter(|s| s.hunks.is_none())
+                .map(|s| s.file.path.clone())
+                .collect(),
+            ..Self::default()
+        }
+    }
+}
+
+/// The commits an operation captured, found again by key when it runs, as operations queued
+/// before it may have rewritten them.
+pub struct Remap(HashMap<CommitId, CommitId>);
+
+impl Remap {
+    fn new(captured: &HashMap<CommitId, String>, now: Option<&Workspace>) -> Self {
+        let now: HashMap<&str, CommitId> = now
+            .into_iter()
+            .flat_map(|ws| ws.branches())
+            .flat_map(|branch| &branch.commits)
+            .map(|commit| (commit.key.as_str(), commit.id))
+            .collect();
+        Self(
+            captured
+                .iter()
+                .filter_map(|(id, key)| Some((*id, *now.get(key.as_str())?)))
+                .collect(),
+        )
+    }
+
+    /// `id` as it is now.
+    pub fn get(&self, id: CommitId) -> Result<CommitId> {
+        self.0
+            .get(&id)
+            .copied()
+            .context("A commit it needed changed while it waited")
+    }
+}
+
+/// An operation waiting for the ones before it.
+struct Queued {
+    project: ProjectId,
+    label: SharedString,
+    overlay: Overlay,
+    /// The project's commits when it was asked for, for its [`Remap`].
+    captured: HashMap<CommitId, String>,
+    start: Start,
+}
+
+/// Starts a queued operation, with its commits as they are by then.
+type Start = Box<dyn FnOnce(&mut Store, Remap, &mut Context<Store>)>;
 
 /// Something to tell the user, shown the way GitButler's other apps do.
 pub enum Notice {
@@ -146,6 +229,10 @@ pub struct Store {
     /// The label of the mutation in flight, if any. Mutations run one at a time, each
     /// until the reload after it lands, so the next one sees what it did.
     pub busy: Option<SharedString>,
+    /// The running mutation's project, overlay and start.
+    running: Option<(ProjectId, Overlay, Instant)>,
+    /// Mutations asked for while one ran, in order.
+    queue: VecDeque<Queued>,
     /// The project a finished mutation waits on. Its next load to start ends `busy`.
     settling: Option<ProjectId>,
     /// The project an operation is changing right now. Its own reload follows and sees all
@@ -181,6 +268,7 @@ impl Store {
     pub fn is_settled(&self) -> bool {
         self.projects_loaded
             && self.busy.is_none()
+            && self.queue.is_empty()
             && self.projects.iter().all(|p| !p.loading && !p.reload_queued)
     }
 
@@ -230,6 +318,8 @@ impl Store {
             busy: None,
             settling: None,
             mutating: None,
+            running: None,
+            queue: VecDeque::new(),
             last_snapshot: None,
             next_toast: 0,
             seen: saved.seen,
@@ -530,7 +620,7 @@ impl Store {
     /// of the commits already shown, which skips walking the commit graph.
     fn load(&mut self, id: &ProjectId, full: bool, cx: &mut Context<Self>) {
         let Some(entry) = self.project_mut(id) else {
-            self.settled(id);
+            self.settled(id, cx);
             return;
         };
         if entry.loading {
@@ -559,7 +649,7 @@ impl Store {
             .await;
             this.update(cx, |store, cx| {
                 let Some(entry) = store.project_mut(&id) else {
-                    store.settled(&id);
+                    store.settled(&id, cx);
                     return;
                 };
                 entry.loading = false;
@@ -575,7 +665,7 @@ impl Store {
                     store.validate_selection(cx);
                 }
                 if settles {
-                    store.settled(&id);
+                    store.settled(&id, cx);
                 }
                 cx.emit(StoreEvent::Loaded(id.clone()));
                 cx.notify();
@@ -589,11 +679,15 @@ impl Store {
         .detach();
     }
 
-    /// End the mutation in `busy` once `id` has loaded what it did, or can't load at all.
-    fn settled(&mut self, id: &ProjectId) {
+    /// End the mutation in `busy` once `id` has loaded what it did, or can't load at all,
+    /// and start the next one waiting.
+    fn settled(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         if self.settling.as_ref() == Some(id) {
             self.settling = None;
             self.busy = None;
+            self.running = None;
+            cx.emit(StoreEvent::Pending(id.clone()));
+            self.start_next(cx);
         }
     }
 
@@ -893,7 +987,8 @@ impl Store {
         self.run(
             project,
             "Undo",
-            backend::undo,
+            Overlay::default(),
+            |path, _| backend::undo(path),
             |store, undone, cx| match undone {
                 Some(operation) => store.snack(format!("Undone: {operation}"), cx),
                 None => store.snack("Nothing to undo", cx),
@@ -912,7 +1007,8 @@ impl Store {
         self.run(
             project,
             "Undo",
-            move |path| backend::undo_snapshot(path, snapshot),
+            Overlay::default(),
+            move |path, _| backend::undo_snapshot(path, snapshot),
             |store, operation, cx| store.snack(format!("Undone: {operation}"), cx),
             cx,
         );
@@ -922,7 +1018,8 @@ impl Store {
         self.run(
             project,
             "Fetch",
-            backend::fetch,
+            Overlay::default(),
+            |path, _| backend::fetch(path),
             |store, (), cx| store.snack("Fetched", cx),
             cx,
         );
@@ -933,7 +1030,8 @@ impl Store {
         self.run(
             project,
             "Update",
-            backend::update_from_target,
+            Overlay::default(),
+            |path, _| backend::update_from_target(path),
             |store, (), cx| store.snack_undoable("Updated from target", cx),
             cx,
         );
@@ -949,7 +1047,8 @@ impl Store {
         self.run(
             project,
             format!("Push {name}"),
-            move |path| backend::push(path, &ref_name, force),
+            Overlay::default(),
+            move |path, _| backend::push(path, &ref_name, force),
             move |store, (), cx| {
                 store.snack(format!("Pushed {name}"), cx);
                 // A push can open or move a pull request's checks.
@@ -963,7 +1062,8 @@ impl Store {
         self.run(
             project,
             "Uncommit",
-            move |path| backend::uncommit(path, &[id]),
+            Overlay::commits(self.key_of(project, id)),
+            move |path, remap| backend::uncommit(path, &[remap.get(id)?]),
             |store, (), cx| store.snack_undoable("Uncommitted", cx),
             cx,
         );
@@ -976,25 +1076,91 @@ impl Store {
 
     /// Run a mutation on `project` in the background, then reload it, busy until the
     /// reload lands. `done` runs on success with the operation's result.
+    /// Run `op` once the mutations before it have finished, hiding what `overlay` says it
+    /// takes away until then. It gets the commits it captured as they are by the time it runs.
     pub fn run<T: Send + 'static>(
         &mut self,
         project: &ProjectId,
         label: impl Into<SharedString>,
-        op: impl FnOnce(&Path) -> Result<T> + Send + 'static,
+        overlay: Overlay,
+        op: impl FnOnce(&Path, &Remap) -> Result<T> + Send + 'static,
         done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
         let label = label.into();
-        if let Some(busy) = &self.busy {
-            self.snack(format!("Still busy: {busy}"), cx);
-            return;
+        let captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
+            ws.branches()
+                .flat_map(|branch| &branch.commits)
+                .map(|commit| (commit.id, commit.key.clone()))
+                .collect()
+        });
+        let id = project.clone();
+        let start_label = label.clone();
+        self.queue.push_back(Queued {
+            project: project.clone(),
+            label,
+            overlay,
+            captured,
+            start: Box::new(move |store, remap, cx| {
+                store.start(&id, start_label, op, done, remap, cx)
+            }),
+        });
+        self.cut = None;
+        cx.emit(StoreEvent::Pending(project.clone()));
+        cx.notify();
+        if self.busy.is_none() {
+            self.start_next(cx);
         }
-        let Some(path) = self.path(project) else {
+    }
+
+    fn start_next(&mut self, cx: &mut Context<Self>) {
+        let Some(next) = self.queue.pop_front() else {
             return;
         };
-        self.busy = Some(label.clone());
+        let remap = Remap::new(&next.captured, self.workspace(&next.project));
+        self.busy = Some(next.label);
+        self.running = Some((next.project.clone(), next.overlay, Instant::now()));
+        (next.start)(self, remap, cx);
+        self.tick_while_busy(cx);
+    }
+
+    /// Redraw while a mutation runs, so the status bar can say how long it's taking.
+    fn tick_while_busy(&mut self, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_millis(250))
+                    .await;
+                let Ok(true) = this.update(cx, |store, cx| {
+                    let busy = store.running.is_some();
+                    if store.busy_for().is_some_and(|t| t >= SLOW) {
+                        cx.notify();
+                    }
+                    busy
+                }) else {
+                    break;
+                };
+            }
+        })
+        .detach();
+    }
+
+    fn start<T: Send + 'static>(
+        &mut self,
+        project: &ProjectId,
+        label: SharedString,
+        op: impl FnOnce(&Path, &Remap) -> Result<T> + Send + 'static,
+        done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
+        remap: Remap,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(path) = self.path(project) else {
+            self.busy = None;
+            self.running = None;
+            cx.emit(StoreEvent::Pending(project.clone()));
+            return self.start_next(cx);
+        };
         self.mutating = Some(project.clone());
-        self.cut = None;
         let before: HashSet<String> = self.workspace(project).map_or_else(HashSet::new, |ws| {
             ws.branches()
                 .flat_map(|branch| &branch.commits)
@@ -1007,7 +1173,7 @@ impl Store {
             // Which oplog entry the operation recorded, if it did, for its Undo button.
             let result = backend::run(move || {
                 let before = backend::oplog_head(&path);
-                let value = op(&path)?;
+                let value = op(&path, &remap)?;
                 let recorded = backend::oplog_head(&path).filter(|after| Some(*after) != before);
                 Ok((value, recorded))
             })
@@ -1030,6 +1196,52 @@ impl Store {
             .ok();
         })
         .detach();
+    }
+
+    /// The key of `project`'s commit `id`, which survives rewrites.
+    pub fn key_of(&self, project: &ProjectId, id: CommitId) -> Option<String> {
+        let (_, commit) = self.workspace(project)?.find_commit(id)?;
+        Some(commit.key.clone())
+    }
+
+    /// How long the running mutation has taken so far.
+    pub fn busy_for(&self) -> Option<Duration> {
+        self.running
+            .as_ref()
+            .map(|(_, _, started)| started.elapsed())
+    }
+
+    /// Mutations waiting for the running one.
+    pub fn queued(&self) -> usize {
+        self.queue.len()
+    }
+
+    /// The overlays of the mutations running and waiting on `project`.
+    fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {
+        let running = self.running.iter().filter(move |(p, ..)| p == project);
+        let queued = self.queue.iter().filter(move |q| q.project == *project);
+        running
+            .map(|(_, overlay, _)| overlay)
+            .chain(queued.map(|q| &q.overlay))
+    }
+
+    /// Whether a pending mutation takes the commit with `key` away.
+    pub fn hides_commit(&self, project: &ProjectId, key: &str) -> bool {
+        self.overlays(project).any(|o| o.commits.contains(key))
+    }
+
+    /// Whether a pending mutation takes the uncommitted file at `path` away.
+    pub fn hides_file(&self, project: &ProjectId, path: &str) -> bool {
+        self.overlays(project).any(|o| o.files.contains(path))
+    }
+
+    /// The titles of commits pending mutations will make on top of `ref_name`.
+    pub fn new_commits(&self, project: &ProjectId, ref_name: &str) -> Vec<SharedString> {
+        self.overlays(project)
+            .filter_map(|o| o.new_commit.as_ref())
+            .filter(|(branch, _)| branch == ref_name)
+            .map(|(_, title)| title.clone())
+            .collect()
     }
 
     /// Keep the selection on commits an operation rewrote.
