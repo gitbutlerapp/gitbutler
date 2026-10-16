@@ -25,6 +25,8 @@ The right side shows whatever is selected, under a breadcrumb whose project and 
 
   A changed image (PNG, JPEG, GIF, WebP, BMP or TIFF) shows before and after, side by side.
 
+  The button beside a changed file's line counts shows the unchanged lines around its hunks, so the whole file reads top to bottom; press it again to hide them.
+
   Diffs mark the words that changed within a line, and each hunk is titled with the function or type it sits in (`impl Counter › pub fn bump(&mut self, by: i32) -> i32`) rather than its `@@` line numbers. Both come from [deltoids](https://github.com/juanibiapina/deltoids), which parses the two sides with tree-sitter.
 - **A commit.** Its title, with the rest of the message behind the button beside it, its files and its diff. Edit the message, uncommit it or discard it. Its right-click menu also adds an empty commit above or below, starts a new branch ending at it, rewraps a message with lines too long for `git log`, and copies its ID, change ID or message. ⌥↑ and ⌥↓ move it one step, into the next branch of its stack at either end. ⌘-click picks more commits along with it and ⇧-click picks a run of them; the picks' right-click menu squashes them into the oldest or uncommits them all.
 - **A conflicted commit.** It says so above its files, and Resolve… (also on its right-click menu) lists every conflict with the current side, what the commit now sits on, next to the incoming side, the commit's own change. Accept current, incoming or both for each, or all at once, or leave the rest to AI; conflicts left unpicked stay for later. Resolving rewrites the commit and can be undone.

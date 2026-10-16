@@ -4,6 +4,7 @@
 
 use std::ops::Range;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, Context, Entity, MouseButton, Pixels, Subscription, Toggled, WeakEntity,
@@ -12,12 +13,12 @@ use gpui::{
 
 use super::{Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleReviewed, checkbox_box};
 use crate::app::AppView;
-use crate::backend::{DiffBody, DiffLine, DiffSource, LineKind, Selected};
+use crate::backend::{self, ChangeKind, DiffBody, DiffLine, DiffSource, LineKind, Selected};
 use crate::state::{Cut, ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, Decor, DiffRow, LineSelect};
 use crate::ui::scrollbar::{Scroll, scrollbar};
-use crate::ui::{ButtonStyle, button, empty_state, h_flex, shortcut};
+use crate::ui::{ButtonStyle, Icon, button, empty_state, h_flex, icon_button, shortcut};
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
 /// list notifies the view that drew it, and GPUI draws everything inside a notified view again,
@@ -351,13 +352,19 @@ impl Detail {
                 let folded = matches!(diff.rows.get(ix + 1), Some(DiffRow::Gap));
                 let review =
                     worktree.then(|| store.review(&diff.key.project, &diff.files[file].file));
+                let whole = self.whole_button(ix, file, entity.clone());
                 let toggle = entity.clone();
+                let trailing = h_flex()
+                    .flex_none()
+                    .gap(px(4.))
+                    .children(whole)
+                    .children(review.map(|review| review_button(ix, file, review, entity, cx)));
                 let header = diff::render_row(
                     row,
                     &diff.files,
                     theme,
                     Decor {
-                        trailing: review.map(|review| review_button(ix, file, review, entity, cx)),
+                        trailing: Some(trailing.into_any_element()),
                         current: self.cursor == Cursor { file, hunk: None },
                         folded,
                         ..Default::default()
@@ -488,10 +495,130 @@ impl Detail {
                     },
                 )
             }
+            DiffRow::Context {
+                file,
+                old,
+                new,
+                last,
+            } => {
+                let path = &diff.files[file].file.path;
+                let line = (self.whole.get(path))
+                    .and_then(Option::as_ref)
+                    .and_then(|(_, lines)| lines.get(new as usize - 1));
+                match line {
+                    Some(line) => diff::render_context_row(
+                        line,
+                        file,
+                        (old, new),
+                        last,
+                        theme,
+                        store.prefs.wrap,
+                    ),
+                    None => div().into_any_element(),
+                }
+            }
             DiffRow::Note(_) | DiffRow::Gap => {
                 diff::render_row(row, &diff.files, theme, Decor::default())
             }
         }
+    }
+}
+
+impl Detail {
+    /// On a changed file's header: show the unchanged lines around its hunks, or hide them.
+    fn whole_button(
+        &self,
+        ix: usize,
+        file: usize,
+        entity: WeakEntity<Detail>,
+    ) -> Option<AnyElement> {
+        let diff = self.diff.as_ref()?;
+        let file_diff = &diff.files[file];
+        let has_context = matches!(file_diff.body, DiffBody::Hunks { .. })
+            && matches!(
+                file_diff.file.kind,
+                ChangeKind::Modified | ChangeKind::Renamed
+            );
+        if !has_context {
+            return None;
+        }
+        let whole = self.whole.contains_key(&file_diff.file.path);
+        let (icon, tip) = if whole {
+            (Icon::CollapseVertical, "Show only the changes")
+        } else {
+            (Icon::ExpandVertical, "Show the whole file")
+        };
+        Some(
+            icon_button(("whole", ix), icon)
+                .small()
+                .tooltip(tip)
+                .on_click(move |_, _, cx| {
+                    entity
+                        .update(cx, |detail, cx| detail.toggle_whole(file, cx))
+                        .ok();
+                })
+                .into_any_element(),
+        )
+    }
+
+    /// Show every line of `file`, or only its hunks again.
+    pub(super) fn toggle_whole(&mut self, file: usize, cx: &mut Context<Self>) {
+        let Some(path) = (self.diff.as_ref())
+            .and_then(|diff| diff.files.get(file))
+            .map(|f| f.file.path.clone())
+        else {
+            return;
+        };
+        if self.whole.remove(&path).is_none() {
+            self.whole.insert(path, None);
+            self.load_whole(file, cx);
+        }
+        self.rebuild_rows(cx);
+    }
+
+    /// Read the lines of `file`, shown whole, as its current patch has them.
+    pub(super) fn load_whole(&mut self, file: usize, cx: &mut Context<Self>) {
+        let Some(diff) = &self.diff else {
+            return;
+        };
+        let Some(root) = self.store.read(cx).path(&diff.key.project) else {
+            return;
+        };
+        let Some(file) = diff.files.get(file) else {
+            return;
+        };
+        let (change, fingerprint) = (file.file.clone(), file.fingerprint);
+        let path = change.path.clone();
+        cx.spawn(async move |this, cx| {
+            let lines = backend::run(move || backend::file_lines(&root, &change)).await;
+            this.update(cx, |this, cx| {
+                // Unless the file changed again since, or isn't shown whole any more.
+                let current = (this.diff.as_ref())
+                    .and_then(|diff| diff.files.iter().find(|f| f.file.path == path))
+                    .is_some_and(|f| f.fingerprint == fingerprint);
+                if !current || !this.whole.contains_key(&path) {
+                    return;
+                }
+                match lines {
+                    Ok(Some(lines)) => {
+                        this.whole
+                            .insert(path, Some((fingerprint, Arc::new(lines))));
+                    }
+                    Ok(None) => {
+                        this.whole.remove(&path);
+                    }
+                    Err(err) => {
+                        this.whole.remove(&path);
+                        this.store.update(cx, |store, cx| {
+                            store.error("Couldn't read the file", format!("{err:#}"), cx)
+                        });
+                    }
+                }
+                this.rebuild_rows(cx);
+            })
+            .ok();
+        })
+        .detach();
     }
 }
 

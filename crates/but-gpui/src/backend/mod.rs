@@ -516,6 +516,52 @@ fn load_file(
     })
 }
 
+/// The new side of `file` as diff lines, numbered on that side, for showing the unchanged
+/// lines around its hunks. `None` when it has no new side to show, like a deletion.
+pub fn file_lines(path: &Path, file: &FileChange) -> Result<Option<Vec<DiffLine>>> {
+    let Some(state) = file.change.status.state() else {
+        return Ok(None);
+    };
+    let ctx = open(path)?;
+    let repo = ctx.repo.get()?;
+    let bytes = if state.id.is_null() {
+        let workdir = repo.workdir().context("the repository has no worktree")?;
+        std::fs::read(workdir.join(&file.path))?
+    } else {
+        repo.find_blob(state.id)?.data.clone()
+    };
+    if bytes.contains(&0) {
+        return Ok(None);
+    }
+    let text = String::from_utf8_lossy(&bytes);
+    let mut highlighter = (text.len() <= WHOLE_HIGHLIGHT_LIMIT)
+        .then(|| highlight::Highlighter::for_path(&file.path))
+        .flatten();
+    Ok(Some(
+        text.lines()
+            .enumerate()
+            .map(|(ix, raw)| {
+                let text = display_text(raw);
+                let spans = highlighter
+                    .as_mut()
+                    .map(|h| h.line(&text))
+                    .unwrap_or_default();
+                DiffLine {
+                    kind: LineKind::Context,
+                    old: None,
+                    new: Some(ix as u32 + 1),
+                    text: text.into(),
+                    spans,
+                    emph: Vec::new(),
+                }
+            })
+            .collect(),
+    ))
+}
+
+/// Files shown whole are highlighted up to this size in bytes.
+const WHOLE_HIGHLIGHT_LIMIT: usize = 512 * 1024;
+
 /// `f` over `items` on all cores, keeping their order. Each thread gets its own `state`.
 fn parallel_map<T: Send, S, R: Send>(
     items: Vec<T>,
