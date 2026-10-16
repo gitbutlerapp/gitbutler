@@ -40,7 +40,7 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 | Move | onto | does |
 |---|---|---|
 | a commit | a branch | moves it to the top of that branch |
-| a commit | another commit | moves it above that commit; hold ⌥ to squash instead |
+| a commit | another commit | moves it above that commit; hold ⌥ to squash instead, ⇧ to put it below |
 | a commit | uncommitted changes | uncommits it |
 | uncommitted files | a commit | amends that commit |
 | uncommitted files | a branch | picks that branch and those files for the next commit |
@@ -78,7 +78,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | ⌘↩ | commit… |
 | ⌥⌘↩ | while committing: amend the newest commit of the target branch instead |
 | ⌘Z, ⇧⌘Z | undo, redo |
-| ⌘X, ⌘V | cut the selection, paste it onto the selected row (⌥⌘V squashes a commit instead of moving it) |
+| ⌘X, ⌘V | cut the selection, paste it onto the selected row (⌥⌘V squashes a commit instead of moving it, ⇧⌘V puts it below) |
 | ⌘N | new branch |
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
 | ⌘R, ⌘O | reload, add a project |

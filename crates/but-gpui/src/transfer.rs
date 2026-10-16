@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use gpui::{Context, SharedString};
+use gpui::{Context, Modifiers, SharedString};
 
 use crate::backend::{self, CommitId, Destination, Selected};
 use crate::state::{Cut, Overlay, Remap, Selection, Store};
@@ -49,12 +49,13 @@ pub enum Transfer {
 }
 
 impl Transfer {
-    /// What `payload` does when it lands on `target`, if anything. `alternate` (⌥ held)
-    /// turns moving a commit onto another commit into squashing it.
+    /// What `payload` does when it lands on `target`, if anything. A commit landing on
+    /// another goes above it; with ⌥ held it squashes into it instead, and with ⇧ it goes
+    /// below it.
     pub fn resolve(
         payload: &Cut,
         target: &Selection,
-        alternate: bool,
+        held: Modifiers,
         store: &Store,
     ) -> Option<Self> {
         if payload.project() != target.project() {
@@ -76,23 +77,33 @@ impl Transfer {
                 }
             }
             (Cut::Commit(_, id), Selection::Commit(_, target_id)) if id != target_id => {
-                if alternate {
-                    Transfer::Squash {
+                if held.alt {
+                    return Some(Transfer::Squash {
                         id: *id,
                         into: *target_id,
-                    }
-                } else {
-                    // Already right above it.
-                    let (branch, _) = workspace.find_commit(*id)?;
-                    let below = branch.commits.iter().skip_while(|c| c.id != *id).nth(1);
-                    if below.is_some_and(|commit| commit.id == *target_id) {
-                        return None;
-                    }
-                    Transfer::MoveCommit {
-                        id: *id,
-                        to: Destination::AboveCommit(*target_id),
-                    }
+                    });
                 }
+                // Already right above it, or right below.
+                let next = |after: CommitId| {
+                    let (branch, _) = workspace.find_commit(after)?;
+                    let mut commits = branch.commits.iter().skip_while(|c| c.id != after);
+                    commits.nth(1).map(|c| c.id)
+                };
+                let (already, to) = if held.shift {
+                    (
+                        next(*target_id) == Some(*id),
+                        Destination::BelowCommit(*target_id),
+                    )
+                } else {
+                    (
+                        next(*id) == Some(*target_id),
+                        Destination::AboveCommit(*target_id),
+                    )
+                };
+                if already {
+                    return None;
+                }
+                Transfer::MoveCommit { id: *id, to }
             }
             (Cut::Pick(_, id), Selection::Branch(_, branch)) => Transfer::CherryPick {
                 id: *id,
@@ -101,7 +112,11 @@ impl Transfer {
             (Cut::Pick(_, id), Selection::Commit(_, target_id)) if id != target_id => {
                 Transfer::CherryPick {
                     id: *id,
-                    to: Destination::AboveCommit(*target_id),
+                    to: if held.shift {
+                        Destination::BelowCommit(*target_id)
+                    } else {
+                        Destination::AboveCommit(*target_id)
+                    },
                 }
             }
             (Cut::Branch(_, branch), Selection::Branch(_, onto)) if branch != onto => {
@@ -163,6 +178,10 @@ impl Transfer {
                 to: Destination::Branch(_),
                 ..
             } => "Copy to top",
+            Transfer::CherryPick {
+                to: Destination::BelowCommit(_),
+                ..
+            } => "Copy below",
             Transfer::CherryPick { .. } => "Copy above",
             Transfer::StackBranch { .. } => "Stack on top",
             Transfer::Squash { .. } => "Squash into",

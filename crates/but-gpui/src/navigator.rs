@@ -983,9 +983,9 @@ impl Navigator {
         } else {
             store.cut.as_ref()
         };
-        let alt = window.modifiers().alt;
+        let held = window.modifiers();
         let verdict = pending
-            .map(|payload| Transfer::resolve(payload, &target, alt, store).map(|t| t.verb()));
+            .map(|payload| Transfer::resolve(payload, &target, held, store).map(|t| t.verb()));
         let store = self.store.clone();
         let can_drop_target = target.clone();
         let menu_target = target.clone();
@@ -1021,8 +1021,8 @@ impl Navigator {
             })
             .can_drop(move |payload, window, cx| {
                 payload.downcast_ref::<Cut>().is_some_and(|payload| {
-                    let alt = window.modifiers().alt;
-                    Transfer::resolve(payload, &can_drop_target, alt, store.read(cx)).is_some()
+                    let held = window.modifiers();
+                    Transfer::resolve(payload, &can_drop_target, held, store.read(cx)).is_some()
                 })
             })
             .drag_over::<Cut>(move |style, _, _, _| {
@@ -1032,10 +1032,10 @@ impl Navigator {
                     .border_color(highlight)
             })
             .on_drop(cx.listener(move |this, payload: &Cut, window, cx| {
-                let alternate = window.modifiers().alt;
+                let held = window.modifiers();
                 this.app
                     .update(cx, |app, cx| {
-                        app.transfer(payload, &target, alternate, window, cx)
+                        app.transfer(payload, &target, held, window, cx)
                     })
                     .ok();
             }))
@@ -1437,10 +1437,13 @@ pub struct DragPreview {
 impl Render for DragPreview {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
+        let held = window.modifiers();
         let hint = match &self.payload {
-            Cut::Commit(..) if window.modifiers().alt => Some("Squash"),
-            Cut::Commit(..) => Some("⌥ to squash"),
-            Cut::Pick(..) | Cut::Branch(..) | Cut::Files { .. } => None,
+            Cut::Commit(..) if held.alt => Some("Squash"),
+            Cut::Commit(..) | Cut::Pick(..) if held.shift => Some("Below"),
+            Cut::Commit(..) => Some("⌥ squash · ⇧ below"),
+            Cut::Pick(..) => Some("⇧ below"),
+            Cut::Branch(..) | Cut::Files { .. } => None,
         };
         popover(theme)
             .flex_row()
