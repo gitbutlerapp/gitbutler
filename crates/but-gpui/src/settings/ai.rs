@@ -24,6 +24,9 @@ const OWN_KEY: &str = "bringYourOwn";
 pub(super) struct Ai {
     config: Option<AiConfiguration>,
     loading: bool,
+    /// "Your own" is picked but no key is stored yet; it's saved with the key, as a key
+    /// option without a key can't be.
+    own_pending: bool,
     key: Entity<TextInput>,
     model: Entity<TextInput>,
     endpoint: Entity<TextInput>,
@@ -45,6 +48,7 @@ impl Ai {
         Self {
             config: None,
             loading: false,
+            own_pending: false,
             key,
             model,
             endpoint,
@@ -148,6 +152,7 @@ impl SettingsView {
             this.update(cx, |this, cx| match saved {
                 Ok(config) => {
                     this.ai.config = Some(config);
+                    this.ai.own_pending = false;
                     this.sync_ai_fields(cx);
                 }
                 Err(err) => this.error("Couldn't save the AI settings", err, cx),
@@ -168,8 +173,14 @@ impl SettingsView {
             }
             self.update_ai(
                 move |update| match provider.as_str() {
-                    "anthropic" => update.anthropic_api_key = Some(text),
-                    _ => update.openai_api_key = Some(text),
+                    "anthropic" => {
+                        update.anthropic_key_option = OWN_KEY.into();
+                        update.anthropic_api_key = Some(text);
+                    }
+                    _ => {
+                        update.openai_key_option = OWN_KEY.into();
+                        update.openai_api_key = Some(text);
+                    }
                 },
                 cx,
             );
@@ -257,6 +268,7 @@ impl SettingsView {
                 .into_any_element(),
         }];
         if let Some((option, has_key)) = key {
+            let option = if self.ai.own_pending { OWN_KEY } else { option };
             let provider = config.provider.clone();
             let choice = |id: &'static str, label: &'static str| {
                 let provider = provider.clone();
@@ -268,6 +280,12 @@ impl SettingsView {
                         ButtonStyle::Ghost
                     })
                     .on_click(cx.listener(move |this, _, _, cx| {
+                        // Without a key stored yet, wait for one before saving.
+                        this.ai.own_pending = id == OWN_KEY && !has_key;
+                        if this.ai.own_pending {
+                            cx.notify();
+                            return;
+                        }
                         let provider = provider.clone();
                         this.update_ai(
                             move |update| match provider.as_str() {

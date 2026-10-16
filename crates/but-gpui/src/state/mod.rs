@@ -20,7 +20,7 @@ mod mutation;
 mod saved;
 
 use mutation::Queued;
-pub use mutation::{Overlay, Remap, SLOW};
+pub use mutation::{Overlay, Remap, SAVE_EDIT, SLOW, STOP_EDITING};
 pub use saved::{Pane, Prefs, saved_window_place};
 use saved::{Restored, Saved};
 
@@ -199,6 +199,9 @@ pub struct Store {
     _forge_poll: Task<()>,
     /// When each project was last fetched in the background.
     fetched: HashMap<ProjectId, Instant>,
+    /// Projects whose background fetch failed, as on credentials the user turned down,
+    /// which it leaves alone until a fetch the user asks for works.
+    fetch_failed: HashSet<ProjectId>,
     _auto_fetch: Task<()>,
     forge_requests: mpsc::UnboundedSender<ProjectId>,
     /// Projects waiting for a forge refresh, so each waits only once.
@@ -298,6 +301,7 @@ impl Store {
             // Pull requests and CI change on the forge, where no watcher sees them: ask
             // when a project opens, then every minute.
             fetched: HashMap::new(),
+            fetch_failed: HashSet::new(),
             _auto_fetch: Self::fetch_in_background(cx),
             _forge_poll: cx.spawn(async move |this, cx| {
                 loop {
@@ -377,12 +381,20 @@ impl Store {
         let restored = std::mem::take(&mut self.restored);
         let previous: HashSet<ProjectId> = self.projects.iter().map(|p| p.id.clone()).collect();
         let mut old: Vec<ProjectEntry> = std::mem::take(&mut self.projects);
+        // Projects to open as if new: the ones whose folder moved, as after Locate….
+        let mut reopen = Vec::new();
         self.projects = projects
             .into_iter()
             .map(|project| {
                 let id: ProjectId = project.id.clone().into();
                 if let Some(ix) = old.iter().position(|entry| entry.id == id) {
                     let mut entry = old.swap_remove(ix);
+                    if entry.project.path != project.path {
+                        entry.error = None;
+                        entry.watcher = None;
+                        entry.workspace = None;
+                        reopen.push(id);
+                    }
                     entry.project = project;
                     return entry;
                 }
@@ -399,9 +411,13 @@ impl Store {
                 }
             })
             .collect();
-        // A single project is always open.
-        if self.projects.len() == 1 {
-            self.projects[0].expanded = true;
+        // A single project is always open, and one left closed, as after removing the
+        // others, has nothing loaded or watched yet.
+        if let [only] = self.projects.as_mut_slice()
+            && !only.expanded
+        {
+            only.expanded = true;
+            reopen.push(only.id.clone());
         }
         let first_load = !self.projects_loaded;
         self.projects_loaded = true;
@@ -411,6 +427,7 @@ impl Store {
             .iter()
             .filter(|entry| !previous.contains(&entry.id))
             .map(|entry| entry.id.clone())
+            .chain(reopen.into_iter().filter(|id| previous.contains(id)))
             .collect();
         for id in &new {
             if self.project(id).is_some_and(|entry| entry.expanded) {
@@ -474,11 +491,15 @@ impl Store {
                     return;
                 };
                 for (project, path) in due {
-                    if let Err(err) = backend::run(move || backend::fetch(&path)).await {
+                    let fetched = backend::run(move || backend::fetch(&path)).await;
+                    if let Err(err) = &fetched {
                         tracing::warn!(%project, "background fetch failed: {err:#}");
                     }
                     let reloaded = this.update(cx, |store, cx| {
                         store.fetched.insert(project.clone(), Instant::now());
+                        if fetched.is_err() {
+                            store.fetch_failed.insert(project.clone());
+                        }
                         store.reload(&project, cx);
                     });
                     if reloaded.is_err() {
@@ -493,6 +514,7 @@ impl Store {
         self.projects
             .iter()
             .filter(|entry| entry.expanded && entry.workspace.is_some())
+            .filter(|entry| !self.fetch_failed.contains(&entry.id))
             .filter(|entry| {
                 self.fetched
                     .get(&entry.id)
@@ -828,12 +850,29 @@ impl Store {
                 }),
             _ => None,
         };
+        // Picks follow rewritten commits the same way, and go when a commit is gone.
+        if !self.picked.is_empty() && self.selection.as_ref().is_some_and(|s| s.project() == id) {
+            let old = self.workspace(id);
+            let picked: Vec<CommitId> = (self.picked.iter())
+                .filter_map(|commit| {
+                    if workspace.find_commit(*commit).is_some() {
+                        return Some(*commit);
+                    }
+                    let (_, old) = old?.find_commit(*commit)?;
+                    let mut commits = workspace.commits();
+                    commits.find(|new| new.key == old.key).map(|new| new.id)
+                })
+                .collect();
+            self.picked = if picked.len() > 1 { picked } else { Vec::new() };
+        }
         if let Some(entry) = self.project_mut(id) {
             entry.workspace = Some(workspace);
             entry.error = None;
         }
         if let Some(commit) = rewritten {
+            let picked = std::mem::take(&mut self.picked);
             self.select(Some(Selection::Commit(id.clone(), commit)), cx);
+            self.picked = picked;
         }
         self.save_soon(cx);
     }
@@ -912,29 +951,30 @@ impl Store {
         cx.notify();
     }
 
-    /// ⌘-click (`range` false) picks `id` along with the selected commit, or drops it from
-    /// the picks; ⇧-click picks every commit from the selected one to `id`. The clicked
-    /// commit becomes the selection while it's picked.
-    pub fn pick(&mut self, project: &ProjectId, id: CommitId, range: bool, cx: &mut Context<Self>) {
+    /// ⌘-click picks `id` along with the selected commit, or drops it from the picks;
+    /// ⇧-click picks every commit from the selected one to `id` in `range`, the commits in
+    /// the order they're shown. The clicked commit becomes the selection while it's picked.
+    pub fn pick(
+        &mut self,
+        project: &ProjectId,
+        id: CommitId,
+        range: Option<Vec<CommitId>>,
+        cx: &mut Context<Self>,
+    ) {
         let at = match &self.selection {
             Some(Selection::Commit(p, at)) if p == project => *at,
             _ => return self.select(Some(Selection::Commit(project.clone(), id)), cx),
-        };
-        let Some(order) = self
-            .workspace(project)
-            .map(|ws| ws.commits().map(|c| c.id).collect::<Vec<_>>())
-        else {
-            return;
         };
         let mut picked = std::mem::take(&mut self.picked);
         if picked.is_empty() {
             picked.push(at);
         }
-        if range {
+        if let Some(order) = range {
             let (Some(from), Some(to)) = (
                 order.iter().position(|c| *c == at),
                 order.iter().position(|c| *c == id),
             ) else {
+                self.picked = picked;
                 return;
             };
             for commit in &order[from.min(to)..=from.max(to)] {

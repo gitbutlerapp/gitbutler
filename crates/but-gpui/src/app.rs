@@ -16,7 +16,7 @@ use crate::backend::{self, CommitId};
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
 use crate::palette::Palette;
-use crate::state::{Cut, Notice, Overlay, Pane, ProjectId, Selection, Store};
+use crate::state::{Cut, Notice, Overlay, Pane, ProjectId, Remap, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -359,7 +359,7 @@ impl AppView {
             "",
             window,
             cx,
-            |path, name| backend::create_branch(path, Some(name)),
+            |path, _, name| backend::create_branch(path, Some(name)),
         );
     }
 
@@ -412,7 +412,7 @@ impl AppView {
                     &current,
                     window,
                     cx,
-                    move |path, name| backend::rename_branch(path, &ref_name, name),
+                    move |path, _, name| backend::rename_branch(path, &ref_name, name),
                 )
             }
             Some(Selection::Commit(..)) => self
@@ -439,7 +439,7 @@ impl AppView {
                 "",
                 window,
                 cx,
-                move |path, name| backend::create_dependent_branch(path, &below, name),
+                move |path, _, name| backend::create_dependent_branch(path, &below, name),
             );
         }
     }
@@ -594,7 +594,7 @@ impl AppView {
         initial: &str,
         window: &mut Window,
         cx: &mut Context<Self>,
-        op: impl FnOnce(&Path, &str) -> Result<String> + Send + 'static,
+        op: impl FnOnce(&Path, &Remap, &str) -> Result<String> + Send + 'static,
     ) {
         let input = cx.new(|cx| {
             let mut input = TextInput::new("Branch name", false, cx);
@@ -622,7 +622,7 @@ impl AppView {
                         &project,
                         label,
                         Overlay::default(),
-                        move |path, _| op(path, &name),
+                        move |path, remap| op(path, remap, &name),
                         move |store, ref_name, cx| {
                             store.select(Some(Selection::Branch(selected, ref_name)), cx)
                         },
@@ -871,10 +871,11 @@ impl AppView {
             return;
         }
         if self.detail.read(cx).is_focused(window, cx) {
-            if !self
-                .detail
-                .update(cx, |detail, cx| detail.clear_text_selection(cx))
-            {
+            // Undo the nearest thing first: a text selection, then the file filter.
+            let handled = self.detail.update(cx, |detail, cx| {
+                detail.clear_text_selection(cx) || detail.close_open_filter(window, cx)
+            });
+            if !handled {
                 self.focus_main(window, cx);
             }
             return;
@@ -1433,8 +1434,9 @@ impl Render for AppView {
             )
             .child(self.render_status_bar(window, cx))
             .child(self.render_toasts(cx))
-            .children(self.render_prompt(cx))
             .children(self.render_modal(cx))
+            // Above a modal: Git can ask for credentials while one is open.
+            .children(self.render_prompt(cx))
             .children(self.render_palette(cx))
             .children(self.render_menu(cx))
     }

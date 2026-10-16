@@ -124,7 +124,15 @@ impl ResolveView {
                 &self.project,
                 "Resolve",
                 Overlay::default(),
-                move |path, remap| conflicts::resolve(path, remap.get(commit)?, &picks, &found),
+                move |path, remap| {
+                    // The picks are by each conflict's place in the commit as it was shown.
+                    let now = remap.get(commit)?;
+                    anyhow::ensure!(
+                        now == commit,
+                        "The commit changed since its conflicts were shown. Open them again."
+                    );
+                    conflicts::resolve(path, now, &picks, &found)
+                },
                 |store, (rewritten, outcome), cx| {
                     store.follow(&rewritten, cx);
                     let message = match (outcome.remaining, outcome.emptied) {

@@ -308,7 +308,9 @@ impl AppView {
             "",
             window,
             cx,
-            move |path, name| backend::create_branch_at_commit(path, oldest, true, name),
+            move |path, remap, name| {
+                backend::create_branch_at_commit(path, remap.get(oldest)?, true, name)
+            },
         );
     }
 
@@ -326,7 +328,9 @@ impl AppView {
             "",
             window,
             cx,
-            move |path, name| backend::create_branch_at_commit(path, id, false, name),
+            move |path, remap, name| {
+                backend::create_branch_at_commit(path, remap.get(id)?, false, name)
+            },
         );
     }
 

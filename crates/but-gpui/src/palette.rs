@@ -234,16 +234,14 @@ impl AppView {
     /// Pick a branch of any loaded project by name, and select it.
     pub fn go_to_branch(&mut self, _: &GoToBranch, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
-        let several = store
-            .projects
-            .iter()
-            .filter(|p| p.workspace.is_some())
-            .count()
-            > 1;
-        let choices = store
-            .projects
-            .iter()
-            .filter_map(|entry| Some((entry, entry.workspace.as_ref()?)))
+        // Only expanded projects: a collapsed one's rows aren't drawn, or kept current.
+        let open = || {
+            (store.projects.iter())
+                .filter(|entry| entry.expanded)
+                .filter_map(|entry| Some((entry, entry.workspace.as_ref()?)))
+        };
+        let several = open().count() > 1;
+        let choices = open()
             .flat_map(|(entry, workspace)| {
                 workspace
                     .branches()
@@ -274,7 +272,11 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let restore_focus = window.focused(cx);
+        // Opened from another picker, go back to where that one came from.
+        let restore_focus = match &self.palette {
+            Some(open) => open.restore_focus.clone(),
+            None => window.focused(cx),
+        };
         let input = cx.new(|cx| TextInput::new(placeholder, false, cx));
         let subscription =
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {

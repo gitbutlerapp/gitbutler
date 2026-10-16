@@ -126,15 +126,20 @@ pub fn start_github_sign_in() -> Result<(String, String)> {
     Ok((verification.user_code, verification.device_code))
 }
 
-/// Whether the browser sign-in for `device_code` has finished; it stores the account when
-/// it has. GitHub answers with an error while it's still waiting.
-pub fn github_signed_in(device_code: &str) -> Result<String> {
-    let status = runtime()
+/// Who signed in, once the browser sign-in for `device_code` has finished; it stores the
+/// account then. `None` while GitHub is still waiting, an error when it never will.
+pub fn github_signed_in(device_code: &str) -> Result<Option<String>> {
+    match runtime()
         .handle()
         .block_on(but_api::github::check_github_auth_status(
             device_code.to_owned(),
-        ))?;
-    Ok(status.login)
+        )) {
+        Ok(status) => Ok(Some(status.login)),
+        // Expired, denied and rejected sign-ins carry a code; waiting, or a network blip,
+        // doesn't, and is asked about again.
+        Err(err) if err.downcast_ref::<but_error::Context>().is_some() => Err(err),
+        Err(_) => Ok(None),
+    }
 }
 
 /// Who is signed in to GitButler, if anyone.

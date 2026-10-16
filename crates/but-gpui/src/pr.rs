@@ -53,6 +53,9 @@ pub struct ReviewView {
     /// The title and description being written with AI: the task streaming them into
     /// the fields, and the one asking for them.
     writing: Option<(Task<()>, Task<()>)>,
+    /// The fields hold the pull request's text. Editing waits for it, so saving can't
+    /// replace the description with an empty one.
+    loaded: bool,
 }
 
 impl EventEmitter<DismissEvent> for ReviewView {}
@@ -137,6 +140,8 @@ impl ReviewView {
                             Ok((title, body)) => {
                                 this.title.update(cx, |input, cx| input.set_text(title, cx));
                                 this.body.update(cx, |input, cx| input.set_text(body, cx));
+                                this.loaded = true;
+                                cx.notify();
                             }
                             Err(err) => this.store.update(cx, |store, cx| {
                                 store.error(
@@ -152,6 +157,7 @@ impl ReviewView {
                 }
             }
         }
+        let loaded = matches!(mode, Mode::Create { .. });
         Self {
             store,
             project,
@@ -162,6 +168,7 @@ impl ReviewView {
             target: None,
             draft: false,
             writing: None,
+            loaded,
         }
     }
 
@@ -230,7 +237,7 @@ impl ReviewView {
 
     fn submit(&mut self, cx: &mut Context<Self>) {
         let title = self.title.read(cx).text().trim().to_owned();
-        if title.is_empty() {
+        if title.is_empty() || !self.loaded || self.writing.is_some() {
             return;
         }
         let body = self.body.read(cx).text().trim().to_owned();
@@ -417,7 +424,7 @@ impl Render for ReviewView {
                     .child(
                         button("pr-submit", confirm)
                             .style(ButtonStyle::Gray)
-                            .disabled(empty_title)
+                            .disabled(empty_title || !self.loaded || self.writing.is_some())
                             .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
                     ),
             )
@@ -524,18 +531,26 @@ impl AppView {
         else {
             return;
         };
+        // GitLab merges as the project is set up to, whatever is asked for.
+        let gitlab = (self.store.read(cx).workspace(&project)).and_then(|ws| ws.forge.as_deref())
+            == Some("GitLab");
+        let methods: &[&str] = if gitlab {
+            &["Merge", "Cancel"]
+        } else {
+            &["Merge", "Squash and merge", "Rebase and merge", "Cancel"]
+        };
         let answer = window.prompt(
             PromptLevel::Info,
             &format!("Merge #{number}, {}?", short_ref(&branch)),
             Some("Its commits go into the branch it targets on the forge."),
-            &["Merge", "Squash and merge", "Rebase and merge", "Cancel"],
+            methods,
             cx,
         );
         cx.spawn(async move |this, cx| {
-            let method = match answer.await {
-                Ok(0) => MergeMethod::Merge,
-                Ok(1) => MergeMethod::Squash,
-                Ok(2) => MergeMethod::Rebase,
+            let method = match (answer.await, gitlab) {
+                (Ok(0), _) => MergeMethod::Merge,
+                (Ok(1), false) => MergeMethod::Squash,
+                (Ok(2), false) => MergeMethod::Rebase,
                 _ => return,
             };
             this.update(cx, |this, cx| {

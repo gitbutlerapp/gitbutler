@@ -249,7 +249,7 @@ pub fn unapply_stack(path: &Path, branch: &str) -> Result<()> {
     but_api::legacy::virtual_branches::unapply_stack(&mut ctx, stack_id)
 }
 
-fn holds(segment: &but_workspace::ref_info::Segment, branch: &str) -> bool {
+pub(super) fn holds(segment: &but_workspace::ref_info::Segment, branch: &str) -> bool {
     segment
         .ref_info
         .as_ref()

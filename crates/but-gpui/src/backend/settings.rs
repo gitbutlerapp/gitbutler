@@ -5,6 +5,7 @@ use std::path::Path;
 
 use anyhow::{Context as _, Result};
 use but_api::legacy::{config, projects};
+use but_core::settings::git::ui::GitConfigSettings;
 
 use super::open;
 
@@ -104,11 +105,20 @@ pub fn update_project(
     )
 }
 
+/// Only the fields set in `git` are written to the repository's own config; what it reads
+/// from the user's global config stays there.
+fn set_git_config(path: &Path, git: GitConfigSettings) -> Result<()> {
+    config::set_gb_config(&open(path)?, git)
+}
+
 pub fn set_sign_commits(path: &Path, sign: bool) -> Result<()> {
-    let ctx = open(path)?;
-    let mut git = config::get_gb_config(&ctx)?;
-    git.gitbutler_sign_commits = Some(sign);
-    config::set_gb_config(&ctx, git)
+    set_git_config(
+        path,
+        GitConfigSettings {
+            gitbutler_sign_commits: Some(sign),
+            ..Default::default()
+        },
+    )
 }
 
 /// Where pull requests list the stack, and whether GitHub shows them as a native stack.
@@ -117,15 +127,14 @@ pub fn set_stacking(
     info: Option<StackInfo>,
     github: Option<GitHubStacks>,
 ) -> Result<()> {
-    let ctx = open(path)?;
-    let mut git = config::get_gb_config(&ctx)?;
-    if let Some(info) = info {
-        git.gitbutler_review_stacking_description = Some(info);
-    }
-    if let Some(github) = github {
-        git.gitbutler_github_stacking_mode = Some(github);
-    }
-    config::set_gb_config(&ctx, git)
+    set_git_config(
+        path,
+        GitConfigSettings {
+            gitbutler_review_stacking_description: info,
+            gitbutler_github_stacking_mode: github,
+            ..Default::default()
+        },
+    )
 }
 
 /// Sign a test commit with the project's settings, to tell whether signing works.

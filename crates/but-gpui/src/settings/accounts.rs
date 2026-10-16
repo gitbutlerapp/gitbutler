@@ -4,8 +4,8 @@
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, ClickEvent, ClipboardItem, Context, Entity, Focusable as _, SharedString, Task,
-    Window, prelude::*, px,
+    AnyElement, ClickEvent, ClipboardItem, Context, Entity, Focusable as _, SharedString, Window,
+    prelude::*, px,
 };
 
 use super::{Row, Section, SettingsView};
@@ -32,7 +32,6 @@ pub(super) struct Accounts {
     adding: Option<(Forge, Entity<TextInput>, Entity<TextInput>)>,
     /// GitHub's browser sign-in, waiting: the code the user enters there.
     github_code: Option<SharedString>,
-    _github_wait: Option<Task<()>>,
     /// GitButler's sign-in, waiting for the token its page shows.
     login: Option<Entity<TextInput>>,
 }
@@ -121,8 +120,10 @@ impl SettingsView {
     }
 
     /// GitHub's browser sign-in: open the page, put the code on the clipboard, and wait
-    /// for the user to finish there.
+    /// for the user to finish there. The wait outlives Settings, so finishing in the
+    /// browser after closing it still adds the account.
     fn sign_in_to_github(&mut self, cx: &mut Context<Self>) {
+        let store = self.store.clone();
         cx.spawn(async move |this, cx| {
             let started = run(accounts::start_github_sign_in).await;
             let (code, device) = match started {
@@ -135,38 +136,38 @@ impl SettingsView {
                     return;
                 }
             };
-            let wait = cx.spawn({
-                let this = this.clone();
-                async move |cx| {
-                    let waited = std::time::Instant::now();
-                    while waited.elapsed() < SIGN_IN_WAIT {
-                        cx.background_executor().timer(SIGN_IN_POLL).await;
-                        let device = device.clone();
-                        if let Ok(who) = run(move || accounts::github_signed_in(&device)).await {
-                            this.update(cx, |this, cx| {
-                                this.accounts.github_code = None;
-                                this.store.update(cx, |store, cx| {
-                                    store.snack(format!("Signed in to GitHub as {who}"), cx)
-                                });
-                                this.load_accounts(cx);
-                            })
-                            .ok();
-                            return;
-                        }
-                    }
-                    this.update(cx, |this, cx| {
-                        this.accounts.github_code = None;
-                        cx.notify();
-                    })
-                    .ok();
-                }
-            });
             this.update(cx, |this, cx| {
                 cx.write_to_clipboard(ClipboardItem::new_string(code.clone()));
                 cx.open_url(GITHUB_DEVICE_PAGE);
                 this.accounts.github_code = Some(code.into());
-                this.accounts._github_wait = Some(wait);
                 cx.notify();
+            })
+            .ok();
+            let waited = std::time::Instant::now();
+            let outcome = loop {
+                cx.background_executor().timer(SIGN_IN_POLL).await;
+                // Cancel clears the code; a closed Settings doesn't stop the wait.
+                let cancelled = this
+                    .update(cx, |this, _| this.accounts.github_code.is_none())
+                    .unwrap_or(false);
+                if cancelled {
+                    return;
+                }
+                let device = device.clone();
+                match run(move || accounts::github_signed_in(&device)).await {
+                    Ok(None) if waited.elapsed() < SIGN_IN_WAIT => continue,
+                    Ok(None) => break Err(anyhow::anyhow!("The sign-in wasn't finished in time")),
+                    Ok(Some(who)) => break Ok(who),
+                    Err(err) => break Err(err),
+                }
+            };
+            store.update(cx, |store, cx| match &outcome {
+                Ok(who) => store.snack(format!("Signed in to GitHub as {who}"), cx),
+                Err(err) => store.error("Couldn't sign in to GitHub", format!("{err:#}"), cx),
+            });
+            this.update(cx, |this, cx| {
+                this.accounts.github_code = None;
+                this.load_accounts(cx);
             })
             .ok();
         })
@@ -321,7 +322,6 @@ impl SettingsView {
                             .style(ButtonStyle::Ghost)
                             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                                 this.accounts.github_code = None;
-                                this.accounts._github_wait = None;
                                 cx.notify();
                             })),
                     )

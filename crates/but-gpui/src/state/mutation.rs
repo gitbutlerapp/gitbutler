@@ -49,6 +49,11 @@ impl Overlay {
     }
 }
 
+/// While a commit is checked out to edit, the only operations that run: saving it and
+/// stopping.
+pub const SAVE_EDIT: &str = "Save the commit";
+pub const STOP_EDITING: &str = "Stop editing";
+
 /// The commits an operation captured, found again by key when it runs, as operations queued
 /// before it may have rewritten them.
 pub struct Remap(HashMap<CommitId, CommitId>);
@@ -140,12 +145,16 @@ impl Store {
     }
 
     pub fn fetch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let fetched = project.clone();
         self.run(
             project,
             "Fetch",
             Overlay::default(),
             |path, _| backend::fetch(path),
-            |store, (), cx| store.snack("Fetched", cx),
+            move |store, (), cx| {
+                store.fetch_failed.remove(&fetched);
+                store.snack("Fetched", cx)
+            },
             cx,
         );
     }
@@ -245,6 +254,13 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let label = label.into();
+        let editing = self
+            .workspace(project)
+            .is_some_and(|ws| ws.editing.is_some());
+        if editing && label != SAVE_EDIT && label != STOP_EDITING {
+            self.snack("Save the edited commit, or stop editing it, first", cx);
+            return;
+        }
         let captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
             ws.commits()
                 .map(|commit| (commit.id, commit.key.clone()))
@@ -325,9 +341,16 @@ impl Store {
             return self.start_next(cx);
         };
         self.mutating = Some(project.clone());
-        let before: HashSet<String> = self.workspace(project).map_or_else(HashSet::new, |ws| {
-            ws.commits().map(|commit| commit.key.clone()).collect()
-        });
+        // While editing there are no commits to compare with afterwards; every commit would
+        // count as the operation's own and lose its unread mark.
+        let before: Option<HashSet<String>> = self
+            .workspace(project)
+            .is_none_or(|ws| ws.editing.is_none())
+            .then(|| {
+                self.workspace(project).map_or_else(HashSet::new, |ws| {
+                    ws.commits().map(|commit| commit.key.clone()).collect()
+                })
+            });
         cx.notify();
         let project = project.clone();
         cx.spawn(async move |this, cx| {
@@ -345,7 +368,9 @@ impl Store {
                 store.settling = Some(project.clone());
                 // Set here rather than at the start, so a load the watcher started
                 // mid-operation can't use it up.
-                store.rebaseline.insert(project.clone(), before);
+                if let Some(before) = before {
+                    store.rebaseline.insert(project.clone(), before);
+                }
                 match result {
                     Ok((value, recorded)) => {
                         store.last_snapshot = recorded.map(|snapshot| (project.clone(), snapshot));

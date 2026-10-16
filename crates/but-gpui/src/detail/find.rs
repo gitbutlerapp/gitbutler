@@ -101,11 +101,15 @@ impl Detail {
     /// Search the diff again, as when the query or the diff changed; with `reveal`, go to
     /// the first match.
     pub(super) fn run_find(&mut self, reveal: bool, cx: &mut Context<Self>) {
+        // Not in files the diff doesn't show, as those the file filter hides.
+        let shown = self.shown_files();
         let (Some(find), Some(diff)) = (&mut self.find, &self.diff) else {
             return;
         };
         let query = find.input.read(cx).text().to_owned();
         find.matches = search(&diff.files, &query);
+        find.matches
+            .retain(|((file, _, _), _)| shown.contains(file));
         find.by_line.clear();
         for (ix, (line, _)) in find.matches.iter().enumerate() {
             find.by_line.entry(*line).or_default().push(ix);

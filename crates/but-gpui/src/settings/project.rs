@@ -92,17 +92,21 @@ impl SettingsView {
                 cx,
             );
         });
-        let test_path = path.clone();
+        let (test_path, tested) = (path.clone(), project.clone());
         let test_signing = cx.listener(move |this, _: &ClickEvent, _, cx| {
             let Some(path) = test_path.clone() else {
                 return;
             };
             this.signing = None;
+            let tested = tested.clone();
             cx.spawn(async move |this, cx| {
                 let result = crate::backend::run(move || backend::test_signing(&path)).await;
                 this.update(cx, |this, cx| {
-                    this.signing = Some(result.map_err(|err| format!("{err:#}").into()));
-                    cx.notify();
+                    // Unless Settings moved on to another project meanwhile.
+                    if this.project.as_ref() == Some(&tested) {
+                        this.signing = Some(result.map_err(|err| format!("{err:#}").into()));
+                        cx.notify();
+                    }
                 })
                 .ok();
             })

@@ -393,17 +393,16 @@ impl Detail {
     /// The files under the folder `dir` in `source`, to act on together.
     fn folder_payload(&self, source: &FileSource, dir: &str, cx: &gpui::App) -> Option<Cut> {
         let prefix = format!("{dir}/");
-        let under = |path: &str| path.starts_with(&prefix);
+        // Only what the folder shows: not files the filter or a pending operation hides.
+        let terms = self.filter_terms(cx);
+        let under = |path: &str| path.starts_with(&prefix) && keeps_path(&terms, path);
+        let store = self.store.read(cx);
         let (project, from, files): (_, _, Vec<FileChange>) = match source {
             FileSource::Uncommitted(project) => (
                 project.clone(),
                 None,
-                self.store
-                    .read(cx)
-                    .workspace(project)?
-                    .uncommitted
-                    .iter()
-                    .filter(|f| under(&f.path))
+                (store.workspace(project)?.uncommitted.iter())
+                    .filter(|f| under(&f.path) && !store.hides_file(project, &f.path))
                     .cloned()
                     .collect(),
             ),

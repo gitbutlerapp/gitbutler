@@ -522,6 +522,9 @@ impl Detail {
         if self.diff.as_ref().is_none_or(|diff| diff.key != key) {
             self.whole.clear();
         }
+        let before = (self.recent.iter())
+            .find(|(recent, _)| *recent == key)
+            .map(|(_, files)| files.clone());
         const RECENT: usize = 16;
         self.recent.retain(|(recent, _)| *recent != key);
         if self.recent.len() == RECENT {
@@ -530,7 +533,7 @@ impl Detail {
         self.recent.push((key.clone(), files.clone()));
         let rows = self.build_rows(&key, &files, cx);
         let same = self.diff.as_ref().is_some_and(|diff| diff.key == key);
-        let top = same.then(|| self.list.logical_scroll_top());
+        let top = same.then(|| self.keep_place(&rows));
         // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
         // is about the right size before they are.
         self.list
@@ -553,8 +556,24 @@ impl Detail {
                 .collect();
             self.unchecked_hunks
                 .retain(|(path, key)| hunks.contains(&(path.as_str(), *key)));
-            self.line_picks
-                .retain(|(path, key), _| hunks.contains(&(path.as_str(), *key)));
+            // Picked lines are by their place in the hunk, which holds only while the
+            // hunk's lines stay the same; an edit can change them under the same header.
+            let lines = |files: &[FileDiff], path: &str, key: HunkKey| {
+                let file = files.iter().find(|f| f.file.path == path)?;
+                match &file.body {
+                    DiffBody::Hunks { hunks, .. } => hunks.iter().find(|h| h.key == key),
+                    _ => None,
+                }
+                .map(|hunk| {
+                    (hunk.lines.iter())
+                        .map(|line| (line.kind, line.text.clone()))
+                        .collect::<Vec<_>>()
+                })
+            };
+            self.line_picks.retain(|(path, key), _| {
+                let then = before.as_deref().and_then(|b| lines(b, path, *key));
+                then.is_some() && then == lines(&files, path, *key)
+            });
         }
         if self.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
             self.text_selection = None;
@@ -648,6 +667,15 @@ impl Detail {
         self.rebuild_rows(cx);
     }
 
+    /// Close the file filter if it's open, saying whether it was.
+    pub fn close_open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let open = self.filtering;
+        if open {
+            self.close_filter(window, cx);
+        }
+        open
+    }
+
     pub(super) fn close_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.filtering = false;
         self.file_filter
@@ -674,6 +702,33 @@ impl Detail {
         cx.notify();
     }
 
+    /// Where the view goes in `rows` to keep showing what's at its top now: the same row,
+    /// or its file's header when that row went away.
+    fn keep_place(&self, rows: &[DiffRow]) -> ListOffset {
+        let top = self.list.logical_scroll_top();
+        let Some(diff) = &self.diff else {
+            return top;
+        };
+        // Gaps all look alike, so a gap at the top is found by the row after it.
+        let gaps = (diff.rows.iter().skip(top.item_ix))
+            .take_while(|row| **row == DiffRow::Gap)
+            .count();
+        let anchor = diff.rows.get(top.item_ix + gaps).copied();
+        let found = anchor
+            .and_then(|row| rows.iter().position(|r| r.same_place(row)))
+            .and_then(|ix| ix.checked_sub(gaps));
+        match found {
+            Some(item_ix) => ListOffset { item_ix, ..top },
+            None => ListOffset {
+                item_ix: anchor
+                    .and_then(DiffRow::file)
+                    .and_then(|file| rows.iter().position(|r| *r == DiffRow::File(file)))
+                    .unwrap_or(top.item_ix),
+                offset_in_item: px(0.),
+            },
+        }
+    }
+
     /// Rebuild the rows when folding changed, keeping the scroll position.
     fn rebuild_rows(&mut self, cx: &mut Context<Self>) {
         let Some(diff) = &self.diff else {
@@ -683,33 +738,15 @@ impl Detail {
         let rows = self.build_rows(&diff.key, &diff.files, cx);
         if rows != diff.rows {
             self.text_selection = None;
-            // Keep the row at the top of the view there, or its file's header when the
-            // row just folded away.
-            let top = self.list.logical_scroll_top();
-            // Gaps all look alike, so a gap at the top is found by the row after it.
-            let gaps = (diff.rows.iter().skip(top.item_ix))
-                .take_while(|row| **row == DiffRow::Gap)
-                .count();
-            let anchor = diff.rows.get(top.item_ix + gaps).copied();
-            let found = anchor
-                .and_then(|row| rows.iter().position(|r| *r == row))
-                .and_then(|ix| ix.checked_sub(gaps));
-            let scroll_to = match found {
-                Some(item_ix) => ListOffset { item_ix, ..top },
-                None => ListOffset {
-                    item_ix: anchor
-                        .and_then(DiffRow::file)
-                        .and_then(|file| rows.iter().position(|r| *r == DiffRow::File(file)))
-                        .unwrap_or(top.item_ix),
-                    offset_in_item: px(0.),
-                },
-            };
+            let scroll_to = self.keep_place(&rows);
             self.list
                 .reset_with_uniform_height(rows.len(), px(diff::LINE_HEIGHT));
             self.list.scroll_to(scroll_to);
             if let Some(diff) = &mut self.diff {
                 diff.rows = rows;
             }
+            // What Find counts follows what's shown.
+            self.run_find(false, cx);
         }
         cx.notify();
     }
@@ -756,16 +793,20 @@ impl Detail {
         self.diff.as_ref()?.rows.iter().position(wanted)
     }
 
+    /// Step `delta` files through the ones shown.
     fn move_file(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some(count) = self
-            .diff
-            .as_ref()
-            .map(|diff| diff.files.len())
-            .filter(|n| *n > 0)
-        else {
+        let shown = self.shown_files();
+        if shown.is_empty() {
             return;
+        }
+        // From a file that isn't shown, the next shown one counts as a step.
+        let at = shown.partition_point(|file| *file < self.cursor.file) as isize;
+        let at = if shown.contains(&self.cursor.file) || delta < 0 {
+            at
+        } else {
+            at - 1
         };
-        let file = (self.cursor.file as isize + delta).clamp(0, count as isize - 1) as usize;
+        let file = shown[(at + delta).clamp(0, shown.len() as isize - 1) as usize];
         self.scroll_to_file(file, cx);
     }
 
@@ -869,14 +910,29 @@ impl Detail {
         Some(diff.files.get(self.cursor.file)?.file.path.clone())
     }
 
-    /// The uncommitted file under the cursor, with the project it's in.
+    /// The uncommitted file under the cursor, with the project it's in. Never a file the
+    /// diff doesn't show, as one the filter hides.
     fn cursor_file(&self) -> Option<(ProjectId, FileDiff)> {
         let diff = self
             .diff
             .as_ref()
             .filter(|diff| diff.key.source == DiffSource::Worktree)?;
+        if !self.shown_files().contains(&self.cursor.file) {
+            return None;
+        }
         let file = diff.files.get(self.cursor.file)?;
         Some((diff.key.project.clone(), file.clone()))
+    }
+
+    /// The files the diff shows, in order: not those a filter or a pending operation hides.
+    fn shown_files(&self) -> Vec<usize> {
+        (self.diff.iter())
+            .flat_map(|diff| &diff.rows)
+            .filter_map(|row| match row {
+                DiffRow::File(file) => Some(*file),
+                _ => None,
+            })
+            .collect()
     }
 
     pub fn toggle_reviewed_file(&mut self, file_ix: usize, cx: &mut Context<Self>) {
@@ -897,11 +953,13 @@ impl Detail {
         if !reviewed {
             // Like Zed's keep-and-next: move on to the next file still wanting a look.
             let store = self.store.read(cx);
+            let shown = self.shown_files();
             let next = self.diff.as_ref().and_then(|diff| {
                 diff.files
                     .iter()
                     .enumerate()
                     .skip(file_ix + 1)
+                    .filter(|(ix, _)| shown.contains(ix))
                     .find(|(_, f)| store.review(&project, &f.file) != Review::Reviewed)
                     .map(|(ix, _)| ix)
             });

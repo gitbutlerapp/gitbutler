@@ -19,6 +19,8 @@ use crate::ui::{ButtonStyle, Icon, button, h_flex, icon_button, shortcut, small_
 impl Detail {
     pub(super) fn close_composer(&mut self, cx: &mut Context<Self>) {
         self.composing = false;
+        // A message still being written would land in whatever the box shows next.
+        self.writing = None;
         self.unchecked.clear();
         self.unchecked_hunks.clear();
         self.line_picks.clear();
@@ -319,6 +321,12 @@ impl Detail {
         let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
             return;
         };
+        if self.writing.is_some() {
+            self.store.update(cx, |store, cx| {
+                store.snack("The message is still being written", cx)
+            });
+            return;
+        }
         let message = self.message.read(cx).text().trim().to_owned();
         if message.is_empty() {
             self.store.update(cx, |store, cx| {

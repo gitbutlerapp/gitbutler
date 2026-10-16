@@ -67,14 +67,18 @@ impl Detail {
     /// The diff line at `row`, if that row is one.
     fn line_at(&self, row: usize) -> Option<&DiffLine> {
         let diff = self.diff.as_ref()?;
-        let DiffRow::Line {
-            file, hunk, line, ..
-        } = *diff.rows.get(row)?
-        else {
-            return None;
-        };
-        match &diff.files.get(file)?.body {
-            DiffBody::Hunks { hunks, .. } => hunks.get(hunk)?.lines.get(line),
+        match *diff.rows.get(row)? {
+            DiffRow::Line {
+                file, hunk, line, ..
+            } => match &diff.files.get(file)?.body {
+                DiffBody::Hunks { hunks, .. } => hunks.get(hunk)?.lines.get(line),
+                _ => None,
+            },
+            // An unchanged line of a file shown whole, from its new side.
+            DiffRow::Context { file, new, .. } => {
+                let (_, lines) = self.whole.get(&diff.files.get(file)?.file.path)?.as_ref()?;
+                lines.get((new as usize).checked_sub(1)?)
+            }
             _ => None,
         }
     }
@@ -313,7 +317,15 @@ impl Detail {
         // worktree or of one commit. A branch's diff spans commits, so it carries nothing.
         let from = match diff.key.source {
             DiffSource::Worktree => Some(None),
-            DiffSource::Commit(id) => Some(Some(id)),
+            // Not a commit of the target's history, on the project page: it isn't the
+            // workspace's to change.
+            DiffSource::Commit(id)
+                if store
+                    .workspace(&diff.key.project)
+                    .is_some_and(|ws| ws.find_commit(id).is_some()) =>
+            {
+                Some(Some(id))
+            }
             _ => None,
         };
         let payload = |file: usize, hunk: Option<usize>| {
@@ -450,20 +462,7 @@ impl Detail {
                 file, hunk, line, ..
             } => {
                 let (excluded, toggle) = self.line_check(diff, (file, hunk, line), &entity);
-                let (down, drag) = (entity.clone(), entity);
-                let select = LineSelect {
-                    down: Rc::new(move |at, event, window, cx| {
-                        let (count, shift) = (event.click_count, event.modifiers.shift);
-                        down.update(cx, |detail, cx| {
-                            detail.start_text_selection((ix, at), count, shift, window, cx)
-                        })
-                        .ok();
-                    }),
-                    drag: Rc::new(move |at, _, cx| {
-                        drag.update(cx, |detail, cx| detail.drag_text_selection((ix, at), cx))
-                            .ok();
-                    }),
-                };
+                let select = line_select(ix, entity);
                 diff::render_row(
                     row,
                     &diff.files,
@@ -504,14 +503,30 @@ impl Detail {
                 // Each line is on one row only, so the right one, or the left where there's
                 // none, tells rows apart.
                 let row_id = (file << 40) | (hunk << 20) | right.or(left).unwrap_or_default();
-                diff::render_pair_row(
+                let pair = diff::render_pair_row(
                     (left.map(|l| &lines[l]), right.map(|r| &lines[r])),
                     [half(left), half(right)],
                     row_id,
                     last,
                     theme,
                     store.prefs.wrap,
-                )
+                );
+                // A click puts the cursor on the hunk, so its keys act on what was clicked.
+                let entity = entity.clone();
+                div()
+                    .child(pair)
+                    .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                        entity
+                            .update(cx, |detail, cx| {
+                                detail.cursor = Cursor {
+                                    file,
+                                    hunk: Some(hunk),
+                                };
+                                cx.notify();
+                            })
+                            .ok();
+                    })
+                    .into_any_element()
             }
             DiffRow::Context {
                 file,
@@ -530,7 +545,13 @@ impl Detail {
                         (old, new),
                         last,
                         theme,
-                        (store.prefs.wrap, store.prefs.split),
+                        Decor {
+                            select: Some(line_select(ix, entity)),
+                            selected: self.selected_in_row(ix),
+                            wrap: store.prefs.wrap,
+                            ..Default::default()
+                        },
+                        store.prefs.split,
                     ),
                     None => div().into_any_element(),
                 }
@@ -610,11 +631,21 @@ impl Detail {
         cx.spawn(async move |this, cx| {
             let lines = backend::run(move || backend::file_lines(&root, &change)).await;
             this.update(cx, |this, cx| {
-                // Unless the file changed again since, or isn't shown whole any more.
-                let current = (this.diff.as_ref())
-                    .and_then(|diff| diff.files.iter().find(|f| f.file.path == path))
-                    .is_some_and(|f| f.fingerprint == fingerprint);
-                if !current || !this.whole.contains_key(&path) {
+                if !this.whole.contains_key(&path) {
+                    return;
+                }
+                // The file changed while it was read: read it again as it is now.
+                let now = (this.diff.as_ref())
+                    .and_then(|diff| diff.files.iter().position(|f| f.file.path == path));
+                let current = now.is_some_and(|ix| {
+                    this.diff
+                        .as_ref()
+                        .is_some_and(|d| d.files[ix].fingerprint == fingerprint)
+                });
+                if !current {
+                    if let Some(ix) = now {
+                        this.load_whole(ix, cx);
+                    }
                     return;
                 }
                 match lines {
@@ -667,6 +698,25 @@ impl Detail {
                 .ok();
         });
         (excluded, Some(toggle))
+    }
+}
+
+/// What the pointer does to the text of the line at row `ix`: select from where it's
+/// pressed, and extend as it drags.
+fn line_select(ix: usize, entity: WeakEntity<Detail>) -> LineSelect {
+    let (down, drag) = (entity.clone(), entity);
+    LineSelect {
+        down: Rc::new(move |at, event, window, cx| {
+            let (count, shift) = (event.click_count, event.modifiers.shift);
+            down.update(cx, |detail, cx| {
+                detail.start_text_selection((ix, at), count, shift, window, cx)
+            })
+            .ok();
+        }),
+        drag: Rc::new(move |at, _, cx| {
+            drag.update(cx, |detail, cx| detail.drag_text_selection((ix, at), cx))
+                .ok();
+        }),
     }
 }
 
