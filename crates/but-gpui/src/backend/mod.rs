@@ -575,7 +575,7 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
             kind,
             old: old_no,
             new: new_no,
-            text: display_text(rest),
+            text: display_text(rest).into(),
             spans: Vec::new(),
             emph: Vec::new(),
         });
