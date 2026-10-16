@@ -68,14 +68,7 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let uncommitted = {
-        let repo = ctx.repo.get()?;
-        but_core::diff::worktree_changes(&repo)?
-            .changes
-            .into_iter()
-            .map(file_change)
-            .collect()
-    };
+    let uncommitted = worktree_files(&*ctx.repo.get()?)?;
 
     let stacks = info
         .stacks
@@ -132,6 +125,10 @@ fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
     let message = inner.message.to_str_lossy().trim_end().to_string();
     Commit {
         id: CommitId(inner.id),
+        key: inner
+            .change_id
+            .as_ref()
+            .map_or_else(|| inner.id.to_string(), ToString::to_string),
         title: message.lines().next().unwrap_or_default().to_string(),
         message,
         author: inner.author.name.to_str_lossy().into_owned(),
@@ -160,6 +157,7 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
         path: change.path.to_str_lossy().into_owned(),
         previous_path,
         kind,
+        modified: None,
         change,
     }
 }
@@ -176,16 +174,29 @@ pub enum DiffSource {
     },
 }
 
+/// Uncommitted files, each with when it was last written.
+fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
+    let changes = but_core::diff::worktree_changes(repo)?;
+    let ui_changes: but_core::ui::WorktreeChanges = changes.clone().into();
+    let modified = but_core::diff::ui::modification_times(repo, &ui_changes);
+    Ok(changes
+        .changes
+        .into_iter()
+        .map(|change| {
+            let mut file = file_change(change);
+            file.modified = modified.get(&file.path).map(|ms| *ms as i64);
+            file
+        })
+        .collect())
+}
+
 pub fn load_diff(path: &Path, source: DiffSource) -> Result<Vec<FileDiff>> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     let changes: Vec<FileChange> = match source {
-        DiffSource::Worktree => but_core::diff::worktree_changes(&repo)?
-            .changes
-            .into_iter()
-            .map(file_change)
-            .collect(),
+        // With modification times, so review marks match the workspace's file list.
+        DiffSource::Worktree => worktree_files(&repo)?,
         DiffSource::Commit(id) => {
             let details =
                 but_api::diff::commit_details(&ctx, id.0, but_api::diff::ComputeLineStats::No)?;

@@ -7,15 +7,16 @@ use gpui::{
 };
 
 use crate::app::{
-    AppView, Collapse, Confirm, DeleteSelection, Expand, MenuItem, SelectNext, SelectPrevious,
+    AppView, Collapse, Confirm, DeleteSelection, Expand, MenuItem, NewBranchOnTop, RenameSelection,
+    SelectNext, SelectPrevious, UncommitSelection,
 };
 use crate::backend::{Branch, Commit, CommitState, PushState};
 use crate::state::{Cut, ProjectEntry, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, button, count, h_flex, icon, icon_button, keycap,
-    relative_time, small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, h_flex, icon,
+    icon_button, just_now, relative_time, small_icon, v_flex,
 };
 
 /// Commits shown per branch before folding the rest into "N more".
@@ -210,6 +211,58 @@ impl AppView {
         }
     }
 
+    fn rename_selection(
+        &mut self,
+        _: &RenameSelection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match self.store.read(cx).selection.clone() {
+            Some(Selection::Branch(project, ref_name)) => {
+                self.rename_branch(project, ref_name, window, cx)
+            }
+            Some(Selection::Commit(..)) => self
+                .detail
+                .update(cx, |detail, cx| detail.start_reword(window, cx)),
+            _ => {}
+        }
+    }
+
+    fn new_branch_on_top(
+        &mut self,
+        _: &NewBranchOnTop,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        let below = match store.selection.clone() {
+            Some(Selection::Branch(project, ref_name)) => Some((project, ref_name)),
+            Some(Selection::Commit(project, id)) => store
+                .workspace(&project)
+                .and_then(|ws| ws.find_commit(id))
+                .map(|(branch, _)| (project.clone(), branch.ref_name.clone())),
+            _ => None,
+        };
+        if let Some((project, ref_name)) = below.filter(|(_, ref_name)| !ref_name.is_empty()) {
+            self.add_branch_on_top(project, ref_name, window, cx);
+        }
+    }
+
+    fn uncommit_selection(
+        &mut self,
+        _: &UncommitSelection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match self.store.read(cx).selection.clone() {
+            Some(Selection::Commit(project, id)) => self.uncommit(project, id, cx),
+            Some(Selection::Branch(project, ref_name)) => {
+                self.remove_branch(project, ref_name, window, cx)
+            }
+            _ => {}
+        }
+    }
+
     pub fn scroll_selection_into_view(&mut self, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(selection) = &store.selection else {
@@ -333,6 +386,9 @@ impl AppView {
             .on_action(cx.listener(Self::collapse))
             .on_action(cx.listener(Self::confirm))
             .on_action(cx.listener(Self::delete_selection))
+            .on_action(cx.listener(Self::rename_selection))
+            .on_action(cx.listener(Self::new_branch_on_top))
+            .on_action(cx.listener(Self::uncommit_selection))
             .w(px(NAV_WIDTH))
             .flex_none()
             .h_full()
@@ -362,50 +418,6 @@ impl AppView {
                 )
             })
             .child(list)
-            .child(self.render_status(&theme, cx))
-    }
-
-    fn render_status(&self, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
-        let store = self.store.read(cx);
-        let content: AnyElement = if let Some(busy) = &store.busy {
-            h_flex()
-                .gap(px(6.))
-                .child(small_icon(Icon::Clock).text_color(theme.pop))
-                .child(format!("{busy}…"))
-                .into_any_element()
-        } else if let Some(cut) = &store.cut {
-            h_flex()
-                .gap(px(6.))
-                .min_w(px(0.))
-                .child(div().text_color(theme.pop).child("Cut"))
-                .child(div().truncate().child(cut.describe()))
-                .child(div().flex_1())
-                .child(keycap("⌘V", theme))
-                .child("paste")
-                .child(keycap("esc", theme))
-                .into_any_element()
-        } else {
-            h_flex()
-                .gap(px(6.))
-                .child(keycap("⌘X", theme))
-                .child("cut")
-                .child(keycap("⌘V", theme))
-                .child("paste")
-                .child(keycap("⌘Z", theme))
-                .child("undo")
-                .child(keycap("⌘⇧N", theme))
-                .child("branch")
-                .into_any_element()
-        };
-        h_flex()
-            .flex_none()
-            .h(px(30.))
-            .px(px(12.))
-            .border_t_1()
-            .border_color(theme.border_3)
-            .text_size(px(11.))
-            .text_color(theme.text_2)
-            .child(content)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -419,6 +431,7 @@ impl AppView {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let store = self.store.read(cx);
         let base = |id: ElementId, indent: f32| -> Stateful<Div> {
             let solid = selected && focused;
             h_flex()
@@ -458,6 +471,12 @@ impl AppView {
                         ws.target.as_ref().map_or(0, |t| t.behind),
                     )
                 });
+                let unread = entry.workspace.as_ref().is_some_and(|ws| {
+                    ws.branches()
+                        .flat_map(|branch| &branch.commits)
+                        .any(|commit| store.is_unread(&entry.id, commit))
+                });
+                let activity = entry.workspace.as_ref().and_then(|ws| ws.last_activity());
                 base(ElementId::Name(format!("project-{}", entry.id).into()), 0.)
                     .h(px(if expanded { 32. } else { ROW_HEIGHT }))
                     .pl(px(4.))
@@ -494,6 +513,7 @@ impl AppView {
                             .when(expanded, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                             .child(entry.project.name.clone()),
                     )
+                    .when(unread, |el| el.child(dot(meta(theme.pop))))
                     .when_some(summary, |el, (uncommitted, unpushed, behind)| {
                         el.when(uncommitted > 0, |el| {
                             el.child(count(Some(Icon::File), uncommitted, meta(theme.warn)))
@@ -507,6 +527,31 @@ impl AppView {
                     })
                     .when(entry.is_loading(), |el| {
                         el.child(small_icon(Icon::Clock).text_color(theme.text_3))
+                    })
+                    // A project something wrote to in the last two minutes is likely an
+                    // agent at work; otherwise say how long it's been quiet.
+                    .when_some(activity, |el, at| {
+                        if just_now(at) {
+                            el.child(
+                                h_flex()
+                                    .id(ElementId::Name(format!("active-{}", entry.id).into()))
+                                    .gap(px(4.))
+                                    .text_size(px(11.))
+                                    .text_color(meta(theme.safe))
+                                    .child(dot(meta(theme.safe)))
+                                    .child("active")
+                                    .tooltip(|_, cx| {
+                                        Tooltip::text("Changed in the last 2 minutes".into(), cx)
+                                    }),
+                            )
+                        } else {
+                            el.child(
+                                div()
+                                    .text_size(px(11.))
+                                    .text_color(muted(selected))
+                                    .child(relative_time(at)),
+                            )
+                        }
                     })
                     .when(
                         expanded
@@ -595,7 +640,14 @@ impl AppView {
                             "No uncommitted changes"
                         }),
                 )
-                .when(*n > 0, |el| el.child(count(None, *n, meta(theme.warn))))
+                .when(*n > 0, |el| {
+                    let to_review = store.to_review(&entry.id);
+                    if to_review > 0 {
+                        el.child(count(Some(Icon::Eye), to_review, meta(theme.warn)))
+                    } else {
+                        el.child(count(Some(Icon::Tick), *n, muted(selected)))
+                    }
+                })
                 .on_click(cx.listener({
                     let selection = selection.clone();
                     move |this, _: &ClickEvent, window, cx| {
@@ -680,6 +732,13 @@ impl AppView {
                             .child("empty"),
                     )
                 })
+                .when(
+                    branch
+                        .commits
+                        .iter()
+                        .any(|commit| store.is_unread(&entry.id, commit)),
+                    |el| el.child(dot(meta(theme.pop))),
+                )
                 .on_click(cx.listener({
                     let selection = selection.clone();
                     move |this, _: &ClickEvent, window, cx| {
@@ -702,6 +761,7 @@ impl AppView {
                 };
                 let payload = Cut::Commit(entry.id.clone(), commit.id);
                 let label: SharedString = commit.title.clone().into();
+                let unread = store.is_unread(&entry.id, commit);
                 base(
                     ElementId::Name(format!("commit-{}-{}", entry.id, commit.id.short()).into()),
                     20.,
@@ -715,12 +775,14 @@ impl AppView {
                         .when(commit.title.is_empty(), |el| {
                             el.italic().text_color(muted(selected))
                         })
+                        .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                         .child(if commit.title.is_empty() {
                             "No message".to_owned()
                         } else {
                             commit.title.clone()
                         }),
                 )
+                .when(unread, |el| el.child(dot(meta(theme.pop))))
                 .child(
                     div()
                         .flex_none()

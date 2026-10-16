@@ -14,6 +14,7 @@ use crate::theme::Theme;
 
 pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 44.;
+pub const STATUS_BAR_HEIGHT: f32 = 28.;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Icon {
@@ -24,6 +25,7 @@ pub enum Icon {
     ChevronRight,
     Clock,
     Commit,
+    Eye,
     CommitFill,
     File,
     FileDiff,
@@ -31,6 +33,7 @@ pub enum Icon {
     Pr,
     Refresh,
     Search,
+    Sidebar,
     Stack,
     Tick,
     Warning,
@@ -46,6 +49,7 @@ impl Icon {
             Icon::ChevronRight => "chevron-right",
             Icon::Clock => "clock",
             Icon::Commit => "commit",
+            Icon::Eye => "eye",
             Icon::CommitFill => "commit-fill",
             Icon::File => "file",
             Icon::FileDiff => "file-diff",
@@ -53,6 +57,7 @@ impl Icon {
             Icon::Pr => "pr",
             Icon::Refresh => "refresh",
             Icon::Search => "search",
+            Icon::Sidebar => "sidebar",
             Icon::Stack => "stack",
             Icon::Tick => "tick",
             Icon::Warning => "warning",
@@ -92,6 +97,8 @@ impl AssetSource for Assets {
             "pr",
             "refresh",
             "search",
+            "sidebar",
+            "eye",
             "stack",
             "tick",
             "warning",
@@ -145,6 +152,7 @@ pub struct Button {
     inverted: bool,
     on_click: Option<ClickHandler>,
     tooltip: Option<SharedString>,
+    tooltip_key: Option<SharedString>,
 }
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
@@ -160,6 +168,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         inverted: false,
         on_click: None,
         tooltip: None,
+        tooltip_key: None,
     }
 }
 
@@ -174,6 +183,7 @@ pub fn icon_button(id: impl Into<ElementId>, icon: Icon) -> Button {
         inverted: false,
         on_click: None,
         tooltip: None,
+        tooltip_key: None,
     }
 }
 
@@ -205,6 +215,16 @@ impl Button {
 
     pub fn tooltip(mut self, tooltip: impl Into<SharedString>) -> Self {
         self.tooltip = Some(tooltip.into());
+        self
+    }
+
+    pub fn tooltip_with_key(
+        mut self,
+        tooltip: impl Into<SharedString>,
+        key: Option<SharedString>,
+    ) -> Self {
+        self.tooltip = Some(tooltip.into());
+        self.tooltip_key = key;
         self
     }
 
@@ -267,7 +287,8 @@ impl RenderOnce for Button {
             })
             .when_some(self.label, |el, label| el.child(label))
             .when_some(self.tooltip, |el, tooltip| {
-                el.tooltip(move |_, cx| Tooltip::text(tooltip.clone(), cx))
+                let key = self.tooltip_key;
+                el.tooltip(move |_, cx| Tooltip::with_key(tooltip.clone(), key.clone(), cx))
             })
             .when_some(self.on_click.filter(|_| !self.disabled), |el, handler| {
                 el.on_click(move |event, window, cx| {
@@ -279,13 +300,19 @@ impl RenderOnce for Button {
 }
 
 /// A plain text tooltip.
+/// A plain text tooltip, with the keys that do the same thing at its end.
 pub struct Tooltip {
     text: SharedString,
+    key: Option<SharedString>,
 }
 
 impl Tooltip {
     pub fn text(text: SharedString, cx: &mut App) -> gpui::AnyView {
-        cx.new(|_| Tooltip { text }).into()
+        cx.new(|_| Tooltip { text, key: None }).into()
+    }
+
+    pub fn with_key(text: SharedString, key: Option<SharedString>, cx: &mut App) -> gpui::AnyView {
+        cx.new(|_| Tooltip { text, key }).into()
     }
 }
 
@@ -304,7 +331,11 @@ impl Render for Tooltip {
             .text_size(px(12.))
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())
+            .flex()
+            .items_center()
+            .gap(px(7.))
             .child(self.text.clone())
+            .when_some(self.key.clone(), |el, key| el.child(keycap(&key, theme)))
     }
 }
 
@@ -321,27 +352,104 @@ pub fn count(icon_kind: Option<Icon>, value: usize, color: Hsla) -> Div {
         .child(value.to_string())
 }
 
+/// The keys bound to `action`, as macOS shows them, like `⌘⇧P`.
+pub fn shortcut(action: &dyn gpui::Action, cx: &App) -> Option<SharedString> {
+    let keymap = cx.key_bindings();
+    let keymap = keymap.borrow();
+    let binding = keymap.bindings_for_action(action).next_back()?;
+    let keys: Vec<String> = binding
+        .keystrokes()
+        .iter()
+        .map(|keystroke| {
+            let m = keystroke.modifiers();
+            let mut text = String::new();
+            for (on, symbol) in [
+                (m.control, "⌃"),
+                (m.alt, "⌥"),
+                (m.shift, "⇧"),
+                (m.platform, "⌘"),
+            ] {
+                if on {
+                    text.push_str(symbol);
+                }
+            }
+            text.push_str(match keystroke.key() {
+                "enter" => "↩",
+                "backspace" => "⌫",
+                "delete" => "⌦",
+                "escape" => "esc",
+                "space" => "space",
+                "tab" => "⇥",
+                "up" => "↑",
+                "down" => "↓",
+                "left" => "←",
+                "right" => "→",
+                key if key.len() == 1 => {
+                    return text + &key.to_uppercase();
+                }
+                key => key,
+            });
+            text
+        })
+        .collect();
+    Some(keys.join(" ").into())
+}
+
+/// Keys as Lite's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`.
 pub fn keycap(text: &str, theme: &Theme) -> Div {
-    div()
+    let mut keys: Vec<String> = Vec::new();
+    for token in text.split(' ') {
+        let mut rest = token;
+        while let Some(symbol) = rest.chars().next().filter(|c| "⌃⌥⇧⌘".contains(*c)) {
+            keys.push(symbol.to_string());
+            rest = &rest[symbol.len_utf8()..];
+        }
+        if !rest.is_empty() {
+            keys.push(rest.to_owned());
+        }
+    }
+    h_flex()
         .flex_none()
-        .px(px(4.))
-        .h(px(16.))
-        .flex()
-        .items_center()
-        .rounded(px(3.))
-        .border_1()
-        .border_color(theme.border_2)
-        .text_size(px(11.))
-        .text_color(theme.text_2)
-        .child(text.to_owned())
+        .gap(px(3.))
+        .children(keys.into_iter().map(|key| {
+            div()
+                .flex_none()
+                .min_w(px(16.))
+                .h(px(16.))
+                .px(px(3.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(px(3.))
+                .bg(theme.fill_gray.opacity(0.05))
+                .border_1()
+                .border_color(theme.text_1.opacity(0.16))
+                .text_size(px(11.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(theme.text_1.opacity(0.6))
+                .child(key)
+        }))
+}
+
+/// A small round marker: new work, or something running.
+pub fn dot(color: Hsla) -> Div {
+    div().flex_none().size(px(6.)).rounded_full().bg(color)
+}
+
+fn now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or_default()
+}
+
+/// Whether `seconds` (since the epoch) is within the last two minutes.
+pub fn just_now(seconds: i64) -> bool {
+    now() - seconds < 120
 }
 
 pub fn relative_time(seconds: i64) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(seconds);
-    let delta = (now - seconds).max(0);
+    let delta = (now() - seconds).max(0);
     match delta {
         0..60 => "now".into(),
         60..3600 => format!("{}m", delta / 60),

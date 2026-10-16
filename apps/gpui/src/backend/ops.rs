@@ -345,6 +345,20 @@ pub fn fetch(path: &Path) -> Result<()> {
     but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))
 }
 
+/// Restore what the last undo took back. Returns `false` when there's nothing to redo.
+pub fn redo(path: &Path) -> Result<bool> {
+    let mut ctx = open(path)?;
+    let Some(snapshot) = but_api::legacy::oplog::get_redo_target_snapshot(&ctx)? else {
+        return Ok(false);
+    };
+    but_api::legacy::oplog::restore_snapshot_with_kind(
+        &mut ctx,
+        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaRedo,
+        snapshot.commit_id,
+    )?;
+    Ok(true)
+}
+
 /// Restore the workspace to before the last operation. Returns `false` when there's nothing to undo.
 pub fn undo(path: &Path) -> Result<bool> {
     let mut ctx = open(path)?;

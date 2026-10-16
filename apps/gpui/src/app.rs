@@ -12,11 +12,12 @@ use gpui::{
 
 use crate::backend::{self, CommitId};
 use crate::detail::Detail;
-use crate::state::{Cut, ProjectId, Selection, Store, StoreEvent, ToastKind};
+use crate::palette::Palette;
+use crate::state::{Cut, Notice, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, button, h_flex, icon, v_flex};
+use crate::ui::{ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, v_flex};
 
 actions!(
     gitbutler,
@@ -25,8 +26,11 @@ actions!(
         AddProject,
         Refresh,
         Undo,
+        Redo,
         Fetch,
+        UpdateFromTarget,
         NewBranch,
+        NewBranchOnTop,
         SelectPrevious,
         SelectNext,
         Expand,
@@ -36,30 +40,44 @@ actions!(
         PasteHere,
         Cancel,
         DeleteSelection,
+        UncommitSelection,
+        RenameSelection,
         Push,
         FocusNavigator,
+        FocusChanges,
         FocusFilter,
-        FocusMessage,
+        StartCommit,
+        ToggleNavigator,
+        ToggleZoom,
+        CommandPalette,
     ]
 );
 
+/// Keys follow GitButler Lite where it has one, and Zed for reviewing changes.
 pub fn bind_keys(cx: &mut App) {
-    let nav = Some("Navigator");
+    let nav = Some("Navigator && !TextInput");
     let workspace = Some("Workspace && !TextInput");
     cx.bind_keys([
         KeyBinding::new("cmd-q", Quit, None),
         KeyBinding::new("cmd-o", AddProject, None),
         KeyBinding::new("cmd-r", Refresh, None),
-        KeyBinding::new("cmd-shift-r", Fetch, None),
-        KeyBinding::new("cmd-shift-n", NewBranch, None),
-        KeyBinding::new("cmd-shift-p", Push, None),
+        KeyBinding::new("alt-shift-f", Fetch, None),
+        KeyBinding::new("alt-shift-r", UpdateFromTarget, None),
+        KeyBinding::new("cmd-n", NewBranch, None),
+        // Zed's key works too; ⌘K is the one shown, as the last binding wins.
+        KeyBinding::new("cmd-shift-p", CommandPalette, None),
+        KeyBinding::new("cmd-k", CommandPalette, None),
         KeyBinding::new("cmd-1", FocusNavigator, None),
+        KeyBinding::new("cmd-2", FocusChanges, None),
         KeyBinding::new("cmd-f", FocusFilter, None),
-        KeyBinding::new("cmd-2", FocusMessage, None),
+        KeyBinding::new("cmd-enter", StartCommit, workspace),
         KeyBinding::new("cmd-z", Undo, workspace),
+        KeyBinding::new("cmd-shift-z", Redo, workspace),
         KeyBinding::new("cmd-x", CutSelection, workspace),
         KeyBinding::new("cmd-v", PasteHere, workspace),
         KeyBinding::new("escape", Cancel, workspace),
+        KeyBinding::new(".", ToggleNavigator, workspace),
+        KeyBinding::new("shift-escape", ToggleZoom, None),
         KeyBinding::new("up", SelectPrevious, nav),
         KeyBinding::new("k", SelectPrevious, nav),
         KeyBinding::new("down", SelectNext, nav),
@@ -70,7 +88,11 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("h", Collapse, nav),
         KeyBinding::new("enter", Confirm, nav),
         KeyBinding::new("space", Confirm, nav),
+        KeyBinding::new("r", RenameSelection, nav),
+        KeyBinding::new("b", NewBranchOnTop, nav),
+        KeyBinding::new("shift-p", Push, nav),
         KeyBinding::new("cmd-backspace", DeleteSelection, nav),
+        KeyBinding::new("cmd-alt-backspace", UncommitSelection, nav),
     ]);
 }
 
@@ -86,6 +108,8 @@ type CancelHandler = Box<dyn FnOnce(&mut AppView)>;
 
 pub struct MenuItem {
     pub label: SharedString,
+    /// The keys that do the same, shown at the end of the row.
+    pub key: Option<SharedString>,
     pub danger: bool,
     pub handler: MenuHandler,
 }
@@ -97,9 +121,15 @@ impl MenuItem {
     ) -> Self {
         Self {
             label: label.into(),
+            key: None,
             danger: false,
             handler: Rc::new(handler),
         }
+    }
+
+    pub fn key(mut self, key: Option<SharedString>) -> Self {
+        self.key = key;
+        self
     }
 
     pub fn danger(mut self) -> Self {
@@ -130,6 +160,12 @@ pub struct AppView {
     pub filter: Entity<TextInput>,
     pub menu: Option<ContextMenu>,
     prompt: Option<Prompt>,
+    pub navigator_open: bool,
+    /// The diff takes the whole window.
+    pub zoomed: bool,
+    pub palette: Option<Palette>,
+    /// Palette commands by label, most recently run first.
+    pub recent_commands: Vec<&'static str>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -190,6 +226,10 @@ impl AppView {
             filter,
             menu: None,
             prompt: None,
+            navigator_open: true,
+            zoomed: false,
+            palette: None,
+            recent_commands: Vec::new(),
             _subscriptions: subscriptions,
         }
     }
@@ -234,21 +274,9 @@ impl AppView {
     }
 
     fn undo(&mut self, _: &Undo, _: &mut Window, cx: &mut Context<Self>) {
-        let Some(project) = self.selection(cx).map(|s| s.project().clone()) else {
-            return;
-        };
-        self.store.update(cx, |store, cx| {
-            store.run(
-                &project,
-                "Undo",
-                backend::undo,
-                |store, undone, cx| {
-                    let message = if undone { "Undone" } else { "Nothing to undo" };
-                    store.toast(ToastKind::Info, message, cx);
-                },
-                cx,
-            )
-        });
+        if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
+            self.store.update(cx, |store, cx| store.undo(&project, cx));
+        }
     }
 
     fn fetch(&mut self, _: &Fetch, _: &mut Window, cx: &mut Context<Self>) {
@@ -298,7 +326,7 @@ impl AppView {
                 &project,
                 "Fetch",
                 backend::fetch,
-                |store, (), cx| store.toast(ToastKind::Info, "Fetched", cx),
+                |store, (), cx| store.snack("Fetched", cx),
                 cx,
             )
         });
@@ -311,7 +339,7 @@ impl AppView {
                 &project,
                 "Update",
                 backend::update_from_target,
-                |store, (), cx| store.toast(ToastKind::Info, "Updated from target", cx),
+                |store, (), cx| store.snack_undoable("Updated from target", cx),
                 cx,
             )
         });
@@ -330,7 +358,7 @@ impl AppView {
                 &project,
                 format!("Push {name}"),
                 move |path| backend::push(path, &ref_name, force),
-                move |store, (), cx| store.toast(ToastKind::Info, format!("Pushed {name}"), cx),
+                move |store, (), cx| store.snack(format!("Pushed {name}"), cx),
                 cx,
             )
         });
@@ -443,7 +471,7 @@ impl AppView {
                         &project,
                         "Delete branch",
                         move |path| backend::remove_branch(path, &ref_name),
-                        |store, (), cx| store.toast(ToastKind::Info, "Branch deleted", cx),
+                        |store, (), cx| store.snack_undoable("Branch deleted", cx),
                         cx,
                     )
                 });
@@ -457,7 +485,7 @@ impl AppView {
                 &project,
                 "Uncommit",
                 move |path| backend::uncommit(path, &[id]),
-                |store, (), cx| store.toast(ToastKind::Info, "Uncommitted", cx),
+                |store, (), cx| store.snack_undoable("Uncommitted", cx),
                 cx,
             )
         });
@@ -483,7 +511,7 @@ impl AppView {
                         &project,
                         "Discard commit",
                         move |path| backend::discard_commit(path, id),
-                        |store, (), cx| store.toast(ToastKind::Info, "Commit discarded", cx),
+                        |store, (), cx| store.snack_undoable("Commit discarded", cx),
                         cx,
                     )
                 });
@@ -491,6 +519,8 @@ impl AppView {
         );
     }
 
+    /// Throw away uncommitted changes. One file or hunk goes at once, with Undo on the
+    /// snackbar as in Zed's review; several files ask first.
     pub fn discard(
         &mut self,
         project: ProjectId,
@@ -498,35 +528,32 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let what = match changes.as_slice() {
-            [] => return,
-            [one] => match &one.hunks {
-                Some(hunks) if hunks.len() == 1 => format!("a hunk of {}", one.file.path),
-                Some(hunks) => format!("{} hunks of {}", hunks.len(), one.file.path),
-                None => one.file.path.clone(),
-            },
-            many => format!("{} files", many.len()),
+        let run = move |this: &mut AppView,
+                        changes: Vec<backend::Selected>,
+                        cx: &mut Context<AppView>| {
+            let project = project.clone();
+            this.store.update(cx, |store, cx| {
+                store.run(
+                    &project,
+                    "Discard",
+                    move |path| backend::discard(path, &changes),
+                    |store, (), cx| store.snack_undoable("Changes discarded", cx),
+                    cx,
+                )
+            });
         };
-        self.confirm_then(
-            format!("Discard changes to {what}?"),
-            "You can undo this with ⌘Z.",
-            "Discard",
-            window,
-            cx,
-            move |this, cx| {
-                let project = project.clone();
-                let changes = changes.clone();
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Discard",
-                        move |path| backend::discard(path, &changes),
-                        |store, (), cx| store.toast(ToastKind::Info, "Changes discarded", cx),
-                        cx,
-                    )
-                });
-            },
-        );
+        match changes.len() {
+            0 => {}
+            1 => run(self, changes, cx),
+            n => self.confirm_then(
+                format!("Discard changes to {n} files?"),
+                "You can undo this with ⌘Z.",
+                "Discard",
+                window,
+                cx,
+                move |this, cx| run(this, changes, cx),
+            ),
+        }
     }
 
     /// Ask with a native dialog before doing something destructive.
@@ -705,7 +732,7 @@ impl AppView {
             let message = format!("Cut {}. Pick a spot and press ⌘V.", cut.describe());
             self.store.update(cx, |store, cx| {
                 store.set_cut(Some(cut), cx);
-                store.toast(ToastKind::Info, message, cx);
+                store.snack(message, cx);
             });
         }
     }
@@ -733,7 +760,7 @@ impl AppView {
         let message = format!("Cut {}. Pick a spot and press ⌘V.", cut.describe());
         self.store.update(cx, |store, cx| {
             store.set_cut(Some(cut), cx);
-            store.toast(ToastKind::Info, message, cx);
+            store.snack(message, cx);
         });
     }
 
@@ -748,9 +775,8 @@ impl AppView {
     ) {
         let Some(transfer) = Transfer::resolve(payload, target, alternate, self.store.read(cx))
         else {
-            self.store.update(cx, |store, cx| {
-                store.toast(ToastKind::Info, "That can't go there", cx)
-            });
+            self.store
+                .update(cx, |store, cx| store.snack("That can't go there", cx));
             return;
         };
         let project = target.project().clone();
@@ -767,9 +793,18 @@ impl AppView {
         }
     }
 
-    fn cancel(&mut self, _: &Cancel, _: &mut Window, cx: &mut Context<Self>) {
+    fn cancel(&mut self, _: &Cancel, window: &mut Window, cx: &mut Context<Self>) {
         if self.menu.take().is_some() {
             cx.notify();
+            return;
+        }
+        if self.zoomed {
+            self.zoomed = false;
+            self.sync_chrome(cx);
+            return;
+        }
+        if self.detail.read(cx).is_focused(window, cx) {
+            window.focus(&self.nav_focus, cx);
             return;
         }
         if self.store.read(cx).cut.is_some() {
@@ -787,7 +822,12 @@ impl AppView {
         window.focus(&self.nav_focus, cx);
     }
 
-    fn focus_message(&mut self, _: &FocusMessage, window: &mut Window, cx: &mut Context<Self>) {
+    fn focus_changes(&mut self, _: &FocusChanges, window: &mut Window, cx: &mut Context<Self>) {
+        self.detail
+            .update(cx, |detail, cx| detail.focus(window, cx));
+    }
+
+    fn start_commit(&mut self, _: &StartCommit, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
             self.store.update(cx, |store, cx| {
                 store.select(Some(Selection::Uncommitted(project)), cx)
@@ -795,6 +835,67 @@ impl AppView {
             self.detail
                 .update(cx, |detail, cx| detail.focus_message(window, cx));
         }
+    }
+
+    fn redo(&mut self, _: &Redo, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
+            self.store.update(cx, |store, cx| {
+                store.run(
+                    &project,
+                    "Redo",
+                    backend::redo,
+                    |store, redone, cx| {
+                        store.snack(if redone { "Redone" } else { "Nothing to redo" }, cx)
+                    },
+                    cx,
+                )
+            });
+        }
+    }
+
+    fn update_selected_project(
+        &mut self,
+        _: &UpdateFromTarget,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
+            self.update_project(project, cx);
+        }
+    }
+
+    pub fn toggle_navigator(
+        &mut self,
+        _: &ToggleNavigator,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.navigator_open = !self.navigator_open;
+        self.sync_chrome(cx);
+    }
+
+    fn command_palette(&mut self, _: &CommandPalette, window: &mut Window, cx: &mut Context<Self>) {
+        if self.palette.is_some() {
+            self.close_palette(window, cx);
+        } else {
+            self.open_palette(window, cx);
+        }
+    }
+
+    fn toggle_zoom(&mut self, _: &ToggleZoom, _: &mut Window, cx: &mut Context<Self>) {
+        self.zoomed = !self.zoomed;
+        self.sync_chrome(cx);
+    }
+
+    /// The details pane draws its own header, so it needs to know what's around it.
+    fn sync_chrome(&mut self, cx: &mut Context<Self>) {
+        let (zoomed, beside_traffic_lights) = (self.zoomed, self.zoomed || !self.navigator_open);
+        self.detail.update(cx, |detail, cx| {
+            detail.zoomed = zoomed;
+            detail.beside_traffic_lights = beside_traffic_lights;
+            cx.notify();
+        });
+        cx.notify();
     }
 
     pub fn open_menu(
@@ -814,9 +915,10 @@ impl AppView {
             let handler = item.handler.clone();
             h_flex()
                 .id(("menu-item", ix))
-                .h(px(26.))
-                .px(px(10.))
+                .h(px(28.))
+                .px(px(8.))
                 .mx(px(4.))
+                .gap(px(16.))
                 .rounded(px(4.))
                 .text_size(px(13.))
                 .text_color(if item.danger {
@@ -825,7 +927,8 @@ impl AppView {
                     theme.text_1
                 })
                 .hover(|el| el.bg(theme.hover()))
-                .child(item.label.clone())
+                .child(div().flex_1().child(item.label.clone()))
+                .when_some(item.key.clone(), |el, key| el.child(keycap(&key, theme)))
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                     this.menu = None;
                     handler(this, window, cx);
@@ -921,16 +1024,22 @@ impl AppView {
                             h_flex()
                                 .justify_end()
                                 .gap(px(8.))
-                                .child(button("prompt-cancel", "Cancel").on_click({
-                                    let input = input.clone();
-                                    move |_, window, cx| {
-                                        input.update(cx, |_, cx| cx.emit(InputEvent::Cancel));
-                                        window.refresh();
-                                    }
-                                }))
+                                .child(
+                                    button("prompt-cancel", "Cancel")
+                                        .style(ButtonStyle::Ghost)
+                                        .on_click({
+                                            let input = input.clone();
+                                            move |_, window, cx| {
+                                                input.update(cx, |_, cx| {
+                                                    cx.emit(InputEvent::Cancel)
+                                                });
+                                                window.refresh();
+                                            }
+                                        }),
+                                )
                                 .child(
                                     button("prompt-confirm", prompt.confirm.clone())
-                                        .style(ButtonStyle::Pop)
+                                        .style(ButtonStyle::Gray)
                                         .on_click(move |_, _, cx| {
                                             input.update(cx, |_, cx| cx.emit(InputEvent::Submit))
                                         }),
@@ -941,42 +1050,134 @@ impl AppView {
         )
     }
 
+    /// Snackbars at the bottom centre, error cards at the bottom right.
     fn render_toasts(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let store = self.store.read(cx);
-        v_flex()
+        let mut errors = Vec::new();
+        let mut snackbar = None;
+        for toast in &store.toasts {
+            let id = toast.id;
+            let dismiss = cx.listener(move |this, _: &ClickEvent, _, cx| {
+                this.store
+                    .update(cx, |store, cx| store.dismiss_toast(id, cx))
+            });
+            match &toast.notice {
+                Notice::Snackbar { message, undo } => {
+                    snackbar = Some(
+                        h_flex()
+                            .id(("snackbar", id))
+                            .h(px(32.))
+                            .pl(px(12.))
+                            .pr(px(if undo.is_some() { 4. } else { 12. }))
+                            .gap(px(8.))
+                            .rounded(px(8.))
+                            .bg(theme.snackbar_bg)
+                            .text_color(theme.snackbar_text)
+                            .text_size(px(12.))
+                            .shadow_lg()
+                            .child(message.clone())
+                            .when_some(undo.clone(), |el, project| {
+                                el.child(
+                                    div()
+                                        .w(px(1.))
+                                        .h(px(16.))
+                                        .bg(theme.snackbar_text.opacity(0.2)),
+                                )
+                                .child(
+                                    h_flex()
+                                        .id(("undo", id))
+                                        .h(px(24.))
+                                        .px(px(8.))
+                                        .rounded(px(5.))
+                                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                                        .hover(|el| el.bg(theme.snackbar_text.opacity(0.12)))
+                                        .child("Undo")
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            this.store.update(cx, |store, cx| {
+                                                store.dismiss_toast(id, cx);
+                                                store.undo(&project, cx);
+                                            })
+                                        })),
+                                )
+                            })
+                            .on_click(dismiss),
+                    );
+                }
+                Notice::Error { title, detail } => {
+                    let copied = detail.to_string();
+                    errors.push(
+                        v_flex()
+                            .id(("error", id))
+                            .w(px(320.))
+                            .p(px(14.))
+                            .gap(px(8.))
+                            .rounded(px(8.))
+                            .bg(theme.bg_1)
+                            .border_1()
+                            .border_color(theme.border_2)
+                            .shadow_lg()
+                            .child(
+                                h_flex()
+                                    .gap(px(8.))
+                                    .child(icon(Icon::Warning).text_color(theme.danger))
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                                            .child(title.clone()),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(12.))
+                                    .text_color(theme.text_2)
+                                    .line_clamp(4)
+                                    .child(detail.clone()),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap(px(6.))
+                                    .justify_end()
+                                    .child(
+                                        button(("copy-error", id), "Copy error")
+                                            .small()
+                                            .style(ButtonStyle::Ghost)
+                                            .on_click(move |_, _, cx| {
+                                                cx.write_to_clipboard(
+                                                    gpui::ClipboardItem::new_string(copied.clone()),
+                                                )
+                                            }),
+                                    )
+                                    .child(
+                                        button(("dismiss", id), "Dismiss")
+                                            .small()
+                                            .on_click(dismiss),
+                                    ),
+                            ),
+                    );
+                }
+            }
+        }
+        div()
             .absolute()
-            .bottom(px(16.))
-            .right(px(16.))
-            .gap(px(8.))
-            .items_end()
-            .children(store.toasts.iter().map(|toast| {
-                let id = toast.id;
-                let error = toast.kind == ToastKind::Error;
-                h_flex()
-                    .id(("toast", id))
-                    .max_w(px(460.))
+            .inset_0()
+            .child(
+                v_flex()
+                    .absolute()
+                    .bottom(px(STATUS_BAR_HEIGHT + 12.))
+                    .right(px(16.))
                     .gap(px(8.))
-                    .px(px(12.))
-                    .py(px(8.))
-                    .rounded(px(8.))
-                    .bg(theme.bg_1)
-                    .border_1()
-                    .border_color(if error {
-                        theme.danger.opacity(0.5)
-                    } else {
-                        theme.border_2
-                    })
-                    .shadow_lg()
-                    .text_size(px(13.))
-                    .when(error, |el| {
-                        el.child(icon(Icon::Warning).text_color(theme.danger))
-                    })
-                    .child(div().flex_1().child(toast.message.clone()))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.store
-                            .update(cx, |store, cx| store.dismiss_toast(id, cx))
-                    }))
+                    .children(errors),
+            )
+            .children(snackbar.map(|snackbar| {
+                h_flex()
+                    .absolute()
+                    .bottom(px(STATUS_BAR_HEIGHT + 16.))
+                    .left_0()
+                    .right_0()
+                    .justify_center()
+                    .child(snackbar)
             }))
     }
 }
@@ -1005,25 +1206,42 @@ impl Render for AppView {
             .on_action(cx.listener(Self::cancel))
             .on_action(cx.listener(Self::focus_navigator))
             .on_action(cx.listener(Self::focus_filter))
-            .on_action(cx.listener(Self::focus_message))
+            .on_action(cx.listener(Self::focus_changes))
+            .on_action(cx.listener(Self::start_commit))
+            .on_action(cx.listener(Self::redo))
+            .on_action(cx.listener(Self::update_selected_project))
+            .on_action(cx.listener(Self::toggle_navigator))
+            .on_action(cx.listener(Self::toggle_zoom))
+            .on_action(cx.listener(Self::command_palette))
             .size_full()
             .flex()
-            .flex_row()
+            .flex_col()
             .bg(theme.bg_1)
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())
             .text_size(px(13.))
             .line_height(px(18.))
-            .child(self.render_navigator(window, cx))
             .child(
                 div()
+                    .flex()
+                    .flex_row()
                     .flex_1()
-                    .min_w(px(0.))
-                    .h_full()
-                    .child(self.detail.clone()),
+                    .min_h(px(0.))
+                    .when(self.navigator_open && !self.zoomed, |el| {
+                        el.child(self.render_navigator(window, cx))
+                    })
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .h_full()
+                            .child(self.detail.clone()),
+                    ),
             )
+            .child(self.render_status_bar(window, cx))
             .child(self.render_toasts(cx))
             .children(self.render_prompt(cx))
+            .children(self.render_palette(cx))
             .children(self.render_menu(cx))
     }
 }

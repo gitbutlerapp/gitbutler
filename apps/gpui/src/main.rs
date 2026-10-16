@@ -4,7 +4,9 @@ mod detail;
 #[cfg(feature = "dev-script")]
 mod dev;
 mod navigator;
+mod palette;
 mod state;
+mod status_bar;
 mod theme;
 mod transfer;
 mod ui;
@@ -33,6 +35,8 @@ fn main() {
             cx.set_global(Theme::for_appearance(cx.window_appearance(), cx));
             ui::text_input::bind_keys(cx);
             app::bind_keys(cx);
+            detail::bind_keys(cx);
+            palette::bind_keys(cx);
             cx.on_action(|_: &app::Quit, cx| cx.quit());
             cx.set_menus([Menu::new("GitButler").items([
                 MenuItem::action("Add Project…", app::AddProject),

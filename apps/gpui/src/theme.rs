@@ -26,6 +26,9 @@ pub struct Theme {
     pub warn: Hsla,
     pub danger: Hsla,
     pub purple: Hsla,
+    /// The dark ground of a snackbar, in both themes.
+    pub snackbar_bg: Hsla,
+    pub snackbar_text: Hsla,
     pub diff_added_bg: Hsla,
     pub diff_removed_bg: Hsla,
     pub diff_added_gutter: Hsla,
@@ -86,6 +89,8 @@ impl Theme {
             warn: pick(0xc87705, 0xf99406),
             danger,
             purple: pick(0x6e2cb1, 0xb287de),
+            snackbar_bg: pick(0x1e1e1e, 0x434343),
+            snackbar_text: rgb(0xf8f8f8).into(),
             diff_added_bg: safe.opacity(if dark { 0.13 } else { 0.10 }),
             diff_removed_bg: danger.opacity(if dark { 0.13 } else { 0.10 }),
             diff_added_gutter: safe.opacity(if dark { 0.22 } else { 0.20 }),
