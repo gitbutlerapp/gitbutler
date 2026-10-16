@@ -2,6 +2,7 @@
 //! the rest of GitButler.
 
 use gpui::{App, Global, Hsla, SharedString, WindowAppearance, rgb};
+use serde::{Deserialize, Serialize};
 
 use crate::backend::Token;
 
@@ -43,18 +44,33 @@ pub struct Theme {
 
 impl Global for Theme {}
 
+/// Light, dark, or whichever macOS is set to.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Appearance {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
 impl Theme {
     pub fn get(cx: &App) -> &Theme {
         cx.global::<Theme>()
     }
 
-    pub fn for_appearance(appearance: WindowAppearance) -> Self {
-        // `GITBUTLER_GPUI_APPEARANCE=dark|light` overrides the system, handy for screenshots.
-        let dark = match std::env::var("GITBUTLER_GPUI_APPEARANCE").as_deref() {
-            Ok("dark") => true,
-            Ok("light") => false,
-            _ => matches!(
-                appearance,
+    /// The theme for `choice`, or for `system` when the choice is to follow it.
+    pub fn for_appearance(choice: Appearance, system: WindowAppearance) -> Self {
+        // `GITBUTLER_GPUI_APPEARANCE=dark|light` overrides both, handy for screenshots.
+        let dark = match (
+            std::env::var("GITBUTLER_GPUI_APPEARANCE").as_deref(),
+            choice,
+        ) {
+            (Ok("dark"), _) => true,
+            (Ok("light"), _) => false,
+            (_, Appearance::Dark) => true,
+            (_, Appearance::Light) => false,
+            (_, Appearance::System) => matches!(
+                system,
                 WindowAppearance::Dark | WindowAppearance::VibrantDark
             ),
         };

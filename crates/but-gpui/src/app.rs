@@ -6,9 +6,10 @@ use std::rc::Rc;
 
 use anyhow::Result;
 use gpui::{
-    Action, AnyElement, App, ClickEvent, ClipboardItem, Context, Entity, FocusHandle, Focusable,
-    KeyBinding, MouseButton, PathPromptOptions, Pixels, Point, PromptLevel, Role, SharedString,
-    StyleRefinement, Subscription, Window, actions, anchored, deferred, div, prelude::*, px,
+    Action, AnyElement, AnyView, App, ClickEvent, ClipboardItem, Context, DismissEvent, Entity,
+    FocusHandle, Focusable, KeyBinding, ManagedView, MouseButton, PathPromptOptions, Pixels, Point,
+    PromptLevel, Role, SharedString, StyleRefinement, Subscription, Window, actions, anchored,
+    deferred, div, prelude::*, px,
 };
 
 use crate::backend::{self, CommitId};
@@ -126,6 +127,7 @@ type MenuHandler = Rc<dyn Fn(&mut AppView, &mut Window, &mut Context<AppView>)>;
 type SubmitHandler = Box<dyn FnOnce(&mut AppView, String, &mut Window, &mut Context<AppView>)>;
 type CancelHandler = Box<dyn FnOnce(&mut AppView)>;
 
+#[derive(Clone)]
 pub struct MenuItem {
     pub label: SharedString,
     /// The keys that do the same, shown at the end of the row.
@@ -198,6 +200,8 @@ pub struct AppView {
     /// The diff takes the whole window.
     pub zoomed: bool,
     pub palette: Option<Palette>,
+    /// The modal on screen, if any, and the subscription that closes it.
+    modal: Option<(AnyView, Subscription)>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
     _subscriptions: Vec<Subscription>,
@@ -216,6 +220,8 @@ impl AppView {
 
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = cx.new(Store::new);
+        let appearance = store.read(cx).prefs.appearance;
+        cx.set_global(Theme::for_appearance(appearance, window.appearance()));
         let app = cx.entity().downgrade();
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
         let diff = cx.new(|cx| DiffPane::new(&detail, cx));
@@ -223,9 +229,8 @@ impl AppView {
         window.focus(&navigator.focus_handle(cx), cx);
         let subscriptions = vec![
             cx.observe(&store, |_, _, cx| cx.notify()),
-            cx.observe_window_appearance(window, |_, window, cx| {
-                cx.set_global(Theme::for_appearance(window.appearance()));
-                cx.refresh_windows();
+            cx.observe_window_appearance(window, |this, window, cx| {
+                this.apply_appearance(window, cx)
             }),
             cx.observe_window_bounds(window, |this, window, cx| {
                 this.store
@@ -249,9 +254,17 @@ impl AppView {
             navigator_open: true,
             zoomed: false,
             palette: None,
+            modal: None,
             recent_commands: Vec::new(),
             _subscriptions: subscriptions,
         }
+    }
+
+    /// Use the theme the appearance setting and the system call for.
+    pub fn apply_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let choice = self.store.read(cx).prefs.appearance;
+        cx.set_global(Theme::for_appearance(choice, window.appearance()));
+        cx.refresh_windows();
     }
 
     pub fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
@@ -783,7 +796,58 @@ impl AppView {
         }
     }
 
+    /// Show `view` over the window until it emits `DismissEvent` or the backdrop is clicked.
+    pub fn open_modal<V: ManagedView>(
+        &mut self,
+        view: Entity<V>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let subscription =
+            cx.subscribe_in(&view, window, |this, _, _: &DismissEvent, window, cx| {
+                this.close_modal(window, cx)
+            });
+        window.focus(&view.focus_handle(cx), cx);
+        self.modal = Some((view.into(), subscription));
+        cx.notify();
+    }
+
+    fn close_modal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.modal.take().is_some() {
+            self.focus_main(window, cx);
+            cx.notify();
+        }
+    }
+
+    fn render_modal(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let (view, _) = self.modal.as_ref()?;
+        Some(
+            div()
+                .id("modal-backdrop")
+                .absolute()
+                .inset_0()
+                .bg(gpui::black().opacity(0.25))
+                .flex()
+                .justify_center()
+                .items_center()
+                .occlude()
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _, window, cx| this.close_modal(window, cx)),
+                )
+                .child(
+                    div()
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .child(view.clone()),
+                )
+                .into_any_element(),
+        )
+    }
+
     fn cancel(&mut self, _: &Cancel, window: &mut Window, cx: &mut Context<Self>) {
+        if self.modal.is_some() {
+            return self.close_modal(window, cx);
+        }
         if self.menu.take().is_some() {
             cx.notify();
             return;
@@ -1251,6 +1315,8 @@ impl Render for AppView {
             .on_action(|_: &Minimize, window, _| window.minimize_window())
             .on_action(|_: &Zoom, window, _| window.zoom_window())
             .on_action(cx.listener(Self::add_project))
+            .on_action(cx.listener(Self::open_settings))
+            .on_action(cx.listener(Self::open_selected_in_terminal))
             .on_action(cx.listener(Self::refresh))
             .on_action(cx.listener(Self::undo))
             .on_action(cx.listener(Self::fetch))
@@ -1341,6 +1407,7 @@ impl Render for AppView {
             .child(self.render_toasts(cx))
             .children(self.render_prompt(cx))
             .children(self.render_palette(cx))
+            .children(self.render_modal(cx))
             .children(self.render_menu(cx))
     }
 }

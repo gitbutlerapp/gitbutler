@@ -676,6 +676,27 @@ impl Detail {
     }
 
     /// The path of the file under the cursor, in any diff.
+    /// Open the file under the cursor in the editor, at its hunk.
+    fn open_in_editor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(diff) = &self.diff else {
+            return;
+        };
+        let Some(file) = diff.files.get(self.cursor.file) else {
+            return;
+        };
+        let line = match (&file.body, self.cursor.hunk) {
+            (DiffBody::Hunks { hunks, .. }, Some(ix)) => hunks.get(ix).map(|h| h.key.0.new_start),
+            _ => None,
+        };
+        let (project, path) = (diff.key.project.clone(), file.file.path.clone());
+        let position = window.mouse_position();
+        self.app
+            .update(cx, |app, cx| {
+                app.open_in_editor(&project, Some(path), line, position, cx)
+            })
+            .ok();
+    }
+
     pub fn cursor_path(&self) -> Option<String> {
         let diff = self.diff.as_ref()?;
         Some(diff.files.get(self.cursor.file)?.file.path.clone())
@@ -882,6 +903,11 @@ impl Render for Detail {
             )
             .on_action(cx.listener(|this, _: &PageDown, _, cx| this.page(1., cx)))
             .on_action(cx.listener(|this, _: &PageUp, _, cx| this.page(-1., cx)))
+            .on_action(
+                cx.listener(|this, _: &crate::open_in::OpenInEditor, window, cx| {
+                    this.open_in_editor(window, cx)
+                }),
+            )
             .when(self.composing, |el| {
                 el.on_action(
                     cx.listener(|this, _: &AmendTop, window, cx| this.amend_top(window, cx)),

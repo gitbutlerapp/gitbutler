@@ -44,6 +44,8 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 
 "Cherry-pick" in a commit's menu picks it up the same way, and ⌘V puts a copy on top of a branch or above a commit, leaving the original where it is.
 
+Settings (⌘,) has a search box that finds a setting in any section. General picks light, dark or the system appearance, the editor files open in and the terminal; Git sets how often expanded projects fetch in the background (GitButler's other apps share it); Project renames the project, protects force pushes, turns commit signing on and tests it, and removes the project from GitButler. Press e in the diff to open the file under the cursor in your editor at its hunk; the first time, a menu asks which editor. A project's menu opens it in the editor or the terminal.
+
 Branch rows show a pull request's state (open, draft, merged or closed) and number, and a glyph for its checks. The app reads these from GitButler's forge cache, which it refreshes in the background every minute and after each push, using the GitHub account GitButler already has.
 
 While a file scrolls, its header stays at the top of the diff until the next file pushes it off. Lists and diffs show a scrollbar while the pointer is over them; drag its thumb, or press the track to jump. Text in a diff selects like text anywhere: drag across lines, double-click a word, triple-click a line, shift-click to extend, and ⌘C copies it without the `+` and `-`. File lists can show a tree of folders instead of a flat list, with the button beside the file count; folders holding nothing but one folder merge into one row (`src/backend`).
@@ -65,6 +67,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | ⌘N | new branch |
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
 | ⌘R, ⌘O | reload, add a project |
+| ⌘, | settings |
 
 | In the navigator | |
 |---|---|
@@ -82,6 +85,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | j k | next or previous file |
 | ⌘Y | mark the file reviewed and go to the next one |
 | z | fold or unfold the file |
+| e | open the file in your editor, at the hunk |
 | ⌥⌘Z, ⌘⌫ | discard the hunk, discard the file |
 
 ## How it's built

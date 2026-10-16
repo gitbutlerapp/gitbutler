@@ -51,7 +51,7 @@ pub fn watch(
     Ok(Watcher { _monitor: monitor })
 }
 
-fn settings() -> Result<AppSettingsWithDiskSync> {
+pub(super) fn settings() -> Result<AppSettingsWithDiskSync> {
     static SETTINGS: OnceLock<AppSettingsWithDiskSync> = OnceLock::new();
     if let Some(settings) = SETTINGS.get() {
         return Ok(settings.clone());

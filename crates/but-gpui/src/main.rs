@@ -9,11 +9,16 @@ mod backend;
 mod detail;
 #[cfg(all(target_os = "macos", feature = "dev-script"))]
 mod dev;
+#[cfg(target_os = "macos")]
 mod edits;
 #[cfg(target_os = "macos")]
 mod navigator;
 #[cfg(target_os = "macos")]
+mod open_in;
+#[cfg(target_os = "macos")]
 mod palette;
+#[cfg(target_os = "macos")]
+mod settings;
 #[cfg(target_os = "macos")]
 mod state;
 #[cfg(target_os = "macos")]
@@ -57,12 +62,17 @@ fn main() {
             cx.text_system()
                 .add_fonts(ui::fonts())
                 .expect("the bundled fonts load");
-            cx.set_global(Theme::for_appearance(cx.window_appearance()));
+            cx.set_global(Theme::for_appearance(
+                theme::Appearance::System,
+                cx.window_appearance(),
+            ));
             ui::text_input::bind_keys(cx);
             app::bind_keys(cx);
             edits::bind_keys(cx);
             detail::bind_keys(cx);
             palette::bind_keys(cx);
+            settings::bind_keys(cx);
+            open_in::bind_keys(cx);
             cx.on_action(|_: &app::Quit, cx| cx.quit());
             cx.on_action(|_: &app::Hide, cx| cx.hide());
             cx.on_action(|_: &app::HideOthers, cx| cx.hide_other_apps());
@@ -71,6 +81,8 @@ fn main() {
             // list and tiling, and "Services" with what other apps offer.
             cx.set_menus([
                 Menu::new("GitButler").items([
+                    MenuItem::action("Settings…", settings::OpenSettings),
+                    MenuItem::separator(),
                     MenuItem::os_submenu("Services", SystemMenuType::Services),
                     MenuItem::separator(),
                     MenuItem::action("Hide GitButler", app::Hide),

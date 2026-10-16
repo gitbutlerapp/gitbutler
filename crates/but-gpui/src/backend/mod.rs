@@ -7,6 +7,7 @@ mod highlight;
 pub mod history;
 pub mod model;
 mod ops;
+pub mod settings;
 pub mod watch;
 
 use std::collections::HashMap;

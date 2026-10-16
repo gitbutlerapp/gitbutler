@@ -563,11 +563,21 @@ impl Detail {
             let relative = file.file.path.clone();
             let absolute = root.join(&relative);
             let full = absolute.display().to_string();
+            let (open_project, open_file) = (project_for_paths.clone(), relative.clone());
+            let label = self
+                .app
+                .upgrade()
+                .map(|app| app.read(cx).open_in_editor_label(cx))
+                .unwrap_or_default();
+            let position = event.position;
             items.extend([
-                MenuItem::new("Copy path", move |this, _, cx| {
-                    this.copy_text(relative.clone(), cx)
+                MenuItem::new(label, move |this, _, cx| {
+                    this.open_in_editor(&open_project, Some(open_file.clone()), None, position, cx)
                 })
                 .separated(),
+                MenuItem::new("Copy path", move |this, _, cx| {
+                    this.copy_text(relative.clone(), cx)
+                }),
                 MenuItem::new("Copy full path", move |this, _, cx| {
                     this.copy_text(full.clone(), cx)
                 }),
