@@ -322,7 +322,7 @@ impl Detail {
                 let theme = Theme::get(cx).clone();
                 range
                     .filter_map(|ix| match &rows[ix] {
-                        dir @ TreeRow::Dir { .. } => this.render_dir_row(dir, &theme, cx),
+                        dir @ TreeRow::Dir { .. } => this.render_dir_row(dir, &source, &theme, cx),
                         TreeRow::File { pos, depth } => {
                             let depth = tree.then_some(*depth);
                             this.render_source_file(&source, index[*pos], depth, &theme, cx)
@@ -386,9 +386,51 @@ impl Detail {
         }
     }
 
+    /// The files under the folder `dir` in `source`, to act on together.
+    fn folder_payload(&self, source: &FileSource, dir: &str, cx: &gpui::App) -> Option<Cut> {
+        let prefix = format!("{dir}/");
+        let under = |path: &str| path.starts_with(&prefix);
+        let (project, from, files): (_, _, Vec<FileChange>) = match source {
+            FileSource::Uncommitted(project) => (
+                project.clone(),
+                None,
+                self.store
+                    .read(cx)
+                    .workspace(project)?
+                    .uncommitted
+                    .iter()
+                    .filter(|f| under(&f.path))
+                    .cloned()
+                    .collect(),
+            ),
+            FileSource::Diff(project, Some(commit)) => (
+                project.clone(),
+                Some(*commit),
+                self.diff
+                    .as_ref()?
+                    .files
+                    .iter()
+                    .map(|f| f.file.clone())
+                    .filter(|f| under(&f.path))
+                    .collect(),
+            ),
+            FileSource::Diff(_, None) => return None,
+        };
+        let files: Vec<Selected> = files
+            .into_iter()
+            .map(|file| Selected { file, hunks: None })
+            .collect();
+        (!files.is_empty()).then(|| Cut::Files {
+            project,
+            from,
+            files: files.into(),
+        })
+    }
+
     fn render_dir_row(
         &self,
         row: &TreeRow,
+        source: &FileSource,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
@@ -424,6 +466,18 @@ impl Detail {
                         .child(files.to_string()),
                 )
             })
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener({
+                    let (source, path) = (source.clone(), path.clone());
+                    move |this, event: &MouseDownEvent, _, cx| {
+                        if let Some(payload) = this.folder_payload(&source, &path, cx) {
+                            // A folder: no one file to open.
+                            this.changes_menu(payload, None, event.position, cx)
+                        }
+                    }
+                }),
+            )
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                 if !this.collapsed_dirs.remove(&path) {
                     this.collapsed_dirs.insert(path.clone());
@@ -569,19 +623,20 @@ impl Detail {
                 .on_mouse_down(
                     MouseButton::Right,
                     cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        this.changes_menu(menu_payload.clone(), None, event.position, cx)
+                        this.changes_menu(menu_payload.clone(), Some(None), event.position, cx)
                     }),
                 );
         }
         row.into_any_element()
     }
 
-    /// What right-clicking files or a hunk offers: moving them, taking them out, and for a
-    /// single file opening or copying its path. `line` is where an editor should open.
+    /// What right-clicking files, a folder or a hunk offers: moving them, taking them out,
+    /// and for a single file (`line` where an editor should open it) opening or copying
+    /// its path; a folder's menu has no `line`.
     pub(super) fn changes_menu(
         &mut self,
         payload: Cut,
-        line: Option<u32>,
+        line: Option<Option<u32>>,
         position: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
@@ -594,20 +649,32 @@ impl Detail {
             return;
         };
         let hunk = files.iter().any(|f| f.hunks.is_some());
-        let what = if hunk { "hunk" } else { "file" };
+        let what = match (hunk, files.len()) {
+            (true, _) => "hunk",
+            (false, 1) => "file",
+            (false, _) => "files",
+        };
         let cut = payload.clone();
         let mut items = vec![MenuItem::new("Cut", move |this: &mut AppView, _, cx| {
             this.cut(cut.clone(), cx)
         })];
         match from {
             None => {
+                let (review_project, review_files) = (project.clone(), files.clone());
                 let (project, files) = (project.clone(), files.clone());
-                items.push(
+                items.extend([
+                    MenuItem::new("Mark reviewed", move |this, _, cx| {
+                        let changes: Vec<FileChange> =
+                            review_files.iter().map(|f| f.file.clone()).collect();
+                        this.store.update(cx, |store, cx| {
+                            store.set_reviewed(&review_project, &changes, true, cx)
+                        })
+                    }),
                     MenuItem::new("Discard changes…", move |this, window, cx| {
                         this.discard(project.clone(), files.to_vec(), window, cx)
                     })
                     .danger(),
-                );
+                ]);
             }
             Some(commit) => {
                 let uncommit = payload.clone();
@@ -638,6 +705,7 @@ impl Detail {
             }
         }
         if let [file] = &*files
+            && let Some(line) = line
             && let Some(root) = self.store.read(cx).path(&project)
         {
             let relative = file.file.path.clone();
@@ -1152,6 +1220,7 @@ fn render_review(review: &backend::Review, theme: &Theme, cx: &Context<Detail>) 
 }
 
 /// Where a file list's files come from.
+#[derive(Clone)]
 enum FileSource {
     Uncommitted(ProjectId),
     /// The loaded diff's files: a commit's, or a branch's with no commit.
