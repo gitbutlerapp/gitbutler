@@ -31,6 +31,8 @@ pub enum Selection {
     Uncommitted(ProjectId),
     Branch(ProjectId, String),
     Commit(ProjectId, CommitId),
+    /// The operation log, to look back at and restore.
+    History(ProjectId),
 }
 
 impl Selection {
@@ -39,7 +41,8 @@ impl Selection {
             Selection::Project(project)
             | Selection::Uncommitted(project)
             | Selection::Branch(project, _)
-            | Selection::Commit(project, _) => project,
+            | Selection::Commit(project, _)
+            | Selection::History(project) => project,
         }
     }
 }
@@ -326,7 +329,7 @@ impl Store {
         match selection {
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name),
             Selection::Commit(_, id) => workspace.find_commit(*id).map(|(branch, _)| branch),
-            Selection::Project(_) | Selection::Uncommitted(_) => None,
+            Selection::Project(_) | Selection::Uncommitted(_) | Selection::History(_) => None,
         }
     }
 
@@ -650,7 +653,7 @@ impl Store {
             return;
         };
         let still_there = match &selection {
-            Selection::Project(_) | Selection::Uncommitted(_) => true,
+            Selection::Project(_) | Selection::Uncommitted(_) | Selection::History(_) => true,
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
         };

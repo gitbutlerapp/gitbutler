@@ -5,6 +5,7 @@
 mod composer;
 mod diff_view;
 mod file_tree;
+mod history;
 mod panes;
 
 pub use diff_view::DiffPane;
@@ -137,6 +138,10 @@ pub struct Detail {
     /// Files folded or unfolded by hand; otherwise reviewed files fold.
     folded: HashSet<String>,
     unfolded: HashSet<String>,
+    /// The History page's operations, for the project it shows.
+    history: Option<history::History>,
+    history_scroll: UniformListScrollHandle,
+    _history_load: Task<()>,
     /// The diff takes the whole window.
     pub zoomed: bool,
     /// The header starts where the window's traffic lights are.
@@ -175,9 +180,17 @@ impl Detail {
                         this.close_composer(cx);
                         this.commit_target = None;
                     }
+                    if let Some(Selection::History(project)) = this.selection(cx) {
+                        this.load_history(&project, false, cx);
+                    }
                     this.refresh_diff(true, cx);
                 }
                 StoreEvent::Loaded(project) => {
+                    if let Some(Selection::History(shown)) = this.selection(cx)
+                        && shown == *project
+                    {
+                        this.load_history(project, false, cx);
+                    }
                     // A reload that didn't touch the files shown, like the forge poll's,
                     // shouldn't re-highlight them.
                     let store = this.store.read(cx);
@@ -237,6 +250,9 @@ impl Detail {
             selecting: false,
             folded: HashSet::new(),
             unfolded: HashSet::new(),
+            history: None,
+            history_scroll: UniformListScrollHandle::new(),
+            _history_load: Task::ready(()),
             zoomed: false,
             beside_traffic_lights: false,
             _subscriptions: subscriptions,
@@ -258,6 +274,7 @@ impl Detail {
         let store = self.store.read(cx);
         let source = match &selection {
             Selection::Project(_) => return None,
+            Selection::History(project) => self.history_source(project)?,
             Selection::Uncommitted(_) => DiffSource::Worktree,
             Selection::Commit(_, id) => DiffSource::Commit(*id),
             Selection::Branch(project, ref_name) => {
@@ -812,6 +829,7 @@ impl Render for Detail {
                     Selection::Branch(project, ref_name) => {
                         self.render_branch_side(project, ref_name, &theme, cx)
                     }
+                    Selection::History(project) => self.render_history_side(project, &theme, cx),
                     Selection::Project(_) => unreachable!("handled above"),
                 };
                 let width = self.store.read(cx).width(Pane::Files);

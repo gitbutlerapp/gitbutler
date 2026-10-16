@@ -113,7 +113,7 @@ impl Store {
             project,
             label,
             Overlay::default(),
-            move |path, _| backend::undo(path, redo),
+            move |path, _| backend::history::undo(path, redo),
             move |store, undone, cx| match undone {
                 Some(operation) => store.snack(format!("{done}: {operation}"), cx),
                 None => store.snack(nothing, cx),
@@ -133,7 +133,7 @@ impl Store {
             project,
             "Undo",
             Overlay::default(),
-            move |path, _| backend::undo_snapshot(path, snapshot),
+            move |path, _| backend::history::undo_snapshot(path, snapshot),
             |store, operation, cx| store.snack(format!("Undone: {operation}"), cx),
             cx,
         );
@@ -294,9 +294,10 @@ impl Store {
         cx.spawn(async move |this, cx| {
             // Which oplog entry the operation recorded, if it did, for its Undo button.
             let result = backend::run(move || {
-                let before = backend::oplog_head(&path);
+                let before = backend::history::oplog_head(&path);
                 let value = op(&path, &remap)?;
-                let recorded = backend::oplog_head(&path).filter(|after| Some(*after) != before);
+                let recorded =
+                    backend::history::oplog_head(&path).filter(|after| Some(*after) != before);
                 Ok((value, recorded))
             })
             .await;
