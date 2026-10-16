@@ -161,7 +161,7 @@ pub fn init_ctx(
                     })?;
                 but_api::workspace::set_target_ref_and_init_project(
                     &mut ctx,
-                    target_ref.as_ref(),
+                    target_ref.as_local_full_name_ref(),
                     None,
                 )?;
             }

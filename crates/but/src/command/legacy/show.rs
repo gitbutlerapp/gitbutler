@@ -513,7 +513,7 @@ fn get_branch_commits(
             .change_id_ref(oid)
             .map(|change_id| change_id.padded_short_id())
     };
-    let Some(merge_base) = merge_base_with_target_branch(ctx, guard.read_permission(), branch_oid)?
+    let Some(merge_base) = merge_base_with_target_commit(ctx, guard.read_permission(), branch_oid)?
     else {
         tracing::warn!(
             branch_name,
@@ -610,14 +610,14 @@ fn get_branch_commits(
     Ok((commits, base_commit_info))
 }
 
-fn merge_base_with_target_branch(
+fn merge_base_with_target_commit(
     ctx: &Context,
     perm: &RepoShared,
     branch_oid: gix::ObjectId,
 ) -> Result<Option<gix::ObjectId>> {
     let (_, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
     Ok(workspace
-        .merge_base_with_target_branch(branch_oid)
+        .merge_base_with_target_commit(branch_oid)
         .map(|t| t.0))
 }
 
@@ -770,7 +770,7 @@ fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     // Find the branch OID
     let branch_oid = find_branch_oid(ctx, branch_name)?;
     let guard = ctx.shared_worktree_access();
-    let Some(merge_base) = merge_base_with_target_branch(ctx, guard.read_permission(), branch_oid)?
+    let Some(merge_base) = merge_base_with_target_commit(ctx, guard.read_permission(), branch_oid)?
     else {
         tracing::warn!(
             branch_name,
