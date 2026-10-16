@@ -53,7 +53,10 @@ fn main() {
         .with_assets(ui::Assets)
         .with_quit_mode(QuitMode::LastWindowClosed)
         .run(|cx: &mut App| {
-            cx.set_global(Theme::for_appearance(cx.window_appearance(), cx));
+            cx.text_system()
+                .add_fonts(ui::fonts())
+                .expect("the bundled fonts load");
+            cx.set_global(Theme::for_appearance(cx.window_appearance()));
             ui::text_input::bind_keys(cx);
             app::bind_keys(cx);
             detail::bind_keys(cx);

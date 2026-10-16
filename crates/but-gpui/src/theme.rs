@@ -48,7 +48,7 @@ impl Theme {
         cx.global::<Theme>()
     }
 
-    pub fn for_appearance(appearance: WindowAppearance, cx: &App) -> Self {
+    pub fn for_appearance(appearance: WindowAppearance) -> Self {
         // `GITBUTLER_GPUI_APPEARANCE=dark|light` overrides the system, handy for screenshots.
         let dark = match std::env::var("GITBUTLER_GPUI_APPEARANCE").as_deref() {
             Ok("dark") => true,
@@ -61,21 +61,9 @@ impl Theme {
         let pick = |light: u32, dark_value: u32| -> Hsla {
             rgb(if dark { dark_value } else { light }).into()
         };
-        // System fonts only: CoreText asks the font daemon about a user-installed variable
-        // font, such as Inter or Geist Mono, for every line it lays out, which made frames
-        // ten times slower.
-        // Asking for the one font is much cheaper than listing them all.
-        let ui_font = ".SystemUIFont";
-        let text = cx.text_system();
-        let sf_mono = text.resolve_font(&gpui::font("SF Mono"));
-        let mono_font = if text
-            .get_font_for_id(sf_mono)
-            .is_some_and(|font| font.family == "SF Mono")
-        {
-            "SF Mono"
-        } else {
-            "Menlo"
-        };
+        // Embedded by `ui::fonts`.
+        let ui_font = "Inter";
+        let mono_font = "Geist Mono";
 
         let safe = pick(0x259466, 0x2eb87f);
         let danger = pick(0xd64029, 0xe28576);

@@ -197,7 +197,7 @@ impl AppView {
         let subscriptions = vec![
             cx.observe(&store, |_, _, cx| cx.notify()),
             cx.observe_window_appearance(window, |_, window, cx| {
-                cx.set_global(Theme::for_appearance(window.appearance(), cx));
+                cx.set_global(Theme::for_appearance(window.appearance()));
                 cx.refresh_windows();
             }),
         ];
