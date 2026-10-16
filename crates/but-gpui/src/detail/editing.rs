@@ -2,9 +2,12 @@
 //! their conflicts are, with saving the commit or giving up. The diff beside it is the
 //! commit's changes as they are on disk, markers and all.
 
-use gpui::{AnyElement, App, ClickEvent, Context, div, prelude::*, px};
+use gpui::{
+    AnyElement, App, ClickEvent, Context, MouseButton, MouseDownEvent, div, prelude::*, px,
+};
 
 use super::Detail;
+use crate::app::MenuItem;
 use crate::backend::edit::{self, EditedFile, Editing};
 use crate::state::{Overlay, ProjectId, SAVE_EDIT, STOP_EDITING};
 use crate::theme::Theme;
@@ -15,6 +18,19 @@ impl Detail {
     /// The commit `project` is editing, if it's in edit mode.
     pub(super) fn editing<'a>(&self, project: &ProjectId, cx: &'a App) -> Option<&'a Editing> {
         self.store.read(cx).workspace(project)?.editing.as_ref()
+    }
+
+    /// Whether a conflicted file still counts as conflicted: its markers are there and the
+    /// user hasn't called it resolved anyway.
+    fn still_conflicted(&self, editing: &Editing, file: &EditedFile) -> bool {
+        file.resolved == Some(false)
+            && !(self.marked_resolved).contains(&(editing.commit, file.path.clone()))
+    }
+
+    fn unresolved(&self, editing: &Editing) -> usize {
+        (editing.files.iter())
+            .filter(|file| self.still_conflicted(editing, file))
+            .count()
     }
 
     pub(super) fn render_edit_side(
@@ -60,14 +76,22 @@ impl Detail {
                 .text_color(theme.text_3)
                 .child(text)
         };
-        let row = |id: (&'static str, usize), path: &str, status: Option<bool>| {
+        // `mark` is for a file whose markers are still there: whether the user called it
+        // resolved anyway, which its right-click menu changes.
+        let commit = editing.commit;
+        let row = |id: (&'static str, usize),
+                   path: &str,
+                   status: Option<bool>,
+                   mark: Option<bool>| {
             let (name, dir) = split_path(path);
-            let (glyph, color, note) = match status {
-                Some(false) => (Icon::Warning, theme.danger, Some("conflicted")),
-                Some(true) => (Icon::Tick, theme.safe, Some("resolved")),
-                None => (Icon::File, theme.text_3, None),
+            let (glyph, color, note) = match (status, mark) {
+                (Some(false), _) => (Icon::Warning, theme.danger, Some("conflicted")),
+                (Some(true), Some(true)) => (Icon::Tick, theme.safe, Some("marked resolved")),
+                (Some(true), _) => (Icon::Tick, theme.safe, Some("resolved")),
+                (None, _) => (Icon::File, theme.text_3, None),
             };
             let (project, file) = (project.clone(), path.to_owned());
+            let (menu_project, menu_file) = (project.clone(), file.clone());
             list_row(id, false, theme)
                 .text_size(px(13.))
                 .child(small_icon(glyph).text_color(color))
@@ -97,17 +121,51 @@ impl Detail {
                         })
                         .ok();
                 }))
+                .on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                        let (project, file) = (menu_project.clone(), menu_file.clone());
+                        let position = event.position;
+                        let open = MenuItem::new("Open in editor", {
+                            let (project, file) = (project.clone(), file.clone());
+                            move |app, _, cx| {
+                                app.open_in_editor(&project, Some(file.clone()), None, position, cx)
+                            }
+                        });
+                        let mut items = vec![open];
+                        if let Some(marked) = mark {
+                            let label = if marked {
+                                "Count as conflicted again"
+                            } else {
+                                "Mark resolved"
+                            };
+                            items.push(MenuItem::new(label, move |app, _, cx| {
+                                let key = (commit, file.clone());
+                                app.detail.update(cx, |detail, cx| {
+                                    if !detail.marked_resolved.remove(&key) {
+                                        detail.marked_resolved.insert(key);
+                                    }
+                                    cx.notify();
+                                });
+                            }));
+                        }
+                        this.app
+                            .update(cx, |app, cx| app.open_menu(event.position, items, cx))
+                            .ok();
+                    }),
+                )
         };
-        let files = editing
-            .files
-            .iter()
-            .enumerate()
-            .map(|(ix, EditedFile { path, resolved })| row(("edited", ix), path, *resolved));
+        let files = editing.files.iter().enumerate().map(|(ix, file)| {
+            let has_markers = file.resolved == Some(false);
+            let status = file.resolved.map(|_| !self.still_conflicted(editing, file));
+            let mark = has_markers.then(|| status == Some(true));
+            row(("edited", ix), &file.path, status, mark)
+        });
         let changed = editing
             .changed
             .iter()
             .enumerate()
-            .map(|(ix, path)| row(("changed", ix), path, None));
+            .map(|(ix, path)| row(("changed", ix), path, None, None));
         let nothing = |text: &'static str| {
             div()
                 .px(px(16.))
@@ -116,7 +174,7 @@ impl Detail {
                 .text_color(theme.text_3)
                 .child(text)
         };
-        let unresolved = editing.unresolved();
+        let unresolved = self.unresolved(editing);
         let footer = h_flex()
             .flex_none()
             .h(px(44.))
@@ -191,7 +249,7 @@ impl Detail {
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
-        let unresolved = self.editing(project, cx).map_or(0, Editing::unresolved);
+        let unresolved = self.editing(project, cx).map_or(0, |e| self.unresolved(e));
         let save = {
             let project = project.clone();
             move |store: &mut crate::state::Store, cx: &mut Context<crate::state::Store>| {
