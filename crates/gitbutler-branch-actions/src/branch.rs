@@ -901,4 +901,173 @@ but_schemars::register_sdk_type!(BranchListingDetails);
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn listing_distinguishes_local_target_from_differently_named_upstream() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        let upstream = repo.rev_parse_single("origin/main")?.detach();
+        repo.reference(
+            "refs/remotes/origin/trunk",
+            upstream,
+            gix::refs::transaction::PreviousValue::Any,
+            "test upstream",
+        )?;
+        repo.reference(
+            "refs/heads/trunk",
+            upstream,
+            gix::refs::transaction::PreviousValue::Any,
+            "unrelated local branch",
+        )?;
+        repo.reference(
+            "refs/remotes/origin/feature",
+            upstream,
+            gix::refs::transaction::PreviousValue::Any,
+            "unrelated remote branch",
+        )?;
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.main.merge", "refs/heads/trunk")?;
+        }
+        let project_meta = but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            ..Default::default()
+        };
+        let branches = Vec::from([
+            super::GroupBranch::Local(repo.find_reference("refs/heads/main")?),
+            super::GroupBranch::Local(repo.find_reference("refs/heads/trunk")?),
+            super::GroupBranch::Remote(repo.find_reference("refs/remotes/origin/trunk")?),
+            super::GroupBranch::Remote(repo.find_reference("refs/remotes/origin/feature")?),
+        ]);
+        let upstream = project_meta.remote_target_ref(&repo)?;
+        let listing = super::combine_branches(
+            branches,
+            &repo,
+            project_meta.target_ref_or_err()?,
+            upstream.as_ref().map(AsRef::as_ref),
+        )?;
+        assert_eq!(
+            listing.len(),
+            2,
+            "hide main but retain unrelated local and remote branches"
+        );
+        let trunk = listing
+            .iter()
+            .find(|branch| branch.name.to_string() == "trunk")
+            .expect("local trunk is not the configured target");
+        assert!(trunk.has_local, "local trunk remains visible");
+        assert!(
+            trunk.remotes.is_empty(),
+            "the target upstream origin/trunk must not appear in the listing"
+        );
+        assert!(
+            listing
+                .iter()
+                .any(|branch| branch.name.to_string() == "feature"),
+            "unrelated remote feature remains visible"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn listing_keeps_the_local_target_when_it_has_workspace_work() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        let local_target =
+            but_core::ref_metadata::LocalRefName::new("refs/heads/main".try_into()?)?;
+        let upstream: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+        let stack = super::GitButlerStack {
+            id: but_core::ref_metadata::StackId::generate(),
+            in_workspace: true,
+            name: "main".into(),
+            source_refname: Some(local_target.as_local_full_name_ref().to_owned()),
+            upstream: None,
+            updated_timestamp_ms: 0,
+            unarchived_segments: Vec::from([super::GitbutlerStackSegment {
+                tip: local_target.as_local_full_name_ref().to_owned(),
+                pr_or_mr: None,
+            }]),
+        };
+        let listing = super::combine_branches(
+            Vec::from([
+                super::GroupBranch::Local(
+                    repo.find_reference(local_target.as_local_full_name_ref())?,
+                ),
+                super::GroupBranch::Remote(repo.find_reference(upstream.as_ref())?),
+                super::GroupBranch::Virtual(stack),
+            ]),
+            &repo,
+            &local_target,
+            Some(upstream.as_ref()),
+        )?;
+        assert_eq!(
+            listing.len(),
+            1,
+            "an active local target must remain visible"
+        );
+        assert_eq!(
+            listing[0].name.to_string(),
+            "main",
+            "the visible group uses local identity"
+        );
+        assert!(
+            listing[0]
+                .stack
+                .as_ref()
+                .is_some_and(|stack| stack.in_workspace),
+            "workspace work is retained"
+        );
+        assert!(
+            listing[0].remotes.is_empty(),
+            "the target upstream is excluded even for an active target"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn listing_without_upstream_keeps_unrelated_remote_branches() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.main.remote", "missing")?;
+        }
+        let project_meta = but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            ..Default::default()
+        };
+        let upstream = project_meta.remote_target_ref(&repo)?;
+        assert!(
+            upstream.is_none(),
+            "the local target has no configured upstream remote"
+        );
+        let branches = Vec::from([
+            super::GroupBranch::Local(repo.find_reference("refs/heads/main")?),
+            super::GroupBranch::Remote(repo.find_reference("refs/remotes/origin/main")?),
+        ]);
+        let listing = super::combine_branches(
+            branches,
+            &repo,
+            project_meta.target_ref_or_err()?,
+            upstream.as_ref().map(AsRef::as_ref),
+        )?;
+        assert!(
+            listing.is_empty(),
+            "the inactive local target's group remains hidden"
+        );
+        let remote_only = super::combine_branches(
+            Vec::from([super::GroupBranch::Remote(
+                repo.find_reference("refs/remotes/origin/main")?,
+            )]),
+            &repo,
+            project_meta.target_ref_or_err()?,
+            None,
+        )?;
+        assert_eq!(
+            remote_only.len(),
+            1,
+            "a same-named remote is not automatically the upstream"
+        );
+        Ok(())
+    }
 }

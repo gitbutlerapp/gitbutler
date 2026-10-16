@@ -150,6 +150,75 @@ fn incompatible_cache_rows_do_not_break_head_info() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn feature_push_to_fork_is_visible_to_review_creation() -> anyhow::Result<()> {
+    but_askpass::disable();
+    let (repo, tmp) = crate::support::writable_scenario("checkout-head-info");
+    let root = repo.workdir().expect("fixture has a workdir").to_owned();
+    let fork_path = tmp.path().join("fork.git");
+    git_at_dir(&root)
+        .args(["init", "--bare"])
+        .arg(&fork_path)
+        .run();
+    git_at_dir(&root)
+        .args(["remote", "add", "fork"])
+        .arg(&fork_path)
+        .run();
+    git_at_dir(&root)
+        .args(["update-ref", "refs/remotes/origin/trunk", "main"])
+        .run();
+    git_at_dir(&root)
+        .args(["branch", "--set-upstream-to=origin/trunk", "main"])
+        .run();
+    git_at_dir(&root)
+        .args(["update-ref", "-d", "refs/remotes/origin/main"])
+        .run();
+    git_at_dir(&root).args(["checkout", BRANCH]).run();
+    drop(repo);
+
+    let repo = open_repo(&root)?;
+    crate::support::persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    but_api::workspace::set_push_remote(&mut ctx, "fork".into())?;
+    let branch: gix::refs::FullName = format!("refs/heads/{BRANCH}").try_into()?;
+    let before = but_api::legacy::forge::review_creation_target(&ctx, branch.as_ref())
+        .expect_err("an unpublished feature cannot create a review");
+    assert_eq!(
+        before.to_string(),
+        "Branch `feature` must be pushed before creating a review",
+        "review creation requires the feature's publication ref"
+    );
+
+    but_api::legacy::workspace::workspace_branch_and_ancestors_push_only(
+        &mut ctx,
+        false,
+        false,
+        branch.as_ref(),
+        false,
+        Vec::new(),
+    )?;
+
+    assert_eq!(
+        but_api::legacy::forge::review_creation_target(&ctx, branch.as_ref())?,
+        "trunk",
+        "the pushed feature is recognized immediately and targets main's upstream, not the fork"
+    );
+    let fork = open_repo(&fork_path)?;
+    assert_eq!(
+        fork.rev_parse_single("refs/heads/feature")?.detach(),
+        ctx.repo
+            .get()?
+            .rev_parse_single("refs/heads/feature")?
+            .detach(),
+        "feature publication writes the fork repository"
+    );
+    assert!(
+        fork.try_find_reference("refs/heads/main")?.is_none(),
+        "feature publication must not push the local target"
+    );
+    Ok(())
+}
+
 fn context_with_remote_branch() -> anyhow::Result<(
     but_ctx::Context,
     but_testsupport::gix_testtools::tempfile::TempDir,

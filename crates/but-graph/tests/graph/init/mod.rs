@@ -2520,6 +2520,56 @@ fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
 }
 
 #[test]
+fn ad_hoc_order_hides_target_branch_at_base_with_upstream() -> anyhow::Result<()> {
+    let (tmp, mut repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(&repo, tip, ["refs/heads/top", "refs/remotes/origin/main"])?;
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("remote.origin.url", "https://example.com/upstream.git")?;
+        config.set_raw_value("remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")?;
+        config.set_raw_value("branch.main.remote", "origin")?;
+        config.set_raw_value("branch.main.merge", "refs/heads/main")?;
+    }
+    let meta = in_memory_meta(tmp.as_ref())?;
+    let order = ["refs/heads/top", "refs/heads/main"];
+    let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
+    let graph = Graph::from_commit_traversal(
+        tip.attach(&repo),
+        Some(ref_name("refs/heads/top")),
+        &*meta,
+        default_project_meta(&repo),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .redo_traversal_with_overlay(&repo, &*meta, overlay)?
+    .validated()?;
+
+    // Each ordered branch appears once, with main retaining its configured upstream.
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉top
+│ ◎  origin/main
+├─╯
+◎  main[🌳] <> origin/main
+●  🏁·960152d (⌂|✓)
+"#]]
+    );
+    // Tracking does not turn the local target into a feature segment.
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+⌂:top <> ✓refs/heads/main on 960152d
+└── ≡:top on 960152d {1}
+    └── :top
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
     let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
     let mut repo = gix::ThreadSafeRepository::init_opts(

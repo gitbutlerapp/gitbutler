@@ -166,6 +166,76 @@ Target [main]
 }
 
 #[test]
+fn local_target_history_uses_cutoff_but_ahead_counts_use_local_tip() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) =
+        named_read_only_in_memory_scenario("branch-listing-local-target-ahead", "")?;
+    add_stack_with_segments(
+        &mut meta,
+        1,
+        "applied-top",
+        StackState::InWorkspace,
+        &["applied-bottom"],
+    );
+    let mut options = options_with_target(&repo)?;
+    options.project_meta.target_commit_id = Some(repo.rev_parse_single("origin/main")?.detach());
+    let listing = but_branches::list(&repo, &*meta, &mut db, options)?;
+    let main = listing
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.branches)
+        .find(|branch| branch.display_name == "main")
+        .expect("local target is listed");
+    assert_eq!(
+        main.commit_count,
+        Some(2),
+        "main's local-only history must not be hidden at its own tip"
+    );
+    assert_eq!(
+        main.commits_ahead_of_target,
+        Some(0),
+        "main has no commits ahead of itself"
+    );
+    let after_target = listing
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.branches)
+        .find(|branch| branch.display_name == "after-target")
+        .expect("branch above main is listed");
+    assert_eq!(
+        after_target.commits_ahead_of_target,
+        Some(1),
+        "ahead counts exclude main's two local-only commits"
+    );
+    Ok(())
+}
+
+#[test]
+fn own_upstream_is_not_reported_as_configured_target() -> anyhow::Result<()> {
+    let (mut repo, meta, mut db) =
+        named_read_only_in_memory_scenario("no-ws-ref-no-ws-commit-two-branches", "")?;
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("branch.main.remote", "origin")?;
+        config.set_raw_value("branch.main.merge", "refs/heads/main")?;
+    }
+    assert!(
+        repo.branch_remote_tracking_ref_name(
+            "refs/heads/main".try_into()?,
+            gix::remote::Direction::Fetch,
+        )
+        .transpose()?
+        .is_some(),
+        "the checked-out branch has an upstream"
+    );
+    let listing = but_branches::list(&repo, &*meta, &mut db, options_without_target())?;
+    assert_eq!(
+        listing.target_ref, None,
+        "the projection's upstream fallback is not project configuration"
+    );
+    Ok(())
+}
+
+#[test]
 fn ordinary_repository_without_workspace() -> anyhow::Result<()> {
     let (repo, meta, mut db) =
         named_read_only_in_memory_scenario("no-ws-ref-no-ws-commit-two-branches", "")?;

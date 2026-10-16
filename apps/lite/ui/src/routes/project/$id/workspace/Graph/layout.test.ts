@@ -126,6 +126,14 @@ const incomingAbove = (ids: Array<string>): TargetCommitPage => ({
 });
 
 describe("layout", () => {
+	it("labels a local target without a remote prefix", () => {
+		const localTarget: Target = {
+			...target(true),
+			refName: { fullNameBytes: [], displayName: "main", remoteName: null },
+		};
+		expect(layout([], localTarget, listing, folded).header?.label).toBe("main");
+	});
+
 	it("keeps History independent of the incoming fold and includes the base commit", () => {
 		const closed = layout([stack("deep")], target(false), listing, folded);
 		expect(closed.history).toEqual([]);

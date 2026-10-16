@@ -497,6 +497,363 @@ mod tests {
     use super::BaseBranch;
 
     #[test]
+    fn initial_local_target_preserves_local_only_work_above_upstream() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("legacy-target-local-ahead");
+        let local = repo.head_id()?.detach();
+        let upstream = repo.rev_parse_single("origin/trunk")?.detach();
+        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        let mut guard = ctx.exclusive_worktree_access();
+        super::set_base_branch(&ctx, guard.write_permission(), &"refs/heads/main".parse()?)?;
+        assert_eq!(
+            ctx.project_meta()?.target_commit_id,
+            Some(upstream),
+            "local-only work must stay above the cutoff"
+        );
+        let repo = ctx.repo.get()?;
+        assert_eq!(
+            repo.rev_parse_single("main")?.detach(),
+            local,
+            "initialization must not move local main"
+        );
+        assert_eq!(
+            repo.head_commit()?.tree_id()?.detach(),
+            repo.find_commit(local)?.tree_id()?.detach(),
+            "local work must survive workspace checkout"
+        );
+        let ws = ctx.workspace_from_head_uncached(guard.read_permission())?;
+        assert_eq!(
+            ws.stacks.len(),
+            1,
+            "local-only work must have a preservation stack"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn initial_lagging_target_uses_upstream_without_preservation_stack() -> anyhow::Result<()> {
+        use but_core::RefMetadata;
+
+        let (repo, _tmp) = but_testsupport::writable_scenario("legacy-target-local-behind");
+        let local = repo.head_id()?.detach();
+        let upstream = repo.rev_parse_single("origin/main")?.detach();
+        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        let mut guard = ctx.exclusive_worktree_access();
+        super::set_base_branch(&ctx, guard.write_permission(), &"refs/heads/main".parse()?)?;
+        assert_eq!(
+            ctx.project_meta()?.target_commit_id,
+            Some(upstream),
+            "initialization must select upstream even when local main lags"
+        );
+        let meta = ctx.meta()?;
+        let workspace = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+        assert_eq!(
+            workspace
+                .stacks(but_core::ref_metadata::StackKind::Applied)
+                .count(),
+            0,
+            "lagging main has no local-only work to preserve"
+        );
+        let repo = ctx.repo.get()?;
+        assert_eq!(
+            repo.rev_parse_single("main")?.detach(),
+            local,
+            "initialization must not fast-forward main"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn initial_diverged_target_preserves_local_work_with_upstream_cutoff() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("legacy-target-diverged");
+        let local = repo.head_id()?.detach();
+        let upstream = repo.rev_parse_single("origin/main")?.detach();
+        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        let mut guard = ctx.exclusive_worktree_access();
+        super::set_base_branch(&ctx, guard.write_permission(), &"refs/heads/main".parse()?)?;
+        assert_eq!(
+            ctx.project_meta()?.target_commit_id,
+            Some(upstream),
+            "divergence must not replace upstream with the merge base"
+        );
+        let repo = ctx.repo.get()?;
+        assert_eq!(
+            repo.rev_parse_single("main")?.detach(),
+            local,
+            "diverged local main must stay unchanged"
+        );
+        assert_eq!(
+            repo.head_commit()?.tree_id()?.detach(),
+            repo.find_commit(local)?.tree_id()?.detach(),
+            "diverged local work must survive workspace checkout"
+        );
+        let ws = ctx.workspace_from_head_uncached(guard.read_permission())?;
+        assert_eq!(
+            ws.stacks.len(),
+            1,
+            "diverged local work must remain visible"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn setting_differently_named_upstream_does_not_apply_local_target() -> anyhow::Result<()> {
+        use but_core::RefMetadata;
+
+        let (repo, _tmp) =
+            but_testsupport::writable_scenario("local-target-different-upstream-name");
+        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        let mut guard = ctx.exclusive_worktree_access();
+        super::set_base_branch(
+            &ctx,
+            guard.write_permission(),
+            &"refs/remotes/origin/trunk".parse()?,
+        )?;
+        let meta = ctx.meta()?;
+        let workspace = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+        assert_eq!(
+            workspace
+                .stacks(but_core::ref_metadata::StackKind::Applied)
+                .count(),
+            0,
+            "clean local main must not become a feature stack when its upstream is named trunk"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn inferred_target_does_not_replace_missing_upstream_with_local_tip() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        repo.config_snapshot_mut()
+            .set_raw_value("branch.main.merge", "refs/heads/missing")?;
+        let error = super::inferred_default_target(&repo)
+            .expect_err("a missing configured upstream must not become local main");
+        assert!(
+            error.to_string().contains("refs/remotes/origin/missing"),
+            "the error must identify the unavailable selected upstream: {error}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn recovery_with_lagging_local_target_does_not_report_divergence() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        let upstream = repo.rev_parse_single("origin/main")?.detach();
+        let local = repo.rev_parse_single("main")?.detach();
+        assert_ne!(upstream, local, "local main must lag its upstream");
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        assert!(
+            super::bootstrap_default_target_if_missing(&ctx)?,
+            "missing metadata is recovered"
+        );
+        assert_eq!(
+            ctx.project_meta()?.target_commit_id,
+            Some(upstream),
+            "recovery preserves upstream-first cutoff selection"
+        );
+        let guard = ctx.shared_worktree_access();
+        let base = super::get_base_branch_data(&ctx, guard.read_permission())?;
+        assert!(
+            !base.target_sha_ahead_of_ref,
+            "a lagging local target must not block upstream integration"
+        );
+        assert_eq!(
+            base.current_sha,
+            Some(upstream),
+            "current SHA describes the upstream"
+        );
+        assert_eq!(
+            base.remote_name.as_deref(),
+            Some("origin"),
+            "target remote uses fetch, not branch.main.pushRemote"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn upstream_counts_use_remote_tip_with_a_stored_local_base() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        let local = repo.rev_parse_single("main")?.detach();
+        let upstream = repo.rev_parse_single("origin/main")?.detach();
+        let mut project_meta =
+            super::inferred_default_target(&repo)?.expect("fixture has a target");
+        project_meta.target_commit_id = Some(local);
+        project_meta.push_remote = Some("fork".into());
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        ctx.set_project_meta(project_meta)?;
+        let guard = ctx.shared_worktree_access();
+        let base = super::get_base_branch_data(&ctx, guard.read_permission())?;
+        assert_eq!(
+            base.current_sha,
+            Some(upstream),
+            "current SHA must not use lagging local main"
+        );
+        assert_eq!(
+            base.behind, 1,
+            "one upstream commit is available since the stored base"
+        );
+        assert_eq!(
+            base.upstream_commits.len(),
+            1,
+            "upstream commits come from origin/main"
+        );
+        assert_eq!(
+            base.remote_name.as_deref(),
+            Some("origin"),
+            "integration uses the target fetch remote"
+        );
+        assert_eq!(
+            base.push_remote_name.as_deref(),
+            Some("fork"),
+            "feature pushes retain the explicit override"
+        );
+
+        ctx.repo
+            .get()?
+            .find_reference("refs/remotes/origin/main")?
+            .delete()?;
+        let missing = super::get_base_branch_data(&ctx, guard.read_permission())?;
+        assert_eq!(
+            missing.current_sha, None,
+            "a missing upstream must not be replaced by local main"
+        );
+        assert_eq!(
+            missing.base_sha, local,
+            "the stored cutoff remains available"
+        );
+        assert_eq!(
+            missing.remote_name.as_deref(),
+            Some("origin"),
+            "the configured remote remains available"
+        );
+        assert!(
+            !missing.recent_commits.is_empty(),
+            "cutoff history remains visible"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn upstream_rewind_still_reports_stored_cutoff_divergence() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        let project_meta = super::inferred_default_target(&repo)?.expect("fixture has a target");
+        repo.reference(
+            "refs/remotes/origin/main",
+            repo.rev_parse_single("main")?.detach(),
+            gix::refs::transaction::PreviousValue::Any,
+            "rewind upstream",
+        )?;
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        ctx.set_project_meta(project_meta)?;
+        let guard = ctx.shared_worktree_access();
+        let base = super::get_base_branch_data(&ctx, guard.read_permission())?;
+        assert!(
+            base.target_sha_ahead_of_ref,
+            "a stored cutoff removed from upstream must still block integration"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn base_branch_read_without_fetch_url_retains_upstream_history() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        let upstream = repo.rev_parse_single("origin/main")?.detach();
+        let local = repo.rev_parse_single("main")?.detach();
+        assert_ne!(
+            local, upstream,
+            "the fixture must distinguish local and upstream tips"
+        );
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.raw_values_mut("remote.origin.url")?.delete_all();
+            config.set_raw_value("remote.origin.pushUrl", "./remote.git")?;
+        }
+        assert!(
+            repo.find_remote("origin")?
+                .url(gix::remote::Direction::Fetch)
+                .is_none(),
+            "the configured upstream remote has no fetch URL"
+        );
+        let project_meta = but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            target_commit_id: Some(local),
+            ..Default::default()
+        };
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        ctx.set_project_meta(project_meta)?;
+        let guard = ctx.shared_worktree_access();
+        let base = super::get_base_branch_data(&ctx, guard.read_permission())?;
+        assert_eq!(
+            base.remote_url, None,
+            "a missing fetch URL does not prevent base-branch reads"
+        );
+        assert_eq!(
+            base.remote_name.as_deref(),
+            Some("origin"),
+            "upstream identity does not depend on a fetch URL"
+        );
+        assert_eq!(
+            base.current_sha,
+            Some(upstream),
+            "the current tip remains upstream, not local main"
+        );
+        assert_eq!(
+            base.base_sha, local,
+            "reading the base preserves the stored cutoff"
+        );
+        assert!(
+            !base.upstream_commits.is_empty(),
+            "available upstream history remains visible without a fetch URL"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn local_only_target_has_no_upstream_integration_work() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        let stored = repo.rev_parse_single("origin/main")?.detach();
+        let local = repo.rev_parse_single("main")?.detach();
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.main.remote", "missing")?;
+        }
+        let project_meta = but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            target_commit_id: Some(stored),
+            ..Default::default()
+        };
+        assert!(
+            project_meta.remote_target_ref(&repo)?.is_none(),
+            "local target has no resolvable upstream"
+        );
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        ctx.set_project_meta(project_meta)?;
+        let guard = ctx.shared_worktree_access();
+        let base = super::get_base_branch_data(&ctx, guard.read_permission())?;
+        assert!(
+            !base.target_sha_ahead_of_ref,
+            "without an upstream there is no upstream divergence"
+        );
+        assert!(
+            base.upstream_commits.is_empty(),
+            "local-only targets have no upstream commits"
+        );
+        assert_eq!(
+            base.behind, 0,
+            "local-only targets are not behind an upstream"
+        );
+        assert_eq!(
+            base.current_sha,
+            Some(local),
+            "local tip is the fallback without an upstream"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn short_name_strips_full_remote_ref() {
         assert_eq!(
             BaseBranch::compute_short_name("refs/remotes/origin/feature/foo", Some("origin")),
@@ -628,6 +985,15 @@ mod tests {
     fn short_name_empty_branch() {
         assert_eq!(BaseBranch::compute_short_name("", Some("origin")), "");
         assert_eq!(BaseBranch::compute_short_name("", None), "");
+    }
+
+    #[test]
+    fn short_name_heads_ref_empty_remote() {
+        assert_eq!(
+            BaseBranch::compute_short_name("refs/heads/main", Some("")),
+            "main",
+            "an empty remote is treated like no remote"
+        );
     }
 
     #[test]

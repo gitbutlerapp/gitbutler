@@ -51,6 +51,272 @@ fn render(fixture: &str, target: Option<&str>) -> Result<String> {
     editor.graph_workspace_ascii()
 }
 
+fn local_main_target(repo: &gix::Repository) -> Result<ProjectMeta> {
+    Ok(ProjectMeta {
+        target_ref: Some(LocalRefName::new("refs/heads/main".try_into()?)?),
+        target_commit_id: Some(repo.rev_parse_single("base")?.detach()),
+        ..Default::default()
+    })
+}
+
+fn configure_main_upstream(repo: &mut gix::Repository, tip: &str) -> Result<()> {
+    repo.reference(
+        "refs/remotes/origin/main",
+        repo.rev_parse_single(tip)?.detach(),
+        gix::refs::transaction::PreviousValue::Any,
+        "test upstream",
+    )?;
+    let mut config = repo.config_snapshot_mut();
+    config.set_raw_value("remote.origin.url", "https://example.com/repo.git")?;
+    config.set_raw_value("remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")?;
+    config.set_raw_value("branch.main.remote", "origin")?;
+    config.set_raw_value("branch.main.merge", "refs/heads/main")?;
+    Ok(())
+}
+
+#[test]
+fn local_target_ahead_of_upstream_is_not_integrated() -> Result<()> {
+    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
+    configure_main_upstream(&mut repo, "b")?;
+    let mut ws = Graph::from_head(
+        &repo,
+        &*meta,
+        local_main_target(&repo)?,
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let commit = editor.select_commit(repo.rev_parse_single("c")?.detach())?;
+    let branch = editor.select_reference("refs/heads/c".try_into()?)?;
+    let projection = editor.graph_workspace()?;
+    assert!(
+        matches!(
+            projection.commit_state.get(&commit),
+            Some(CommitState::LocalOnly)
+        ),
+        "local main's unpublished commit has not landed upstream"
+    );
+    assert_ne!(
+        projection.reference_status[&branch].push_status,
+        PushStatus::Integrated,
+        "a branch owning unpublished work must remain pushable"
+    );
+    Ok(())
+}
+
+#[test]
+fn diverged_target_distinguishes_local_work_from_landed_work() -> Result<()> {
+    let (repo, _tmp, mut meta, mut db) = fixture_writable("diverged-local-target")?;
+    let local_tip = repo.rev_parse_single("main")?.detach();
+    let upstream_tip = repo.rev_parse_single("origin/main")?.detach();
+    let merge_base = repo
+        .merge_base(local_tip, upstream_tip)?
+        .expect("shared base")
+        .detach();
+    assert_ne!(merge_base, local_tip, "main has commits absent upstream");
+    assert_ne!(
+        merge_base, upstream_tip,
+        "upstream has commits absent from main"
+    );
+    let mut ws = Graph::from_head(
+        &repo,
+        &*meta,
+        local_main_target(&repo)?,
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let local_commit = editor.select_commit(local_tip)?;
+    let upstream_commit = editor.select_commit(upstream_tip)?;
+    let main = editor.select_reference("refs/heads/main".try_into()?)?;
+    let landed = editor.select_reference("refs/heads/landed".try_into()?)?;
+    let projection = editor.graph_workspace()?;
+    assert!(
+        matches!(
+            projection.commit_state.get(&local_commit),
+            Some(CommitState::LocalOnly)
+        ),
+        "divergent local work has not landed upstream"
+    );
+    assert!(
+        matches!(
+            projection.commit_state.get(&upstream_commit),
+            Some(CommitState::Integrated)
+        ),
+        "the upstream side is integrated despite main's divergence"
+    );
+    assert_eq!(
+        projection.reference_status[&main].push_status,
+        PushStatus::UnpushedCommitsRequiringForce,
+        "divergent local main remains pushable, with force protection"
+    );
+    assert_eq!(
+        projection.reference_status[&landed].push_status,
+        PushStatus::Integrated,
+        "the branch containing only upstream work is integrated"
+    );
+    Ok(())
+}
+
+#[test]
+fn upstream_ahead_of_local_target_is_integrated() -> Result<()> {
+    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
+    configure_main_upstream(&mut repo, "c")?;
+    repo.reference(
+        "refs/heads/main",
+        repo.rev_parse_single("a")?.detach(),
+        gix::refs::transaction::PreviousValue::Any,
+        "local target lags upstream",
+    )?;
+    let mut ws = Graph::from_head(
+        &repo,
+        &*meta,
+        local_main_target(&repo)?,
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let commit = editor.select_commit(repo.rev_parse_single("c")?.detach())?;
+    let branch = editor.select_reference("refs/heads/c".try_into()?)?;
+    let projection = editor.graph_workspace()?;
+    assert!(
+        matches!(
+            projection.commit_state.get(&commit),
+            Some(CommitState::Integrated)
+        ),
+        "work landed upstream is integrated even when local main lags"
+    );
+    assert_eq!(
+        projection.reference_status[&branch].push_status,
+        PushStatus::Integrated,
+        "the branch owns only work that landed upstream"
+    );
+    Ok(())
+}
+
+#[test]
+fn upstream_tip_is_integrated_without_its_reference_step() -> Result<()> {
+    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
+    configure_main_upstream(&mut repo, "c")?;
+    repo.reference(
+        "refs/heads/main",
+        repo.rev_parse_single("a")?.detach(),
+        gix::refs::transaction::PreviousValue::Any,
+        "local target lags upstream",
+    )?;
+    let mut ws = Graph::from_head(
+        &repo,
+        &*meta,
+        local_main_target(&repo)?,
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let upstream = editor.select_reference("refs/remotes/origin/main".try_into()?)?;
+    editor.replace_with_none(upstream)?;
+    assert!(
+        editor
+            .try_select_reference("refs/remotes/origin/main".try_into()?)
+            .is_none(),
+        "the upstream ref step is absent while its tip remains in the graph"
+    );
+    let commit = editor.select_commit(repo.rev_parse_single("c")?.detach())?;
+    let branch = editor.select_reference("refs/heads/c".try_into()?)?;
+    let projection = editor.graph_workspace()?;
+    assert!(
+        matches!(
+            projection.commit_state.get(&commit),
+            Some(CommitState::Integrated)
+        ),
+        "the upstream tip is integrated even without its ref node"
+    );
+    assert_eq!(
+        projection.reference_status[&branch].push_status,
+        PushStatus::Integrated,
+        "the branch's landed work stays integrated without the upstream ref node"
+    );
+    Ok(())
+}
+
+#[test]
+fn local_target_without_upstream_does_not_mark_work_integrated() -> Result<()> {
+    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
+    let project_meta = local_main_target(&repo)?;
+    assert!(
+        project_meta.remote_target_ref(&repo)?.is_none(),
+        "fixture has no upstream"
+    );
+    let mut ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let branch = editor.select_reference("refs/heads/c".try_into()?)?;
+    let projection = editor.graph_workspace()?;
+    let commit = editor.select_commit(repo.rev_parse_single("c")?.detach())?;
+    assert!(
+        matches!(
+            projection.commit_state.get(&commit),
+            Some(CommitState::LocalOnly)
+        ),
+        "without an upstream the unpublished commit still has a local-only state"
+    );
+    assert_ne!(
+        projection.reference_status[&branch].push_status,
+        PushStatus::Integrated,
+        "a local target alone does not make a branch integrated"
+    );
+    Ok(())
+}
+
+#[test]
+fn pushed_feature_is_local_and_remote_without_a_target_upstream() -> Result<()> {
+    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
+    let tip = repo.rev_parse_single("c")?.detach();
+    repo.reference(
+        "refs/remotes/origin/c",
+        tip,
+        gix::refs::transaction::PreviousValue::Any,
+        "pushed feature",
+    )?;
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("remote.origin.url", "https://example.com/repo.git")?;
+        config.set_raw_value("remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")?;
+        config.set_raw_value("branch.c.remote", "origin")?;
+        config.set_raw_value("branch.c.merge", "refs/heads/c")?;
+    }
+    let project_meta = local_main_target(&repo)?;
+    assert!(
+        project_meta.remote_target_ref(&repo)?.is_none(),
+        "main has no upstream, but c does"
+    );
+    let mut ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let commit = editor.select_commit(tip)?;
+    let branch = editor.select_reference("refs/heads/c".try_into()?)?;
+    let projection = editor.graph_workspace()?;
+    assert!(
+        matches!(projection.commit_state.get(&commit), Some(CommitState::LocalAndRemote(id)) if *id == tip),
+        "a pushed feature commit has a state even without a target upstream"
+    );
+    assert_ne!(
+        projection.reference_status[&branch].push_status,
+        PushStatus::Integrated,
+        "being pushed is not the same as landing in a target upstream"
+    );
+    Ok(())
+}
+
 /// A linear workspace (base→a→b→c under the workspace commit) with no target,
 /// so the single stack reaches all the way down to `base`.
 #[test]

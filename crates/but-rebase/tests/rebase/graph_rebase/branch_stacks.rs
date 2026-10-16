@@ -259,6 +259,324 @@ ad hoc
     Ok(())
 }
 
+fn local_target_workspace(
+    repo: &gix::Repository,
+    meta: &VirtualBranchesTomlMetadata,
+    db: &mut but_db::DbHandle,
+    project_meta: ProjectMeta,
+) -> Result<but_graph::Workspace> {
+    Graph::from_head(repo, meta, project_meta, db, standard_options())?
+        .validated()?
+        .into_workspace()
+}
+
+#[test]
+fn upstream_cutoff_keeps_local_target_work_visible() -> Result<()> {
+    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    invoke_bash("git branch -f main HEAD", &repo);
+    let mut project_meta = target_meta(&repo);
+    project_meta.target_commit_id = None;
+    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
+    let rebase = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
+    // Main is ahead of its upstream and must remain a visible local branch.
+    snapbox::assert_data_eq!(
+        render_stacks(
+            rebase
+                .branch_stacks()?
+                .workspace
+                .as_ref()
+                .expect("workspace reference")
+        ),
+        "  main\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn upstream_cutoff_preserves_divergent_local_target_work() -> Result<()> {
+    let (repo, _tmp, mut meta, mut db) = fixture_writable("diverged-local-target")?;
+    let local_tip = repo.rev_parse_single("main")?.detach();
+    let upstream_tip = repo.rev_parse_single("origin/main")?.detach();
+    let merge_base = repo
+        .merge_base(local_tip, upstream_tip)?
+        .expect("shared base")
+        .detach();
+    assert_ne!(merge_base, local_tip, "local main has unique work");
+    assert_ne!(merge_base, upstream_tip, "upstream has unique work");
+    let mut project_meta = target_meta(&repo);
+    project_meta.target_commit_id = None;
+    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
+    assert_eq!(
+        ws.target_commit.as_ref().map(|target| target.commit_id),
+        Some(upstream_tip),
+        "without a stored cutoff the workspace uses the upstream tip, not local main"
+    );
+    let rebase = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
+    let stacks = rebase.branch_stacks()?;
+    // Main stays visible because its divergent work is not the upstream boundary.
+    snapbox::assert_data_eq!(
+        render_stacks(stacks.workspace.as_ref().expect("managed workspace")),
+        "  main\n"
+    );
+    assert_eq!(
+        rebase.reference_target("refs/heads/landed".try_into()?)?,
+        upstream_tip,
+        "the branch resting on the cutoff remains a ref, but has no stack lane"
+    );
+    Ok(())
+}
+
+#[test]
+fn local_target_is_the_cutoff_without_an_upstream() -> Result<()> {
+    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    invoke_bash("git branch -f main HEAD", &repo);
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("branch.main.remote", "missing")?;
+    }
+    let mut project_meta = target_meta(&repo);
+    project_meta.target_commit_id = None;
+    assert!(
+        project_meta.remote_target_ref(&repo)?.is_none(),
+        "the fixture has no resolvable upstream"
+    );
+    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
+    let rebase = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
+    // Main itself is the boundary, so it is not a stack branch.
+    snapbox::assert_data_eq!(
+        render_stacks(
+            rebase
+                .branch_stacks()?
+                .workspace
+                .as_ref()
+                .expect("workspace reference")
+        ),
+        ""
+    );
+    Ok(())
+}
+
+#[test]
+fn upstream_cutoff_survives_a_missing_reference_step() -> Result<()> {
+    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    invoke_bash("git branch feature HEAD; git branch older main~1", &repo);
+    let mut project_meta = target_meta(&repo);
+    project_meta.target_commit_id = None;
+    let cutoff = repo.rev_parse_single("origin/main")?.detach();
+    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let upstream = editor.select_reference("refs/remotes/origin/main".try_into()?)?;
+    editor.replace_with_none(upstream)?;
+    assert!(
+        editor.try_select_commit(cutoff).is_some(),
+        "only the upstream reference step was removed"
+    );
+    let rebase = editor.rebase()?;
+    // The upstream commit still bounds traversal, excluding main and older history.
+    snapbox::assert_data_eq!(
+        render_stacks(
+            rebase
+                .branch_stacks()?
+                .workspace
+                .as_ref()
+                .expect("workspace reference")
+        ),
+        "  feature\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn missing_upstream_reference_uses_the_rewritten_tip() -> Result<()> {
+    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    invoke_bash("git branch feature HEAD; git branch older main~1", &repo);
+    let mut project_meta = target_meta(&repo);
+    project_meta.target_commit_id = None;
+    let cutoff = repo.rev_parse_single("origin/main")?.detach();
+    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let upstream = editor.select_reference("refs/remotes/origin/main".try_into()?)?;
+    editor.replace_with_none(upstream)?;
+    let mut replacement = but_core::Commit::from_id(cutoff.attach(&repo))?;
+    replacement.message = "rewritten upstream boundary".into();
+    let replacement = repo.write_object(replacement.inner)?.detach();
+    editor.amend_pick(cutoff, replacement)?;
+    let rebase = editor.rebase()?;
+    assert!(
+        rebase.history.commit_mappings().contains_key(&cutoff),
+        "the upstream tip was rewritten"
+    );
+    // Resolving the same upstream's repository tip must follow its rewrite mapping.
+    snapbox::assert_data_eq!(
+        render_stacks(
+            rebase
+                .branch_stacks()?
+                .workspace
+                .as_ref()
+                .expect("workspace reference")
+        ),
+        "  feature\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn local_only_cutoff_follows_a_ref_only_move_in_the_editor() -> Result<()> {
+    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    invoke_bash("git branch feature HEAD", &repo);
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("branch.main.remote", "missing")?;
+    }
+    let mut project_meta = target_meta(&repo);
+    project_meta.target_commit_id = None;
+    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let main = editor.select_reference("refs/heads/main".try_into()?)?;
+    editor.replace_with_none(main)?;
+    let tip = editor.select_commit(repo.head_id()?.detach())?;
+    editor.insert(
+        tip,
+        Step::new_reference("refs/heads/main".try_into()?),
+        InsertSide::Above,
+    )?;
+    let rebase = editor.rebase()?;
+    assert!(
+        rebase.history.commit_mappings().is_empty(),
+        "moving main must not require rewriting any commit"
+    );
+    // Main is the boundary at its new position, not a branch above the old repository tip.
+    snapbox::assert_data_eq!(
+        render_stacks(
+            rebase
+                .branch_stacks()?
+                .workspace
+                .as_ref()
+                .expect("workspace reference")
+        ),
+        "  feature\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn another_local_branch_sharing_the_target_upstream_remains_visible() -> Result<()> {
+    let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    invoke_bash("git branch other main", &repo);
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("branch.other.remote", "origin")?;
+        config.set_raw_value("branch.other.merge", "refs/heads/main")?;
+    }
+    let mut project_meta = target_meta(&repo);
+    // Keep other above the cutoff: branches resting on it have no stack lane.
+    project_meta.target_commit_id = Some(repo.rev_parse_single("main~1")?.detach());
+    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
+    let rebase = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
+    // Only the configured local main is excluded as upstream, not other.
+    snapbox::assert_data_eq!(
+        render_stacks(
+            rebase
+                .branch_stacks()?
+                .workspace
+                .as_ref()
+                .expect("workspace reference")
+        ),
+        "  other\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn rewritten_stored_cutoff_uses_its_commit_mapping() -> Result<()> {
+    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    invoke_bash(
+        "git branch boundary main; git branch older main~1; git branch -f main HEAD",
+        &repo,
+    );
+    let project_meta = target_meta(&repo);
+    let cutoff = project_meta
+        .target_commit_id
+        .expect("fixture has a stored cutoff");
+    let mut ws = local_target_workspace(&repo, &meta, &mut db, project_meta)?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut replacement = but_core::Commit::from_id(cutoff.attach(&repo))?;
+    replacement.message = "rewritten boundary".into();
+    let replacement = repo.write_object(replacement.inner)?.detach();
+    editor.amend_pick(cutoff, replacement)?;
+    let rebase = editor.rebase()?;
+    assert!(
+        rebase.history.commit_mappings().contains_key(&cutoff),
+        "the stored cutoff was rewritten, not excluded"
+    );
+    // The boundary reference is on a separate lane, while main reaches the rewritten cutoff.
+    snapbox::assert_data_eq!(
+        rebase.steps_ascii(),
+        snapbox::str![[r#"
+◎  refs/heads/gitbutler/workspace
+◎  refs/heads/main
+●  92660d6 just a normal commit
+│ ◎  refs/remotes/origin/main (immutable)
+│ ◎  refs/heads/boundary (immutable)
+├─╯
+●  e47fc3a rewritten boundary
+◎  refs/heads/older (immutable)
+●  965998b base
+"#]]
+    );
+    // Stop at the rewritten boundary, retaining main but excluding older history.
+    snapbox::assert_data_eq!(
+        render_stacks(
+            rebase
+                .branch_stacks()?
+                .workspace
+                .as_ref()
+                .expect("workspace reference")
+        ),
+        "  main\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn excluded_stored_cutoff_does_not_fall_back_to_a_target_tip() -> Result<()> {
+    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
+    invoke_bash(
+        "git branch boundary main; git branch older main~1; git branch -f main HEAD",
+        &repo,
+    );
+    let mut ws = local_target_workspace(&repo, &meta, &mut db, ProjectMeta::default())?;
+    let mut excluded = but_core::Commit::from_id(repo.head_id()?)?;
+    excluded.parents.clear();
+    excluded.message = "excluded boundary".into();
+    let cutoff = repo.write_object(excluded.inner)?.detach();
+    // Supply a boundary outside this graph without invoking projection's own fallback policy.
+    ws.graph.project_meta = target_meta(&repo);
+    ws.graph.project_meta.target_commit_id = Some(cutoff);
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    assert!(
+        editor.try_select_commit(cutoff).is_none(),
+        "the excluded cutoff has no editor step"
+    );
+    let rebase = editor.rebase()?;
+    assert!(
+        !rebase.history.commit_mappings().contains_key(&cutoff),
+        "an excluded cutoff has no rewrite mapping"
+    );
+    // No encountered commit is the cutoff; neither target tip may replace it.
+    snapbox::assert_data_eq!(
+        render_stacks(
+            rebase
+                .branch_stacks()?
+                .workspace
+                .as_ref()
+                .expect("workspace reference")
+        ),
+        "  main > boundary > older\n"
+    );
+    Ok(())
+}
+
 #[test]
 fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
