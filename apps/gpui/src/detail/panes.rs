@@ -625,7 +625,11 @@ impl Detail {
             let payload = Cut::Files {
                 project: project.clone(),
                 from,
-                files: vec![file.clone()].into(),
+                files: vec![Selected {
+                    file: file.clone(),
+                    hunks: None,
+                }]
+                .into(),
             };
             let label: SharedString = file.path.clone().into();
             let menu_payload = payload.clone();
@@ -671,14 +675,7 @@ impl Detail {
                 MenuItem::new("Discard changes…", {
                     let (project, files) = (project.clone(), files.clone());
                     move |this, window, cx| {
-                        let changes = files
-                            .iter()
-                            .map(|file| Selected {
-                                file: file.clone(),
-                                hunks: None,
-                            })
-                            .collect();
-                        this.discard(project.clone(), changes, window, cx)
+                        this.discard(project.clone(), files.to_vec(), window, cx)
                     }
                 })
                 .danger(),

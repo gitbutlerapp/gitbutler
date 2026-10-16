@@ -11,7 +11,7 @@ use but_api::commit::json::ChangesSource;
 use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
-use super::{CommitId, FileChange, Selected, SnapshotId, open};
+use super::{CommitId, Selected, SnapshotId, open};
 
 /// Where a commit or a set of changes lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,13 +77,6 @@ fn left_out<R: std::fmt::Debug>(rejected: &[(R, DiffSpec)]) -> LeftOut {
 fn branch_ref(name: &str) -> Result<gix::refs::FullName> {
     let name = but_core::branch::normalize_short_name(name.trim())?;
     full_name(&format!("refs/heads/{name}"))
-}
-
-fn specs(files: &[FileChange]) -> Vec<DiffSpec> {
-    files
-        .iter()
-        .map(|file| DiffSpec::from(&file.change))
-        .collect()
 }
 
 /// The runtime every GitButler call runs on. Its threads get big stacks: GitButler's
@@ -186,13 +179,13 @@ pub fn remove_branch(path: &Path, ref_name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Fold uncommitted `files` into `commit`.
-pub fn amend(path: &Path, commit: CommitId, files: &[FileChange]) -> Result<(Rewritten, LeftOut)> {
+/// Fold the `selected` uncommitted changes into `commit`.
+pub fn amend(path: &Path, commit: CommitId, selected: &[Selected]) -> Result<(Rewritten, LeftOut)> {
     let mut ctx = open(path)?;
     let outcome = but_api::commit::amend::commit_amend(
         &mut ctx,
         commit.0,
-        specs(files),
+        selected_specs(selected),
         ChangesSource::Head,
         DryRun::No,
     )?;
@@ -251,12 +244,12 @@ pub fn uncommit(path: &Path, commits: &[CommitId]) -> Result<()> {
 }
 
 /// Take `files` out of `commit` and leave them uncommitted.
-pub fn uncommit_files(path: &Path, commit: CommitId, files: &[FileChange]) -> Result<Rewritten> {
+pub fn uncommit_files(path: &Path, commit: CommitId, files: &[Selected]) -> Result<Rewritten> {
     let mut ctx = open(path)?;
     let outcome = but_api::commit::uncommit::commit_uncommit_changes(
         &mut ctx,
         commit.0,
-        specs(files),
+        selected_specs(files),
         None,
         DryRun::No,
     )?;
@@ -268,14 +261,14 @@ pub fn move_files(
     path: &Path,
     from: CommitId,
     to: CommitId,
-    files: &[FileChange],
+    files: &[Selected],
 ) -> Result<Rewritten> {
     let mut ctx = open(path)?;
     let outcome = but_api::commit::move_changes::commit_move_changes_between(
         &mut ctx,
         from.0,
         to.0,
-        specs(files),
+        selected_specs(files),
         DryRun::No,
     )?;
     Ok(rewritten(&outcome.workspace))
@@ -405,4 +398,65 @@ fn restore(
         .unwrap_or("Unknown operation");
     but_api::legacy::oplog::restore_snapshot_with_kind(ctx, kind, id)?;
     Ok(title)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::process::Command;
+
+    use super::*;
+    use crate::backend::{DiffBody, DiffSource, load_diff};
+
+    fn git(dir: &Path, args: &[&str]) -> String {
+        let out = Command::new("git")
+            .current_dir(dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}: {out:?}");
+        String::from_utf8(out.stdout).unwrap()
+    }
+
+    #[test]
+    fn amending_some_hunks_leaves_the_rest_uncommitted() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path();
+        git(path, &["init", "-q"]);
+        git(path, &["config", "user.name", "T"]);
+        git(path, &["config", "user.email", "t@example.com"]);
+        git(path, &["config", "commit.gpgsign", "false"]);
+        let mut lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        std::fs::write(path.join("file"), lines.concat()).unwrap();
+        git(path, &["add", "file"]);
+        git(path, &["commit", "-q", "-m", "first"]);
+        lines[0] = "first edit\n".into();
+        lines[19] = "last edit\n".into();
+        std::fs::write(path.join("file"), lines.concat()).unwrap();
+
+        let diff = load_diff(path, DiffSource::Worktree, None, None).unwrap();
+        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+            panic!("a text diff");
+        };
+        assert_eq!(
+            hunks.len(),
+            2,
+            "the edits are far enough apart for two hunks"
+        );
+        let head = git(path, &["rev-parse", "HEAD"]);
+        let head = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        let first_hunk = Selected {
+            file: diff[0].file.clone(),
+            hunks: Some(vec![hunks[0].key]),
+        };
+        amend(path, head, &[first_hunk]).unwrap();
+
+        let amended = git(path, &["show", "HEAD:file"]);
+        assert!(amended.starts_with("first edit\n"), "{amended}");
+        assert!(amended.ends_with("line 20\n"), "{amended}");
+        assert_eq!(
+            std::fs::read_to_string(path.join("file")).unwrap(),
+            lines.concat(),
+            "the worktree keeps the last edit, now uncommitted"
+        );
+    }
 }

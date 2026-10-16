@@ -5,14 +5,14 @@ use std::sync::Arc;
 
 use gpui::{Context, SharedString};
 
-use crate::backend::{self, CommitId, Destination, FileChange};
+use crate::backend::{self, CommitId, Destination, Selected};
 use crate::state::{Cut, Selection, Store};
 
 pub enum Transfer {
     Uncommit(CommitId),
     UncommitFiles {
         from: CommitId,
-        files: Arc<[FileChange]>,
+        files: Arc<[Selected]>,
     },
     MoveCommit {
         id: CommitId,
@@ -24,17 +24,17 @@ pub enum Transfer {
     },
     Amend {
         into: CommitId,
-        files: Arc<[FileChange]>,
+        files: Arc<[Selected]>,
     },
     MoveFiles {
         from: CommitId,
         to: CommitId,
-        files: Arc<[FileChange]>,
+        files: Arc<[Selected]>,
     },
     /// Uncommitted files dropped on a branch: get them ready to commit there.
     StageOnBranch {
         branch: String,
-        files: Arc<[FileChange]>,
+        files: Arc<[Selected]>,
     },
 }
 
@@ -175,7 +175,7 @@ impl Transfer {
         project: &SharedString,
         store: &mut Store,
         cx: &mut Context<Store>,
-    ) -> Option<(String, Vec<FileChange>)> {
+    ) -> Option<(String, Arc<[Selected]>)> {
         let label = self.describe();
         match self {
             Transfer::Uncommit(id) => store.run(
@@ -229,7 +229,7 @@ impl Transfer {
                 |store, rewritten, cx| store.follow(&rewritten, cx),
                 cx,
             ),
-            Transfer::StageOnBranch { branch, files } => return Some((branch, files.to_vec())),
+            Transfer::StageOnBranch { branch, files } => return Some((branch, files)),
         }
         None
     }

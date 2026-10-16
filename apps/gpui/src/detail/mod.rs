@@ -6,7 +6,7 @@ mod diff_view;
 mod file_tree;
 mod panes;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -343,17 +343,23 @@ impl Detail {
         });
     }
 
-    /// What dragging `project`'s uncommitted changes carries: the checked files when
-    /// they're shown here, otherwise all of them.
-    pub fn files_to_move(&self, project: &ProjectId, cx: &App) -> Vec<FileChange> {
+    /// What dragging `project`'s uncommitted changes carries: the checked files and hunks
+    /// when they're shown here, otherwise all of them.
+    pub fn files_to_move(&self, project: &ProjectId, cx: &App) -> Vec<Selected> {
         if self.selection(cx) == Some(Selection::Uncommitted(project.clone())) {
-            return self.checked_uncommitted(cx);
+            return self.selected_changes(cx);
         }
-        self.store
-            .read(cx)
+        let store = self.store.read(cx);
+        let files = store
             .workspace(project)
-            .map(|ws| ws.uncommitted.clone())
-            .unwrap_or_default()
+            .map_or(&[][..], |ws| &ws.uncommitted);
+        files
+            .iter()
+            .map(|file| Selected {
+                file: file.clone(),
+                hunks: None,
+            })
+            .collect()
     }
 
     pub fn focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -783,7 +789,7 @@ impl Detail {
     }
 
     /// Uncommitted files that are checked for the next commit.
-    pub fn checked_uncommitted(&self, cx: &App) -> Vec<FileChange> {
+    fn checked_uncommitted(&self, cx: &App) -> Vec<FileChange> {
         let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
             return Vec::new();
         };
@@ -893,7 +899,7 @@ impl Detail {
     pub fn stage(
         &mut self,
         branch: String,
-        files: &[FileChange],
+        files: &[Selected],
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -901,13 +907,21 @@ impl Detail {
         if let Some(project) = self.selected_project(cx)
             && let Some(workspace) = self.store.read(cx).workspace(&project)
         {
-            let keep: HashSet<&str> = files.iter().map(|f| f.path.as_str()).collect();
+            let keep: HashMap<&str, Option<&[HunkKey]>> = files
+                .iter()
+                .map(|f| (f.file.path.as_str(), f.hunks.as_deref()))
+                .collect();
             self.unchecked = workspace
                 .uncommitted
                 .iter()
-                .filter(|f| !keep.contains(f.path.as_str()))
+                .filter(|f| !keep.contains_key(f.path.as_str()))
                 .map(|f| f.path.clone())
                 .collect();
+            // Hunks stay out only where the staged change left them out.
+            self.unchecked_hunks.retain(|(path, key)| {
+                keep.get(path.as_str())
+                    .is_some_and(|hunks| hunks.is_some_and(|picked| !picked.contains(key)))
+            });
         }
         self.focus_message(window, cx);
     }
