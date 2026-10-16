@@ -1242,8 +1242,9 @@ Created branch 'three'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 2e32dec (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+*-. 927a35d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/ /
+|/  
 * b1540e5 (origin/main, origin/HEAD, two, three, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1256,9 +1257,10 @@ Created branch 'three'
 ┊╭┄ th [three] (no commits)
 ├╯
 ┊
+┊╭┄ tw [two] (no commits)
+├╯
+┊
 ┊╭┄ on [one] (no commits)
-┊│
-┊├┄ tw [two] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
