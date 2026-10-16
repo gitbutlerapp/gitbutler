@@ -183,6 +183,19 @@ pub fn dropdown(
         .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
 }
 
+/// The box around a text field, ringed while it has focus.
+pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme) -> Div {
+    div()
+        .px(px(8.))
+        .py(px(5.))
+        .rounded(px(4.))
+        .border_1()
+        .border_color(if focused { theme.pop } else { theme.border_2 })
+        .bg(theme.bg_1)
+        .text_size(px(13.))
+        .child(input.clone())
+}
+
 /// The card that menus, dialogs, toasts and tooltips float on.
 pub fn popover(theme: &Theme) -> Div {
     v_flex()
