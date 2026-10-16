@@ -20,8 +20,8 @@ use crate::ui::diff;
 use crate::ui::review as ui_review;
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, button, empty_state, h_flex, icon, icon_button,
-    list_row, relative_time, shortcut, small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, button, empty_state, h_flex, icon, icon_button, list_row,
+    relative_time, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -158,71 +158,17 @@ impl Detail {
             })
     }
 
+    /// A project's name, path and load error. Its counts and actions are on its row in the
+    /// navigator.
     pub(super) fn render_project(
         &self,
         project: &ProjectId,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let store = self.store.read(cx);
-        let Some(entry) = store.project(project) else {
+        let Some(entry) = self.store.read(cx).project(project) else {
             return empty_state("Project not found", "", theme);
         };
-        let workspace = entry.workspace.as_ref();
-        let expanded = entry.expanded;
-        let id = entry.id.clone();
-        let stat = |label: &str, value: String, color| {
-            v_flex()
-                .gap(px(2.))
-                .px(px(14.))
-                .py(px(10.))
-                .min_w(px(120.))
-                .rounded(px(6.))
-                .border_1()
-                .border_color(theme.border_3)
-                .child(
-                    div()
-                        .text_size(px(11.))
-                        .text_color(theme.text_2)
-                        .child(label.to_owned()),
-                )
-                .child(div().text_size(px(20.)).text_color(color).child(value))
-        };
-        let mut stats = h_flex().gap(px(10.));
-        if let Some(ws) = workspace {
-            let branches = ws.branches().count();
-            stats = stats
-                .child(stat("Branches", branches.to_string(), theme.text_1))
-                .child(stat(
-                    "Uncommitted",
-                    ws.uncommitted.len().to_string(),
-                    if ws.uncommitted.is_empty() {
-                        theme.text_1
-                    } else {
-                        theme.warn
-                    },
-                ))
-                .child(stat(
-                    "Unpushed",
-                    ws.unpushed_commits().to_string(),
-                    if ws.unpushed_commits() == 0 {
-                        theme.text_1
-                    } else {
-                        theme.blue
-                    },
-                ));
-            if let Some(target) = &ws.target {
-                stats = stats.child(stat(
-                    &format!("Behind {}", target.name),
-                    target.behind.to_string(),
-                    if target.behind == 0 {
-                        theme.text_1
-                    } else {
-                        theme.warn
-                    },
-                ));
-            }
-        }
         v_flex()
             .p(px(24.))
             .gap(px(16.))
@@ -255,60 +201,6 @@ impl Detail {
                         .child(div().flex_1().child(err)),
                 )
             })
-            .child(stats)
-            .child(
-                h_flex()
-                    .gap(px(8.))
-                    .child(
-                        button(
-                            "toggle-project",
-                            if expanded {
-                                "Collapse"
-                            } else {
-                                "Show branches"
-                            },
-                        )
-                        .style(if expanded {
-                            ButtonStyle::Outline
-                        } else {
-                            ButtonStyle::Pop
-                        })
-                        .on_click(cx.listener({
-                            let id = id.clone();
-                            move |this, _, _, cx| {
-                                this.store
-                                    .update(cx, |store, cx| store.set_expanded(&id, !expanded, cx))
-                            }
-                        })),
-                    )
-                    .when(expanded, |el| {
-                        let id = id.clone();
-                        el.child(button("fetch", "Fetch").icon(Icon::Refresh).on_click(
-                            cx.listener(move |this, _, _, cx| {
-                                this.store.update(cx, |store, cx| store.fetch(&id, cx))
-                            }),
-                        ))
-                    })
-                    .when_some(
-                        workspace
-                            .and_then(|ws| ws.target.as_ref())
-                            .filter(|target| expanded && target.needs_update)
-                            .map(|target| target.name.clone()),
-                        |el, target| {
-                            let id = id.clone();
-                            el.child(
-                                button("update", format!("Update from {target}"))
-                                    .icon(Icon::ArrowDown)
-                                    .style(ButtonStyle::Pop)
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.store.update(cx, |store, cx| {
-                                            store.update_from_target(&id, cx)
-                                        })
-                                    })),
-                            )
-                        },
-                    ),
-            )
             .into_any_element()
     }
 
@@ -956,72 +848,6 @@ impl Detail {
             PushState::NeverPushed => "Not pushed yet",
             PushState::Integrated => "Integrated",
         };
-        // Drawn only as far as they're on screen: a long-lived branch has hundreds.
-        let count = branch.commits.len();
-        let (list_project, list_ref) = (project.clone(), ref_name.to_owned());
-        let commits = uniform_list(
-            "branch-commits",
-            count,
-            cx.processor(move |this, range: Range<usize>, _, cx| {
-                let theme = Theme::get(cx).clone();
-                let store = this.store.read(cx);
-                let Some(branch) = store
-                    .workspace(&list_project)
-                    .and_then(|ws| ws.find_branch(&list_ref))
-                else {
-                    return Vec::new();
-                };
-                let project = &list_project;
-                range
-                    .filter_map(|ix| {
-                        let commit = branch.commits.get(ix)?;
-                        let theme = &theme;
-                        let selection = Selection::Commit(project.clone(), commit.id);
-                        let store = this.store.clone();
-                        Some(
-                            list_row(("branch-commit", ix), false, theme)
-                                .px(px(10.))
-                                .child(
-                                    small_icon(match commit.state {
-                                        CommitState::Local => Icon::Commit,
-                                        CommitState::Pushed => Icon::CommitFill,
-                                        CommitState::Integrated => Icon::Tick,
-                                    })
-                                    .text_color(
-                                        if commit.state == CommitState::Local {
-                                            theme.blue
-                                        } else {
-                                            theme.text_3
-                                        },
-                                    ),
-                                )
-                                .child(
-                                    div()
-                                        .flex_1()
-                                        .min_w(px(0.))
-                                        .truncate()
-                                        .child(commit.title.clone()),
-                                )
-                                .child(
-                                    div()
-                                        .flex_none()
-                                        .text_size(px(11.))
-                                        .text_color(theme.text_3)
-                                        .child(relative_time(commit.time)),
-                                )
-                                .on_click(move |_, _, cx| {
-                                    store.update(cx, |store, cx| {
-                                        store.select(Some(selection.clone()), cx)
-                                    })
-                                })
-                                .into_any_element(),
-                        )
-                    })
-                    .map(|row| v_flex().w_full().child(row))
-                    .collect::<Vec<_>>()
-            }),
-        )
-        .h(px((count as f32 * ROW_HEIGHT).min(252.)));
         let files = self.render_diff_file_list(project, None, theme, cx);
         v_flex()
             .size_full()
@@ -1055,22 +881,6 @@ impl Detail {
             .when_some(branch.review.as_ref(), |el, review| {
                 el.child(render_review(review, theme, cx))
             })
-            .child(
-                div()
-                    .id("branch-commits")
-                    .flex_none()
-                    .max_h(px(260.))
-                    .overflow_y_scroll()
-                    .py(px(4.))
-                    .border_b_1()
-                    .border_color(theme.border_3)
-                    .child(commits)
-                    .when(branch.commits.is_empty(), |el| {
-                        el.child(div().px(px(16.)).py(px(6.)).text_size(px(12.)).text_color(theme.text_2).child(
-                            "No commits yet. Drop uncommitted files here to commit to this branch.",
-                        ))
-                    }),
-            )
             .child(files)
             .into_any_element()
     }

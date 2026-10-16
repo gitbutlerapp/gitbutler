@@ -17,7 +17,7 @@ The project list comes from the app data of the build's channel, which is `dev` 
 
 The app is built for watching what coding agents change. Reviewing comes first, and committing by hand is there when you need it.
 
-The left side lists every project. Expanded projects show their uncommitted changes, stacks, branches and commits; collapsed ones only show counts for uncommitted files (amber), unpushed commits (blue) and commits the target has that you don't (amber). A file watcher keeps expanded projects current. A green "active" dot marks a project whose files or commits changed in the last two minutes, and a teal dot marks commits you haven't opened yet. Commits the app itself rewrote don't count as new.
+The left side lists every project. Expanded projects show their uncommitted changes, stacks, branches and commits, and their row counts uncommitted files (amber), unpushed commits (blue) and commits the target has that you don't (amber). A file watcher keeps expanded projects current; collapsed ones aren't loaded at startup or watched. A green "active" dot marks a project whose files or commits changed in the last two minutes, and a teal dot marks commits you haven't opened yet. Commits the app itself rewrote don't count as new.
 
 The right side shows whatever is selected, under a breadcrumb whose project and branch link back to them. Drag the right edge of the navigator or of a file list to resize it, and double-click the edge to reset it; the widths are remembered.
 
@@ -59,7 +59,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | ⌘X, ⌘V | cut the selection, paste it onto the selected row (⌥⌘V squashes a commit instead of moving it) |
 | ⌘N | new branch |
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
-| ⌘F, ⌘R, ⌘O | filter projects, reload, add a project |
+| ⌘R, ⌘O | reload, add a project |
 
 | In the navigator | |
 |---|---|
