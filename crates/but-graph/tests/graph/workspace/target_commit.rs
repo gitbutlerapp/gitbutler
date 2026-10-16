@@ -345,6 +345,42 @@ fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
 }
 
 #[test]
+fn prefers_remote_target_tip_over_local_target_without_stored_commit() -> anyhow::Result<()> {
+    let (repo, meta, mut db) = read_only_in_memory_scenario("only-remote-advanced")?;
+    // The local target trails its upstream by two commits.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 085535d (origin/main) RM2
+* dd9f8d9 (origin/split-segment) RM1
+* 971953d (HEAD -> main) M2
+* ce09734 M1
+* fafd9d0 init
+
+"#]]
+    );
+
+    let project_meta = ProjectMeta {
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
+        target_commit_id: None,
+        push_remote: None,
+    };
+    let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
+
+    let remote_tip = repo.rev_parse_single("refs/remotes/origin/main")?.detach();
+    assert_eq!(
+        ws.target_commit.as_ref().map(|target| target.commit_id),
+        Some(remote_tip),
+        "without a stored target commit, the cutoff must prefer the remote target over the stale local target"
+    );
+    Ok(())
+}
+
+#[test]
 fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     snapbox::assert_data_eq!(

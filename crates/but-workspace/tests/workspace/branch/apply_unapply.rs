@@ -164,6 +164,155 @@ fn unapply_ad_hoc_tip_checks_out_target_only_when_disposition_allows_it() -> any
 }
 
 #[test]
+fn unapply_ad_hoc_tip_checks_out_local_target_without_upstream() -> anyhow::Result<()> {
+    let (_tmp, mut repo, mut meta, mut db) =
+        named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
+    git(&repo).args(["checkout", "A"]).run();
+    repo.config_snapshot_mut()
+        .remove_section("branch", Some("main".into()));
+    assert!(
+        project_meta(&repo)?.remote_target_ref(&repo)?.is_none(),
+        "local target has no configured upstream"
+    );
+    let local_tip = id_by_rev(&repo, "main").detach();
+    let branch_before = id_at(&repo, "A");
+    let workspace_before = id_at(&repo, "gitbutler/workspace");
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options_with(
+            WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
+        ),
+    )?;
+    assert_eq!(
+        out.checked_out.as_ref().map(|name| name.as_ref()),
+        Some(r("refs/heads/main")),
+        "unapply does not require a target upstream"
+    );
+    assert_eq!(
+        repo.head()?.referent_name(),
+        Some(r("refs/heads/main")),
+        "HEAD is attached to local main"
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        local_tip,
+        "checkout uses the local target tip"
+    );
+    assert_eq!(
+        id_at(&repo, "A"),
+        branch_before,
+        "the unapplied branch stays intact"
+    );
+    assert_eq!(
+        id_at(&repo, "gitbutler/workspace"),
+        workspace_before,
+        "ad-hoc unapply preserves the existing workspace ref"
+    );
+    Ok(())
+}
+
+#[test]
+fn unapply_workspace_checks_out_diverged_local_target_not_upstream_or_cutoff() -> anyhow::Result<()>
+{
+    let (_tmp, mut repo, mut meta, mut db) =
+        named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
+    let mut project_meta = project_meta(&repo)?;
+    let cutoff = id_by_rev(&repo, "main").detach();
+    let local_tip = repo
+        .commit(
+            "refs/heads/main",
+            "local target divergence",
+            repo.find_commit(id_by_rev(&repo, "B"))?.tree_id()?,
+            [cutoff],
+        )?
+        .detach();
+    let upstream_tip = repo
+        .commit(
+            "refs/remotes/origin/trunk",
+            "upstream divergence",
+            repo.find_commit(id_by_rev(&repo, "A"))?.tree_id()?,
+            [cutoff],
+        )?
+        .detach();
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("remote.origin.url", "./remote.git")?;
+        config.set_raw_value("remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")?;
+        config.set_raw_value("branch.main.remote", "origin")?;
+        config.set_raw_value("branch.main.merge", "refs/heads/trunk")?;
+    }
+    project_meta.target_commit_id = Some(cutoff);
+    assert_eq!(
+        project_meta.remote_target_ref(&repo)?,
+        Some("refs/remotes/origin/trunk".try_into()?),
+        "tracking names need not match the local target"
+    );
+    assert_ne!(local_tip, upstream_tip, "the tips differ");
+    assert_eq!(
+        repo.merge_base(local_tip, upstream_tip)?
+            .map(gix::Id::detach),
+        Some(cutoff),
+        "local and upstream tips diverge above the stored cutoff"
+    );
+    let ws = Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        but_graph::init::Options::limited(),
+    )?
+    .into_workspace()?;
+    let out = but_workspace::branch::unapply(
+        r(WORKSPACE_REF_NAME),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options_with(
+            WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
+        ),
+    )?;
+    assert_eq!(
+        out.checked_out.as_ref().map(|name| name.as_ref()),
+        Some(r("refs/heads/main")),
+        "checkout selects the configured local target"
+    );
+    assert_eq!(
+        repo.head()?.referent_name(),
+        Some(r("refs/heads/main")),
+        "HEAD is attached to local main"
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        local_tip,
+        "checkout must not substitute upstream or the stored cutoff"
+    );
+    assert_eq!(
+        id_by_rev(&repo, "main").detach(),
+        local_tip,
+        "local divergence is preserved"
+    );
+    assert_eq!(
+        id_by_rev(&repo, "origin/trunk").detach(),
+        upstream_tip,
+        "upstream is untouched"
+    );
+    assert_eq!(
+        out.workspace.graph.project_meta.target_commit_id,
+        Some(cutoff),
+        "checkout does not move the recorded boundary"
+    );
+    assert!(
+        repo.try_find_reference(WORKSPACE_REF_NAME)?.is_none(),
+        "the unapplied workspace ref is removed"
+    );
+    Ok(())
+}
+
+#[test]
 fn unapply_ad_hoc_target_itself_is_rejected() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
     git(&repo).args(["checkout", "main"]).run();

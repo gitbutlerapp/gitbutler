@@ -1670,6 +1670,91 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
 }
 
 #[test]
+fn direct_checkout_with_deleted_local_target_rejects_integration() -> Result<()> {
+    let (_tmp, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
+    git(&repo).args(["checkout", "A"]).run();
+    remove_managed_workspace_ref(&repo)?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    git(&repo).args(["branch", "-D", "main"]).run();
+    // Git also removes branch.main's tracking configuration. Reopen to observe that change.
+    let repo = gix::open(repo.path())?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
+    assert!(
+        project_meta.remote_target_ref(&repo)?.is_none(),
+        "deleting main removes its upstream mapping"
+    );
+    assert!(
+        repo.try_find_reference("refs/remotes/origin/main")?
+            .is_some(),
+        "the remote-tracking ref remains, but must not be guessed as an upstream"
+    );
+    let refs_before = git(&repo).args(["show-ref"]).output()?.stdout;
+    let status_before = git(&repo)
+        .args(["status", "--porcelain=v1"])
+        .output()?
+        .stdout;
+    let config_before = git(&repo)
+        .args(["config", "--local", "--list"])
+        .output()?
+        .stdout;
+    let head_before = repo.head_name()?;
+    let mut workspace = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut db,
+        Options::limited(),
+    )?
+    .into_workspace()?;
+    let error = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        &mut db,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
+        }],
+    )
+    .err()
+    .expect("pull must reject a deleted local target");
+    assert_eq!(
+        error.to_string(),
+        "The configured target branch 'refs/heads/main' is missing. Restore it or configure another target before pulling.",
+        "report the missing local target before attempting upstream integration"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        head_before,
+        "rejection keeps A checked out"
+    );
+    assert_eq!(
+        git(&repo).args(["show-ref"]).output()?.stdout,
+        refs_before,
+        "rejection neither removes A nor creates replacement branches"
+    );
+    assert_eq!(
+        git(&repo)
+            .args(["status", "--porcelain=v1"])
+            .output()?
+            .stdout,
+        status_before,
+        "rejection leaves index and worktree state unchanged"
+    );
+    assert_eq!(
+        git(&repo)
+            .args(["config", "--local", "--list"])
+            .output()?
+            .stdout,
+        config_before,
+        "rejection leaves target configuration unchanged"
+    );
+    Ok(())
+}
+
+#[test]
 fn fully_integrated_direct_checkout_with_diverged_local_target_creates_unique_canned_branch()
 -> Result<()> {
     let (_tmp, mut repo, mut meta, _description, mut db) =

@@ -60,6 +60,62 @@ fn inferred_target(repo: &gix::Repository) -> anyhow::Result<Option<String>> {
 }
 
 #[test]
+fn initializes_local_target_without_remote() -> anyhow::Result<()> {
+    let (repo, _tmp) = scenario();
+    repo.find_reference("refs/remotes/origin/main")?.delete()?;
+    edit_config(Some(&repo), gix::config::Source::Local, |config| {
+        config.remove_section("remote", Some("origin".into()));
+        config.remove_section("remote", Some("fork".into()));
+        config.remove_section("branch", Some("main".into()));
+        Ok(())
+    })?;
+    let repo = but_testsupport::open_repo(repo.workdir().expect("fixture has a worktree"))?;
+    let head_name = repo.head_name()?;
+    let head_commit = repo.head_id()?.detach();
+    assert!(
+        repo.remote_names().is_empty(),
+        "the repository has no remotes"
+    );
+
+    let target_ref = but_workspace::init::infer_default_target_ref(&repo)?
+        .expect("local main is inferred without a remote");
+    assert_eq!(
+        target_ref.as_local_full_name_ref().as_bstr(),
+        "refs/heads/main",
+        "local main is the inferred target"
+    );
+    but_workspace::init::set_target_ref_and_init_project(&repo, &target_ref, None)?;
+
+    let repo = but_testsupport::open_repo(repo.workdir().expect("fixture has a worktree"))?;
+    let meta = stored_meta(&repo);
+    assert_eq!(
+        meta.target_ref,
+        Some(target_ref),
+        "the local target is persisted"
+    );
+    assert_eq!(
+        meta.target_commit_id,
+        Some(head_commit),
+        "the initial commit is the target commit"
+    );
+    assert_eq!(
+        meta.push_remote, None,
+        "initialization needs no push remote"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        head_name,
+        "the checked-out branch is unchanged"
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        head_commit,
+        "HEAD remains at the initial commit"
+    );
+    Ok(())
+}
+
+#[test]
 fn infers_symbolic_remote_head_first() -> anyhow::Result<()> {
     let (mut repo, _tmp) = scenario();
     create_remote_branch(&repo, "refs/remotes/origin/trunk")?;
@@ -120,6 +176,58 @@ fn infers_master_when_main_is_absent() -> anyhow::Result<()> {
         inferred_target(&repo)?,
         Some("refs/heads/master".into()),
         "master is used only after remote HEAD and main"
+    );
+    Ok(())
+}
+
+#[test]
+fn remote_head_without_local_counterpart_falls_back_to_main() -> anyhow::Result<()> {
+    let (repo, _tmp) = scenario();
+    create_remote_branch(&repo, "refs/remotes/origin/trunk")?;
+    set_remote_head(&repo, "refs/remotes/origin/trunk")?;
+    assert_eq!(
+        inferred_target(&repo)?,
+        Some("refs/heads/main".into()),
+        "inference skips a remote candidate without a local tracking branch"
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/trunk")?.is_none(),
+        "inference must not create a local counterpart"
+    );
+    Ok(())
+}
+
+#[test]
+fn ambiguous_remote_head_falls_back_to_main() -> anyhow::Result<()> {
+    let (mut repo, _tmp) = scenario();
+    create_remote_branch(&repo, "refs/remotes/origin/trunk")?;
+    set_remote_head(&repo, "refs/remotes/origin/trunk")?;
+    create_remote_branch(&repo, "refs/heads/release")?;
+    create_remote_branch(&repo, "refs/heads/other")?;
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("branch.release.remote", "origin")?;
+        config.set_raw_value("branch.release.merge", "refs/heads/trunk")?;
+        config.set_raw_value("branch.other.remote", "origin")?;
+        config.set_raw_value("branch.other.merge", "refs/heads/trunk")?;
+    }
+    assert_eq!(
+        inferred_target(&repo)?,
+        Some("refs/heads/main".into()),
+        "inference must not choose arbitrarily between local tracking branches"
+    );
+    Ok(())
+}
+
+#[test]
+fn infers_local_main_without_remote_candidates() -> anyhow::Result<()> {
+    let (repo, _tmp) = scenario();
+    repo.find_reference("refs/remotes/origin/main")?.delete()?;
+
+    assert_eq!(
+        inferred_target(&repo)?,
+        Some("refs/heads/main".into()),
+        "a configured remote without candidate refs falls back to local main"
     );
     Ok(())
 }
@@ -681,6 +789,16 @@ mod error {
             std::fs::read(repo.path().join("config")).unwrap(),
             config_before,
             "rejection must not partially initialize the project"
+        );
+    }
+
+    #[test]
+    fn tag_rejected() {
+        assert_eq!(
+            LocalRefName::new("refs/tags/main".try_into().unwrap())
+                .unwrap_err()
+                .to_string(),
+            "refs/tags/main is not a local branch"
         );
     }
 

@@ -33,6 +33,82 @@ fn with_local_target_uses_fetch_remote() -> anyhow::Result<()> {
 }
 
 #[test]
+fn explicit_push_remote_overrides_target_fetch_remote() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut meta);
+    let mut ws = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+    ws.graph.project_meta.push_remote = Some("fork".into());
+    assert_eq!(
+        ws.push_remote_name(&repo)?,
+        Some("fork".into()),
+        "feature branches use the explicit push remote instead of the target's remote"
+    );
+    Ok(())
+}
+
+#[test]
+fn unconfigured_target_uses_projected_upstream_remote() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut meta);
+    let mut ws = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+    ws.graph.project_meta.target_ref = None;
+    ws.target_ref
+        .as_mut()
+        .expect("fixture has a target")
+        .ref_name = "refs/remotes/origin/main".try_into()?;
+    assert_eq!(
+        ws.push_remote_name(&repo)?,
+        Some("origin".into()),
+        "the ad-hoc upstream fallback remains available without a configured target"
+    );
+    Ok(())
+}
+
+#[test]
+fn configured_target_without_remote_does_not_use_projected_upstream() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut meta);
+    let mut ws = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
+    ws.graph.project_meta.target_ref = Some(but_core::ref_metadata::LocalRefName::new(
+        "refs/heads/untracked".try_into()?,
+    )?);
+    ws.target_ref
+        .as_mut()
+        .expect("fixture has a target")
+        .ref_name = "refs/remotes/origin/main".try_into()?;
+    assert_eq!(
+        ws.push_remote_name(&repo)?,
+        None,
+        "a configured local target must not inherit a projected fallback's remote"
+    );
+    Ok(())
+}
+
+#[test]
 fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 

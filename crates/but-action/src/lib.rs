@@ -181,3 +181,119 @@ pub struct UpdatedBranch {
     pub new_commits: Vec<String>,
 }
 
+#[cfg(test)]
+mod target_tests {
+    use super::default_target_setting_if_none;
+
+    fn git(path: &std::path::Path, args: &[&str]) -> anyhow::Result<()> {
+        let output = std::process::Command::new("git")
+            .current_dir(path)
+            .args(args)
+            .output()?;
+        anyhow::ensure!(
+            output.status.success(),
+            "fixture command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        Ok(())
+    }
+
+    fn repository() -> anyhow::Result<tempfile::TempDir> {
+        let tmp = tempfile::tempdir()?;
+        git(tmp.path(), &["init", "-b", "main"])?;
+        git(
+            tmp.path(),
+            &[
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "base",
+            ],
+        )?;
+        Ok(tmp)
+    }
+
+    #[test]
+    fn initializes_local_only_main() -> anyhow::Result<()> {
+        let tmp = repository()?;
+        let repo = gix::open(tmp.path())?;
+        let local = repo.head_id()?.detach();
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        default_target_setting_if_none(&ctx)?;
+        let meta = ctx.project_meta()?;
+        assert_eq!(
+            meta.target_ref_or_err()?.to_string(),
+            "refs/heads/main",
+            "local main is a valid automation target without any remote"
+        );
+        assert_eq!(
+            meta.target_commit_id,
+            Some(local),
+            "local-only initialization uses main's tip"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn push_default_does_not_choose_the_automation_target() -> anyhow::Result<()> {
+        let tmp = repository()?;
+        git(
+            tmp.path(),
+            &[
+                "remote",
+                "add",
+                "origin",
+                "https://example.com/upstream.git",
+            ],
+        )?;
+        git(
+            tmp.path(),
+            &["remote", "add", "fork", "https://example.com/fork.git"],
+        )?;
+        git(
+            tmp.path(),
+            &["update-ref", "refs/remotes/origin/main", "HEAD"],
+        )?;
+        git(
+            tmp.path(),
+            &["update-ref", "refs/remotes/fork/other", "HEAD"],
+        )?;
+        git(
+            tmp.path(),
+            &[
+                "symbolic-ref",
+                "refs/remotes/origin/HEAD",
+                "refs/remotes/origin/main",
+            ],
+        )?;
+        git(
+            tmp.path(),
+            &[
+                "symbolic-ref",
+                "refs/remotes/fork/HEAD",
+                "refs/remotes/fork/other",
+            ],
+        )?;
+        git(tmp.path(), &["branch", "--track", "other", "fork/other"])?;
+        git(
+            tmp.path(),
+            &["branch", "--set-upstream-to=origin/main", "main"],
+        )?;
+        git(tmp.path(), &["config", "remote.pushDefault", "fork"])?;
+        let repo = gix::open(tmp.path())?;
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
+        default_target_setting_if_none(&ctx)?;
+        assert_eq!(
+            ctx.project_meta()?.target_ref_or_err()?.to_string(),
+            "refs/heads/main",
+            "feature publication settings must not select the integration target"
+        );
+        Ok(())
+    }
+}
