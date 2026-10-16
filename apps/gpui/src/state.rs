@@ -1,17 +1,17 @@
 //! App state shared by every view: the projects with their loaded workspaces, the
 //! selection, what's been cut, and the operation in flight.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::Result;
 use futures::{StreamExt as _, channel::mpsc};
-use gpui::{Context, EventEmitter, SharedString, Task};
+use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
 use serde::{Deserialize, Serialize};
 
 use crate::backend::watch::Watcher;
-use crate::backend::{self, CommitId, FileChange, Project, Workspace};
+use crate::backend::{self, Commit, CommitId, FileChange, Project, Workspace};
 
 pub type ProjectId = SharedString;
 
@@ -68,16 +68,33 @@ pub enum StoreEvent {
     SelectionChanged,
 }
 
+/// Something to tell the user, shown the way GitButler's other apps do.
+pub enum Notice {
+    /// A one-line result at the bottom centre. `undo` names the project an Undo would
+    /// restore, for operations that rewrote it.
+    Snackbar {
+        message: SharedString,
+        undo: Option<ProjectId>,
+    },
+    /// A failure: a card at the bottom right with the error kept for copying.
+    Error {
+        title: SharedString,
+        detail: SharedString,
+    },
+}
+
+/// Where an uncommitted file stands in review.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ToastKind {
-    Info,
-    Error,
+pub enum Review {
+    NotReviewed,
+    Reviewed,
+    /// Reviewed, then changed again.
+    Changed,
 }
 
 pub struct Toast {
     pub id: usize,
-    pub kind: ToastKind,
-    pub message: SharedString,
+    pub notice: Notice,
 }
 
 pub struct ProjectEntry {
@@ -105,7 +122,16 @@ pub struct Store {
     pub toasts: Vec<Toast>,
     /// The label of the mutation in flight, if any. Mutations run one at a time.
     pub busy: Option<SharedString>,
+    /// The project the last mutation ran on, which an Undo offered for it restores.
+    last_run: Option<ProjectId>,
     next_toast: usize,
+    seen: Seen,
+    /// The commits each project had before the app's last operation on it. Commits that
+    /// appear after it are the app's own doing, so they load as already seen.
+    rebaseline: HashMap<ProjectId, HashSet<String>>,
+    save_task: Task<()>,
+    save_queued: bool,
+    _save_on_quit: Subscription,
     changes: mpsc::UnboundedSender<ProjectId>,
     _change_listener: Task<()>,
 }
@@ -141,7 +167,16 @@ impl Store {
             cut: None,
             toasts: Vec::new(),
             busy: None,
+            last_run: None,
             next_toast: 0,
+            seen: Saved::load().seen,
+            rebaseline: HashMap::new(),
+            save_task: Task::ready(()),
+            save_queued: false,
+            _save_on_quit: cx.on_app_quit(|store, _| {
+                store.save();
+                async {}
+            }),
             changes,
             _change_listener: listener,
         };
@@ -170,7 +205,7 @@ impl Store {
             let projects = backend::run(backend::list_projects).await;
             this.update(cx, |store, cx| match projects {
                 Ok(projects) => store.set_projects(projects, cx),
-                Err(err) => store.toast(ToastKind::Error, format!("{err:#}"), cx),
+                Err(err) => store.error("Couldn't list projects", format!("{err:#}"), cx),
             })
             .ok();
         })
@@ -251,7 +286,7 @@ impl Store {
                         && !entry.loading
                     {
                         match result {
-                            Ok(workspace) => entry.workspace = Some(workspace),
+                            Ok(workspace) => store.workspace_loaded(&id, workspace, true, cx),
                             Err(err) => entry.error = Some(format!("{err:#}").into()),
                         }
                         cx.notify();
@@ -283,7 +318,7 @@ impl Store {
                         store.select(Some(Selection::Uncommitted(id)), cx);
                     }
                 }
-                Err(err) => store.toast(ToastKind::Error, format!("{err:#}"), cx),
+                Err(err) => store.error("Couldn't add the project", format!("{err:#}"), cx),
             })
             .ok();
         })
@@ -310,7 +345,7 @@ impl Store {
                 self.select(Some(Selection::Project(id.clone())), cx);
             }
         }
-        self.save();
+        self.save_soon(cx);
         cx.notify();
     }
 
@@ -374,14 +409,11 @@ impl Store {
                     return;
                 };
                 entry.loading = false;
+                let again = std::mem::take(&mut entry.reload_queued);
                 match result {
-                    Ok(workspace) => {
-                        entry.workspace = Some(workspace);
-                        entry.error = None;
-                    }
+                    Ok(workspace) => store.workspace_loaded(&id, workspace, !again, cx),
                     Err(err) => entry.error = Some(format!("{err:#}").into()),
                 }
-                let again = std::mem::take(&mut entry.reload_queued);
                 // A queued reload has newer data; checking against this one could drop a
                 // selection a mutation just made.
                 if !again {
@@ -431,37 +463,169 @@ impl Store {
         }
     }
 
+    /// `settled` is false when a newer load is already queued behind this one.
+    fn workspace_loaded(
+        &mut self,
+        id: &ProjectId,
+        workspace: Workspace,
+        settled: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let commits: HashSet<&str> = workspace
+            .branches()
+            .flat_map(|branch| &branch.commits)
+            .map(|commit| commit.key.as_str())
+            .collect();
+        let first_sight = !self.seen.commits.contains_key(id.as_ref());
+        let seen = self.seen.commits.entry(id.to_string()).or_default();
+        seen.retain(|key| commits.contains(key.as_str()));
+        // Nothing is news the first time a project shows up, and neither is what the
+        // app's own operations created.
+        let before = self.rebaseline.get(id);
+        seen.extend(
+            commits
+                .iter()
+                .filter(|key| first_sight || before.is_some_and(|before| !before.contains(**key)))
+                .map(|key| key.to_string()),
+        );
+        if settled {
+            self.rebaseline.remove(id);
+        }
+        let files: HashSet<&str> = workspace
+            .uncommitted
+            .iter()
+            .map(|f| f.path.as_str())
+            .collect();
+        if let Some(reviewed) = self.seen.files.get_mut(id.as_ref()) {
+            reviewed.retain(|path, _| files.contains(path.as_str()));
+        }
+        if let Some(entry) = self.project_mut(id) {
+            entry.workspace = Some(workspace);
+            entry.error = None;
+        }
+        self.save_soon(cx);
+    }
+
+    pub fn is_unread(&self, project: &str, commit: &Commit) -> bool {
+        self.seen
+            .commits
+            .get(project)
+            .is_some_and(|seen| !seen.contains(&commit.key))
+    }
+
+    pub fn review(&self, project: &str, file: &FileChange) -> Review {
+        match self
+            .seen
+            .files
+            .get(project)
+            .and_then(|files| files.get(&file.path))
+        {
+            None => Review::NotReviewed,
+            Some(version) if *version == file.modified.unwrap_or(0) => Review::Reviewed,
+            Some(_) => Review::Changed,
+        }
+    }
+
+    /// Uncommitted files of `project` that still want a look.
+    pub fn to_review(&self, project: &str) -> usize {
+        self.workspace(project).map_or(0, |ws| {
+            ws.uncommitted
+                .iter()
+                .filter(|file| self.review(project, file) != Review::Reviewed)
+                .count()
+        })
+    }
+
+    pub fn set_reviewed(
+        &mut self,
+        project: &ProjectId,
+        files: &[FileChange],
+        reviewed: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let entry = self.seen.files.entry(project.to_string()).or_default();
+        for file in files {
+            if reviewed {
+                entry.insert(file.path.clone(), file.modified.unwrap_or(0));
+            } else {
+                entry.remove(&file.path);
+            }
+        }
+        self.save_soon(cx);
+        cx.notify();
+    }
+
     pub fn select(&mut self, selection: Option<Selection>, cx: &mut Context<Self>) {
         if self.selection == selection {
             return;
         }
-        let project_changed = self.selection.as_ref().map(Selection::project)
-            != selection.as_ref().map(Selection::project);
-        self.selection = selection;
-        if project_changed {
-            self.save();
+        if let Some(Selection::Commit(project, id)) = &selection
+            && let Some((_, commit)) = self.workspace(project).and_then(|ws| ws.find_commit(*id))
+        {
+            let key = commit.key.clone();
+            self.seen
+                .commits
+                .entry(project.to_string())
+                .or_default()
+                .insert(key);
         }
+        self.selection = selection;
+        self.save_soon(cx);
         cx.emit(StoreEvent::SelectionChanged);
         cx.notify();
     }
 
-    pub fn toast(
+    pub fn snack(&mut self, message: impl Into<SharedString>, cx: &mut Context<Self>) {
+        self.notify_user(
+            Notice::Snackbar {
+                message: message.into(),
+                undo: None,
+            },
+            cx,
+        );
+    }
+
+    /// A snackbar offering to undo the mutation that just ran.
+    pub fn snack_undoable(&mut self, message: impl Into<SharedString>, cx: &mut Context<Self>) {
+        let undo = self.last_run.clone();
+        self.notify_user(
+            Notice::Snackbar {
+                message: message.into(),
+                undo,
+            },
+            cx,
+        );
+    }
+
+    pub fn error(
         &mut self,
-        kind: ToastKind,
-        message: impl Into<SharedString>,
+        title: impl Into<SharedString>,
+        detail: impl Into<SharedString>,
         cx: &mut Context<Self>,
     ) {
+        self.notify_user(
+            Notice::Error {
+                title: title.into(),
+                detail: detail.into(),
+            },
+            cx,
+        );
+    }
+
+    fn notify_user(&mut self, notice: Notice, cx: &mut Context<Self>) {
         let id = self.next_toast;
         self.next_toast += 1;
-        self.toasts.push(Toast {
-            id,
-            kind,
-            message: message.into(),
-        });
-        let linger = match kind {
-            ToastKind::Info => Duration::from_secs(3),
-            ToastKind::Error => Duration::from_secs(8),
+        let linger = match notice {
+            Notice::Snackbar { undo: None, .. } => Duration::from_secs(3),
+            Notice::Snackbar { undo: Some(_), .. } => Duration::from_secs(6),
+            Notice::Error { .. } => Duration::from_secs(15),
         };
+        // One snackbar at a time; errors stack.
+        if matches!(notice, Notice::Snackbar { .. }) {
+            self.toasts
+                .retain(|toast| !matches!(toast.notice, Notice::Snackbar { .. }));
+        }
+        self.toasts.push(Toast { id, notice });
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(linger).await;
             this.update(cx, |store, cx| {
@@ -477,11 +641,25 @@ impl Store {
     /// Confirm an operation, or warn about the changes it had to leave out.
     pub fn report_left_out(&mut self, done: &str, left_out: &[String], cx: &mut Context<Self>) {
         if left_out.is_empty() {
-            self.toast(ToastKind::Info, done.to_owned(), cx);
+            self.snack_undoable(done.to_owned(), cx);
         } else {
-            let message = format!("{done}, but left out {}", left_out.join(", "));
-            self.toast(ToastKind::Error, message, cx);
+            self.error(
+                format!("{done}, with gaps"),
+                format!("Left out {}", left_out.join(", ")),
+                cx,
+            );
         }
+    }
+
+    /// Restore `project` to before its last operation.
+    pub fn undo(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        self.run(
+            project,
+            "Undo",
+            backend::undo,
+            |store, undone, cx| store.snack(if undone { "Undone" } else { "Nothing to undo" }, cx),
+            cx,
+        );
     }
 
     pub fn dismiss_toast(&mut self, id: usize, cx: &mut Context<Self>) {
@@ -501,25 +679,33 @@ impl Store {
     ) {
         let label = label.into();
         if let Some(busy) = &self.busy {
-            self.toast(ToastKind::Info, format!("Still busy: {busy}"), cx);
+            self.snack(format!("Still busy: {busy}"), cx);
             return;
         }
         let Some(path) = self.path(project) else {
             return;
         };
         self.busy = Some(label.clone());
+        self.last_run = Some(project.clone());
         self.cut = None;
+        let before: HashSet<String> = self.workspace(project).map_or_else(HashSet::new, |ws| {
+            ws.branches()
+                .flat_map(|branch| &branch.commits)
+                .map(|commit| commit.key.clone())
+                .collect()
+        });
         cx.notify();
         let project = project.clone();
         cx.spawn(async move |this, cx| {
             let result = backend::run(move || op(&path)).await;
             this.update(cx, |store, cx| {
                 store.busy = None;
+                // Set here rather than at the start, so a load the watcher started
+                // mid-operation can't use it up.
+                store.rebaseline.insert(project.clone(), before);
                 match result {
                     Ok(value) => done(store, value, cx),
-                    Err(err) => {
-                        store.toast(ToastKind::Error, format!("{label} failed: {err:#}"), cx)
-                    }
+                    Err(err) => store.error(format!("{label} failed"), format!("{err:#}"), cx),
                 }
                 store.reload(&project, cx);
             })
@@ -543,6 +729,25 @@ impl Store {
         cx.notify();
     }
 
+    /// Write the saved state shortly, so a burst of changes writes once. A steady stream
+    /// of changes still writes every half second.
+    fn save_soon(&mut self, cx: &mut Context<Self>) {
+        if self.save_queued {
+            return;
+        }
+        self.save_queued = true;
+        self.save_task = cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(Duration::from_millis(500))
+                .await;
+            this.update(cx, |store, _| {
+                store.save_queued = false;
+                store.save();
+            })
+            .ok();
+        });
+    }
+
     fn save(&self) {
         let saved = Saved {
             expanded: self
@@ -552,6 +757,7 @@ impl Store {
                 .map(|entry| entry.id.to_string())
                 .collect(),
             selection: self.selection.as_ref().map(|s| s.project().to_string()),
+            seen: self.seen.clone(),
         };
         saved.store();
     }
@@ -562,6 +768,17 @@ impl Store {
 struct Saved {
     expanded: HashSet<String>,
     selection: Option<String>,
+    #[serde(default)]
+    seen: Seen,
+}
+
+/// What the user has looked at, so new work by agents stands out. Per project id.
+#[derive(Default, Clone, Serialize, Deserialize)]
+struct Seen {
+    /// Commit keys (see [`Commit::key`]) that have been looked at.
+    commits: HashMap<String, HashSet<String>>,
+    /// Uncommitted files marked reviewed, with the file version reviewed.
+    files: HashMap<String, HashMap<String, i64>>,
 }
 
 impl Saved {

@@ -48,6 +48,18 @@ impl Workspace {
         self.branches().find(|branch| branch.ref_name == ref_name)
     }
 
+    /// When anything last happened here, in seconds: a file written or a commit made.
+    pub fn last_activity(&self) -> Option<i64> {
+        let edited = self
+            .uncommitted
+            .iter()
+            .filter_map(|file| file.modified.map(|ms| ms / 1000));
+        let committed = self
+            .branches()
+            .filter_map(|branch| branch.commits.first().map(|c| c.time));
+        edited.chain(committed).max()
+    }
+
     pub fn unpushed_commits(&self) -> usize {
         self.branches()
             .flat_map(|branch| &branch.commits)
@@ -109,6 +121,8 @@ impl PushState {
 #[derive(Debug, Clone)]
 pub struct Commit {
     pub id: CommitId,
+    /// Survives rebases and rewording when the commit has a change id; the sha otherwise.
+    pub key: String,
     pub title: String,
     pub message: String,
     pub author: String,
@@ -130,6 +144,9 @@ pub struct FileChange {
     pub path: String,
     pub previous_path: Option<String>,
     pub kind: ChangeKind,
+    /// When the file was last written, in milliseconds since the Unix epoch. Only known
+    /// for uncommitted changes, and not for deletions.
+    pub modified: Option<i64>,
     /// What the backend needs to diff or move this change again.
     pub(crate) change: but_core::TreeChange,
 }

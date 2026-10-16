@@ -8,7 +8,7 @@ use crate::theme::Theme;
 
 pub const LINE_HEIGHT: f32 = 20.;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DiffRow {
     File(usize),
     Hunk {
@@ -26,10 +26,25 @@ pub enum DiffRow {
     Gap,
 }
 
-pub fn rows(files: &[FileDiff]) -> Vec<DiffRow> {
+impl DiffRow {
+    pub fn file(self) -> Option<usize> {
+        match self {
+            DiffRow::File(file) | DiffRow::Note(file) => Some(file),
+            DiffRow::Hunk { file, .. } | DiffRow::Line { file, .. } => Some(file),
+            DiffRow::Gap => None,
+        }
+    }
+}
+
+/// Rows for `files`, with the files `folded` says are folded reduced to their header.
+pub fn rows(files: &[FileDiff], folded: impl Fn(&FileDiff) -> bool) -> Vec<DiffRow> {
     let mut rows = Vec::new();
     for (file_ix, file) in files.iter().enumerate() {
         rows.push(DiffRow::File(file_ix));
+        if folded(file) {
+            rows.push(DiffRow::Gap);
+            continue;
+        }
         match &file.body {
             DiffBody::Hunks { hunks, .. } if !hunks.is_empty() => {
                 for (hunk_ix, hunk) in hunks.iter().enumerate() {
@@ -58,7 +73,7 @@ pub fn rows(files: &[FileDiff]) -> Vec<DiffRow> {
 pub fn change_color(kind: ChangeKind, theme: &Theme) -> Hsla {
     match kind {
         ChangeKind::Added => theme.safe,
-        ChangeKind::Modified => theme.warn,
+        ChangeKind::Modified => theme.blue,
         ChangeKind::Deleted => theme.danger,
         ChangeKind::Renamed => theme.purple,
     }
@@ -86,28 +101,37 @@ pub fn stats(added: u32, removed: u32, theme: &Theme) -> impl IntoElement {
         })
 }
 
-/// `leading` goes before a hunk header, like a checkbox; `excluded` dims a hunk's lines.
-pub fn render_row(
-    row: DiffRow,
-    files: &[FileDiff],
-    theme: &Theme,
-    leading: Option<AnyElement>,
-    excluded: bool,
-) -> AnyElement {
+/// What the diff's owner adds to a row.
+#[derive(Default)]
+pub struct Decor {
+    /// Before a hunk header, like a checkbox.
+    pub leading: Option<AnyElement>,
+    /// At the end of a file or hunk header, like its controls.
+    pub trailing: Option<AnyElement>,
+    /// Dims a hunk left out of the next commit.
+    pub excluded: bool,
+    /// The hunk or file the keyboard is on.
+    pub current: bool,
+    /// The file shows only its header.
+    pub folded: bool,
+}
+
+pub fn render_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor) -> AnyElement {
     div()
         .w_full()
         .px(px(16.))
-        .child(render_card_row(row, files, theme, leading, excluded))
+        .child(render_card_row(row, files, theme, decor))
         .into_any_element()
 }
 
-fn render_card_row(
-    row: DiffRow,
-    files: &[FileDiff],
-    theme: &Theme,
-    leading: Option<AnyElement>,
-    excluded: bool,
-) -> AnyElement {
+fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor) -> AnyElement {
+    let Decor {
+        leading,
+        trailing,
+        excluded,
+        current,
+        folded,
+    } = decor;
     let card = |el: gpui::Div| {
         el.w_full()
             .border_l_1()
@@ -122,13 +146,16 @@ fn render_card_row(
             let (name, dir) = split_path(&file.file.path);
             let (added, removed) = file.stats();
             card(h_flex())
-                .h(px(36.))
-                .px(px(12.))
+                .h(px(38.))
+                .pl(px(12.))
+                .pr(px(8.))
                 .gap(px(8.))
                 .border_t_1()
                 .border_b_1()
                 .rounded_t(px(6.))
+                .when(folded, |el| el.rounded_b(px(6.)))
                 .bg(theme.bg_1)
+                .when(current, |el| el.border_color(theme.border_2))
                 .child(
                     div()
                         .flex_none()
@@ -163,6 +190,7 @@ fn render_card_row(
                         ),
                 )
                 .child(stats(added, removed, theme))
+                .children(trailing)
                 .into_any_element()
         }
         DiffRow::Hunk { file, hunk } => {
@@ -170,20 +198,37 @@ fn render_card_row(
                 return div().into_any_element();
             };
             card(h_flex())
-                .h(px(LINE_HEIGHT + 4.))
-                .px(px(12.))
+                .h(px(LINE_HEIGHT + 6.))
+                .pl(px(12.))
+                .pr(px(4.))
                 .gap(px(8.))
-                .bg(theme.bg_2)
+                .bg(if current {
+                    theme.pop.opacity(0.1)
+                } else {
+                    theme.bg_2
+                })
                 .font_family(theme.mono_font.clone())
                 .text_size(px(11.5))
                 .text_color(theme.text_2)
                 .overflow_hidden()
                 .whitespace_nowrap()
                 .children(leading)
-                .child(SharedString::from(hunks[hunk].header.clone()))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .overflow_hidden()
+                        .child(SharedString::from(hunks[hunk].header.clone())),
+                )
                 .when(excluded, |el| {
-                    el.child(div().text_color(theme.text_3).child("not included"))
+                    el.child(
+                        div()
+                            .flex_none()
+                            .text_color(theme.text_3)
+                            .child("not included"),
+                    )
                 })
+                .children(trailing)
                 .into_any_element()
         }
         DiffRow::Note(file) => {

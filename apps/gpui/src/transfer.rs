@@ -4,7 +4,7 @@
 use gpui::{Context, SharedString};
 
 use crate::backend::{self, CommitId, Destination, FileChange};
-use crate::state::{Cut, Selection, Store, ToastKind};
+use crate::state::{Cut, Selection, Store};
 
 pub enum Transfer {
     Uncommit(CommitId),
@@ -155,7 +155,7 @@ impl Transfer {
                 project,
                 label,
                 move |path| backend::uncommit(path, &[id]),
-                |store, (), cx| store.toast(ToastKind::Info, "Uncommitted", cx),
+                |store, (), cx| store.snack_undoable("Uncommitted", cx),
                 cx,
             ),
             Transfer::UncommitFiles { from, files } => store.run(
@@ -164,7 +164,7 @@ impl Transfer {
                 move |path| backend::uncommit_files(path, from, &files),
                 |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.toast(ToastKind::Info, "Moved to uncommitted changes", cx)
+                    store.snack_undoable("Moved to uncommitted changes", cx)
                 },
                 cx,
             ),
@@ -181,7 +181,7 @@ impl Transfer {
                 move |path| backend::squash(path, &[id], into),
                 |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.toast(ToastKind::Info, "Squashed", cx)
+                    store.snack_undoable("Squashed", cx)
                 },
                 cx,
             ),
