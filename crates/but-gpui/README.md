@@ -24,8 +24,8 @@ The right side shows whatever is selected, under a breadcrumb whose project and 
 - **Uncommitted changes.** Every changed file as a diff, each marked "Not reviewed", "Reviewed" or "Needs review" (changed after you reviewed it). ⌘Y marks the file under the cursor reviewed, folds it and moves to the next file still to review. ↑ ↓ step through hunks, space and shift-space page through the diff, and ⌘⌥Z throws a hunk away, with an Undo button in case you didn't mean it. The navigator shows how many files are left to review. ⌘↩ or "Commit…" opens the composer, where you check files or single hunks and pick a branch.
 
   Diffs mark the words that changed within a line, and each hunk is titled with the function or type it sits in (`impl Counter › pub fn bump(&mut self, by: i32) -> i32`) rather than its `@@` line numbers. Both come from [deltoids](https://github.com/juanibiapina/deltoids), which parses the two sides with tree-sitter.
-- **A commit.** Its title, with the rest of the message behind the button beside it, its files and its diff. Edit the message, uncommit it or discard it.
-- **A branch.** Its commits and combined diff, Push, and its pull request: title, number, state and how its CI checks stand, with a button to open it.
+- **A commit.** Its title, with the rest of the message behind the button beside it, its files and its diff. Edit the message, uncommit it or discard it. Its right-click menu also adds an empty commit above or below, starts a new branch ending at it, rewraps a message with lines too long for `git log`, and copies its ID, change ID or message. ⌥↑ and ⌥↓ move it one step, into the next branch of its stack at either end.
+- **A branch.** Its commits and combined diff, Push, and its pull request: title, number, state and how its CI checks stand, with a button to open it. Its right-click menu adds a branch on top or below, an empty commit on top, squashes all its commits into one, takes it out of its stack, updates just its stack from the target, or unapplies it.
 - **A project.** Counts, Fetch, and Update to rebase every stack onto the latest target.
 - **History.** The last row of each project lists what GitButler did to it, newest first, including what agents ran from the CLI. Select an operation to see the files it changed, then restore the project to how it was before it; the restore can be undone too. "Take snapshot" records the project as it is now, to come back to later.
 
@@ -40,6 +40,9 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 | uncommitted files | a branch | picks that branch and those files for the next commit |
 | a commit's file | another commit | moves the change between commits |
 | a commit's file | uncommitted changes | uncommits just that file |
+| a branch | another branch | stacks it, with the branches above it, on top of that one |
+
+"Cherry-pick" in a commit's menu picks it up the same way, and ⌘V puts a copy on top of a branch or above a commit, leaving the original where it is.
 
 Branch rows show a pull request's state (open, draft, merged or closed) and number, and a glyph for its checks. The app reads these from GitButler's forge cache, which it refreshes in the background every minute and after each push, using the GitHub account GitButler already has.
 
@@ -56,6 +59,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | ⇧Esc | zoom the diff to the whole window |
 | . | show or hide the navigator |
 | ⌘↩ | commit… |
+| ⌥⌘↩ | while committing: amend the newest commit of the target branch instead |
 | ⌘Z, ⇧⌘Z | undo, redo |
 | ⌘X, ⌘V | cut the selection, paste it onto the selected row (⌥⌘V squashes a commit instead of moving it) |
 | ⌘N | new branch |
@@ -70,6 +74,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | o | open the pull request |
 | ⌘⌫ | discard the selected commit or delete the selected branch |
 | ⌥⌘⌫ | uncommit the selected commit |
+| ⌥↑ ⌥↓ | move the selected commit up or down |
 
 | In the changes | |
 |---|---|

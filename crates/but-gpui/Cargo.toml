@@ -48,6 +48,7 @@ gix = { workspace = true, features = ["sha1"] }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 # GitButler, consumed only from `src/backend`.
+but-action.workspace = true
 but-api = { workspace = true, features = ["legacy"] }
 but-askpass.workspace = true
 but-core.workspace = true

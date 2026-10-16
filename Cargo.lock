@@ -1650,6 +1650,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-action",
  "but-api",
  "but-askpass",
  "but-core",

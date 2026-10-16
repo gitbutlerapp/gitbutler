@@ -41,6 +41,7 @@ actions!(
         ToggleFold,
         PageDown,
         PageUp,
+        AmendTop,
     ]
 );
 
@@ -61,6 +62,8 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("space", PageDown, c),
         KeyBinding::new("pageup", PageUp, c),
         KeyBinding::new("shift-space", PageUp, c),
+        // Works while typing the message too, as the composer's other key does.
+        KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
     ]);
 }
 
@@ -879,6 +882,11 @@ impl Render for Detail {
             )
             .on_action(cx.listener(|this, _: &PageDown, _, cx| this.page(1., cx)))
             .on_action(cx.listener(|this, _: &PageUp, _, cx| this.page(-1., cx)))
+            .when(self.composing, |el| {
+                el.on_action(
+                    cx.listener(|this, _: &AmendTop, window, cx| this.amend_top(window, cx)),
+                )
+            })
             .size_full()
             .bg(theme.bg_1)
             .child(self.render_header(selection.as_ref(), &theme, cx))

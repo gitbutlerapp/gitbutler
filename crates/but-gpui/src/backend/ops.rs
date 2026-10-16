@@ -18,8 +18,12 @@ use super::{CommitId, Selected, open};
 pub enum Destination {
     /// The top of this branch (a full ref name).
     Branch(String),
+    /// The bottom of the branch stacked on this one.
+    AboveBranch(String),
     /// Right above this commit, in its branch.
     AboveCommit(CommitId),
+    /// Right below this commit, in its branch.
+    BelowCommit(CommitId),
 }
 
 impl Destination {
@@ -29,7 +33,12 @@ impl Destination {
                 RelativeTo::Reference(full_name(ref_name)?),
                 InsertSide::Below,
             ),
+            Destination::AboveBranch(ref_name) => (
+                RelativeTo::Reference(full_name(ref_name)?),
+                InsertSide::Above,
+            ),
             Destination::AboveCommit(id) => (RelativeTo::Commit(id.0), InsertSide::Above),
+            Destination::BelowCommit(id) => (RelativeTo::Commit(id.0), InsertSide::Below),
         })
     }
 }
@@ -152,17 +161,108 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
 
 /// Stack a new branch on top of `below` (a full ref name).
 pub fn create_dependent_branch(path: &Path, below: &str, name: &str) -> Result<String> {
+    let relative_to = but_api::commit::json::RelativeTo::Reference(full_name(below)?);
+    create_branch_at(path, relative_to, InsertSide::Above, name)
+}
+
+/// Make a new branch whose newest commit is `commit`, taking it and the commits below it
+/// in its branch; or with `below`, one that ends just under `commit`.
+pub fn create_branch_at_commit(
+    path: &Path,
+    commit: CommitId,
+    below: bool,
+    name: &str,
+) -> Result<String> {
+    let side = if below {
+        InsertSide::Below
+    } else {
+        InsertSide::Above
+    };
+    let relative_to = but_api::commit::json::RelativeTo::Commit(commit.0);
+    create_branch_at(path, relative_to, side, name)
+}
+
+fn create_branch_at(
+    path: &Path,
+    relative_to: but_api::commit::json::RelativeTo,
+    side: InsertSide,
+    name: &str,
+) -> Result<String> {
     let mut ctx = open(path)?;
     let ref_name = branch_ref(name)?;
     but_api::branch::branch_create(
         &mut ctx,
         Some(ref_name.clone()),
-        but_api::branch::json::BranchCreatePlacement::Dependent {
-            relative_to: but_api::commit::json::RelativeTo::Reference(full_name(below)?),
-            side: InsertSide::Above,
-        },
+        but_api::branch::json::BranchCreatePlacement::Dependent { relative_to, side },
     )?;
     Ok(ref_name.to_string())
+}
+
+/// Stack `branch` (a full ref name) on top of `onto`, with the branches above it.
+pub fn stack_branch(path: &Path, branch: &str, onto: &str) -> Result<()> {
+    let mut ctx = open(path)?;
+    but_api::branch::move_branch(
+        &mut ctx,
+        full_name(branch)?.as_ref(),
+        RelativeTo::Reference(full_name(onto)?),
+        InsertSide::Above,
+        DryRun::No,
+    )?;
+    Ok(())
+}
+
+/// Take `branch` out of its stack into a stack of its own.
+pub fn tear_off_branch(path: &Path, branch: &str) -> Result<()> {
+    let mut ctx = open(path)?;
+    but_api::branch::tear_off_branch(&mut ctx, full_name(branch)?.as_ref(), DryRun::No)?;
+    Ok(())
+}
+
+/// Take the stack holding `branch` out of the workspace. Its branches stay in the repository.
+pub fn unapply_stack(path: &Path, branch: &str) -> Result<()> {
+    let mut ctx = open(path)?;
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    let stack_id = info
+        .stacks
+        .iter()
+        .find(|stack| stack.segments.iter().any(|s| holds(s, branch)))
+        .and_then(|stack| stack.id)
+        .context("That branch isn't in the workspace any more")?;
+    but_api::legacy::virtual_branches::unapply_stack(&mut ctx, stack_id)
+}
+
+fn holds(segment: &but_workspace::ref_info::Segment, branch: &str) -> bool {
+    segment
+        .ref_info
+        .as_ref()
+        .is_some_and(|info| info.ref_name.as_bstr() == branch)
+}
+
+/// An empty commit at `at`, to move changes into later.
+pub fn insert_empty_commit(path: &Path, at: &Destination) -> Result<CommitId> {
+    let mut ctx = open(path)?;
+    let (relative_to, side) = at.relative_to()?;
+    let outcome = but_api::commit::insert_blank::commit_insert_blank(
+        &mut ctx,
+        relative_to,
+        side,
+        DryRun::No,
+    )?;
+    Ok(CommitId(outcome.new_commit))
+}
+
+/// Put a copy of `commit` at `to`, keeping the original where it is.
+pub fn cherry_pick(path: &Path, commit: CommitId, to: &Destination) -> Result<Rewritten> {
+    let mut ctx = open(path)?;
+    let (relative_to, side) = to.relative_to()?;
+    let outcome = but_api::commit::cherry_pick::commit_cherry_pick(
+        &mut ctx,
+        vec![commit.0],
+        relative_to,
+        side,
+        DryRun::No,
+    )?;
+    Ok(rewritten(&outcome.workspace))
 }
 
 /// Rename a branch and return its new full ref name.
@@ -317,12 +417,15 @@ pub fn push(path: &Path, ref_name: &str, force: bool) -> Result<()> {
     Ok(())
 }
 
-/// Rebase every stack onto the target as it is now. Doesn't fetch first; see [`fetch()`].
-pub fn update_from_target(path: &Path) -> Result<()> {
+/// Rebase every stack onto the target as it is now, or with `branch` only the stack
+/// holding it. Doesn't fetch first; see [`fetch()`].
+pub fn update_from_target(path: &Path, branch: Option<&str>) -> Result<()> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let updates =
-        but_api::workspace::rebase_lane_bottoms(info.stacks.iter().map(|stack| stack.lane()));
+    let stacks = info.stacks.iter().filter(|stack| {
+        branch.is_none_or(|branch| stack.segments.iter().any(|s| holds(s, branch)))
+    });
+    let updates = but_api::workspace::rebase_lane_bottoms(stacks.map(|stack| stack.lane()));
     let mut guard = ctx.exclusive_worktree_access();
     but_api::workspace::workspace_integrate_upstream_with_perm(
         &mut ctx,

@@ -150,14 +150,25 @@ impl Store {
         );
     }
 
-    /// Rebase the project's branches onto its target's latest commits.
-    pub fn update_from_target(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+    /// Rebase the project's branches onto its target's latest commits, or with `branch`
+    /// just the stack holding it.
+    pub fn update_from_target(
+        &mut self,
+        project: &ProjectId,
+        branch: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        let done = if branch.is_some() {
+            "Stack updated from target"
+        } else {
+            "Updated from target"
+        };
         self.run(
             project,
             "Update",
             Overlay::default(),
-            |path, _| backend::update_from_target(path),
-            |store, (), cx| store.snack_undoable("Updated from target", cx),
+            move |path, _| backend::update_from_target(path, branch.as_deref()),
+            move |store, (), cx| store.snack_undoable(done, cx),
             cx,
         );
     }

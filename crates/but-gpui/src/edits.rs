@@ -1,0 +1,364 @@
+//! Edits to the selected commit or branch beyond moving it: one step up or down, empty
+//! commits, cherry-picks, squashing a branch, new branches below or ending at a commit,
+//! unstacking, unapplying, updating one stack and rewrapping a message. The navigator
+//! offers each only where it applies, so menus, keys and the palette agree.
+
+use gpui::{App, Context, Div, KeyBinding, Window, actions, prelude::*};
+
+use crate::app::AppView;
+use crate::backend::{self, CommitId, Destination, Workspace};
+use crate::state::{Cut, Overlay, ProjectId, Selection};
+use crate::transfer::{Transfer, remapped, short_ref};
+
+actions!(
+    edits,
+    [
+        MoveUp,
+        MoveDown,
+        AddEmptyCommitAbove,
+        AddEmptyCommitBelow,
+        CherryPick,
+        SquashAll,
+        NewBranchBelow,
+        NewBranchHere,
+        Unstack,
+        UnapplyStack,
+        UpdateStack,
+        RewrapMessage,
+        CopyChangeId,
+        CopyMessage,
+    ]
+);
+
+pub fn bind_keys(cx: &mut App) {
+    let nav = Some("Navigator && !TextInput");
+    cx.bind_keys([
+        KeyBinding::new("alt-up", MoveUp, nav),
+        KeyBinding::new("alt-down", MoveDown, nav),
+    ]);
+}
+
+/// Body lines longer than this get rewrapped, as `git` and `but reword` expect.
+const WRAP_AT: usize = 72;
+
+/// Whether `message` has body lines too long to read in `git log`.
+pub fn needs_rewrap(message: &str) -> bool {
+    message
+        .lines()
+        .skip(1)
+        .any(|line| line.chars().count() > WRAP_AT)
+}
+
+/// Where moving the commit `id` one step lands it: past its neighbour in the branch, or
+/// across into the next branch of its stack.
+fn step(workspace: &Workspace, id: CommitId, up: bool) -> Option<Destination> {
+    let (branch, _) = workspace.find_commit(id)?;
+    let (stack, at) = workspace.stack_of(&branch.ref_name)?;
+    let ix = branch.commits.iter().position(|c| c.id == id)?;
+    if up {
+        match ix.checked_sub(1) {
+            Some(above) => Some(Destination::AboveCommit(branch.commits[above].id)),
+            None if at > 0 && !branch.ref_name.is_empty() => {
+                Some(Destination::AboveBranch(branch.ref_name.clone()))
+            }
+            None => None,
+        }
+    } else {
+        match branch.commits.get(ix + 1) {
+            Some(below) => Some(Destination::BelowCommit(below.id)),
+            None => stack
+                .branches
+                .get(at + 1)
+                .filter(|below| !below.ref_name.is_empty())
+                .map(|below| Destination::Branch(below.ref_name.clone())),
+        }
+    }
+}
+
+impl AppView {
+    /// Register the edits that apply to `selection` on the element around the navigator.
+    pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
+        match self.store.read(cx).selection {
+            Some(Selection::Commit(..)) => el
+                .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.move_step(true, cx)))
+                .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.move_step(false, cx)))
+                .on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
+                    this.add_empty_commit(true, cx)
+                }))
+                .on_action(cx.listener(|this, _: &AddEmptyCommitBelow, _, cx| {
+                    this.add_empty_commit(false, cx)
+                }))
+                .on_action(cx.listener(Self::cherry_pick))
+                .on_action(cx.listener(Self::new_branch_here))
+                .on_action(cx.listener(Self::rewrap_message))
+                .on_action(cx.listener(|this, _: &CopyChangeId, _, cx| this.copy_commit(true, cx)))
+                .on_action(cx.listener(|this, _: &CopyMessage, _, cx| this.copy_commit(false, cx))),
+            Some(Selection::Branch(..)) => el
+                .on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
+                    this.add_empty_commit(true, cx)
+                }))
+                .on_action(cx.listener(Self::squash_all))
+                .on_action(cx.listener(Self::new_branch_below))
+                .on_action(cx.listener(Self::unstack))
+                .on_action(cx.listener(Self::unapply_stack))
+                .on_action(cx.listener(Self::update_stack)),
+            _ => el,
+        }
+    }
+
+    fn selected_commit(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
+        match self.store.read(cx).selection.clone()? {
+            Selection::Commit(project, id) => Some((project, id)),
+            _ => None,
+        }
+    }
+
+    fn selected_branch_ref(&self, cx: &App) -> Option<(ProjectId, String)> {
+        match self.store.read(cx).selection.clone()? {
+            Selection::Branch(project, ref_name) if !ref_name.is_empty() => {
+                Some((project, ref_name))
+            }
+            _ => None,
+        }
+    }
+
+    fn move_step(&mut self, up: bool, cx: &mut Context<Self>) {
+        let Some((project, id)) = self.selected_commit(cx) else {
+            return;
+        };
+        let to = self
+            .store
+            .read(cx)
+            .workspace(&project)
+            .and_then(|ws| step(ws, id, up));
+        match to {
+            Some(to) => {
+                self.store.update(cx, |store, cx| {
+                    Transfer::MoveCommit { id, to }.perform(&project, store, cx);
+                });
+            }
+            None => self.store.update(cx, |store, cx| {
+                let edge = if up { "top" } else { "bottom" };
+                store.snack(format!("Already at the {edge} of its stack"), cx)
+            }),
+        }
+    }
+
+    /// An empty commit above or below the selected commit, or on top of the selected branch.
+    fn add_empty_commit(&mut self, above: bool, cx: &mut Context<Self>) {
+        let at = match self.store.read(cx).selection.clone() {
+            Some(Selection::Commit(project, id)) if above => {
+                (project, Destination::AboveCommit(id))
+            }
+            Some(Selection::Commit(project, id)) => (project, Destination::BelowCommit(id)),
+            Some(Selection::Branch(project, ref_name)) if !ref_name.is_empty() => {
+                (project, Destination::Branch(ref_name))
+            }
+            _ => return,
+        };
+        let (project, to) = at;
+        let selected = project.clone();
+        self.store.update(cx, |store, cx| {
+            store.run(
+                &project,
+                "Add empty commit",
+                Overlay::default(),
+                move |path, remap| backend::insert_empty_commit(path, &remapped(to, remap)?),
+                move |store, id, cx| {
+                    store.select(Some(Selection::Commit(selected, id)), cx);
+                    store.snack_undoable("Empty commit added", cx)
+                },
+                cx,
+            )
+        });
+    }
+
+    /// Pick up the selected commit to put a copy of it where ⌘V lands.
+    fn cherry_pick(&mut self, _: &CherryPick, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some((project, id)) = self.selected_commit(cx) {
+            self.cut(Cut::Pick(project, id), cx);
+        }
+    }
+
+    /// Squash every commit of the selected branch into its oldest, keeping all messages.
+    fn squash_all(&mut self, _: &SquashAll, _: &mut Window, cx: &mut Context<Self>) {
+        let Some((project, ref_name)) = self.selected_branch_ref(cx) else {
+            return;
+        };
+        let store = self.store.read(cx);
+        let Some(branch) = store
+            .workspace(&project)
+            .and_then(|ws| ws.find_branch(&ref_name))
+        else {
+            return;
+        };
+        let Some((oldest, rest)) = branch.commits.split_last() else {
+            return;
+        };
+        if rest.is_empty() {
+            return;
+        }
+        let into = oldest.id;
+        let rest: Vec<CommitId> = rest.iter().map(|c| c.id).collect();
+        let overlay = Overlay::commits(branch.commits[..rest.len()].iter().map(|c| c.key.clone()));
+        self.store.update(cx, |store, cx| {
+            store.run(
+                &project,
+                "Squash all",
+                overlay,
+                move |path, remap| {
+                    let rest = rest
+                        .iter()
+                        .map(|id| remap.get(*id))
+                        .collect::<anyhow::Result<Vec<_>>>()?;
+                    backend::squash(path, &rest, remap.get(into)?)
+                },
+                |store, rewritten, cx| {
+                    store.follow(&rewritten, cx);
+                    store.snack_undoable("Squashed into one commit", cx)
+                },
+                cx,
+            )
+        });
+    }
+
+    /// A new branch under the selected one, which keeps its commits.
+    fn new_branch_below(
+        &mut self,
+        _: &NewBranchBelow,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((project, ref_name)) = self.selected_branch_ref(cx) else {
+            return;
+        };
+        let oldest = self
+            .store
+            .read(cx)
+            .workspace(&project)
+            .and_then(|ws| ws.find_branch(&ref_name))
+            .and_then(|branch| branch.commits.last())
+            .map(|commit| commit.id);
+        let Some(oldest) = oldest else {
+            return;
+        };
+        let title = format!("New branch below {}", short_ref(&ref_name));
+        self.prompt_branch(
+            project,
+            &title,
+            "Create",
+            "",
+            window,
+            cx,
+            move |path, name| backend::create_branch_at_commit(path, oldest, true, name),
+        );
+    }
+
+    /// Split the selected commit's branch: a new branch ending at it takes it and the
+    /// commits below it.
+    fn new_branch_here(&mut self, _: &NewBranchHere, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((project, id)) = self.selected_commit(cx) else {
+            return;
+        };
+        let title = format!("New branch ending at {}", id.short());
+        self.prompt_branch(
+            project,
+            &title,
+            "Create",
+            "",
+            window,
+            cx,
+            move |path, name| backend::create_branch_at_commit(path, id, false, name),
+        );
+    }
+
+    fn unstack(&mut self, _: &Unstack, _: &mut Window, cx: &mut Context<Self>) {
+        let Some((project, ref_name)) = self.selected_branch_ref(cx) else {
+            return;
+        };
+        self.store.update(cx, |store, cx| {
+            store.run(
+                &project,
+                "Unstack",
+                Overlay::default(),
+                move |path, _| backend::tear_off_branch(path, &ref_name),
+                |store, (), cx| store.snack_undoable("Moved to its own stack", cx),
+                cx,
+            )
+        });
+    }
+
+    fn unapply_stack(&mut self, _: &UnapplyStack, _: &mut Window, cx: &mut Context<Self>) {
+        let Some((project, ref_name)) = self.selected_branch_ref(cx) else {
+            return;
+        };
+        let name = short_ref(&ref_name).to_owned();
+        self.store.update(cx, |store, cx| {
+            store.run(
+                &project,
+                "Unapply",
+                Overlay::default(),
+                move |path, _| backend::unapply_stack(path, &ref_name),
+                move |store, (), cx| store.snack_undoable(format!("Unapplied {name}"), cx),
+                cx,
+            )
+        });
+    }
+
+    fn update_stack(&mut self, _: &UpdateStack, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some((project, ref_name)) = self.selected_branch_ref(cx) {
+            self.store.update(cx, |store, cx| {
+                store.update_from_target(&project, Some(ref_name), cx)
+            });
+        }
+    }
+
+    fn rewrap_message(&mut self, _: &RewrapMessage, _: &mut Window, cx: &mut Context<Self>) {
+        let Some((project, id)) = self.selected_commit(cx) else {
+            return;
+        };
+        let Some((_, commit)) = self
+            .store
+            .read(cx)
+            .workspace(&project)
+            .and_then(|ws| ws.find_commit(id))
+        else {
+            return;
+        };
+        let message = but_action::commit_format::format_commit_message(&commit.message);
+        self.store.update(cx, |store, cx| {
+            store.run(
+                &project,
+                "Rewrap message",
+                Overlay::default(),
+                move |path, remap| backend::reword(path, remap.get(id)?, &message),
+                |store, rewritten, cx| {
+                    store.follow(&rewritten, cx);
+                    store.snack_undoable("Message rewrapped", cx)
+                },
+                cx,
+            )
+        });
+    }
+
+    /// Copy the selected commit's change ID, or its whole message.
+    fn copy_commit(&mut self, change_id: bool, cx: &mut Context<Self>) {
+        let Some((project, id)) = self.selected_commit(cx) else {
+            return;
+        };
+        let Some((_, commit)) = self
+            .store
+            .read(cx)
+            .workspace(&project)
+            .and_then(|ws| ws.find_commit(id))
+        else {
+            return;
+        };
+        let text = if change_id {
+            commit.key.clone()
+        } else {
+            commit.message.clone()
+        };
+        self.copy_text(text, cx);
+    }
+}

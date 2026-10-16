@@ -16,6 +16,11 @@ use crate::app::{
 };
 use crate::backend::{CommitId, CommitState, PushState};
 use crate::detail::{ChecksChanged, Detail};
+use crate::edits::{
+    AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage, MoveDown,
+    MoveUp, NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
+    UpdateStack,
+};
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::Transfer;
@@ -550,7 +555,7 @@ impl Navigator {
                                 .tooltip("Rebase branches onto the latest target")
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.store.update(cx, |store, cx| {
-                                        store.update_from_target(&project, cx)
+                                        store.update_from_target(&project, None, cx)
                                     })
                                 })),
                         )
@@ -655,6 +660,7 @@ impl Navigator {
         let store = self.store.read(cx);
         let theme = style.theme;
         let branch = store.branch_for(item)?;
+        let is_cut = matches!(&store.cut, Some(Cut::Branch(_, cut)) if cut == ref_name);
         let unpushed = branch
             .commits
             .iter()
@@ -726,7 +732,20 @@ impl Navigator {
                         .any(|commit| store.is_unread(id, commit)),
                     |el| el.child(dot(style.meta(theme.pop))),
                 )
+                .when(is_cut, |el| {
+                    el.opacity(0.5)
+                        .border_1()
+                        .border_dashed()
+                        .border_color(theme.pop)
+                })
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .when(!ref_name.is_empty(), |el| {
+                    let payload = Cut::Branch(id.clone(), ref_name.to_owned());
+                    el.on_drag(
+                        payload,
+                        drag_preview(self.store.clone(), branch.name.clone().into()),
+                    )
+                })
                 .into_any_element(),
         )
     }
@@ -743,7 +762,8 @@ impl Navigator {
         let theme = style.theme;
         let (_, commit) = store.workspace(id)?.find_commit(*commit_id)?;
         let cut = store.cut.as_ref();
-        let is_cut = matches!(cut, Some(Cut::Commit(_, cut)) if cut == commit_id);
+        let is_cut =
+            matches!(cut, Some(Cut::Commit(_, cut) | Cut::Pick(_, cut)) if cut == commit_id);
         let (glyph, color) = if commit.conflicted {
             (Icon::Warning, theme.danger)
         } else {
@@ -931,32 +951,103 @@ impl Navigator {
                     action("Discard checked changes…", &DeleteSelection).danger(),
                 ]
             }
-            Selection::Branch(_, ref_name) => {
-                let branch = store.branch_for(target);
+            Selection::Branch(project, ref_name) => {
                 let mut items = Vec::new();
-                if branch.is_some_and(|b| b.push.can_push()) {
+                let (Some(branch), Some(workspace)) =
+                    (store.branch_for(target), store.workspace(project))
+                else {
+                    return items;
+                };
+                if branch.push.can_push() {
                     items.push(action("Push", &Push));
                 }
-                if branch.is_some_and(|b| b.review.as_ref().is_some_and(|r| r.url.is_some())) {
+                if branch.review.as_ref().is_some_and(|r| r.url.is_some()) {
                     items.push(action("Open pull request", &OpenPullRequest));
                 }
-                if !ref_name.is_empty() {
-                    items.extend([
-                        action("New branch on top…", &NewBranchOnTop),
-                        action("Rename…", &RenameSelection),
-                        action("Copy name", &CopySelection),
-                        action("Delete branch…", &DeleteSelection).danger(),
-                    ]);
+                if ref_name.is_empty() {
+                    return items;
                 }
+                let separated = |item: MenuItem, first: bool| {
+                    if first { item.separated() } else { item }
+                };
+                items.push(separated(
+                    action("New branch on top…", &NewBranchOnTop),
+                    true,
+                ));
+                if !branch.commits.is_empty() {
+                    items.push(action("New branch below…", &NewBranchBelow));
+                }
+                items.push(action("Add empty commit", &AddEmptyCommitAbove));
+                if branch.commits.len() > 1 {
+                    items.push(action("Squash all commits", &SquashAll));
+                }
+                let stacked = workspace
+                    .stack_of(ref_name)
+                    .is_some_and(|(stack, _)| stack.branches.len() > 1);
+                items.push(action("Cut", &CutSelection).separated());
+                if stacked {
+                    items.push(action("Unstack", &Unstack));
+                }
+                if let Some(target) = workspace.target.as_ref().filter(|t| t.needs_update) {
+                    items.push(MenuItem::action(
+                        format!("Update stack from {}", target.name),
+                        &UpdateStack,
+                        cx,
+                    ));
+                }
+                items.push(action(
+                    if stacked {
+                        "Unapply stack"
+                    } else {
+                        "Unapply branch"
+                    },
+                    &UnapplyStack,
+                ));
+                items.extend([
+                    action("Rename…", &RenameSelection).separated(),
+                    action("Copy name", &CopySelection),
+                    action("Delete branch…", &DeleteSelection).danger(),
+                ]);
                 items
             }
-            Selection::Commit(..) => vec![
-                action("Cut", &CutSelection),
-                action("Uncommit", &UncommitSelection),
-                action("Edit message…", &RenameSelection),
-                action("Copy commit id", &CopySelection),
-                action("Discard commit…", &DeleteSelection).danger(),
-            ],
+            Selection::Commit(project, id) => {
+                let Some(workspace) = store.workspace(project) else {
+                    return Vec::new();
+                };
+                let Some((branch, commit)) = workspace.find_commit(*id) else {
+                    return Vec::new();
+                };
+                let mut items = vec![
+                    action("Cut", &CutSelection),
+                    action("Cherry-pick", &CherryPick),
+                    action("Edit message…", &RenameSelection).separated(),
+                ];
+                if crate::edits::needs_rewrap(&commit.message) {
+                    items.push(action("Rewrap message", &RewrapMessage));
+                }
+                items.extend([
+                    action("Add empty commit above", &AddEmptyCommitAbove),
+                    action("Add empty commit below", &AddEmptyCommitBelow),
+                ]);
+                if !branch.ref_name.is_empty() && branch.commits.first().map(|c| c.id) != Some(*id)
+                {
+                    items.push(action("New branch ending here…", &NewBranchHere));
+                }
+                items.extend([
+                    action("Move up", &MoveUp).separated(),
+                    action("Move down", &MoveDown),
+                    action("Copy commit ID", &CopySelection).separated(),
+                ]);
+                if commit.has_change_id() {
+                    items.push(action("Copy change ID", &CopyChangeId));
+                }
+                items.extend([
+                    action("Copy message", &CopyMessage),
+                    action("Uncommit", &UncommitSelection).separated(),
+                    action("Discard commit…", &DeleteSelection).danger(),
+                ]);
+                items
+            }
             Selection::History(_) => Vec::new(),
         }
     }
@@ -1097,7 +1188,7 @@ impl Render for DragPreview {
         let hint = match &self.payload {
             Cut::Commit(..) if window.modifiers().alt => Some("Squash"),
             Cut::Commit(..) => Some("⌥ to squash"),
-            Cut::Files { .. } => None,
+            Cut::Pick(..) | Cut::Branch(..) | Cut::Files { .. } => None,
         };
         popover(theme)
             .flex_row()
@@ -1112,7 +1203,8 @@ impl Render for DragPreview {
             .text_color(theme.text_1)
             .child(
                 small_icon(match self.payload {
-                    Cut::Commit(..) => Icon::Commit,
+                    Cut::Commit(..) | Cut::Pick(..) => Icon::Commit,
+                    Cut::Branch(..) => Icon::Branch,
                     Cut::Files { .. } => Icon::File,
                 })
                 .text_color(theme.pop),

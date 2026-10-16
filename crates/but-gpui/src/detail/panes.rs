@@ -542,6 +542,7 @@ impl Detail {
         else {
             return;
         };
+        let (files_for_paths, project_for_paths) = (files.clone(), project.clone());
         let cut = payload.clone();
         let mut items = vec![MenuItem::new("Cut", move |this: &mut AppView, _, cx| {
             this.cut(cut.clone(), cx)
@@ -556,6 +557,25 @@ impl Detail {
                 this.transfer(&payload, &uncommitted, false, window, cx);
             }),
         });
+        if let [file] = &*files_for_paths
+            && let Some(root) = self.store.read(cx).path(&project_for_paths)
+        {
+            let relative = file.file.path.clone();
+            let absolute = root.join(&relative);
+            let full = absolute.display().to_string();
+            items.extend([
+                MenuItem::new("Copy path", move |this, _, cx| {
+                    this.copy_text(relative.clone(), cx)
+                })
+                .separated(),
+                MenuItem::new("Copy full path", move |this, _, cx| {
+                    this.copy_text(full.clone(), cx)
+                }),
+                MenuItem::new("Reveal in Finder", move |_, _, cx| {
+                    cx.reveal_path(&absolute)
+                }),
+            ]);
+        }
         let position = event.position;
         self.app
             .update(cx, |app, cx| app.open_menu(position, items, cx))

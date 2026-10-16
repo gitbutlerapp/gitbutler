@@ -16,6 +16,11 @@ use crate::detail::{
     DiscardFile, DiscardHunk, NextFile, NextHunk, PreviousFile, PreviousHunk, ToggleFold,
     ToggleReviewed,
 };
+use crate::edits::{
+    AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage, MoveDown,
+    MoveUp, NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
+    UpdateStack,
+};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{h_flex, keycap, list_row, popover, shortcut, v_flex};
@@ -54,6 +59,20 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("New branch on top", Box::new(NewBranchOnTop)),
         ("Rename", Box::new(RenameSelection)),
         ("Uncommit", Box::new(UncommitSelection)),
+        ("Move commit up", Box::new(MoveUp)),
+        ("Move commit down", Box::new(MoveDown)),
+        ("Cherry-pick commit", Box::new(CherryPick)),
+        ("Add empty commit above", Box::new(AddEmptyCommitAbove)),
+        ("Add empty commit below", Box::new(AddEmptyCommitBelow)),
+        ("Squash all commits", Box::new(SquashAll)),
+        ("New branch below", Box::new(NewBranchBelow)),
+        ("New branch ending here", Box::new(NewBranchHere)),
+        ("Unstack branch", Box::new(Unstack)),
+        ("Unapply stack", Box::new(UnapplyStack)),
+        ("Update stack from target", Box::new(UpdateStack)),
+        ("Rewrap commit message", Box::new(RewrapMessage)),
+        ("Copy change ID", Box::new(CopyChangeId)),
+        ("Copy commit message", Box::new(CopyMessage)),
         ("Discard or delete selection", Box::new(DeleteSelection)),
         ("Copy", Box::new(CopySelection)),
         ("Cut", Box::new(CutSelection)),
@@ -73,6 +92,8 @@ const RISKY: &[&str] = &[
     "Discard file",
     "Discard or delete selection",
     "Uncommit",
+    "Squash all commits",
+    "Unapply stack",
     "Push branch",
 ];
 
