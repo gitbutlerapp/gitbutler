@@ -150,6 +150,7 @@ const machine = (
 const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, selected }) => {
 	const rich = layout === "rich";
 	const age = (value: string) => (rich ? undefined : <MetaCount type="age">{value}</MetaCount>);
+	const [stackFolded, setStackFolded] = useState(false);
 	return (
 		<>
 			<Repository>
@@ -192,63 +193,81 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 					menu={menu("Branch")}
 				/>
 				<WorktreeDivider depth={2} />
-				<StackCaption label="Stack of 2" depth={2} folded={false} menu={menu("Stack")} />
-				<BranchItem
-					layout={layout}
-					title="fix: retry stalled transfers"
-					pr={{ number: 377, state: "open" }}
-					branch="retry-transfers"
+				<StackCaption
+					label="Stack of 2"
 					depth={2}
-					folded
+					folded={stackFolded}
+					onToggleFolded={() => setStackFolded(!stackFolded)}
 					meta={
-						<>
-							<CiStatus status="working" />
-							<MetaCount type="unpushed">4</MetaCount>
-							{age("8m")}
-						</>
+						stackFolded && (
+							<>
+								<MetaCount type="unpushed">11</MetaCount>
+								<MetaCount type="age">8m</MetaCount>
+							</>
+						)
 					}
-					actions={
-						<>
-							{push}
-							{viewPr}
-						</>
-					}
-					menu={menu("Branch")}
+					menu={menu("Stack")}
 				/>
-				<BranchItem
-					layout={layout}
-					title="feat: resume work on another machine"
-					pr={{ number: 280, state: "open" }}
-					branch="resume-work"
-					depth={2}
-					folded={false}
-					meta={
-						<>
-							<CiStatus status="working" />
-							<MetaCount type="unpushed">7</MetaCount>
-						</>
-					}
-					actions={
-						<>
-							{push}
-							{viewPr}
-						</>
-					}
-					menu={menu("Branch")}
-				/>
-				<CommitItem
-					message="chore: separator tokens"
-					pushed={false}
-					depth={3}
-					menu={menu("Commit")}
-				/>
-				<CommitItem
-					message="feat: 28px hunk separator"
-					depth={3}
-					selected={selected === "commit"}
-					menu={menu("Commit")}
-				/>
-				<CommitItem message="feat: elapsed time for agents" depth={3} menu={menu("Commit")} />
+				{!stackFolded && (
+					<>
+						<BranchItem
+							layout={layout}
+							title="fix: retry stalled transfers"
+							pr={{ number: 377, state: "open" }}
+							branch="retry-transfers"
+							depth={2}
+							folded
+							meta={
+								<>
+									<CiStatus status="working" />
+									<MetaCount type="unpushed">4</MetaCount>
+									{age("8m")}
+								</>
+							}
+							actions={
+								<>
+									{push}
+									{viewPr}
+								</>
+							}
+							menu={menu("Branch")}
+						/>
+						<BranchItem
+							layout={layout}
+							title="feat: resume work on another machine"
+							pr={{ number: 280, state: "open" }}
+							branch="resume-work"
+							depth={2}
+							folded={false}
+							meta={
+								<>
+									<CiStatus status="working" />
+									<MetaCount type="unpushed">7</MetaCount>
+								</>
+							}
+							actions={
+								<>
+									{push}
+									{viewPr}
+								</>
+							}
+							menu={menu("Branch")}
+						/>
+						<CommitItem
+							message="chore: separator tokens"
+							pushed={false}
+							depth={3}
+							menu={menu("Commit")}
+						/>
+						<CommitItem
+							message="feat: 28px hunk separator"
+							depth={3}
+							selected={selected === "commit"}
+							menu={menu("Commit")}
+						/>
+						<CommitItem message="feat: elapsed time for agents" depth={3} menu={menu("Commit")} />
+					</>
+				)}
 				<WorktreeDivider depth={2} />
 				<BranchItem
 					layout={layout}
