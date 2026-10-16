@@ -41,6 +41,8 @@ actions!(
         DiscardHunk,
         DiscardFile,
         ToggleFold,
+        PageDown,
+        PageUp,
     ]
 );
 
@@ -57,6 +59,10 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-alt-z", DiscardHunk, c),
         KeyBinding::new("cmd-backspace", DiscardFile, c),
         KeyBinding::new("z", ToggleFold, c),
+        KeyBinding::new("pagedown", PageDown, c),
+        KeyBinding::new("space", PageDown, c),
+        KeyBinding::new("pageup", PageUp, c),
+        KeyBinding::new("shift-space", PageUp, c),
     ]);
 }
 
@@ -72,6 +78,9 @@ struct DiffKey {
     project: ProjectId,
     source: DiffSource,
 }
+
+/// How long a diff loads before the pane says it's loading.
+const SHOW_LOADING: Duration = Duration::from_millis(150);
 
 struct LoadedDiff {
     key: DiffKey,
@@ -98,6 +107,10 @@ pub struct Detail {
     /// one shows it at once; the worktree reuses each unchanged file's highlighting.
     recent: Vec<(DiffKey, Arc<Vec<FileDiff>>)>,
     _load: Task<()>,
+    /// When the selection last moved to a diff that isn't loaded yet; the previous one
+    /// stays on screen until it is, unless that takes long enough to say so.
+    waiting_since: Option<Instant>,
+    _waiting: Task<()>,
     list: ListState,
     message: Entity<TextInput>,
     /// The branch (full ref) new commits go to; `None` creates a branch.
@@ -203,6 +216,8 @@ impl Detail {
             selected_at: None,
             recent: Vec::new(),
             _load: Task::ready(()),
+            waiting_since: None,
+            _waiting: Task::ready(()),
             list: ListState::new(0, ListAlignment::Top, px(150.)),
             message,
             commit_target: None,
@@ -280,9 +295,13 @@ impl Detail {
         if current != Some(&key) {
             self.diff_error = None;
             if selection_changed {
-                // Don't leave the previous selection's diff on screen while loading.
-                self.diff = None;
-                self.list.reset(0);
+                // The previous diff stays until this one lands, usually a frame or two
+                // later, rather than flashing an empty pane; a slow load says so.
+                self.waiting_since = Some(Instant::now());
+                self._waiting = cx.spawn(async move |this, cx| {
+                    cx.background_executor().timer(SHOW_LOADING).await;
+                    this.update(cx, |_, cx| cx.notify()).ok();
+                });
             }
         }
         let Some(path) = self.store.read(cx).path(&key.project) else {
@@ -478,6 +497,24 @@ impl Detail {
     }
 
     /// Rebuild the rows when folding changed, keeping the scroll position.
+    /// The diff to draw: the loaded one, or while the next loads the previous one, until
+    /// the wait is long enough to show it's loading instead.
+    fn shown_diff(&self) -> Option<&LoadedDiff> {
+        let diff = self.diff.as_ref()?;
+        let waiting = self.loading.as_ref().is_some_and(|key| *key != diff.key);
+        let slow = self
+            .waiting_since
+            .is_some_and(|since| since.elapsed() >= SHOW_LOADING);
+        (!waiting || !slow).then_some(diff)
+    }
+
+    /// Scroll the diff by most of a screen, keeping a few lines in view for context.
+    fn page(&mut self, direction: f32, cx: &mut Context<Self>) {
+        let height = self.list.viewport_bounds().size.height;
+        self.list.scroll_by(height * 0.85 * direction);
+        cx.notify();
+    }
+
     /// Uncommitted files a pending operation takes away, left out until it's done.
     fn hidden_paths(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> HashSet<String> {
         if key.source != DiffSource::Worktree {
@@ -1293,6 +1330,8 @@ impl Render for Detail {
             .on_action(cx.listener(Self::discard_hunk))
             .on_action(cx.listener(Self::discard_file))
             .on_action(cx.listener(Self::toggle_fold_action))
+            .on_action(cx.listener(|this, _: &PageDown, _, cx| this.page(1., cx)))
+            .on_action(cx.listener(|this, _: &PageUp, _, cx| this.page(-1., cx)))
             .size_full()
             .bg(theme.bg_1)
             .child(self.render_header(selection.as_ref(), &theme, cx))

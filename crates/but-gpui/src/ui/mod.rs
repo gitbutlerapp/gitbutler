@@ -351,7 +351,11 @@ impl RenderOnce for Button {
             .text_color(fg)
             .when_some(bg, |el, bg| el.bg(bg))
             .when_some(border, |el, border| el.border_1().border_color(border))
-            .when(!self.disabled, |el| el.hover(move |el| el.bg(hover)))
+            .when(!self.disabled, |el| {
+                el.hover(move |el| el.bg(hover))
+                    // Gives under the pointer while pressed.
+                    .active(|el| el.opacity(0.8))
+            })
             .when(self.disabled, |el| el.opacity(0.45))
             .when_some(self.icon, |el, kind| {
                 el.child(icon(kind).text_color(fg.opacity(if has_label { 0.7 } else { 0.8 })))
