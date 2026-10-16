@@ -317,6 +317,22 @@ impl SettingsView {
             },
             Row {
                 section: Section::General,
+                title: "Side by side".into(),
+                description: "Diffs show the old lines beside the new ones. ⌘B in a diff \
+                              switches."
+                    .into(),
+                control: switch("split", prefs.split, theme)
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.app
+                            .update(cx, |app, cx| {
+                                app.detail.update(cx, |detail, cx| detail.toggle_split(cx))
+                            })
+                            .ok();
+                    }))
+                    .into_any_element(),
+            },
+            Row {
+                section: Section::General,
                 title: "Editor".into(),
                 description: "Where \"Open in editor\" opens files, at the line you're on.".into(),
                 control: dropdown("editor", editor, theme)
