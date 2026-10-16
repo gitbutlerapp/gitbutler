@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
-use gpui::{AppContext as _, Context};
+use gpui::{App, AppContext as _, Bounds, Context, DisplayId, Pixels, Window, point, px, size};
 use serde::{Deserialize, Serialize};
 
 use super::{Seen, Store};
@@ -63,6 +63,7 @@ impl Store {
             seen: self.seen.clone(),
             widths: self.widths.clone(),
             file_tree: self.file_tree,
+            window: self.window.clone(),
         }
     }
 
@@ -79,6 +80,24 @@ impl Store {
             .unwrap_or(pane.default_width())
     }
 
+    /// Remember where `window` is, for the next launch.
+    pub fn save_window_place(&mut self, window: &Window, cx: &mut Context<Self>) {
+        let Some(display) = window.display(cx).and_then(|display| display.uuid().ok()) else {
+            return;
+        };
+        let Bounds { origin, size } = window.window_bounds().get_bounds();
+        self.window = Some(WindowPlace {
+            display: display.to_string(),
+            bounds: [
+                origin.x.into(),
+                origin.y.into(),
+                size.width.into(),
+                size.height.into(),
+            ],
+        });
+        self.save_soon(cx);
+    }
+
     /// Resize `pane`, within its limits, or put it back to its default with `None`.
     pub fn set_width(&mut self, pane: Pane, width: Option<f32>, cx: &mut Context<Self>) {
         let (min, max) = pane.limits();
@@ -89,6 +108,21 @@ impl Store {
         self.save_soon(cx);
         cx.notify();
     }
+}
+
+/// Where the window was when the app last quit, while that display is still connected and
+/// the window would still show on it.
+pub fn saved_window_place(cx: &App) -> Option<(DisplayId, Bounds<Pixels>)> {
+    let place = Saved::load().window?;
+    let display = cx.displays().into_iter().find(|display| {
+        display
+            .uuid()
+            .is_ok_and(|uuid| uuid.to_string() == place.display)
+    })?;
+    let [x, y, width, height] = place.bounds;
+    let bounds = Bounds::new(point(px(x), px(y)), size(px(width), px(height)));
+    let screen = Bounds::new(point(px(0.), px(0.)), display.bounds().size);
+    screen.intersects(&bounds).then(|| (display.id(), bounds))
 }
 
 /// A pane whose width can be dragged.
@@ -131,6 +165,15 @@ pub(super) struct Saved {
     pub(super) seen: Seen,
     pub(super) widths: HashMap<Pane, f32>,
     pub(super) file_tree: bool,
+    pub(super) window: Option<WindowPlace>,
+}
+
+/// Where the window was: the display it was on, and its left, top, width and height on that
+/// display. A full-screen window keeps the size it returns to.
+#[derive(Clone, Serialize, Deserialize)]
+pub(super) struct WindowPlace {
+    display: String,
+    bounds: [f32; 4],
 }
 
 impl Saved {

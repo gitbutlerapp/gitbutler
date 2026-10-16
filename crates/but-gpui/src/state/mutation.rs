@@ -332,6 +332,11 @@ impl Store {
             .map(|(_, _, started)| started.elapsed())
     }
 
+    /// Operations quitting now would cut off: the one running, and the ones waiting.
+    pub fn unfinished(&self) -> usize {
+        usize::from(self.mutating.is_some()) + self.queue.len()
+    }
+
     pub fn queued(&self) -> usize {
         self.queue.len()
     }
