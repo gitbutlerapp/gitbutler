@@ -475,9 +475,6 @@ fn parallel_map<T: Send, S, R: Send>(
         .collect()
 }
 
-/// The old and new text of a file, when neither side is binary.
-type Sides = Option<(String, String)>;
-
 /// A hash of a file's patch, hunk headers included, so two equal ones have the same lines.
 fn fingerprint(patch: &Option<but_core::UnifiedPatch>) -> u64 {
     use std::hash::{Hash as _, Hasher as _};
@@ -498,7 +495,7 @@ fn fingerprint(patch: &Option<but_core::UnifiedPatch>) -> u64 {
 const SCOPE_LIMIT: usize = 1 << 20;
 
 /// Both sides of a text change the patch was computed from, if small enough to parse.
-fn scope_sides(filter: &gix::diff::blob::Platform) -> Sides {
+fn scope_sides(filter: &gix::diff::blob::Platform) -> Option<(String, String)> {
     let (old, new) = filter.resources()?;
     let (old, new) = (side_bytes(old.data)?, side_bytes(new.data)?);
     (old.len() + new.len() <= SCOPE_LIMIT).then(|| {
@@ -520,7 +517,6 @@ fn side_bytes(data: gix::diff::blob::platform::resource::Data<'_>) -> Option<&[u
 /// Files with more changed lines than this aren't highlighted, to keep big diffs fast.
 const HIGHLIGHT_LIMIT: u32 = 4000;
 
-/// Files with more changed lines than this aren't highlighted, to keep big diffs fast.
 /// Lines longer than this, as in minified files, are cut short: shaping and highlighting
 /// them costs far more than anyone reads.
 const LINE_LIMIT: usize = 2000;

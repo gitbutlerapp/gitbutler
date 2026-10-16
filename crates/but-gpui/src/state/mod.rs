@@ -291,7 +291,7 @@ impl Store {
                     };
                     for id in ids {
                         if this
-                            .update(cx, |store, cx| store.refresh_forge(&id, cx))
+                            .update(cx, |store, _| store.refresh_forge(&id))
                             .is_err()
                         {
                             return;
@@ -518,7 +518,7 @@ impl Store {
                 entry.loading = false;
                 entry.reload_queued = false;
                 if watcher.is_ok() {
-                    store.refresh_forge(&id, cx);
+                    store.refresh_forge(&id);
                 }
                 let Some(entry) = store.project_mut(&id) else {
                     return;
@@ -620,7 +620,7 @@ impl Store {
 
     /// Ask the forge about `id`'s pull requests and CI in the background, then show what
     /// changed. Quiet when it can't: plenty of projects have no forge account.
-    pub fn refresh_forge(&mut self, id: &ProjectId, _cx: &mut Context<Self>) {
+    pub fn refresh_forge(&mut self, id: &ProjectId) {
         if self.forge_queued.insert(id.clone()) {
             self.forge_requests.unbounded_send(id.clone()).ok();
         }

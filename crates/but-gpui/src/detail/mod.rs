@@ -413,13 +413,7 @@ impl Detail {
             self.recent.remove(0);
         }
         self.recent.push((key.clone(), files.clone()));
-        let folded = self.folded_paths(&key, &files, cx);
-        let hidden = self.hidden_paths(&key, &files, cx);
-        let rows = diff::rows(
-            &files,
-            |file| folded.contains(&file.file.path),
-            |file| hidden.contains(&file.file.path),
-        );
+        let rows = self.build_rows(&key, &files, cx);
         let same = self.diff.as_ref().is_some_and(|diff| diff.key == key);
         if same {
             let top = self.list.logical_scroll_top();
@@ -479,23 +473,23 @@ impl Detail {
         self.focus.contains_focused(window, cx)
     }
 
-    /// Files that show only their header: folded by hand, or reviewed and not unfolded.
-    fn folded_paths(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> HashSet<String> {
+    /// The diff's rows. Files folded by hand, or reviewed and not unfolded, show only their
+    /// header; uncommitted files a pending operation takes away are left out until it's done.
+    fn build_rows(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> Vec<DiffRow> {
         let store = self.store.read(cx);
-        files
-            .iter()
-            .filter(|file| {
+        let worktree = key.source == DiffSource::Worktree;
+        diff::rows(
+            files,
+            |file| {
                 let path = &file.file.path;
                 !self.unfolded.contains(path)
                     && (self.folded.contains(path)
-                        || (key.source == DiffSource::Worktree
-                            && store.review(&key.project, &file.file) == Review::Reviewed))
-            })
-            .map(|file| file.file.path.clone())
-            .collect()
+                        || (worktree && store.review(&key.project, &file.file) == Review::Reviewed))
+            },
+            |file| worktree && store.hides_file(&key.project, &file.file.path),
+        )
     }
 
-    /// Rebuild the rows when folding changed, keeping the scroll position.
     /// The diff to draw: the loaded one, or while the next loads the previous one, until
     /// the wait is long enough to show it's loading instead.
     fn shown_diff(&self) -> Option<&LoadedDiff> {
@@ -514,32 +508,13 @@ impl Detail {
         cx.notify();
     }
 
-    /// Uncommitted files a pending operation takes away, left out until it's done.
-    fn hidden_paths(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> HashSet<String> {
-        if key.source != DiffSource::Worktree {
-            return HashSet::new();
-        }
-        let store = self.store.read(cx);
-        files
-            .iter()
-            .map(|file| &file.file.path)
-            .filter(|path| store.hides_file(&key.project, path))
-            .cloned()
-            .collect()
-    }
-
+    /// Rebuild the rows when folding changed, keeping the scroll position.
     fn rebuild_rows(&mut self, cx: &mut Context<Self>) {
         let Some(diff) = &self.diff else {
             cx.notify();
             return;
         };
-        let folded = self.folded_paths(&diff.key, &diff.files, cx);
-        let hidden = self.hidden_paths(&diff.key, &diff.files, cx);
-        let rows = diff::rows(
-            &diff.files,
-            |file| folded.contains(&file.file.path),
-            |file| hidden.contains(&file.file.path),
-        );
+        let rows = self.build_rows(&diff.key, &diff.files, cx);
         if rows != diff.rows {
             self.text_selection = None;
             // Keep the row at the top of the view there, or its file's header when the
@@ -575,7 +550,6 @@ impl Detail {
         })
     }
 
-    /// The index of `path` in the loaded diff.
     fn diff_index(&self, path: &str) -> Option<usize> {
         self.diff
             .as_ref()?
@@ -634,22 +608,6 @@ impl Detail {
             self.list.scroll_to_reveal_item(row);
             cx.notify();
         }
-    }
-
-    fn next_file(&mut self, _: &NextFile, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_file(1, cx);
-    }
-
-    fn previous_file(&mut self, _: &PreviousFile, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_file(-1, cx);
-    }
-
-    fn next_hunk(&mut self, _: &NextHunk, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_hunk(true, cx);
-    }
-
-    fn previous_hunk(&mut self, _: &PreviousHunk, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_hunk(false, cx);
     }
 
     /// Where the cursor's file and hunk sit in freshly loaded `files`, so a reload never
@@ -738,10 +696,6 @@ impl Detail {
         }
     }
 
-    fn toggle_reviewed(&mut self, _: &ToggleReviewed, _: &mut Window, cx: &mut Context<Self>) {
-        self.toggle_reviewed_file(self.cursor.file, cx);
-    }
-
     pub fn toggle_fold(&mut self, file_ix: usize, cx: &mut Context<Self>) {
         let Some(path) = self
             .diff
@@ -763,10 +717,6 @@ impl Detail {
             hunk: None,
         };
         self.rebuild_rows(cx);
-    }
-
-    fn toggle_fold_action(&mut self, _: &ToggleFold, _: &mut Window, cx: &mut Context<Self>) {
-        self.toggle_fold(self.cursor.file, cx);
     }
 
     /// Throw away one hunk, or the whole file when `hunk` is `None`. Undo brings it back.
@@ -799,16 +749,6 @@ impl Detail {
         self.app
             .update(cx, |app, cx| app.discard(project, vec![change], window, cx))
             .ok();
-    }
-
-    fn discard_hunk(&mut self, _: &DiscardHunk, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(hunk) = self.cursor.hunk {
-            self.discard(self.cursor.file, Some(hunk), window, cx);
-        }
-    }
-
-    fn discard_file(&mut self, _: &DiscardFile, window: &mut Window, cx: &mut Context<Self>) {
-        self.discard(self.cursor.file, None, window, cx);
     }
 
     fn scroll_to_file(&mut self, file_ix: usize, cx: &mut Context<Self>) {
@@ -894,14 +834,24 @@ impl Render for Detail {
             .id("detail")
             .key_context("Detail")
             .track_focus(&self.focus)
-            .on_action(cx.listener(Self::next_file))
-            .on_action(cx.listener(Self::previous_file))
-            .on_action(cx.listener(Self::next_hunk))
-            .on_action(cx.listener(Self::previous_hunk))
-            .on_action(cx.listener(Self::toggle_reviewed))
-            .on_action(cx.listener(Self::discard_hunk))
-            .on_action(cx.listener(Self::discard_file))
-            .on_action(cx.listener(Self::toggle_fold_action))
+            .on_action(cx.listener(|this, _: &NextFile, _, cx| this.move_file(1, cx)))
+            .on_action(cx.listener(|this, _: &PreviousFile, _, cx| this.move_file(-1, cx)))
+            .on_action(cx.listener(|this, _: &NextHunk, _, cx| this.move_hunk(true, cx)))
+            .on_action(cx.listener(|this, _: &PreviousHunk, _, cx| this.move_hunk(false, cx)))
+            .on_action(cx.listener(|this, _: &ToggleReviewed, _, cx| {
+                this.toggle_reviewed_file(this.cursor.file, cx)
+            }))
+            .on_action(cx.listener(|this, _: &DiscardHunk, window, cx| {
+                if let Some(hunk) = this.cursor.hunk {
+                    this.discard(this.cursor.file, Some(hunk), window, cx);
+                }
+            }))
+            .on_action(cx.listener(|this, _: &DiscardFile, window, cx| {
+                this.discard(this.cursor.file, None, window, cx)
+            }))
+            .on_action(
+                cx.listener(|this, _: &ToggleFold, _, cx| this.toggle_fold(this.cursor.file, cx)),
+            )
             .on_action(cx.listener(|this, _: &PageDown, _, cx| this.page(1., cx)))
             .on_action(cx.listener(|this, _: &PageUp, _, cx| this.page(-1., cx)))
             .size_full()
@@ -909,13 +859,6 @@ impl Render for Detail {
             .child(self.render_header(selection.as_ref(), &theme, cx))
             .child(div().flex_1().min_h(px(0.)).child(body))
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Check {
-    All,
-    Some,
-    None,
 }
 
 fn hunk_keys(file: &FileDiff) -> Vec<HunkKey> {
@@ -927,18 +870,14 @@ fn hunk_keys(file: &FileDiff) -> Vec<HunkKey> {
 
 pub(super) fn checkbox_box(
     id: impl Into<gpui::ElementId>,
-    check: Check,
+    check: Toggled,
     theme: &Theme,
 ) -> gpui::Stateful<gpui::Div> {
-    let on = check != Check::None;
+    let on = check != Toggled::False;
     div()
         .id(id)
         .role(Role::CheckBox)
-        .aria_toggled(match check {
-            Check::All => Toggled::True,
-            Check::Some => Toggled::Mixed,
-            Check::None => Toggled::False,
-        })
+        .aria_toggled(check)
         .flex_none()
         .size(px(14.))
         .rounded(px(3.))
@@ -949,13 +888,13 @@ pub(super) fn checkbox_box(
         .items_center()
         .justify_center()
         .map(|el| match check {
-            Check::All => el.child(
+            Toggled::True => el.child(
                 small_icon(Icon::Tick)
                     .size(px(10.))
                     .text_color(gpui::white()),
             ),
-            Check::Some => el.child(div().w(px(8.)).h(px(2.)).rounded(px(1.)).bg(gpui::white())),
-            Check::None => el,
+            Toggled::Mixed => el.child(div().w(px(8.)).h(px(2.)).rounded(px(1.)).bg(gpui::white())),
+            Toggled::False => el,
         })
 }
 

@@ -128,11 +128,8 @@ pub(super) struct Restored {
 pub(super) struct Saved {
     pub(super) expanded: HashSet<String>,
     pub(super) selection: Option<String>,
-    #[serde(default)]
     pub(super) seen: Seen,
-    #[serde(default)]
     pub(super) widths: HashMap<Pane, f32>,
-    #[serde(default)]
     pub(super) file_tree: bool,
 }
 

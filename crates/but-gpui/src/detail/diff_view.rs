@@ -6,13 +6,12 @@ use std::ops::Range;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, Context, Entity, MouseButton, Subscription, WeakEntity, Window, div, list,
-    prelude::*, px,
+    AnyElement, App, Context, Entity, MouseButton, Subscription, Toggled, WeakEntity, Window, div,
+    list, prelude::*, px,
 };
 
 use super::{
-    Check, Cursor, Detail, DiscardHunk, NextHunk, PreviousHunk, TextPoint, ToggleReviewed,
-    checkbox_box,
+    Cursor, Detail, DiscardHunk, NextHunk, PreviousHunk, TextPoint, ToggleReviewed, checkbox_box,
 };
 use crate::app::{AppView, MenuItem};
 use crate::backend::{DiffBody, DiffLine, DiffSource, Selected};
@@ -290,9 +289,9 @@ impl Detail {
                     .flatten()
                     .map(|(path, key)| {
                         let check = if self.hunk_checked(&path, key) {
-                            Check::All
+                            Toggled::True
                         } else {
-                            Check::None
+                            Toggled::False
                         };
                         let entity = entity.clone();
                         checkbox_box(("hunk-check", ix), check, theme)
@@ -397,9 +396,9 @@ fn review_button(
 ) -> AnyElement {
     let theme = Theme::get(cx);
     let (check, label) = match review {
-        Review::Reviewed => (Check::All, "Reviewed"),
-        Review::Changed => (Check::Some, "Needs review"),
-        Review::NotReviewed => (Check::None, "Not reviewed"),
+        Review::Reviewed => (Toggled::True, "Reviewed"),
+        Review::Changed => (Toggled::Mixed, "Needs review"),
+        Review::NotReviewed => (Toggled::False, "Not reviewed"),
     };
     let key = shortcut(&ToggleReviewed, cx);
     h_flex()

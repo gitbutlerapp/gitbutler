@@ -1,9 +1,10 @@
 //! The window's root: the project navigator on the left, details on the right, and the
 //! overlays (menus, prompts, toasts) above both.
 
+use std::path::Path;
 use std::rc::Rc;
-use std::sync::Arc;
 
+use anyhow::Result;
 use gpui::{
     Action, AnyElement, App, ClickEvent, ClipboardItem, Context, Entity, FocusHandle, Focusable,
     KeyBinding, MouseButton, PathPromptOptions, Pixels, Point, PromptLevel, Role, SharedString,
@@ -116,7 +117,7 @@ pub struct ContextMenu {
 }
 
 type MenuHandler = Rc<dyn Fn(&mut AppView, &mut Window, &mut Context<AppView>)>;
-type SubmitHandler = Rc<dyn Fn(&mut AppView, String, &mut Window, &mut Context<AppView>)>;
+type SubmitHandler = Box<dyn FnOnce(&mut AppView, String, &mut Window, &mut Context<AppView>)>;
 type CancelHandler = Box<dyn FnOnce(&mut AppView)>;
 
 pub struct MenuItem {
@@ -273,7 +274,8 @@ impl AppView {
 
     fn undo(&mut self, _: &Undo, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
-            self.store.update(cx, |store, cx| store.undo(&project, cx));
+            self.store
+                .update(cx, |store, cx| store.undo(&project, false, cx));
         }
     }
 
@@ -294,28 +296,14 @@ impl AppView {
         }) else {
             return;
         };
-        self.prompt_name(
+        self.prompt_branch(
+            project,
             "New branch",
             "Create",
             "",
             window,
             cx,
-            move |this, name, _, cx| {
-                let project = project.clone();
-                let selected = project.clone();
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Create branch",
-                        Overlay::default(),
-                        move |path, _| backend::create_branch(path, Some(&name)),
-                        move |store, ref_name, cx| {
-                            store.select(Some(Selection::Branch(selected, ref_name)), cx)
-                        },
-                        cx,
-                    )
-                });
-            },
+            |path, name| backend::create_branch(path, Some(name)),
         );
     }
 
@@ -360,7 +348,16 @@ impl AppView {
     ) {
         match self.selection(cx) {
             Some(Selection::Branch(project, ref_name)) => {
-                self.rename_branch(project, ref_name, window, cx)
+                let current = short_ref(&ref_name).to_owned();
+                self.prompt_branch(
+                    project,
+                    "Rename branch",
+                    "Rename",
+                    &current,
+                    window,
+                    cx,
+                    move |path, name| backend::rename_branch(path, &ref_name, name),
+                )
             }
             Some(Selection::Commit(..)) => self
                 .detail
@@ -375,101 +372,32 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some((project, ref_name)) = self
+        if let Some((project, below)) = self
             .selected_branch(cx)
             .filter(|(_, ref_name)| !ref_name.is_empty())
         {
-            self.add_branch_on_top(project, ref_name, window, cx);
+            self.prompt_branch(
+                project,
+                "New branch on top",
+                "Create",
+                "",
+                window,
+                cx,
+                move |path, name| backend::create_dependent_branch(path, &below, name),
+            );
         }
     }
 
     fn uncommit_selection(
         &mut self,
         _: &UncommitSelection,
-        window: &mut Window,
+        _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        match self.selection(cx) {
-            Some(Selection::Commit(project, id)) => {
-                self.store
-                    .update(cx, |store, cx| store.uncommit(&project, id, cx));
-            }
-            Some(Selection::Branch(project, ref_name)) => {
-                self.remove_branch(project, ref_name, window, cx)
-            }
-            _ => {}
+        if let Some(Selection::Commit(project, id)) = self.selection(cx) {
+            self.store
+                .update(cx, |store, cx| store.uncommit(&project, id, cx));
         }
-    }
-
-    fn rename_branch(
-        &mut self,
-        project: ProjectId,
-        ref_name: String,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let current = short_ref(&ref_name).to_owned();
-        self.prompt_name(
-            "Rename branch",
-            "Rename",
-            &current,
-            window,
-            cx,
-            move |this, name, _, cx| {
-                let project = project.clone();
-                let ref_name = ref_name.clone();
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Rename branch",
-                        Overlay::default(),
-                        move |path, _| backend::rename_branch(path, &ref_name, &name),
-                        {
-                            let project = project.clone();
-                            move |store, renamed, cx| {
-                                store.select(Some(Selection::Branch(project, renamed)), cx)
-                            }
-                        },
-                        cx,
-                    )
-                });
-            },
-        );
-    }
-
-    fn add_branch_on_top(
-        &mut self,
-        project: ProjectId,
-        below: String,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.prompt_name(
-            "New branch on top",
-            "Create",
-            "",
-            window,
-            cx,
-            move |this, name, _, cx| {
-                let project = project.clone();
-                let below = below.clone();
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Create branch",
-                        Overlay::default(),
-                        move |path, _| backend::create_dependent_branch(path, &below, &name),
-                        {
-                            let project = project.clone();
-                            move |store, ref_name, cx| {
-                                store.select(Some(Selection::Branch(project, ref_name)), cx)
-                            }
-                        },
-                        cx,
-                    )
-                });
-            },
-        );
     }
 
     fn remove_branch(
@@ -595,14 +523,17 @@ impl AppView {
         .detach();
     }
 
-    fn prompt_name(
+    /// Ask for a branch name, then run `op` with it and select the branch it returns.
+    #[allow(clippy::too_many_arguments)]
+    fn prompt_branch(
         &mut self,
+        project: ProjectId,
         title: &str,
         confirm: &str,
         initial: &str,
         window: &mut Window,
         cx: &mut Context<Self>,
-        on_submit: impl Fn(&mut AppView, String, &mut Window, &mut Context<AppView>) + 'static,
+        op: impl FnOnce(&Path, &str) -> Result<String> + Send + 'static,
     ) {
         let input = cx.new(|cx| {
             let mut input = TextInput::new("Branch name", false, cx);
@@ -610,6 +541,7 @@ impl AppView {
             input.select_all_text(cx);
             input
         });
+        let label = format!("{confirm} branch");
         self.open_prompt(
             title,
             None,
@@ -618,11 +550,24 @@ impl AppView {
             None,
             window,
             cx,
-            move |this, name, window, cx| {
+            move |this, name, _, cx| {
                 let name = name.trim().to_owned();
-                if !name.is_empty() {
-                    on_submit(this, name, window, cx);
+                if name.is_empty() {
+                    return;
                 }
+                let selected = project.clone();
+                this.store.update(cx, |store, cx| {
+                    store.run(
+                        &project,
+                        label,
+                        Overlay::default(),
+                        move |path, _| op(path, &name),
+                        move |store, ref_name, cx| {
+                            store.select(Some(Selection::Branch(selected, ref_name)), cx)
+                        },
+                        cx,
+                    )
+                });
             },
         );
     }
@@ -637,7 +582,7 @@ impl AppView {
         on_cancel: Option<CancelHandler>,
         window: &mut Window,
         cx: &mut Context<Self>,
-        on_submit: impl Fn(&mut AppView, String, &mut Window, &mut Context<AppView>) + 'static,
+        on_submit: impl FnOnce(&mut AppView, String, &mut Window, &mut Context<AppView>) + 'static,
     ) {
         // A prompt Git is waiting on, for credentials, stays until answered: replacing it
         // would fail the push that asked. A second one is cancelled, so its Git process
@@ -677,7 +622,7 @@ impl AppView {
             detail: detail.map(Into::into),
             confirm: confirm.to_owned().into(),
             input,
-            on_submit: Rc::new(on_submit),
+            on_submit: Box::new(on_submit),
             on_cancel,
             _subscription: subscription,
         });
@@ -703,29 +648,19 @@ impl AppView {
         cx.spawn_in(window, async move |this, cx| {
             use futures::StreamExt as _;
             while let Some(prompt) = prompts.next().await {
-                let id = std::cell::Cell::new(Some(prompt.id));
-                let id = Rc::new(id);
+                let id = prompt.id;
                 let result = this.update_in(cx, |this, window, cx| {
                     let input =
                         cx.new(|cx| TextInput::new("Passphrase or password", false, cx).masked());
-                    let cancel_id = id.clone();
                     this.open_prompt(
                         "Git needs your credentials",
                         Some(prompt.text),
                         "Continue",
                         input,
-                        Some(Box::new(move |_| {
-                            if let Some(id) = cancel_id.take() {
-                                backend::askpass::respond(id, None);
-                            }
-                        })),
+                        Some(Box::new(move |_| backend::askpass::respond(id, None))),
                         window,
                         cx,
-                        move |_, secret, _, _| {
-                            if let Some(id) = id.take() {
-                                backend::askpass::respond(id, Some(secret));
-                            }
-                        },
+                        move |_, secret, _, _| backend::askpass::respond(id, Some(secret)),
                     );
                 });
                 if result.is_err() {
@@ -750,11 +685,7 @@ impl AppView {
             _ => None,
         };
         if let Some(cut) = cut {
-            let message = format!("Cut {}. Pick a spot and press ⌘V.", cut.describe());
-            self.store.update(cx, |store, cx| {
-                store.set_cut(Some(cut), cx);
-                store.snack(message, cx);
-            });
+            self.cut(cut, cx);
         }
     }
 
@@ -766,18 +697,7 @@ impl AppView {
         self.transfer(&cut, &target, window.modifiers().alt, window, cx);
     }
 
-    pub fn cut_files(
-        &mut self,
-        project: ProjectId,
-        from: Option<CommitId>,
-        files: Arc<[backend::Selected]>,
-        cx: &mut Context<Self>,
-    ) {
-        let cut = Cut::Files {
-            project,
-            from,
-            files,
-        };
+    pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
         let message = format!("Cut {}. Pick a spot and press ⌘V.", cut.describe());
         self.store.update(cx, |store, cx| {
             store.set_cut(Some(cut), cx);
@@ -882,19 +802,8 @@ impl AppView {
 
     fn redo(&mut self, _: &Redo, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
-            self.store.update(cx, |store, cx| {
-                store.run(
-                    &project,
-                    "Redo",
-                    Overlay::default(),
-                    |path, _| backend::redo(path),
-                    |store, redone, cx| match redone {
-                        Some(operation) => store.snack(format!("Redone: {operation}"), cx),
-                        None => store.snack("Nothing to redo", cx),
-                    },
-                    cx,
-                )
-            });
+            self.store
+                .update(cx, |store, cx| store.undo(&project, true, cx));
         }
     }
 

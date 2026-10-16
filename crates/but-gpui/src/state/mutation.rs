@@ -102,16 +102,21 @@ impl Store {
         }
     }
 
-    /// Restore `project` to before its last operation.
-    pub fn undo(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+    /// Restore `project` to before its last operation, or with `redo` take back the last undo.
+    pub fn undo(&mut self, project: &ProjectId, redo: bool, cx: &mut Context<Self>) {
+        let (label, done, nothing) = if redo {
+            ("Redo", "Redone", "Nothing to redo")
+        } else {
+            ("Undo", "Undone", "Nothing to undo")
+        };
         self.run(
             project,
-            "Undo",
+            label,
             Overlay::default(),
-            |path, _| backend::undo(path),
-            |store, undone, cx| match undone {
-                Some(operation) => store.snack(format!("Undone: {operation}"), cx),
-                None => store.snack("Nothing to undo", cx),
+            move |path, _| backend::undo(path, redo),
+            move |store, undone, cx| match undone {
+                Some(operation) => store.snack(format!("{done}: {operation}"), cx),
+                None => store.snack(nothing, cx),
             },
             cx,
         );
@@ -172,7 +177,7 @@ impl Store {
             move |store, (), cx| {
                 store.snack(format!("Pushed {name}"), cx);
                 // A push can open or move a pull request's checks.
-                store.refresh_forge(&pushed, cx);
+                store.refresh_forge(&pushed);
             },
             cx,
         );

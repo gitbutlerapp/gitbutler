@@ -113,7 +113,6 @@ impl Theme {
         self.syntax[token as usize]
     }
 
-    /// Row hover ground.
     pub fn hover(&self) -> Hsla {
         self.fill_gray.opacity(0.06)
     }

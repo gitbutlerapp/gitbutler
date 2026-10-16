@@ -342,13 +342,10 @@ impl Navigator {
     /// The row at `ix` of the list, drawn inside its card.
     fn render_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
-        let row = match self.rows.get(ix) {
+        let el = match self.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(px(10.)).into_any_element(),
-            Some(row) => row,
-        };
-        let el = match row {
-            Row::Item(item) => self.render_item(item, window, theme, cx),
-            Row::Note(text, is_error) => h_flex()
+            Some(Row::Item(item)) => self.render_item(item, window, theme, cx),
+            Some(Row::Note(text, is_error)) => h_flex()
                 .min_h(px(ROW_HEIGHT))
                 .px(px(12.))
                 .py(px(4.))
@@ -362,7 +359,7 @@ impl Navigator {
                 .when(*is_error, |el| el.child(small_icon(Icon::Warning)))
                 .child(div().flex_1().min_w(px(0.)).child(text.clone()))
                 .into_any_element(),
-            Row::Pending(title) => h_flex()
+            Some(Row::Pending(title)) => h_flex()
                 .min_h(px(ROW_HEIGHT))
                 .mx(px(3.))
                 .pl(px(28.))
@@ -373,7 +370,7 @@ impl Navigator {
                 .child(div().flex_1().min_w(px(0.)).truncate().child(title.clone()))
                 .child(div().text_size(px(11.)).text_color(theme.text_2).child("…"))
                 .into_any_element(),
-            Row::Section(title) => h_flex()
+            Some(Row::Section(title)) => h_flex()
                 .h(px(26.))
                 .px(px(12.))
                 .text_size(px(11.))
@@ -381,7 +378,7 @@ impl Navigator {
                 .text_color(theme.text_3)
                 .child(*title)
                 .into_any_element(),
-            Row::StackCaption(n) => h_flex()
+            Some(Row::StackCaption(n)) => h_flex()
                 .h(px(22.))
                 .pl(px(14.))
                 .gap(px(6.))
@@ -390,7 +387,7 @@ impl Navigator {
                 .child(small_icon(Icon::Stack))
                 .child(format!("Stack of {n}"))
                 .into_any_element(),
-            Row::More(project, ref_name, hidden) => {
+            Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
                 h_flex()
                     .id(("more", ix))
@@ -406,7 +403,6 @@ impl Navigator {
                     }))
                     .into_any_element()
             }
-            Row::Gap => unreachable!("drawn above"),
         };
         let first = ix == 0 || matches!(self.rows[ix - 1], Row::Gap);
         let last = self
@@ -559,7 +555,11 @@ impl Navigator {
                                 .child(dot(style.meta(theme.safe)))
                                 .child("active")
                                 .tooltip(|_, cx| {
-                                    Tooltip::text("Changed in the last 2 minutes".into(), cx)
+                                    Tooltip::with_key(
+                                        "Changed in the last 2 minutes".into(),
+                                        None,
+                                        cx,
+                                    )
                                 }),
                         )
                     } else {
@@ -717,7 +717,9 @@ impl Navigator {
                             div()
                                 .id(ElementId::Name(format!("checks-{ref_name}").into()))
                                 .child(small_icon(glyph).text_color(style.meta(color)))
-                                .tooltip(move |_, cx| Tooltip::text(text.clone().into(), cx)),
+                                .tooltip(move |_, cx| {
+                                    Tooltip::with_key(text.clone().into(), None, cx)
+                                }),
                         )
                     })
                 })

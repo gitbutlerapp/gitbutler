@@ -18,75 +18,60 @@ pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 44.;
 pub const STATUS_BAR_HEIGHT: f32 = 28.;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Icon {
-    ArrowDown,
-    ArrowUp,
-    Branch,
-    BranchMerge,
-    ChevronDown,
-    ChevronRight,
-    Clock,
-    Commit,
-    CommitFill,
-    Cross,
-    Eye,
-    File,
-    FileDiff,
-    Folder,
-    FolderTree,
-    Link,
-    List,
-    Plus,
-    Pr,
-    PrClose,
-    PrDraft,
-    Refresh,
-    Search,
-    Sidebar,
-    Stack,
-    TextBlock,
-    Tick,
-    Warning,
+/// Every icon, with the file under `assets/icons` it's drawn from.
+macro_rules! icons {
+    ($($variant:ident => $name:literal),* $(,)?) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        pub enum Icon {
+            $($variant),*
+        }
+
+        impl Icon {
+            fn path(self) -> &'static str {
+                match self {
+                    $(Icon::$variant => concat!("icons/", $name, ".svg")),*
+                }
+            }
+        }
+
+        fn icon_bytes(path: &str) -> Option<&'static [u8]> {
+            match path {
+                $(concat!("icons/", $name, ".svg") => Some(include_bytes!(concat!("../../assets/icons/", $name, ".svg"))),)*
+                _ => None,
+            }
+        }
+    };
 }
 
-impl Icon {
-    fn file(self) -> &'static str {
-        match self {
-            Icon::BranchMerge => "branch-merge",
-            Icon::Cross => "cross",
-            Icon::Folder => "folder",
-            Icon::FolderTree => "folder-tree",
-            Icon::Link => "link",
-            Icon::List => "list",
-            Icon::PrClose => "pr-close",
-            Icon::PrDraft => "pr-draft",
-            Icon::TextBlock => "text-block",
-            Icon::ArrowDown => "arrow-down",
-            Icon::ArrowUp => "arrow-up",
-            Icon::Branch => "branch",
-            Icon::ChevronDown => "chevron-down",
-            Icon::ChevronRight => "chevron-right",
-            Icon::Clock => "clock",
-            Icon::Commit => "commit",
-            Icon::Eye => "eye",
-            Icon::CommitFill => "commit-fill",
-            Icon::File => "file",
-            Icon::FileDiff => "file-diff",
-            Icon::Plus => "plus",
-            Icon::Pr => "pr",
-            Icon::Refresh => "refresh",
-            Icon::Search => "search",
-            Icon::Sidebar => "sidebar",
-            Icon::Stack => "stack",
-            Icon::Tick => "tick",
-            Icon::Warning => "warning",
-        }
-    }
-
-    fn path(self) -> SharedString {
-        format!("icons/{}.svg", self.file()).into()
-    }
+icons! {
+    ArrowDown => "arrow-down",
+    ArrowUp => "arrow-up",
+    Branch => "branch",
+    BranchMerge => "branch-merge",
+    ChevronDown => "chevron-down",
+    ChevronRight => "chevron-right",
+    Clock => "clock",
+    Commit => "commit",
+    CommitFill => "commit-fill",
+    Cross => "cross",
+    Eye => "eye",
+    File => "file",
+    FileDiff => "file-diff",
+    Folder => "folder",
+    FolderTree => "folder-tree",
+    Link => "link",
+    List => "list",
+    Plus => "plus",
+    Pr => "pr",
+    PrClose => "pr-close",
+    PrDraft => "pr-draft",
+    Refresh => "refresh",
+    Search => "search",
+    Sidebar => "sidebar",
+    Stack => "stack",
+    TextBlock => "text-block",
+    Tick => "tick",
+    Warning => "warning",
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.
@@ -112,45 +97,7 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
-        macro_rules! icons {
-            ($($name:literal),* $(,)?) => {
-                match path {
-                    $(concat!("icons/", $name, ".svg") => Some(include_bytes!(concat!("../../assets/icons/", $name, ".svg")).as_slice()),)*
-                    _ => None,
-                }
-            };
-        }
-        let bytes = icons!(
-            "arrow-down",
-            "arrow-up",
-            "branch",
-            "chevron-down",
-            "chevron-right",
-            "clock",
-            "commit",
-            "commit-fill",
-            "file",
-            "file-diff",
-            "plus",
-            "pr",
-            "refresh",
-            "search",
-            "sidebar",
-            "eye",
-            "stack",
-            "tick",
-            "warning",
-            "branch-merge",
-            "cross",
-            "folder",
-            "folder-tree",
-            "link",
-            "list",
-            "pr-close",
-            "pr-draft",
-            "text-block",
-        );
-        Ok(bytes.map(Cow::Borrowed))
+        Ok(icon_bytes(path).map(Cow::Borrowed))
     }
 
     fn list(&self, _path: &str) -> anyhow::Result<Vec<SharedString>> {
@@ -166,7 +113,6 @@ pub fn small_icon(icon: Icon) -> Svg {
     svg().path(icon.path()).size(px(12.)).flex_none()
 }
 
-/// A horizontal flex row with centred items.
 pub fn h_flex() -> Div {
     div().flex().flex_row().items_center()
 }
@@ -247,16 +193,10 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
 
 pub fn icon_button(id: impl Into<ElementId>, icon: Icon) -> Button {
     Button {
-        id: id.into(),
         label: None,
         icon: Some(icon),
         style: ButtonStyle::Ghost,
-        disabled: false,
-        small: false,
-        inverted: false,
-        on_click: None,
-        tooltip: None,
-        tooltip_key: None,
+        ..button(id, "")
     }
 }
 
@@ -387,10 +327,6 @@ pub struct Tooltip {
 }
 
 impl Tooltip {
-    pub fn text(text: SharedString, cx: &mut App) -> gpui::AnyView {
-        cx.new(|_| Tooltip { text, key: None }).into()
-    }
-
     pub fn with_key(text: SharedString, key: Option<SharedString>, cx: &mut App) -> gpui::AnyView {
         cx.new(|_| Tooltip { text, key }).into()
     }

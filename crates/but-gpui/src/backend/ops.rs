@@ -338,26 +338,23 @@ pub fn fetch(path: &Path) -> Result<()> {
     but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))
 }
 
-/// Restore what the last undo took back. Returns `false` when there's nothing to redo.
-pub fn redo(path: &Path) -> Result<Option<&'static str>> {
+/// Restore the workspace to before the last operation, or with `redo` restore what the
+/// last undo took back. Returns what that operation was, or `None` when there's nothing to
+/// undo or redo.
+pub fn undo(path: &Path, redo: bool) -> Result<Option<&'static str>> {
+    use but_api::legacy::oplog::{self, RestoreKind};
     let mut ctx = open(path)?;
-    let Some(snapshot) = but_api::legacy::oplog::get_redo_target_snapshot(&ctx)? else {
+    let (snapshot, kind) = if redo {
+        let snapshot = oplog::get_redo_target_snapshot(&ctx)?;
+        (snapshot, RestoreKind::RestoreFromSnapshotViaRedo)
+    } else {
+        let snapshot = oplog::get_undo_target_snapshot(&ctx)?;
+        (snapshot, RestoreKind::RestoreFromSnapshotViaUndo)
+    };
+    let Some(snapshot) = snapshot else {
         return Ok(None);
     };
     let title = snapshot.details.map(|details| details.operation.title());
-    let kind = but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaRedo;
-    restore(&mut ctx, snapshot.commit_id, title, kind).map(Some)
-}
-
-/// Restore the workspace to before the last operation. Returns what that operation was,
-/// or `None` when there's nothing to undo.
-pub fn undo(path: &Path) -> Result<Option<&'static str>> {
-    let mut ctx = open(path)?;
-    let Some(snapshot) = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)? else {
-        return Ok(None);
-    };
-    let title = snapshot.details.map(|details| details.operation.title());
-    let kind = but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo;
     restore(&mut ctx, snapshot.commit_id, title, kind).map(Some)
 }
 

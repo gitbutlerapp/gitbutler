@@ -20,69 +20,73 @@ use crate::theme::Theme;
 
 actions!(
     text_input,
-    [
-        Backspace,
-        Delete,
-        DeleteWordLeft,
-        DeleteToLineStart,
-        Left,
-        Right,
-        Up,
-        Down,
-        WordLeft,
-        WordRight,
-        SelectLeft,
-        SelectRight,
-        SelectUp,
-        SelectDown,
-        SelectWordLeft,
-        SelectWordRight,
-        SelectAll,
-        Home,
-        End,
-        SelectHome,
-        SelectEnd,
-        DocumentStart,
-        DocumentEnd,
-        Newline,
-        Submit,
-        Cancel,
-        Paste,
-        Cut,
-        Copy,
-    ]
+    [SelectAll, Newline, Submit, Cancel, Paste, Cut, Copy]
 );
+
+/// Where a motion or deletion goes from the cursor.
+#[derive(Clone, Copy, PartialEq)]
+enum Target {
+    Left,
+    Right,
+    Up,
+    Down,
+    WordLeft,
+    WordRight,
+    LineStart,
+    LineEnd,
+    Start,
+    End,
+}
+
+/// Move the cursor, or with `select` the selection's moving end.
+#[derive(Clone, PartialEq, gpui::Action)]
+#[action(namespace = text_input, no_json)]
+struct Move {
+    to: Target,
+    select: bool,
+}
+
+/// Delete the selection, or up to the target when nothing is selected.
+#[derive(Clone, PartialEq, gpui::Action)]
+#[action(namespace = text_input, no_json)]
+struct Delete {
+    to: Target,
+}
 
 const CONTEXT: &str = "TextInput";
 
 pub fn bind_keys(cx: &mut App) {
+    use Target::*;
     let c = Some(CONTEXT);
+    let go = |keys, to| KeyBinding::new(keys, Move { to, select: false }, c);
+    let extend = |keys, to| KeyBinding::new(keys, Move { to, select: true }, c);
+    let delete = |keys, to| KeyBinding::new(keys, Delete { to }, c);
     cx.bind_keys([
-        KeyBinding::new("backspace", Backspace, c),
-        KeyBinding::new("delete", Delete, c),
-        KeyBinding::new("alt-backspace", DeleteWordLeft, c),
-        KeyBinding::new("cmd-backspace", DeleteToLineStart, c),
-        KeyBinding::new("left", Left, c),
-        KeyBinding::new("right", Right, c),
-        KeyBinding::new("up", Up, c),
-        KeyBinding::new("down", Down, c),
-        KeyBinding::new("alt-left", WordLeft, c),
-        KeyBinding::new("alt-right", WordRight, c),
-        KeyBinding::new("shift-left", SelectLeft, c),
-        KeyBinding::new("shift-right", SelectRight, c),
-        KeyBinding::new("shift-up", SelectUp, c),
-        KeyBinding::new("shift-down", SelectDown, c),
-        KeyBinding::new("alt-shift-left", SelectWordLeft, c),
-        KeyBinding::new("alt-shift-right", SelectWordRight, c),
+        delete("backspace", Left),
+        delete("delete", Right),
+        delete("alt-backspace", WordLeft),
+        delete("cmd-backspace", LineStart),
+        go("left", Left),
+        go("right", Right),
+        go("up", Up),
+        go("down", Down),
+        go("alt-left", WordLeft),
+        go("alt-right", WordRight),
+        go("home", LineStart),
+        go("end", LineEnd),
+        go("cmd-left", LineStart),
+        go("cmd-right", LineEnd),
+        go("cmd-up", Start),
+        go("cmd-down", End),
+        extend("shift-left", Left),
+        extend("shift-right", Right),
+        extend("shift-up", Up),
+        extend("shift-down", Down),
+        extend("alt-shift-left", WordLeft),
+        extend("alt-shift-right", WordRight),
+        extend("cmd-shift-left", LineStart),
+        extend("cmd-shift-right", LineEnd),
         KeyBinding::new("cmd-a", SelectAll, c),
-        KeyBinding::new("home", Home, c),
-        KeyBinding::new("end", End, c),
-        KeyBinding::new("cmd-left", Home, c),
-        KeyBinding::new("cmd-right", End, c),
-        KeyBinding::new("cmd-shift-left", SelectHome, c),
-        KeyBinding::new("cmd-shift-right", SelectEnd, c),
-        KeyBinding::new("cmd-up", DocumentStart, c),
-        KeyBinding::new("cmd-down", DocumentEnd, c),
         KeyBinding::new("enter", Newline, c),
         KeyBinding::new("shift-enter", Newline, c),
         KeyBinding::new("cmd-enter", Submit, c),
@@ -275,23 +279,11 @@ impl TextInput {
             return None;
         }
         let index = self.offset_for_position(target);
-        (index != offset || delta == 0.).then_some(index)
+        (index != offset).then_some(index)
     }
 
     fn position_for_offset(&self, offset: usize) -> Option<Point<Pixels>> {
-        let mut y = px(0.);
-        for (start, line) in &self.last_layout {
-            let end = start + line.len();
-            if offset <= end {
-                let local = line.position_for_index(offset - start, self.last_line_height)?;
-                return Some(point(local.x, local.y + y));
-            }
-            y += line
-                .size(self.last_line_height)
-                .height
-                .max(self.last_line_height);
-        }
-        None
+        position_in(&self.last_layout, self.last_line_height, offset)
     }
 
     /// `offset` clamped into the text and onto a character boundary.
@@ -310,10 +302,7 @@ impl TextInput {
         }
         let mut y = px(0.);
         for (start, line) in &self.last_layout {
-            let height = line
-                .size(self.last_line_height)
-                .height
-                .max(self.last_line_height);
+            let height = row_height(line, self.last_line_height);
             if position.y < y + height {
                 let local = point(position.x.max(px(0.)), position.y - y);
                 let index = match line.closest_index_for_position(local, self.last_line_height) {
@@ -340,78 +329,33 @@ impl TextInput {
         self.replace_text_in_range(None, text, window, cx);
     }
 
-    fn left(&mut self, _: &Left, window: &mut Window, cx: &mut Context<Self>) {
-        if self.selected_range.is_empty() {
-            self.move_to(self.previous_boundary(self.cursor_offset()), window, cx);
-        } else {
-            self.move_to(self.selected_range.start, window, cx)
+    fn target(&self, to: Target) -> usize {
+        let at = self.cursor_offset();
+        match to {
+            Target::Left => self.previous_boundary(at),
+            Target::Right => self.next_boundary(at),
+            Target::Up => self.vertical(at, -1.).unwrap_or(0),
+            Target::Down => self.vertical(at, 1.).unwrap_or(self.content.len()),
+            Target::WordLeft => self.previous_word(at),
+            Target::WordRight => self.next_word(at),
+            Target::LineStart => self.line_start(at),
+            Target::LineEnd => self.line_end(at),
+            Target::Start => 0,
+            Target::End => self.content.len(),
         }
     }
 
-    fn right(&mut self, _: &Right, window: &mut Window, cx: &mut Context<Self>) {
-        if self.selected_range.is_empty() {
-            self.move_to(self.next_boundary(self.selected_range.end), window, cx);
-        } else {
-            self.move_to(self.selected_range.end, window, cx)
+    fn move_cursor(&mut self, action: &Move, window: &mut Window, cx: &mut Context<Self>) {
+        if action.select {
+            return self.select_to(self.target(action.to), window, cx);
         }
-    }
-
-    fn up(&mut self, _: &Up, window: &mut Window, cx: &mut Context<Self>) {
-        let target = self.vertical(self.cursor_offset(), -1.).unwrap_or(0);
+        // Left or right from a selection lands on its edge, as in native fields.
+        let target = match action.to {
+            Target::Left if !self.selected_range.is_empty() => self.selected_range.start,
+            Target::Right if !self.selected_range.is_empty() => self.selected_range.end,
+            to => self.target(to),
+        };
         self.move_to(target, window, cx);
-    }
-
-    fn down(&mut self, _: &Down, window: &mut Window, cx: &mut Context<Self>) {
-        let target = self
-            .vertical(self.cursor_offset(), 1.)
-            .unwrap_or(self.content.len());
-        self.move_to(target, window, cx);
-    }
-
-    fn word_left(&mut self, _: &WordLeft, window: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(self.previous_word(self.cursor_offset()), window, cx);
-    }
-
-    fn word_right(&mut self, _: &WordRight, window: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(self.next_word(self.cursor_offset()), window, cx);
-    }
-
-    fn select_left(&mut self, _: &SelectLeft, window: &mut Window, cx: &mut Context<Self>) {
-        self.select_to(self.previous_boundary(self.cursor_offset()), window, cx);
-    }
-
-    fn select_right(&mut self, _: &SelectRight, window: &mut Window, cx: &mut Context<Self>) {
-        self.select_to(self.next_boundary(self.cursor_offset()), window, cx);
-    }
-
-    fn select_up(&mut self, _: &SelectUp, window: &mut Window, cx: &mut Context<Self>) {
-        let target = self.vertical(self.cursor_offset(), -1.).unwrap_or(0);
-        self.select_to(target, window, cx);
-    }
-
-    fn select_down(&mut self, _: &SelectDown, window: &mut Window, cx: &mut Context<Self>) {
-        let target = self
-            .vertical(self.cursor_offset(), 1.)
-            .unwrap_or(self.content.len());
-        self.select_to(target, window, cx);
-    }
-
-    fn select_word_left(
-        &mut self,
-        _: &SelectWordLeft,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.select_to(self.previous_word(self.cursor_offset()), window, cx);
-    }
-
-    fn select_word_right(
-        &mut self,
-        _: &SelectWordRight,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.select_to(self.next_word(self.cursor_offset()), window, cx);
     }
 
     fn select_all(&mut self, _: &SelectAll, window: &mut Window, cx: &mut Context<Self>) {
@@ -419,64 +363,9 @@ impl TextInput {
         self.select_to(self.content.len(), window, cx)
     }
 
-    fn home(&mut self, _: &Home, window: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(self.line_start(self.cursor_offset()), window, cx);
-    }
-
-    fn end(&mut self, _: &End, window: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(self.line_end(self.cursor_offset()), window, cx);
-    }
-
-    fn select_home(&mut self, _: &SelectHome, window: &mut Window, cx: &mut Context<Self>) {
-        self.select_to(self.line_start(self.cursor_offset()), window, cx);
-    }
-
-    fn select_end(&mut self, _: &SelectEnd, window: &mut Window, cx: &mut Context<Self>) {
-        self.select_to(self.line_end(self.cursor_offset()), window, cx);
-    }
-
-    fn document_start(&mut self, _: &DocumentStart, window: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(0, window, cx);
-    }
-
-    fn document_end(&mut self, _: &DocumentEnd, window: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(self.content.len(), window, cx);
-    }
-
-    fn backspace(&mut self, _: &Backspace, window: &mut Window, cx: &mut Context<Self>) {
+    fn delete(&mut self, action: &Delete, window: &mut Window, cx: &mut Context<Self>) {
         if self.selected_range.is_empty() {
-            self.select_to(self.previous_boundary(self.cursor_offset()), window, cx)
-        }
-        self.insert("", window, cx)
-    }
-
-    fn delete(&mut self, _: &Delete, window: &mut Window, cx: &mut Context<Self>) {
-        if self.selected_range.is_empty() {
-            self.select_to(self.next_boundary(self.cursor_offset()), window, cx)
-        }
-        self.insert("", window, cx)
-    }
-
-    fn delete_word_left(
-        &mut self,
-        _: &DeleteWordLeft,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if self.selected_range.is_empty() {
-            self.select_to(self.previous_word(self.cursor_offset()), window, cx)
-        }
-        self.insert("", window, cx)
-    }
-
-    fn delete_to_line_start(
-        &mut self,
-        _: &DeleteToLineStart,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if self.selected_range.is_empty() {
-            self.select_to(self.line_start(self.cursor_offset()), window, cx)
+            self.select_to(self.target(action.to), window, cx)
         }
         self.insert("", window, cx)
     }
@@ -499,11 +388,6 @@ impl TextInput {
 
     fn paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-            let text = if self.multiline {
-                text
-            } else {
-                text.replace('\n', " ")
-            };
             self.insert(&text, window, cx);
         }
     }
@@ -518,9 +402,7 @@ impl TextInput {
 
     fn cut(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
         if !self.selected_range.is_empty() && !self.masked {
-            cx.write_to_clipboard(ClipboardItem::new_string(
-                self.content[self.selected_range.clone()].to_string(),
-            ));
+            self.copy(&Copy, window, cx);
             self.insert("", window, cx)
         }
     }
@@ -767,29 +649,9 @@ impl Render for TextInput {
             .track_focus(&self.focus_handle)
             .cursor(CursorStyle::IBeam)
             .w_full()
-            .on_action(cx.listener(Self::backspace))
+            .on_action(cx.listener(Self::move_cursor))
             .on_action(cx.listener(Self::delete))
-            .on_action(cx.listener(Self::delete_word_left))
-            .on_action(cx.listener(Self::delete_to_line_start))
-            .on_action(cx.listener(Self::left))
-            .on_action(cx.listener(Self::right))
-            .on_action(cx.listener(Self::up))
-            .on_action(cx.listener(Self::down))
-            .on_action(cx.listener(Self::word_left))
-            .on_action(cx.listener(Self::word_right))
-            .on_action(cx.listener(Self::select_left))
-            .on_action(cx.listener(Self::select_right))
-            .on_action(cx.listener(Self::select_up))
-            .on_action(cx.listener(Self::select_down))
-            .on_action(cx.listener(Self::select_word_left))
-            .on_action(cx.listener(Self::select_word_right))
             .on_action(cx.listener(Self::select_all))
-            .on_action(cx.listener(Self::home))
-            .on_action(cx.listener(Self::end))
-            .on_action(cx.listener(Self::select_home))
-            .on_action(cx.listener(Self::select_end))
-            .on_action(cx.listener(Self::document_start))
-            .on_action(cx.listener(Self::document_end))
             .on_action(cx.listener(Self::newline))
             .on_action(cx.listener(Self::submit))
             .on_action(cx.listener(Self::cancel))
@@ -931,7 +793,7 @@ impl Element for TextElement {
 
         let height: Pixels = lines
             .iter()
-            .map(|(_, line)| line.size(line_height).height.max(line_height))
+            .map(|(_, line)| row_height(line, line_height))
             .sum();
         let focused = input.focus_handle.is_focused(window);
         let caret_visible = focused && input.cursor_visible;
@@ -939,19 +801,12 @@ impl Element for TextElement {
         let cursor_offset = input.cursor_offset();
 
         // Positions are computed against the layout just shaped, not the stored one.
-        let position = |target: usize| -> Option<Point<Pixels>> {
+        let position = |target: usize| {
             if is_empty {
-                return Some(point(px(0.), px(0.)));
+                Some(point(px(0.), px(0.)))
+            } else {
+                position_in(&lines, line_height, target)
             }
-            let mut y = px(0.);
-            for (start, line) in &lines {
-                if target <= start + line.len() {
-                    let local = line.position_for_index(target - start, line_height)?;
-                    return Some(point(local.x, local.y + y));
-                }
-                y += line.size(line_height).height.max(line_height);
-            }
-            None
         };
 
         let mut selections = Vec::new();
@@ -1034,7 +889,7 @@ impl Element for TextElement {
                 cx,
             )
             .ok();
-            y += line.size(line_height).height.max(line_height);
+            y += row_height(line, line_height);
         }
         if let Some(cursor) = prepaint.cursor.take() {
             window.paint_quad(cursor);
@@ -1046,4 +901,26 @@ impl Element for TextElement {
             input.last_line_height = line_height;
         });
     }
+}
+
+/// The height a laid-out line takes; an empty one still takes a row.
+fn row_height(line: &WrappedLine, line_height: Pixels) -> Pixels {
+    line.size(line_height).height.max(line_height)
+}
+
+/// Where byte `offset` falls in `lines`, from their top left.
+fn position_in(
+    lines: &[(usize, WrappedLine)],
+    line_height: Pixels,
+    offset: usize,
+) -> Option<Point<Pixels>> {
+    let mut y = px(0.);
+    for (start, line) in lines {
+        if offset <= start + line.len() {
+            let local = line.position_for_index(offset - start, line_height)?;
+            return Some(point(local.x, local.y + y));
+        }
+        y += row_height(line, line_height);
+    }
+    None
 }
