@@ -18,7 +18,9 @@ use crate::state::{ProjectId, Store};
 use crate::theme::{Appearance, Theme};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, button, dropdown, h_flex, icon_button, list_row, v_flex};
+use crate::ui::{
+    ButtonStyle, Icon, button, dropdown, h_flex, icon_button, list_row, switch, v_flex,
+};
 
 actions!(settings, [OpenSettings]);
 
@@ -294,6 +296,22 @@ impl SettingsView {
                 title: "Appearance".into(),
                 description: "Light, dark, or whichever macOS is set to.".into(),
                 control: appearance.into_any_element(),
+            },
+            Row {
+                section: Section::General,
+                title: "Wrap long lines".into(),
+                description: "Diff lines wider than the pane continue on the next row. ⌥Z in a \
+                              diff turns it on and off."
+                    .into(),
+                control: switch("wrap", prefs.wrap, theme)
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.app
+                            .update(cx, |app, cx| {
+                                app.detail.update(cx, |detail, cx| detail.toggle_wrap(cx))
+                            })
+                            .ok();
+                    }))
+                    .into_any_element(),
             },
             Row {
                 section: Section::General,

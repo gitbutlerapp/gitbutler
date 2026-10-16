@@ -135,6 +135,10 @@ pub struct Decor {
     pub select: Option<LineSelect>,
     /// The part of a line's text that's selected.
     pub selected: Option<Range<usize>>,
+    /// What Find matched in a line's text, each with whether it's the current match.
+    pub found: Vec<(Range<usize>, bool)>,
+    /// A long line wraps onto more rows instead of running off the edge.
+    pub wrap: bool,
 }
 
 /// What the pointer does to a line's text, given the byte offset in the line it's at:
@@ -164,6 +168,8 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
         folded,
         select,
         selected,
+        found,
+        wrap,
     } = decor;
     let card = |el: gpui::Div| {
         el.w_full()
@@ -325,10 +331,9 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 div()
                     .flex_none()
                     .w(px(44.))
-                    .h_full()
                     .pr(px(8.))
                     .flex()
-                    .items_center()
+                    .items_start()
                     .justify_end()
                     .text_color(theme.text_3)
                     .when_some(gutter_bg, |el, bg| el.bg(bg))
@@ -337,8 +342,17 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
             // Blue like the system's text selection, apart from the green and red of the
             // change itself.
             let selected = selected.map(|range| (range, ground(theme.blue.opacity(0.3))));
+            let found = found.into_iter().map(|(range, current)| {
+                (
+                    range,
+                    ground(theme.warn.opacity(if current { 0.6 } else { 0.28 })),
+                )
+            });
             let text = StyledText::new(SharedString::from(line.text.clone())).with_highlights(
-                combine_highlights(combine_highlights(syntax, emph), selected),
+                combine_highlights(
+                    combine_highlights(combine_highlights(syntax, emph), found),
+                    selected,
+                ),
             );
             // Where in the text the pointer is, once the text has been laid out: the edge of
             // the character under it nearer the pointer, as text selection goes everywhere.
@@ -368,7 +382,14 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                     LineKind::Removed => "removed",
                     LineKind::Context => "unchanged",
                 })
-                .h(px(LINE_HEIGHT))
+                .map(|el| {
+                    if wrap {
+                        el.items_stretch().min_h(px(LINE_HEIGHT))
+                    } else {
+                        el.h(px(LINE_HEIGHT))
+                    }
+                })
+                .line_height(px(LINE_HEIGHT))
                 .font_family(theme.mono_font.clone())
                 .text_size(px(12.))
                 .when_some(bg, |el, bg| el.bg(bg))
@@ -387,7 +408,8 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 .child(
                     div()
                         .flex_1()
-                        .whitespace_nowrap()
+                        .min_w(px(0.))
+                        .when(!wrap, |el| el.whitespace_nowrap())
                         .overflow_hidden()
                         .text_color(theme.text_1)
                         .child(text),
