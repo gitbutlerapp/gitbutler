@@ -80,7 +80,9 @@ const Live: FC = () => (
 			/>
 			live
 		</span>
-		<Button size="small">Refresh</Button>
+		<Button variant="ghost" iconOnly aria-label="Refresh">
+			<Icon name="refresh" />
+		</Button>
 	</>
 );
 
@@ -214,11 +216,11 @@ const Frame: FC<{ crumbs: Array<Crumb>; state: ReactNode; header: ReactNode }> =
 		<LocationBar
 			leading={
 				<>
-					<Button variant="ghost" size="small" iconOnly aria-label="Toggle sidebar">
+					<Button variant="ghost" iconOnly aria-label="Toggle sidebar">
 						<Icon name="sidebar" />
 					</Button>
 					<LocationBarDivider />
-					<Button variant="ghost" size="small" iconOnly aria-label="Back">
+					<Button variant="ghost" iconOnly aria-label="Back">
 						<Icon name="arrow-left" />
 					</Button>
 				</>

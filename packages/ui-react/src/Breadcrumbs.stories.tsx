@@ -21,7 +21,7 @@ const worktree: Array<Crumb> = [
 	{ label: "but-dev", href: "#repo" },
 ];
 
-/** Where a page sits: the levels above it, each followed by "/". The header under it names the page. */
+/** Where a page sits: the levels above it, a › between each. The header under it names the page. */
 export const Default = meta.story({
 	args: { items: worktree },
 });
