@@ -100,7 +100,20 @@ pub fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
 impl AppView {
     /// Register the edits that apply to `selection` on the element around the navigator.
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
-        match self.store.read(cx).selection {
+        let store = self.store.read(cx);
+        // Only where they'd do something, which is also what the palette offers.
+        let picked = store.picked.len() > 1;
+        let pullable = match &store.selection {
+            Some(Selection::Branch(project, ref_name)) => {
+                (store.workspace(project)).is_some_and(|ws| {
+                    ws.find_branch(ref_name)
+                        .is_some_and(|b| !b.incoming.is_empty())
+                        && !ws.has_branches_above(ref_name)
+                })
+            }
+            _ => false,
+        };
+        match store.selection {
             Some(Selection::Commit(..)) => el
                 .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.move_step(true, cx)))
                 .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.move_step(false, cx)))
@@ -117,7 +130,7 @@ impl AppView {
                             .update(cx, |store, cx| store.move_to_new_branch(&project, id, cx));
                     }
                 }))
-                .on_action(cx.listener(Self::squash_picked))
+                .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
                 .on_action(cx.listener(Self::new_branch_here))
                 .on_action(cx.listener(Self::rewrap_message))
                 .on_action(cx.listener(|this, _: &CopyChangeId, _, cx| this.copy_commit(true, cx)))
@@ -132,12 +145,14 @@ impl AppView {
                 .on_action(cx.listener(Self::unapply_stack))
                 .on_action(cx.listener(Self::update_stack))
                 .on_action(cx.listener(Self::land_branch))
-                .on_action(cx.listener(|this, _: &PullRemote, window, cx| {
-                    this.pull_remote(false, window, cx)
-                }))
-                .on_action(cx.listener(|this, _: &TakeRemote, window, cx| {
-                    this.pull_remote(true, window, cx)
-                })),
+                .when(pullable, |el| {
+                    el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
+                        this.pull_remote(false, window, cx)
+                    }))
+                    .on_action(cx.listener(
+                        |this, _: &TakeRemote, window, cx| this.pull_remote(true, window, cx),
+                    ))
+                }),
             _ => el,
         }
     }
