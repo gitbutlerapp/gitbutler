@@ -49,10 +49,12 @@ impl Overlay {
     }
 }
 
-/// While a commit is checked out to edit, the only operations that run: saving it and
-/// stopping.
 pub const SAVE_EDIT: &str = "Save the commit";
 pub const STOP_EDITING: &str = "Stop editing";
+const FETCH: &str = "Fetch";
+/// While a commit is checked out to edit, the only operations that run: saving it,
+/// stopping, and fetching, which leaves the worktree alone.
+const WHILE_EDITING: [&str; 3] = [SAVE_EDIT, STOP_EDITING, FETCH];
 
 /// The commits an operation captured, found again by key when it runs, as operations queued
 /// before it may have rewritten them.
@@ -148,7 +150,7 @@ impl Store {
         let fetched = project.clone();
         self.run(
             project,
-            "Fetch",
+            FETCH,
             Overlay::default(),
             |path, _| backend::fetch(path),
             move |store, (), cx| {
@@ -193,7 +195,7 @@ impl Store {
             project,
             format!("Push {name}"),
             Overlay::default(),
-            move |path, _| backend::push(path, &ref_name, force),
+            move |path, _| backend::push(path, &ref_name, force).map(drop),
             move |store, (), cx| {
                 store.snack(format!("Pushed {name}"), cx);
                 // A push can open or move a pull request's checks.
@@ -276,13 +278,6 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let label = label.into();
-        let editing = self
-            .workspace(project)
-            .is_some_and(|ws| ws.editing.is_some());
-        if editing && label != SAVE_EDIT && label != STOP_EDITING {
-            self.snack("Save the edited commit, or stop editing it, first", cx);
-            return;
-        }
         let captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
             ws.commits()
                 .map(|commit| (commit.id, commit.key.clone()))
@@ -356,7 +351,17 @@ impl Store {
         remap: Remap,
         cx: &mut Context<Self>,
     ) {
-        let Some(path) = self.path(project) else {
+        // Checked as it starts, not when asked for: an operation queued behind checking a
+        // commit out runs while editing, one queued behind saving runs after.
+        let editing = self
+            .workspace(project)
+            .is_some_and(|ws| ws.editing.is_some());
+        let refused = editing && !WHILE_EDITING.contains(&label.as_ref());
+        let path = self.path(project).filter(|_| !refused);
+        let Some(path) = path else {
+            if refused {
+                self.snack("Save the edited commit, or stop editing it, first", cx);
+            }
             self.busy = None;
             self.running = None;
             cx.emit(StoreEvent::Pending(project.clone()));

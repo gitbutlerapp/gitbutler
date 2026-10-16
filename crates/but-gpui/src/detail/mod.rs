@@ -151,6 +151,8 @@ pub struct Detail {
     filtering: bool,
     /// Files shown whole, by path, with their lines once read.
     whole: HashMap<String, Option<FileLines>>,
+    /// Files whose lines are being read, one read each at a time.
+    whole_reading: HashSet<String>,
     /// Conflicted files of an edited commit the user called resolved, markers and all.
     marked_resolved: HashSet<(backend::CommitId, String)>,
     /// The commit message being edited, with the subscription that saves it.
@@ -323,6 +325,7 @@ impl Detail {
             file_filter,
             filtering: false,
             whole: HashMap::new(),
+            whole_reading: HashSet::new(),
             marked_resolved: HashSet::new(),
             rewording: None,
             checks_project: None,
@@ -539,7 +542,7 @@ impl Detail {
         self.recent.push((key.clone(), files.clone()));
         let rows = self.build_rows(&key, &files, cx);
         let same = self.diff.as_ref().is_some_and(|diff| diff.key == key);
-        let top = same.then(|| self.keep_place(&rows));
+        let top = same.then(|| self.keep_place(&rows, &files));
         // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
         // is about the right size before they are.
         self.list
@@ -576,10 +579,21 @@ impl Detail {
                         .collect::<Vec<_>>()
                 })
             };
-            self.line_picks.retain(|(path, key), _| {
-                let then = before.as_deref().and_then(|b| lines(b, path, *key));
-                then.is_some() && then == lines(&files, path, *key)
-            });
+            // A hunk whose picks can't be trusted any more is left out rather than taken
+            // whole: committing lines that weren't picked is the worse mistake.
+            let stale: Vec<(String, HunkKey)> = (self.line_picks.keys())
+                .filter(|(path, key)| {
+                    let then = before.as_deref().and_then(|b| lines(b, path, *key));
+                    then.is_none() || then != lines(&files, path, *key)
+                })
+                .cloned()
+                .collect();
+            for entry in stale {
+                self.line_picks.remove(&entry);
+                if hunks.contains(&(entry.0.as_str(), entry.1)) {
+                    self.unchecked_hunks.insert(entry);
+                }
+            }
         }
         if self.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
             self.text_selection = None;
@@ -708,9 +722,9 @@ impl Detail {
         cx.notify();
     }
 
-    /// Where the view goes in `rows` to keep showing what's at its top now: the same row,
-    /// or its file's header when that row went away.
-    fn keep_place(&self, rows: &[DiffRow]) -> ListOffset {
+    /// Where the view goes in `rows` of `files` to keep showing what's at its top now: the
+    /// same row, or its file's header when that row went away.
+    fn keep_place(&self, rows: &[DiffRow], files: &[FileDiff]) -> ListOffset {
         let top = self.list.logical_scroll_top();
         let Some(diff) = &self.diff else {
             return top;
@@ -719,7 +733,18 @@ impl Detail {
         let gaps = (diff.rows.iter().skip(top.item_ix))
             .take_while(|row| **row == DiffRow::Gap)
             .count();
-        let anchor = diff.rows.get(top.item_ix + gaps).copied();
+        // Its file found by path, as a reload can add or drop files before it.
+        let anchor = diff
+            .rows
+            .get(top.item_ix + gaps)
+            .and_then(|row| match row.file() {
+                Some(file) => {
+                    let path = &diff.files.get(file)?.file.path;
+                    let now = files.iter().position(|f| &f.file.path == path)?;
+                    Some(row.in_file(now))
+                }
+                None => Some(*row),
+            });
         let found = anchor
             .and_then(|row| rows.iter().position(|r| r.same_place(row)))
             .and_then(|ix| ix.checked_sub(gaps));
@@ -744,7 +769,7 @@ impl Detail {
         let rows = self.build_rows(&diff.key, &diff.files, cx);
         if rows != diff.rows {
             self.text_selection = None;
-            let scroll_to = self.keep_place(&rows);
+            let scroll_to = self.keep_place(&rows, &diff.files);
             self.list
                 .reset_with_uniform_height(rows.len(), px(diff::LINE_HEIGHT));
             self.list.scroll_to(scroll_to);

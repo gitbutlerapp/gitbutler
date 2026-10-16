@@ -136,21 +136,22 @@ impl SettingsView {
                     return;
                 }
             };
+            let code = SharedString::from(code);
             this.update(cx, |this, cx| {
-                cx.write_to_clipboard(ClipboardItem::new_string(code.clone()));
+                cx.write_to_clipboard(ClipboardItem::new_string(code.to_string()));
                 cx.open_url(GITHUB_DEVICE_PAGE);
-                this.accounts.github_code = Some(code.into());
+                this.accounts.github_code = Some(code.clone());
                 cx.notify();
             })
             .ok();
+            // This sign-in is the one Settings shows: Cancel, or starting another, ends it,
+            // while closing Settings doesn't.
+            let current =
+                |this: &mut SettingsView| this.accounts.github_code.as_ref() == Some(&code);
             let waited = std::time::Instant::now();
             let outcome = loop {
                 cx.background_executor().timer(SIGN_IN_POLL).await;
-                // Cancel clears the code; a closed Settings doesn't stop the wait.
-                let cancelled = this
-                    .update(cx, |this, _| this.accounts.github_code.is_none())
-                    .unwrap_or(false);
-                if cancelled {
+                if !this.update(cx, |this, _| current(this)).unwrap_or(true) {
                     return;
                 }
                 let device = device.clone();
@@ -166,7 +167,9 @@ impl SettingsView {
                 Err(err) => store.error("Couldn't sign in to GitHub", format!("{err:#}"), cx),
             });
             this.update(cx, |this, cx| {
-                this.accounts.github_code = None;
+                if current(this) {
+                    this.accounts.github_code = None;
+                }
                 this.load_accounts(cx);
             })
             .ok();

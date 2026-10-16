@@ -249,7 +249,7 @@ pub fn unapply_stack(path: &Path, branch: &str) -> Result<()> {
     but_api::legacy::virtual_branches::unapply_stack(&mut ctx, stack_id)
 }
 
-pub(super) fn holds(segment: &but_workspace::ref_info::Segment, branch: &str) -> bool {
+fn holds(segment: &but_workspace::ref_info::Segment, branch: &str) -> bool {
     segment
         .ref_info
         .as_ref()
@@ -481,9 +481,11 @@ pub fn discard(path: &Path, selected: &[Selected]) -> Result<()> {
 }
 
 /// Push `ref_name` and the branches below it in its stack.
-pub fn push(path: &Path, ref_name: &str, force: bool) -> Result<()> {
+/// Push `ref_name` and the branches below it. Returns the name it has on its remote, which
+/// needn't be its local one.
+pub fn push(path: &Path, ref_name: &str, force: bool) -> Result<Option<String>> {
     let ctx = open(path)?.into_sync();
-    runtime().handle().block_on(
+    let outcome = runtime().handle().block_on(
         but_api::legacy::workspace::workspace_branch_and_ancestors_push(
             ctx,
             force,
@@ -493,7 +495,10 @@ pub fn push(path: &Path, ref_name: &str, force: bool) -> Result<()> {
             Vec::new(),
         ),
     )?;
-    Ok(())
+    let short = ref_name.strip_prefix("refs/heads/").unwrap_or(ref_name);
+    Ok((outcome.push.branch_to_remote.into_iter())
+        .find(|(branch, _, _)| branch == short || branch == ref_name)
+        .map(|(_, _, remote)| remote))
 }
 
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of

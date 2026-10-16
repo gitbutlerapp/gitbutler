@@ -199,9 +199,10 @@ pub struct Store {
     _forge_poll: Task<()>,
     /// When each project was last fetched in the background.
     fetched: HashMap<ProjectId, Instant>,
-    /// Projects whose background fetch failed, as on credentials the user turned down,
-    /// which it leaves alone until a fetch the user asks for works.
-    fetch_failed: HashSet<ProjectId>,
+    /// When each project's background fetch last failed, as on credentials the user turned
+    /// down or being offline; it waits a while before asking again, unless a fetch the user
+    /// asks for works.
+    fetch_failed: HashMap<ProjectId, Instant>,
     _auto_fetch: Task<()>,
     forge_requests: mpsc::UnboundedSender<ProjectId>,
     /// Projects waiting for a forge refresh, so each waits only once.
@@ -301,7 +302,7 @@ impl Store {
             // Pull requests and CI change on the forge, where no watcher sees them: ask
             // when a project opens, then every minute.
             fetched: HashMap::new(),
-            fetch_failed: HashSet::new(),
+            fetch_failed: HashMap::new(),
             _auto_fetch: Self::fetch_in_background(cx),
             _forge_poll: cx.spawn(async move |this, cx| {
                 loop {
@@ -497,9 +498,10 @@ impl Store {
                     }
                     let reloaded = this.update(cx, |store, cx| {
                         store.fetched.insert(project.clone(), Instant::now());
-                        if fetched.is_err() {
-                            store.fetch_failed.insert(project.clone());
-                        }
+                        match fetched {
+                            Ok(()) => store.fetch_failed.remove(&project),
+                            Err(_) => store.fetch_failed.insert(project.clone(), Instant::now()),
+                        };
                         store.reload(&project, cx);
                     });
                     if reloaded.is_err() {
@@ -514,7 +516,10 @@ impl Store {
         self.projects
             .iter()
             .filter(|entry| entry.expanded && entry.workspace.is_some())
-            .filter(|entry| !self.fetch_failed.contains(&entry.id))
+            .filter(|entry| {
+                const AFTER_FAILING: Duration = Duration::from_secs(30 * 60);
+                (self.fetch_failed.get(&entry.id)).is_none_or(|at| at.elapsed() >= AFTER_FAILING)
+            })
             .filter(|entry| {
                 self.fetched
                     .get(&entry.id)
