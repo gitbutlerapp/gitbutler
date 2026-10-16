@@ -244,6 +244,7 @@ fn main() -> anyhow::Result<()> {
                 but_api::branch::tauri_branch_remove::branch_remove,
                 but_api::branch::tauri_branch_create::branch_create,
                 but_api::branch::tauri_branch_rename::branch_rename,
+                but_api::branch::tauri_branch_name_segment::branch_name_segment,
                 but_api::branch::tauri_branch_canned_name::branch_canned_name,
                 but_api::target_commits::tauri_workspace_target_commits::workspace_target_commits,
                 legacy::git::tauri_git_remote_branches::git_remote_branches,
