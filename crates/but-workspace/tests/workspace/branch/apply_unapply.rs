@@ -396,7 +396,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -408,11 +408,10 @@ Outcome {
     );
 
     // Applying A is always a new stack then.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
     // the workspace ref still points to the base e5d0542
     snapbox::assert_data_eq!(
-        graph_workspace(&out.workspace).to_string(),
+        graph_workspace(&graph(&repo, &meta, &mut db)?.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
 ├── ≡📙:B on e5d0542 {1}
@@ -432,7 +431,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     let out = but_workspace::branch::unapply(
         r("refs/heads/A"),
         &ws,
@@ -719,9 +718,8 @@ Outcome {
             named_writable_scenario("no-ws-ref-no-ws-commit-two-branches")?;
 
         let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-        let out =
-            but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
-        let ws = out.workspace;
+        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+        let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -771,9 +769,8 @@ Outcome {
             named_writable_scenario("no-ws-ref-no-ws-commit-two-branches")?;
 
         let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-        let out =
-            but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
-        let ws = out.workspace;
+        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+        let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
 
         let out = but_workspace::branch::unapply(
             r("refs/heads/A"),
@@ -815,9 +812,8 @@ Outcome {
             named_writable_scenario("no-ws-ref-no-ws-commit-two-branches")?;
 
         let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-        let out =
-            but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
-        let ws = out.workspace;
+        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+        let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
         // the workspace ref is checked out
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -989,7 +985,10 @@ Outcome {
 
 #[test]
 fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
-    let (_tmp, mut repo, meta, mut db) = named_writable_scenario("main-with-advanced-remote")?;
+    let (_tmp, mut repo, _meta, mut db) = named_writable_scenario("main-with-advanced-remote")?;
+    // Because VirtualBranchesTomlMetadata does not support remotes, use InMemoryRefMetadata for
+    // this test instead.
+    let mut meta = InMemoryRefMetadata::default();
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1021,13 +1020,11 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
     })?;
     repo.reload()?;
 
-    let mut ref_meta = InMemoryRefMetadata::default();
-    ref_meta.workspaces.push((
+    meta.workspaces.push((
         "refs/heads/gitbutler/workspace".try_into()?,
         ref_metadata::Workspace::default(),
     ));
-    let graph = blank_project_meta_graph(&repo, &meta, &mut db)?;
-    let ws = graph.into_workspace()?;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     // note how the remote isn't interesting as we have no target configured.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -1045,7 +1042,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         r("refs/remotes/origin/main"),
         ws.clone(),
         &repo,
-        &mut ref_meta,
+        &mut meta,
         apply_options(),
     )?;
     // nothing was actually applied as the `main` branch is already in the workspace
@@ -1066,7 +1063,7 @@ Outcome {
         r("refs/remotes/origin/feature"),
         ws,
         &repo,
-        &mut ref_meta,
+        &mut meta,
         apply_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -1080,7 +1077,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     // both branches, main and feature, are available in the newly created workspace ref.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -1147,9 +1144,8 @@ fn unapply_remotely_tracked_tip_of_multi_segment_stack_can_delete_workspace_ref(
     }
 
     let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
-    let ws = out.workspace;
+    but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1264,7 +1260,7 @@ Outcome {
     );
 
     snapbox::assert_data_eq!(
-        graph_workspace(&out.workspace).to_string(),
+        graph_workspace(&graph(&repo, &meta, &mut db)?.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
 ├── ≡:anon: on 3183e43
@@ -1316,7 +1312,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1350,7 +1346,7 @@ Outcome {
     );
     // Note how it will create a new stack (to keep it simple),
     // in theory we could also add B as dependent branch.
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1591,7 +1587,6 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     let (_tmp, repo, mut meta, mut db) =
         named_writable_scenario("no-ws-ref-no-ws-commit-two-branches")?;
 
-    let graph = blank_project_meta_graph(&repo, &meta, &mut db)?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1599,7 +1594,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
 
 "#]]
     );
-    let ws = graph.into_workspace()?;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1628,7 +1623,8 @@ Outcome {
     );
 
     snapbox::assert_data_eq!(
-        graph_workspace(&out.workspace).to_string(),
+        graph_workspace(&blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?)
+            .to_string(),
         snapbox::str![[r#"
 📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓!
 ├── ≡📙:main {1a5}
@@ -1651,7 +1647,7 @@ Outcome {
     );
 
     // Thread the post-apply workspace into the next apply instead of reusing the stale projection.
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     let out = but_workspace::branch::apply(
         r("refs/heads/B"),
         ws,
@@ -1674,7 +1670,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1723,7 +1719,7 @@ Outcome {
 "#]]
     );
 
-    let out = but_workspace::branch::apply(
+    but_workspace::branch::apply(
         r("refs/heads/A"),
         ws,
         &repo,
@@ -1743,7 +1739,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1755,7 +1751,7 @@ Outcome {
 "#]]
     );
 
-    let out = but_workspace::branch::apply(
+    but_workspace::branch::apply(
         r("refs/heads/B"),
         ws,
         &repo,
@@ -1778,7 +1774,7 @@ Outcome {
         .raw()
     );
 
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1802,7 +1798,6 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     let (_tmp, repo, mut meta, mut db) =
         named_writable_scenario("no-ws-ref-no-ws-commit-two-branches")?;
 
-    let graph = graph(&repo, &meta, &mut db)?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1810,7 +1805,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
 
 "#]]
     );
-    let ws = graph.into_workspace()?;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1835,7 +1830,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -1868,7 +1863,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -2053,7 +2048,7 @@ fn apply_in_managed_workspace_drops_stack_whose_ref_disappeared() -> anyhow::Res
     assert_eq!(out.status, OutcomeStatus::Applied);
 
     snapbox::assert_data_eq!(
-        graph_workspace(&out.workspace).to_string(),
+        graph_workspace(&graph(&repo, &meta, &mut db)?.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 893d602
 ├── ≡:anon: on 893d602
@@ -2470,15 +2465,15 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
 
     // Pretend "B" is checked out (it's at the right state independently of that)
     let (b_id, b_ref) = id_at(&repo, "B");
-    let graph = but_graph::Graph::from_commit_traversal(
+    let ws = but_graph::Graph::from_commit_traversal(
         b_id,
         b_ref,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         but_graph::init::Options::default(),
-    )?;
-    let ws = graph.into_workspace()?;
+    )?
+    .into_workspace()?;
     // The existing workspace isn't projected without its ProjectMeta, but its ref stays visible.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -2506,7 +2501,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     // This apply brings both branches into the existing workspace, and it's where HEAD points to.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -2601,7 +2596,7 @@ mod unapply_checked_out {
 
         let mut ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
         for branch_to_apply in ["C", "B"] {
-            let out = but_workspace::branch::apply(
+            but_workspace::branch::apply(
                 Category::LocalBranch
                     .to_full_name(branch_to_apply)?
                     .as_ref(),
@@ -2610,7 +2605,7 @@ mod unapply_checked_out {
                 &mut meta,
                 apply_options(),
             )?;
-            ws = out.workspace;
+            ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
         }
 
         // C and B are real stacks in the managed workspace
@@ -2872,7 +2867,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -2919,7 +2914,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -2988,7 +2983,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace.into_owned();
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -3031,7 +3026,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace.into_owned();
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     // By default, we keep the workspace, and `main` is in there as a target is missing
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -3083,17 +3078,16 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
 
 "#]]
     );
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
-    let ws = out.workspace;
-    let out = but_workspace::branch::apply(
+    but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
+    but_workspace::branch::apply(
         r("refs/remotes/origin/B"),
         ws,
         &repo,
         &mut meta,
         apply_options(),
     )?;
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -3268,7 +3262,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
 
     let out =
         but_workspace::branch::apply(r("refs/heads/A1"), ws, &repo, &mut meta, apply_options())?;
@@ -3284,7 +3278,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -3465,7 +3459,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -3632,7 +3626,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     // the actual HEAD is ignored, and we only see C (instead of C + HEAD-ref)
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -3690,7 +3684,7 @@ Outcome {
         .raw()
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -3728,7 +3722,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -3875,7 +3869,7 @@ fn unapply_workspace_ref_without_target_checks_out_named_stack() -> anyhow::Resu
     let mut ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
 
     for branch_to_apply in ["C", "B"] {
-        let out = but_workspace::branch::apply(
+        but_workspace::branch::apply(
             Category::LocalBranch
                 .to_full_name(branch_to_apply)?
                 .as_ref(),
@@ -3884,10 +3878,10 @@ fn unapply_workspace_ref_without_target_checks_out_named_stack() -> anyhow::Resu
             &mut meta,
             apply_options(),
         )?;
-        ws = out.workspace;
+        ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     }
 
-    let out = but_workspace::branch::apply(
+    but_workspace::branch::apply(
         r("refs/heads/A"),
         ws,
         &repo,
@@ -3897,7 +3891,7 @@ fn unapply_workspace_ref_without_target_checks_out_named_stack() -> anyhow::Resu
             ..apply_options()
         },
     )?;
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     // the workspace has named stacks but no target ref
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -4001,14 +3995,14 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
     git(&repo).args(["reset", "--hard", "normal"]).run();
 
     let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
-    let out = but_workspace::branch::apply(
+    but_workspace::branch::apply(
         r("refs/heads/tip-conflicted"),
         ws,
         &repo,
         &mut meta,
         apply_options(),
     )?;
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &meta, &mut db)?.into_workspace()?;
     // the target-less workspace can contain a conflicted named stack
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -4088,7 +4082,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -4102,9 +4096,8 @@ Outcome {
 
     // Apply the former tip of the stack, to create a new stack. Note how it won't double-list the
     // other stack.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())?;
-    let ws = out.workspace;
+    but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())?;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -4139,9 +4132,8 @@ Outcome {
     // BUT: Currently it overrides the previous stack C, which points to the same commit, and avoids any merge!
     // Accepting this behaviour for now as it's quite rare to have such ambiguity, even though I'd love if one day
     // for this to just work as people might intuitively want, even if that means the same commit is used multiple times.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
-    let ws = out.workspace;
+    but_workspace::branch::apply(r("refs/heads/B"), ws, &repo, &mut meta, apply_options())?;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -4161,10 +4153,8 @@ Outcome {
     // Applying C again… works, but it's creating a dependent stack.
     // This is what happens because we notice that C can't be applied as independent stack due to the graph algorithm,
     // and then it tries it a dependent stack, which should always work.
-    let out =
-        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())
-            .unwrap();
-    let ws = out.workspace;
+    but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options()).unwrap();
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -4222,7 +4212,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -4261,7 +4251,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -4302,7 +4292,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     // C is recorded as another segment at the same tip in the B/A stack
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -4345,7 +4335,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     // D becomes a lower segment in the same projected stack, leaving E as the remaining alternate ref at that commit
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -4742,7 +4732,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         "conflict-F2",
         "clean-C",
     ] {
-        let out = but_workspace::branch::apply(
+        but_workspace::branch::apply(
             Category::LocalBranch
                 .to_full_name(branch_to_apply)?
                 .as_ref(),
@@ -4752,7 +4742,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
             apply_options(),
         )
         .unwrap_or_else(|err| panic!("{branch_to_apply}: {err}"));
-        ws = out.workspace;
+        ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     }
 
     snapbox::assert_data_eq!(
@@ -4833,7 +4823,7 @@ Outcome {
 }
 "#]]
     );
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     // By default, it fails and just reports the conflicting stacks, so it's the same as it was before.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -4902,7 +4892,7 @@ Outcome {
     );
 
     // Now the other stacks are unapplied.
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -5062,9 +5052,8 @@ fn conflicting_apply_reports_no_applied_branches_and_names_conflicting_stacks() 
     );
 
     let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
-    let out =
-        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
-    let ws = out.workspace;
+    but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     // A is applied before trying the conflicting sibling branch
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -5175,7 +5164,7 @@ fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repea
         "conflict-hero",
     ];
     for branch_to_apply in branches {
-        let out = but_workspace::branch::apply(
+        but_workspace::branch::apply(
             Category::LocalBranch
                 .to_full_name(branch_to_apply)?
                 .as_ref(),
@@ -5188,7 +5177,7 @@ fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repea
                 ..apply_options()
             },
         )?;
-        ws = out.workspace;
+        ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     }
     // all branches are applied
     snapbox::assert_data_eq!(
@@ -5464,7 +5453,7 @@ Outcome {
 
 "#]]
     );
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -5491,7 +5480,7 @@ Outcome {
     );
     // B is added as independent stack
     snapbox::assert_data_eq!(
-        graph_workspace(&out.workspace).to_string(),
+        graph_workspace(&graph(&repo, &meta, &mut db)?.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓! on e5d0542
 ├── ≡📙:A on e5d0542 {41}
@@ -5524,7 +5513,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     let out = but_workspace::branch::unapply(
         r("refs/heads/A"),
         &ws,
@@ -5726,7 +5715,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = graph(&repo, &meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -5843,7 +5832,7 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
     // so a comment is used as reference.
     // snapbox::assert_data_eq!(visualize_commit_graph_all(&repo)?, snapbox::str!["* 3183e43 (orphan/main) M1"]);
 
-    let graph = blank_project_meta_graph(&repo, &meta, &mut db)?;
+    let graph = blank_project_meta_graph(&repo, &*meta, &mut db)?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -5898,7 +5887,7 @@ Outcome {
 "#]]
     );
 
-    let ws = out.workspace;
+    let ws = blank_project_meta_graph(&repo, &*meta, &mut db)?.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
