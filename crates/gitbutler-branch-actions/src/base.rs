@@ -22,22 +22,24 @@ use crate::remote::{RemoteCommit, commit_to_remote_commit};
 #[serde(rename_all = "camelCase")]
 pub struct BaseBranch {
     pub branch_name: String,
-    pub remote_name: String,
-    pub remote_url: String,
-    pub push_remote_name: String,
-    pub push_remote_url: String,
+    pub remote_name: Option<String>,
+    pub remote_url: Option<String>,
+    pub push_remote_name: Option<String>,
+    pub push_remote_url: Option<String>,
     #[serde(with = "but_serde::object_id")]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
     pub base_sha: gix::ObjectId,
-    #[serde(with = "but_serde::object_id")]
+    /// Upstream tip, or local target tip when no upstream is configured.
+    /// None means the configured upstream ref is unavailable; incoming counts are unknown.
+    #[serde(with = "but_serde::object_id_opt")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::object_id")
+        schemars(schema_with = "but_schemars::object_id_opt")
     )]
-    pub current_sha: gix::ObjectId,
+    pub current_sha: Option<gix::ObjectId>,
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
@@ -50,28 +52,26 @@ pub struct BaseBranch {
 but_schemars::register_sdk_type!(BaseBranch);
 
 impl BaseBranch {
-    pub fn compute_short_name(branch_name: &str, remote_name: &str) -> String {
-        if !remote_name.is_empty() && branch_name == remote_name {
-            return String::new();
-        }
+    pub fn compute_short_name(branch_name: &str, remote_name: Option<&str>) -> String {
+        if let Some(remote_name) = remote_name.filter(|name| !name.is_empty()) {
+            if branch_name == remote_name {
+                return String::new();
+            }
 
-        let prefixes: Vec<String> = if !remote_name.is_empty() {
-            vec![
+            for prefix in [
                 format!("refs/remotes/{remote_name}/"),
                 format!("{remote_name}/"),
-                "refs/heads/".to_string(),
-            ]
-        } else {
-            vec!["refs/heads/".to_string()]
-        };
-
-        for prefix in &prefixes {
-            if let Some(stripped) = branch_name.strip_prefix(prefix.as_str()) {
-                return stripped.to_string();
+            ] {
+                if let Some(stripped) = branch_name.strip_prefix(&prefix) {
+                    return stripped.to_string();
+                }
             }
         }
 
-        branch_name.to_string()
+        branch_name
+            .strip_prefix("refs/heads/")
+            .unwrap_or(branch_name)
+            .to_string()
     }
 }
 
@@ -316,30 +316,44 @@ pub(crate) fn target_to_base_branch(
     project_meta: &but_core::ref_metadata::ProjectMeta,
 ) -> Result<BaseBranch> {
     let target_ref_name = project_meta.target_ref_or_err()?.clone();
-    let target_sha = project_meta.target_commit_id_or_err()?;
+    let target_sha = project_meta.resolve_target_commit(repo)?;
     let mut target_ref = repo
         .find_reference(&target_ref_name)
         .context(Code::DefaultTargetNotFound)?;
-    let target_ref_commit_id = target_ref
+    let local_target_tip = target_ref
         .peel_to_commit()
-        .with_context(|| format!("target '{target_ref_name}' does not point to a commit"))?
+        .with_context(|| format!("target '{target_ref_name}' did not point to a commit"))?
         .id;
+    let upstream_name = project_meta.remote_target_ref(repo)?;
+    let upstream_tip = upstream_name
+        .as_ref()
+        .map(|name| repo.try_find_reference(name.as_ref()))
+        .transpose()?
+        .flatten()
+        .map(|mut reference| reference.peel_to_commit().map(|commit| commit.id))
+        .transpose()?;
+    let target_ref_commit_id = match upstream_name {
+        Some(_) => upstream_tip,
+        None => Some(local_target_tip),
+    };
 
-    // Upstream integration needs to know whether the stored target is ahead of
-    // the target ref so the UI can block integration until divergence is resolved.
-    let target_sha_not_ref = first_parent_commit_ids_until(repo, target_sha, target_ref_commit_id)
-        .context("failed to get fork point")?;
-    let target_sha_ahead_of_ref = !target_sha_not_ref.is_empty();
-
-    // The longest first-parent list of upstream commit ids.
-    let mut upstream_commit_ids = upstream_commits_per_stack_head(ws, repo, target_ref_commit_id)?
-        .into_iter()
-        .max_by_key(|us| us.len())
-        .unwrap_or_default();
-    if upstream_commit_ids.is_empty() && target_ref_commit_id != target_sha {
-        upstream_commit_ids = first_parent_commit_ids_until(repo, target_ref_commit_id, target_sha)
-            .context("failed to get target commits since stored base")?;
-    }
+    // This flag gates upstream integration, not divergence between local main and its upstream.
+    let (target_sha_ahead_of_ref, upstream_commit_ids) = match upstream_tip {
+        Some(upstream_tip) => {
+            let target_sha_not_ref = first_parent_commit_ids_until(repo, target_sha, upstream_tip)
+                .context("failed to get fork point")?;
+            let mut commits = upstream_commits_per_stack_head(ws, repo, upstream_tip)?
+                .into_iter()
+                .max_by_key(|commits| commits.len())
+                .unwrap_or_default();
+            if commits.is_empty() && upstream_tip != target_sha {
+                commits = first_parent_commit_ids_until(repo, upstream_tip, target_sha)
+                    .context("failed to get target commits since stored base")?;
+            }
+            (!target_sha_not_ref.is_empty(), commits)
+        }
+        None => (false, Vec::new()),
+    };
 
     let upstream_commits = upstream_commit_ids
         .iter()
@@ -364,21 +378,23 @@ pub(crate) fn target_to_base_branch(
     // we assume that only local commits can be conflicted
     let conflicted = recent_commits.iter().any(|commit| commit.conflicted);
 
-    let push_remote_url = project_meta.push_remote_url(repo)?;
-    let remote_url = project_meta.remote_url_with_fallback(repo)?;
+    let push_remote_url = project_meta.push_remote_url(repo).ok();
+    let remote_url = project_meta.target_remote_url(repo).ok();
 
-    let branch_name = target_ref_name.shorten().to_string();
-    let remote_name = target_ref
-        .remote_name(gix::remote::Direction::Push)
-        .context("Failed to get current remote name")?
-        .to_owned()
-        .as_bstr()
-        .to_string();
+    // Preserve this legacy DTO's upstream-facing branch name when an upstream is configured.
+    let branch_name = upstream_name.as_ref().map_or_else(
+        || target_ref_name.shorten().to_string(),
+        |name| name.shorten().to_string(),
+    );
+    let remote_name = upstream_name.as_ref().and_then(|name| {
+        but_core::extract_remote_name_and_short_name(name.as_ref(), &repo.remote_names())
+            .map(|(remote, _)| remote)
+    });
     let push_remote_name = project_meta
         .push_remote
         .clone()
-        .unwrap_or_else(|| remote_name.clone());
-    let short_name = BaseBranch::compute_short_name(&branch_name, &remote_name);
+        .or_else(|| remote_name.clone());
+    let short_name = BaseBranch::compute_short_name(&branch_name, remote_name.as_deref());
     let base = BaseBranch {
         branch_name,
         remote_name,

@@ -11,11 +11,11 @@ mod walk;
 use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::{BStr, BString, ByteSlice};
-use but_core::{RefMetadata, WORKSPACE_REF_NAME};
+use but_core::{RefMetadata, WORKSPACE_REF_NAME, ref_metadata::LocalRefName};
 use but_graph::{Graph, SegmentIndex, Workspace};
 use gix::{
     prelude::ObjectIdExt,
-    refs::{Category, FullName},
+    refs::{Category, FullName, FullNameRef},
 };
 use walk::OwnedHistory;
 
@@ -40,8 +40,8 @@ pub struct BranchListing {
     /// Presentation order beyond recency is the caller's: group by
     /// [`status`](ListedStack::status) to lead with workspace-related stacks.
     pub stacks: Vec<ListedStack>,
-    /// The full name of the configured target branch, if set, e.g. `refs/remotes/origin/main`.
-    pub target_ref: Option<FullName>,
+    /// The configured local project target, if set, e.g. `refs/heads/main`.
+    pub target_ref: Option<LocalRefName>,
     /// If `true`, the traversal hit its hard limit: at least one branch reports
     /// `None` counts, and stacks whose relation lies beyond the limit are not inferred.
     pub incomplete: bool,
@@ -103,7 +103,7 @@ pub struct ListedBranch {
     /// a traversal hard limit cut it short (see [`BranchListing::incomplete`]) or
     /// the repository is a shallow clone; an exact-looking number would be wrong.
     pub commit_count: Option<usize>,
-    /// The number of commits reachable from the branch but not from the target branch.
+    /// The number of commits reachable from the branch but not from the configured local target branch.
     ///
     /// For a branch stacked on top of others this includes the commits of those
     /// lower branches, so it is the branch's distance from the target rather than
@@ -227,11 +227,7 @@ pub fn list(
 
     Ok(BranchListing {
         stacks,
-        target_ref: ws
-            .target_ref
-            .as_ref()
-            .map(|target| target.ref_name.clone())
-            .or(options.project_meta.target_ref),
+        target_ref: options.project_meta.target_ref,
         incomplete,
     })
 }
