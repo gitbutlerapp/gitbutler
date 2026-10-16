@@ -138,8 +138,11 @@ pub struct Store {
     /// File lists show a tree of directories rather than a flat list.
     pub file_tree: bool,
     pub toasts: Vec<Toast>,
-    /// The label of the mutation in flight, if any. Mutations run one at a time.
+    /// The label of the mutation in flight, if any. Mutations run one at a time, each
+    /// until the reload after it lands, so the next one sees what it did.
     pub busy: Option<SharedString>,
+    /// The project a finished mutation waits on. Its next load to start ends `busy`.
+    settling: Option<ProjectId>,
     /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
     last_snapshot: Option<(ProjectId, SnapshotId)>,
     next_toast: usize,
@@ -195,6 +198,7 @@ impl Store {
             dragging: None,
             toasts: Vec::new(),
             busy: None,
+            settling: None,
             last_snapshot: None,
             next_toast: 0,
             seen: saved.seen,
@@ -468,6 +472,7 @@ impl Store {
     /// Reload `id`'s workspace, coalescing requests that arrive while a load is running.
     pub fn reload(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         let Some(entry) = self.project_mut(id) else {
+            self.settled(id);
             return;
         };
         if entry.loading {
@@ -477,11 +482,14 @@ impl Store {
         entry.loading = true;
         let path = entry.project.path.clone();
         let id = id.clone();
+        // Started after the mutation finished, so it sees what the mutation did.
+        let settles = self.settling.as_ref() == Some(&id);
         cx.notify();
         cx.spawn(async move |this, cx| {
             let result = backend::run(move || backend::load_workspace(&path)).await;
             this.update(cx, |store, cx| {
                 let Some(entry) = store.project_mut(&id) else {
+                    store.settled(&id);
                     return;
                 };
                 entry.loading = false;
@@ -495,6 +503,9 @@ impl Store {
                 if !again {
                     store.validate_selection(cx);
                 }
+                if settles {
+                    store.settled(&id);
+                }
                 cx.emit(StoreEvent::Loaded(id.clone()));
                 cx.notify();
                 if again {
@@ -504,6 +515,14 @@ impl Store {
             .ok();
         })
         .detach();
+    }
+
+    /// End the mutation in `busy` once `id` has loaded what it did, or can't load at all.
+    fn settled(&mut self, id: &ProjectId) {
+        if self.settling.as_ref() == Some(id) {
+            self.settling = None;
+            self.busy = None;
+        }
     }
 
     /// Ask the forge about `id`'s pull requests and CI in the background, then show what
@@ -832,8 +851,8 @@ impl Store {
         cx.notify();
     }
 
-    /// Run a mutation on `project` in the background, then reload it. `done` runs on
-    /// success with the operation's result.
+    /// Run a mutation on `project` in the background, then reload it, busy until the
+    /// reload lands. `done` runs on success with the operation's result.
     pub fn run<T: Send + 'static>(
         &mut self,
         project: &ProjectId,
@@ -870,7 +889,7 @@ impl Store {
             })
             .await;
             this.update(cx, |store, cx| {
-                store.busy = None;
+                store.settling = Some(project.clone());
                 // Set here rather than at the start, so a load the watcher started
                 // mid-operation can't use it up.
                 store.rebaseline.insert(project.clone(), before);
