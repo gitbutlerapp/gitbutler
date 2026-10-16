@@ -8,7 +8,7 @@ use gpui::{
     Role, SharedString, StyledText, Window, combine_highlights, div, prelude::*, px,
 };
 
-use super::{Icon, h_flex, small_icon};
+use super::{Icon, h_flex, small_icon, v_flex};
 use crate::backend::{ChangeKind, DiffBody, FileDiff, Hunk, LineKind};
 use crate::theme::Theme;
 
@@ -268,8 +268,11 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 .into_any_element()
         }
         DiffRow::Note(file) => {
+            if let DiffBody::Image { before, after } = &files[file].body {
+                return card(image_row(before.clone(), after.clone(), theme)).into_any_element();
+            }
             let text = match &files[file].body {
-                DiffBody::Binary => "Binary file".to_owned(),
+                DiffBody::Binary | DiffBody::Image { .. } => "Binary file".to_owned(),
                 DiffBody::TooLarge { bytes } => {
                     format!("Too large to show ({:.1} MB)", *bytes as f64 / 1_000_000.)
                 }
@@ -472,4 +475,60 @@ fn ground(color: Hsla) -> HighlightStyle {
         background_color: Some(color),
         ..Default::default()
     }
+}
+
+/// An image's two sides next to each other, each at most a few lines tall.
+fn image_row(
+    before: Option<std::sync::Arc<gpui::Image>>,
+    after: Option<std::sync::Arc<gpui::Image>>,
+    theme: &Theme,
+) -> gpui::Div {
+    let side =
+        |label: &'static str, image: Option<std::sync::Arc<gpui::Image>>, tint: gpui::Hsla| {
+            v_flex()
+                .flex_1()
+                .min_w(px(0.))
+                .gap(px(6.))
+                .items_center()
+                .child(
+                    div()
+                        .text_size(px(11.))
+                        .text_color(theme.text_2)
+                        .child(label),
+                )
+                .child(match image {
+                    Some(image) => div()
+                        .p(px(6.))
+                        .rounded(px(4.))
+                        .border_1()
+                        .border_color(tint)
+                        .child(
+                            gpui::img(image)
+                                .max_w_full()
+                                .max_h(px(220.))
+                                .object_fit(gpui::ObjectFit::Contain),
+                        )
+                        .into_any_element(),
+                    None => div()
+                        .h(px(60.))
+                        .flex()
+                        .items_center()
+                        .text_size(px(12.))
+                        .text_color(theme.text_3)
+                        .child(if label == "Before" {
+                            "New file"
+                        } else {
+                            "Deleted"
+                        })
+                        .into_any_element(),
+                })
+        };
+    h_flex()
+        .items_start()
+        .gap(px(16.))
+        .p(px(12.))
+        .border_b_1()
+        .rounded_b(px(6.))
+        .child(side("Before", before, theme.danger.opacity(0.5)))
+        .child(side("After", after, theme.safe.opacity(0.6)))
 }

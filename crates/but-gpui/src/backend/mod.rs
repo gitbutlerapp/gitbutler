@@ -143,6 +143,45 @@ fn describe_reviews(ctx: &Context, stacks: &mut [Stack]) {
     }
 }
 
+/// Images bigger than this show as a binary file, rather than spend the memory.
+const IMAGE_LIMIT: usize = 20_000_000;
+
+/// Both sides of an image file, when `file` is one GPUI can draw.
+fn image_body(repo: &gix::Repository, file: &FileChange) -> Option<DiffBody> {
+    use gpui::ImageFormat as F;
+    let extension = file.path.rsplit_once('.')?.1.to_ascii_lowercase();
+    let format = match extension.as_str() {
+        "png" => F::Png,
+        "jpg" | "jpeg" => F::Jpeg,
+        "gif" => F::Gif,
+        "webp" => F::Webp,
+        "bmp" => F::Bmp,
+        "tif" | "tiff" => F::Tiff,
+        _ => return None,
+    };
+    // A side that isn't in the object database is the file in the worktree.
+    let bytes = |state: but_core::ChangeState, path: &str| -> Option<Vec<u8>> {
+        let data = if state.id.is_null() {
+            std::fs::read(repo.workdir()?.join(path)).ok()?
+        } else {
+            repo.find_blob(state.id).ok()?.data.clone()
+        };
+        (data.len() <= IMAGE_LIMIT).then_some(data)
+    };
+    let image = |data: Vec<u8>| std::sync::Arc::new(gpui::Image::from_bytes(format, data));
+    let status = &file.change.status;
+    let before = status
+        .previous_state_and_path()
+        .and_then(|(state, old_path)| {
+            let path = old_path.map_or_else(|| file.path.clone(), |p| p.to_string());
+            bytes(state, &path).map(image)
+        });
+    let after = status
+        .state()
+        .and_then(|state| bytes(state, &file.path).map(image));
+    (before.is_some() || after.is_some()).then_some(DiffBody::Image { before, after })
+}
+
 fn review_state(review: &but_forge::ForgeReview) -> ReviewState {
     match (&review.merged_at, &review.closed_at, review.draft) {
         (Some(_), _, _) => ReviewState::Merged,
@@ -433,7 +472,7 @@ fn load_file(
     }
     let mut body = match patch {
         None => DiffBody::Empty,
-        Some(but_core::UnifiedPatch::Binary) => DiffBody::Binary,
+        Some(but_core::UnifiedPatch::Binary) => image_body(repo, &file).unwrap_or(DiffBody::Binary),
         Some(but_core::UnifiedPatch::TooLarge { size_in_bytes }) => DiffBody::TooLarge {
             bytes: size_in_bytes,
         },
