@@ -105,7 +105,7 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
 ├── ≡📙:A on 85efbe4 {1}
 │   └── 📙:A
 │       └── ·09d8e52 (🏘️)
@@ -124,7 +124,7 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(outcome.workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
 ├── ≡📙:A on 85efbe4 {1}
 │   └── 📙:A
 │       └── ·09d8e52 (🏘️)
@@ -190,7 +190,7 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
 ├── ≡📙:A on 85efbe4 {1}
 │   └── 📙:A
 │       └── ·09d8e52 (🏘️)
@@ -209,7 +209,7 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(outcome.workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
 ├── ≡📙:A on 85efbe4 {1}
 │   └── 📙:A
 │       └── ·09d8e52 (🏘️)

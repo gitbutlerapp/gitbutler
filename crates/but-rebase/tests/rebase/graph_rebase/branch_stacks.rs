@@ -4,6 +4,7 @@ use but_graph::Graph;
 use but_meta::{BranchOrderMetadata, VirtualBranchesTomlMetadata};
 use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide, testing::Testing as _};
 use but_testsupport::{StackState, graph_tree, invoke_bash};
+use gix::prelude::ObjectIdExt as _;
 
 use crate::{
     graph_rebase::add_stack_with_segments,
@@ -59,7 +60,7 @@ fn each_workspace_commit_parent_is_a_stack() -> Result<()> {
         add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
     }
 
-    // `main` rests on the target commit and tracks the target, so no stack owns it.
+    // `main` is the configured local target at the cutoff, so no stack owns it.
     snapbox::assert_data_eq!(
         branch_stacks(&repo, &mut meta, &mut db, target_meta(&repo), false)?,
         snapbox::str![[r#"
@@ -88,7 +89,7 @@ ad hoc
 }
 
 #[test]
-fn a_branch_on_the_target_commit_joins_the_first_stack_unless_it_tracks_the_target() -> Result<()> {
+fn a_branch_on_the_target_commit_joins_the_first_stack_without_a_configured_target() -> Result<()> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
     for (idx, stack) in ["stack-a", "stack-b"].into_iter().enumerate() {
         add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
@@ -98,7 +99,7 @@ fn a_branch_on_the_target_commit_joins_the_first_stack_unless_it_tracks_the_targ
         ..Default::default()
     };
 
-    // Without a target ref nothing tracks the target, and `stack-a` reaches `main` first.
+    // Without a configured target, `main` is an ordinary branch and `stack-a` reaches it first.
     snapbox::assert_data_eq!(
         branch_stacks(&repo, &mut meta, &mut db, project_meta, false)?,
         snapbox::str![[r#"

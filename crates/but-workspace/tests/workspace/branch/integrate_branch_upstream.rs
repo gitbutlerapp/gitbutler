@@ -220,7 +220,10 @@ fn integration_graph_for_branch(
             ],
             meta,
             but_core::ref_metadata::ProjectMeta {
-                target_ref: Some(target_ref_name.to_owned()),
+                target_ref: Some(but_core::ref_metadata::resolve_local_target(
+                    target_ref_name,
+                    repo,
+                )?),
                 target_commit_id: Some(target_id),
                 ..Default::default()
             },
@@ -4137,7 +4140,9 @@ fn build_branch_integration_example_repo(
     )?;
     run_git(&repo_dir, &["checkout", "A"])?;
 
-    Ok((tmp, gix::open(repo_dir)?))
+    let mut repo = gix::open(repo_dir)?;
+    configure_tracking_for_branch(&mut repo, "main")?;
+    Ok((tmp, repo))
 }
 
 fn build_smart_squash_example_repo() -> Result<(TempDir, gix::Repository)> {
@@ -4174,7 +4179,9 @@ fn build_smart_squash_example_repo() -> Result<(TempDir, gix::Repository)> {
     )?;
     run_git(&repo_dir, &["checkout", "A"])?;
 
-    Ok((tmp, gix::open(repo_dir)?))
+    let mut repo = gix::open(repo_dir)?;
+    configure_tracking_for_branch(&mut repo, "main")?;
+    Ok((tmp, repo))
 }
 
 fn append_and_commit(

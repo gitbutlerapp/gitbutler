@@ -358,7 +358,7 @@ fn restore_snapshot_reverts_the_target() -> anyhow::Result<()> {
         let gix_repo = repo.open_repo();
         let head_id = gix_repo.head_id()?.detach();
         gix_repo.reference(
-            "refs/remotes/origin/other",
+            "refs/heads/other",
             head_id,
             gix::refs::transaction::PreviousValue::Any,
             "test",
@@ -373,11 +373,13 @@ fn restore_snapshot_reverts_the_target() -> anyhow::Result<()> {
     )?;
 
     let mut changed = ctx.project_meta()?;
-    changed.target_ref = Some("refs/remotes/origin/other".try_into()?);
+    changed.target_ref = Some(but_core::ref_metadata::LocalRefName::new(
+        "refs/heads/other".try_into()?,
+    )?);
     ctx.set_project_meta(changed)?;
     assert_eq!(
         ctx.project_meta()?.target_ref.map(|name| name.to_string()),
-        Some("refs/remotes/origin/other".to_string()),
+        Some("refs/heads/other".to_string()),
         "the target change is visible before restoring the snapshot"
     );
 
@@ -388,7 +390,7 @@ fn restore_snapshot_reverts_the_target() -> anyhow::Result<()> {
     )?;
     assert_eq!(
         ctx.project_meta()?.target_ref.map(|name| name.to_string()),
-        Some("refs/remotes/origin/main".to_string()),
+        Some("refs/heads/main".to_string()),
         "undoing a base-branch switch reverts the target everywhere, not just in the TOML"
     );
     Ok(())
@@ -585,10 +587,11 @@ fn snapshot_with_only_a_target_commit_omits_target_ref() -> anyhow::Result<()> {
 #[test]
 fn restore_falls_back_to_the_legacy_target_in_old_snapshots() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &mut Test::default();
+    repo.invoke_git("branch --set-upstream-to=origin/main main");
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
     configure_default_target(ctx)?;
     let original = ctx.project_meta()?;
-
-    let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
         guard.write_permission(),

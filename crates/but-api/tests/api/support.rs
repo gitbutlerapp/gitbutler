@@ -28,18 +28,23 @@ pub fn repo_with_feature_branch() -> anyhow::Result<(gix::Repository, tempfile::
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
         .run();
+    git_at_dir(tmp.path())
+        .args(["branch", "--set-upstream-to=origin/main", "main"])
+        .run();
     write_file(tmp.path(), "file.txt", "two\n")?;
     git_at_dir(tmp.path()).args(["commit", "-am", "two"]).run();
 
     Ok((open_repo(tmp.path())?, tmp))
 }
 
-/// Persist a project default target pointing at `origin/main` but at the `feature` branch's commit.
+/// Persist local `main` as the target, with the cutoff at the `feature` branch's commit.
 pub fn set_project_target_to_feature(repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
     let mut feature = repo.find_reference("refs/heads/feature")?;
     let target_commit_id = feature.peel_to_id()?.detach();
     ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(target_commit_id),
         push_remote: Some("origin".into()),
     }
@@ -129,7 +134,9 @@ pub fn assert_workspace_ref(workspace: &but_api::WorkspaceState, expected: &str)
 pub fn persist_default_target(repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
     let target_commit_id = repo.rev_parse_single("refs/heads/main")?.detach();
     ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(target_commit_id),
         push_remote: Some("origin".into()),
     }

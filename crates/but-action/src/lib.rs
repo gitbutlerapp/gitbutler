@@ -180,3 +180,4 @@ pub struct UpdatedBranch {
     pub branch_name: String,
     pub new_commits: Vec<String>,
 }
+

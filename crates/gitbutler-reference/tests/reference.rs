@@ -1,4 +1,9 @@
 mod remote_refname {
+    mod parsing {
+        use gitbutler_reference::RemoteRefname;
+
+    }
+
     mod eq_fullname_ref {
         use gitbutler_reference::RemoteRefname;
         use gix::refs::FullNameRef;

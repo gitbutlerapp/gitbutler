@@ -36,7 +36,7 @@ fn forge_state_follows_target_initialization() -> Result<()> {
         "the provider follows the same targetless state"
     );
 
-    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
     assert_eq!(
         forge_provider(&ctx)?,
@@ -70,7 +70,7 @@ fn list_reviews_reports_an_unrecognized_forge_as_a_typed_state() -> Result<()> {
         .run();
     let mut ctx =
         but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
-    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
     assert!(
         forge_info(&ctx)?.is_none(),

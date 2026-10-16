@@ -85,11 +85,16 @@ const worktree = (name: string, base: Worktree["base"], commits: Array<string>):
 	],
 });
 
-const target = (isCurrent: boolean, hasLanesBehind = false): Target => ({
-	remoteTrackingRef: { fullNameBytes: [], displayName: "master", remoteName: "origin" },
+const target = (cutoffMatchesTip: boolean, hasLanesBehind = false): Target => ({
+	refName: { fullNameBytes: [], displayName: "master", remoteName: null },
 	commitsAhead: 0,
-	isCurrent,
+	upstream: {
+		refName: { fullNameBytes: [], displayName: "master", remoteName: "origin" },
+		tip: "upstream-tip",
+		cutoffMatchesTip,
+	},
 	hasLanesBehind,
+	canFastForwardLocalTarget: false,
 });
 
 const folded: Folds = {
@@ -261,11 +266,11 @@ describe("layout", () => {
 		expect(whole?.hidden).toBe(0);
 	});
 
-	it("names the target's row once its commits are known, and says whether every lane is at its tip", () => {
+	it("names the local target and indicates whether an upstream pull has work", () => {
 		expect(layout([], target(true), undefined, folded).header).toBeNull();
 		expect(layout([], null, listing, folded).header).toBeNull();
 		expect(layout([], target(true), listing, folded).header).toEqual({
-			label: "origin/master",
+			label: "master",
 			incoming: 2,
 			current: true,
 		});

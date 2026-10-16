@@ -46,6 +46,8 @@ function tick_committer () {
 
 function setup_target_to_match_main() {
   remote_tracking_caught_up main
+  git config branch.main.remote origin
+  git config branch.main.merge refs/heads/main
 
   cat <<EOF >>.git/config
 [remote "origin"]
