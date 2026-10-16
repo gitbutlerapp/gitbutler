@@ -4,6 +4,7 @@
 mod annotate;
 pub mod askpass;
 mod highlight;
+pub mod history;
 pub mod model;
 mod ops;
 pub mod watch;
@@ -260,6 +261,12 @@ pub enum DiffSource {
         oldest: CommitId,
         newest: CommitId,
     },
+    /// What the operation that snapshot `id` was taken for changed: up to the snapshot
+    /// after it, `newer`, or to now.
+    Snapshot {
+        id: SnapshotId,
+        newer: Option<SnapshotId>,
+    },
 }
 
 /// Uncommitted files, each with when it was last written.
@@ -315,6 +322,12 @@ pub fn load_diff(
             but_core::diff::tree_changes(&repo, base, newest.0)?
                 .into_iter()
                 .map(file_change)
+                .collect()
+        }
+        DiffSource::Snapshot { id, newer } => {
+            but_api::legacy::oplog::snapshot_diff(&ctx, id.0, newer.map(|newer| newer.0))?
+                .into_iter()
+                .map(|change| file_change(change.into()))
                 .collect()
         }
     };

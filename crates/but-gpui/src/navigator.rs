@@ -188,6 +188,7 @@ impl Navigator {
             if workspace.stacks.is_empty() {
                 rows.push(Row::Note("No branches yet".into(), false));
             }
+            rows.push(Row::Item(Selection::History(id.clone())));
         }
         let mut collapsed = store
             .projects
@@ -403,6 +404,7 @@ impl Navigator {
             Selection::Uncommitted(id) => Some(self.uncommitted_row(item, id, style, cx)),
             Selection::Branch(id, ref_name) => self.branch_row(item, id, ref_name, style, cx),
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
+            Selection::History(id) => Some(self.history_row(item, id, style, cx)),
         };
         match el {
             Some(el) => self.drop_target(el, item.clone(), window, theme, cx),
@@ -569,6 +571,22 @@ impl Navigator {
                 )
                 .into_any_element(),
         )
+    }
+
+    fn history_row(
+        &self,
+        item: &Selection,
+        id: &ProjectId,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        style
+            .row(format!("history-{id}"), 6.)
+            .text_color(style.muted())
+            .child(icon(Icon::Clock).text_color(style.muted()))
+            .child(div().flex_1().child("History"))
+            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+            .into_any_element()
     }
 
     fn uncommitted_row(
@@ -939,6 +957,7 @@ impl Navigator {
                 action("Copy commit id", &CopySelection),
                 action("Discard commit…", &DeleteSelection).danger(),
             ],
+            Selection::History(_) => Vec::new(),
         }
     }
 }

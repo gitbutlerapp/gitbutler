@@ -11,7 +11,7 @@ use but_api::commit::json::ChangesSource;
 use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
-use super::{CommitId, Selected, SnapshotId, open};
+use super::{CommitId, Selected, open};
 
 /// Where a commit or a set of changes lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -336,65 +336,6 @@ pub fn update_from_target(path: &Path) -> Result<()> {
 pub fn fetch(path: &Path) -> Result<()> {
     let mut ctx = open(path)?;
     but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))
-}
-
-/// Restore the workspace to before the last operation, or with `redo` restore what the
-/// last undo took back. Returns what that operation was, or `None` when there's nothing to
-/// undo or redo.
-pub fn undo(path: &Path, redo: bool) -> Result<Option<&'static str>> {
-    use but_api::legacy::oplog::{self, RestoreKind};
-    let mut ctx = open(path)?;
-    let (snapshot, kind) = if redo {
-        let snapshot = oplog::get_redo_target_snapshot(&ctx)?;
-        (snapshot, RestoreKind::RestoreFromSnapshotViaRedo)
-    } else {
-        let snapshot = oplog::get_undo_target_snapshot(&ctx)?;
-        (snapshot, RestoreKind::RestoreFromSnapshotViaUndo)
-    };
-    let Some(snapshot) = snapshot else {
-        return Ok(None);
-    };
-    let title = snapshot.details.map(|details| details.operation.title());
-    restore(&mut ctx, snapshot.commit_id, title, kind).map(Some)
-}
-
-/// The newest entry in the project's operation log.
-pub fn oplog_head(path: &Path) -> Option<SnapshotId> {
-    let ctx = open(path).ok()?;
-    let newest = but_api::legacy::oplog::list_snapshots(&ctx, 1, None, None, None).ok()?;
-    newest
-        .first()
-        .map(|snapshot| SnapshotId(snapshot.commit_id))
-}
-
-/// Undo the operation that recorded `snapshot`, but only while it's the latest thing to
-/// undo: the log is shared with the CLI and agents, and restoring anything else would take
-/// back more than the user asked for.
-pub fn undo_snapshot(path: &Path, snapshot: SnapshotId) -> Result<&'static str> {
-    let mut ctx = open(path)?;
-    let target = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?
-        .filter(|target| target.commit_id == snapshot.0)
-        .context("Something else changed the workspace since. ⌘Z undoes one step at a time.")?;
-    let title = target.details.map(|details| details.operation.title());
-    let kind = but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo;
-    restore(&mut ctx, snapshot.0, title, kind)
-}
-
-/// Restore snapshot `id` and name the operation it takes back, as the CLI does: when `id`
-/// is itself an undo or redo, it's the operation that one restored.
-fn restore(
-    ctx: &mut but_ctx::Context,
-    id: gix::ObjectId,
-    title: Option<&'static str>,
-    kind: but_api::legacy::oplog::RestoreKind,
-) -> Result<&'static str> {
-    let title = but_api::legacy::oplog::peel_restore_snapshot(ctx, id)?
-        .map_or(title, |peeled| {
-            peeled.details.map(|details| details.operation.title())
-        })
-        .unwrap_or("Unknown operation");
-    but_api::legacy::oplog::restore_snapshot_with_kind(ctx, kind, id)?;
-    Ok(title)
 }
 
 #[cfg(test)]

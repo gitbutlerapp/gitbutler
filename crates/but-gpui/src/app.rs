@@ -199,10 +199,7 @@ impl AppView {
     /// Where the diff starts beside the detail's file list, when the selection has a diff.
     fn diff_left(&self, cx: &App) -> Option<f32> {
         let store = self.store.read(cx);
-        let has_diff = matches!(
-            store.selection,
-            Some(Selection::Uncommitted(_) | Selection::Commit(..) | Selection::Branch(..))
-        );
+        let has_diff = !matches!(store.selection, None | Some(Selection::Project(_)));
         has_diff.then(|| match self.detail.read(cx).zoomed {
             true => 0.,
             false => store.width(Pane::Files),
@@ -535,7 +532,7 @@ impl AppView {
     }
 
     /// Ask with a native dialog before doing something destructive.
-    fn confirm_then(
+    pub fn confirm_then(
         &mut self,
         message: String,
         detail: &str,
@@ -866,7 +863,7 @@ impl AppView {
             Selection::Project(project) => {
                 Some(self.store.read(cx).path(&project)?.display().to_string())
             }
-            Selection::Uncommitted(_) => None,
+            Selection::Uncommitted(_) | Selection::History(_) => None,
         });
         if let Some(text) = text {
             cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));

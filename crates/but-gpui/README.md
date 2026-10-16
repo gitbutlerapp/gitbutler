@@ -27,6 +27,7 @@ The right side shows whatever is selected, under a breadcrumb whose project and 
 - **A commit.** Its title, with the rest of the message behind the button beside it, its files and its diff. Edit the message, uncommit it or discard it.
 - **A branch.** Its commits and combined diff, Push, and its pull request: title, number, state and how its CI checks stand, with a button to open it.
 - **A project.** Counts, Fetch, and Update to rebase every stack onto the latest target.
+- **History.** The last row of each project lists what GitButler did to it, newest first, including what agents ran from the CLI. Select an operation to see the files it changed, then restore the project to how it was before it; the restore can be undone too. "Take snapshot" records the project as it is now, to come back to later.
 
 Moving things works by drag and drop or by ⌘X on the source and ⌘V on the destination:
 

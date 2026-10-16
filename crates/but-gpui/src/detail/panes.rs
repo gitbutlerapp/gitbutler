@@ -98,6 +98,31 @@ impl Detail {
                         );
                     }
                 }
+                Selection::History(project) => {
+                    crumbs.push(("History".into(), None));
+                    let snapshot = cx.listener({
+                        let project = project.clone();
+                        move |this, _: &ClickEvent, _, cx| this.take_snapshot(&project, cx)
+                    });
+                    actions.push(
+                        button("snapshot", "Take snapshot")
+                            .style(ButtonStyle::Ghost)
+                            .tooltip("Save how the project is now, to come back to later")
+                            .on_click(snapshot)
+                            .into_any_element(),
+                    );
+                    if self.selected_operation(project).is_some() {
+                        let project = project.clone();
+                        actions.push(
+                            button("restore", "Restore to before this")
+                                .style(ButtonStyle::Gray)
+                                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                                    this.restore_selected(&project, window, cx)
+                                }))
+                                .into_any_element(),
+                        );
+                    }
+                }
                 Selection::Commit(project, id) => {
                     if let Some((branch, commit)) = workspace.and_then(|ws| ws.find_commit(*id)) {
                         let branch_selection =
