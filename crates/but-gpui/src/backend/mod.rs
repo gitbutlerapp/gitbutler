@@ -1,6 +1,7 @@
 //! The only part of the app that talks to GitButler. Everything here is blocking and
 //! meant to run on a background thread; results are plain [`model`] data.
 
+pub mod accounts;
 mod annotate;
 pub mod askpass;
 pub mod branches;

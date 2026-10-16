@@ -131,3 +131,13 @@ pub fn set_target(path: &Path, target: &str) -> Result<()> {
     let name = gix::refs::FullName::try_from(target)?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, name.as_ref(), None)
 }
+
+pub use but_api::ai::{AiConfiguration, AiConfigurationUpdate};
+
+pub fn ai_configuration() -> Result<AiConfiguration> {
+    but_api::ai::get_ai_configuration()
+}
+
+pub fn update_ai(update: AiConfigurationUpdate) -> Result<AiConfiguration> {
+    but_api::ai::update_ai_configuration(update)
+}
