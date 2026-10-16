@@ -35,6 +35,10 @@ impl Workspace {
         self.stacks.iter().flat_map(|stack| &stack.branches)
     }
 
+    pub fn commits(&self) -> impl Iterator<Item = &Commit> {
+        self.branches().flat_map(|branch| &branch.commits)
+    }
+
     pub fn find_commit(&self, id: CommitId) -> Option<(&Branch, &Commit)> {
         self.branches().find_map(|branch| {
             branch
@@ -62,8 +66,7 @@ impl Workspace {
     }
 
     pub fn unpushed_commits(&self) -> usize {
-        self.branches()
-            .flat_map(|branch| &branch.commits)
+        self.commits()
             .filter(|commit| commit.state == CommitState::Local)
             .count()
     }
