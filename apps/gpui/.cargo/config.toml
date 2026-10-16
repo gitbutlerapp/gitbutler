@@ -1,3 +1,0 @@
-[build]
-# Keep this app's (different toolchain) artifacts out of the main workspace's target dir.
-target-dir = "target"
