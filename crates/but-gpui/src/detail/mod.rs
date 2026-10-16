@@ -25,7 +25,9 @@ use gpui::{
 };
 
 use crate::app::AppView;
-use crate::backend::{self, DiffBody, DiffSource, FileChange, FileDiff, HunkKey, Selected};
+use crate::backend::{
+    self, DiffBody, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected,
+};
 use crate::state::{Pane, ProjectId, Review, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
@@ -97,6 +99,9 @@ struct LoadedDiff {
     rows: Vec<DiffRow>,
 }
 
+/// A file's new side as diff lines, read for the patch with this fingerprint.
+type FileLines = (u64, Arc<Vec<DiffLine>>);
+
 /// The files checked for the next commit changed.
 pub struct ChecksChanged;
 
@@ -133,6 +138,8 @@ pub struct Detail {
     unchecked_hunks: HashSet<(String, HunkKey)>,
     /// Hunks only some of whose changed lines go in the next commit: those lines, by index.
     line_picks: HashMap<(String, HunkKey), BTreeSet<usize>>,
+    /// Files shown whole, by path, with their lines once read.
+    whole: HashMap<String, Option<FileLines>>,
     /// The commit message being edited, with the subscription that saves it.
     rewording: Option<(Entity<TextInput>, Subscription)>,
     /// The project the checkboxes and commit target above belong to.
@@ -290,6 +297,7 @@ impl Detail {
             unchecked: HashSet::new(),
             unchecked_hunks: HashSet::new(),
             line_picks: HashMap::new(),
+            whole: HashMap::new(),
             rewording: None,
             checks_project: None,
             composing: false,
@@ -490,6 +498,9 @@ impl Detail {
 
     /// Show a loaded diff, keeping the scroll position and checks when it's a reload.
     fn show_diff(&mut self, key: DiffKey, files: Arc<Vec<FileDiff>>, cx: &mut Context<Self>) {
+        if self.diff.as_ref().is_none_or(|diff| diff.key != key) {
+            self.whole.clear();
+        }
         const RECENT: usize = 16;
         self.recent.retain(|(recent, _)| *recent != key);
         if self.recent.len() == RECENT {
@@ -527,7 +538,17 @@ impl Detail {
         if self.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
             self.text_selection = None;
         }
+        let stale: Vec<usize> = (files.iter().enumerate())
+            .filter(|(_, file)| {
+                matches!(self.whole.get(&file.file.path),
+                    Some(Some((fingerprint, _))) if *fingerprint != file.fingerprint)
+            })
+            .map(|(ix, _)| ix)
+            .collect();
         self.diff = Some(LoadedDiff { key, files, rows });
+        for file in stale {
+            self.load_whole(file, cx);
+        }
         self.run_find(false, cx);
         self.diff_error = None;
     }
@@ -574,6 +595,12 @@ impl Detail {
                         || (worktree && store.review(&key.project, &file.file) == Review::Reviewed))
             },
             |file| worktree && store.hides_file(&key.project, &file.file.path),
+            |file| match self.whole.get(&file.file.path) {
+                Some(Some((fingerprint, lines))) if *fingerprint == file.fingerprint => {
+                    Some(lines.len() as u32)
+                }
+                _ => None,
+            },
         )
     }
 

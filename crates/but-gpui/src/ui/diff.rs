@@ -9,7 +9,7 @@ use gpui::{
 };
 
 use super::{Icon, h_flex, small_icon, v_flex};
-use crate::backend::{ChangeKind, DiffBody, FileDiff, Hunk, LineKind};
+use crate::backend::{ChangeKind, DiffBody, DiffLine, FileDiff, Hunk, LineKind};
 use crate::theme::Theme;
 
 pub const LINE_HEIGHT: f32 = 20.;
@@ -30,6 +30,14 @@ pub enum DiffRow {
         line: usize,
         last: bool,
     },
+    /// An unchanged line between or around the hunks of a file shown whole, by its numbers
+    /// on either side.
+    Context {
+        file: usize,
+        old: u32,
+        new: u32,
+        last: bool,
+    },
     /// Binary, too large or empty: a one-line explanation instead of lines.
     Note(usize),
     Gap,
@@ -39,18 +47,22 @@ impl DiffRow {
     pub fn file(self) -> Option<usize> {
         match self {
             DiffRow::File(file) | DiffRow::Note(file) => Some(file),
-            DiffRow::Hunk { file, .. } | DiffRow::Line { file, .. } => Some(file),
+            DiffRow::Hunk { file, .. }
+            | DiffRow::Line { file, .. }
+            | DiffRow::Context { file, .. } => Some(file),
             DiffRow::Gap => None,
         }
     }
 }
 
-/// Rows for `files`, with the files `folded` says are folded reduced to their header and
-/// the ones `hidden` says are hidden left out.
+/// Rows for `files`, with the files `folded` says are folded reduced to their header, the
+/// ones `hidden` says are hidden left out, and the ones `whole` gives the length of shown
+/// with every unchanged line.
 pub fn rows(
     files: &[FileDiff],
     folded: impl Fn(&FileDiff) -> bool,
     hidden: impl Fn(&FileDiff) -> bool,
+    whole: impl Fn(&FileDiff) -> Option<u32>,
 ) -> Vec<DiffRow> {
     let mut rows = Vec::new();
     for (file_ix, file) in files.iter().enumerate() {
@@ -64,12 +76,22 @@ pub fn rows(
         }
         match &file.body {
             DiffBody::Hunks { hunks, .. } if !hunks.is_empty() => {
+                let total = whole(file);
+                // The first new-side line not shown yet.
+                let mut next = 1;
                 for (hunk_ix, hunk) in hunks.iter().enumerate() {
+                    let header = hunk.key.0;
+                    if total.is_some() {
+                        let ahead = i64::from(header.new_start) - i64::from(header.old_start);
+                        context_rows(&mut rows, file_ix, next..header.new_start, ahead);
+                    }
+                    next = header.new_start + header.new_lines;
                     rows.push(DiffRow::Hunk {
                         file: file_ix,
                         hunk: hunk_ix,
                     });
-                    let last_hunk = hunk_ix + 1 == hunks.len();
+                    let last_hunk =
+                        hunk_ix + 1 == hunks.len() && total.is_none_or(|total| next > total);
                     for line_ix in 0..hunk.lines.len() {
                         rows.push(DiffRow::Line {
                             file: file_ix,
@@ -79,12 +101,31 @@ pub fn rows(
                         });
                     }
                 }
+                if let Some(total) = total.filter(|total| next <= *total) {
+                    let end = hunks[hunks.len() - 1].key.0;
+                    let ahead = i64::from(end.new_start + end.new_lines)
+                        - i64::from(end.old_start + end.old_lines);
+                    context_rows(&mut rows, file_ix, next..total + 1, ahead);
+                    if let Some(DiffRow::Context { last, .. }) = rows.last_mut() {
+                        *last = true;
+                    }
+                }
             }
             _ => rows.push(DiffRow::Note(file_ix)),
         }
         rows.push(DiffRow::Gap);
     }
     rows
+}
+
+/// The unchanged new-side lines `lines`, numbered `ahead` lines further on than the old side.
+fn context_rows(rows: &mut Vec<DiffRow>, file: usize, lines: Range<u32>, ahead: i64) {
+    rows.extend(lines.map(|new| DiffRow::Context {
+        file,
+        old: u32::try_from(i64::from(new) - ahead).unwrap_or_default(),
+        new,
+        last: false,
+    }));
 }
 
 pub fn change_color(kind: ChangeKind, theme: &Theme) -> Hsla {
@@ -162,18 +203,60 @@ pub fn render_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor)
         .into_any_element()
 }
 
+/// An unchanged line of a file shown whole, from the file's new side, at `old` and `new`.
+pub fn render_context_row(
+    line: &DiffLine,
+    file: usize,
+    (old, new): (u32, u32),
+    last: bool,
+    theme: &Theme,
+    wrap: bool,
+) -> AnyElement {
+    let line = DiffLine {
+        old: Some(old),
+        new: Some(new),
+        ..line.clone()
+    };
+    // Apart from the hunks' lines, which number their hunk below 2^20.
+    let row_id = (file << 40) | (0xfffff << 20) | new as usize;
+    div()
+        .w_full()
+        .px(px(16.))
+        .child(line_row(
+            &line,
+            row_id,
+            last,
+            theme,
+            Decor {
+                wrap,
+                ..Default::default()
+            },
+        ))
+        .into_any_element()
+}
+
 fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor) -> AnyElement {
+    if let DiffRow::Line {
+        file,
+        hunk,
+        line,
+        last,
+    } = row
+    {
+        let DiffBody::Hunks { hunks, .. } = &files[file].body else {
+            return div().into_any_element();
+        };
+        // Unique per line, for the line's accessibility node.
+        let row_id = (file << 40) | (hunk << 20) | line;
+        return line_row(&hunks[hunk].lines[line], row_id, last, theme, decor);
+    }
     let Decor {
         leading,
         trailing,
         excluded,
         current,
         folded,
-        toggle,
-        select,
-        selected,
-        found,
-        wrap,
+        ..
     } = decor;
     let card = |el: gpui::Div| {
         el.w_full()
@@ -297,160 +380,168 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 .child(text)
                 .into_any_element()
         }
-        DiffRow::Line {
-            file,
-            hunk,
-            line,
-            last,
-        } => {
-            let DiffBody::Hunks { hunks, .. } = &files[file].body else {
-                return div().into_any_element();
-            };
-            // Unique per line, for the line's accessibility node.
-            let row_id = (file << 40) | (hunk << 20) | line;
-            let line = &hunks[hunk].lines[line];
-            let (bg, gutter_bg, emph_bg, sign, sign_color) = match line.kind {
-                LineKind::Context => (None, None, theme.bg_1, " ", theme.text_3),
-                LineKind::Added => (
-                    Some(theme.diff_added_bg),
-                    Some(theme.diff_added_gutter),
-                    theme.diff_added_emph,
-                    "+",
-                    theme.safe,
-                ),
-                LineKind::Removed => (
-                    Some(theme.diff_removed_bg),
-                    Some(theme.diff_removed_gutter),
-                    theme.diff_removed_emph,
-                    "-",
-                    theme.danger,
-                ),
-            };
-            let syntax = line
-                .spans
-                .iter()
-                .map(|(range, token)| (range.clone(), HighlightStyle::from(theme.token(*token))));
-            let emph = line
-                .emph
-                .iter()
-                .map(|range| (range.clone(), ground(emph_bg)));
-            let number = |n: Option<u32>| {
-                div()
-                    .flex_none()
-                    .w(px(44.))
-                    .pr(px(8.))
-                    .flex()
-                    .items_start()
-                    .justify_end()
-                    .text_color(theme.text_3)
-                    .when_some(gutter_bg, |el, bg| el.bg(bg))
-                    .child(n.map(|n| n.to_string()).unwrap_or_default())
-            };
-            // Blue like the system's text selection, apart from the green and red of the
-            // change itself.
-            let selected = selected.map(|range| (range, ground(theme.blue.opacity(0.3))));
-            let found = found.into_iter().map(|(range, current)| {
-                (
-                    range,
-                    ground(theme.warn.opacity(if current { 0.6 } else { 0.28 })),
-                )
-            });
-            let text = StyledText::new(SharedString::from(line.text.clone())).with_highlights(
-                combine_highlights(
-                    combine_highlights(combine_highlights(syntax, emph), found),
-                    selected,
-                ),
-            );
-            // Where in the text the pointer is, once the text has been laid out: the edge of
-            // the character under it nearer the pointer, as text selection goes everywhere.
-            let layout = text.layout().clone();
-            let chars = line.text.clone();
-            let at = move |position: Point<Pixels>| {
-                let ix = layout.index_for_position(position).unwrap_or_else(|ix| ix);
-                let next = chars[ix..].chars().next().map(|c| ix + c.len_utf8());
-                let edges = next.and_then(|next| {
-                    Some((
-                        layout.position_for_index(ix)?,
-                        layout.position_for_index(next)?,
-                        next,
-                    ))
-                });
-                match edges {
-                    Some((start, end, next)) if position.x > (start.x + end.x) / 2. => next,
-                    _ => ix,
-                }
-            };
-            card(h_flex())
-                .id(("diff-line", row_id))
-                .role(Role::Label)
-                .aria_label(SharedString::from(line.text.clone()))
-                .aria_description(match line.kind {
-                    LineKind::Added => "added",
-                    LineKind::Removed => "removed",
-                    LineKind::Context => "unchanged",
+        // Drawn by `line_row`, which these need their line for.
+        DiffRow::Line { .. } | DiffRow::Context { .. } => div().into_any_element(),
+    }
+}
+
+/// A line of the diff, inside its file's card.
+fn line_row(line: &DiffLine, row_id: usize, last: bool, theme: &Theme, decor: Decor) -> AnyElement {
+    let Decor {
+        excluded,
+        toggle,
+        select,
+        selected,
+        found,
+        wrap,
+        ..
+    } = decor;
+    let card = |el: gpui::Div| {
+        el.w_full()
+            .border_l_1()
+            .border_r_1()
+            .border_color(theme.border_3)
+            .bg(theme.bg_1)
+    };
+    let (bg, gutter_bg, emph_bg, sign, sign_color) = match line.kind {
+        LineKind::Context => (None, None, theme.bg_1, " ", theme.text_3),
+        LineKind::Added => (
+            Some(theme.diff_added_bg),
+            Some(theme.diff_added_gutter),
+            theme.diff_added_emph,
+            "+",
+            theme.safe,
+        ),
+        LineKind::Removed => (
+            Some(theme.diff_removed_bg),
+            Some(theme.diff_removed_gutter),
+            theme.diff_removed_emph,
+            "-",
+            theme.danger,
+        ),
+    };
+    let syntax = line
+        .spans
+        .iter()
+        .map(|(range, token)| (range.clone(), HighlightStyle::from(theme.token(*token))));
+    let emph = line
+        .emph
+        .iter()
+        .map(|range| (range.clone(), ground(emph_bg)));
+    let number = |n: Option<u32>| {
+        div()
+            .flex_none()
+            .w(px(44.))
+            .pr(px(8.))
+            .flex()
+            .items_start()
+            .justify_end()
+            .text_color(theme.text_3)
+            .when_some(gutter_bg, |el, bg| el.bg(bg))
+            .child(n.map(|n| n.to_string()).unwrap_or_default())
+    };
+    // Blue like the system's text selection, apart from the green and red of the
+    // change itself.
+    let selected = selected.map(|range| (range, ground(theme.blue.opacity(0.3))));
+    let found = found.into_iter().map(|(range, current)| {
+        (
+            range,
+            ground(theme.warn.opacity(if current { 0.6 } else { 0.28 })),
+        )
+    });
+    let text =
+        StyledText::new(SharedString::from(line.text.clone())).with_highlights(combine_highlights(
+            combine_highlights(combine_highlights(syntax, emph), found),
+            selected,
+        ));
+    // Where in the text the pointer is, once the text has been laid out: the edge of
+    // the character under it nearer the pointer, as text selection goes everywhere.
+    let layout = text.layout().clone();
+    let chars = line.text.clone();
+    let at = move |position: Point<Pixels>| {
+        let ix = layout.index_for_position(position).unwrap_or_else(|ix| ix);
+        let next = chars[ix..].chars().next().map(|c| ix + c.len_utf8());
+        let edges = next.and_then(|next| {
+            Some((
+                layout.position_for_index(ix)?,
+                layout.position_for_index(next)?,
+                next,
+            ))
+        });
+        match edges {
+            Some((start, end, next)) if position.x > (start.x + end.x) / 2. => next,
+            _ => ix,
+        }
+    };
+    card(h_flex())
+        .id(("diff-line", row_id))
+        .role(Role::Label)
+        .aria_label(SharedString::from(line.text.clone()))
+        .aria_description(match line.kind {
+            LineKind::Added => "added",
+            LineKind::Removed => "removed",
+            LineKind::Context => "unchanged",
+        })
+        .map(|el| {
+            if wrap {
+                el.items_stretch().min_h(px(LINE_HEIGHT))
+            } else {
+                el.h(px(LINE_HEIGHT))
+            }
+        })
+        .line_height(px(LINE_HEIGHT))
+        .font_family(theme.mono_font.clone())
+        .text_size(px(12.))
+        .when_some(bg, |el, bg| el.bg(bg))
+        .when(last, |el| el.border_b_1().rounded_b(px(6.)))
+        .overflow_hidden()
+        .child(
+            h_flex()
+                .id(("line-numbers", row_id))
+                .flex_none()
+                .child(number(line.old))
+                .child(number(line.new))
+                .when_some(toggle, |el, toggle| {
+                    el.cursor(CursorStyle::PointingHand).on_mouse_down(
+                        MouseButton::Left,
+                        move |_, window, cx| {
+                            cx.stop_propagation();
+                            toggle(window, cx)
+                        },
+                    )
+                }),
+        )
+        .child(
+            div()
+                .flex_none()
+                .w(px(18.))
+                .pl(px(6.))
+                .text_color(sign_color)
+                .child(sign),
+        )
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.))
+                .when(!wrap, |el| el.whitespace_nowrap())
+                .overflow_hidden()
+                .text_color(theme.text_1)
+                .child(text),
+        )
+        .when_some(select, |el, select| {
+            let at_down = at.clone();
+            el.cursor(CursorStyle::IBeam)
+                .on_mouse_down(MouseButton::Left, move |event, window, cx| {
+                    (select.down)(at_down(event.position), event, window, cx)
                 })
-                .map(|el| {
-                    if wrap {
-                        el.items_stretch().min_h(px(LINE_HEIGHT))
-                    } else {
-                        el.h(px(LINE_HEIGHT))
+                .on_mouse_move(move |event, window, cx| {
+                    if event.pressed_button == Some(MouseButton::Left) {
+                        (select.drag)(at(event.position), window, cx)
                     }
                 })
-                .line_height(px(LINE_HEIGHT))
-                .font_family(theme.mono_font.clone())
-                .text_size(px(12.))
-                .when_some(bg, |el, bg| el.bg(bg))
-                .when(last, |el| el.border_b_1().rounded_b(px(6.)))
-                .overflow_hidden()
-                .child(
-                    h_flex()
-                        .id(("line-numbers", row_id))
-                        .flex_none()
-                        .child(number(line.old))
-                        .child(number(line.new))
-                        .when_some(toggle, |el, toggle| {
-                            el.cursor(CursorStyle::PointingHand).on_mouse_down(
-                                MouseButton::Left,
-                                move |_, window, cx| {
-                                    cx.stop_propagation();
-                                    toggle(window, cx)
-                                },
-                            )
-                        }),
-                )
-                .child(
-                    div()
-                        .flex_none()
-                        .w(px(18.))
-                        .pl(px(6.))
-                        .text_color(sign_color)
-                        .child(sign),
-                )
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .when(!wrap, |el| el.whitespace_nowrap())
-                        .overflow_hidden()
-                        .text_color(theme.text_1)
-                        .child(text),
-                )
-                .when_some(select, |el, select| {
-                    let at_down = at.clone();
-                    el.cursor(CursorStyle::IBeam)
-                        .on_mouse_down(MouseButton::Left, move |event, window, cx| {
-                            (select.down)(at_down(event.position), event, window, cx)
-                        })
-                        .on_mouse_move(move |event, window, cx| {
-                            if event.pressed_button == Some(MouseButton::Left) {
-                                (select.drag)(at(event.position), window, cx)
-                            }
-                        })
-                })
-                .when(excluded, |el| el.opacity(0.45))
-                .into_any_element()
-        }
-    }
+        })
+        .when(excluded, |el| el.opacity(0.45))
+        .into_any_element()
 }
 
 /// The scopes a hunk changes, as a breadcrumb that keeps the innermost one readable, or
