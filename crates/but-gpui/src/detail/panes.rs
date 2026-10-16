@@ -108,29 +108,6 @@ impl Detail {
                             Selection::Branch(project.clone(), branch.ref_name.clone());
                         crumbs.push((branch.name.clone().into(), Some(branch_selection)));
                         crumbs.push((commit.id.short().into(), None));
-                        let (project, id) = (project.clone(), *id);
-                        let store_handle = self.store.clone();
-                        actions.push(
-                            button("uncommit", "Uncommit")
-                                .style(ButtonStyle::Ghost)
-                                .disabled(store.busy.is_some())
-                                .tooltip("Turn this commit back into uncommitted changes")
-                                .on_click(move |_, _, cx| {
-                                    store_handle
-                                        .update(cx, |store, cx| store.uncommit(&project, id, cx))
-                                })
-                                .into_any_element(),
-                        );
-                        actions.push(
-                            button("reword", "Edit message")
-                                .style(ButtonStyle::Ghost)
-                                .on_click(
-                                    cx.listener(|this, _, window, cx| {
-                                        this.start_reword(window, cx)
-                                    }),
-                                )
-                                .into_any_element(),
-                        );
                     }
                 }
             }
