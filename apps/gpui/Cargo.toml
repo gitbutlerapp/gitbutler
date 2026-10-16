@@ -37,6 +37,7 @@ deltoids = { git = "https://github.com/juanibiapina/deltoids", rev = "617f331ef1
 but-api = { path = "../../crates/but-api", features = ["legacy"] }
 but-askpass = { path = "../../crates/but-askpass" }
 but-core = { path = "../../crates/but-core" }
+but-forge = { path = "../../crates/but-forge" }
 but-ctx = { path = "../../crates/but-ctx", features = ["legacy"] }
 but-path = { path = "../../crates/but-path" }
 but-rebase = { path = "../../crates/but-rebase" }

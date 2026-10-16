@@ -1,8 +1,11 @@
 //! Diffs as a flat list of rows, so a virtualised list only builds what's on screen.
 
+use std::ops::Range;
+use std::rc::Rc;
+
 use gpui::{
-    AnyElement, HighlightStyle, Hsla, SharedString, StyledText, combine_highlights, div,
-    prelude::*, px,
+    AnyElement, App, CursorStyle, HighlightStyle, Hsla, MouseButton, MouseDownEvent, Pixels, Point,
+    SharedString, StyledText, Window, combine_highlights, div, prelude::*, px,
 };
 
 use super::{Icon, h_flex, small_icon};
@@ -117,7 +120,21 @@ pub struct Decor {
     pub current: bool,
     /// The file shows only its header.
     pub folded: bool,
+    /// Lets the pointer select a line's text.
+    pub select: Option<LineSelect>,
+    /// The part of a line's text that's selected.
+    pub selected: Option<Range<usize>>,
 }
+
+/// What the pointer does to a line's text, given the byte offset in the line it's at:
+/// pressing starts a selection there, dragging across extends it.
+pub struct LineSelect {
+    pub down: OnLineDown,
+    pub drag: OnLineDrag,
+}
+
+pub type OnLineDown = Rc<dyn Fn(usize, &MouseDownEvent, &mut Window, &mut App)>;
+pub type OnLineDrag = Rc<dyn Fn(usize, &mut Window, &mut App)>;
 
 pub fn render_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor) -> AnyElement {
     div()
@@ -134,6 +151,8 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
         excluded,
         current,
         folded,
+        select,
+        selected,
     } = decor;
     let card = |el: gpui::Div| {
         el.w_full()
@@ -311,6 +330,40 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                     .when_some(gutter_bg, |el, bg| el.bg(bg))
                     .child(n.map(|n| n.to_string()).unwrap_or_default())
             };
+            let selected = selected.map(|range| {
+                // Blue like the system's text selection, apart from the green and red of
+                // the change itself.
+                let background_color = Some(theme.blue.opacity(0.3));
+                (
+                    range,
+                    HighlightStyle {
+                        background_color,
+                        ..Default::default()
+                    },
+                )
+            });
+            let text = StyledText::new(SharedString::from(line.text.clone())).with_highlights(
+                combine_highlights(combine_highlights(syntax, emph), selected),
+            );
+            // Where in the text the pointer is, once the text has been laid out: the edge of
+            // the character under it nearer the pointer, as text selection goes everywhere.
+            let layout = text.layout().clone();
+            let chars = line.text.clone();
+            let at = move |position: Point<Pixels>| {
+                let ix = layout.index_for_position(position).unwrap_or_else(|ix| ix);
+                let next = chars[ix..].chars().next().map(|c| ix + c.len_utf8());
+                let edges = next.and_then(|next| {
+                    Some((
+                        layout.position_for_index(ix)?,
+                        layout.position_for_index(next)?,
+                        next,
+                    ))
+                });
+                match edges {
+                    Some((start, end, next)) if position.x > (start.x + end.x) / 2. => next,
+                    _ => ix,
+                }
+            };
             card(h_flex())
                 .h(px(LINE_HEIGHT))
                 .font_family(theme.mono_font.clone())
@@ -334,11 +387,20 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                         .whitespace_nowrap()
                         .overflow_hidden()
                         .text_color(theme.text_1)
-                        .child(
-                            StyledText::new(SharedString::from(line.text.clone()))
-                                .with_highlights(combine_highlights(syntax, emph)),
-                        ),
+                        .child(text),
                 )
+                .when_some(select, |el, select| {
+                    let at_down = at.clone();
+                    el.cursor(CursorStyle::IBeam)
+                        .on_mouse_down(MouseButton::Left, move |event, window, cx| {
+                            (select.down)(at_down(event.position), event, window, cx)
+                        })
+                        .on_mouse_move(move |event, window, cx| {
+                            if event.pressed_button == Some(MouseButton::Left) {
+                                (select.drag)(at(event.position), window, cx)
+                            }
+                        })
+                })
                 .when(excluded, |el| el.opacity(0.45))
                 .into_any_element()
         }

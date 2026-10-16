@@ -2,6 +2,8 @@
 //! screen is laid out. Uncommitted files carry review controls; every hunk gets a small
 //! toolbar while it's under the cursor or the pointer, as in Zed's agent review.
 
+use std::rc::Rc;
+
 use gpui::{AnyElement, App, Context, MouseButton, WeakEntity, div, list, prelude::*, px};
 
 use super::{
@@ -11,7 +13,7 @@ use crate::app::MenuItem;
 use crate::backend::{DiffBody, DiffSource, Selected};
 use crate::state::Review;
 use crate::theme::Theme;
-use crate::ui::diff::{self, Decor, DiffRow};
+use crate::ui::diff::{self, Decor, DiffRow, LineSelect};
 use crate::ui::{ButtonStyle, Icon, button, empty_state, h_flex, icon_button, shortcut};
 
 impl Detail {
@@ -53,6 +55,16 @@ impl Detail {
             .h_full()
             .bg(theme.bg_2)
             .pt(px(12.))
+            // A press anywhere ends the last drag; one on a line starts a new one after this.
+            .capture_any_mouse_down(cx.listener(|this, _, _, _| this.selecting = false))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, _, _, _| this.selecting = false),
+            )
+            .on_mouse_up_out(
+                MouseButton::Left,
+                cx.listener(|this, _, _, _| this.selecting = false),
+            )
             .child(
                 list(self.list.clone(), move |ix, _window, cx| {
                     let Some(detail) = entity.upgrade() else {
@@ -145,7 +157,7 @@ impl Detail {
                         trailing: Some(toolbar),
                         excluded: excluded(file, hunk),
                         current,
-                        folded: false,
+                        ..Default::default()
                     },
                 );
                 // Right-click offers the same discard, with its key.
@@ -177,15 +189,33 @@ impl Detail {
                     })
                     .into_any_element()
             }
-            DiffRow::Line { file, hunk, .. } => diff::render_row(
-                row,
-                &diff.files,
-                theme,
-                Decor {
-                    excluded: excluded(file, hunk),
-                    ..Default::default()
-                },
-            ),
+            DiffRow::Line { file, hunk, .. } => {
+                let (down, drag) = (entity.clone(), entity);
+                let select = LineSelect {
+                    down: Rc::new(move |at, event, window, cx| {
+                        let (count, shift) = (event.click_count, event.modifiers.shift);
+                        down.update(cx, |detail, cx| {
+                            detail.start_text_selection((ix, at), count, shift, window, cx)
+                        })
+                        .ok();
+                    }),
+                    drag: Rc::new(move |at, _, cx| {
+                        drag.update(cx, |detail, cx| detail.drag_text_selection((ix, at), cx))
+                            .ok();
+                    }),
+                };
+                diff::render_row(
+                    row,
+                    &diff.files,
+                    theme,
+                    Decor {
+                        excluded: excluded(file, hunk),
+                        select: Some(select),
+                        selected: self.selected_in_row(ix),
+                        ..Default::default()
+                    },
+                )
+            }
             DiffRow::Note(_) | DiffRow::Gap => {
                 diff::render_row(row, &diff.files, theme, Decor::default())
             }

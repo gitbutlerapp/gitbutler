@@ -8,6 +8,7 @@ pub mod model;
 mod ops;
 pub mod watch;
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context as _, Result};
@@ -71,13 +72,14 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let info = but_api::legacy::workspace::head_info(&ctx)?;
     let uncommitted = worktree_files(&*ctx.repo.get()?)?;
 
-    let stacks = info
+    let mut stacks: Vec<Stack> = info
         .stacks
         .iter()
         .map(|stack| Stack {
             branches: stack.segments.iter().map(branch_from).collect(),
         })
         .collect();
+    describe_reviews(&ctx, &mut stacks);
     let target = info.target_ref.as_ref().map(|target| Target {
         name: target.ref_name.shorten().to_string(),
         behind: target.commits_ahead,
@@ -89,6 +91,80 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         stacks,
         uncommitted,
     })
+}
+
+/// Fill in what the forge cache knows about each branch's pull request: its title, state,
+/// link and CI. Reads only the cache; [`refresh_forge`] is what asks the forge.
+fn describe_reviews(ctx: &Context, stacks: &mut [Stack]) {
+    let reviews: HashMap<u64, but_forge::ForgeReview> = ctx
+        .db
+        .get_cache()
+        .ok()
+        .and_then(|db| but_forge::list_cached_forge_reviews(&db).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|review| (review.number as u64, review))
+        .collect();
+    let branches = stacks.iter_mut().flat_map(|stack| &mut stack.branches);
+    for branch in branches {
+        let Some(review) = &mut branch.review else {
+            continue;
+        };
+        if let Some(cached) = reviews.get(&review.number) {
+            review.title = cached.title.clone();
+            review.url = Some(cached.html_url.clone());
+            review.state = match (&cached.merged_at, &cached.closed_at, cached.draft) {
+                (Some(_), _, _) => ReviewState::Merged,
+                (None, Some(_), _) => ReviewState::Closed,
+                (None, None, true) => ReviewState::Draft,
+                (None, None, false) => ReviewState::Open,
+            };
+        }
+        // A merged pull request drops out of the open ones the forge lists.
+        if branch.push == PushState::Integrated {
+            review.state = ReviewState::Merged;
+        }
+        let cache_only = Some(but_forge::CacheConfig::CacheOnly);
+        let checks = but_api::legacy::forge::list_ci_checks_for_ref(ctx, &branch.name, cache_only)
+            .unwrap_or_default();
+        review.checks = (!checks.is_empty()).then(|| summarize_checks(&checks));
+    }
+}
+
+fn summarize_checks(checks: &[but_forge::CiCheck]) -> Checks {
+    use but_forge::{CiConclusion as C, CiStatus as S};
+    checks.iter().fold(Checks::default(), |mut sum, check| {
+        match &check.status {
+            S::Complete { conclusion, .. } => match conclusion {
+                C::Success | C::Neutral | C::Skipped => sum.passed += 1,
+                C::Failure | C::TimedOut | C::Cancelled | C::ActionRequired | C::Unknown => {
+                    sum.failed += 1
+                }
+            },
+            S::InProgress | S::Queued | S::Unknown => sum.running += 1,
+        }
+        sum
+    })
+}
+
+/// Ask the forge about the project's pull requests, refreshing the cache that
+/// [`load_workspace`] reads. Fails when the project has no forge or no account for it.
+pub fn refresh_reviews(path: &Path) -> Result<()> {
+    let started = std::time::Instant::now();
+    tracing::debug!(path = %path.display(), "refreshing reviews");
+    let ctx = open(path)?;
+    but_api::legacy::forge::list_reviews(&ctx, Some(but_forge::CacheConfig::NoCache))?;
+    tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed reviews");
+    Ok(())
+}
+
+/// Ask the forge about the CI of each branch with a pull request, a request per branch.
+pub fn refresh_checks(path: &Path) -> Result<()> {
+    let started = std::time::Instant::now();
+    let ctx = open(path)?;
+    but_api::legacy::forge::warm_ci_checks_cache(&ctx)?;
+    tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed checks");
+    Ok(())
 }
 
 fn branch_from(segment: &but_workspace::ref_info::Segment) -> Branch {
@@ -116,6 +192,10 @@ fn branch_from(segment: &but_workspace::ref_info::Segment) -> Branch {
             .and_then(|meta| meta.review.pull_request)
             .map(|number| Review {
                 number: number as u64,
+                title: String::new(),
+                state: ReviewState::Open,
+                url: None,
+                checks: None,
             }),
     }
 }

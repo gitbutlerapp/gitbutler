@@ -6,6 +6,7 @@ use gpui::{
     MouseDownEvent, SharedString, Stateful, Window, div, prelude::*, px,
 };
 
+use super::file_tree::{self, TreeRow};
 use super::{Check, Detail, checkbox_box};
 use crate::app::StartCommit;
 use crate::app::{AppView, MenuItem};
@@ -14,10 +15,11 @@ use crate::state::{Cut, ProjectId, Review, Selection};
 use crate::theme::Theme;
 use crate::transfer::short_ref;
 use crate::ui::diff;
+use crate::ui::review as ui_review;
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, button, empty_state, h_flex, icon, relative_time, shortcut,
-    small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, button, empty_state, h_flex, icon, icon_button,
+    relative_time, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -347,6 +349,109 @@ impl Detail {
             .into_any_element()
     }
 
+    /// A file list's rows: flat, or as a tree when the user chose that.
+    fn file_list_rows(
+        &self,
+        files: Vec<(usize, &FileChange, FileRow)>,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Vec<AnyElement> {
+        if !self.store.read(cx).file_tree {
+            return files
+                .into_iter()
+                .map(|(ix, file, extras)| self.render_file_row(ix, file, extras, theme, cx))
+                .collect();
+        }
+        let paths: Vec<&str> = files
+            .iter()
+            .map(|&(_, file, _)| file.path.as_str())
+            .collect();
+        let rows = file_tree::tree_rows(&paths, &self.collapsed_dirs);
+        let mut files: Vec<Option<_>> = files.into_iter().map(Some).collect();
+        rows.into_iter()
+            .filter_map(|row| match row {
+                TreeRow::Dir {
+                    path,
+                    name,
+                    depth,
+                    collapsed,
+                    files,
+                } => Some(self.render_dir_row(path, name, depth, collapsed, files, theme, cx)),
+                TreeRow::File { pos, depth } => {
+                    let (ix, file, extras) = files.get_mut(pos)?.take()?;
+                    let extras = FileRow {
+                        depth: Some(depth),
+                        ..extras
+                    };
+                    Some(self.render_file_row(ix, file, extras, theme, cx))
+                }
+            })
+            .collect()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn render_dir_row(
+        &self,
+        path: String,
+        name: String,
+        depth: usize,
+        collapsed: bool,
+        files: usize,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        h_flex()
+            .id(ElementId::Name(format!("dir-{path}").into()))
+            .h(px(28.))
+            .pl(px(10. + TREE_INDENT * depth as f32))
+            .pr(px(8.))
+            .mx(px(6.))
+            .gap(px(6.))
+            .rounded(px(4.))
+            .text_color(theme.text_2)
+            .hover(|el| el.bg(theme.hover()))
+            .child(
+                small_icon(if collapsed {
+                    Icon::ChevronRight
+                } else {
+                    Icon::ChevronDown
+                })
+                .text_color(theme.text_3),
+            )
+            .child(small_icon(Icon::Folder).text_color(theme.text_3))
+            .child(div().flex_1().min_w(px(0.)).truncate().child(name))
+            .when(collapsed, |el| {
+                el.child(
+                    div()
+                        .text_size(px(11.))
+                        .text_color(theme.text_3)
+                        .child(files.to_string()),
+                )
+            })
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                if !this.collapsed_dirs.remove(&path) {
+                    this.collapsed_dirs.insert(path.clone());
+                }
+                cx.notify();
+            }))
+            .into_any_element()
+    }
+
+    /// Switches file lists between a flat list and a tree.
+    fn tree_toggle(&self, cx: &Context<Self>) -> impl IntoElement {
+        let tree = self.store.read(cx).file_tree;
+        let store = self.store.clone();
+        icon_button(
+            "file-tree",
+            if tree { Icon::List } else { Icon::FolderTree },
+        )
+        .small()
+        .tooltip(if tree { "Show as list" } else { "Show as tree" })
+        .on_click(move |_, _, cx| {
+            store.update(cx, |store, cx| store.set_file_tree(!tree, cx));
+        })
+    }
+
     fn render_file_row(
         &self,
         ix: usize,
@@ -360,11 +465,16 @@ impl Detail {
         let diff_ix = self.diff_index(&file.path);
         let current = diff_ix.is_some_and(|d| d == self.cursor.file);
         let reviewed = extras.review == Some(Review::Reviewed);
+        // In a tree a file lines up with its directory's name, and the path is the tree.
+        let indent = extras
+            .depth
+            .map_or(0., |depth| TREE_INDENT * depth as f32 + 18.);
+        let dir = if extras.depth.is_some() { "" } else { dir };
         let mut row =
             h_flex()
                 .id(("file", ix))
                 .h(px(28.))
-                .pl(px(10.))
+                .pl(px(10. + indent))
                 .pr(px(8.))
                 .mx(px(6.))
                 .gap(px(8.))
@@ -544,7 +654,7 @@ impl Detail {
                 .and_then(|d| d.files.iter().find(|f| f.file.path == path))
                 .map(FileDiff::stats)
         };
-        let files: Vec<AnyElement> = workspace
+        let files = workspace
             .uncommitted
             .iter()
             .enumerate()
@@ -554,10 +664,12 @@ impl Detail {
                     checkbox: self.composing.then(|| self.file_check(&file.path)),
                     review: Some(store.review(project, file)),
                     drag_from: Some((project.clone(), None)),
+                    depth: None,
                 };
-                self.render_file_row(ix, file, extras, theme, cx)
+                (ix, file, extras)
             })
             .collect();
+        let files = self.file_list_rows(files, theme, cx);
         let (added, removed) = self.diff.as_ref().map_or((0, 0), |d| {
             d.files
                 .iter()
@@ -581,6 +693,7 @@ impl Detail {
             ))
             .child(diff::stats(added, removed, theme))
             .child(div().flex_1())
+            .child(self.tree_toggle(cx))
             .when(!workspace.uncommitted.is_empty(), |el| {
                 el.child(
                     div()
@@ -875,24 +988,49 @@ impl Detail {
                         }),
                 )
                 .into_any_element(),
+            // The title alone, as in Lite: the body opens on request.
             None => v_flex()
                 .id("commit-message")
-                .gap(px(6.))
+                .gap(px(8.))
                 .child(
-                    div()
-                        .text_size(px(15.))
-                        .line_height(px(21.))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .child(if commit.title.is_empty() {
-                            "No message".to_owned()
-                        } else {
-                            commit.title.clone()
+                    h_flex()
+                        .items_start()
+                        .gap(px(6.))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w(px(0.))
+                                .text_size(px(15.))
+                                .line_height(px(21.))
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .child(if commit.title.is_empty() {
+                                    "No message".to_owned()
+                                } else {
+                                    commit.title.clone()
+                                }),
+                        )
+                        .when(!body.is_empty(), |el| {
+                            let open = self.message_open;
+                            el.child(
+                                icon_button("full-message", Icon::TextBlock)
+                                    .small()
+                                    .tooltip(if open {
+                                        "Hide full message"
+                                    } else {
+                                        "Full message"
+                                    })
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.message_open = !this.message_open;
+                                        cx.notify();
+                                    })),
+                            )
                         }),
                 )
-                .when(!body.is_empty(), |el| {
+                .when(self.message_open && !body.is_empty(), |el| {
                     el.child(
                         div()
-                            .text_size(px(13.))
+                            .font_family(theme.mono_font.clone())
+                            .text_size(px(12.))
                             .line_height(px(19.))
                             .text_color(theme.text_2)
                             .child(body),
@@ -1075,6 +1213,9 @@ impl Detail {
                             .child(format!("{} commits · {push}", branch.commits.len())),
                     ),
             )
+            .when_some(branch.review.as_ref(), |el, review| {
+                el.child(render_review(review, theme, cx))
+            })
             .child(
                 div()
                     .id("branch-commits")
@@ -1117,7 +1258,7 @@ impl Detail {
                 })
                 .into_any_element();
         };
-        let rows: Vec<AnyElement> = diff
+        let rows = diff
             .files
             .iter()
             .enumerate()
@@ -1127,9 +1268,10 @@ impl Detail {
                     drag_from: commit.map(|id| (project.clone(), Some(id))),
                     ..Default::default()
                 };
-                self.render_file_row(ix, &file.file, extras, theme, cx)
+                (ix, &file.file, extras)
             })
             .collect();
+        let rows = self.file_list_rows(rows, theme, cx);
         v_flex()
             .flex_1()
             .min_h(px(0.))
@@ -1139,11 +1281,16 @@ impl Detail {
                     .px(px(16.))
                     .flex_none()
                     .text_size(px(12.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(match diff.files.len() {
-                        1 => "1 file changed".to_owned(),
-                        n => format!("{n} files changed"),
-                    }),
+                    .child(
+                        div()
+                            .flex_1()
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .child(match diff.files.len() {
+                                1 => "1 file changed".to_owned(),
+                                n => format!("{n} files changed"),
+                            }),
+                    )
+                    .child(self.tree_toggle(cx)),
             )
             .child(
                 div()
@@ -1157,6 +1304,67 @@ impl Detail {
     }
 }
 
+/// A branch's pull request in two lines, as t3code shows one: what it is, then its number,
+/// state and checks, with a way to open it.
+fn render_review(review: &backend::Review, theme: &Theme, cx: &Context<Detail>) -> AnyElement {
+    let (glyph, color) = ui_review::state_glyph(review.state, theme);
+    let title = if review.title.is_empty() {
+        format!("Pull request #{}", review.number)
+    } else {
+        review.title.clone()
+    };
+    v_flex()
+        .flex_none()
+        .px(px(16.))
+        .py(px(12.))
+        .gap(px(4.))
+        .border_b_1()
+        .border_color(theme.border_3)
+        .child(
+            h_flex()
+                .gap(px(8.))
+                .child(icon(glyph).text_color(color))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .font_weight(gpui::FontWeight::MEDIUM)
+                        .child(title),
+                )
+                .when_some(review.url.clone(), |el, url| {
+                    el.child(
+                        button("open-review", "Open")
+                            .icon(Icon::Link)
+                            .small()
+                            .style(ButtonStyle::Ghost)
+                            .tooltip_with_key(
+                                "Open the pull request",
+                                shortcut(&crate::app::OpenPullRequest, cx),
+                            )
+                            .on_click(move |_, _, cx| cx.open_url(&url)),
+                    )
+                }),
+        )
+        .child(
+            h_flex()
+                .pl(px(24.))
+                .gap(px(6.))
+                .text_size(px(12.))
+                .text_color(theme.text_2)
+                .child(format!("#{}", review.number))
+                .child("·")
+                .child(ui_review::state_label(review.state))
+                .when_some(review.checks, |el, checks| {
+                    let (glyph, color, text) = ui_review::checks_summary(checks, theme);
+                    el.child("·")
+                        .child(small_icon(glyph).text_color(color))
+                        .child(text)
+                }),
+        )
+        .into_any_element()
+}
+
 /// What a file row shows besides the file itself.
 #[derive(Default)]
 struct FileRow {
@@ -1167,4 +1375,9 @@ struct FileRow {
     review: Option<Review>,
     /// Lets the row be dragged and right-clicked as these changes.
     drag_from: Option<(ProjectId, Option<backend::CommitId>)>,
+    /// How deep the file sits in a tree; it then shows only its name.
+    depth: Option<usize>,
 }
+
+/// How far each level of a file tree steps in.
+const TREE_INDENT: f32 = 14.;

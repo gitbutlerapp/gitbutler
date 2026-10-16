@@ -98,9 +98,38 @@ pub struct Branch {
     pub review: Option<Review>,
 }
 
+/// A branch's pull request, as the forge cache last saw it.
 #[derive(Debug, Clone)]
 pub struct Review {
     pub number: u64,
+    /// Empty until the forge has been asked about it.
+    pub title: String,
+    pub state: ReviewState,
+    pub url: Option<String>,
+    /// The CI checks on the branch, once any have been seen.
+    pub checks: Option<Checks>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReviewState {
+    Open,
+    Draft,
+    Merged,
+    Closed,
+}
+
+/// How a branch's CI checks stand.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Checks {
+    pub passed: usize,
+    pub failed: usize,
+    pub running: usize,
+}
+
+impl Checks {
+    pub fn total(self) -> usize {
+        self.passed + self.failed + self.running
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

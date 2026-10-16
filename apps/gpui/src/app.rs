@@ -27,6 +27,8 @@ actions!(
         Quit,
         AddProject,
         CopySelection,
+        OpenPullRequest,
+        ToggleFileTree,
         Refresh,
         Undo,
         Redo,
@@ -98,6 +100,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("r", RenameSelection, nav),
         KeyBinding::new("b", NewBranchOnTop, nav),
         KeyBinding::new("shift-p", Push, nav),
+        KeyBinding::new("o", OpenPullRequest, nav),
         KeyBinding::new("cmd-backspace", DeleteSelection, nav),
         KeyBinding::new("cmd-alt-backspace", UncommitSelection, nav),
     ]);
@@ -360,12 +363,17 @@ impl AppView {
             .and_then(|ws| ws.find_branch(&ref_name))
             .is_some_and(|branch| branch.push == backend::PushState::NeedsForce);
         let name = short_ref(&ref_name).to_owned();
+        let project_for_refresh = project.clone();
         self.store.update(cx, |store, cx| {
             store.run(
                 &project,
                 format!("Push {name}"),
                 move |path| backend::push(path, &ref_name, force),
-                move |store, (), cx| store.snack(format!("Pushed {name}"), cx),
+                move |store, (), cx| {
+                    store.snack(format!("Pushed {name}"), cx);
+                    // A push can open or move a pull request's checks.
+                    store.refresh_forge(&project_for_refresh, cx);
+                },
                 cx,
             )
         });
@@ -811,7 +819,12 @@ impl AppView {
             return;
         }
         if self.detail.read(cx).is_focused(window, cx) {
-            window.focus(&self.nav_focus, cx);
+            if !self
+                .detail
+                .update(cx, |detail, cx| detail.clear_text_selection(cx))
+            {
+                window.focus(&self.nav_focus, cx);
+            }
             return;
         }
         if self.store.read(cx).cut.is_some() {
@@ -861,13 +874,36 @@ impl AppView {
         }
     }
 
+    /// Open the pull request of the selected branch, or of the branch the selected commit
+    /// is on, in the browser.
+    fn open_pull_request(&mut self, _: &OpenPullRequest, _: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let url = match self.selection(cx) {
+            Some(Selection::Branch(project, ref_name)) => store
+                .workspace(&project)
+                .and_then(|ws| ws.find_branch(&ref_name))
+                .and_then(|branch| branch.review.as_ref()?.url.clone()),
+            Some(Selection::Commit(project, id)) => store
+                .workspace(&project)
+                .and_then(|ws| ws.find_commit(id))
+                .and_then(|(branch, _)| branch.review.as_ref()?.url.clone()),
+            _ => None,
+        };
+        match url {
+            Some(url) => cx.open_url(&url),
+            None => self
+                .store
+                .update(cx, |store, cx| store.snack("No pull request here", cx)),
+        }
+    }
+
     /// Copy what's selected in the form other tools take: a file's path, a commit's id,
     /// a branch's name or a project's directory.
     fn copy_selection(&mut self, _: &CopySelection, window: &mut Window, cx: &mut Context<Self>) {
         let detail = self.detail.read(cx);
         let file = detail
             .is_focused(window, cx)
-            .then(|| detail.cursor_path())
+            .then(|| detail.selected_text().or_else(|| detail.cursor_path()))
             .flatten();
         let text = file.or_else(|| match self.selection(cx)? {
             Selection::Commit(_, id) => Some(id.0.to_string()),
@@ -880,7 +916,7 @@ impl AppView {
         if let Some(text) = text {
             cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
             self.store
-                .update(cx, |store, cx| store.snack(format!("Copied {text}"), cx));
+                .update(cx, |store, cx| store.snack(copied(&text), cx));
         }
     }
 
@@ -1241,6 +1277,11 @@ impl Render for AppView {
             .on_action(cx.listener(Self::cut_selection))
             .on_action(cx.listener(Self::paste_here))
             .on_action(cx.listener(Self::copy_selection))
+            .on_action(cx.listener(Self::open_pull_request))
+            .on_action(cx.listener(|this, _: &ToggleFileTree, _, cx| {
+                this.store
+                    .update(cx, |store, cx| store.set_file_tree(!store.file_tree, cx))
+            }))
             .on_action(cx.listener(Self::cancel))
             .on_action(cx.listener(Self::focus_navigator))
             .on_action(cx.listener(Self::focus_filter))
@@ -1282,5 +1323,14 @@ impl Render for AppView {
             .children(self.render_prompt(cx))
             .children(self.render_palette(cx))
             .children(self.render_menu(cx))
+    }
+}
+
+/// What the snackbar says after copying `text`: the text itself when it's short.
+fn copied(text: &str) -> String {
+    match text.lines().count() {
+        0 | 1 if text.chars().count() <= 64 => format!("Copied {text}"),
+        0 | 1 => "Copied the selection".to_owned(),
+        lines => format!("Copied {lines} lines"),
     }
 }
