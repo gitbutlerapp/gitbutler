@@ -75,7 +75,11 @@ pub(super) mod function {
                 .select_reference(lower_bound_ref)
                 .context("Failed to find target reference in graph.")?
         } else {
-            editor.select_commit(workspace.graph.project_meta.target_commit_id_or_err()?)?
+            let target = workspace
+                .target_commit
+                .as_ref()
+                .context("Tearing off a branch requires a workspace cutoff")?;
+            editor.select_commit(target.commit_id)?
         };
 
         let DisconnectParameters {
