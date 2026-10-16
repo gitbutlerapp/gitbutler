@@ -14,7 +14,7 @@ mod upstream;
 
 pub use diff_view::DiffPane;
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -131,6 +131,8 @@ pub struct Detail {
     unchecked: HashSet<String>,
     /// Hunks left out of the next commit, in files that are otherwise in.
     unchecked_hunks: HashSet<(String, HunkKey)>,
+    /// Hunks only some of whose changed lines go in the next commit: those lines, by index.
+    line_picks: HashMap<(String, HunkKey), BTreeSet<usize>>,
     /// The commit message being edited, with the subscription that saves it.
     rewording: Option<(Entity<TextInput>, Subscription)>,
     /// The project the checkboxes and commit target above belong to.
@@ -287,6 +289,7 @@ impl Detail {
             commit_target: None,
             unchecked: HashSet::new(),
             unchecked_hunks: HashSet::new(),
+            line_picks: HashMap::new(),
             rewording: None,
             checks_project: None,
             composing: false,
@@ -518,6 +521,8 @@ impl Detail {
                 .collect();
             self.unchecked_hunks
                 .retain(|(path, key)| hunks.contains(&(path.as_str(), *key)));
+            self.line_picks
+                .retain(|(path, key), _| hunks.contains(&(path.as_str(), *key)));
         }
         if self.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
             self.text_selection = None;
