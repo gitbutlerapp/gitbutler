@@ -216,6 +216,16 @@ impl ChangeKind {
             Self::Renamed => "R",
         }
     }
+
+    /// The change in a word, for screen readers.
+    pub fn word(self) -> &'static str {
+        match self {
+            ChangeKind::Added => "added",
+            ChangeKind::Modified => "modified",
+            ChangeKind::Deleted => "deleted",
+            ChangeKind::Renamed => "renamed",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

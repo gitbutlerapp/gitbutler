@@ -15,8 +15,8 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
-    ListAlignment, ListOffset, ListState, SharedString, Subscription, Task, WeakEntity, Window,
-    actions, div, prelude::*, px,
+    ListAlignment, ListOffset, ListState, Role, SharedString, Subscription, Task, Toggled,
+    WeakEntity, Window, actions, div, prelude::*, px,
 };
 
 use crate::app::AppView;
@@ -1363,6 +1363,12 @@ pub(super) fn checkbox_box(
     let on = check != Check::None;
     div()
         .id(id)
+        .role(Role::CheckBox)
+        .aria_toggled(match check {
+            Check::All => Toggled::True,
+            Check::Some => Toggled::Mixed,
+            Check::None => Toggled::False,
+        })
         .flex_none()
         .size(px(14.))
         .rounded(px(3.))

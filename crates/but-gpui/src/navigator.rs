@@ -445,6 +445,8 @@ impl Navigator {
                 });
                 let activity = entry.workspace.as_ref().and_then(|ws| ws.last_activity());
                 base(format!("project-{id}"), 0.)
+                    .aria_label(entry.project.name.clone())
+                    .aria_expanded(expanded)
                     .h(px(if expanded { 32. } else { ROW_HEIGHT }))
                     .pl(px(4.))
                     .child(
@@ -564,6 +566,7 @@ impl Navigator {
             Selection::Uncommitted(id) => {
                 let n = store.workspace(id).map_or(0, |ws| ws.uncommitted.len());
                 base(format!("uncommitted-{id}"), 6.)
+                    .aria_label("Uncommitted changes")
                     .child(icon(Icon::FileDiff).text_color(if n > 0 {
                         meta(theme.warn)
                     } else {
@@ -620,6 +623,7 @@ impl Navigator {
                     (None, _) => (Icon::Branch, muted),
                 };
                 base(format!("branch-{id}-{ref_name}"), 6.)
+                    .aria_label(format!("Branch {}", branch.name))
                     .child(icon(glyph).text_color(meta(glyph_color)))
                     .child(
                         div()
@@ -700,6 +704,7 @@ impl Navigator {
                 let label: SharedString = commit.title.clone().into();
                 let unread = store.is_unread(id, commit);
                 base(format!("commit-{id}-{}", commit_id.short()), 20.)
+                    .aria_label(label.clone())
                     .child(small_icon(glyph).text_color(meta(color)))
                     .child(
                         div()

@@ -8,7 +8,7 @@ use std::borrow::Cow;
 
 use gpui::{
     AnyElement, App, AssetSource, ClickEvent, CursorStyle, Div, DragMoveEvent, ElementId,
-    EmptyView, Entity, Hsla, SharedString, Stateful, Svg, Window, div, prelude::*, px, svg,
+    EmptyView, Entity, Hsla, Role, SharedString, Stateful, Svg, Window, div, prelude::*, px, svg,
 };
 
 use crate::state::{Pane, Store};
@@ -179,6 +179,8 @@ pub fn v_flex() -> Div {
 pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stateful<Div> {
     h_flex()
         .id(id)
+        .role(Role::ListItem)
+        .aria_selected(selected)
         .flex_none()
         .h(px(ROW_HEIGHT))
         .mx(px(6.))
@@ -338,8 +340,12 @@ impl RenderOnce for Button {
         };
         let height = if self.small { px(22.) } else { px(28.) };
         let has_label = self.label.is_some();
+        // What a screen reader calls it: its text, or for an icon its tooltip.
+        let name = self.label.clone().or_else(|| self.tooltip.clone());
         h_flex()
             .id(self.id)
+            .role(Role::Button)
+            .when_some(name, |el, name| el.aria_label(name))
             .flex_none()
             .h(height)
             .gap(px(6.))

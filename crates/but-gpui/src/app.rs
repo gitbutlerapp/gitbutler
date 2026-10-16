@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use gpui::{
     Action, AnyElement, App, ClickEvent, ClipboardItem, Context, Entity, FocusHandle, Focusable,
-    KeyBinding, MouseButton, PathPromptOptions, Pixels, Point, PromptLevel, SharedString,
+    KeyBinding, MouseButton, PathPromptOptions, Pixels, Point, PromptLevel, Role, SharedString,
     StyleRefinement, Subscription, Window, actions, anchored, deferred, div, prelude::*, px,
 };
 
@@ -1147,6 +1147,8 @@ impl AppView {
                     snackbar = Some(
                         h_flex()
                             .id(("snackbar", id))
+                            .role(Role::Alert)
+                            .aria_label(message.clone())
                             .h(px(32.))
                             .pl(px(12.))
                             .pr(px(if undo.is_some() { 4. } else { 12. }))
@@ -1189,6 +1191,9 @@ impl AppView {
                     errors.push(
                         popover(theme)
                             .id(("error", id))
+                            .role(Role::Alert)
+                            .aria_label(title.clone())
+                            .aria_description(detail.clone())
                             .w(px(320.))
                             .p(px(14.))
                             .gap(px(8.))
@@ -1268,6 +1273,8 @@ impl Render for AppView {
         let theme = Theme::get(cx).clone();
         div()
             .id("root")
+            .role(Role::Application)
+            .aria_label("GitButler")
             .key_context("Workspace")
             // Drop targets read ⌥ to tell moving from squashing.
             .on_modifiers_changed(cx.listener(|this, _, _, cx| {
