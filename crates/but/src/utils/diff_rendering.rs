@@ -109,7 +109,7 @@ pub trait DiffLineWriter {
         })
     }
 
-    #[expect(dead_code)]
+    #[cfg_attr(feature = "legacy", expect(dead_code))]
     fn write_non_selectable_text(&mut self, line: Line<'static>) -> anyhow::Result<()> {
         self.write(DetailsLine::Text {
             id: None,

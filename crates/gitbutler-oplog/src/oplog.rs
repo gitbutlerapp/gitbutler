@@ -395,8 +395,8 @@ fn get_workdir_tree(
     {
         let worktree_id = get_v3_workdir_tree(snapshot_commit.tree()?)?.context(format!(
             "no entry at 'worktree' on sha {:?}, version: {:?}",
-            &snapshot_commit.id(),
-            &details.version,
+            snapshot_commit.id(),
+            details.version,
         ))?;
         return Ok(worktree_id);
     }
