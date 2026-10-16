@@ -18,8 +18,8 @@ use crate::backend::{CommitId, CommitState, PushState};
 use crate::detail::{ChecksChanged, Detail};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage, MoveDown,
-    MoveUp, NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
-    UpdateStack,
+    MoveUp, NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, SquashPicked, UnapplyStack,
+    Unstack, UpdateStack,
 };
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
@@ -442,7 +442,9 @@ impl Navigator {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let selected = self.store.read(cx).selection.as_ref() == Some(item);
+        let store = self.store.read(cx);
+        let selected = store.selection.as_ref() == Some(item)
+            || matches!(item, Selection::Commit(_, id) if store.picked.contains(id));
         let style = RowStyle {
             theme,
             selected,
@@ -476,15 +478,24 @@ impl Navigator {
         }
     }
 
-    /// Select `item` on press, as native lists do: a click waits for the release.
+    /// Select `item` on press, as native lists do: a click waits for the release. ⌘ or ⇧
+    /// picks commits along with the selected one.
     fn select_on_press(
         &self,
         item: &Selection,
         cx: &Context<Self>,
     ) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
         let item = item.clone();
-        cx.listener(move |this, _: &MouseDownEvent, window, cx| {
-            this.select(item.clone(), window, cx)
+        cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+            let (platform, shift) = (event.modifiers.platform, event.modifiers.shift);
+            match &item {
+                Selection::Commit(project, id) if platform || shift => {
+                    this.store
+                        .update(cx, |store, cx| store.pick(project, *id, shift, cx));
+                    window.focus(&this.focus, cx);
+                }
+                _ => this.select(item.clone(), window, cx),
+            }
         })
     }
 
@@ -966,8 +977,12 @@ impl Navigator {
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                     let items = this.menu_items(&menu_target, cx);
+                    let picked = matches!(&menu_target,
+                        Selection::Commit(_, id) if this.store.read(cx).picked.contains(id));
                     if !items.is_empty() {
-                        this.select(menu_target.clone(), window, cx);
+                        if !picked {
+                            this.select(menu_target.clone(), window, cx);
+                        }
                         this.app
                             .update(cx, |app, cx| app.open_menu(event.position, items, cx))
                             .ok();
@@ -1130,6 +1145,13 @@ impl Navigator {
                     action("Delete branch…", &DeleteSelection).danger(),
                 ]);
                 items
+            }
+            Selection::Commit(_, id) if store.picked.contains(id) => {
+                let n = store.picked.len();
+                vec![
+                    MenuItem::action(format!("Squash {n} commits"), &SquashPicked, cx),
+                    MenuItem::action(format!("Uncommit {n} commits"), &UncommitSelection, cx),
+                ]
             }
             Selection::Commit(project, id) => {
                 let Some(workspace) = store.workspace(project) else {

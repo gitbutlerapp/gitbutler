@@ -153,6 +153,9 @@ pub struct Store {
     pub projects_loaded: bool,
     pub selection: Option<Selection>,
     pub cut: Option<Cut>,
+    /// Commits picked along with the selected one (⌘- or ⇧-click) to squash or uncommit
+    /// together: two or more, or none, all in the selected commit's project.
+    pub picked: Vec<CommitId>,
     /// What the pointer is dragging. Only meaningful while GPUI has a drag active.
     pub dragging: Option<Cut>,
     /// Pane widths the user dragged away from their defaults.
@@ -257,6 +260,7 @@ impl Store {
             projects_loaded: false,
             selection: None,
             cut: None,
+            picked: Vec::new(),
             dragging: None,
             toasts: Vec::new(),
             busy: None,
@@ -869,6 +873,10 @@ impl Store {
     }
 
     pub fn select(&mut self, selection: Option<Selection>, cx: &mut Context<Self>) {
+        if !self.picked.is_empty() {
+            self.picked.clear();
+            cx.notify();
+        }
         if self.selection == selection {
             return;
         }
@@ -885,6 +893,52 @@ impl Store {
         self.selection = selection;
         self.save_soon(cx);
         cx.emit(StoreEvent::SelectionChanged);
+        cx.notify();
+    }
+
+    /// ⌘-click (`range` false) picks `id` along with the selected commit, or drops it from
+    /// the picks; ⇧-click picks every commit from the selected one to `id`. The clicked
+    /// commit becomes the selection while it's picked.
+    pub fn pick(&mut self, project: &ProjectId, id: CommitId, range: bool, cx: &mut Context<Self>) {
+        let at = match &self.selection {
+            Some(Selection::Commit(p, at)) if p == project => *at,
+            _ => return self.select(Some(Selection::Commit(project.clone(), id)), cx),
+        };
+        let Some(order) = self
+            .workspace(project)
+            .map(|ws| ws.commits().map(|c| c.id).collect::<Vec<_>>())
+        else {
+            return;
+        };
+        let mut picked = std::mem::take(&mut self.picked);
+        if picked.is_empty() {
+            picked.push(at);
+        }
+        if range {
+            let (Some(from), Some(to)) = (
+                order.iter().position(|c| *c == at),
+                order.iter().position(|c| *c == id),
+            ) else {
+                return;
+            };
+            for commit in &order[from.min(to)..=from.max(to)] {
+                if !picked.contains(commit) {
+                    picked.push(*commit);
+                }
+            }
+        } else if let Some(ix) = picked.iter().position(|c| *c == id) {
+            picked.remove(ix);
+        } else {
+            picked.push(id);
+        }
+        let next = match picked.contains(&id) {
+            true => id,
+            false => picked.last().copied().unwrap_or(at),
+        };
+        self.select(Some(Selection::Commit(project.clone(), next)), cx);
+        if picked.len() > 1 {
+            self.picked = picked;
+        }
         cx.notify();
     }
 

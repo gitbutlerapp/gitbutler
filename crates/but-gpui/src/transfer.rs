@@ -197,7 +197,7 @@ impl Transfer {
     ) -> Option<(String, Arc<[Selected]>)> {
         let label = self.describe();
         match self {
-            Transfer::Uncommit(id) => store.uncommit(project, id, cx),
+            Transfer::Uncommit(id) => store.uncommit(project, vec![id], cx),
             Transfer::UncommitFiles { from, files } => store.run(
                 project,
                 label,

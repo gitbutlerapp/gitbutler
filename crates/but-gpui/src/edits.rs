@@ -1,5 +1,6 @@
 //! Edits to the selected commit or branch beyond moving it: one step up or down, empty
-//! commits, cherry-picks, squashing a branch, new branches below or ending at a commit,
+//! commits, cherry-picks, squashing a branch or the picked commits, new branches below or
+//! ending at a commit,
 //! unstacking, unapplying, updating one stack and rewrapping a message. The navigator
 //! offers each only where it applies, so menus, keys and the palette agree.
 
@@ -19,6 +20,7 @@ actions!(
         AddEmptyCommitBelow,
         CherryPick,
         SquashAll,
+        SquashPicked,
         NewBranchBelow,
         NewBranchHere,
         Unstack,
@@ -106,6 +108,7 @@ impl AppView {
                     this.add_empty_commit(false, cx)
                 }))
                 .on_action(cx.listener(Self::cherry_pick))
+                .on_action(cx.listener(Self::squash_picked))
                 .on_action(cx.listener(Self::new_branch_here))
                 .on_action(cx.listener(Self::rewrap_message))
                 .on_action(cx.listener(|this, _: &CopyChangeId, _, cx| this.copy_commit(true, cx)))
@@ -216,13 +219,50 @@ impl AppView {
         if rest.is_empty() {
             return;
         }
-        let into = oldest.id;
-        let rest: Vec<CommitId> = rest.iter().map(|c| c.id).collect();
-        let overlay = Overlay::commits(branch.commits[..rest.len()].iter().map(|c| c.key.clone()));
+        let overlay = Overlay::commits(rest.iter().map(|c| c.key.clone()));
+        let rest = rest.iter().map(|c| c.id).collect();
+        self.squash(project, rest, oldest.id, overlay, "Squash all".into(), cx);
+    }
+
+    /// Squash the picked commits into the oldest of them.
+    fn squash_picked(&mut self, _: &SquashPicked, _: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let Some(Selection::Commit(project, _)) = store.selection.clone() else {
+            return;
+        };
+        let Some(workspace) = store.workspace(&project) else {
+            return;
+        };
+        // The workspace lists commits newest first.
+        let mut picked: Vec<_> = workspace
+            .commits()
+            .filter(|c| store.picked.contains(&c.id))
+            .collect();
+        let Some(oldest) = picked.pop().map(|c| c.id) else {
+            return;
+        };
+        if picked.is_empty() {
+            return;
+        }
+        let overlay = Overlay::commits(picked.iter().map(|c| c.key.clone()));
+        let label = format!("Squash {} commits", picked.len() + 1);
+        let rest = picked.iter().map(|c| c.id).collect();
+        self.squash(project, rest, oldest, overlay, label, cx);
+    }
+
+    fn squash(
+        &mut self,
+        project: ProjectId,
+        rest: Vec<CommitId>,
+        into: CommitId,
+        overlay: Overlay,
+        label: String,
+        cx: &mut Context<Self>,
+    ) {
         self.store.update(cx, |store, cx| {
             store.run(
                 &project,
-                "Squash all",
+                label,
                 overlay,
                 move |path, remap| {
                     let rest = rest
