@@ -174,15 +174,12 @@ impl SingleBranchMode {
                 ..Default::default()
             },
         )?;
-        if outcome.status.persisted_mutation()
+        if !(outcome.status.persisted_mutation()
             || matches!(
                 outcome.status,
                 but_workspace::branch::apply::OutcomeStatus::AlreadyApplied
-            )
+            ))
         {
-            drop(repo);
-            ctx.update_workspace_cache(outcome.workspace);
-        } else {
             anyhow::bail!(
                 "BUG: failed to apply head ref ({}). Failed with {:?}",
                 self.head_reference,
