@@ -6,6 +6,8 @@ mod branches;
 mod composer;
 mod diff_view;
 mod file_tree;
+mod find;
+pub use find::{FindInDiff, bind_keys as bind_find_keys};
 mod history;
 mod panes;
 mod upstream;
@@ -44,6 +46,7 @@ actions!(
         PageDown,
         PageUp,
         AmendTop,
+        ToggleWrap,
     ]
 );
 
@@ -64,6 +67,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("space", PageDown, c),
         KeyBinding::new("pageup", PageUp, c),
         KeyBinding::new("shift-space", PageUp, c),
+        KeyBinding::new("alt-z", ToggleWrap, c),
         // Works while typing the message too, as the composer's other key does.
         KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
     ]);
@@ -143,6 +147,8 @@ pub struct Detail {
     /// Files folded or unfolded by hand; otherwise reviewed files fold.
     folded: HashSet<String>,
     unfolded: HashSet<String>,
+    /// The find bar over the diff, while it's open.
+    find: Option<find::Find>,
     /// The project page's target history, for the project it shows.
     upstream: Option<upstream::Upstream>,
     upstream_scroll: UniformListScrollHandle,
@@ -284,6 +290,7 @@ impl Detail {
             selecting: false,
             folded: HashSet::new(),
             unfolded: HashSet::new(),
+            find: None,
             upstream: None,
             upstream_scroll: UniformListScrollHandle::new(),
             _upstream_load: Task::ready(()),
@@ -507,6 +514,7 @@ impl Detail {
             self.text_selection = None;
         }
         self.diff = Some(LoadedDiff { key, files, rows });
+        self.run_find(false, cx);
         self.diff_error = None;
     }
 
@@ -622,6 +630,19 @@ impl Detail {
             .files
             .iter()
             .position(|f| f.file.path == path)
+    }
+
+    /// Wrap long lines, or stop. Rows change height, so the list measures them again.
+    pub fn toggle_wrap(&mut self, cx: &mut Context<Self>) {
+        self.store.update(cx, |store, cx| {
+            store.set_prefs(|prefs| prefs.wrap = !prefs.wrap, cx)
+        });
+        let top = self.list.logical_scroll_top();
+        let count = self.diff.as_ref().map_or(0, |diff| diff.rows.len());
+        self.list
+            .reset_with_uniform_height(count, px(diff::LINE_HEIGHT));
+        self.list.scroll_to(top);
+        cx.notify();
     }
 
     fn row_of(&self, wanted: impl Fn(&DiffRow) -> bool) -> Option<usize> {
@@ -944,6 +965,12 @@ impl Render for Detail {
             )
             .on_action(cx.listener(|this, _: &PageDown, _, cx| this.page(1., cx)))
             .on_action(cx.listener(|this, _: &PageUp, _, cx| this.page(-1., cx)))
+            .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
+            .on_action(
+                cx.listener(|this, _: &find::FindInDiff, window, cx| this.open_find(window, cx)),
+            )
+            .on_action(cx.listener(|this, _: &find::FindNext, _, cx| this.step_find(1, cx)))
+            .on_action(cx.listener(|this, _: &find::FindPrevious, _, cx| this.step_find(-1, cx)))
             .on_action(
                 cx.listener(|this, _: &crate::open_in::OpenInEditor, window, cx| {
                     this.open_in_editor(window, cx)

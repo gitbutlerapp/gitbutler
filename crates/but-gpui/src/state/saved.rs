@@ -187,6 +187,8 @@ pub struct Prefs {
     pub editor: Option<String>,
     /// The terminal the project opens in, by id.
     pub terminal: Option<String>,
+    /// Long diff lines wrap instead of running off the edge.
+    pub wrap: bool,
 }
 
 /// Where the window was: the display it was on, and its left, top, width and height on that

@@ -87,6 +87,8 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Add project…", Box::new(AddProject)),
         ("Settings", Box::new(crate::settings::OpenSettings)),
         ("Go to branch", Box::new(GoToBranch)),
+        ("Find in diff", Box::new(crate::detail::FindInDiff)),
+        ("Wrap long lines", Box::new(crate::detail::ToggleWrap)),
         (
             "Create pull request",
             Box::new(crate::pr::CreatePullRequest),

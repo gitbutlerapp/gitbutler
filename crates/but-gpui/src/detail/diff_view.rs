@@ -38,21 +38,27 @@ impl DiffPane {
 }
 
 impl Render for DiffPane {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let drawn = self.detail.update(cx, |detail, cx| {
-            (detail.focus.clone(), detail.render_diff(&theme, cx))
+            (
+                detail.focus.clone(),
+                detail.render_diff(&theme, cx),
+                detail.render_find(window, &theme, cx),
+            )
         });
-        let Ok((focus, diff)) = drawn else {
+        let Ok((focus, diff, find)) = drawn else {
             return h_flex();
         };
         h_flex()
             .size_full()
+            .relative()
             // Keys go to the detail, as when the diff was drawn inside it.
             .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                 window.focus(&focus, cx)
             })
             .child(diff)
+            .children(find)
     }
 }
 
@@ -437,7 +443,9 @@ impl Detail {
                     })
                     .into_any_element()
             }
-            DiffRow::Line { file, hunk, .. } => {
+            DiffRow::Line {
+                file, hunk, line, ..
+            } => {
                 let (down, drag) = (entity.clone(), entity);
                 let select = LineSelect {
                     down: Rc::new(move |at, event, window, cx| {
@@ -460,6 +468,8 @@ impl Detail {
                         excluded: excluded(file, hunk),
                         select: Some(select),
                         selected: self.selected_in_row(ix),
+                        found: self.found_on((file, hunk, line)),
+                        wrap: store.prefs.wrap,
                         ..Default::default()
                     },
                 )
