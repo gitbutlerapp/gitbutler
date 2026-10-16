@@ -64,9 +64,13 @@ Branch rows show a pull request's state (open, draft, merged or closed) and numb
 
 While a file scrolls, its header stays at the top of the diff until the next file pushes it off. Lists and diffs show a scrollbar while the pointer is over them; drag its thumb, or press the track to jump. Text in a diff selects like text anywhere: drag across lines, double-click a word, triple-click a line, shift-click to extend, and ⌘C copies it without the `+` and `-`. File lists can show a tree of folders instead of a flat list, with the button beside the file count; folders holding nothing but one folder merge into one row (`src/backend`). Right-click a folder to cut, mark reviewed, discard or uncommit everything under it.
 
-While something is cut or dragged, every row it could land on says what landing there would do ("Amend", "Move above", "Squash into" with ⌥ held), and the rest step back. A commit selected in the app stays selected when an agent rewords or rebases it, as long as it keeps its change ID.
+While something is cut or dragged, every row it could land on says what landing there would do ("Amend", "Move above", "Squash into" with ⌥ held, "Move below" with ⇧), and the rest step back. A commit selected in the app stays selected when an agent rewords or rebases it, as long as it keeps its change ID.
 
 Every change can be undone with ⌘Z, and the snackbar names what was undone, including operations an agent ran from the CLI. Changes show at once: what an operation takes away leaves the lists, and a new commit appears dimmed on its branch, until the reload after it shows the real result. Another operation asked for meanwhile waits its turn; the status bar names the one running, how long it's taking once that's noticeable, and how many wait. Quitting before they finish asks first. ⌘C copies the selection: a commit's id, a branch's name, or the path of the file under the diff cursor. Right-click any row for the rest, or press ⌘K for the command palette, which lists every command that applies where you are, with its keys. The status bar shows the few keys that matter for what has focus.
+
+File → Clone Repository… asks for a URL and a folder, clones it there and adds it. A project whose folder moved stays listed and says so, with Locate… to point it at the new place, or Remove. A project with no target branch offers to pick one from its remote branches.
+
+The Help menu links the docs, the release notes and where to report an issue, shows the folder GitButler keeps its settings in, and opens the command palette as the list of shortcuts. When a commit or amend has to leave changes out, the error says why for each, in plain words.
 
 | Anywhere | |
 |---|---|
@@ -125,7 +129,3 @@ It is a member of the main workspace, so `cargo check --workspace` catches `but-
 - `GITBUTLER_GPUI_APPEARANCE=dark` (or `light`) overrides the system appearance.
 - `E2E_TEST_APP_DATA_DIR=<dir>` points GitButler's app data and settings at a sandbox.
 - Build with `cargo build -p but-gpui --features dev-script` and set `GITBUTLER_GPUI_SCRIPT=<file>` to replay clicks, drags and keystrokes and save screenshots of the window. `src/dev.rs` documents the commands.
-
-File → Clone Repository… asks for a URL and a folder, clones it there and adds it. A project whose folder moved stays listed and says so, with Locate… to point it at the new place, or Remove. A project with no target branch offers to pick one from its remote branches.
-
-The Help menu links the docs, the release notes and where to report an issue, shows the folder GitButler keeps its settings in, and opens the command palette as the list of shortcuts. When a commit or amend has to leave changes out, the error says why for each, in plain words.
