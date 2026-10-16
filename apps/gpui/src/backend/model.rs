@@ -205,6 +205,8 @@ pub struct Hunk {
     pub key: HunkKey,
     pub header: String,
     pub lines: Vec<DiffLine>,
+    /// The scopes the hunk changes, outermost first, each as its first source line.
+    pub scope: Vec<String>,
 }
 
 /// Identifies a hunk of a file's uncommitted changes, to commit just that part.
@@ -219,6 +221,8 @@ pub struct DiffLine {
     pub text: String,
     /// Syntax token spans within `text`.
     pub spans: Vec<(std::ops::Range<usize>, Token)>,
+    /// The words that changed, when the line pairs up with one on the other side.
+    pub emph: Vec<std::ops::Range<usize>>,
 }
 
 pub use super::highlight::Token;

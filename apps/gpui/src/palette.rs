@@ -7,8 +7,8 @@ use gpui::{
 };
 
 use crate::app::{
-    AddProject, AppView, CutSelection, DeleteSelection, Fetch, FocusChanges, FocusFilter,
-    FocusNavigator, NewBranch, NewBranchOnTop, PasteHere, Push, Quit, Redo, Refresh,
+    AddProject, AppView, CopySelection, CutSelection, DeleteSelection, Fetch, FocusChanges,
+    FocusFilter, FocusNavigator, NewBranch, NewBranchOnTop, PasteHere, Push, Quit, Redo, Refresh,
     RenameSelection, StartCommit, ToggleNavigator, ToggleZoom, UncommitSelection, Undo,
     UpdateFromTarget,
 };
@@ -53,6 +53,7 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Rename", Box::new(RenameSelection)),
         ("Uncommit", Box::new(UncommitSelection)),
         ("Discard or delete selection", Box::new(DeleteSelection)),
+        ("Copy", Box::new(CopySelection)),
         ("Cut", Box::new(CutSelection)),
         ("Paste here", Box::new(PasteHere)),
         ("Toggle navigator", Box::new(ToggleNavigator)),

@@ -2,8 +2,8 @@
 //! stacks, branches and commits as one tree of rows.
 
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, ElementId, Focusable as _, MouseButton, MouseDownEvent,
-    SharedString, Stateful, Window, div, prelude::*, px,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, Focusable as _, MouseButton,
+    MouseDownEvent, Pixels, Point, SharedString, Stateful, Window, div, prelude::*, px,
 };
 
 use crate::app::{
@@ -285,7 +285,13 @@ impl AppView {
         let store = self.store.read(cx);
         let focused = self.nav_focus.contains_focused(window, cx);
         let selection = store.selection.clone();
-        let cut = store.cut.clone();
+        // What a drop or a paste would carry: the drag while there is one, else the cut.
+        let pending = if cx.has_active_drag() {
+            store.dragging.clone()
+        } else {
+            store.cut.clone()
+        };
+        let alt = window.modifiers().alt;
         let rows = rows(store, self, cx);
         let project_count = store.projects.len();
         let loaded = store.projects_loaded;
@@ -300,7 +306,16 @@ impl AppView {
                 continue;
             };
             let is_selected = row.selection().is_some() && row.selection() == selection;
-            let el = self.render_row(ix, row, is_selected, focused, cut.as_ref(), &theme, cx);
+            let el = self.render_row(
+                ix,
+                row,
+                is_selected,
+                focused,
+                pending.as_ref(),
+                alt,
+                &theme,
+                cx,
+            );
             let first = ix == 0 || rows[ix - 1].is_none();
             let last = last_in_card[ix];
             children.push(
@@ -428,6 +443,7 @@ impl AppView {
         selected: bool,
         focused: bool,
         cut: Option<&Cut>,
+        alt: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -665,13 +681,7 @@ impl AppView {
                         from: None,
                         files,
                     };
-                    el.on_drag(payload, move |payload, _, _, cx| {
-                        let label = label.clone();
-                        cx.new(|_| DragPreview {
-                            label,
-                            payload: payload.clone(),
-                        })
-                    })
+                    el.on_drag(payload, drag_preview(self.store.clone(), label))
                 })
                 .into_any_element()
             }
@@ -802,13 +812,7 @@ impl AppView {
                         this.select(selection.clone(), window, cx)
                     }
                 }))
-                .on_drag(payload, move |payload, _, _, cx| {
-                    let label = label.clone();
-                    cx.new(|_| DragPreview {
-                        label,
-                        payload: payload.clone(),
-                    })
-                })
+                .on_drag(payload, drag_preview(self.store.clone(), label))
                 .into_any_element()
             }
             Row::More(entry, branch, hidden) => {
@@ -830,32 +834,63 @@ impl AppView {
         };
 
         if let Some(target) = row.selection() {
-            el = self.drop_target(el, target, theme, cx);
+            el = self.drop_target(el, target, cut, alt, theme, cx);
         }
         el
     }
 
     /// Make a row accept drags it has a meaning for, and offer its right-click menu.
+    /// While something is cut or dragged, the row says what landing there would do, or
+    /// steps back when it would do nothing.
     fn drop_target(
         &self,
         el: AnyElement,
         target: Selection,
+        pending: Option<&Cut>,
+        alt: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let verdict = pending.map(|payload| {
+            Transfer::resolve(payload, &target, alt, self.store.read(cx)).map(|t| t.verb())
+        });
         let store = self.store.clone();
         let can_drop_target = target.clone();
         let menu_target = target.clone();
         let highlight = theme.pop;
         div()
             .id(ElementId::Name(format!("drop-{target:?}").into()))
+            .relative()
             .rounded(px(4.))
             .child(el)
-            .can_drop(move |payload, _, cx| {
+            .when(matches!(verdict, Some(None)), |el| el.opacity(0.35))
+            .when_some(verdict.flatten(), |el, verb| {
+                el.child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .right(px(11.))
+                        .flex()
+                        .items_center()
+                        .child(
+                            div()
+                                .px(px(6.))
+                                .py(px(1.))
+                                .rounded(px(4.))
+                                .bg(theme.bg_1)
+                                .border_1()
+                                .border_color(highlight.opacity(0.6))
+                                .text_size(px(11.))
+                                .text_color(highlight)
+                                .child(verb),
+                        ),
+                )
+            })
+            .can_drop(move |payload, window, cx| {
                 payload.downcast_ref::<Cut>().is_some_and(|payload| {
-                    let store = store.read(cx);
-                    Transfer::resolve(payload, &can_drop_target, false, store).is_some()
-                        || Transfer::resolve(payload, &can_drop_target, true, store).is_some()
+                    let alt = window.modifiers().alt;
+                    Transfer::resolve(payload, &can_drop_target, alt, store.read(cx)).is_some()
                 })
             })
             .drag_over::<Cut>(move |style, _, _, _| {
@@ -1004,6 +1039,28 @@ impl AppView {
             }
         }
         items
+    }
+}
+
+/// Start a drag of a `Cut` labelled `label`, letting the store know what's in flight so
+/// the rows can say what a drop would do.
+pub fn drag_preview(
+    store: Entity<Store>,
+    label: SharedString,
+) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+    move |payload, _, _, cx| {
+        store.update(cx, |store, _| store.dragging = Some(payload.clone()));
+        let preview = cx.new(|_| DragPreview {
+            label: label.clone(),
+            payload: payload.clone(),
+        });
+        // GPUI drops the preview when the drag ends, dropped or not.
+        let store = store.clone();
+        cx.observe_release(&preview, move |_, cx| {
+            store.update(cx, |store, _| store.dragging = None);
+        })
+        .detach();
+        preview
     }
 }
 

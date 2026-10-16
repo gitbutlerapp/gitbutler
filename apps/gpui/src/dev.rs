@@ -20,8 +20,9 @@ use std::time::Duration;
 
 use anyhow::{Context as _, Result, bail};
 use gpui::{
-    AnyWindowHandle, App, AppContext as _, Keystroke, Modifiers, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, PlatformInput, Point, Window, point, px,
+    AnyWindowHandle, App, AppContext as _, Keystroke, Modifiers, ModifiersChangedEvent,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PlatformInput, Point, Window, point,
+    px,
 };
 
 pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
@@ -83,7 +84,18 @@ fn run(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Result<(
     };
     match command {
         "key" => {
-            window.dispatch_keystroke(Keystroke::parse(rest)?, cx);
+            // Hold the modifiers around the key, as a keyboard does, so code that reads
+            // `window.modifiers()` sees them.
+            let keystroke = Keystroke::parse(rest)?;
+            let held = |modifiers| {
+                PlatformInput::ModifiersChanged(ModifiersChangedEvent {
+                    modifiers,
+                    capslock: Default::default(),
+                })
+            };
+            window.dispatch_event(held(keystroke.modifiers), cx);
+            window.dispatch_keystroke(keystroke, cx);
+            window.dispatch_event(held(Modifiers::default()), cx);
         }
         "type" => {
             for ch in rest.chars() {

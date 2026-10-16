@@ -5,9 +5,9 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Entity, FocusHandle, Focusable, KeyBinding, MouseButton,
-    PathPromptOptions, Pixels, Point, PromptLevel, ScrollHandle, SharedString, Subscription,
-    Window, actions, anchored, deferred, div, prelude::*, px,
+    AnyElement, App, ClickEvent, ClipboardItem, Context, Entity, FocusHandle, Focusable,
+    KeyBinding, MouseButton, PathPromptOptions, Pixels, Point, PromptLevel, ScrollHandle,
+    SharedString, Subscription, Window, actions, anchored, deferred, div, prelude::*, px,
 };
 
 use crate::backend::{self, CommitId};
@@ -24,6 +24,7 @@ actions!(
     [
         Quit,
         AddProject,
+        CopySelection,
         Refresh,
         Undo,
         Redo,
@@ -74,7 +75,11 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-z", Undo, workspace),
         KeyBinding::new("cmd-shift-z", Redo, workspace),
         KeyBinding::new("cmd-x", CutSelection, workspace),
+        // ⌥ turns moving a commit onto another into squashing it, as when dragging. Bound
+        // first, so ⌘V is the key shown.
+        KeyBinding::new("alt-cmd-v", PasteHere, workspace),
         KeyBinding::new("cmd-v", PasteHere, workspace),
+        KeyBinding::new("cmd-c", CopySelection, workspace),
         KeyBinding::new("escape", Cancel, workspace),
         KeyBinding::new(".", ToggleNavigator, workspace),
         KeyBinding::new("shift-escape", ToggleZoom, None),
@@ -844,12 +849,36 @@ impl AppView {
                     &project,
                     "Redo",
                     backend::redo,
-                    |store, redone, cx| {
-                        store.snack(if redone { "Redone" } else { "Nothing to redo" }, cx)
+                    |store, redone, cx| match redone {
+                        Some(operation) => store.snack(format!("Redone: {operation}"), cx),
+                        None => store.snack("Nothing to redo", cx),
                     },
                     cx,
                 )
             });
+        }
+    }
+
+    /// Copy what's selected in the form other tools take: a file's path, a commit's id,
+    /// a branch's name or a project's directory.
+    fn copy_selection(&mut self, _: &CopySelection, window: &mut Window, cx: &mut Context<Self>) {
+        let detail = self.detail.read(cx);
+        let file = detail
+            .is_focused(window, cx)
+            .then(|| detail.cursor_path())
+            .flatten();
+        let text = file.or_else(|| match self.selection(cx)? {
+            Selection::Commit(_, id) => Some(id.0.to_string()),
+            Selection::Branch(_, ref_name) => Some(short_ref(&ref_name).to_owned()),
+            Selection::Project(project) => {
+                Some(self.store.read(cx).path(&project)?.display().to_string())
+            }
+            Selection::Uncommitted(_) => None,
+        });
+        if let Some(text) = text {
+            cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
+            self.store
+                .update(cx, |store, cx| store.snack(format!("Copied {text}"), cx));
         }
     }
 
@@ -1194,6 +1223,12 @@ impl Render for AppView {
         div()
             .id("root")
             .key_context("Workspace")
+            // Drop targets read ⌥ to tell moving from squashing.
+            .on_modifiers_changed(cx.listener(|this, _, _, cx| {
+                if cx.has_active_drag() || this.store.read(cx).cut.is_some() {
+                    cx.notify();
+                }
+            }))
             .on_action(cx.listener(Self::quit))
             .on_action(cx.listener(Self::add_project))
             .on_action(cx.listener(Self::refresh))
@@ -1203,6 +1238,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::push_selected))
             .on_action(cx.listener(Self::cut_selection))
             .on_action(cx.listener(Self::paste_here))
+            .on_action(cx.listener(Self::copy_selection))
             .on_action(cx.listener(Self::cancel))
             .on_action(cx.listener(Self::focus_navigator))
             .on_action(cx.listener(Self::focus_filter))

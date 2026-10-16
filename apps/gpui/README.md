@@ -21,6 +21,8 @@ The left side lists every project. Expanded projects show their uncommitted chan
 The right side shows whatever is selected:
 
 - **Uncommitted changes.** Every changed file as a diff, each marked "Not reviewed", "Reviewed" or "Needs review" (changed after you reviewed it). ⌘Y marks the file under the cursor reviewed, folds it and moves to the next file still to review. ↑ ↓ step through hunks and ⌘⌥Z throws one away, with an Undo button in case you didn't mean it. The navigator shows how many files are left to review. ⌘↩ or "Commit…" opens the composer, where you check files or single hunks and pick a branch.
+
+  Diffs mark the words that changed within a line, and each hunk is titled with the function or type it sits in (`impl Counter › pub fn bump(&mut self, by: i32) -> i32`) rather than its `@@` line numbers. Both come from [deltoids](https://github.com/juanibiapina/deltoids), which parses the two sides with tree-sitter.
 - **A commit.** Its message, files and diff. Edit the message, uncommit it or discard it.
 - **A branch.** Its commits and combined diff, and Push.
 - **A project.** Counts, Fetch, and Update to rebase every stack onto the latest target.
@@ -37,7 +39,9 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 | a commit's file | another commit | moves the change between commits |
 | a commit's file | uncommitted changes | uncommits just that file |
 
-Every change can be undone with ⌘Z. Right-click any row for the rest, or press ⌘K for the command palette, which lists every command that applies where you are, with its keys. The status bar shows the few keys that matter for what has focus.
+While something is cut or dragged, every row it could land on says what landing there would do ("Amend", "Move above", "Squash into" with ⌥ held), and the rest step back. A commit selected in the app stays selected when an agent rewords or rebases it, as long as it keeps its change ID.
+
+Every change can be undone with ⌘Z, and the snackbar names what was undone, including operations an agent ran from the CLI. ⌘C copies the selection: a commit's id, a branch's name, or the path of the file under the diff cursor. Right-click any row for the rest, or press ⌘K for the command palette, which lists every command that applies where you are, with its keys. The status bar shows the few keys that matter for what has focus.
 
 | Anywhere | |
 |---|---|
@@ -47,7 +51,7 @@ Every change can be undone with ⌘Z. Right-click any row for the rest, or press
 | . | show or hide the navigator |
 | ⌘↩ | commit… |
 | ⌘Z, ⇧⌘Z | undo, redo |
-| ⌘X, ⌘V | cut the selection, paste it onto the selected row |
+| ⌘X, ⌘V | cut the selection, paste it onto the selected row (⌥⌘V squashes a commit instead of moving it) |
 | ⌘N | new branch |
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
 | ⌘F, ⌘R, ⌘O | filter projects, reload, add a project |
@@ -70,7 +74,7 @@ Every change can be undone with ⌘Z. Right-click any row for the rest, or press
 
 ## How it's built
 
-- `src/backend` is the only code that touches GitButler crates. It turns `but-api` results into plain structs (`model.rs`) and runs every call on a tokio pool with large stacks, since GitButler's graph walks and push futures overflow the small stacks of GPUI's worker threads in debug builds.
+- `src/backend` is the only code that touches GitButler crates, and `src/backend/annotate.rs` the only code that touches deltoids. It turns `but-api` results into plain structs (`model.rs`) and runs every call on a tokio pool with large stacks, since GitButler's graph walks and push futures overflow the small stacks of GPUI's worker threads in debug builds.
 - `src/state.rs` holds the projects, selection, what's been cut and what you've reviewed or opened, and runs one mutation at a time. Review and read state is saved to `gpui-state.json` in the app config directory.
 - `src/navigator.rs` and `src/detail/` are the two halves of the window; `src/transfer.rs` decides what a drop or paste does, so both input methods agree.
 - `src/palette.rs` is the command palette and `src/status_bar.rs` the strip along the bottom.

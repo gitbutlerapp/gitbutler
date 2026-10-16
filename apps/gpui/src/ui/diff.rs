@@ -1,9 +1,12 @@
 //! Diffs as a flat list of rows, so a virtualised list only builds what's on screen.
 
-use gpui::{AnyElement, HighlightStyle, Hsla, SharedString, StyledText, div, prelude::*, px};
+use gpui::{
+    AnyElement, HighlightStyle, Hsla, SharedString, StyledText, combine_highlights, div,
+    prelude::*, px,
+};
 
 use super::{Icon, h_flex, small_icon};
-use crate::backend::{ChangeKind, DiffBody, FileDiff, LineKind};
+use crate::backend::{ChangeKind, DiffBody, FileDiff, Hunk, LineKind};
 use crate::theme::Theme;
 
 pub const LINE_HEIGHT: f32 = 20.;
@@ -213,13 +216,7 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 .overflow_hidden()
                 .whitespace_nowrap()
                 .children(leading)
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .overflow_hidden()
-                        .child(SharedString::from(hunks[hunk].header.clone())),
-                )
+                .child(hunk_title(&hunks[hunk], theme))
                 .when(excluded, |el| {
                     el.child(
                         div()
@@ -264,21 +261,43 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 return div().into_any_element();
             };
             let line = &hunks[hunk].lines[line];
-            let (bg, gutter_bg, sign, sign_color) = match line.kind {
-                LineKind::Context => (None, None, " ", theme.text_3),
+            let (bg, gutter_bg, emph_bg, sign, sign_color) = match line.kind {
+                LineKind::Context => (None, None, theme.bg_1, " ", theme.text_3),
                 LineKind::Added => (
                     Some(theme.diff_added_bg),
                     Some(theme.diff_added_gutter),
+                    theme.diff_added_emph,
                     "+",
                     theme.safe,
                 ),
                 LineKind::Removed => (
                     Some(theme.diff_removed_bg),
                     Some(theme.diff_removed_gutter),
+                    theme.diff_removed_emph,
                     "-",
                     theme.danger,
                 ),
             };
+            let syntax = line.spans.iter().map(|(range, token)| {
+                let color = Some(theme.token(*token));
+                (
+                    range.clone(),
+                    HighlightStyle {
+                        color,
+                        ..Default::default()
+                    },
+                )
+            });
+            let emph = line.emph.iter().map(|range| {
+                let background_color = Some(emph_bg);
+                (
+                    range.clone(),
+                    HighlightStyle {
+                        background_color,
+                        ..Default::default()
+                    },
+                )
+            });
             let number = |n: Option<u32>| {
                 div()
                     .flex_none()
@@ -316,21 +335,46 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                         .overflow_hidden()
                         .text_color(theme.text_1)
                         .child(
-                            StyledText::new(SharedString::from(line.text.clone())).with_highlights(
-                                line.spans.iter().map(|(range, token)| {
-                                    (
-                                        range.clone(),
-                                        HighlightStyle {
-                                            color: Some(theme.token(*token)),
-                                            ..Default::default()
-                                        },
-                                    )
-                                }),
-                            ),
+                            StyledText::new(SharedString::from(line.text.clone()))
+                                .with_highlights(combine_highlights(syntax, emph)),
                         ),
                 )
                 .when(excluded, |el| el.opacity(0.45))
                 .into_any_element()
         }
     }
+}
+
+/// The scopes a hunk changes, as a breadcrumb that keeps the innermost one readable, or
+/// its `@@` header when the language isn't one deltoids parses.
+fn hunk_title(hunk: &Hunk, theme: &Theme) -> AnyElement {
+    let Some((inner, outer)) = hunk.scope.split_last() else {
+        return div()
+            .flex_1()
+            .min_w(px(0.))
+            .overflow_hidden()
+            .child(SharedString::from(hunk.header.clone()))
+            .into_any_element();
+    };
+    h_flex()
+        .flex_1()
+        .min_w(px(0.))
+        .gap(px(6.))
+        .overflow_hidden()
+        .children(outer.iter().map(|scope| {
+            h_flex()
+                .flex_shrink(1.)
+                .min_w(px(0.))
+                .gap(px(6.))
+                .text_color(theme.text_3)
+                .child(div().min_w(px(0.)).truncate().child(scope.clone()))
+                .child("›")
+        }))
+        .child(
+            div()
+                .flex_none()
+                .text_color(theme.text_1)
+                .child(inner.clone()),
+        )
+        .into_any_element()
 }
