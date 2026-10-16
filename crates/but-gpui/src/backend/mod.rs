@@ -9,6 +9,7 @@ mod highlight;
 pub mod history;
 pub mod model;
 mod ops;
+pub mod reviews;
 pub mod settings;
 pub mod upstream;
 pub mod watch;
@@ -94,6 +95,7 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     Ok(Workspace {
         target,
+        forge: reviews::forge_name(&ctx),
         stacks,
         uncommitted,
     })

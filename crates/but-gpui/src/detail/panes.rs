@@ -109,6 +109,22 @@ impl Detail {
                 }
                 Selection::Branch(_, ref_name) => {
                     crumbs.push((short_ref(ref_name).to_owned().into(), None));
+                    let can_create = workspace
+                        .and_then(|ws| ws.find_branch(ref_name))
+                        .is_some_and(|b| b.review.is_none() && !b.commits.is_empty())
+                        && crate::pr::on_forge(store, selection);
+                    if can_create {
+                        actions.push(
+                            button("create-pr", "Create pull request")
+                                .icon(Icon::Pr)
+                                .style(ButtonStyle::Ghost)
+                                .on_click(|_, window, cx| {
+                                    window
+                                        .dispatch_action(Box::new(crate::pr::CreatePullRequest), cx)
+                                })
+                                .into_any_element(),
+                        );
+                    }
                     if let Some(branch) = workspace.and_then(|ws| ws.find_branch(ref_name))
                         && branch.push.can_push()
                     {

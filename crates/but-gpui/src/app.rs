@@ -9,7 +9,7 @@ use gpui::{
     Action, AnyElement, AnyView, App, ClickEvent, ClipboardItem, Context, DismissEvent, Entity,
     FocusHandle, Focusable, KeyBinding, ManagedView, MouseButton, PathPromptOptions, Pixels, Point,
     PromptLevel, Role, SharedString, StyleRefinement, Subscription, Window, actions, anchored,
-    deferred, div, prelude::*, px,
+    deferred, div, prelude::*, px, relative,
 };
 
 use crate::backend::{self, CommitId};
@@ -837,6 +837,8 @@ impl AppView {
                 )
                 .child(
                     div()
+                        .flex()
+                        .max_h(relative(0.88))
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .child(view.clone()),
                 )
@@ -1316,6 +1318,11 @@ impl Render for AppView {
             .on_action(|_: &Zoom, window, _| window.zoom_window())
             .on_action(cx.listener(Self::add_project))
             .on_action(cx.listener(Self::open_settings))
+            .on_action(cx.listener(Self::create_pull_request))
+            .on_action(cx.listener(Self::edit_pull_request))
+            .on_action(cx.listener(Self::toggle_draft))
+            .on_action(cx.listener(Self::merge_pull_request))
+            .on_action(cx.listener(Self::close_pull_request))
             .on_action(cx.listener(Self::go_to_branch))
             .on_action(cx.listener(Self::resolve_conflicts))
             .on_action(cx.listener(Self::open_selected_in_terminal))

@@ -18,6 +18,8 @@ mod open_in;
 #[cfg(target_os = "macos")]
 mod palette;
 #[cfg(target_os = "macos")]
+mod pr;
+#[cfg(target_os = "macos")]
 mod resolve;
 #[cfg(target_os = "macos")]
 mod settings;
