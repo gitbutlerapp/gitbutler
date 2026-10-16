@@ -7,8 +7,8 @@ use gpui::{
 };
 
 use crate::app::{
-    AppView, Collapse, Confirm, DeleteSelection, Expand, MenuItem, NewBranchOnTop, RenameSelection,
-    SelectNext, SelectPrevious, UncommitSelection,
+    AppView, Collapse, Confirm, DeleteSelection, Expand, MenuItem, NewBranchOnTop, OpenPullRequest,
+    RenameSelection, SelectNext, SelectPrevious, UncommitSelection,
 };
 use crate::backend::{Branch, Commit, CommitState, PushState};
 use crate::state::{Cut, Pane, ProjectEntry, Selection, Store};
@@ -16,7 +16,7 @@ use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, h_flex, icon,
-    icon_button, just_now, relative_time, resize_handle, small_icon, v_flex,
+    icon_button, just_now, relative_time, resize_handle, review, shortcut, small_icon, v_flex,
 };
 
 /// Commits shown per branch before folding the rest into "N more".
@@ -694,8 +694,8 @@ impl AppView {
                     .filter(|c| c.state == CommitState::Local)
                     .count();
                 let (glyph, glyph_color) = match (&branch.review, branch.push) {
-                    (_, PushState::Integrated) => (Icon::Tick, theme.safe),
-                    (Some(_), _) => (Icon::Pr, theme.safe),
+                    (Some(review), _) => review::state_glyph(review.state, theme),
+                    (None, PushState::Integrated) => (Icon::Tick, theme.safe),
                     (None, _) => (Icon::Branch, muted(selected)),
                 };
                 base(
@@ -717,13 +717,26 @@ impl AppView {
                         })
                         .child(branch.name.clone()),
                 )
+                // As in t3code: the number in the state's colour, then one glyph for CI.
                 .when_some(branch.review.as_ref(), |el, review| {
+                    let (_, color) = review::state_glyph(review.state, theme);
                     el.child(
                         div()
                             .text_size(px(11.))
-                            .text_color(muted(selected))
+                            .text_color(meta(color))
                             .child(format!("#{}", review.number)),
                     )
+                    .when_some(review.checks, |el, checks| {
+                        let (glyph, color, text) = review::checks_summary(checks, theme);
+                        el.child(
+                            div()
+                                .id(ElementId::Name(
+                                    format!("checks-{}", branch.ref_name).into(),
+                                ))
+                                .child(small_icon(glyph).text_color(meta(color)))
+                                .tooltip(move |_, cx| Tooltip::text(text.clone().into(), cx)),
+                        )
+                    })
                 })
                 .when(branch.upstream_only > 0, |el| {
                     el.child(count(
@@ -987,6 +1000,12 @@ impl AppView {
                     items.push(MenuItem::new("Push", move |this, _, cx| {
                         this.push(project.clone(), ref_name.clone(), cx)
                     }));
+                }
+                if let Some(url) = branch.and_then(|b| b.review.as_ref()?.url.clone()) {
+                    items.push(
+                        MenuItem::new("Open pull request", move |_, _, cx| cx.open_url(&url))
+                            .key(shortcut(&OpenPullRequest, cx)),
+                    );
                 }
                 if !ref_name.is_empty() {
                     let (p, r) = (project.clone(), ref_name.clone());

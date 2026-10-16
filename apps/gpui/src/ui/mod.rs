@@ -1,6 +1,7 @@
 //! Shared building blocks so every surface draws rows, buttons and counts the same way.
 
 pub mod diff;
+pub mod review;
 pub mod text_input;
 
 use std::borrow::Cow;
@@ -22,20 +23,29 @@ pub enum Icon {
     ArrowDown,
     ArrowUp,
     Branch,
+    BranchMerge,
     ChevronDown,
     ChevronRight,
     Clock,
     Commit,
-    Eye,
     CommitFill,
+    Cross,
+    Eye,
     File,
     FileDiff,
+    Folder,
+    FolderTree,
+    Link,
+    List,
     Plus,
     Pr,
+    PrClose,
+    PrDraft,
     Refresh,
     Search,
     Sidebar,
     Stack,
+    TextBlock,
     Tick,
     Warning,
 }
@@ -43,6 +53,15 @@ pub enum Icon {
 impl Icon {
     fn file(self) -> &'static str {
         match self {
+            Icon::BranchMerge => "branch-merge",
+            Icon::Cross => "cross",
+            Icon::Folder => "folder",
+            Icon::FolderTree => "folder-tree",
+            Icon::Link => "link",
+            Icon::List => "list",
+            Icon::PrClose => "pr-close",
+            Icon::PrDraft => "pr-draft",
+            Icon::TextBlock => "text-block",
             Icon::ArrowDown => "arrow-down",
             Icon::ArrowUp => "arrow-up",
             Icon::Branch => "branch",
@@ -103,6 +122,15 @@ impl AssetSource for Assets {
             "stack",
             "tick",
             "warning",
+            "branch-merge",
+            "cross",
+            "folder",
+            "folder-tree",
+            "link",
+            "list",
+            "pr-close",
+            "pr-draft",
+            "text-block",
         );
         Ok(bytes.map(Cow::Borrowed))
     }

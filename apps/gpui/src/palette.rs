@@ -8,9 +8,9 @@ use gpui::{
 
 use crate::app::{
     AddProject, AppView, CopySelection, CutSelection, DeleteSelection, Fetch, FocusChanges,
-    FocusFilter, FocusNavigator, NewBranch, NewBranchOnTop, PasteHere, Push, Quit, Redo, Refresh,
-    RenameSelection, StartCommit, ToggleNavigator, ToggleZoom, UncommitSelection, Undo,
-    UpdateFromTarget,
+    FocusFilter, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, PasteHere, Push, Quit,
+    Redo, Refresh, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator, ToggleZoom,
+    UncommitSelection, Undo, UpdateFromTarget,
 };
 use crate::detail::{
     DiscardFile, DiscardHunk, NextFile, NextHunk, PreviousFile, PreviousHunk, ToggleFold,
@@ -40,12 +40,14 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Next file", Box::new(NextFile)),
         ("Previous file", Box::new(PreviousFile)),
         ("Fold file", Box::new(ToggleFold)),
+        ("Show files as a tree or a list", Box::new(ToggleFileTree)),
         ("Discard hunk", Box::new(DiscardHunk)),
         ("Discard file", Box::new(DiscardFile)),
         ("Commit…", Box::new(StartCommit)),
         ("Undo", Box::new(Undo)),
         ("Redo", Box::new(Redo)),
         ("Push branch", Box::new(Push)),
+        ("Open pull request", Box::new(OpenPullRequest)),
         ("Fetch", Box::new(Fetch)),
         ("Update from target", Box::new(UpdateFromTarget)),
         ("New branch", Box::new(NewBranch)),

@@ -3128,6 +3128,7 @@ dependencies = [
  "but-askpass",
  "but-core",
  "but-ctx",
+ "but-forge",
  "but-path",
  "but-rebase",
  "but-settings",

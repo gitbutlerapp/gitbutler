@@ -8,7 +8,7 @@
 //! key cmd-shift-n         # a keystroke, as in key bindings
 //! type hello world        # text, one keystroke per character
 //! move 120 300            # window coordinates in logical pixels
-//! click 120 300
+//! click 120 300          # also dclick and tclick for double and triple clicks
 //! rclick 120 300
 //! drag 120 300 120 500    # append `alt` to hold option, `hold` to keep the button down
 //! shot /tmp/view.png      # render the current frame to a PNG
@@ -122,22 +122,31 @@ fn run(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Result<(
                 cx,
             );
         }
-        "click" | "rclick" => {
+        "click" | "rclick" | "dclick" | "tclick" => {
             let [x, y] = numbers()?[..] else {
                 bail!("click takes x y");
             };
-            let button = if command == "click" {
-                MouseButton::Left
-            } else {
+            let button = if command == "rclick" {
                 MouseButton::Right
+            } else {
+                MouseButton::Left
             };
-            press(
-                window,
-                cx,
-                point(px(x), px(y)),
-                button,
-                Modifiers::default(),
-            );
+            // A double or triple click is the clicks before it, then one with that count.
+            let clicks = match command {
+                "dclick" => 2,
+                "tclick" => 3,
+                _ => 1,
+            };
+            for count in 1..=clicks {
+                press(
+                    window,
+                    cx,
+                    point(px(x), px(y)),
+                    button,
+                    Modifiers::default(),
+                    count,
+                );
+            }
         }
         "drag" => {
             let [x1, y1, x2, y2] = numbers()?[..] else {
@@ -201,6 +210,7 @@ fn press(
     position: Point<gpui::Pixels>,
     button: MouseButton,
     modifiers: Modifiers,
+    click_count: usize,
 ) {
     window.dispatch_event(
         PlatformInput::MouseMove(MouseMoveEvent {
@@ -215,7 +225,7 @@ fn press(
             button,
             position,
             modifiers,
-            click_count: 1,
+            click_count,
             first_mouse: false,
         }),
         cx,
@@ -225,7 +235,7 @@ fn press(
             button,
             position,
             modifiers,
-            click_count: 1,
+            click_count,
         }),
         cx,
     );

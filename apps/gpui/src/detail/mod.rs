@@ -3,9 +3,11 @@
 //! a commit shows its message.
 
 mod diff_view;
+mod file_tree;
 mod panes;
 
 use std::collections::HashSet;
+use std::ops::Range;
 
 use gpui::{
     AnyElement, App, Context, Entity, FocusHandle, Focusable, KeyBinding, ListAlignment,
@@ -15,7 +17,7 @@ use gpui::{
 
 use crate::app::AppView;
 use crate::backend::{
-    self, Destination, DiffBody, DiffSource, FileChange, FileDiff, HunkKey, Selected,
+    self, Destination, DiffBody, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected,
 };
 use crate::state::{Pane, ProjectId, Review, Selection, Store, StoreEvent};
 use crate::theme::Theme;
@@ -99,6 +101,14 @@ pub struct Detail {
     /// The commit message box is open; until then there are no checkboxes.
     composing: bool,
     cursor: Cursor,
+    /// Whether the selected commit's message shows its body, not just its title.
+    message_open: bool,
+    /// Directories folded shut in tree-shaped file lists, by path.
+    collapsed_dirs: HashSet<String>,
+    /// Text selected in the diff, from where the drag started to where it is now.
+    text_selection: Option<(TextPoint, TextPoint)>,
+    /// The left button went down on a line and hasn't come up yet.
+    selecting: bool,
     /// Files folded or unfolded by hand; otherwise reviewed files fold.
     folded: HashSet<String>,
     unfolded: HashSet<String>,
@@ -121,6 +131,8 @@ impl Detail {
             cx.subscribe(&store, |this, _, event, cx| match event {
                 StoreEvent::SelectionChanged => {
                     this.rewording = None;
+                    this.message_open = false;
+                    this.text_selection = None;
                     this.cursor = Cursor::default();
                     this.folded.clear();
                     this.unfolded.clear();
@@ -167,6 +179,10 @@ impl Detail {
             checks_project: None,
             composing: false,
             cursor: Cursor::default(),
+            message_open: false,
+            collapsed_dirs: HashSet::new(),
+            text_selection: None,
+            selecting: false,
             folded: HashSet::new(),
             unfolded: HashSet::new(),
             zoomed: false,
@@ -279,6 +295,9 @@ impl Detail {
                             this.unchecked_hunks
                                 .retain(|(path, key)| hunks.contains(&(path.as_str(), *key)));
                         }
+                        if this.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
+                            this.text_selection = None;
+                        }
                         this.diff = Some(LoadedDiff { key, files, rows });
                         this.diff_error = None;
                     }
@@ -340,6 +359,7 @@ impl Detail {
         let folded = self.folded_paths(&diff.key, &diff.files, cx);
         let rows = diff::rows(&diff.files, |file| folded.contains(&file.file.path));
         if rows != diff.rows {
+            self.text_selection = None;
             // Keep the row at the top of the view there, or its file's header when the
             // row just folded away.
             let top = self.list.logical_scroll_top();
@@ -468,6 +488,121 @@ impl Detail {
             hunk_keys(&files[file]).iter().position(|k| *k == key)
         });
         Cursor { file, hunk }
+    }
+
+    /// The diff line at `row`, if that row is one.
+    pub(super) fn line_at(&self, row: usize) -> Option<&DiffLine> {
+        let diff = self.diff.as_ref()?;
+        let DiffRow::Line {
+            file, hunk, line, ..
+        } = *diff.rows.get(row)?
+        else {
+            return None;
+        };
+        match &diff.files.get(file)?.body {
+            DiffBody::Hunks { hunks, .. } => hunks.get(hunk)?.lines.get(line),
+            _ => None,
+        }
+    }
+
+    /// The selection in order, unless it's empty.
+    fn text_range(&self) -> Option<(TextPoint, TextPoint)> {
+        let (anchor, head) = self.text_selection?;
+        let (start, end) = if anchor <= head {
+            (anchor, head)
+        } else {
+            (head, anchor)
+        };
+        (start != end).then_some((start, end))
+    }
+
+    /// The selected part of the line at `row`, which is `len` bytes long.
+    /// The selected part of the line at `row`. Nothing when the line changed under the
+    /// selection so its ends no longer fall in the text, as after an edit in place.
+    pub(super) fn selected_in_row(&self, row: usize) -> Option<Range<usize>> {
+        let (start, end) = self.text_range()?;
+        if row < start.0 || row > end.0 {
+            return None;
+        }
+        let text = &self.line_at(row)?.text;
+        let from = if row == start.0 { start.1 } else { 0 };
+        let to = if row == end.0 { end.1 } else { text.len() };
+        let fits = text.is_char_boundary(from) && text.is_char_boundary(to);
+        (from < to && fits).then_some(from..to)
+    }
+
+    /// The selected text, one line per diff line, without the `+` and `-` signs.
+    pub fn selected_text(&self) -> Option<String> {
+        let (start, end) = self.text_range()?;
+        let lines: Vec<&str> = (start.0..=end.0)
+            .filter_map(|row| {
+                let text = &self.line_at(row)?.text;
+                Some(&text[self.selected_in_row(row).unwrap_or(0..0)])
+            })
+            .collect();
+        Some(lines.join("\n"))
+    }
+
+    /// The pointer went down on a line: start selecting there, take the word on a double
+    /// click and the line on a triple, or reach to it with shift held.
+    pub(super) fn start_text_selection(
+        &mut self,
+        at: TextPoint,
+        clicks: usize,
+        extend: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let (row, ix) = at;
+        let text = self.line_at(row).map_or("", |line| line.text.as_str());
+        // The text may have changed since the line was drawn.
+        let ix = (0..=ix.min(text.len()))
+            .rev()
+            .find(|ix| text.is_char_boundary(*ix))
+            .unwrap_or(0);
+        let at = (row, ix);
+        self.text_selection = match clicks {
+            2 => {
+                let word = word_at(text, ix);
+                Some(((row, word.start), (row, word.end)))
+            }
+            3.. => Some(((row, 0), (row, text.len()))),
+            _ => match self.text_selection {
+                Some((anchor, _)) if extend => Some((anchor, at)),
+                _ => Some((at, at)),
+            },
+        };
+        self.selecting = true;
+        if let Some(DiffRow::Line { file, hunk, .. }) = self
+            .diff
+            .as_ref()
+            .and_then(|diff| diff.rows.get(row))
+            .copied()
+        {
+            self.cursor = Cursor {
+                file,
+                hunk: Some(hunk),
+            };
+        }
+        window.focus(&self.focus, cx);
+        cx.notify();
+    }
+
+    pub(super) fn drag_text_selection(&mut self, at: TextPoint, cx: &mut Context<Self>) {
+        if let (true, Some((_, head))) = (self.selecting, &mut self.text_selection)
+            && *head != at
+        {
+            *head = at;
+            cx.notify();
+        }
+    }
+
+    /// Drop the text selection, saying whether there was one.
+    pub fn clear_text_selection(&mut self, cx: &mut Context<Self>) -> bool {
+        let had = self.text_range().is_some();
+        self.text_selection = None;
+        cx.notify();
+        had
     }
 
     /// The path of the file under the cursor, in any diff.
@@ -1003,4 +1138,23 @@ pub(super) fn checkbox_box(
             Check::Some => el.child(div().w(px(8.)).h(px(2.)).rounded(px(1.)).bg(gpui::white())),
             Check::None => el,
         })
+}
+
+/// A spot in the diff's text: a row of the diff and a byte offset in that row's line.
+type TextPoint = (usize, usize);
+
+/// The word around byte `ix` of `text`, or an empty range when `ix` isn't in one.
+fn word_at(text: &str, ix: usize) -> Range<usize> {
+    let is_word = |c: char| c.is_alphanumeric() || c == '_';
+    let start = text[..ix]
+        .char_indices()
+        .rev()
+        .take_while(|(_, c)| is_word(*c))
+        .last()
+        .map_or(ix, |(at, _)| at);
+    let end = text[ix..]
+        .char_indices()
+        .find(|(_, c)| !is_word(*c))
+        .map_or(text.len(), |(at, _)| ix + at);
+    start..end
 }

@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 use futures::{StreamExt as _, channel::mpsc};
-use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
+use gpui::{AsyncApp, Context, EventEmitter, SharedString, Subscription, Task, WeakEntity};
 use serde::{Deserialize, Serialize};
 
 use crate::backend::watch::Watcher;
@@ -123,6 +123,8 @@ pub struct Store {
     pub dragging: Option<Cut>,
     /// Pane widths the user dragged away from their defaults.
     widths: HashMap<Pane, f32>,
+    /// File lists show a tree of directories rather than a flat list.
+    pub file_tree: bool,
     pub toasts: Vec<Toast>,
     /// The label of the mutation in flight, if any. Mutations run one at a time.
     pub busy: Option<SharedString>,
@@ -138,6 +140,13 @@ pub struct Store {
     _save_on_quit: Subscription,
     changes: mpsc::UnboundedSender<ProjectId>,
     _change_listener: Task<()>,
+    _forge_poll: Task<()>,
+    forge_requests: mpsc::UnboundedSender<ProjectId>,
+    /// Projects waiting for a forge refresh, so each waits only once.
+    forge_queued: HashSet<ProjectId>,
+    /// Projects whose last forge refresh failed, which the minute poll leaves alone.
+    forge_failed: HashSet<ProjectId>,
+    _forge_worker: Task<()>,
 }
 
 impl EventEmitter<StoreEvent> for Store {}
@@ -165,6 +174,7 @@ impl Store {
             }
         });
         let saved = Saved::load();
+        let (forge_requests, requested) = mpsc::unbounded::<ProjectId>();
         let mut store = Self {
             projects: Vec::new(),
             projects_loaded: false,
@@ -177,6 +187,7 @@ impl Store {
             next_toast: 0,
             seen: saved.seen,
             widths: saved.widths,
+            file_tree: saved.file_tree,
             rebaseline: HashMap::new(),
             save_task: Task::ready(()),
             save_queued: false,
@@ -186,6 +197,39 @@ impl Store {
             }),
             changes,
             _change_listener: listener,
+            forge_requests,
+            forge_queued: HashSet::new(),
+            forge_failed: HashSet::new(),
+            _forge_worker: cx
+                .spawn(async move |this, cx| Self::forge_worker(this, requested, cx).await),
+            // Pull requests and CI change on the forge, where no watcher sees them: ask
+            // when a project opens, then every minute.
+            _forge_poll: cx.spawn(async move |this, cx| {
+                loop {
+                    cx.background_executor()
+                        .timer(Duration::from_secs(60))
+                        .await;
+                    // Not the projects that failed last time: that's a missing account or a
+                    // keychain prompt the user turned down, and asking again every minute
+                    // would only nag. Opening a project or pushing asks again.
+                    let Ok(ids) = this.update(cx, |store, _| {
+                        let open = store.projects.iter().filter(|e| e.expanded);
+                        open.filter(|entry| !store.forge_failed.contains(&entry.id))
+                            .map(|entry| entry.id.clone())
+                            .collect::<Vec<_>>()
+                    }) else {
+                        break;
+                    };
+                    for id in ids {
+                        if this
+                            .update(cx, |store, cx| store.refresh_forge(&id, cx))
+                            .is_err()
+                        {
+                            return;
+                        }
+                    }
+                }
+            }),
         };
         store.load_projects(cx);
         store
@@ -381,6 +425,12 @@ impl Store {
                 };
                 entry.loading = false;
                 entry.reload_queued = false;
+                if watcher.is_ok() {
+                    store.refresh_forge(&id, cx);
+                }
+                let Some(entry) = store.project_mut(&id) else {
+                    return;
+                };
                 match watcher {
                     Ok(watcher) if entry.expanded => entry.watcher = Some(watcher),
                     Ok(_) => {}
@@ -435,6 +485,59 @@ impl Store {
             .ok();
         })
         .detach();
+    }
+
+    /// Ask the forge about `id`'s pull requests and CI in the background, then show what
+    /// changed. Quiet when it can't: plenty of projects have no forge account.
+    pub fn refresh_forge(&mut self, id: &ProjectId, _cx: &mut Context<Self>) {
+        if self.forge_queued.insert(id.clone()) {
+            self.forge_requests.unbounded_send(id.clone()).ok();
+        }
+    }
+
+    /// Works through forge refreshes one at a time. Reading the forge token can stop on a
+    /// keychain prompt, and one prompt is plenty; it also keeps the forge's rate limit happy.
+    async fn forge_worker(
+        this: WeakEntity<Store>,
+        mut requested: mpsc::UnboundedReceiver<ProjectId>,
+        cx: &mut AsyncApp,
+    ) {
+        while let Some(id) = requested.next().await {
+            let Ok(path) = this.update(cx, |store, _| {
+                store.forge_queued.remove(&id);
+                let open = store.project(&id).filter(|entry| entry.expanded);
+                open.map(|entry| entry.project.path.clone())
+            }) else {
+                return;
+            };
+            let Some(path) = path else {
+                continue;
+            };
+            // Pull requests show as soon as they're listed; their checks take a request each.
+            let reviews_path = path.clone();
+            let refreshed = backend::run(move || backend::refresh_reviews(&reviews_path)).await;
+            let Ok(_) = this.update(cx, |store, _| match &refreshed {
+                Ok(()) => store.forge_failed.remove(&id),
+                Err(_) => store.forge_failed.insert(id.clone()),
+            }) else {
+                return;
+            };
+            if let Err(err) = refreshed {
+                tracing::debug!(%id, "forge refresh failed: {err:#}");
+                continue;
+            }
+            if this.update(cx, |store, cx| store.reload(&id, cx)).is_err() {
+                return;
+            }
+            match backend::run(move || backend::refresh_checks(&path)).await {
+                Ok(()) => {
+                    if this.update(cx, |store, cx| store.reload(&id, cx)).is_err() {
+                        return;
+                    }
+                }
+                Err(err) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
+            }
+        }
     }
 
     pub fn reload_all(&mut self, cx: &mut Context<Self>) {
@@ -785,8 +888,15 @@ impl Store {
             selection: self.selection.as_ref().map(|s| s.project().to_string()),
             seen: self.seen.clone(),
             widths: self.widths.clone(),
+            file_tree: self.file_tree,
         };
         saved.store();
+    }
+
+    pub fn set_file_tree(&mut self, tree: bool, cx: &mut Context<Self>) {
+        self.file_tree = tree;
+        self.save_soon(cx);
+        cx.notify();
     }
 
     pub fn width(&self, pane: Pane) -> f32 {
@@ -841,6 +951,8 @@ struct Saved {
     seen: Seen,
     #[serde(default)]
     widths: HashMap<Pane, f32>,
+    #[serde(default)]
+    file_tree: bool,
 }
 
 /// What the user has looked at, so new work by agents stands out. Per project id.

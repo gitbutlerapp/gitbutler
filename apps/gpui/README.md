@@ -23,8 +23,8 @@ The right side shows whatever is selected, under a breadcrumb whose project and 
 - **Uncommitted changes.** Every changed file as a diff, each marked "Not reviewed", "Reviewed" or "Needs review" (changed after you reviewed it). ⌘Y marks the file under the cursor reviewed, folds it and moves to the next file still to review. ↑ ↓ step through hunks and ⌘⌥Z throws one away, with an Undo button in case you didn't mean it. The navigator shows how many files are left to review. ⌘↩ or "Commit…" opens the composer, where you check files or single hunks and pick a branch.
 
   Diffs mark the words that changed within a line, and each hunk is titled with the function or type it sits in (`impl Counter › pub fn bump(&mut self, by: i32) -> i32`) rather than its `@@` line numbers. Both come from [deltoids](https://github.com/juanibiapina/deltoids), which parses the two sides with tree-sitter.
-- **A commit.** Its message, files and diff. Edit the message, uncommit it or discard it.
-- **A branch.** Its commits and combined diff, and Push.
+- **A commit.** Its title, with the rest of the message behind the button beside it, its files and its diff. Edit the message, uncommit it or discard it.
+- **A branch.** Its commits and combined diff, Push, and its pull request: title, number, state and how its CI checks stand, with a button to open it.
 - **A project.** Counts, Fetch, and Update to rebase every stack onto the latest target.
 
 Moving things works by drag and drop or by ⌘X on the source and ⌘V on the destination:
@@ -38,6 +38,10 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 | uncommitted files | a branch | picks that branch and those files for the next commit |
 | a commit's file | another commit | moves the change between commits |
 | a commit's file | uncommitted changes | uncommits just that file |
+
+Branch rows show a pull request's state (open, draft, merged or closed) and number, and a glyph for its checks. The app reads these from GitButler's forge cache, which it refreshes in the background every minute and after each push, using the GitHub account GitButler already has.
+
+Text in a diff selects like text anywhere: drag across lines, double-click a word, triple-click a line, shift-click to extend, and ⌘C copies it without the `+` and `-`. File lists can show a tree of folders instead of a flat list, with the button beside the file count; folders holding nothing but one folder merge into one row (`src/backend`).
 
 While something is cut or dragged, every row it could land on says what landing there would do ("Amend", "Move above", "Squash into" with ⌥ held), and the rest step back. A commit selected in the app stays selected when an agent rewords or rebases it, as long as it keeps its change ID.
 
@@ -61,6 +65,7 @@ Every change can be undone with ⌘Z, and the snackbar names what was undone, in
 | ↑ ↓ or j k | move through the tree |
 | ← → or h l | collapse or expand |
 | r, b, ⇧P | rename, new branch on top, push |
+| o | open the pull request |
 | ⌘⌫ | discard the selected commit or delete the selected branch |
 | ⌥⌘⌫ | uncommit the selected commit |
 
