@@ -168,7 +168,7 @@ pub(super) mod function {
             })
     }
 
-    fn ensure_name_is_available<M: RefMetadata>(
+    pub(in crate::branch) fn ensure_name_is_available<M: RefMetadata>(
         editor: &Editor<'_, '_, M>,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<()> {

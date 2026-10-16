@@ -633,6 +633,10 @@ pub use remove_reference::remove_reference;
 pub mod create_reference;
 pub use create_reference::function::create_reference;
 
+/// Naming an anonymous segment.
+pub mod name_segment;
+pub use name_segment::name_segment;
+
 /// Functions and types related to moving branches across stacks.
 pub mod move_branch;
 pub use move_branch::function::{move_branch, tear_off_branch};
