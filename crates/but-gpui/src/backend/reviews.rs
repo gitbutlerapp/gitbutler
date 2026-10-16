@@ -4,6 +4,7 @@
 use std::path::Path;
 
 use anyhow::{Context as _, Result};
+use bstr::ByteSlice as _;
 use but_api::legacy::forge;
 
 use super::{open, push, runtime};
@@ -66,14 +67,26 @@ pub fn publish(
         .strip_prefix("refs/heads/")
         .unwrap_or(branch)
         .to_owned();
-    let ctx = open(path)?.into_sync();
+    let ctx = open(path)?;
+    // The pull request's head is the branch as the remote names it, which a branch pushed
+    // under another name doesn't share with its local one.
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    let remote = (info.stacks.iter())
+        .flat_map(|stack| &stack.segments)
+        .find(|segment| super::ops::holds(segment, branch))
+        .and_then(|segment| segment.remote_tracking_ref_name.as_ref())
+        .and_then(|name| {
+            let name = name.as_bstr().to_str().ok()?;
+            let (_remote, branch) = name.strip_prefix("refs/remotes/")?.split_once('/')?;
+            Some(branch.to_owned())
+        });
     let outcome = runtime().handle().block_on(forge::publish_review(
-        ctx,
+        ctx.into_sync(),
         forge::PublishReviewInput {
             title,
             body,
-            local_branch: short.clone(),
-            source_branch: short,
+            source_branch: remote.unwrap_or_else(|| short.clone()),
+            local_branch: short,
             draft,
         },
     ))?;

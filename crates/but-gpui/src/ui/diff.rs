@@ -53,6 +53,72 @@ pub enum DiffRow {
 }
 
 impl DiffRow {
+    /// Whether `self` shows what `other` showed, as after rows were built again: the same
+    /// row whether or not it ends its card now, or the same line in the other layout.
+    pub fn same_place(self, other: DiffRow) -> bool {
+        use DiffRow::{Context, Line, Pair};
+        match (self, other) {
+            (
+                Line {
+                    file, hunk, line, ..
+                },
+                Line {
+                    file: f,
+                    hunk: h,
+                    line: l,
+                    ..
+                },
+            ) => (file, hunk, line) == (f, h, l),
+            (
+                Pair {
+                    file,
+                    hunk,
+                    left,
+                    right,
+                    ..
+                },
+                Pair {
+                    file: f,
+                    hunk: h,
+                    left: l,
+                    right: r,
+                    ..
+                },
+            ) => (file, hunk, left, right) == (f, h, l, r),
+            (
+                Line {
+                    file, hunk, line, ..
+                },
+                Pair {
+                    file: f,
+                    hunk: h,
+                    left,
+                    right,
+                    ..
+                },
+            )
+            | (
+                Pair {
+                    file: f,
+                    hunk: h,
+                    left,
+                    right,
+                    ..
+                },
+                Line {
+                    file, hunk, line, ..
+                },
+            ) => (file, hunk) == (f, h) && (left == Some(line) || right == Some(line)),
+            (
+                Context { file, new, .. },
+                Context {
+                    file: f, new: n, ..
+                },
+            ) => (file, new) == (f, n),
+            _ => self == other,
+        }
+    }
+
     pub fn file(self) -> Option<usize> {
         match self {
             DiffRow::File(file) | DiffRow::Note(file) => Some(file),
@@ -258,14 +324,15 @@ pub fn render_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor)
 }
 
 /// An unchanged line of a file shown whole, from the file's new side, at `old` and `new`;
-/// on both sides with `split`.
+/// on both sides with `split`, where its text can't be selected.
 pub fn render_context_row(
     line: &DiffLine,
     file: usize,
     (old, new): (u32, u32),
     last: bool,
     theme: &Theme,
-    (wrap, split): (bool, bool),
+    decor: Decor,
+    split: bool,
 ) -> AnyElement {
     let line = DiffLine {
         old: Some(old),
@@ -282,22 +349,13 @@ pub fn render_context_row(
             row_id,
             last,
             theme,
-            wrap,
+            decor.wrap,
         );
     }
     div()
         .w_full()
         .px(px(16.))
-        .child(line_row(
-            &line,
-            row_id,
-            last,
-            theme,
-            Decor {
-                wrap,
-                ..Default::default()
-            },
-        ))
+        .child(line_row(&line, row_id, last, theme, decor))
         .into_any_element()
 }
 

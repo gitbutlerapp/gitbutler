@@ -540,8 +540,19 @@ impl Navigator {
             let (platform, shift) = (event.modifiers.platform, event.modifiers.shift);
             match &item {
                 Selection::Commit(project, id) if platform || shift => {
+                    // A run of commits takes the ones shown, not those folded away.
+                    let range = shift.then(|| {
+                        (this.rows.iter())
+                            .filter_map(|row| match row {
+                                Row::Item(Selection::Commit(p, commit)) if p == project => {
+                                    Some(*commit)
+                                }
+                                _ => None,
+                            })
+                            .collect()
+                    });
                     this.store
-                        .update(cx, |store, cx| store.pick(project, *id, shift, cx));
+                        .update(cx, |store, cx| store.pick(project, *id, range, cx));
                     window.focus(&this.focus, cx);
                 }
                 _ => this.select(item.clone(), window, cx),

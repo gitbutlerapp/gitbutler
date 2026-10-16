@@ -27,25 +27,28 @@ pub fn register(cx: &mut App) {
             cx.reveal_path(&dir);
         }
     });
-    cx.on_action(|_: &About, cx| {
-        let Some(window) = cx.active_window() else {
-            return;
-        };
-        window
-            .update(cx, |_, window, cx| {
-                let channel = match but_path::AppChannel::new() {
-                    but_path::AppChannel::Release => "release",
-                    but_path::AppChannel::Nightly => "nightly",
-                    but_path::AppChannel::Dev => "development",
-                };
-                let detail = format!(
-                    "A native GitButler client, built on GPUI. It shares projects, \
-                     settings and accounts with GitButler's other apps.\n\nThis is a \
-                     {channel} build."
-                );
-                // Nothing to wait for: OK only closes it.
-                drop(window.prompt(PromptLevel::Info, "GitButler", Some(&detail), &["OK"], cx));
-            })
-            .ok();
-    });
+    // A menu action arrives while its window is being updated, which can't be updated again
+    // from inside; the dialog waits for that to finish.
+    cx.on_action(|_: &About, cx| cx.defer(show_about));
+}
+
+fn show_about(cx: &mut App) {
+    let Some(window) = cx.active_window() else {
+        return;
+    };
+    window
+        .update(cx, |_, window, cx| {
+            let channel = match but_path::AppChannel::new() {
+                but_path::AppChannel::Release => "release",
+                but_path::AppChannel::Nightly => "nightly",
+                but_path::AppChannel::Dev => "development",
+            };
+            let detail = format!(
+                "A native GitButler client, built on GPUI. It shares projects, settings and \
+                 accounts with GitButler's other apps.\n\nThis is a {channel} build."
+            );
+            // Nothing to wait for: OK only closes it.
+            drop(window.prompt(PromptLevel::Info, "GitButler", Some(&detail), &["OK"], cx));
+        })
+        .ok();
 }

@@ -6,7 +6,7 @@ use gpui::{AnyElement, App, ClickEvent, Context, div, prelude::*, px};
 
 use super::Detail;
 use crate::backend::edit::{self, EditedFile, Editing};
-use crate::state::{Overlay, ProjectId};
+use crate::state::{Overlay, ProjectId, SAVE_EDIT, STOP_EDITING};
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
 use crate::ui::{ButtonStyle, Icon, button, h_flex, list_row, plural, small_icon, v_flex};
@@ -197,7 +197,7 @@ impl Detail {
             move |store: &mut crate::state::Store, cx: &mut Context<crate::state::Store>| {
                 store.run(
                     &project,
-                    "Save the commit",
+                    SAVE_EDIT,
                     Overlay::default(),
                     |path, _| edit::save(path),
                     |store, (), cx| store.snack_undoable("Commit saved", cx),
@@ -213,9 +213,13 @@ impl Detail {
         self.app
             .update(cx, |app, cx| {
                 app.confirm_then(
-                    format!("Save with {} still conflicted?", plural(unresolved, "file")),
-                    "The commit keeps the conflicts that are left, to resolve later.",
-                    "Save",
+                    format!(
+                        "Save with conflict markers in {}?",
+                        plural(unresolved, "file")
+                    ),
+                    "The markers are committed as text, and the commit no longer counts as \
+                     conflicted.",
+                    "Save anyway",
                     window,
                     cx,
                     move |_, cx| store.update(cx, save),
@@ -246,7 +250,7 @@ impl Detail {
                         store.update(cx, |store, cx| {
                             store.run(
                                 &project,
-                                "Stop editing",
+                                STOP_EDITING,
                                 Overlay::default(),
                                 |path, _| edit::cancel(path),
                                 |store, (), cx| store.snack("Back to the workspace", cx),

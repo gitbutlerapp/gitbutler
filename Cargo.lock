@@ -1657,6 +1657,7 @@ dependencies = [
  "but-branches",
  "but-core",
  "but-ctx",
+ "but-error",
  "but-forge",
  "but-github",
  "but-gitlab",
