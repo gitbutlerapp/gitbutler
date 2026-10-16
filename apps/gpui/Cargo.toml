@@ -53,6 +53,9 @@ bstr = "1.12.1"
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "79f388066484c445c038823b2201220e34b0b312", default-features = false, features = ["sha1"] }
 tokio = { version = "1.50.0", features = ["rt-multi-thread"] }
 
+[dev-dependencies]
+tempfile = "3.27.0"
+
 [patch.crates-io]
 # Mirrors the main workspace so the GitButler crates resolve exactly as they do there.
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "79f388066484c445c038823b2201220e34b0b312" }

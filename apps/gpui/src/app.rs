@@ -744,7 +744,7 @@ impl AppView {
         let cut = match self.selection(cx) {
             Some(Selection::Commit(project, id)) => Some(Cut::Commit(project, id)),
             Some(Selection::Uncommitted(project)) => {
-                let files = self.detail.read(cx).checked_uncommitted(cx);
+                let files = self.detail.read(cx).selected_changes(cx);
                 (!files.is_empty()).then_some(Cut::Files {
                     project,
                     from: None,
@@ -774,7 +774,7 @@ impl AppView {
         &mut self,
         project: ProjectId,
         from: Option<CommitId>,
-        files: Arc<[backend::FileChange]>,
+        files: Arc<[backend::Selected]>,
         cx: &mut Context<Self>,
     ) {
         let cut = Cut::Files {

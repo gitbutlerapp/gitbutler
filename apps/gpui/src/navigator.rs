@@ -674,7 +674,7 @@ impl AppView {
                 .when(*n > 0, |el| {
                     let files = self.detail.read(cx).files_to_move(&entry.id, cx);
                     let label: SharedString = match files.len() {
-                        1 => files[0].path.clone().into(),
+                        1 => files[0].file.path.clone().into(),
                         n => format!("{n} files").into(),
                     };
                     let payload = Cut::Files {

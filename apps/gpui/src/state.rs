@@ -14,7 +14,9 @@ use gpui::{
 use serde::{Deserialize, Serialize};
 
 use crate::backend::watch::Watcher;
-use crate::backend::{self, Commit, CommitId, FileChange, Project, SnapshotId, Workspace};
+use crate::backend::{
+    self, Commit, CommitId, FileChange, Project, Selected, SnapshotId, Workspace,
+};
 
 pub type ProjectId = SharedString;
 
@@ -41,12 +43,12 @@ impl Selection {
 #[derive(Debug, Clone)]
 pub enum Cut {
     Commit(ProjectId, CommitId),
-    /// Files from the worktree (`from: None`) or from a commit.
+    /// Files from the worktree (`from: None`), down to the hunks checked, or from a commit.
     Files {
         project: ProjectId,
         from: Option<CommitId>,
         /// Shared, since every row a drag passes over works out what a drop would do.
-        files: Arc<[FileChange]>,
+        files: Arc<[Selected]>,
     },
 }
 
@@ -60,7 +62,7 @@ impl Cut {
     pub fn describe(&self) -> String {
         match self {
             Cut::Commit(_, id) => format!("commit {}", id.short()),
-            Cut::Files { files, .. } if files.len() == 1 => files[0].path.clone(),
+            Cut::Files { files, .. } if files.len() == 1 => files[0].file.path.clone(),
             Cut::Files { files, .. } => format!("{} files", files.len()),
         }
     }

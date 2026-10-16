@@ -276,7 +276,7 @@ pub struct DiffLine {
 
 pub use super::highlight::Token;
 
-/// Part of the uncommitted changes picked for a commit.
+/// A file's changes, or some of its hunks, picked for an operation.
 #[derive(Debug, Clone)]
 pub struct Selected {
     pub file: FileChange,
