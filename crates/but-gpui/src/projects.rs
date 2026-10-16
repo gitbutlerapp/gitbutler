@@ -1,0 +1,186 @@
+//! Getting projects into shape: cloning a repository to start one, finding a project whose
+//! folder moved, and picking the target branch the workspace integrates into.
+
+use std::path::PathBuf;
+
+use gpui::{Context, PathPromptOptions, Window, actions, prelude::*};
+
+use crate::app::AppView;
+use crate::backend::{self, settings};
+use crate::palette::Choice;
+use crate::state::ProjectId;
+use crate::ui::text_input::TextInput;
+
+actions!(projects, [CloneRepository]);
+
+/// The folder a clone of `url` goes in: the repository's name.
+fn clone_name(url: &str) -> Option<String> {
+    let name = url.trim().trim_end_matches('/').rsplit(['/', ':']).next()?;
+    let name = name.strip_suffix(".git").unwrap_or(name);
+    (!name.is_empty()).then(|| name.to_owned())
+}
+
+impl AppView {
+    /// Ask for a repository's URL and where to put it, clone it there, and add it.
+    pub fn clone_repository(
+        &mut self,
+        _: &CloneRepository,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let input = cx.new(|cx| TextInput::new("https://github.com/owner/repo.git", false, cx));
+        self.open_prompt(
+            "Clone a repository",
+            Some("Next, pick the folder to clone it into.".into()),
+            "Choose folder…",
+            input,
+            None,
+            window,
+            cx,
+            |this, url, _, cx| {
+                let Some(name) = clone_name(&url) else {
+                    return;
+                };
+                let folders = cx.prompt_for_paths(PathPromptOptions {
+                    files: false,
+                    directories: true,
+                    multiple: false,
+                    prompt: Some("Clone here".into()),
+                });
+                let store = this.store.clone();
+                cx.spawn(async move |_, cx| {
+                    let Ok(Ok(Some(folders))) = folders.await else {
+                        return;
+                    };
+                    let Some(into) = folders.into_iter().next().map(|dir| dir.join(&name)) else {
+                        return;
+                    };
+                    store.update(cx, |store, cx| store.snack(format!("Cloning {name}…"), cx));
+                    let target = into.clone();
+                    let cloned = backend::run(move || settings::clone(url.trim(), &target)).await;
+                    store.update(cx, |store, cx| match cloned {
+                        Ok(()) => store.add_project(into, cx),
+                        Err(err) => {
+                            store.error(format!("Couldn't clone {name}"), format!("{err:#}"), cx)
+                        }
+                    });
+                })
+                .detach();
+            },
+        );
+    }
+
+    /// Point a project whose folder moved at where it is now.
+    pub fn locate_project(&mut self, project: ProjectId, cx: &mut Context<Self>) {
+        let folders = cx.prompt_for_paths(PathPromptOptions {
+            files: false,
+            directories: true,
+            multiple: false,
+            prompt: Some("This is the project".into()),
+        });
+        let store = self.store.clone();
+        cx.spawn(async move |_, cx| {
+            let Ok(Ok(Some(folders))) = folders.await else {
+                return;
+            };
+            let Some(path): Option<PathBuf> = folders.into_iter().next() else {
+                return;
+            };
+            let id = project.to_string();
+            let moved = backend::run(move || settings::relocate_project(&id, &path)).await;
+            store.update(cx, |store, cx| match moved {
+                Ok(()) => store.load_projects(cx),
+                Err(err) => store.error("Couldn't move the project", format!("{err:#}"), cx),
+            });
+        })
+        .detach();
+    }
+
+    /// Offer the project's remote branches to pick its target from.
+    pub fn pick_target(&mut self, project: ProjectId, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(path) = self.store.read(cx).path(&project) else {
+            return;
+        };
+        let store = self.store.clone();
+        let window_handle = window.window_handle();
+        cx.spawn(async move |this, cx| {
+            let listed = {
+                let path = path.clone();
+                backend::run(move || settings::remote_branches(&path)).await
+            };
+            let names = match listed {
+                Ok(names) if !names.is_empty() => names,
+                Ok(_) => {
+                    store.update(cx, |store, cx| {
+                        store.snack("The project has no remote branches to pick from", cx)
+                    });
+                    return;
+                }
+                Err(err) => {
+                    store.update(cx, |store, cx| {
+                        store.error("Couldn't list the remote branches", format!("{err:#}"), cx)
+                    });
+                    return;
+                }
+            };
+            let choices = names
+                .into_iter()
+                .map(|name| {
+                    let short = name
+                        .strip_prefix("refs/remotes/")
+                        .unwrap_or(&name)
+                        .to_owned();
+                    let (path, project) = (path.clone(), project.clone());
+                    Choice::new(short.clone(), move |app, _, cx| {
+                        let store = app.store.clone();
+                        cx.spawn(async move |_, cx| {
+                            let set =
+                                backend::run(move || settings::set_target(&path, &name)).await;
+                            store.update(cx, |store, cx| match set {
+                                Ok(()) => {
+                                    store.reload(&project, cx);
+                                    store.snack(format!("The target is now {short}"), cx)
+                                }
+                                Err(err) => store.error(
+                                    "Couldn't change the target",
+                                    format!("{err:#}"),
+                                    cx,
+                                ),
+                            });
+                        })
+                        .detach();
+                    })
+                })
+                .collect();
+            window_handle
+                .update(cx, |_, window, cx| {
+                    this.update(cx, |app, cx| {
+                        app.open_picker("Pick the target branch", "Pick", choices, window, cx)
+                    })
+                    .ok();
+                })
+                .ok();
+        })
+        .detach();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::clone_name;
+
+    #[test]
+    fn names_the_clone_after_the_repository() {
+        assert_eq!(
+            clone_name("https://github.com/gitbutlerapp/gitbutler.git").as_deref(),
+            Some("gitbutler"),
+            "https, .git dropped"
+        );
+        assert_eq!(
+            clone_name("git@github.com:owner/repo").as_deref(),
+            Some("repo"),
+            "ssh form"
+        );
+        assert_eq!(clone_name("  "), None, "nothing to name");
+    }
+}

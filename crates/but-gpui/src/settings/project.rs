@@ -116,7 +116,10 @@ impl SettingsView {
             .map(|t| t.name.clone());
         let target_project = project.clone();
         let change_target = cx.listener(move |this, _: &ClickEvent, window, cx| {
-            this.pick_target(target_project.clone(), window, cx)
+            let project = target_project.clone();
+            this.app
+                .update(cx, |app, cx| app.pick_target(project, window, cx))
+                .ok();
         });
         let info_items = self.choices(
             [
@@ -333,72 +336,6 @@ impl SettingsView {
             );
         }
         rows
-    }
-
-    /// Offer the project's remote branches to pick a new target from.
-    fn pick_target(&mut self, project: ProjectId, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(path) = self.store.read(cx).path(&project) else {
-            return;
-        };
-        let app = self.app.clone();
-        let window_handle = window.window_handle();
-        cx.spawn(async move |this, cx| {
-            let listed = {
-                let path = path.clone();
-                crate::backend::run(move || backend::remote_branches(&path)).await
-            };
-            let names = match listed {
-                Ok(names) => names,
-                Err(err) => {
-                    this.update(cx, |this, cx| {
-                        this.error("Couldn't list the remote branches", err, cx)
-                    })
-                    .ok();
-                    return;
-                }
-            };
-            let view = this.clone();
-            let choices = names
-                .into_iter()
-                .map(|name| {
-                    let short = name
-                        .strip_prefix("refs/remotes/")
-                        .unwrap_or(&name)
-                        .to_owned();
-                    let (path, view, project) = (path.clone(), view.clone(), project.clone());
-                    crate::palette::Choice::new(short.clone(), move |app, _, cx| {
-                        let store = app.store.clone();
-                        cx.spawn(async move |_, cx| {
-                            let set =
-                                crate::backend::run(move || backend::set_target(&path, &name))
-                                    .await;
-                            store.update(cx, |store, cx| match set {
-                                Ok(()) => {
-                                    store.reload(&project, cx);
-                                    store.snack(format!("The target is now {short}"), cx)
-                                }
-                                Err(err) => store.error(
-                                    "Couldn't change the target",
-                                    format!("{err:#}"),
-                                    cx,
-                                ),
-                            });
-                            view.update(cx, |_, cx| cx.notify()).ok();
-                        })
-                        .detach();
-                    })
-                })
-                .collect();
-            window_handle
-                .update(cx, |_, window, cx| {
-                    app.update(cx, |app, cx| {
-                        app.open_picker("Pick the target branch", "Pick", choices, window, cx)
-                    })
-                    .ok();
-                })
-                .ok();
-        })
-        .detach();
     }
 
     fn remove_project(

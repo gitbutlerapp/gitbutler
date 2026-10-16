@@ -85,6 +85,10 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Go to navigator", Box::new(FocusNavigator)),
         ("Go to changes", Box::new(FocusChanges)),
         ("Add project…", Box::new(AddProject)),
+        (
+            "Clone a repository…",
+            Box::new(crate::projects::CloneRepository),
+        ),
         ("Settings", Box::new(crate::settings::OpenSettings)),
         ("Go to branch", Box::new(GoToBranch)),
         ("Find in diff", Box::new(crate::detail::FindInDiff)),

@@ -582,7 +582,7 @@ impl Store {
                     Ok(_) => {}
                     Err(err) => {
                         tracing::warn!("Couldn't open {}: {err:#}", entry.project.name);
-                        entry.error = Some(format!("{err:#}").into());
+                        entry.error = Some(load_error(&entry.project, &err));
                     }
                 }
                 store.reload(&id, cx);
@@ -638,7 +638,7 @@ impl Store {
                 let again_full = std::mem::take(&mut entry.queued_full);
                 match result {
                     Ok(workspace) => store.workspace_loaded(&id, workspace, !again, cx),
-                    Err(err) => entry.error = Some(format!("{err:#}").into()),
+                    Err(err) => entry.error = Some(load_error(&entry.project, &err)),
                 }
                 // A queued reload has newer data; checking against this one could drop a
                 // selection a mutation just made.
@@ -969,4 +969,13 @@ struct Seen {
     commits: HashMap<String, HashSet<String>>,
     /// Uncommitted files marked reviewed, with the file version reviewed.
     files: HashMap<String, HashMap<String, i64>>,
+}
+
+/// Why a project didn't load: plainly when its folder is gone, otherwise as reported.
+fn load_error(project: &backend::Project, err: &anyhow::Error) -> SharedString {
+    if project.path.exists() {
+        format!("{err:#}").into()
+    } else {
+        "The project's folder isn't there any more.".into()
+    }
 }

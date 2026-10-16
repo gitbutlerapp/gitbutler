@@ -120,4 +120,6 @@ It is a member of the main workspace, so `cargo check --workspace` catches `but-
 - `E2E_TEST_APP_DATA_DIR=<dir>` points GitButler's app data and settings at a sandbox.
 - Build with `cargo build -p but-gpui --features dev-script` and set `GITBUTLER_GPUI_SCRIPT=<file>` to replay clicks, drags and keystrokes and save screenshots of the window. `src/dev.rs` documents the commands.
 
+File → Clone Repository… asks for a URL and a folder, clones it there and adds it. A project whose folder moved stays listed and says so, with Locate… to point it at the new place, or Remove. A project with no target branch offers to pick one from its remote branches.
+
 The Help menu links the docs, the release notes and where to report an issue, shows the folder GitButler keeps its settings in, and opens the command palette as the list of shortcuts. When a commit or amend has to leave changes out, the error says why for each, in plain words.

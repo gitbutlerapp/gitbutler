@@ -171,3 +171,25 @@ pub fn ai_configuration() -> Result<AiConfiguration> {
 pub fn update_ai(update: AiConfigurationUpdate) -> Result<AiConfiguration> {
     but_api::ai::update_ai_configuration(update)
 }
+
+/// Clone `url` into the folder `into`, which shouldn't exist yet.
+pub fn clone(url: &str, into: &Path) -> Result<()> {
+    super::runtime()
+        .handle()
+        .block_on(but_api::legacy::repo::git_clone_repository(
+            url.to_owned(),
+            into.to_owned(),
+        ))
+}
+
+/// Tell GitButler the project `id` now lives at `path`.
+pub fn relocate_project(id: &str, path: &Path) -> Result<()> {
+    gitbutler_project::update(gitbutler_project::UpdateRequest {
+        path: Some(path.to_owned()),
+        git_dir: Some(path.join(".git")),
+        ..gitbutler_project::UpdateRequest::default_with_id(
+            id.parse().context("Invalid project id")?,
+        )
+    })?;
+    Ok(())
+}

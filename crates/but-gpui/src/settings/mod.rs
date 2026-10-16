@@ -128,6 +128,8 @@ impl SettingsView {
                 InputEvent::Cancel => search.update(cx, |search, cx| search.set_text("", cx)),
                 InputEvent::Submit => {}
             }),
+            // The target and the project's name show what the store has.
+            cx.observe(&store, |_, _, cx| cx.notify()),
             cx.subscribe(&name, |this, _, event, cx| match event {
                 InputEvent::Submit => this.save_name(cx),
                 InputEvent::Changed => cx.notify(),

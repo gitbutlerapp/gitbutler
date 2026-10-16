@@ -628,7 +628,7 @@ impl AppView {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn open_prompt(
+    pub(crate) fn open_prompt(
         &mut self,
         title: &str,
         detail: Option<String>,
@@ -1324,6 +1324,7 @@ impl Render for AppView {
             .on_action(|_: &Zoom, window, _| window.zoom_window())
             .on_action(cx.listener(Self::add_project))
             .on_action(cx.listener(Self::open_settings))
+            .on_action(cx.listener(Self::clone_repository))
             .on_action(cx.listener(Self::create_pull_request))
             .on_action(cx.listener(Self::edit_pull_request))
             .on_action(cx.listener(Self::toggle_draft))

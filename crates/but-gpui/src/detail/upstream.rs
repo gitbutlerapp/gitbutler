@@ -262,13 +262,58 @@ impl Detail {
                             )
                     }),
             )
-            .children(entry.error.clone().map(|err| {
-                h_flex()
-                    .gap(px(8.))
-                    .text_color(theme.danger)
-                    .child(icon(Icon::Warning))
-                    .child(div().flex_1().child(err))
-            }));
+            .when(!entry.project.path.exists(), |el| {
+                let (locate, remove) = (project.clone(), project.clone());
+                el.child(
+                    v_flex()
+                        .mt(px(4.))
+                        .gap(px(8.))
+                        .p(px(8.))
+                        .rounded(px(6.))
+                        .bg(theme.danger.opacity(0.08))
+                        .child(
+                            div()
+                                .text_color(theme.danger)
+                                .child("The project's folder isn't there any more."),
+                        )
+                        .child(
+                            h_flex()
+                                .gap(px(6.))
+                                .child(crate::ui::button("locate", "Locate…").small().on_click(
+                                    cx.listener(move |this, _, _, cx| {
+                                        let project = locate.clone();
+                                        this.app
+                                            .update(cx, |app, cx| app.locate_project(project, cx))
+                                            .ok();
+                                    }),
+                                ))
+                                .child(
+                                    crate::ui::button("forget", "Remove")
+                                        .small()
+                                        .style(crate::ui::ButtonStyle::Ghost)
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            let project = remove.clone();
+                                            this.store.update(cx, |store, cx| {
+                                                store.remove_project(&project, cx)
+                                            });
+                                        })),
+                                ),
+                        ),
+                )
+            })
+            .children(
+                entry
+                    .error
+                    .clone()
+                    .filter(|_| entry.project.path.exists())
+                    .map(|err| {
+                        h_flex()
+                            .gap(px(8.))
+                            .text_color(theme.danger)
+                            .child(icon(Icon::Warning))
+                            .child(div().flex_1().child(err))
+                    }),
+            );
         let Some(upstream) = upstream else {
             return v_flex()
                 .size_full()
@@ -278,14 +323,40 @@ impl Detail {
         };
         // The page lists what it read, whether or not the project is expanded and loaded.
         if upstream.commits.is_empty() {
+            let project = project.clone();
             return v_flex()
                 .size_full()
                 .child(about)
-                .child(crate::ui::empty_state(
-                    "No target branch",
-                    "Set one with `but setup` to see what comes in from it",
-                    theme,
-                ))
+                .child(
+                    v_flex()
+                        .flex_1()
+                        .items_center()
+                        .justify_center()
+                        .gap(px(4.))
+                        .child(
+                            div()
+                                .text_size(px(14.))
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .child("No target branch"),
+                        )
+                        .child(
+                            div()
+                                .mb(px(8.))
+                                .text_size(px(12.))
+                                .text_color(theme.text_2)
+                                .child("Pick the branch your work goes into, like origin/main"),
+                        )
+                        .child(
+                            crate::ui::button("pick-target", "Choose a target branch…").on_click(
+                                cx.listener(move |this, _, window, cx| {
+                                    let project = project.clone();
+                                    this.app
+                                        .update(cx, |app, cx| app.pick_target(project, window, cx))
+                                        .ok();
+                                }),
+                            ),
+                        ),
+                )
                 .into_any_element();
         }
         let target = target.unwrap_or_else(|| "the target".into());
