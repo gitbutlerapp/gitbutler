@@ -4,7 +4,10 @@
 
 use std::rc::Rc;
 
-use gpui::{AnyElement, App, Context, MouseButton, WeakEntity, div, list, prelude::*, px};
+use gpui::{
+    AnyElement, App, Context, Entity, MouseButton, Subscription, WeakEntity, Window, div, list,
+    prelude::*, px,
+};
 
 use super::{
     Check, Cursor, Detail, DiscardHunk, NextHunk, PreviousHunk, ToggleReviewed, checkbox_box,
@@ -15,6 +18,43 @@ use crate::state::{ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, Decor, DiffRow, LineSelect};
 use crate::ui::{ButtonStyle, Icon, button, empty_state, h_flex, icon_button, shortcut};
+
+/// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
+/// list notifies the view that drew it, and GPUI draws everything inside a notified view again,
+/// so as part of `Detail` every scroll frame laid out the file list too.
+pub struct DiffPane {
+    detail: WeakEntity<Detail>,
+    _observe: Subscription,
+}
+
+impl DiffPane {
+    pub fn new(detail: &Entity<Detail>, cx: &mut Context<Self>) -> Self {
+        Self {
+            detail: detail.downgrade(),
+            // Whatever changes the detail can change the diff; scrolling only notifies this.
+            _observe: cx.observe(detail, |_, _, cx| cx.notify()),
+        }
+    }
+}
+
+impl Render for DiffPane {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = Theme::get(cx).clone();
+        let drawn = self.detail.update(cx, |detail, cx| {
+            (detail.focus.clone(), detail.render_diff(&theme, cx))
+        });
+        let Ok((focus, diff)) = drawn else {
+            return h_flex();
+        };
+        h_flex()
+            .size_full()
+            // Keys go to the detail, as when the diff was drawn inside it.
+            .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                window.focus(&focus, cx)
+            })
+            .child(diff)
+    }
+}
 
 impl Detail {
     pub(super) fn render_diff(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
