@@ -123,13 +123,11 @@ impl Overlay {
 pub struct Remap(HashMap<CommitId, CommitId>);
 
 impl Remap {
-    fn new(captured: &HashMap<CommitId, String>, now: Option<&Workspace>) -> Self {
-        let now: HashMap<&str, CommitId> = now
-            .into_iter()
-            .flat_map(|ws| ws.branches())
-            .flat_map(|branch| &branch.commits)
-            .map(|commit| (commit.key.as_str(), commit.id))
-            .collect();
+    fn new<'a>(
+        captured: &HashMap<CommitId, String>,
+        now: impl IntoIterator<Item = (&'a str, CommitId)>,
+    ) -> Self {
+        let now: HashMap<&str, CommitId> = now.into_iter().collect();
         Self(
             captured
                 .iter()
@@ -138,7 +136,6 @@ impl Remap {
         )
     }
 
-    /// `id` as it is now.
     pub fn get(&self, id: CommitId) -> Result<CommitId> {
         self.0
             .get(&id)
@@ -786,8 +783,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let commits: HashSet<&str> = workspace
-            .branches()
-            .flat_map(|branch| &branch.commits)
+            .commits()
             .map(|commit| commit.key.as_str())
             .collect();
         let first_sight = !self.seen.commits.contains_key(id.as_ref());
@@ -821,7 +817,7 @@ impl Store {
                 .and_then(|old| old.find_commit(*commit))
                 .filter(|_| workspace.find_commit(*commit).is_none())
                 .and_then(|(_, old)| {
-                    let mut commits = workspace.branches().flat_map(|branch| &branch.commits);
+                    let mut commits = workspace.commits();
                     commits.find(|new| new.key == old.key).map(|new| new.id)
                 }),
             _ => None,
@@ -1074,10 +1070,9 @@ impl Store {
         cx.notify();
     }
 
-    /// Run a mutation on `project` in the background, then reload it, busy until the
-    /// reload lands. `done` runs on success with the operation's result.
-    /// Run `op` once the mutations before it have finished, hiding what `overlay` says it
-    /// takes away until then. It gets the commits it captured as they are by the time it runs.
+    /// Run `op` on `project` once the mutations before it have finished, then reload it,
+    /// busy until the reload lands. Until then, `overlay` hides what it takes away. `op`
+    /// gets the commits it captured as they are by the time it runs; `done` gets its result.
     pub fn run<T: Send + 'static>(
         &mut self,
         project: &ProjectId,
@@ -1089,8 +1084,7 @@ impl Store {
     ) {
         let label = label.into();
         let captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
-            ws.branches()
-                .flat_map(|branch| &branch.commits)
+            ws.commits()
                 .map(|commit| (commit.id, commit.key.clone()))
                 .collect()
         });
@@ -1117,7 +1111,14 @@ impl Store {
         let Some(next) = self.queue.pop_front() else {
             return;
         };
-        let remap = Remap::new(&next.captured, self.workspace(&next.project));
+        let now = self
+            .workspace(&next.project)
+            .into_iter()
+            .flat_map(|ws| ws.commits());
+        let remap = Remap::new(
+            &next.captured,
+            now.map(|commit| (commit.key.as_str(), commit.id)),
+        );
         self.busy = Some(next.label);
         self.running = Some((next.project.clone(), next.overlay, Instant::now()));
         (next.start)(self, remap, cx);
@@ -1162,10 +1163,7 @@ impl Store {
         };
         self.mutating = Some(project.clone());
         let before: HashSet<String> = self.workspace(project).map_or_else(HashSet::new, |ws| {
-            ws.branches()
-                .flat_map(|branch| &branch.commits)
-                .map(|commit| commit.key.clone())
-                .collect()
+            ws.commits().map(|commit| commit.key.clone()).collect()
         });
         cx.notify();
         let project = project.clone();
@@ -1204,19 +1202,16 @@ impl Store {
         Some(commit.key.clone())
     }
 
-    /// How long the running mutation has taken so far.
     pub fn busy_for(&self) -> Option<Duration> {
         self.running
             .as_ref()
             .map(|(_, _, started)| started.elapsed())
     }
 
-    /// Mutations waiting for the running one.
     pub fn queued(&self) -> usize {
         self.queue.len()
     }
 
-    /// The overlays of the mutations running and waiting on `project`.
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {
         let running = self.running.iter().filter(move |(p, ..)| p == project);
         let queued = self.queue.iter().filter(move |q| q.project == *project);
@@ -1225,12 +1220,10 @@ impl Store {
             .chain(queued.map(|q| &q.overlay))
     }
 
-    /// Whether a pending mutation takes the commit with `key` away.
     pub fn hides_commit(&self, project: &ProjectId, key: &str) -> bool {
         self.overlays(project).any(|o| o.commits.contains(key))
     }
 
-    /// Whether a pending mutation takes the uncommitted file at `path` away.
     pub fn hides_file(&self, project: &ProjectId, path: &str) -> bool {
         self.overlays(project).any(|o| o.files.contains(path))
     }
@@ -1427,5 +1420,44 @@ impl Saved {
         if std::fs::write(&temporary, bytes).is_ok() {
             std::fs::rename(&temporary, &path).ok();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn id(n: u8) -> CommitId {
+        CommitId(gix::ObjectId::from([n; 20]))
+    }
+
+    #[test]
+    fn remap_follows_rewritten_commits_by_key() {
+        let captured = HashMap::from([(id(1), "a".to_owned()), (id(2), "b".to_owned())]);
+        let remap = Remap::new(&captured, [("a", id(11)), ("b", id(12))]);
+        assert_eq!(
+            remap.get(id(2)).unwrap(),
+            id(12),
+            "b was rebased to a new id"
+        );
+        assert_eq!(
+            remap.get(id(1)).unwrap(),
+            id(11),
+            "a was rebased to a new id"
+        );
+    }
+
+    #[test]
+    fn remap_refuses_commits_that_are_gone() {
+        let captured = HashMap::from([(id(1), "a".to_owned())]);
+        let remap = Remap::new(&captured, [("b", id(12))]);
+        assert!(
+            remap.get(id(1)).is_err(),
+            "a was squashed away while it waited"
+        );
+        assert!(
+            remap.get(id(9)).is_err(),
+            "an id never captured has nothing to follow"
+        );
     }
 }

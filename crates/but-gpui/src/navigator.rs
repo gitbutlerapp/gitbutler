@@ -438,11 +438,10 @@ impl Navigator {
                         ws.target.as_ref().map_or(0, |t| t.behind),
                     )
                 });
-                let unread = entry.workspace.as_ref().is_some_and(|ws| {
-                    ws.branches()
-                        .flat_map(|branch| &branch.commits)
-                        .any(|commit| store.is_unread(id, commit))
-                });
+                let unread = entry
+                    .workspace
+                    .as_ref()
+                    .is_some_and(|ws| ws.commits().any(|commit| store.is_unread(id, commit)));
                 let activity = entry.workspace.as_ref().and_then(|ws| ws.last_activity());
                 base(format!("project-{id}"), 0.)
                     .aria_label(entry.project.name.clone())
