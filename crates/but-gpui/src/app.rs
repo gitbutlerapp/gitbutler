@@ -640,12 +640,16 @@ impl AppView {
         on_submit: impl Fn(&mut AppView, String, &mut Window, &mut Context<AppView>) + 'static,
     ) {
         // A prompt Git is waiting on, for credentials, stays until answered: replacing it
-        // would fail the push that asked.
+        // would fail the push that asked. A second one is cancelled, so its Git process
+        // fails rather than waits forever.
         if self
             .prompt
             .as_ref()
             .is_some_and(|prompt| prompt.on_cancel.is_some())
         {
+            if let Some(on_cancel) = on_cancel {
+                on_cancel(self);
+            }
             return;
         }
         let subscription =
@@ -668,12 +672,6 @@ impl AppView {
                 },
             );
         window.focus(&input.focus_handle(cx), cx);
-        // A prompt that's replaced still needs its answer.
-        if let Some(previous) = self.prompt.take()
-            && let Some(on_cancel) = previous.on_cancel
-        {
-            on_cancel(self);
-        }
         self.prompt = Some(Prompt {
             title: title.to_owned().into(),
             detail: detail.map(Into::into),
