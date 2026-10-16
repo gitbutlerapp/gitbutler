@@ -66,6 +66,7 @@ but-secret.workspace = true
 but-settings.workspace = true
 but-transaction.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
+gitbutler-operating-modes.workspace = true
 gitbutler-project.workspace = true
 gitbutler-filemonitor.workspace = true
 

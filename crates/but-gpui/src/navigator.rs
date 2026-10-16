@@ -173,6 +173,12 @@ impl Navigator {
             if let Some(err) = &entry.error {
                 rows.push(Row::Note(err.clone(), true));
             }
+            // Nothing but the edit goes on while a commit is checked out; its page is the
+            // project's.
+            if workspace.editing.is_some() {
+                rows.push(Row::Note("Editing a commit".into(), false));
+                continue;
+            }
             rows.push(Row::Item(Selection::Uncommitted(id.clone())));
             for stack in &workspace.stacks {
                 if stack.branches.len() > 1 {
@@ -554,13 +560,15 @@ impl Navigator {
         let entry = store.project(id)?;
         let toggle_id = id.clone();
         let expanded = entry.expanded;
-        let summary = entry.workspace.as_ref().map(|ws| {
-            (
-                ws.uncommitted.len(),
-                ws.unpushed_commits(),
-                ws.target.as_ref().map_or(0, |t| t.behind),
-            )
-        });
+        let summary = (entry.workspace.as_ref())
+            .filter(|ws| ws.editing.is_none())
+            .map(|ws| {
+                (
+                    ws.uncommitted.len(),
+                    ws.unpushed_commits(),
+                    ws.target.as_ref().map_or(0, |t| t.behind),
+                )
+            });
         let unread = entry
             .workspace
             .as_ref()
@@ -1240,10 +1248,10 @@ impl Navigator {
                 };
                 let mut items = Vec::new();
                 if commit.conflicted {
-                    items.push(action(
-                        "Resolve conflicts…",
-                        &crate::resolve::ResolveConflicts,
-                    ));
+                    items.extend([
+                        action("Resolve conflicts…", &crate::resolve::ResolveConflicts),
+                        action("Resolve by hand", &crate::resolve::EditByHand),
+                    ]);
                 }
                 items.extend([
                     action("Cut", &CutSelection).separated(),

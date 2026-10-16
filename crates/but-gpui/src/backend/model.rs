@@ -31,6 +31,9 @@ pub struct Workspace {
     pub forge: Option<String>,
     pub stacks: Vec<Stack>,
     pub uncommitted: Vec<FileChange>,
+    /// The commit checked out to edit, while the project is in edit mode. There are no
+    /// stacks to show then.
+    pub editing: Option<super::edit::Editing>,
 }
 
 impl Workspace {

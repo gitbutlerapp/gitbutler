@@ -7,6 +7,7 @@ mod annotate;
 pub mod askpass;
 pub mod branches;
 pub mod conflicts;
+pub mod edit;
 mod highlight;
 pub mod history;
 pub mod model;
@@ -79,8 +80,17 @@ pub(crate) fn open(path: &Path) -> Result<Context> {
 pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
+    if let Some(editing) = edit::editing(&ctx)? {
+        return Ok(Workspace {
+            target: None,
+            forge: None,
+            stacks: Vec::new(),
+            uncommitted: worktree_files(&*ctx.repo.get()?, true)?,
+            editing: Some(editing),
+        });
+    }
+    let uncommitted = worktree_files(&*ctx.repo.get()?, false)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let uncommitted = worktree_files(&*ctx.repo.get()?)?;
 
     let mut stacks: Vec<Stack> = info
         .stacks
@@ -101,13 +111,14 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         forge: reviews::forge_name(&ctx),
         stacks,
         uncommitted,
+        editing: None,
     })
 }
 
 /// Just the uncommitted files, for when only the worktree changed.
 pub fn load_uncommitted(path: &Path) -> Result<Vec<FileChange>> {
     let ctx = open(path)?;
-    worktree_files(&*ctx.repo.get()?)
+    worktree_files(&*ctx.repo.get()?, false)
 }
 
 /// Fill in what the forge cache knows about each branch's pull request: its title, state,
@@ -307,6 +318,8 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiffSource {
     Worktree,
+    /// The worktree of a commit being edited: its changes as they are on disk now.
+    Edit,
     Commit(CommitId),
     /// Everything from `oldest` (inclusive) up to `newest`, like a whole branch.
     Range {
@@ -326,11 +339,23 @@ pub enum DiffSource {
     },
 }
 
-/// Uncommitted files, each with when it was last written.
-fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
-    let changes = but_core::diff::worktree_changes(repo)?;
+impl DiffSource {
+    /// Whether the diff follows the worktree, so it's loaded again as files change.
+    pub fn live(self) -> bool {
+        matches!(self, DiffSource::Worktree | DiffSource::Edit)
+    }
+}
+
+/// Uncommitted files, each with when it was last written. With `conflicts`, the files the
+/// index has conflicted too.
+fn worktree_files(repo: &gix::Repository, conflicts: bool) -> Result<Vec<FileChange>> {
+    let mut changes = but_core::diff::worktree_changes(repo)?;
     let ui_changes: but_core::ui::WorktreeChanges = changes.clone().into();
     let modified = but_core::diff::ui::modification_times(repo, &ui_changes);
+    if conflicts {
+        let conflicted = edit::conflicted_changes(repo, &changes.ignored_changes)?;
+        changes.changes.extend(conflicted);
+    }
     Ok(changes
         .changes
         .into_iter()
@@ -357,9 +382,9 @@ pub fn load_diff(
     let repo = ctx.repo.get()?;
     let changes: Vec<FileChange> = match source {
         // With modification times, so review marks match the workspace's file list.
-        DiffSource::Worktree => match worktree {
+        DiffSource::Worktree | DiffSource::Edit => match worktree {
             Some(files) => files,
-            None => worktree_files(&repo)?,
+            None => worktree_files(&repo, source == DiffSource::Edit)?,
         },
         DiffSource::Commit(id) => {
             let details =

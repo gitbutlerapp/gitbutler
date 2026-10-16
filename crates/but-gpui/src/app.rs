@@ -1343,6 +1343,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::close_pull_request))
             .on_action(cx.listener(Self::go_to_branch))
             .on_action(cx.listener(Self::resolve_conflicts))
+            .on_action(cx.listener(Self::edit_by_hand))
             .on_action(cx.listener(Self::open_selected_in_terminal))
             .on_action(cx.listener(Self::refresh))
             .on_action(cx.listener(Self::undo))

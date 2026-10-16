@@ -5,6 +5,7 @@
 mod branches;
 mod composer;
 mod diff_view;
+mod editing;
 mod file_tree;
 mod find;
 pub use find::{FindInDiff, bind_keys as bind_find_keys};
@@ -358,6 +359,7 @@ impl Detail {
         let selection = self.selection(cx)?;
         let store = self.store.read(cx);
         let source = match &selection {
+            Selection::Project(project) if self.editing(project, cx).is_some() => DiffSource::Edit,
             Selection::Project(project) => self.upstream_source(project)?,
             Selection::History(project) => self.history_source(project)?,
             Selection::Branches(project) => self.branches_source(project)?,
@@ -383,7 +385,7 @@ impl Detail {
         let current = self.diff.as_ref().map(|diff| &diff.key);
         let stale = match &key {
             None => true,
-            Some(key) => current != Some(key) || key.source == DiffSource::Worktree,
+            Some(key) => current != Some(key) || key.source.live(),
         };
         if !stale && !selection_changed {
             return;
@@ -415,11 +417,11 @@ impl Detail {
             return;
         };
         let source = key.source;
-        let worktree = (source == DiffSource::Worktree)
+        let worktree = (source.live())
             .then(|| self.store.read(cx).workspace(&key.project))
             .flatten()
             .map(|ws| ws.uncommitted.clone());
-        if source == DiffSource::Worktree && worktree.is_none() {
+        if source.live() && worktree.is_none() {
             // The workspace is still loading and lists the files itself; diffing now would run
             // a second status on the same repository, slowing both. Its `Loaded` brings us back.
             return;
@@ -431,7 +433,7 @@ impl Detail {
             .find(|(recent, _)| *recent == key)
             .map(|(_, files)| files.clone());
         if let Some(files) = previous.clone()
-            && key.source != DiffSource::Worktree
+            && !key.source.live()
             && files.iter().all(|file| file.annotated)
         {
             self.loading = None;
@@ -1011,7 +1013,10 @@ impl Render for Detail {
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)
                     }
-                    Selection::Project(project) => self.render_upstream_side(project, &theme, cx),
+                    Selection::Project(project) => match self.editing(project, cx) {
+                        Some(editing) => self.render_edit_side(project, editing, &theme, cx),
+                        None => self.render_upstream_side(project, &theme, cx),
+                    },
                 };
                 let width = self.store.read(cx).width(Pane::Files);
                 h_flex()

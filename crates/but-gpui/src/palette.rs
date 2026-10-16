@@ -108,6 +108,10 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
             "Resolve conflicts",
             Box::new(crate::resolve::ResolveConflicts),
         ),
+        (
+            "Resolve conflicts by hand",
+            Box::new(crate::resolve::EditByHand),
+        ),
         ("Open in editor", Box::new(crate::open_in::OpenInEditor)),
         ("Open in terminal", Box::new(crate::open_in::OpenInTerminal)),
         ("Reload", Box::new(Refresh)),

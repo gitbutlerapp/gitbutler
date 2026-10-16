@@ -194,6 +194,19 @@ impl Store {
         );
     }
 
+    /// Check commit `id` out in the worktree to resolve it by hand, and show its page.
+    pub fn edit_commit(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
+        let shown = project.clone();
+        self.run(
+            project,
+            "Check the commit out",
+            Overlay::default(),
+            move |path, remap| backend::edit::enter(path, remap.get(id)?),
+            move |store, (), cx| store.select(Some(Selection::Project(shown)), cx),
+            cx,
+        );
+    }
+
     pub fn uncommit(&mut self, project: &ProjectId, ids: Vec<CommitId>, cx: &mut Context<Self>) {
         let keys: Vec<String> = ids
             .iter()
