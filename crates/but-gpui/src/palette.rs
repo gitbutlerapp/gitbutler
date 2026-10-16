@@ -67,6 +67,19 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Add empty commit above", Box::new(AddEmptyCommitAbove)),
         ("Add empty commit below", Box::new(AddEmptyCommitBelow)),
         ("Squash all commits", Box::new(SquashAll)),
+        (
+            "Squash the picked commits",
+            Box::new(crate::edits::SquashPicked),
+        ),
+        (
+            "Move commit to a new branch",
+            Box::new(crate::edits::MoveToNewBranch),
+        ),
+        ("Pull from the remote", Box::new(crate::edits::PullRemote)),
+        (
+            "Take the remote's version",
+            Box::new(crate::edits::TakeRemote),
+        ),
         ("New branch below", Box::new(NewBranchBelow)),
         ("New branch ending here", Box::new(NewBranchHere)),
         ("Unstack branch", Box::new(Unstack)),
