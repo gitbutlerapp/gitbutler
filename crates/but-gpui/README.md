@@ -46,7 +46,7 @@ Text in a diff selects like text anywhere: drag across lines, double-click a wor
 
 While something is cut or dragged, every row it could land on says what landing there would do ("Amend", "Move above", "Squash into" with ⌥ held), and the rest step back. A commit selected in the app stays selected when an agent rewords or rebases it, as long as it keeps its change ID.
 
-Every change can be undone with ⌘Z, and the snackbar names what was undone, including operations an agent ran from the CLI. ⌘C copies the selection: a commit's id, a branch's name, or the path of the file under the diff cursor. Right-click any row for the rest, or press ⌘K for the command palette, which lists every command that applies where you are, with its keys. The status bar shows the few keys that matter for what has focus.
+Every change can be undone with ⌘Z, and the snackbar names what was undone, including operations an agent ran from the CLI. Changes show at once: what an operation takes away leaves the lists, and a new commit appears dimmed on its branch, until the reload after it shows the real result. Another operation asked for meanwhile waits its turn; the status bar names the one running, how long it's taking once that's noticeable, and how many wait. ⌘C copies the selection: a commit's id, a branch's name, or the path of the file under the diff cursor. Right-click any row for the rest, or press ⌘K for the command palette, which lists every command that applies where you are, with its keys. The status bar shows the few keys that matter for what has focus.
 
 | Anywhere | |
 |---|---|

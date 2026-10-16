@@ -23,7 +23,7 @@ use crate::app::AppView;
 use crate::backend::{
     self, Destination, DiffBody, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected,
 };
-use crate::state::{Pane, ProjectId, Review, Selection, Store, StoreEvent};
+use crate::state::{Overlay, Pane, ProjectId, Review, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::short_ref;
 use crate::ui::diff::{self, DiffRow};
@@ -175,7 +175,7 @@ impl Detail {
                         this.refresh_diff(false, cx);
                     }
                 }
-                StoreEvent::Reviewed(project) => {
+                StoreEvent::Reviewed(project) | StoreEvent::Pending(project) => {
                     if this.selected_project(cx).as_ref() == Some(project) {
                         this.rebuild_rows(cx);
                     }
@@ -396,7 +396,12 @@ impl Detail {
         }
         self.recent.push((key.clone(), files.clone()));
         let folded = self.folded_paths(&key, &files, cx);
-        let rows = diff::rows(&files, |file| folded.contains(&file.file.path));
+        let hidden = self.hidden_paths(&key, &files, cx);
+        let rows = diff::rows(
+            &files,
+            |file| folded.contains(&file.file.path),
+            |file| hidden.contains(&file.file.path),
+        );
         let same = self.diff.as_ref().is_some_and(|diff| diff.key == key);
         if same {
             let top = self.list.logical_scroll_top();
@@ -473,13 +478,32 @@ impl Detail {
     }
 
     /// Rebuild the rows when folding changed, keeping the scroll position.
+    /// Uncommitted files a pending operation takes away, left out until it's done.
+    fn hidden_paths(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> HashSet<String> {
+        if key.source != DiffSource::Worktree {
+            return HashSet::new();
+        }
+        let store = self.store.read(cx);
+        files
+            .iter()
+            .map(|file| &file.file.path)
+            .filter(|path| store.hides_file(&key.project, path))
+            .cloned()
+            .collect()
+    }
+
     fn rebuild_rows(&mut self, cx: &mut Context<Self>) {
         let Some(diff) = &self.diff else {
             cx.notify();
             return;
         };
         let folded = self.folded_paths(&diff.key, &diff.files, cx);
-        let rows = diff::rows(&diff.files, |file| folded.contains(&file.file.path));
+        let hidden = self.hidden_paths(&diff.key, &diff.files, cx);
+        let rows = diff::rows(
+            &diff.files,
+            |file| folded.contains(&file.file.path),
+            |file| hidden.contains(&file.file.path),
+        );
         if rows != diff.rows {
             self.text_selection = None;
             // Keep the row at the top of the view there, or its file's header when the
@@ -1044,7 +1068,8 @@ impl Detail {
                         store.run(
                             &project,
                             "Edit message",
-                            move |path| backend::reword(path, id, &message),
+                            Overlay::default(),
+                            move |path, remap| backend::reword(path, remap.get(id)?, &message),
                             |store, rewritten, cx| {
                                 store.follow(&rewritten, cx);
                                 store.snack_undoable("Message updated", cx)
@@ -1104,7 +1129,13 @@ impl Detail {
             });
             return;
         }
-        let files = self.selected_changes(cx);
+        // Files a pending commit or discard already takes, as after a quick second click.
+        let store = self.store.read(cx);
+        let files: Vec<Selected> = self
+            .selected_changes(cx)
+            .into_iter()
+            .filter(|s| !store.hides_file(&project, &s.file.path))
+            .collect();
         if files.is_empty() {
             self.store
                 .update(cx, |store, cx| store.snack("Nothing checked to commit", cx));
@@ -1113,11 +1144,20 @@ impl Detail {
         let target = self.effective_target(&project, cx);
         let message_input = self.message.clone();
         let detail = cx.entity().downgrade();
+        // The files leave the list and the commit shows on its branch right away.
+        let overlay = Overlay {
+            new_commit: target.clone().map(|branch| {
+                let title = message.lines().next().unwrap_or_default().to_owned();
+                (branch, title.into())
+            }),
+            ..Overlay::files(&files)
+        };
         self.store.update(cx, |store, cx| {
             store.run(
                 &project,
                 "Commit",
-                move |path| {
+                overlay,
+                move |path, _| {
                     let branch = match target {
                         Some(branch) => branch,
                         None => backend::create_branch(path, None)?,

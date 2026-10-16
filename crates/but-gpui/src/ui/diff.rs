@@ -42,10 +42,18 @@ impl DiffRow {
     }
 }
 
-/// Rows for `files`, with the files `folded` says are folded reduced to their header.
-pub fn rows(files: &[FileDiff], folded: impl Fn(&FileDiff) -> bool) -> Vec<DiffRow> {
+/// Rows for `files`, with the files `folded` says are folded reduced to their header and
+/// the ones `hidden` says are hidden left out.
+pub fn rows(
+    files: &[FileDiff],
+    folded: impl Fn(&FileDiff) -> bool,
+    hidden: impl Fn(&FileDiff) -> bool,
+) -> Vec<DiffRow> {
     let mut rows = Vec::new();
     for (file_ix, file) in files.iter().enumerate() {
+        if hidden(file) {
+            continue;
+        }
         rows.push(DiffRow::File(file_ix));
         if folded(file) {
             rows.push(DiffRow::Gap);

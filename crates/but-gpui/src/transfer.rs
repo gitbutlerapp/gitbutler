@@ -6,7 +6,7 @@ use std::sync::Arc;
 use gpui::{Context, SharedString};
 
 use crate::backend::{self, CommitId, Destination, Selected};
-use crate::state::{Cut, Selection, Store};
+use crate::state::{Cut, Overlay, Selection, Store};
 
 pub enum Transfer {
     Uncommit(CommitId),
@@ -181,14 +181,16 @@ impl Transfer {
             Transfer::Uncommit(id) => store.run(
                 project,
                 label,
-                move |path| backend::uncommit(path, &[id]),
+                Overlay::commits(store.key_of(project, id)),
+                move |path, remap| backend::uncommit(path, &[remap.get(id)?]),
                 |store, (), cx| store.snack_undoable("Uncommitted", cx),
                 cx,
             ),
             Transfer::UncommitFiles { from, files } => store.run(
                 project,
                 label,
-                move |path| backend::uncommit_files(path, from, &files),
+                Overlay::default(),
+                move |path, remap| backend::uncommit_files(path, remap.get(from)?, &files),
                 |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Moved to uncommitted changes", cx)
@@ -198,14 +200,24 @@ impl Transfer {
             Transfer::MoveCommit { id, to } => store.run(
                 project,
                 label,
-                move |path| backend::move_commits(path, &[id], &to),
+                Overlay::default(),
+                move |path, remap| {
+                    let to = match to {
+                        Destination::AboveCommit(above) => {
+                            Destination::AboveCommit(remap.get(above)?)
+                        }
+                        branch => branch,
+                    };
+                    backend::move_commits(path, &[remap.get(id)?], &to)
+                },
                 |store, rewritten, cx| store.follow(&rewritten, cx),
                 cx,
             ),
             Transfer::Squash { id, into } => store.run(
                 project,
                 label,
-                move |path| backend::squash(path, &[id], into),
+                Overlay::commits(store.key_of(project, id)),
+                move |path, remap| backend::squash(path, &[remap.get(id)?], remap.get(into)?),
                 |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_undoable("Squashed", cx)
@@ -215,7 +227,8 @@ impl Transfer {
             Transfer::Amend { into, files } => store.run(
                 project,
                 label,
-                move |path| backend::amend(path, into, &files),
+                Overlay::files(files.iter()),
+                move |path, remap| backend::amend(path, remap.get(into)?, &files),
                 |store, (rewritten, left_out), cx| {
                     store.follow(&rewritten, cx);
                     store.report_left_out("Amended", &left_out, cx)
@@ -225,7 +238,10 @@ impl Transfer {
             Transfer::MoveFiles { from, to, files } => store.run(
                 project,
                 label,
-                move |path| backend::move_files(path, from, to, &files),
+                Overlay::default(),
+                move |path, remap| {
+                    backend::move_files(path, remap.get(from)?, remap.get(to)?, &files)
+                },
                 |store, rewritten, cx| store.follow(&rewritten, cx),
                 cx,
             ),

@@ -14,7 +14,7 @@ use crate::backend::{self, CommitId};
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
 use crate::palette::Palette;
-use crate::state::{Cut, Notice, Pane, ProjectId, Selection, Store};
+use crate::state::{Cut, Notice, Overlay, Pane, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, short_ref};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -307,7 +307,8 @@ impl AppView {
                     store.run(
                         &project,
                         "Create branch",
-                        move |path| backend::create_branch(path, Some(&name)),
+                        Overlay::default(),
+                        move |path, _| backend::create_branch(path, Some(&name)),
                         move |store, ref_name, cx| {
                             store.select(Some(Selection::Branch(selected, ref_name)), cx)
                         },
@@ -421,7 +422,8 @@ impl AppView {
                     store.run(
                         &project,
                         "Rename branch",
-                        move |path| backend::rename_branch(path, &ref_name, &name),
+                        Overlay::default(),
+                        move |path, _| backend::rename_branch(path, &ref_name, &name),
                         {
                             let project = project.clone();
                             move |store, renamed, cx| {
@@ -455,7 +457,8 @@ impl AppView {
                     store.run(
                         &project,
                         "Create branch",
-                        move |path| backend::create_dependent_branch(path, &below, &name),
+                        Overlay::default(),
+                        move |path, _| backend::create_dependent_branch(path, &below, &name),
                         {
                             let project = project.clone();
                             move |store, ref_name, cx| {
@@ -490,7 +493,8 @@ impl AppView {
                     store.run(
                         &project,
                         "Delete branch",
-                        move |path| backend::remove_branch(path, &ref_name),
+                        Overlay::default(),
+                        move |path, _| backend::remove_branch(path, &ref_name),
                         |store, (), cx| store.snack_undoable("Branch deleted", cx),
                         cx,
                     )
@@ -518,7 +522,8 @@ impl AppView {
                     store.run(
                         &project,
                         "Discard commit",
-                        move |path| backend::discard_commit(path, id),
+                        Overlay::commits(store.key_of(&project, id)),
+                        move |path, remap| backend::discard_commit(path, remap.get(id)?),
                         |store, (), cx| store.snack_undoable("Commit discarded", cx),
                         cx,
                     )
@@ -544,7 +549,8 @@ impl AppView {
                 store.run(
                     &project,
                     "Discard",
-                    move |path| backend::discard(path, &changes),
+                    Overlay::files(&changes),
+                    move |path, _| backend::discard(path, &changes),
                     |store, (), cx| store.snack_undoable("Changes discarded", cx),
                     cx,
                 )
@@ -882,7 +888,8 @@ impl AppView {
                 store.run(
                     &project,
                     "Redo",
-                    backend::redo,
+                    Overlay::default(),
+                    |path, _| backend::redo(path),
                     |store, redone, cx| match redone {
                         Some(operation) => store.snack(format!("Redone: {operation}"), cx),
                         None => store.snack("Nothing to redo", cx),

@@ -40,6 +40,8 @@ enum Row {
     Section(&'static str),
     /// A branch's commits folded away, and how many.
     More(ProjectId, String, usize),
+    /// A commit an operation is still making, by its title.
+    Pending(SharedString),
 }
 
 pub struct Navigator {
@@ -161,9 +163,21 @@ impl Navigator {
                     };
                     rows.push(Row::Item(Selection::Branch(key.0, key.1)));
                     rows.extend(
+                        store
+                            .new_commits(id, &branch.ref_name)
+                            .into_iter()
+                            .map(Row::Pending),
+                    );
+                    // Commits a pending operation takes away go, unless selected.
+                    rows.extend(
                         branch
                             .commits
                             .iter()
+                            .filter(|commit| {
+                                !store.hides_commit(id, &commit.key)
+                                    || store.selection
+                                        == Some(Selection::Commit(id.clone(), commit.id))
+                            })
                             .take(shown)
                             .map(|commit| Row::Item(Selection::Commit(id.clone(), commit.id))),
                     );
@@ -310,6 +324,17 @@ impl Navigator {
                 })
                 .when(*is_error, |el| el.child(small_icon(Icon::Warning)))
                 .child(div().flex_1().min_w(px(0.)).child(text.clone()))
+                .into_any_element(),
+            Row::Pending(title) => h_flex()
+                .min_h(px(ROW_HEIGHT))
+                .mx(px(3.))
+                .pl(px(28.))
+                .pr(px(12.))
+                .gap(px(6.))
+                .opacity(0.5)
+                .child(small_icon(Icon::Commit).text_color(theme.blue))
+                .child(div().flex_1().min_w(px(0.)).truncate().child(title.clone()))
+                .child(div().text_size(px(11.)).text_color(theme.text_2).child("…"))
                 .into_any_element(),
             Row::Section(title) => h_flex()
                 .h(px(26.))
@@ -696,6 +721,8 @@ impl Navigator {
                             .border_dashed()
                             .border_color(theme.pop)
                     })
+                    // Selected but on its way out.
+                    .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
                     .on_click(select)
                     .on_drag(payload, drag_preview(self.store.clone(), label))
                     .into_any_element()
