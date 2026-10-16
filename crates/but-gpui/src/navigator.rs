@@ -419,7 +419,8 @@ impl Navigator {
         // Meaningful colours wash out on the dark selection ground; keep them legible.
         let meta = |color| if solid { theme.text_inverted } else { color };
         let selection = item.clone();
-        let select = cx.listener(move |this, _: &ClickEvent, window, cx| {
+        // On press, as native lists do: a click waits for the release.
+        let select = cx.listener(move |this, _: &MouseDownEvent, window, cx| {
             this.select(selection.clone(), window, cx)
         });
 
@@ -464,6 +465,8 @@ impl Navigator {
                                 })
                                 .text_color(muted),
                             )
+                            // Folding the project doesn't select it.
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                 cx.stop_propagation();
                                 this.store.update(cx, |store, cx| {
@@ -542,16 +545,20 @@ impl Navigator {
                             )
                         },
                     )
-                    .on_click(cx.listener({
-                        let id = id.clone();
-                        move |this, event: &ClickEvent, window, cx| {
-                            if event.click_count() == 2 {
-                                this.store
-                                    .update(cx, |store, cx| store.set_expanded(&id, !expanded, cx));
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener({
+                            let id = id.clone();
+                            move |this, event: &MouseDownEvent, window, cx| {
+                                if event.click_count == 2 {
+                                    this.store.update(cx, |store, cx| {
+                                        store.set_expanded(&id, !expanded, cx)
+                                    });
+                                }
+                                this.select(Selection::Project(id.clone()), window, cx);
                             }
-                            this.select(Selection::Project(id.clone()), window, cx);
-                        }
-                    }))
+                        }),
+                    )
                     .into_any_element()
             }
             Selection::Uncommitted(id) => {
@@ -582,7 +589,7 @@ impl Navigator {
                             el.child(count(Some(Icon::Tick), n, muted))
                         }
                     })
-                    .on_click(select)
+                    .on_mouse_down(MouseButton::Left, select)
                     .when(n > 0, |el| {
                         let files = self.detail.read(cx).files_to_move(id, cx);
                         let label: SharedString = match files.len() {
@@ -668,7 +675,7 @@ impl Navigator {
                             .any(|commit| store.is_unread(id, commit)),
                         |el| el.child(dot(meta(theme.pop))),
                     )
-                    .on_click(select)
+                    .on_mouse_down(MouseButton::Left, select)
                     .into_any_element()
             }
             Selection::Commit(id, commit_id) => {
@@ -723,7 +730,7 @@ impl Navigator {
                     })
                     // Selected but on its way out.
                     .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
-                    .on_click(select)
+                    .on_mouse_down(MouseButton::Left, select)
                     .on_drag(payload, drag_preview(self.store.clone(), label))
                     .into_any_element()
             }

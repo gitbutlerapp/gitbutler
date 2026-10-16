@@ -507,85 +507,88 @@ impl Detail {
             .depth
             .map_or(0., |depth| TREE_INDENT * depth as f32 + 18.);
         let dir = if extras.depth.is_some() { "" } else { dir };
-        let mut row =
-            list_row(("file", ix), current, theme)
-                .pl(px(10. + indent))
-                .when_some(extras.checkbox, |el, check| {
-                    let path = path.clone();
-                    el.child(
-                        checkbox_box(("check", ix), check, theme).on_click(cx.listener(
-                            move |this, _: &ClickEvent, _, cx| {
-                                cx.stop_propagation();
-                                this.toggle_checked(&path, cx)
-                            },
-                        )),
-                    )
-                })
-                .child(
-                    div()
-                        .flex_none()
-                        .w(px(10.))
-                        .text_size(px(11.))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .text_color(diff::change_color(file.kind, theme))
-                        .child(file.kind.letter()),
+        let mut row = list_row(("file", ix), current, theme)
+            .pl(px(10. + indent))
+            .when_some(extras.checkbox, |el, check| {
+                let path = path.clone();
+                el.child(
+                    checkbox_box(("check", ix), check, theme)
+                        // Checking a file doesn't scroll to it.
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            cx.stop_propagation();
+                            this.toggle_checked(&path, cx)
+                        })),
                 )
-                .child(
-                    h_flex()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .gap(px(6.))
-                        .overflow_hidden()
-                        // Reviewed files step back, as in Lite's file list.
-                        .when(reviewed, |el| el.opacity(0.5))
-                        .child(
-                            div()
-                                .flex_none()
-                                .max_w(px(160.))
-                                .truncate()
-                                .child(name.to_owned()),
-                        )
-                        .child(
-                            div()
-                                .min_w(px(0.))
-                                .truncate()
-                                .text_size(px(12.))
-                                .text_color(theme.text_3)
-                                .child(dir.to_owned()),
-                        ),
-                )
-                .when_some(extras.stats, |el, (added, removed)| {
-                    el.child(diff::stats(added, removed, theme))
-                })
-                .when_some(file.modified, |el, ms| {
-                    el.child(
+            })
+            .child(
+                div()
+                    .flex_none()
+                    .w(px(10.))
+                    .text_size(px(11.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_color(diff::change_color(file.kind, theme))
+                    .child(file.kind.letter()),
+            )
+            .child(
+                h_flex()
+                    .flex_1()
+                    .min_w(px(0.))
+                    .gap(px(6.))
+                    .overflow_hidden()
+                    // Reviewed files step back, as in Lite's file list.
+                    .when(reviewed, |el| el.opacity(0.5))
+                    .child(
                         div()
                             .flex_none()
-                            .text_size(px(11.))
-                            .text_color(theme.text_3)
-                            .child(relative_time(ms / 1000)),
+                            .max_w(px(160.))
+                            .truncate()
+                            .child(name.to_owned()),
                     )
+                    .child(
+                        div()
+                            .min_w(px(0.))
+                            .truncate()
+                            .text_size(px(12.))
+                            .text_color(theme.text_3)
+                            .child(dir.to_owned()),
+                    ),
+            )
+            .when_some(extras.stats, |el, (added, removed)| {
+                el.child(diff::stats(added, removed, theme))
+            })
+            .when_some(file.modified, |el, ms| {
+                el.child(
+                    div()
+                        .flex_none()
+                        .text_size(px(11.))
+                        .text_color(theme.text_3)
+                        .child(relative_time(ms / 1000)),
+                )
+            })
+            .when_some(extras.review, |el, review| {
+                el.child(match review {
+                    Review::Reviewed => small_icon(Icon::Tick)
+                        .text_color(theme.pop)
+                        .into_any_element(),
+                    Review::Changed => div()
+                        .flex_none()
+                        .size(px(6.))
+                        .mx(px(3.))
+                        .rounded_full()
+                        .bg(theme.warn)
+                        .into_any_element(),
+                    Review::NotReviewed => div().flex_none().w(px(12.)).into_any_element(),
                 })
-                .when_some(extras.review, |el, review| {
-                    el.child(match review {
-                        Review::Reviewed => small_icon(Icon::Tick)
-                            .text_color(theme.pop)
-                            .into_any_element(),
-                        Review::Changed => div()
-                            .flex_none()
-                            .size(px(6.))
-                            .mx(px(3.))
-                            .rounded_full()
-                            .bg(theme.warn)
-                            .into_any_element(),
-                        Review::NotReviewed => div().flex_none().w(px(12.)).into_any_element(),
-                    })
-                })
-                .when_some(diff_ix, |el, diff_ix| {
-                    el.on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+            })
+            .when_some(diff_ix, |el, diff_ix| {
+                el.on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, _: &MouseDownEvent, _, cx| {
                         this.scroll_to_file(diff_ix, cx)
-                    }))
-                });
+                    }),
+                )
+            });
         if let Some((project, from)) = extras.drag_from {
             let payload = Cut::Files {
                 project: project.clone(),
@@ -1265,7 +1268,7 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let Some(diff) = &self.diff else {
+        let Some(diff) = self.shown_diff() else {
             return div()
                 .px(px(16.))
                 .py(px(10.))

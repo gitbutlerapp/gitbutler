@@ -70,7 +70,7 @@ impl Detail {
         if let Some(err) = &self.diff_error {
             return ground(empty_state("Couldn't load the diff", err.clone(), theme));
         }
-        let Some(diff) = &self.diff else {
+        let Some(diff) = self.shown_diff() else {
             let title = if self.loading.is_some() {
                 "Loading diff…"
             } else {
