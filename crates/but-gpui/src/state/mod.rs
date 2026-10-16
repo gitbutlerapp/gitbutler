@@ -21,7 +21,7 @@ mod saved;
 
 use mutation::Queued;
 pub use mutation::{Overlay, Remap, SLOW};
-pub use saved::{Pane, saved_window_place};
+pub use saved::{Pane, Prefs, saved_window_place};
 use saved::{Restored, Saved};
 
 pub type ProjectId = SharedString;
@@ -162,6 +162,7 @@ pub struct Store {
     last_saved: Vec<u8>,
     /// File lists show a tree of directories rather than a flat list.
     pub file_tree: bool,
+    pub prefs: Prefs,
     pub toasts: Vec<Toast>,
     /// The label of the mutation in flight, if any. Mutations run one at a time, each
     /// until the reload after it lands, so the next one sees what it did.
@@ -190,6 +191,9 @@ pub struct Store {
     changes: mpsc::UnboundedSender<(ProjectId, bool)>,
     _change_listener: Task<()>,
     _forge_poll: Task<()>,
+    /// When each project was last fetched in the background.
+    fetched: HashMap<ProjectId, Instant>,
+    _auto_fetch: Task<()>,
     forge_requests: mpsc::UnboundedSender<ProjectId>,
     /// Projects waiting for a forge refresh, so each waits only once.
     forge_queued: HashSet<ProjectId>,
@@ -263,6 +267,7 @@ impl Store {
             seen: saved.seen,
             widths: saved.widths,
             file_tree: saved.file_tree,
+            prefs: saved.prefs,
             window: saved.window,
             restored: Restored {
                 expanded: saved.expanded,
@@ -285,6 +290,8 @@ impl Store {
                 .spawn(async move |this, cx| Self::forge_worker(this, requested, cx).await),
             // Pull requests and CI change on the forge, where no watcher sees them: ask
             // when a project opens, then every minute.
+            fetched: HashMap::new(),
+            _auto_fetch: Self::fetch_in_background(cx),
             _forge_poll: cx.spawn(async move |this, cx| {
                 loop {
                     cx.background_executor()
@@ -433,6 +440,76 @@ impl Store {
                     }
                 }
                 Err(err) => store.error("Couldn't add the project", format!("{err:#}"), cx),
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Fetch the expanded projects as often as GitButler's shared setting says, so what the
+    /// target and remotes have stays current. Quietly: a failed fetch only logs, and the
+    /// next one tries again.
+    fn fetch_in_background(cx: &mut Context<Self>) -> Task<()> {
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_secs(60))
+                    .await;
+                let interval = backend::run(|| Ok(backend::settings::fetch_interval())).await;
+                let Ok(Some(minutes)) = interval else {
+                    continue;
+                };
+                let interval = Duration::from_secs(minutes * 60);
+                let Ok(due) = this.update(cx, |store, _| store.due_for_fetch(interval)) else {
+                    return;
+                };
+                for (project, path) in due {
+                    if let Err(err) = backend::run(move || backend::fetch(&path)).await {
+                        tracing::warn!(%project, "background fetch failed: {err:#}");
+                    }
+                    let reloaded = this.update(cx, |store, cx| {
+                        store.fetched.insert(project.clone(), Instant::now());
+                        store.reload(&project, cx);
+                    });
+                    if reloaded.is_err() {
+                        return;
+                    }
+                }
+            }
+        })
+    }
+
+    fn due_for_fetch(&self, interval: Duration) -> Vec<(ProjectId, PathBuf)> {
+        self.projects
+            .iter()
+            .filter(|entry| entry.expanded && entry.workspace.is_some())
+            .filter(|entry| {
+                self.fetched
+                    .get(&entry.id)
+                    .is_none_or(|at| at.elapsed() >= interval)
+            })
+            .map(|entry| (entry.id.clone(), entry.project.path.clone()))
+            .collect()
+    }
+
+    /// Take `id` out of GitButler; its repository stays on disk.
+    pub fn remove_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if self.selection.as_ref().is_some_and(|s| s.project() == id) {
+            self.select(None, cx);
+        }
+        let removed = id.to_string();
+        cx.spawn(async move |this, cx| {
+            let result = backend::run(move || {
+                backend::settings::remove_project(&removed)?;
+                backend::list_projects()
+            })
+            .await;
+            this.update(cx, |store, cx| match result {
+                Ok(projects) => {
+                    store.set_projects(projects, cx);
+                    store.snack("Project removed", cx);
+                }
+                Err(err) => store.error("Couldn't remove the project", format!("{err:#}"), cx),
             })
             .ok();
         })

@@ -1,6 +1,7 @@
 //! Shared building blocks so every surface draws rows, buttons and counts the same way.
 
 pub mod diff;
+pub mod modal;
 pub mod review;
 pub mod scrollbar;
 pub mod text_input;
@@ -9,7 +10,8 @@ use std::borrow::Cow;
 
 use gpui::{
     AnyElement, App, AssetSource, ClickEvent, CursorStyle, Div, DragMoveEvent, ElementId,
-    EmptyView, Entity, Hsla, Role, SharedString, Stateful, Svg, Window, div, prelude::*, px, svg,
+    EmptyView, Entity, Hsla, Role, SharedString, Stateful, Svg, Toggled, Window, div, prelude::*,
+    px, svg,
 };
 
 use crate::state::{Pane, Store};
@@ -137,6 +139,50 @@ pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stat
         .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
 }
 
+/// An on/off switch, for a setting that applies at once.
+pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .role(Role::Switch)
+        .aria_toggled(if on { Toggled::True } else { Toggled::False })
+        .flex_none()
+        .w(px(30.))
+        .h(px(18.))
+        .p(px(2.))
+        .rounded_full()
+        .bg(if on {
+            theme.pop_bg
+        } else {
+            theme.fill_gray.opacity(0.22)
+        })
+        .when(on, |el| el.justify_end())
+        .hover(|el| el.opacity(0.9))
+        .child(div().size(px(14.)).rounded_full().bg(gpui::white()))
+}
+
+/// A button showing a choice, which opens a menu of the others when clicked.
+pub fn dropdown(
+    id: impl Into<ElementId>,
+    label: impl Into<SharedString>,
+    theme: &Theme,
+) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .role(Role::ComboBox)
+        .flex_none()
+        .h(px(28.))
+        .pl(px(10.))
+        .pr(px(6.))
+        .gap(px(6.))
+        .rounded(px(4.))
+        .border_1()
+        .border_color(theme.border_2)
+        .text_size(px(13.))
+        .hover(|el| el.bg(theme.hover()))
+        .child(label.into())
+        .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
+}
+
 /// The card that menus, dialogs, toasts and tooltips float on.
 pub fn popover(theme: &Theme) -> Div {
     v_flex()
@@ -157,6 +203,8 @@ pub enum ButtonStyle {
     Gray,
     /// The one primary action of a surface.
     Pop,
+    /// For an act the user can't take back: deleting, discarding.
+    Danger,
 }
 
 #[derive(IntoElement)]
@@ -267,6 +315,12 @@ impl RenderOnce for Button {
                 Some(theme.pop_bg),
                 None,
                 theme.pop_bg.opacity(0.85),
+            ),
+            ButtonStyle::Danger => (
+                theme.danger,
+                Some(theme.danger.opacity(0.1)),
+                None,
+                theme.danger.opacity(0.16),
             ),
         };
         let (fg, bg, hover) = if self.inverted && self.style != ButtonStyle::Pop {

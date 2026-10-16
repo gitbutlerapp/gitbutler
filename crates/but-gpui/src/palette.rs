@@ -82,6 +82,9 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Go to navigator", Box::new(FocusNavigator)),
         ("Go to changes", Box::new(FocusChanges)),
         ("Add project…", Box::new(AddProject)),
+        ("Settings", Box::new(crate::settings::OpenSettings)),
+        ("Open in editor", Box::new(crate::open_in::OpenInEditor)),
+        ("Open in terminal", Box::new(crate::open_in::OpenInTerminal)),
         ("Reload", Box::new(Refresh)),
         ("Quit", Box::new(Quit)),
     ]

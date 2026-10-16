@@ -933,9 +933,23 @@ impl Navigator {
                     }
                 }
                 if let Some(path) = store.path(project) {
-                    items.push(MenuItem::new("Reveal in Finder", move |_, _, cx| {
-                        cx.reveal_path(&path)
-                    }));
+                    let label = self
+                        .app
+                        .upgrade()
+                        .map(|app| app.read(cx).open_in_editor_label(cx))
+                        .unwrap_or_default();
+                    let (editor_project, terminal_project) = (project.clone(), project.clone());
+                    items.extend([
+                        MenuItem::new(label, move |this, window, cx| {
+                            let position = window.mouse_position();
+                            this.open_in_editor(&editor_project, None, None, position, cx)
+                        })
+                        .separated(),
+                        MenuItem::new("Open in terminal", move |this, _, cx| {
+                            this.open_in_terminal(&terminal_project, cx)
+                        }),
+                        MenuItem::new("Reveal in Finder", move |_, _, cx| cx.reveal_path(&path)),
+                    ]);
                 }
                 items
             }

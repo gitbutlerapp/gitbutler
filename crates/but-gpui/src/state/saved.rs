@@ -8,6 +8,7 @@ use gpui::{App, AppContext as _, Bounds, Context, DisplayId, Pixels, Window, poi
 use serde::{Deserialize, Serialize};
 
 use super::{Seen, Store};
+use crate::theme::Appearance;
 
 impl Store {
     /// Write the saved state shortly, so a burst of changes writes once. A steady stream
@@ -64,7 +65,14 @@ impl Store {
             widths: self.widths.clone(),
             file_tree: self.file_tree,
             window: self.window.clone(),
+            prefs: self.prefs.clone(),
         }
+    }
+
+    pub fn set_prefs(&mut self, update: impl FnOnce(&mut Prefs), cx: &mut Context<Self>) {
+        update(&mut self.prefs);
+        self.save_soon(cx);
+        cx.notify();
     }
 
     pub fn set_file_tree(&mut self, tree: bool, cx: &mut Context<Self>) {
@@ -166,6 +174,19 @@ pub(super) struct Saved {
     pub(super) widths: HashMap<Pane, f32>,
     pub(super) file_tree: bool,
     pub(super) window: Option<WindowPlace>,
+    pub(super) prefs: Prefs,
+}
+
+/// Choices from Settings that only this app keeps; GitButler's shared settings live with
+/// the other apps'.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Prefs {
+    pub appearance: Appearance,
+    /// The editor files open in, by program id. Asked for the first time it's needed.
+    pub editor: Option<String>,
+    /// The terminal the project opens in, by id.
+    pub terminal: Option<String>,
 }
 
 /// Where the window was: the display it was on, and its left, top, width and height on that
