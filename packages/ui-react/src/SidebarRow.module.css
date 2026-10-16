@@ -184,12 +184,13 @@
 	@media (prefers-reduced-motion: no-preference) {
 		/* The run takes over the end fade from the scroll timeline, which goes inactive as the name
 		   reaches its end and no longer overflows. The first pass skips the hold at the start: the
-		   beat before it is pause enough. */
+		   beat before it is pause enough. The curve eases less than ease-in-out, so the name gets
+		   going without a crawl at the start of each pass. */
 		.row:hover .name[data-runs] {
 			--fade-end: min(24px, var(--run) - var(--shift));
 
-			animation: name-run var(--run-duration) ease-in-out calc(0.5s - 0.15 * var(--run-duration))
-				infinite alternate both;
+			animation: name-run var(--run-duration) cubic-bezier(0.35, 0.15, 0.65, 0.85)
+				calc(0.25s - 0.15 * var(--run-duration)) infinite alternate both;
 			animation-timeline: auto;
 		}
 	}
