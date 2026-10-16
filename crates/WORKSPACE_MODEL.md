@@ -51,14 +51,25 @@ Avoid lower-level helpers reacquiring `Context` or repository write guards while
 
 ## Metadata and target refs
 
-Workspace metadata is exposed through `but_core::RefMetadata` and `but_core::ref_metadata::Workspace`.
+`but_core::ref_metadata::ProjectMeta` holds the configured target and cutoff. Workspace metadata is exposed through `but_core::RefMetadata` and `but_core::ref_metadata::Workspace`.
 
-Important concepts:
+Keep these concepts separate:
 
-- target ref — usually something like `origin/main`; the branch/ref used as the workflow frame of reference.
-- target commit ID — a commit reachable from the target ref that should stay included in the workspace context, making the workspace stable even when the target ref moves.
-- local target — the branch the target ref's fetch refspec maps back to (`main` for `origin/main`). It is the target segment's sibling in the graph and the branch the editor treats as the target's own. Other branches configured to track the target ref fork from it and are never the local target.
-- workspace stacks — legacy/presentation metadata; useful for compatibility but not ideal as new operation targets.
+- **Local target:** `ProjectMeta.target_ref` is an optional `LocalRefName`, such as `refs/heads/main`. This is the branch the editor treats as the target's own; other branches tracking the same upstream are not the local target.
+- **Target upstream:** derived from the local target's fetch tracking configuration. Its name can differ from the local branch name. A configured upstream can have a missing remote-tracking ref.
+- **Stored cutoff:** `ProjectMeta.target_commit_id` is an optional commit that fixes the workspace boundary even when refs move. It need not be reachable from the local target.
+- **Feature publication remote:** `ProjectMeta.push_remote` selects a remote for publishing feature branches. It does not select the target or its upstream.
+- **Workspace stacks:** metadata used to group branches for presentation and compatibility.
+
+Select the effective cutoff in this order:
+
+1. The stored cutoff, when set.
+2. The configured target upstream's tip.
+3. The local target's tip, only when no upstream is configured.
+
+Use `ProjectMeta::resolve_target_commit(&self, repo)` for this.
+
+A missing selected ref or object is an availability problem, not a reason to select a different cutoff. Reads leave an unset stored cutoff unset; initialization can record the effective cutoff. Graph and editor operations must resolve refs against their current graph or overlay.
 
 Treat target ref and target commit as **frame-of-reference metadata**, not automatically as mutation commands.
 
@@ -72,8 +83,9 @@ Use target ref/commit differently depending on the operation:
 
 Do not conflate:
 
-- local branch `foo` vs remote-tracking branch `origin/foo`
-- local branch `foo` relative to target ref `origin/main`
+- a feature branch and its own upstream;
+- the configured local target and its upstream;
+- the selected cutoff and the common base shown in the UI.
 
 Those answer different questions. This matters especially for normal Git / single-branch workflows.
 
@@ -118,6 +130,10 @@ Avoid using them as source of truth for:
 
 If code needs graph topology or accurate relationships, go back to `but_graph::Graph` or the graph editor before converting into projection/refinfo.
 
+`Workspace.target_ref` describes the target in the projected graph. It is not the source of target configuration. `RefInfo.target_ref` is private and carries that projected target into UI conversion. Use `ProjectMeta` for the configured local target and its derived upstream.
+
+The selected cutoff can exist without a projected target reference. The projection's `lower_bound` describes the common base shown in the UI and can differ from the cutoff. Local-target ahead counts and incoming upstream commits also measure different things; do not substitute one for the other.
+
 ## Rebase and mutations
 
 Treat the old rebase engine (`but_rebase::Rebase`) as legacy. It is linear: base plus ordered rebase steps. That assumes a meaningful contiguous range, which breaks down for graph-shaped histories, merge commits, normal Git branches, and single-branch mode.
@@ -161,7 +177,11 @@ For new push/dependency logic, ask graph questions:
 
 Push is not itself a mutation, so using the graph editor only for ordering can be conceptually awkward. Prefer `but_graph::Graph` for dependency and ordering questions.
 
-Upstream integration can be a useful conceptual pattern: reason over related subgraphs under workspace heads, even if existing code still uses stack terminology.
+Upstream integration uses the configured local target's upstream, not the feature publication remote. It requires an available upstream tip. Ordinary feature pushes do not require a target upstream.
+
+Pull can fast-forward the local target when it is behind its upstream and safe to update. It preserves local history when the target is ahead or diverged. A missing local target is an error, not a reason to recreate it at the upstream tip.
+
+UI pull state keeps upstream configuration, tip availability, cutoff equality, lagging lanes, and safe local fast-forward separate. Matching the cutoff to the upstream tip alone does not mean pull has no work.
 
 ## Single branch / normal Git mode
 
@@ -171,8 +191,8 @@ When touching code that should work in normal Git mode:
 
 - do not assume `gitbutler/workspace` is checked out;
 - do not assume stack metadata is the operation source of truth;
-- do not assume target ref equals the current branch’s remote-tracking branch;
-- separate branch remote divergence from target-ref/base divergence;
+- do not use the current branch's upstream as the project target's upstream;
+- distinguish feature-branch divergence, local-target divergence, and the workspace cutoff;
 - avoid managed-workspace-only assumptions unless the API explicitly requires managed workspace mode.
 
 ## Checklist before adding graph/workspace code
@@ -207,7 +227,7 @@ Ask this for both read/query code and mutation code:
 - New push/upstream or internal query logic depends on workspace projection buckets instead of graph topology.
 - Lower-level crate takes `but_ctx::Context` and reacquires locks.
 - Code re-borrows a handle from `but_ctx::Context` while an editor chain still holds it, trading a compile error for a run-time one.
-- Code assumes target ref equals current branch’s remote-tracking branch.
+- Code treats a feature branch's upstream as the project target's upstream.
 - Code assumes a user/CLI-provided commit ID is a valid operation target merely because the object exists.
 
 ## Examples / starting points
