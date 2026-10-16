@@ -25,7 +25,7 @@ use gpui::{
     UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*, px,
 };
 
-use crate::app::AppView;
+use crate::app::{AddProject, AppView};
 use crate::backend::{
     self, DiffBody, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected,
 };
@@ -33,7 +33,10 @@ use crate::state::{Pane, ProjectId, Review, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{Icon, empty_state, h_flex, resize_handle, resize_pane, small_icon, v_flex};
+use crate::ui::{
+    ButtonStyle, Icon, button, empty_state, h_flex, resize_handle, resize_pane, shortcut,
+    small_icon, v_flex,
+};
 
 actions!(
     detail,
@@ -1053,22 +1056,12 @@ impl Render for Detail {
         let theme = Theme::get(cx).clone();
         let selection = self.selection(cx);
         let body: AnyElement = match &selection {
-            None => {
-                let has_projects = !self.store.read(cx).projects.is_empty();
-                empty_state(
-                    if has_projects {
-                        "Nothing selected"
-                    } else {
-                        "Welcome to GitButler"
-                    },
-                    if has_projects {
-                        "Pick a project, branch or commit on the left."
-                    } else {
-                        "Add a repository with ⌘O to get started."
-                    },
-                    &theme,
-                )
-            }
+            None if self.store.read(cx).projects.is_empty() => welcome(&theme, cx),
+            None => empty_state(
+                "Nothing selected",
+                "Pick a project, branch or commit on the left.",
+                &theme,
+            ),
             Some(selection) => {
                 let side = match selection {
                     Selection::Uncommitted(project) => {
@@ -1174,6 +1167,53 @@ fn keeps_path(terms: &[String], path: &str) -> bool {
     }
     let path = path.to_lowercase();
     terms.iter().all(|term| path.contains(term.as_str()))
+}
+
+/// What the app shows before it has a project: what it's for, and the two ways in.
+fn welcome(theme: &Theme, cx: &Context<Detail>) -> AnyElement {
+    v_flex()
+        .size_full()
+        .items_center()
+        .justify_center()
+        .gap(px(10.))
+        .child(
+            div()
+                .text_size(px(18.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(theme.text_1)
+                .child("Welcome to GitButler"),
+        )
+        .child(
+            div()
+                .max_w(px(420.))
+                .text_center()
+                .text_size(px(13.))
+                .text_color(theme.text_2)
+                .child(
+                    "Add a repository your coding agents work in. What they change shows up \
+                     here as it happens, to review, commit and stack into branches.",
+                ),
+        )
+        .child(
+            h_flex()
+                .mt(px(6.))
+                .gap(px(8.))
+                .child(
+                    button("welcome-add", "Add a repository…")
+                        .style(ButtonStyle::Pop)
+                        .tooltip_with_key(
+                            "Pick a folder with a Git repository",
+                            shortcut(&AddProject, cx),
+                        )
+                        .on_click(|_, window, cx| window.dispatch_action(Box::new(AddProject), cx)),
+                )
+                .child(
+                    button("welcome-clone", "Clone a repository…").on_click(|_, window, cx| {
+                        window.dispatch_action(Box::new(crate::projects::CloneRepository), cx)
+                    }),
+                ),
+        )
+        .into_any_element()
 }
 
 fn hunk_keys(file: &FileDiff) -> Vec<HunkKey> {
