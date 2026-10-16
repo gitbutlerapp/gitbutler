@@ -3,6 +3,7 @@
 
 mod annotate;
 pub mod askpass;
+pub mod conflicts;
 mod highlight;
 pub mod history;
 pub mod model;
