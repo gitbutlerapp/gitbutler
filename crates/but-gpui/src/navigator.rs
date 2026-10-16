@@ -16,10 +16,9 @@ use crate::app::{
 };
 use crate::backend::{CommitId, CommitState, PushState};
 use crate::detail::{ChecksChanged, Detail};
-use crate::state::{Cut, Pane, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::Transfer;
-use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, h_flex, icon,
     icon_button, just_now, list_row, popover, relative_time, resize_handle, review, small_icon,
@@ -93,8 +92,6 @@ pub struct Navigator {
     reveal_selection: bool,
     /// Branches showing all their commits instead of the first few.
     unfolded_branches: HashSet<(ProjectId, String)>,
-    /// Narrows the navigator to projects whose name contains this text.
-    pub filter: Entity<TextInput>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -103,10 +100,8 @@ impl Navigator {
         app: WeakEntity<AppView>,
         store: Entity<Store>,
         detail: Entity<Detail>,
-        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let filter = cx.new(|cx| TextInput::new("Filter projects", false, cx));
         let subscriptions = vec![
             cx.observe(&store, |_, _, cx| cx.notify()),
             cx.subscribe(&store, |this, _, event, _| {
@@ -116,31 +111,6 @@ impl Navigator {
             }),
             // Dragging the uncommitted changes carries the checked ones.
             cx.subscribe(&detail, |_, _, _: &ChecksChanged, cx| cx.notify()),
-            cx.subscribe_in(
-                &filter,
-                window,
-                |this, filter, event, window, cx| match event {
-                    InputEvent::Changed => cx.notify(),
-                    InputEvent::Submit => {
-                        // Jump into the first match.
-                        let query = filter.read(cx).text().to_lowercase();
-                        let first = this
-                            .store
-                            .read(cx)
-                            .projects
-                            .iter()
-                            .find(|entry| entry.project.name.to_lowercase().contains(&query))
-                            .map(|entry| entry.id.clone());
-                        if let Some(id) = first {
-                            this.select(Selection::Project(id), window, cx);
-                        }
-                    }
-                    InputEvent::Cancel => {
-                        filter.update(cx, |filter, cx| filter.set_text("", cx));
-                        window.focus(&this.focus, cx);
-                    }
-                },
-            ),
         ];
         Self {
             app,
@@ -151,7 +121,6 @@ impl Navigator {
             list: ListState::new(0, ListAlignment::Top, px(200.)),
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
-            filter,
             _subscriptions: subscriptions,
         }
     }
@@ -160,17 +129,8 @@ impl Navigator {
     /// each; the collapsed ones share one compact card at the end.
     fn build_rows(&self, cx: &App) -> Vec<Row> {
         let store = self.store.read(cx);
-        let query = self.filter.read(cx).text().trim().to_lowercase();
-        let matches = |entry: &&ProjectEntry| {
-            query.is_empty() || entry.project.name.to_lowercase().contains(&query)
-        };
         let mut rows = Vec::new();
-        for entry in store
-            .projects
-            .iter()
-            .filter(|entry| entry.expanded)
-            .filter(matches)
-        {
+        for entry in store.projects.iter().filter(|entry| entry.expanded) {
             if !rows.is_empty() {
                 rows.push(Row::Gap);
             }
@@ -232,7 +192,6 @@ impl Navigator {
             .projects
             .iter()
             .filter(|entry| !entry.expanded)
-            .filter(matches)
             .peekable();
         if collapsed.peek().is_some() {
             if !rows.is_empty() {
@@ -990,7 +949,7 @@ impl Focusable for Navigator {
 }
 
 impl Render for Navigator {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.rows = self.build_rows(cx);
         self.sync_list(cx);
         let theme = Theme::get(cx).clone();
@@ -1048,27 +1007,6 @@ impl Render for Navigator {
             .border_r_1()
             .border_color(theme.border_3)
             .child(header)
-            .when(project_count > 5, |el| {
-                let filter_focused = self.filter.focus_handle(cx).is_focused(window);
-                el.child(
-                    h_flex()
-                        .mx(px(10.))
-                        .mb(px(8.))
-                        .h(px(28.))
-                        .px(px(8.))
-                        .gap(px(6.))
-                        .rounded(px(6.))
-                        .bg(theme.bg_1)
-                        .border_1()
-                        .border_color(if filter_focused {
-                            theme.pop
-                        } else {
-                            theme.border_3
-                        })
-                        .child(small_icon(Icon::Search).text_color(theme.text_3))
-                        .child(div().flex_1().text_size(px(12.)).child(self.filter.clone())),
-                )
-            })
             .map(|el| {
                 if empty {
                     el.child(

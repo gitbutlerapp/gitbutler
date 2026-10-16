@@ -136,8 +136,6 @@ impl ProjectEntry {
 pub struct Store {
     pub projects: Vec<ProjectEntry>,
     pub projects_loaded: bool,
-    /// Collapsed projects' cards still need their counts, once the open ones have loaded.
-    summaries_pending: bool,
     pub selection: Option<Selection>,
     pub cut: Option<Cut>,
     /// What the pointer is dragging. Only meaningful while GPUI has a drag active.
@@ -236,7 +234,6 @@ impl Store {
         let mut store = Self {
             projects: Vec::new(),
             projects_loaded: false,
-            summaries_pending: false,
             selection: None,
             cut: None,
             dragging: None,
@@ -397,49 +394,8 @@ impl Store {
             if let Some(selection) = open {
                 self.select(Some(selection), cx);
             }
-            self.summaries_pending = true;
-            self.load_summaries(cx);
         }
         cx.notify();
-    }
-
-    /// Load collapsed projects one after another, so their cards can show counts.
-    /// Waits for the open projects first, so their loads don't compete with these.
-    fn load_summaries(&mut self, cx: &mut Context<Self>) {
-        let opening = self
-            .projects
-            .iter()
-            .any(|entry| entry.expanded && entry.workspace.is_none() && entry.error.is_none());
-        if !self.summaries_pending || opening {
-            return;
-        }
-        self.summaries_pending = false;
-        let pending: Vec<(ProjectId, PathBuf)> = self
-            .projects
-            .iter()
-            .filter(|entry| !entry.expanded && entry.workspace.is_none())
-            .map(|entry| (entry.id.clone(), entry.project.path.clone()))
-            .collect();
-        cx.spawn(async move |this, cx| {
-            for (id, path) in pending {
-                let result = backend::run(move || backend::load_workspace(&path)).await;
-                let Ok(()) = this.update(cx, |store, cx| {
-                    if let Some(entry) = store.project_mut(&id)
-                        && entry.workspace.is_none()
-                        && !entry.loading
-                    {
-                        match result {
-                            Ok(workspace) => store.workspace_loaded(&id, workspace, true, cx),
-                            Err(err) => entry.error = Some(format!("{err:#}").into()),
-                        }
-                        cx.notify();
-                    }
-                }) else {
-                    return;
-                };
-            }
-        })
-        .detach();
     }
 
     pub fn add_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
@@ -599,7 +555,6 @@ impl Store {
                 if again {
                     store.load(&id, again_full, cx);
                 }
-                store.load_summaries(cx);
             })
             .ok();
         })

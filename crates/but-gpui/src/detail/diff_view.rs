@@ -1,6 +1,6 @@
 //! The diff column: every changed file as a card, built row by row so only what's on
-//! screen is laid out. Uncommitted files carry review controls; every hunk gets a small
-//! toolbar while it's under the cursor or the pointer, as in Zed's agent review.
+//! screen is laid out. Uncommitted files carry review controls, and their hunks a Discard
+//! button while under the cursor or the pointer, as in Zed's agent review.
 
 use std::ops::Range;
 use std::rc::Rc;
@@ -10,15 +10,13 @@ use gpui::{
     list, prelude::*, px,
 };
 
-use super::{
-    Cursor, Detail, DiscardHunk, NextHunk, PreviousHunk, TextPoint, ToggleReviewed, checkbox_box,
-};
-use crate::app::{AppView, MenuItem};
+use super::{Cursor, Detail, DiscardHunk, TextPoint, ToggleReviewed, checkbox_box};
+use crate::app::AppView;
 use crate::backend::{DiffBody, DiffLine, DiffSource, Selected};
 use crate::state::{ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, Decor, DiffRow, LineSelect};
-use crate::ui::{ButtonStyle, Icon, button, empty_state, h_flex, icon_button, shortcut};
+use crate::ui::{ButtonStyle, button, empty_state, h_flex, shortcut};
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
 /// list notifies the view that drew it, and GPUI draws everything inside a notified view again,
@@ -309,47 +307,25 @@ impl Detail {
                         file: diff.files[file].file.clone(),
                         hunks: Some(vec![key]),
                     };
-                    Rc::new((diff.key.project.clone(), change))
+                    let project = diff.key.project.clone();
+                    discard_button(ix, project, change, current, self.app.clone(), cx)
                 });
-                let toolbar = hunk_toolbar(
-                    ix,
-                    (file, hunk),
-                    discard.clone(),
-                    current,
-                    (entity.clone(), self.app.clone()),
-                    cx,
-                );
                 let element = diff::render_row(
                     row,
                     &diff.files,
                     theme,
                     Decor {
                         leading,
-                        trailing: Some(toolbar),
+                        trailing: discard,
                         excluded: excluded(file, hunk),
                         current,
                         ..Default::default()
                     },
                 );
-                // Right-click offers the same discard, with its key.
                 div()
                     .id(("hunk", ix))
                     .group("hunk-row")
                     .child(element)
-                    .when_some(discard, |el, discard| {
-                        let app = self.app.clone();
-                        el.on_mouse_down(MouseButton::Right, move |event, _, cx| {
-                            let discard = discard.clone();
-                            let item = MenuItem::new("Discard hunk", move |app, window, cx| {
-                                let (project, change) = (*discard).clone();
-                                app.discard(project, vec![change], window, cx)
-                            })
-                            .key(shortcut(&DiscardHunk, cx))
-                            .danger();
-                            app.update(cx, |app, cx| app.open_menu(event.position, vec![item], cx))
-                                .ok();
-                        })
-                    })
                     .into_any_element()
             }
             DiffRow::Line { file, hunk, .. } => {
@@ -433,62 +409,35 @@ fn review_button(
         .into_any_element()
 }
 
-/// Previous, next and (for uncommitted changes) discard, shown on the hunk under the
-/// cursor and on the one under the pointer.
-fn hunk_toolbar(
+/// Discard for an uncommitted hunk, shown on the hunk under the cursor and on the one under
+/// the pointer.
+fn discard_button(
     ix: usize,
-    (file, hunk): (usize, usize),
-    discard: Option<Rc<(ProjectId, Selected)>>,
+    project: ProjectId,
+    change: Selected,
     current: bool,
-    (entity, app): (WeakEntity<Detail>, WeakEntity<AppView>),
+    app: WeakEntity<AppView>,
     cx: &App,
 ) -> AnyElement {
-    let step = |forward: bool| {
-        let entity = entity.clone();
-        move |_: &gpui::ClickEvent, _: &mut gpui::Window, cx: &mut App| {
-            entity
-                .update(cx, |detail, cx| {
-                    detail.cursor = Cursor {
-                        file,
-                        hunk: Some(hunk),
-                    };
-                    detail.move_hunk(forward, cx);
-                })
-                .ok();
-        }
-    };
-    h_flex()
+    div()
         .flex_none()
-        .gap(px(2.))
         .font_family(Theme::get(cx).ui_font.clone())
         .when(!current, |el| {
             el.invisible().group_hover("hunk-row", |el| el.visible())
         })
         .child(
-            icon_button(("hunk-up", ix), Icon::ArrowUp)
+            button(("hunk-discard", ix), "Discard")
                 .small()
-                .tooltip_with_key("Previous hunk", shortcut(&PreviousHunk, cx))
-                .on_click(step(false)),
+                .style(ButtonStyle::Ghost)
+                .tooltip_with_key("Throw this hunk away", shortcut(&DiscardHunk, cx))
+                .on_click(move |_, window, cx| {
+                    let changes = vec![change.clone()];
+                    app.update(cx, |app, cx| {
+                        app.discard(project.clone(), changes, window, cx)
+                    })
+                    .ok();
+                }),
         )
-        .child(
-            icon_button(("hunk-down", ix), Icon::ArrowDown)
-                .small()
-                .tooltip_with_key("Next hunk", shortcut(&NextHunk, cx))
-                .on_click(step(true)),
-        )
-        .when_some(discard, |el, discard| {
-            el.child(
-                button(("hunk-discard", ix), "Discard")
-                    .small()
-                    .style(ButtonStyle::Ghost)
-                    .tooltip_with_key("Throw this hunk away", shortcut(&DiscardHunk, cx))
-                    .on_click(move |_, window, cx| {
-                        let (project, change) = (*discard).clone();
-                        app.update(cx, |app, cx| app.discard(project, vec![change], window, cx))
-                            .ok();
-                    }),
-            )
-        })
         .into_any_element()
 }
 

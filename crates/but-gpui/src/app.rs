@@ -53,7 +53,6 @@ actions!(
         Push,
         FocusNavigator,
         FocusChanges,
-        FocusFilter,
         StartCommit,
         ToggleNavigator,
         ToggleZoom,
@@ -77,7 +76,6 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-k", CommandPalette, None),
         KeyBinding::new("cmd-1", FocusNavigator, None),
         KeyBinding::new("cmd-2", FocusChanges, None),
-        KeyBinding::new("cmd-f", FocusFilter, None),
         KeyBinding::new("cmd-enter", StartCommit, workspace),
         KeyBinding::new("cmd-z", Undo, workspace),
         KeyBinding::new("cmd-shift-z", Redo, workspace),
@@ -208,7 +206,7 @@ impl AppView {
         let app = cx.entity().downgrade();
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
         let diff = cx.new(|cx| DiffPane::new(&detail, cx));
-        let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), window, cx));
+        let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), cx));
         window.focus(&navigator.focus_handle(cx), cx);
         let subscriptions = vec![
             cx.observe(&store, |_, _, cx| cx.notify()),
@@ -758,12 +756,6 @@ impl AppView {
         }
     }
 
-    fn focus_filter(&mut self, _: &FocusFilter, window: &mut Window, cx: &mut Context<Self>) {
-        let filter = self.navigator.read(cx).filter.clone();
-        filter.update(cx, |filter, cx| filter.select_all_text(cx));
-        window.focus(&filter.focus_handle(cx), cx);
-    }
-
     fn focus_navigator(&mut self, _: &FocusNavigator, window: &mut Window, cx: &mut Context<Self>) {
         // Asking for the navigator brings it back.
         if !self.navigator_open || self.zoomed {
@@ -1206,7 +1198,6 @@ impl Render for AppView {
             }))
             .on_action(cx.listener(Self::cancel))
             .on_action(cx.listener(Self::focus_navigator))
-            .on_action(cx.listener(Self::focus_filter))
             .on_action(cx.listener(Self::focus_changes))
             .on_action(cx.listener(Self::start_commit))
             .on_action(cx.listener(Self::redo))
