@@ -11,7 +11,10 @@
 //! [`GraphWorkspace`]: but_rebase::graph_rebase::GraphWorkspace
 
 use anyhow::Result;
-use but_core::ref_metadata::ProjectMeta;
+use but_core::{
+    ref_metadata::{LocalRefName, ProjectMeta},
+    ui::{CommitState, PushStatus},
+};
 use but_graph::Graph;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::visualize_commit_graph_all;

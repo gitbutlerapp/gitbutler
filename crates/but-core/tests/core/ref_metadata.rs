@@ -758,8 +758,19 @@ Workspace {
 }
 
 mod project_meta {
-    use but_core::ref_metadata::ProjectMeta;
+    use but_core::ref_metadata::{LocalRefName, ProjectMeta};
     use but_testsupport::read_only_in_memory_scenario;
+
+    fn repo() -> anyhow::Result<gix::Repository> {
+        read_only_in_memory_scenario("project-target-metadata")
+    }
+
+    fn local_target(name: &str) -> anyhow::Result<ProjectMeta> {
+        Ok(ProjectMeta {
+            target_ref: Some(LocalRefName::new(name.try_into()?)?),
+            ..ProjectMeta::default()
+        })
+    }
 
     #[test]
     fn malformed_target_ref_and_commit_id_read_as_none() -> anyhow::Result<()> {
@@ -769,70 +780,26 @@ mod project_meta {
              \ttargetCommitId = not-a-commit-id\n\
              \tpushRemote = upstream\n",
         )?;
-
-        let actual = ProjectMeta::try_from_config(&config)?;
-        assert_eq!(
-            actual.target_ref, None,
-            "a target ref that isn't a full ref name is ignored instead of failing the whole read"
-        );
+        let actual = ProjectMeta::try_from_config(&config, &repo()?)?;
+        assert_eq!(actual.target_ref, None, "malformed ref names are ignored");
         assert_eq!(
             actual.target_commit_id, None,
-            "a target commit id that isn't a hexadecimal object id is ignored as well"
+            "malformed commit IDs are ignored"
         );
         assert_eq!(
             actual.push_remote.as_deref(),
             Some("upstream"),
-            "well-formed values are still read despite malformed siblings"
+            "valid siblings survive"
         );
         Ok(())
     }
 
     #[test]
-    fn non_remote_target_ref_reads_as_none() -> anyhow::Result<()> {
-        let config = gix::config::File::try_from(
-            "[gitbutler \"project\"]\n\
-             \ttargetRef = refs/heads/main\n",
-        )?;
-
-        let actual = ProjectMeta::try_from_config(&config)?;
-        assert_eq!(
-            actual.target_ref, None,
-            "a target ref that isn't a remote tracking branch would wrongly be seeded as remote \
-             target tip, so it's ignored"
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn push_remote_name_falls_back_to_textual_remote_name() -> anyhow::Result<()> {
-        let repo = read_only_in_memory_scenario("multiple-remotes-with-tracking-branches")?;
-
-        let meta = ProjectMeta {
-            target_ref: Some(gix::refs::FullName::try_from(
-                "refs/remotes/gone/release/1.x".to_owned(),
-            )?),
-            target_commit_id: None,
-            push_remote: None,
-        };
-        assert_eq!(
-            meta.push_remote_name(&repo)?,
-            "gone",
-            "with no matching configured remote and a slash in the branch name, \
-             the first path component after refs/remotes/ is used, like legacy metadata stored"
-        );
-
-        let meta = ProjectMeta {
-            target_ref: Some(gix::refs::FullName::try_from(
-                "refs/remotes/nested/remote/feature/a".to_owned(),
-            )?),
-            target_commit_id: None,
-            push_remote: None,
-        };
-        assert_eq!(
-            meta.push_remote_name(&repo)?,
-            "nested/remote",
-            "configured remotes remain the primary path so remote names containing '/' still work"
-        );
+    fn tag_target_ref_reads_as_none() -> anyhow::Result<()> {
+        let config =
+            gix::config::File::try_from("[gitbutler \"project\"]\n\ttargetRef = refs/tags/main\n")?;
+        let actual = ProjectMeta::try_from_config(&config, &repo()?)?;
+        assert_eq!(actual.target_ref, None, "tags are not integration targets");
         Ok(())
     }
 
@@ -840,19 +807,26 @@ mod project_meta {
     fn null_target_commit_id_reads_as_none() -> anyhow::Result<()> {
         let config = gix::config::File::try_from(
             "[gitbutler \"project\"]\n\
-             \ttargetRef = refs/remotes/origin/main\n\
+             \ttargetRef = refs/heads/main\n\
              \ttargetCommitId = 0000000000000000000000000000000000000000\n",
         )?;
-
-        let actual = ProjectMeta::try_from_config(&config)?;
+        let actual = ProjectMeta::try_from_config(&config, &repo()?)?;
         assert_eq!(
-            actual.target_ref.map(|name| name.to_string()),
-            Some("refs/remotes/origin/main".to_string())
-        );
-        assert_eq!(
-            actual.target_commit_id, None,
-            "the null id is a placeholder for an unknown commit and must read as absent"
+            actual,
+            local_target("refs/heads/main")?,
+            "the null commit ID means absent"
         );
         Ok(())
     }
+
+    #[test]
+    fn push_remote_name_falls_back_to_target_fetch_remote() -> anyhow::Result<()> {
+        assert_eq!(
+            local_target("refs/heads/main")?.push_remote_name(&repo()?)?,
+            "origin",
+            "feature publishing falls back to the target's fetch remote"
+        );
+        Ok(())
+    }
+
 }

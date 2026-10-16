@@ -901,38 +901,4 @@ but_schemars::register_sdk_type!(BranchListingDetails);
 
 #[cfg(test)]
 mod tests {
-    use super::target_identity_from_ref_name;
-
-    use bstr::ByteSlice;
-
-    fn remote_names(names: &[&str]) -> gix::remote::Names {
-        names
-            .iter()
-            .map(|name| name.as_bytes().as_bstr().to_owned())
-            .collect()
-    }
-
-    #[test]
-    fn target_identity_from_remote_ref_without_configured_remote() -> anyhow::Result<()> {
-        let remote_names = remote_names(&["origin"]);
-        let ref_name: gix::refs::FullName = "refs/remotes/non-existing/feature".try_into()?;
-
-        assert_eq!(
-            target_identity_from_ref_name(ref_name.as_ref(), &remote_names)?.to_string(),
-            "feature"
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn target_identity_preserves_configured_nested_remote() -> anyhow::Result<()> {
-        let remote_names = remote_names(&["nested/remote"]);
-        let ref_name: gix::refs::FullName = "refs/remotes/nested/remote/feature/a".try_into()?;
-
-        assert_eq!(
-            target_identity_from_ref_name(ref_name.as_ref(), &remote_names)?.to_string(),
-            "feature/a"
-        );
-        Ok(())
-    }
 }

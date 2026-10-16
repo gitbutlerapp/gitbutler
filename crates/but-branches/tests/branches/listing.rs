@@ -20,7 +20,7 @@ fn listing_snapshot(listing: &BranchListing) -> String {
         listing
             .target_ref
             .as_ref()
-            .map(|name| name.as_bstr().to_string())
+            .map(|local_name| local_name.to_string())
             .unwrap_or_else(|| "none".into()),
         listing.incomplete
     );
@@ -64,7 +64,7 @@ fn listing_snapshot(listing: &BranchListing) -> String {
     out
 }
 
-/// Listing options for a repository whose target is `refs/remotes/origin/main`.
+/// Listing options for a repository whose local target is `refs/heads/main`.
 fn options_with_target(repo: &gix::Repository) -> anyhow::Result<but_branches::Options> {
     Ok(but_branches::Options {
         project_meta: project_meta_with_target(repo)?,
@@ -135,7 +135,7 @@ fn grouped_and_classified() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         listing_snapshot(&listing),
         snapbox::str![[r#"
-target: refs/remotes/origin/main, incomplete: false
+target: refs/heads/main, incomplete: false
 Standalone [remote-behind]
   remote-behind (local+remote: refs/remotes/origin/remote-behind) bb8e41e commits=2 target(+2)
 Standalone [remote-only]
@@ -185,7 +185,7 @@ fn ordinary_repository_without_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         listing_snapshot(&listing),
         snapbox::str![[r#"
-target: refs/remotes/origin/main, incomplete: false
+target: refs/heads/main, incomplete: false
 Standalone [A]
   A (local) e5d0542 commits=0 target(+0)
 Standalone [B]

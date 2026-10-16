@@ -499,7 +499,7 @@ mod tests {
     #[test]
     fn short_name_strips_full_remote_ref() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/remotes/origin/feature/foo", "origin"),
+            BaseBranch::compute_short_name("refs/remotes/origin/feature/foo", Some("origin")),
             "feature/foo"
         );
     }
@@ -507,7 +507,7 @@ mod tests {
     #[test]
     fn short_name_strips_short_remote_ref() {
         assert_eq!(
-            BaseBranch::compute_short_name("origin/feature/foo", "origin"),
+            BaseBranch::compute_short_name("origin/feature/foo", Some("origin")),
             "feature/foo"
         );
     }
@@ -515,7 +515,7 @@ mod tests {
     #[test]
     fn short_name_strips_full_remote_ref_simple() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/remotes/origin/main", "origin"),
+            BaseBranch::compute_short_name("refs/remotes/origin/main", Some("origin")),
             "main"
         );
     }
@@ -523,7 +523,7 @@ mod tests {
     #[test]
     fn short_name_strips_short_remote_ref_simple() {
         assert_eq!(
-            BaseBranch::compute_short_name("origin/main", "origin"),
+            BaseBranch::compute_short_name("origin/main", Some("origin")),
             "main"
         );
     }
@@ -533,14 +533,14 @@ mod tests {
         assert_eq!(
             BaseBranch::compute_short_name(
                 "refs/remotes/another-remote/feat/complex-branch-name",
-                "another-remote"
+                Some("another-remote")
             ),
             "feat/complex-branch-name"
         );
         assert_eq!(
             BaseBranch::compute_short_name(
                 "another-remote/feat/complex-branch-name",
-                "another-remote"
+                Some("another-remote")
             ),
             "feat/complex-branch-name"
         );
@@ -549,11 +549,11 @@ mod tests {
     #[test]
     fn short_name_non_matching_remote() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/remotes/origin/feature/foo", "not-origin"),
+            BaseBranch::compute_short_name("refs/remotes/origin/feature/foo", Some("not-origin")),
             "refs/remotes/origin/feature/foo"
         );
         assert_eq!(
-            BaseBranch::compute_short_name("origin/feature/foo", "not-origin"),
+            BaseBranch::compute_short_name("origin/feature/foo", Some("not-origin")),
             "origin/feature/foo"
         );
     }
@@ -561,7 +561,7 @@ mod tests {
     #[test]
     fn short_name_heads_ref_with_remote() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/heads/feature/foo", "origin"),
+            BaseBranch::compute_short_name("refs/heads/feature/foo", Some("origin")),
             "feature/foo"
         );
     }
@@ -569,7 +569,7 @@ mod tests {
     #[test]
     fn short_name_local_name_with_remote() {
         assert_eq!(
-            BaseBranch::compute_short_name("feature/foo", "origin"),
+            BaseBranch::compute_short_name("feature/foo", Some("origin")),
             "feature/foo"
         );
     }
@@ -577,11 +577,11 @@ mod tests {
     #[test]
     fn short_name_heads_ref_no_remote() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/heads/feature/foo", ""),
+            BaseBranch::compute_short_name("refs/heads/feature/foo", None),
             "feature/foo"
         );
         assert_eq!(
-            BaseBranch::compute_short_name("refs/heads/main", ""),
+            BaseBranch::compute_short_name("refs/heads/main", None),
             "main"
         );
     }
@@ -589,28 +589,28 @@ mod tests {
     #[test]
     fn short_name_local_name_no_remote() {
         assert_eq!(
-            BaseBranch::compute_short_name("feature/foo", ""),
+            BaseBranch::compute_short_name("feature/foo", None),
             "feature/foo"
         );
-        assert_eq!(BaseBranch::compute_short_name("main", ""), "main");
+        assert_eq!(BaseBranch::compute_short_name("main", None), "main");
         assert_eq!(
-            BaseBranch::compute_short_name("dev/task/T-123", ""),
+            BaseBranch::compute_short_name("dev/task/T-123", None),
             "dev/task/T-123"
         );
     }
 
     #[test]
     fn short_name_branch_equals_remote() {
-        assert_eq!(BaseBranch::compute_short_name("origin", "origin"), "");
+        assert_eq!(BaseBranch::compute_short_name("origin", Some("origin")), "");
     }
 
     #[test]
     fn short_name_trailing_slash() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/remotes/origin/", "origin"),
+            BaseBranch::compute_short_name("refs/remotes/origin/", Some("origin")),
             ""
         );
-        assert_eq!(BaseBranch::compute_short_name("refs/heads/", ""), "");
+        assert_eq!(BaseBranch::compute_short_name("refs/heads/", None), "");
     }
 
     #[test]
@@ -618,7 +618,7 @@ mod tests {
         assert_eq!(
             BaseBranch::compute_short_name(
                 "refs/remotes/origin/feature/name-with-refs/heads/in-it",
-                "origin"
+                Some("origin")
             ),
             "feature/name-with-refs/heads/in-it"
         );
@@ -626,18 +626,18 @@ mod tests {
 
     #[test]
     fn short_name_empty_branch() {
-        assert_eq!(BaseBranch::compute_short_name("", "origin"), "");
-        assert_eq!(BaseBranch::compute_short_name("", ""), "");
+        assert_eq!(BaseBranch::compute_short_name("", Some("origin")), "");
+        assert_eq!(BaseBranch::compute_short_name("", None), "");
     }
 
     #[test]
     fn short_name_remote_with_slashes() {
         assert_eq!(
-            BaseBranch::compute_short_name("refs/remotes/dev/feature/branch", "dev/feature"),
+            BaseBranch::compute_short_name("refs/remotes/dev/feature/branch", Some("dev/feature")),
             "branch"
         );
         assert_eq!(
-            BaseBranch::compute_short_name("dev/feature/branch", "dev/feature"),
+            BaseBranch::compute_short_name("dev/feature/branch", Some("dev/feature")),
             "branch"
         );
     }

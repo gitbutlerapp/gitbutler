@@ -669,8 +669,9 @@ mod tests {
         git(&["config", "user.name", "GitButler"]);
         git(&["config", "user.email", "gitbutler@example.com"]);
         git(&["commit", "--allow-empty", "-m", "base"]);
-        git(&["config", "remote.origin.url", "../origin"]);
+        git(&["remote", "add", "origin", "../origin"]);
         git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        git(&["branch", "--set-upstream-to=origin/main", "main"]);
         for branch in ["A", "B", "C"] {
             git(&["checkout", "-b", branch]);
             git(&["commit", "--allow-empty", "-m", &format!("{branch} 1")]);
@@ -696,7 +697,9 @@ mod tests {
 
         let repo = open_repo(tmp.path())?;
         ProjectMeta {
-            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
             target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
             push_remote: Some("origin".into()),
         }

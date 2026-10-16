@@ -70,9 +70,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 0,
             },
         ),
@@ -82,7 +82,18 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -122,7 +133,39 @@ On the remote, a rewritten/rebased commit we have locally is merged back into ta
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let (info, workspace) = crate::ref_info::with_workspace_commit::head_info_and_workspace(
+        &repo,
+        &meta,
+        &mut db,
+        standard_options(),
+    )?;
+    assert_eq!(
+        workspace
+            .target_ref
+            .as_ref()
+            .expect("local target")
+            .commits_ahead,
+        0,
+        "the target count describes local main above the workspace base"
+    );
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([
+            repo.rev_parse_single("c635f08")?.detach(),
+            repo.rev_parse_single("3fcd07a")?.detach(),
+        ]),
+        "upstream history must remain visible independently of the local target count"
+    );
+    let info = Ok::<_, anyhow::Error>(info);
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -157,10 +200,10 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 2,
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
             },
         ),
         target_commit: Some(
@@ -169,7 +212,18 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: false,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(c635f0895ec611dfb7ccba61327fda5ae6e1ded6),
+                ),
+                cutoff_matches_tip: false,
+            },
+        ),
+        can_fast_forward_local_target: true,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -245,9 +299,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 0,
             },
         ),
@@ -257,7 +311,18 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -335,9 +400,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 2,
             },
         ),
@@ -347,7 +412,18 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(085089cbf8a35fa549a5d50bd74930a7fddf970d),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(7),
         ),
@@ -418,9 +494,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 0,
             },
         ),
@@ -430,7 +506,18 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -505,9 +592,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 1,
             },
         ),
@@ -517,7 +604,18 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(a670cd571f1a6946a1a87d107e909445aa0fe90d),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(4),
         ),
@@ -590,9 +688,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 0,
             },
         ),
@@ -602,7 +700,18 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -651,9 +760,9 @@ Ok(
         target_ref: Some(
             TargetRef {
                 ref_name: FullName(
-                    "refs/remotes/origin/main",
+                    "refs/heads/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: NodeIndex(2),
                 commits_ahead: 1,
             },
         ),
@@ -663,7 +772,18 @@ Ok(
                 segment_index: NodeIndex(2),
             },
         ),
-        is_target_current: true,
+        target_upstream: Some(
+            TargetUpstream {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                tip: Some(
+                    Sha1(a62b0de7d50898e05c6cfa5b56d268aa5be17087),
+                ),
+                cutoff_matches_tip: true,
+            },
+        ),
+        can_fast_forward_local_target: false,
         lower_bound: Some(
             NodeIndex(3),
         ),

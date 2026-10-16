@@ -22,10 +22,13 @@ fn context_with_two_commits_and_a_dirty_file()
     git_at_dir(tmp.path()).args(["add", "base.txt"]).run();
     git_at_dir(tmp.path()).args(["commit", "-m", "base"]).run();
     git_at_dir(tmp.path())
-        .args(["config", "remote.origin.url", "../origin"])
+        .args(["remote", "add", "origin", "../origin"])
         .run();
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["branch", "--set-upstream-to=origin/main", "main"])
         .run();
 
     git_at_dir(tmp.path())
@@ -46,7 +49,9 @@ fn context_with_two_commits_and_a_dirty_file()
     let repo = open_repo(tmp.path())?;
     let target_commit_id = repo.rev_parse_single("refs/remotes/origin/main")?.detach();
     ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(target_commit_id),
         push_remote: Some("origin".into()),
     }

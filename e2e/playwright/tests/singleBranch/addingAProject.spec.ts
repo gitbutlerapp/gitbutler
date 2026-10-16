@@ -48,11 +48,7 @@ test("adding a project sets the target without leaving the checked out branch", 
 	await assertCommitSubjects(["Second commit on main branch", "Initial commit"], projectPath);
 
 	// The target itself was configured, just without entering the workspace.
-	await assertGitConfigValue(
-		"gitbutler.project.targetRef",
-		"refs/remotes/origin/master",
-		projectPath,
-	);
+	await assertGitConfigValue("gitbutler.project.targetRef", "refs/heads/master", projectPath);
 
 	// Entering the managed workspace stays available as an explicit action.
 	await expect(getByTestId(page, "chrome-header-switch-back-to-workspace-button")).toBeVisible();

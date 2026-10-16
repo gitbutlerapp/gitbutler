@@ -241,7 +241,7 @@ fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         crate::support::workspace_graph(&ctx)?,
         snapbox::str![[r#"
-⌂:feature[🌳] <> ✓refs/remotes/origin/main on 5374caf
+⌂:feature[🌳] <> ✓refs/heads/main on 5374caf
 └── ≡:feature[🌳] on 5374caf {1}
     └── :feature[🌳]
         └── ·edd8381
@@ -309,7 +309,7 @@ RefInfo {
     target_ref: Some(
         TargetRef {
             ref_name: FullName(
-                "refs/remotes/origin/main",
+                "refs/heads/main",
             ),
             commits_ahead: 0,
         },
@@ -319,7 +319,18 @@ RefInfo {
             commit_id: Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
         },
     ),
-    is_target_current: true,
+    target_upstream: Some(
+        TargetUpstream {
+            ref_name: FullName(
+                "refs/remotes/origin/main",
+            ),
+            tip: Some(
+                Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
+            ),
+            cutoff_matches_tip: true,
+        },
+    ),
+    can_fast_forward_local_target: false,
     lower_bound: Some(
     ),
     ancestor_workspace_commit: None,
@@ -367,7 +378,7 @@ fn checkout_new_returns_head_info_matching_fresh_head_info() -> anyhow::Result<(
     snapbox::assert_data_eq!(
         crate::support::workspace_graph(&ctx)?,
         snapbox::str![[r#"
-⌂:new-branch[🌳] <> ✓refs/remotes/origin/main on 5374caf
+⌂:new-branch[🌳] <> ✓refs/heads/main on 5374caf
 └── ≡:new-branch[🌳] on 5374caf {1}
     └── :new-branch[🌳]
 
@@ -410,7 +421,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(1),
                     ref_name: "►new-branch[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -425,9 +436,9 @@ RefInfo {
     target_ref: Some(
         TargetRef {
             ref_name: FullName(
-                "refs/remotes/origin/main",
+                "refs/heads/main",
             ),
-            segment_index: NodeIndex(1),
+            segment_index: NodeIndex(2),
             commits_ahead: 0,
         },
     ),
@@ -437,7 +448,18 @@ RefInfo {
             segment_index: NodeIndex(2),
         },
     ),
-    is_target_current: true,
+    target_upstream: Some(
+        TargetUpstream {
+            ref_name: FullName(
+                "refs/remotes/origin/main",
+            ),
+            tip: Some(
+                Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
+            ),
+            cutoff_matches_tip: true,
+        },
+    ),
+    can_fast_forward_local_target: false,
     lower_bound: Some(
         NodeIndex(2),
     ),

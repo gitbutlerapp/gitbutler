@@ -3,8 +3,8 @@ use but_testsupport::{CommandExt, git_at_dir, open_repo};
 use gitbutler_oplog::{OplogExt, RestoreKind};
 
 use crate::support::{
-    assert_workspace_ref, create_empty_branch_above, persist_default_target,
-    repo_with_feature_branch, write_file,
+    assert_workspace_ref, create_empty_branch_above, repo_with_feature_branch,
+    set_project_target_to_feature, write_file,
 };
 
 fn move_branch_above(
@@ -37,10 +37,13 @@ fn context_with_three_branch_stack_options(
     git_at_dir(tmp.path()).args(["add", "base.txt"]).run();
     git_at_dir(tmp.path()).args(["commit", "-m", "base"]).run();
     git_at_dir(tmp.path())
-        .args(["config", "remote.origin.url", "../origin"])
+        .args(["remote", "add", "origin", "../origin"])
         .run();
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["branch", "--set-upstream-to=origin/main", "main"])
         .run();
 
     for branch in ["A", "B", "C"] {
@@ -59,7 +62,9 @@ fn context_with_three_branch_stack_options(
     let repo = open_repo(tmp.path())?;
     let target_commit_id = repo.rev_parse_single("refs/remotes/origin/main")?.detach();
     ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(target_commit_id),
         push_remote: Some("origin".into()),
     }
@@ -323,7 +328,8 @@ fn move_empty_branch_dry_run_previews_new_order_without_persisting_it() -> anyho
 #[test]
 fn metadata_only_branch_move_can_be_undone_and_redone() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_feature_branch()?;
-    persist_default_target(&repo)?;
+    // Keep the empty branch chain above the cutoff so it remains part of the workspace.
+    set_project_target_to_feature(&repo)?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     let main: gix::refs::FullName = "refs/heads/main".try_into()?;
     let middle: gix::refs::FullName = "refs/heads/middle".try_into()?;

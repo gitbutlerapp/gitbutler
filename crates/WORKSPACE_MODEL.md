@@ -24,7 +24,6 @@ UI code may still present stacks, lanes, or buckets. Core read/query paths and m
 
 This applies both when **changing** state and when **asking questions** about stacks, branches, commits, or dependencies. The compressed/projection views are convenient, but they are not the best internal source of truth for graph-shaped questions.
 
-
 | Task | Prefer | Avoid |
 |---|---|---|
 | Rewrite, move, drop, insert commits or ref placements | graph editor (`but_rebase::graph_rebase::Editor`) where an editor model exists | old linear rebase engine (`but_rebase::Rebase`) |

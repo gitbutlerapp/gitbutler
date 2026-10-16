@@ -32,6 +32,9 @@ function setup-remote-and-vbtoml () {
 [remote "origin"]
   url = ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
   fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+  remote = origin
+  merge = refs/heads/main
 EOF
 
   # Make sure the target is set.

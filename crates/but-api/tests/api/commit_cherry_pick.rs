@@ -19,10 +19,13 @@ fn context_with_cherry_pick_history() -> anyhow::Result<(but_ctx::Context, tempf
     git_at_dir(tmp.path()).args(["add", "base.txt"]).run();
     git_at_dir(tmp.path()).args(["commit", "-m", "base"]).run();
     git_at_dir(tmp.path())
-        .args(["config", "remote.origin.url", "../origin"])
+        .args(["remote", "add", "origin", "../origin"])
         .run();
     git_at_dir(tmp.path())
         .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["branch", "--track", "base", "origin/main"])
         .run();
 
     write_file(tmp.path(), "source-one.txt", "one\n")?;
@@ -43,7 +46,9 @@ fn context_with_cherry_pick_history() -> anyhow::Result<(but_ctx::Context, tempf
     let repo = open_repo(tmp.path())?;
     let target_commit_id = repo.rev_parse_single("refs/remotes/origin/main")?.detach();
     ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/base".try_into()?,
+        )?),
         target_commit_id: Some(target_commit_id),
         push_remote: Some("origin".into()),
     }

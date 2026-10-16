@@ -22,7 +22,9 @@ fn main_and_origin_main_in_sync() -> anyhow::Result<()> {
 
     // Supply the integration target that CLI initialization would resolve.
     let project_meta = ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         ..Default::default()
     };
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
@@ -33,14 +35,13 @@ fn main_and_origin_main_in_sync() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+⌂:main[🌳] <> ✓refs/heads/main on 85efbe4
 
 "#]]
     );
 
     Ok(())
 }
-
 #[test]
 fn empty_feature_branch_at_target_remains_visible() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("single-branch-empty-feature")?;
@@ -55,7 +56,9 @@ fn empty_feature_branch_at_target_remains_visible() -> anyhow::Result<()> {
 
     // Supply the integration target as graph input; target discovery belongs to the caller.
     let project_meta = ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         ..Default::default()
     };
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
@@ -66,7 +69,7 @@ fn empty_feature_branch_at_target_remains_visible() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
-⌂:feature[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+⌂:feature[🌳] <> ✓refs/heads/main on 85efbe4
 └── ≡:feature[🌳] on 85efbe4 {1}
     └── :feature[🌳]
 
@@ -75,7 +78,6 @@ fn empty_feature_branch_at_target_remains_visible() -> anyhow::Result<()> {
 
     Ok(())
 }
-
 #[test]
 fn empty_feature_branch_in_sync_with_own_upstream_remains_visible() -> anyhow::Result<()> {
     let (repo, meta, mut db) =
@@ -129,7 +131,9 @@ fn empty_feature_branch_with_own_upstream_and_project_target_remains_visible() -
     );
 
     let project_meta = ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         ..Default::default()
     };
     let ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
@@ -140,7 +144,7 @@ fn empty_feature_branch_with_own_upstream_and_project_target_remains_visible() -
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
-⌂:feature[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+⌂:feature[🌳] <> ✓refs/heads/main on 85efbe4
 └── ≡:feature[🌳] <> origin/feature on 85efbe4 {1}
     └── :feature[🌳] <> origin/feature
 
@@ -149,10 +153,10 @@ fn empty_feature_branch_with_own_upstream_and_project_target_remains_visible() -
 
     Ok(())
 }
-
 #[test]
 fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("ad-hoc-branch-integrated-upstream")?;
+    let (mut repo, meta, mut db) =
+        read_only_in_memory_scenario("ad-hoc-branch-integrated-upstream")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?.replace("  \n", "\n"),
         snapbox::str![[r#"
@@ -164,9 +168,18 @@ fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
 
 "#]]
     );
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("remote.origin.url", "https://example.com/upstream.git")?;
+        config.set_raw_value("remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")?;
+        config.set_raw_value("branch.main.remote", "origin")?;
+        config.set_raw_value("branch.main.merge", "refs/heads/trunk")?;
+    }
     let expected_target = repo.rev_parse_single("refs/remotes/origin/trunk")?.detach();
     let project_meta = ProjectMeta {
-        target_ref: Some("refs/remotes/origin/trunk".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         ..Default::default()
     };
 
@@ -176,7 +189,7 @@ fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
-⌂:feature[🌳] <> ✓refs/remotes/origin/trunk⇣1 on d03b217
+⌂:feature[🌳] <> ✓refs/heads/main on d03b217
 └── ≡:feature[🌳] on d03b217 {1}
     └── :feature[🌳]
 
@@ -186,17 +199,17 @@ fn ad_hoc_workspace_uses_project_target_ref() -> anyhow::Result<()> {
     assert!(matches!(ws.kind, WorkspaceKind::AdHoc));
     assert_eq!(
         ws.target_ref_name().map(ToString::to_string),
-        Some("refs/remotes/origin/trunk".into())
+        Some("refs/heads/main".into()),
+        "the named target stays local even when its upstream has a different name"
     );
     assert_eq!(
         ws.target_commit.as_ref().map(|target| target.commit_id),
         Some(expected_target),
-        "without a stored target commit the projection bases itself on the target ref tip"
+        "without a stored target commit the projection uses the remote target tip"
     );
 
     Ok(())
 }
-
 #[test]
 fn ad_hoc_workspace_uses_stored_project_target_commit() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("ad-hoc-branch-integrated-upstream")?;

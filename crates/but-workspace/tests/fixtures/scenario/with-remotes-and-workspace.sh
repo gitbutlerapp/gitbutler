@@ -107,6 +107,7 @@ git init two-branches-one-advanced-one-parent-ws-commit
 git init two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
 (cd two-branches-one-advanced-two-parent-ws-commit-diverged-ttb
   commit "init"
+  setup_target_to_match_main
   git checkout -b lane main
 
   git checkout -b advanced-lane

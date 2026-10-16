@@ -1,4 +1,5 @@
 use but_core::RefMetadata;
+use but_testsupport::{CommandExt, git_at_dir, open_repo};
 use gix::refs::transaction::PreviousValue;
 
 const BRANCH: &str = "feature";
@@ -199,7 +200,9 @@ fn integrate_feature(
         "test merged review",
     )?;
     but_core::ref_metadata::ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(integration_id),
         push_remote: Some("origin".into()),
     }

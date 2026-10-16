@@ -582,9 +582,11 @@ impl ProjectMeta {
             // The null id is a placeholder for an unknown commit in storage that
             // cannot represent absence - interpret it as such.
             .filter(|id| !id.is_null());
+
         let push_remote = config
             .string(PROJECT_PUSH_REMOTE)
             .map(|value| value.to_string());
+
         Ok(ProjectMeta {
             target_ref,
             target_commit_id,

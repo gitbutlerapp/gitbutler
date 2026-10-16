@@ -28,15 +28,15 @@ export function commitRow(page: Page, hasText?: string): Locator {
 
 /**
  * Locator for a stack. When `branchName` is provided, finds the stack
- * that contains a branch header matching that name. This is more reliable
- * than `.filter({ hasText })` because commit messages can also mention
- * branch names.
+ * that contains a branch header with that exact name, ignoring other header text.
  */
 export function stack(page: Page, branchName?: string): Locator {
 	const base = page.getByTestId("stack");
 	if (!branchName) return base;
 	return base.filter({
-		has: page.getByTestId("branch-header").filter({ hasText: branchName }),
+		has: page.locator(
+			`[data-testid="branch-header"][data-testid-branch-header=${JSON.stringify(branchName)}]`,
+		),
 	});
 }
 

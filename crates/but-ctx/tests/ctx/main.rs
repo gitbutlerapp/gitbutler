@@ -4,7 +4,7 @@ use std::{
     thread,
 };
 
-use but_core::ref_metadata::ProjectMeta;
+use but_core::ref_metadata::{LocalRefName, ProjectMeta};
 use but_ctx::{Context, ProjectHandle};
 use but_path::AppChannel;
 use but_testsupport::{
@@ -197,7 +197,7 @@ fn discover_with_app_channel_uses_requested_project_data_dir() -> anyhow::Result
 fn set_project_meta_persists_git_config() -> anyhow::Result<()> {
     let (_tmp, repo, target_commit_id) = run_fixture("project-meta-base")?;
     let ctx = Context::from_repo_for_testing(repo)?;
-    let project_meta = project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?;
+    let project_meta = project_meta(target_commit_id, "refs/heads/main", "fork")?;
 
     assert_eq!(ctx.project_meta()?, ProjectMeta::default());
 
@@ -214,24 +214,20 @@ fn set_project_meta_persists_git_config() -> anyhow::Result<()> {
 }
 
 #[test]
-fn set_project_meta_fills_missing_target_commit_id_from_target_ref() -> anyhow::Result<()> {
+fn set_project_meta_preserves_unset_target_commit_id() -> anyhow::Result<()> {
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-base")?;
-    let expected_target_id = {
-        let mut target_ref = repo.find_reference("refs/remotes/origin/main")?;
-        target_ref.peel_to_commit()?.id
-    };
     let ctx = Context::from_repo_for_testing(repo)?;
 
     ctx.set_project_meta(ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(LocalRefName::new("refs/heads/main".try_into()?)?),
         target_commit_id: None,
         push_remote: Some("fork".into()),
     })?;
 
     assert_eq!(
         ctx.project_meta()?.target_commit_id,
-        Some(expected_target_id),
-        "migration should fill a missing target commit from the target ref tip"
+        None,
+        "persisting metadata must preserve an unset cutoff rather than pinning the target tip"
     );
     Ok(())
 }
@@ -247,7 +243,7 @@ fn set_project_meta_preserves_existing_target_commit_id() -> anyhow::Result<()> 
     let ctx = Context::from_repo_for_testing(repo)?;
 
     ctx.set_project_meta(ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(LocalRefName::new("refs/heads/main".try_into()?)?),
         target_commit_id: Some(stable_target),
         push_remote: None,
     })?;
@@ -266,7 +262,7 @@ fn set_project_meta_clears_missing_target_ref() -> anyhow::Result<()> {
     let ctx = Context::from_repo_for_testing(repo)?;
 
     ctx.set_project_meta(ProjectMeta {
-        target_ref: Some("refs/remotes/origin/missing".try_into()?),
+        target_ref: Some(LocalRefName::new("refs/heads/missing".try_into()?)?),
         target_commit_id: None,
         push_remote: Some("fork".into()),
     })?;
@@ -296,15 +292,11 @@ fn project_meta_observes_changes_made_through_other_repository_handles() -> anyh
 
     // Write through an independent handle, like another process would.
     let other_ctx = Context::from_repo_for_testing(open_repo(&ctx.gitdir)?)?;
-    other_ctx.set_project_meta(project_meta(
-        target_commit_id,
-        "refs/remotes/origin/main",
-        "fork",
-    )?)?;
+    other_ctx.set_project_meta(project_meta(target_commit_id, "refs/heads/main", "fork")?)?;
 
     assert_eq!(
         ctx.project_meta()?.target_ref.map(|name| name.to_string()),
-        Some("refs/remotes/origin/main".to_string()),
+        Some("refs/heads/main".to_string()),
         "a long-lived context observes target changes made elsewhere"
     );
     Ok(())
@@ -314,7 +306,7 @@ fn project_meta_observes_changes_made_through_other_repository_handles() -> anyh
 fn context_creation_ports_legacy_toml_before_cleanup() -> anyhow::Result<()> {
     let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
     let ctx = Context::from_repo_for_testing(repo)?;
-    let expected = project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?;
+    let expected = project_meta(target_commit_id, "refs/heads/main", "fork")?;
 
     assert_eq!(ctx.project_meta()?, expected);
 
@@ -354,7 +346,7 @@ fn concurrent_context_creation_ports_legacy_toml() -> anyhow::Result<()> {
     }
     assert_eq!(
         ProjectMeta::resolve(&repo)?,
-        project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?,
+        project_meta(target_commit_id, "refs/heads/main", "fork")?,
         "legacy project metadata is ported"
     );
     Ok(())
@@ -374,9 +366,7 @@ fn context_creation_preserves_unmarked_project_config() -> anyhow::Result<()> {
     let ctx = Context::from_repo_for_testing(repo)?;
     snapbox::assert_data_eq!(
         project_meta_summary(ctx.project_meta()?),
-        snapbox::str![
-            "target_ref=refs/remotes/upstream/trunk; target_commit_id=[OID]; push_remote=origin"
-        ]
+        snapbox::str!["target_ref=refs/heads/trunk; target_commit_id=[OID]; push_remote=origin"]
     );
     Ok(())
 }
@@ -389,9 +379,7 @@ fn project_meta_reads_git_config_and_ignores_stale_toml() -> anyhow::Result<()> 
     let actual = ctx.project_meta()?;
     snapbox::assert_data_eq!(
         project_meta_summary(actual),
-        snapbox::str![
-            "target_ref=refs/remotes/upstream/trunk; target_commit_id=[OID]; push_remote=origin"
-        ]
+        snapbox::str!["target_ref=refs/heads/trunk; target_commit_id=[OID]; push_remote=origin"]
     );
     Ok(())
 }
@@ -408,7 +396,7 @@ fn project_meta(
     push_remote: &str,
 ) -> anyhow::Result<ProjectMeta> {
     Ok(ProjectMeta {
-        target_ref: Some(target_ref.try_into()?),
+        target_ref: Some(LocalRefName::new(target_ref.try_into()?)?),
         target_commit_id: Some(target_commit_id),
         push_remote: Some(push_remote.to_owned()),
     })

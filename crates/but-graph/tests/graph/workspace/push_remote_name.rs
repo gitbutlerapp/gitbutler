@@ -7,7 +7,7 @@ use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_o
 use crate::support::graph_dag;
 
 #[test]
-fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
+fn with_local_target_uses_fetch_remote() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
 
     add_workspace(&mut meta);
@@ -22,11 +22,11 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
     .validated()?
     .into_workspace()?;
 
-    assert!(ws.target_ref.is_some());
+    assert!(ws.target_ref.is_some(), "fixture has a projected target");
     assert_eq!(
-        ws.push_remote_name(),
+        ws.push_remote_name(&repo)?,
         Some("origin".into()),
-        "target_ref is 'refs/remotes/origin/main', should extract 'origin'"
+        "the local target's fetch remote is origin"
     );
 
     Ok(())
@@ -50,7 +50,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 
     assert!(ws.target_ref.is_none(), "should not have a target_ref");
     assert!(
-        ws.push_remote_name().is_none(),
+        ws.push_remote_name(&repo)?.is_none(),
         "should return None without target or metadata"
     );
 
@@ -106,8 +106,8 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
 
     assert_eq!(
         ws.target_ref_name().map(|rn| rn.as_bstr()),
-        Some("refs/remotes/origin/main".into()),
-        "fixture should resolve the workspace target as origin/main"
+        Some("refs/heads/main".into()),
+        "fixture should retain main as the configured local workspace target"
     );
 
     Ok(())

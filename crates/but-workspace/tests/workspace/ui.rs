@@ -1,3 +1,5 @@
+use snapbox::IntoJson;
+
 mod changes_in_branch {
     use but_graph::init::Options;
     use but_testsupport::visualize_commit_graph_all;
@@ -281,27 +283,18 @@ TreeChanges {
     }
   ],
   "target": {
-    "remoteTrackingRef": {
+    "refName": {
       "fullNameBytes": [
         114,
         101,
         102,
         115,
         47,
-        114,
+        104,
         101,
-        109,
-        111,
-        116,
-        101,
+        97,
+        100,
         115,
-        47,
-        111,
-        114,
-        105,
-        103,
-        105,
-        110,
         47,
         109,
         97,
@@ -309,11 +302,45 @@ TreeChanges {
         110
       ],
       "displayName": "main",
-      "remoteName": "origin"
+      "remoteName": null
     },
     "commitsAhead": 0,
-    "isCurrent": true,
-    "hasLanesBehind": false
+    "upstream": {
+      "refName": {
+        "fullNameBytes": [
+          114,
+          101,
+          102,
+          115,
+          47,
+          114,
+          101,
+          109,
+          111,
+          116,
+          101,
+          115,
+          47,
+          111,
+          114,
+          105,
+          103,
+          105,
+          110,
+          47,
+          109,
+          97,
+          105,
+          110
+        ],
+        "displayName": "main",
+        "remoteName": "origin"
+      },
+      "tip": "c166d42d4ef2e5e742d33554d03805cfb0b24d11",
+      "cutoffMatchesTip": true
+    },
+    "hasLanesBehind": false,
+    "canFastForwardLocalTarget": false
   },
   "worktrees": []
 }
