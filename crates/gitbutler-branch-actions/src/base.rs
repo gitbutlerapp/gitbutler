@@ -150,27 +150,32 @@ pub(crate) fn set_base_branch(
 ) -> Result<BaseBranch> {
     let repo = ctx.repo.get()?;
     let workspace_ref_exists = repo.try_find_reference(WORKSPACE_REF_NAME)?.is_some();
+    let target_ref_name: gix::refs::FullName = target_branch_ref.to_string().try_into()?;
+    let local_target_ref =
+        but_core::ref_metadata::resolve_local_target(target_ref_name.as_ref(), &repo)?;
 
-    let (existing_target_ref_matches, existing_target_ref) = if let Ok(mut project_meta) =
-        ctx.project_meta()
-    {
-        let repaired_project_meta =
-            but_core::ref_metadata::repair_target_metadata_for_migration(&project_meta, &repo);
-        if repaired_project_meta != project_meta {
-            ctx.set_project_meta(repaired_project_meta.clone())?;
-            project_meta = repaired_project_meta;
-        }
-        let target_ref_matches = project_meta
-            .target_ref
-            .as_ref()
-            .is_some_and(|target_ref| target_branch_ref == target_ref.as_ref());
-        (
-            workspace_ref_exists && project_meta.target_commit_id.is_some() && target_ref_matches,
-            project_meta.target_ref,
-        )
-    } else {
-        (false, None)
-    };
+    let (existing_target_ref_matches, existing_target_ref, existing_target_commit_id) =
+        if let Ok(mut project_meta) = ctx.project_meta() {
+            let repaired_project_meta =
+                but_core::ref_metadata::repair_target_metadata_for_migration(&project_meta, &repo);
+            if repaired_project_meta != project_meta {
+                ctx.set_project_meta(repaired_project_meta.clone())?;
+                project_meta = repaired_project_meta;
+            }
+            let target_ref_matches = project_meta
+                .target_ref
+                .as_ref()
+                .is_some_and(|target_ref| target_ref == &local_target_ref);
+            (
+                workspace_ref_exists
+                    && project_meta.target_commit_id.is_some()
+                    && target_ref_matches,
+                project_meta.target_ref,
+                project_meta.target_commit_id,
+            )
+        } else {
+            (false, None, None)
+        };
 
     // if target exists, and it is the same as the requested branch, we should go back
     if existing_target_ref_matches {
@@ -195,54 +200,66 @@ pub(crate) fn set_base_branch(
         .context("Failed to peel HEAD reference to commit")?
         .id;
 
-    // calculate the commit as the merge-base between HEAD in ctx and this target commit
-    let target_commit_oid = but_workspace::init::resolve_target_commit(
+    // Validate shared history, retaining the existing policy for explicit target changes.
+    let merge_base = but_workspace::init::resolve_target_commit(
         &repo,
         current_head_commit,
         target_branch_head,
         None,
     )?;
 
-    let project_meta = ProjectMeta {
-        target_ref: Some(target_branch_ref.to_string().try_into()?),
-        target_commit_id: Some(target_commit_oid),
+    let changing_target = existing_target_ref
+        .as_ref()
+        .is_some_and(|existing| existing != &local_target_ref);
+    let mut project_meta = ProjectMeta {
+        target_ref: Some(local_target_ref),
+        target_commit_id: existing_target_commit_id,
         push_remote: None,
     };
-    project_meta.remote_url_with_fallback(&repo)?;
+    let target_commit_oid = if changing_target {
+        merge_base
+    } else {
+        project_meta.resolve_target_commit(&repo)?
+    };
+    project_meta.target_commit_id = Some(target_commit_oid);
+    if target_branch_ref.remote().is_some() {
+        project_meta.target_remote_url(&repo)?;
+    }
 
     // TODO: make sure this is a real branch
     let head_ref_name = current_head
         .referent_name()
         .context("Failed to get HEAD reference name")?;
     let head_is_workspace = head_ref_name == WORKSPACE_REF_NAME;
+    let branch_matches_target =
+        head_ref_name == project_meta.target_ref_or_err()?.as_local_full_name_ref();
     let head_name: Refname = head_ref_name
         .to_string()
         .parse()
         .expect("BUG: we have to avoid using these legacy types");
     if workspace_ref_exists
         && !head_is_workspace
-        && existing_target_ref.is_none_or(|target_ref| target_branch_ref != target_ref.as_ref())
+        && existing_target_ref
+            .as_ref()
+            .is_none_or(|existing| Some(existing) != project_meta.target_ref.as_ref())
     {
         bail_precondition!(
             "cannot change the target while HEAD is outside the GitButler workspace - return to workspace first"
         );
     }
+    let head_has_local_work = !head_is_workspace
+        && repo
+            .merge_base(current_head_commit, target_commit_oid)
+            .context("failed to compare HEAD with the selected cutoff")?
+            .is_none_or(|base| base.detach() != current_head_commit);
     ctx.set_project_meta(project_meta)?;
 
     let mut workspace_to_initialize = None;
     if !head_is_workspace {
-        let branch_matches_target = if let Refname::Local(head_name) = &head_name {
-            let upstream_name = target_branch_ref.with_branch(head_name.branch());
-            upstream_name.eq(target_branch_ref)
-        } else {
-            false
-        };
-
         // Preserve non-target branches even when the entire visible stack is empty.
         // The target branch only needs a new stack for commits or uncommitted changes.
         let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?.changes;
-        if !branch_matches_target || !changes.is_empty() || current_head_commit != target_commit_oid
-        {
+        if !branch_matches_target || !changes.is_empty() || head_has_local_work {
             let stack_ref_name = if branch_matches_target {
                 let stack_ref_name = but_core::branch::unique_canned_refname(&repo)?;
                 repo.reference(
@@ -423,20 +440,12 @@ fn inferred_default_target(repo: &gix::Repository) -> Result<Option<ProjectMeta>
     let Some(target_ref) = but_workspace::init::infer_default_target_ref(repo)? else {
         return Ok(None);
     };
-    let remote_names = repo.remote_names();
-    let (remote_name, _) =
-        but_core::extract_remote_name_and_short_name(target_ref.as_ref(), &remote_names)
-            .with_context(|| format!("failed to determine remote for branch '{target_ref}'"))?;
-    let sha = repo
-        .find_reference(target_ref.as_ref())?
-        .peel_to_commit()
-        .with_context(|| format!("inferred target '{target_ref}' did not point to a commit"))?
-        .id;
-    Ok(Some(ProjectMeta {
+    let mut project_meta = ProjectMeta {
         target_ref: Some(target_ref),
-        target_commit_id: Some(sha),
-        push_remote: Some(remote_name),
-    }))
+        ..Default::default()
+    };
+    project_meta.target_commit_id = Some(project_meta.resolve_target_commit(repo)?);
+    Ok(Some(project_meta))
 }
 
 fn first_parent_commit_ids_with_limit(

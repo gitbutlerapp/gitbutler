@@ -16,7 +16,7 @@ use gitbutler_repo::{FileInfo, RepoCommands};
 use tracing::instrument;
 
 pub fn remote_url(project_meta: &ProjectMeta, repo: &gix::Repository) -> Result<String> {
-    project_meta.remote_url_with_fallback(repo)
+    project_meta.target_remote_url(repo)
 }
 
 /// Everything a forge endpoint needs per call: account storage, the
@@ -43,15 +43,7 @@ fn forge_endpoint_context(
     ))
 }
 
-/// The name of the target branch within its remote, like `main` for `refs/remotes/origin/main`.
-///
-/// Errors if no target is set, or if its remote cannot be determined.
-pub fn target_short_name(project_meta: &ProjectMeta, repo: &gix::Repository) -> Result<String> {
-    let target_ref = project_meta.target_ref_or_err()?;
-    but_core::extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
-        .map(|(_remote_name, short_name)| short_name.to_string())
-        .with_context(|| format!("failed to determine remote for branch {target_ref}"))
-}
+pub use crate::workspace::remote_target_short_name;
 
 pub fn push_remote_url(project_meta: &ProjectMeta, repo: &gix::Repository) -> Result<String> {
     project_meta.push_remote_url(repo)
@@ -351,7 +343,7 @@ pub fn review_apply(
     let (forge_repo_info, preferred_forge_user, target_protocol) = {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let remote_url = project_meta.remote_url_with_fallback(&repo)?;
+        let remote_url = project_meta.target_remote_url(&repo)?;
         let forge_repo_info = but_forge::derive_forge_repo_info(
             &remote_url,
             forge_override(ctx.legacy_project.forge_override.as_deref()),
@@ -1611,7 +1603,7 @@ pub fn new_review_target(ctx: &Context, branch: String) -> Result<String> {
             .to_str()
             .context("Workspace branch name is not valid UTF-8")?
             .to_owned()),
-        None => target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?),
+        None => remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?),
     }
 }
 
@@ -2310,7 +2302,7 @@ fn review_updates_after_push(
         }
     }
 
-    let base_branch = target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
+    let base_branch = remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     Ok(affected_lanes
         .into_iter()
         .flat_map(|lane| review_update_groups_for_lane(&info, lane, &base_branch, &open_reviews))
@@ -2323,7 +2315,7 @@ fn review_update_groups_for_branch(
     ctx: &Context,
     branch: &gix::refs::FullNameRef,
 ) -> Result<Vec<Vec<but_forge::ForgeReviewUpdate>>> {
-    let base_branch = target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
+    let base_branch = remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     let info = crate::legacy::workspace::head_info(ctx)?;
     let chain = lane_chain_for_branch(&info, branch)?;
     let open_reviews = open_review_numbers(ctx)?;
@@ -2345,7 +2337,7 @@ pub(crate) fn review_target_updates_for_branch(
     let info = crate::legacy::workspace::head_info(ctx)?;
     let chain = lane_chain_for_branch(&info, branch)?;
     let open_reviews = open_review_numbers(ctx)?;
-    let base_branch = target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
+    let base_branch = remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     let updates = chain
         .iter()
         .flat_map(|(lane, _)| {
@@ -2473,7 +2465,7 @@ pub fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) ->
 
     match reviewed_ancestors.pop() {
         Some((nearest_reviewed_ancestor, _)) => Ok(nearest_reviewed_ancestor.branch_name),
-        None => target_short_name(&ctx.project_meta()?, &repo),
+        None => remote_target_short_name(&ctx.project_meta()?, &repo),
     }
 }
 

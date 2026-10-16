@@ -141,7 +141,13 @@ pub fn workspace_recreate_with_perm(
             .context("HEAD must refer to a local branch")?
             .to_owned();
 
-        if !ws.is_branch_the_target_or_its_local_tracking_branch(head_name.as_ref()) {
+        if ws
+            .graph
+            .project_meta
+            .target_ref
+            .as_ref()
+            .is_none_or(|target| target.as_local_full_name_ref() != head_name.as_ref())
+        {
             // Applying the current branch enters the workspace with one branch applied.
             let outcome = but_workspace::branch::apply(
                 head_name.as_ref(),
@@ -315,7 +321,9 @@ pub fn workspace_fetch_from_remotes(
                 .ok()
                 .and_then(|meta| {
                     let target = meta
-                        .target_ref
+                        .remote_target_ref(&repo)
+                        .ok()
+                        .flatten()
                         .as_ref()
                         .and_then(|target_ref| {
                             extract_remote_name_and_short_name(target_ref.as_ref(), &remote_names)
@@ -497,7 +505,8 @@ pub fn set_target_ref_and_init_project(
     let guard = ctx.exclusive_worktree_access();
     {
         let repo = ctx.repo.get()?;
-        but_workspace::init::set_target_ref_and_init_project(&repo, target_ref, push_remote)?;
+        let target_ref = but_core::ref_metadata::LocalRefName::new(target_ref.to_owned())?;
+        but_workspace::init::set_target_ref_and_init_project(&repo, &target_ref, push_remote)?;
     }
     ctx.invalidate_workspace_cache()?;
     drop(guard);
@@ -696,22 +705,17 @@ pub fn rebase_lane_bottoms<'a>(
         .collect()
 }
 
-pub(crate) fn target_branch_name(
-    symbolic_remote_names: &[String],
+/// The name of the target branch within its remote, like `main` for `refs/remotes/origin/main`.
+///
+/// Errors if no target is set, or if its remote cannot be determined.
+pub fn remote_target_short_name(
     project_meta: &but_core::ref_metadata::ProjectMeta,
-) -> Option<String> {
-    let target_ref = project_meta.target_ref.as_ref()?;
-    let mut symbolic_remote_names = symbolic_remote_names.iter().collect::<Vec<_>>();
-    symbolic_remote_names.sort_by_key(|name| name.len());
-    let remote_names = symbolic_remote_names
-        .iter()
-        .map(|name| name.as_bytes().as_bstr().to_owned())
-        .collect();
-    Some(
-        extract_remote_name_and_short_name(target_ref.as_ref(), &remote_names)
-            .map(|(_, short_name)| short_name.to_string())
-            .unwrap_or_else(|| target_ref.shorten().to_string()),
-    )
+    repo: &gix::Repository,
+) -> anyhow::Result<String> {
+    let target_ref = project_meta.remote_target_ref_or_err(repo)?;
+    but_core::extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
+        .map(|(_remote_name, short_name)| short_name.to_string())
+        .with_context(|| format!("failed to determine remote for branch {target_ref}"))
 }
 
 fn review_integration_hints_from_reviews(
@@ -751,15 +755,14 @@ fn forge_review_integration_hints(
     workspace: &but_graph::Workspace,
     project_meta: &but_core::ref_metadata::ProjectMeta,
     db: &but_db::DbHandle,
+    repo: &gix::Repository,
 ) -> anyhow::Result<Vec<ReviewIntegrationHint>> {
-    let Some(target_branch_name) =
-        target_branch_name(&workspace.graph.symbolic_remote_names, project_meta)
-    else {
+    let Ok(target_branch_name) = remote_target_short_name(project_meta, repo) else {
         return Ok(vec![]);
     };
 
     let incoming_commit_ids = workspace
-        .incoming_target_commit_ids()?
+        .incoming_target_commit_ids(repo)?
         .into_iter()
         .map(|id| id.to_hex().to_string())
         .collect::<HashSet<_>>();
@@ -845,13 +848,16 @@ pub fn workspace_integrate_upstream_with_perm(
             return Ok(None);
         };
         let repo = ctx.repo.get()?;
-        let Some(target_reference) = repo.try_find_reference(target_ref)? else {
+        let Some(upstream) = project_meta.remote_target_ref(&repo)? else {
+            return Ok(None);
+        };
+        let Some(mut upstream_reference) = repo.try_find_reference(upstream.as_ref())? else {
             return Ok(None);
         };
         but_workspace::local_tracking_branch_to_fast_forward(
             &repo,
-            target_reference.name(),
-            target_reference.id().detach(),
+            target_ref.as_local_full_name_ref(),
+            upstream_reference.peel_to_id()?.detach(),
         )
     })();
     let local_target_ref = match local_target_ref {
@@ -898,7 +904,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
     let (workspace_state, worktree_conflicts) = {
         let project_meta = ctx.project_meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db) {
+        let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db, &repo) {
             Ok(review_hints) => review_hints,
             Err(err) => {
                 warn!(
@@ -939,7 +945,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
         project_meta.persist(&repo)?;
         if let Err(err) = but_workspace::fast_forward_local_tracking_branch(
             &repo,
-            project_meta.target_ref_or_err()?.as_ref(),
+            project_meta.target_ref_or_err()?.as_local_full_name_ref(),
             project_meta.target_commit_id_or_err()?,
         ) {
             warn!(?err, "failed to fast-forward local target branch");

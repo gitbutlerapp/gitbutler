@@ -172,7 +172,11 @@ pub fn list(
         // Remote-tracking refs of local branches are discovered while traversing the
         // local branch and must not be seeded again.
         let is_tracking_a_local = r.remote.is_some() && local_identities.contains(&r.identity);
-        let is_target = Some(&r.ref_name) == options.project_meta.target_ref.as_ref();
+        let is_target = options
+            .project_meta
+            .target_ref
+            .as_ref()
+            .is_some_and(|target| target.as_local_full_name_ref() == r.ref_name.as_ref());
         (!is_covered_by_workspace && !is_tracking_a_local && !is_target)
             .then(|| (r.tip, r.ref_name.clone()))
     });
@@ -206,7 +210,7 @@ pub fn list(
         remote_names,
         refs_by_identity,
         tip_infos,
-        walk::target_of(&ws),
+        walk::local_target_of(&ws),
     );
 
     let mut consumed = BTreeSet::<BString>::new();
@@ -267,10 +271,12 @@ struct ListingContext<'a> {
     /// the segment's first commit, or for empty segments the peeled id recorded on the
     /// ref itself. Refs found on non-first commits map to the owning segment.
     segment_by_ref: BTreeMap<FullName, (SegmentIndex, Option<gix::ObjectId>)>,
-    /// All segments whose commits the target branch has integrated.
-    target_reachable: BTreeSet<SegmentIndex>,
-    /// The commit at the tip of the target branch, if there is a target.
-    target_tip: Option<gix::ObjectId>,
+    /// All segments reachable from the configured local target.
+    local_target_reachable: BTreeSet<SegmentIndex>,
+    /// The configured local target's tip, used only for ahead counts.
+    local_target_tip: Option<gix::ObjectId>,
+    /// The selected workspace cutoff, used for owned-history boundaries.
+    cutoff_id: Option<gix::ObjectId>,
 }
 
 impl<'a> ListingContext<'a> {
@@ -279,27 +285,28 @@ impl<'a> ListingContext<'a> {
         remote_names: gix::remote::Names,
         refs_by_identity: BTreeMap<BString, Vec<BranchRef>>,
         tip_infos: BTreeMap<gix::ObjectId, (gix::actor::Signature, i64)>,
-        target: Option<(gix::ObjectId, SegmentIndex)>,
+        local_target: Option<(gix::ObjectId, SegmentIndex)>,
     ) -> Self {
         ListingContext {
             segment_by_ref: walk::ref_index(&ws.graph),
-            target_reachable: target
+            local_target_reachable: local_target
                 .map(|(_, start)| walk::reachable_from(&ws.graph, start))
                 .unwrap_or_default(),
             ws,
             remote_names,
             refs_by_identity,
             tip_infos,
-            target_tip: target.map(|(tip, _)| tip),
+            local_target_tip: local_target.map(|(tip, _)| tip),
+            cutoff_id: ws.target_commit.as_ref().map(|target| target.commit_id),
         }
     }
 
-    /// Count the commits reachable from `start` that the target has not integrated,
+    /// Count the commits reachable from `start` but not from the configured local target,
     /// or `None` if there is no target to compare against or a traversal limit
     /// makes the count unknowable.
     fn commits_ahead_of_target(&self, start: SegmentIndex) -> Option<usize> {
-        self.target_tip?;
-        walk::count_outside(self.graph(), &self.target_reachable, start)
+        self.local_target_tip?;
+        walk::count_outside(self.graph(), &self.local_target_reachable, start)
     }
 
     fn owned_history(&self, start: SegmentIndex, identity: &BString) -> OwnedHistory {
@@ -308,7 +315,7 @@ impl<'a> ListingContext<'a> {
             start,
             identity,
             &self.remote_names,
-            self.target_tip,
+            self.cutoff_id,
         )
     }
 
@@ -337,7 +344,7 @@ impl<'a> ListingContext<'a> {
             let Some(tip) = walk::segment_tip(segment) else {
                 continue;
             };
-            let display_name = display_identity(&ref_name, &self.remote_names);
+            let display_name = display_identity(ref_name.as_ref(), &self.remote_names);
             consumed.insert(display_name.clone());
             let (last_author, updated_at_ms) = self.tip_info(tip);
             // All enumerated remotes of the same name, like standalone branches
@@ -424,9 +431,11 @@ impl<'a> ListingContext<'a> {
 
         let target_stack = self
             .ws
+            .graph
+            .project_meta
             .target_ref
             .as_ref()
-            .map(|target| display_identity(&target.ref_name, &self.remote_names))
+            .map(|target| display_identity(target.as_local_full_name_ref(), &self.remote_names))
             .and_then(|identity| by_identity.remove(&identity));
 
         let mut stacks = Vec::new();
@@ -716,8 +725,11 @@ fn tip_commit_infos(
 }
 
 /// The branch name used for identity and display: the short name without a remote prefix.
-pub(crate) fn display_identity(ref_name: &FullName, remote_names: &gix::remote::Names) -> BString {
-    but_core::extract_remote_name_and_short_name(ref_name.as_ref(), remote_names)
+pub(crate) fn display_identity(
+    ref_name: &FullNameRef,
+    remote_names: &gix::remote::Names,
+) -> BString {
+    but_core::extract_remote_name_and_short_name(ref_name, remote_names)
         .map(|(_, short)| short)
         .unwrap_or_else(|| ref_name.shorten().to_owned())
 }

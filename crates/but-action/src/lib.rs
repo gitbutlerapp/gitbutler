@@ -2,7 +2,8 @@
 
 use std::fmt::{Debug, Display};
 
-use but_core::{ref_metadata::ProjectMeta, sync::RepoExclusive};
+use anyhow::Context as _;
+use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::{
@@ -138,33 +139,18 @@ fn prepare_handle_changes(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow
 }
 
 fn default_target_setting_if_none(ctx: &Context) -> anyhow::Result<()> {
-    if ctx.project_meta()?.target_ref.is_some() {
+    let mut project_meta = ctx.project_meta()?;
+    if project_meta.target_ref.is_some() {
         return Ok(());
     }
-    // Lets do the equivalent of `git symbolic-ref refs/remotes/origin/HEAD --short` to guess the default target.
 
     let repo = ctx.repo.get()?;
-    let remote_name = repo
-        .remote_default_name(gix::remote::Direction::Push)
-        .ok_or_else(|| anyhow::anyhow!("No push remote set or more than one remote"))?
-        .to_string();
-
-    let mut head_ref = repo
-        .find_reference(&format!("refs/remotes/{remote_name}/HEAD"))
-        .map_err(|_| anyhow::anyhow!("No HEAD reference found for remote {remote_name}"))?;
-    let target_ref_name = head_ref
-        .target()
-        .try_name()
-        .ok_or_else(|| anyhow::anyhow!("Remote HEAD for {remote_name} is not symbolic"))?
-        .to_owned();
-
-    let head_commit = head_ref.peel_to_commit()?;
-
-    ctx.set_project_meta(ProjectMeta {
-        target_ref: Some(target_ref_name),
-        target_commit_id: Some(head_commit.id),
-        push_remote: None,
-    })?;
+    project_meta.target_ref = Some(
+        but_workspace::init::infer_default_target_ref(&repo)?
+            .context("Could not infer a local target branch; configure one first")?,
+    );
+    project_meta.target_commit_id = Some(project_meta.resolve_target_commit(&repo)?);
+    ctx.set_project_meta(project_meta)?;
     Ok(())
 }
 

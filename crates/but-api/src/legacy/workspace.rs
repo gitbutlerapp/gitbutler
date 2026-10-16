@@ -346,8 +346,10 @@ pub async fn workspace_branch_and_ancestors_push(
     let sync_ctx = ctx.clone();
     let (trunk, review_targets) = {
         let ctx = ctx.clone().into_thread_local();
-        let trunk =
-            crate::legacy::forge::target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
+        let trunk = crate::legacy::forge::remote_target_short_name(
+            &ctx.project_meta()?,
+            &*ctx.repo.get()?,
+        )?;
         (
             trunk,
             crate::legacy::forge::review_target_updates_for_branch(&ctx, branch.as_ref())?,

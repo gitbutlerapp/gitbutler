@@ -1,9 +1,8 @@
-//! Listing the target branch's history relative to the workspace.
+//! Listing the target's derived upstream history relative to the workspace.
 
 use std::collections::{HashMap, HashSet};
 
 use crate::json::HexHash;
-use crate::workspace::target_branch_name;
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_forge::ForgeReview;
@@ -19,15 +18,15 @@ const TARGET_COMMITS_LIMIT: usize = 1000;
 /// when the caller does not specify one.
 const TARGET_COMMITS_PAGE_SIZE: usize = 50;
 
-/// List the target branch's first-parent commits from its tip down to the
-/// workspace lower bound, ordered from newest to oldest.
+/// List the target's derived upstream first-parent commits from its tip down to
+/// the workspace lower bound, ordered from newest to oldest.
 ///
 /// Commits flagged as in the workspace are already reachable from it; the
 /// remaining prefix is what an upstream integration would bring in. The
 /// in-workspace tail runs to the fork point shared by all workspace stacks,
 /// so clients can position each stack against the target history. The
 /// first-parent walk shows a merge as a single commit rather than everything
-/// it merged. The list is empty when the workspace has no target reference.
+/// it merged. The list is empty when the target has no configured upstream.
 ///
 /// With `from`, the walk instead continues past the end of a previous
 /// response: it starts below the given commit and returns up to `limit`
@@ -59,7 +58,7 @@ pub(crate) fn workspace_target_commits_with_perm(
     perm: &but_core::sync::RepoShared,
 ) -> anyhow::Result<TargetCommitPage> {
     let (repo, ws, db) = ctx.workspace_and_db_with_perm(perm)?;
-    let Some(target_ref) = ws.target_ref.as_ref() else {
+    let Some(upstream_ref) = ws.graph.project_meta.remote_target_ref(&repo)? else {
         return Ok(TargetCommitPage::default());
     };
     let paging = from.is_some();
@@ -76,7 +75,7 @@ pub(crate) fn workspace_target_commits_with_perm(
         // Continue below the cursor commit.
         Some(HexHash(from)) => present_first_parent(&repo.find_commit(from)?),
         None => Some(
-            repo.find_reference(target_ref.ref_name.as_ref())?
+            repo.find_reference(upstream_ref.as_ref())?
                 .peel_to_commit()?
                 .id,
         ),
@@ -88,13 +87,14 @@ pub(crate) fn workspace_target_commits_with_perm(
         });
     }
 
-    let incoming: HashSet<_> = ws.incoming_target_commit_ids()?.into_iter().collect();
+    let incoming: HashSet<_> = ws.incoming_target_commit_ids(&repo)?.into_iter().collect();
     let project_meta = ctx.project_meta()?;
     // Review enrichment is best-effort: either source failing leaves the
     // commits unannotated rather than failing the listing.
-    let mut reviews_by_integration_sha = merged_reviews_by_integration_sha(&ws, &project_meta, &db)
-        .inspect_err(|err| warn!(?err, "failed to read cached forge reviews"))
-        .unwrap_or_default();
+    let mut reviews_by_integration_sha =
+        merged_reviews_by_integration_sha(&repo, &project_meta, &db)
+            .inspect_err(|err| warn!(?err, "failed to read cached forge reviews"))
+            .unwrap_or_default();
     #[cfg(feature = "legacy")]
     let override_forge = ctx
         .legacy_project
@@ -306,7 +306,7 @@ fn target_forge_info(
     repo: &gix::Repository,
     override_forge: Option<but_forge::ForgeName>,
 ) -> anyhow::Result<Option<but_forge::ForgeInfo>> {
-    let remote_url = project_meta.remote_url_with_fallback(repo)?;
+    let remote_url = project_meta.target_remote_url(repo)?;
     // Accounts only refine custom hosts; the forge itself is known without them.
     let accounts = but_forge::get_all_forge_accounts()
         .inspect_err(|err| warn!(?err, "failed to load forge accounts"))
@@ -324,12 +324,11 @@ fn target_forge_info(
 /// Keyed by `ObjectId` so the commit walk looks each up without re-encoding an
 /// id to hex per commit; the few review SHAs are parsed once here instead.
 fn merged_reviews_by_integration_sha(
-    ws: &but_graph::Workspace,
+    repo: &gix::Repository,
     project_meta: &but_core::ref_metadata::ProjectMeta,
     db: &but_db::DbHandle,
 ) -> anyhow::Result<HashMap<gix::ObjectId, TargetCommitReview>> {
-    let Some(target_branch_name) =
-        target_branch_name(&ws.graph.symbolic_remote_names, project_meta)
+    let Ok(target_branch_name) = crate::workspace::remote_target_short_name(project_meta, repo)
     else {
         return Ok(HashMap::new());
     };
