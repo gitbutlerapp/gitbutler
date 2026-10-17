@@ -48,6 +48,92 @@ impl WatcherPayload {
     }
 }
 
+/// A watcher payload with the event name a host delivers it under.
+#[derive(Debug, Clone, Serialize)]
+pub struct WatcherEvent {
+    /// `project://{project_id}/{topic}`, one topic per [`WatcherEventKind`].
+    pub name: String,
+    /// What happened.
+    pub payload: WatcherPayload,
+}
+
+impl From<gitbutler_watcher::Change> for WatcherEvent {
+    fn from(change: gitbutler_watcher::Change) -> Self {
+        use gitbutler_watcher::Change;
+        let lossy_paths = |paths: &[std::path::PathBuf]| {
+            paths
+                .iter()
+                .map(|path| path.to_string_lossy().into_owned())
+                .collect()
+        };
+        let (project_id, payload) = match change {
+            Change::GitFetch(project_id) => {
+                (project_id, WatcherPayload::GitFetch(WatcherGitFetchPayload))
+            }
+            Change::GitHead {
+                project_id,
+                head,
+                operating_mode,
+            } => (
+                project_id,
+                WatcherPayload::GitHead(WatcherGitHeadPayload {
+                    head,
+                    operating_mode,
+                }),
+            ),
+            Change::GitActivity {
+                project_id,
+                head_sha,
+            } => (
+                project_id,
+                WatcherPayload::GitActivity(WatcherGitActivityPayload { head_sha }),
+            ),
+            Change::WorkspaceActivity { project_id } => (
+                project_id,
+                WatcherPayload::WorkspaceActivity(WatcherWorkspaceActivityPayload),
+            ),
+            Change::ExternalInvalidation { project_id, tags } => (
+                project_id,
+                WatcherPayload::ExternalInvalidation(WatcherExternalInvalidationPayload {
+                    // The sentinel is a file anyone can write; only names a tag has get through.
+                    tags: tags
+                        .into_iter()
+                        .filter(|tag| CacheTag::from_name(tag).is_some())
+                        .collect(),
+                }),
+            ),
+            Change::WorktreeChanges {
+                project_id,
+                changes,
+                changed_paths,
+            } => (
+                project_id,
+                WatcherPayload::WorktreeChanges(WatcherWorktreeChangesPayload {
+                    changed_paths: lossy_paths(&changed_paths),
+                    changes,
+                }),
+            ),
+            Change::LinkedWorktreeChanges {
+                project_id,
+                worktree,
+                changes,
+                changed_paths,
+            } => (
+                project_id,
+                WatcherPayload::LinkedWorktreeChanges(WatcherLinkedWorktreeChangesPayload {
+                    worktree,
+                    changed_paths: lossy_paths(&changed_paths),
+                    changes,
+                }),
+            ),
+        };
+        WatcherEvent {
+            name: format!("project://{project_id}/{}", payload.kind().topic()),
+            payload,
+        }
+    }
+}
+
 /// Which watcher event happened, without the payload it carried.
 ///
 /// Each kind declares the tags it makes stale in [`WatcherEventKind::invalidates`];
@@ -92,6 +178,19 @@ impl WatcherEventKind {
             WatcherEventKind::LinkedWorktreeChanges => "linkedWorktreeChanges",
             WatcherEventKind::WorkspaceActivity => "workspaceActivity",
             WatcherEventKind::ExternalInvalidation => "externalInvalidation",
+        }
+    }
+
+    /// The event's name below its project, as the Svelte desktop app first named it.
+    pub fn topic(self) -> &'static str {
+        match self {
+            WatcherEventKind::GitFetch => "git/fetch",
+            WatcherEventKind::GitHead => "git/head",
+            WatcherEventKind::GitActivity => "git/activity",
+            WatcherEventKind::WorktreeChanges => "worktree_changes",
+            WatcherEventKind::LinkedWorktreeChanges => "linked_worktree_changes",
+            WatcherEventKind::WorkspaceActivity => "workspace-activity",
+            WatcherEventKind::ExternalInvalidation => "external-invalidation",
         }
     }
 

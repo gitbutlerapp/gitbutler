@@ -1027,6 +1027,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-user",
+ "gitbutler-watcher",
  "gix",
  "itertools",
  "napi",
