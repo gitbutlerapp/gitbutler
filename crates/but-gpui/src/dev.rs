@@ -17,6 +17,7 @@
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! scroll 900 400 0 200    # and by 200 to the right
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
+//! sh but commit -m x      # run a shell command, as an agent or another app would
 //! shot /tmp/view.png      # render the current frame to a PNG
 //! perf next key down      # time an input until loads settle, plus one frame, and the
 //!                         # longest the UI thread was busy meanwhile (`stall`)
@@ -333,6 +334,15 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 app.store
                     .update(cx, |store, cx| store.add_project(PathBuf::from(rest), cx))
             });
+        }
+        // What an agent, another app or the user does outside the app meanwhile.
+        "sh" => {
+            let status = std::process::Command::new("sh")
+                .args(["-c", rest])
+                .status()?;
+            if !status.success() {
+                bail!("`{rest}` failed: {status}");
+            }
         }
         "shot" => {
             let image = window.render_to_image()?;
