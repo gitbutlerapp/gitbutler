@@ -5,6 +5,7 @@ use gpui::{AnyElement, Context, MouseButton, MouseDownEvent, div, img, prelude::
 use super::Navigator;
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
+use crate::ui::person::person_avatar;
 use crate::ui::{ButtonStyle, button};
 
 impl Navigator {
@@ -20,27 +21,13 @@ impl Navigator {
                 }))
                 .into_any_element();
         };
-        let size = px(20.);
-        // Without a picture, the first letter of the name stands in for one.
+        // Without a picture, the person's pattern stands in, as in GitButler's other apps.
         let face = match account.avatar.clone() {
-            Some(picture) => img(picture).size(size).rounded_full().into_any_element(),
-            None => div()
-                .size(size)
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded_full()
-                .bg(theme.fill_gray.opacity(0.2))
-                .text_size(px(11.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(theme.text_2)
-                .children(
-                    user.name
-                        .chars()
-                        .next()
-                        .map(|c| c.to_uppercase().to_string()),
-                )
-                .into_any_element(),
+            Some(picture) => img(picture).size(px(20.)).rounded_full().into_any_element(),
+            None => {
+                let seed = (user.login.as_ref().or(user.email.as_ref())).unwrap_or(&user.name);
+                person_avatar(seed, 20., theme).into_any_element()
+            }
         };
         div()
             .id("account")

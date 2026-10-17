@@ -479,6 +479,14 @@ impl Tooltip {
     pub fn with_key(text: SharedString, key: Option<SharedString>, cx: &mut App) -> gpui::AnyView {
         cx.new(|_| Tooltip { text, key }).into()
     }
+
+    /// A tooltip of just `text`, for an element's `tooltip`.
+    pub fn text(
+        text: impl Into<SharedString>,
+    ) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
+        let text = text.into();
+        move |_, cx| Self::with_key(text.clone(), None, cx)
+    }
 }
 
 impl Render for Tooltip {
@@ -497,19 +505,6 @@ impl Render for Tooltip {
             .child(self.text.clone())
             .when_some(self.key.clone(), |el, key| el.child(keycap(&key, theme)))
     }
-}
-
-/// A small count, coloured by meaning: amber waits on you, blue is unpushed.
-pub fn count(icon_kind: Option<Icon>, value: usize, color: Hsla) -> Div {
-    h_flex()
-        .flex_none()
-        .gap(px(3.))
-        .text_size(px(11.))
-        .text_color(color)
-        .when_some(icon_kind, |el, kind| {
-            el.child(small_icon(kind).text_color(color))
-        })
-        .child(value.to_string())
 }
 
 /// The keys bound to `action`, as macOS shows them, like `⌘⇧P`.

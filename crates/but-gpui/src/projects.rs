@@ -84,8 +84,7 @@ impl AppView {
             return;
         };
         let store = self.store.clone();
-        let window_handle = window.window_handle();
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             let listed = {
                 let path = path.clone();
                 backend::run(move || settings::remote_branches(&path)).await
@@ -144,14 +143,10 @@ impl AppView {
                     })
                 })
                 .collect();
-            window_handle
-                .update(cx, |_, window, cx| {
-                    this.update(cx, |app, cx| {
-                        app.open_picker("Pick the target branch", "Pick", choices, window, cx)
-                    })
-                    .ok();
-                })
-                .ok();
+            this.update_in(cx, |app, window, cx| {
+                app.open_picker("Pick the target branch", "Pick", choices, window, cx)
+            })
+            .ok();
         })
         .detach();
     }
