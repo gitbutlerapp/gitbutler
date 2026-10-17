@@ -233,13 +233,14 @@ impl Detail {
                     .child(format!("The last fetch failed: {err}"))
             }))
             .children(upstream.and_then(|u| u.unconnected_forge).map(|forge| {
-                h_flex()
+                v_flex()
+                    .items_start()
                     .mt(px(4.))
                     .gap(px(8.))
                     .p(px(8.))
                     .rounded(px(6.))
                     .bg(theme.hover())
-                    .child(div().flex_1().text_color(theme.text_1).child(format!(
+                    .child(div().text_color(theme.text_1).child(format!(
                         "Connect {} to see pull requests and CI here.",
                         forge.name()
                     )))
@@ -331,7 +332,7 @@ impl Detail {
                             .gap(px(8.))
                             .text_color(theme.danger)
                             .child(icon(Icon::Warning).text_color(theme.danger))
-                            .child(div().flex_1().child(err))
+                            .child(div().flex_1().min_w(px(0.)).child(err))
                     }),
             );
         let list = match upstream {
