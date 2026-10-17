@@ -109,12 +109,14 @@ impl Detail {
         });
     }
 
-    /// What of the workspace a branch listing depends on: its branch tips and how far
-    /// behind the target it is, which changes when a fetch brings in new refs.
+    /// What a branch listing depends on: the workspace's branch tips, how far behind the
+    /// target it is, and the last fetch, which can bring in branches without changing either.
     fn branches_fingerprint(&self, project: &ProjectId, cx: &Context<Self>) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        if let Some(workspace) = self.store.read(cx).workspace(project) {
+        let store = self.store.read(cx);
+        store.fetched_at(project).hash(&mut hasher);
+        if let Some(workspace) = store.workspace(project) {
             for branch in workspace.branches() {
                 branch.ref_name.hash(&mut hasher);
                 branch.commits.first().map(|c| c.id.0).hash(&mut hasher);
@@ -360,8 +362,9 @@ impl Detail {
             return;
         };
         let ref_name = format!("refs/heads/{}", branch.name);
-        let project = project.clone();
+        let (project, deleted) = (project.clone(), project.clone());
         let name = branch.name.clone();
+        let detail = cx.entity().downgrade();
         self.app
             .update(cx, |app, cx| {
                 app.confirm_then(
@@ -378,7 +381,18 @@ impl Detail {
                                 "Delete branch",
                                 Overlay::default(),
                                 move |path, _| backend::remove_branch(path, &ref_name),
-                                |store, (), cx| store.snack("Branch deleted", cx),
+                                move |store, (), cx| {
+                                    store.snack("Branch deleted", cx);
+                                    // The workspace doesn't change, so its reload won't
+                                    // list the branches again.
+                                    detail
+                                        .update(cx, |this, cx| {
+                                            if this.branches_for(&deleted).is_some() {
+                                                this.load_branches(&deleted, true, cx)
+                                            }
+                                        })
+                                        .ok();
+                                },
                                 cx,
                             )
                         })

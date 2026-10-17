@@ -546,28 +546,37 @@ impl Detail {
                 )
             });
         if let Some((project, from)) = extras.drag_from {
-            let payload = Cut::Files {
-                project,
+            let payload = |files: Vec<Selected>| Cut::Files {
+                project: project.clone(),
                 from,
-                files: vec![Selected {
-                    file: file.clone(),
-                    hunks: None,
-                }]
-                .into(),
+                files: files.into(),
             };
-            let label: SharedString = file.path.clone().into();
-            let menu_payload = payload.clone();
-            row = row
-                .on_drag(
-                    payload,
+            let whole = vec![Selected {
+                file: file.clone(),
+                hunks: None,
+            }];
+            // A file partly checked drags as its checked hunks and lines. Not at all while
+            // they're unknown, rather than as all of it.
+            let dragged = match extras.checkbox {
+                Some(Toggled::Mixed) => (self.selected_changes(cx).into_iter())
+                    .filter(|s| s.file.path == file.path)
+                    .collect(),
+                _ => whole.clone(),
+            };
+            if !dragged.is_empty() {
+                let label: SharedString = file.path.clone().into();
+                row = row.on_drag(
+                    payload(dragged),
                     crate::transfer::drag_preview(self.store.clone(), label),
-                )
-                .on_mouse_down(
-                    MouseButton::Right,
-                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        this.changes_menu(menu_payload.clone(), Some(None), event.position, cx)
-                    }),
                 );
+            }
+            let menu_payload = payload(whole);
+            row = row.on_mouse_down(
+                MouseButton::Right,
+                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                    this.changes_menu(menu_payload.clone(), Some(None), event.position, cx)
+                }),
+            );
         }
         row.into_any_element()
     }

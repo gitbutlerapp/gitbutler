@@ -10,7 +10,7 @@ use gpui::{
 
 use crate::backend::conflicts::{self, ConflictHunk, Conflicts, Pick};
 use crate::backend::{self, CommitId};
-use crate::state::{Overlay, ProjectId, Store};
+use crate::state::{Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::{ButtonStyle, button, h_flex, muted, plural, v_flex};
@@ -40,6 +40,8 @@ pub struct ResolveView {
     conflicts: Option<Result<Conflicts, SharedString>>,
     /// Picks by file and 0-based hunk.
     picks: HashMap<(String, usize), Pick>,
+    /// The picks are being applied.
+    applying: bool,
 }
 
 impl EventEmitter<DismissEvent> for ResolveView {}
@@ -79,6 +81,7 @@ impl ResolveView {
             focus: cx.focus_handle(),
             conflicts: None,
             picks: HashMap::new(),
+            applying: false,
         }
     }
 
@@ -96,15 +99,20 @@ impl ResolveView {
         self.apply(cx);
     }
 
+    /// Resolve with the picks, closing once that worked. A failure, like the AI not being
+    /// set up, leaves the resolver open with the picks made by hand.
     fn apply(&mut self, cx: &mut Context<Self>) {
         let Some(Ok(found)) = self.conflicts.clone() else {
             return;
         };
-        if self.picks.is_empty() {
+        if self.picks.is_empty() || self.applying {
             return;
         }
+        self.applying = true;
+        cx.notify();
         let picks = self.picks.clone();
-        let commit = self.commit;
+        let (project, commit) = (self.project.clone(), self.commit);
+        let view = cx.entity().downgrade();
         self.store.update(cx, |store, cx| {
             store.run(
                 &self.project,
@@ -112,15 +120,40 @@ impl ResolveView {
                 Overlay::default(),
                 move |path, remap| {
                     // The picks are by each conflict's place in the commit as it was shown.
-                    let now = remap.get(commit)?;
-                    anyhow::ensure!(
-                        now == commit,
-                        "The commit changed since its conflicts were shown. Open them again."
-                    );
-                    conflicts::resolve(path, now, &picks, &found)
+                    let resolved = remap.get(commit).and_then(|now| {
+                        anyhow::ensure!(
+                            now == commit,
+                            "The commit changed since its conflicts were shown. Open them again."
+                        );
+                        conflicts::resolve(path, now, &picks, &found)
+                    });
+                    // A failure comes back to `done` too, to keep the resolver open.
+                    Ok(resolved)
                 },
-                |store, (rewritten, outcome), cx| {
-                    store.follow(&rewritten, cx);
+                move |store, resolved, cx| {
+                    let (rewritten, outcome) = match resolved {
+                        Ok(resolved) => resolved,
+                        Err(err) => {
+                            view.update(cx, |this, cx| {
+                                this.applying = false;
+                                this.picks.retain(|_, pick| *pick != Pick::Ai);
+                                cx.notify();
+                            })
+                            .ok();
+                            return store.error("Resolve failed", format!("{err:#}"), cx);
+                        }
+                    };
+                    view.update(cx, |_, cx| cx.emit(DismissEvent)).ok();
+                    let shown = Selection::Commit(project.clone(), commit);
+                    // A commit with no conflicts left has nothing more to resolve; its
+                    // branch shows the next one.
+                    let branch = (store.find_commit(&project, commit))
+                        .filter(|_| outcome.remaining == 0 && store.selection == Some(shown))
+                        .map(|(branch, _)| Selection::Branch(project, branch.ref_name.clone()));
+                    match branch {
+                        Some(branch) => store.select(Some(branch), cx),
+                        None => store.follow(&rewritten, cx),
+                    }
                     let message = match (outcome.remaining, outcome.emptied) {
                         (0, true) => "Resolved. Nothing of the commit's change is left".to_owned(),
                         (0, false) => "Resolved".to_owned(),
@@ -134,7 +167,6 @@ impl ResolveView {
                 cx,
             )
         });
-        cx.emit(DismissEvent);
     }
 
     fn render_hunk(
@@ -370,7 +402,7 @@ impl Render for ResolveView {
                     .py(px(12.))
                     .border_t_1()
                     .border_color(theme.border_3)
-                    .when(picked < total, |el| {
+                    .when(picked < total && !self.applying, |el| {
                         el.child(
                             button(
                                 "resolve-ai",
@@ -403,7 +435,7 @@ impl Render for ResolveView {
                             },
                         )
                         .style(ButtonStyle::Gray)
-                        .disabled(picked == 0)
+                        .disabled(picked == 0 || self.applying)
                         .on_click(cx.listener(|this, _, _, cx| this.apply(cx))),
                     ),
             )

@@ -10,6 +10,7 @@ use but_api::legacy::forge;
 use but_ctx::Context;
 
 use super::ops::holds;
+use super::upstream::sync_failure;
 use super::{Checks, Forge, PushState, Review, ReviewState, open, push, runtime};
 
 /// Which forge hosts the project, when its target's remote says so or the project picks
@@ -166,22 +167,25 @@ pub fn new_review(path: &Path, branch: &str) -> Result<NewReview> {
     Ok(NewReview { target, template })
 }
 
-/// Push `branch` (a full ref) if it needs it, then open a pull request for it. Returns its
-/// number.
+/// A pull request just opened, and why updating the other pull requests of its stack failed,
+/// if it did.
+pub struct Published {
+    pub number: u64,
+    pub sync_failed: Option<String>,
+}
+
+/// Push `branch` (a full ref) and the branches below it, those that have anything to push,
+/// then open a pull request for it.
 pub fn publish(
     path: &Path,
     branch: &str,
-    push_first: Option<bool>,
     title: String,
     body: String,
     draft: bool,
-) -> Result<u64> {
+) -> Result<Published> {
     // The pull request's head is the branch as the remote names it: what a push reports,
     // or for a branch pushed before, the remote branch it tracks.
-    let pushed = match push_first {
-        Some(force) => push(path, branch, force, true)?,
-        None => None,
-    };
+    let (pushed, push_sync_failed) = push(path, branch, true)?;
     let short = branch
         .strip_prefix("refs/heads/")
         .unwrap_or(branch)
@@ -201,7 +205,10 @@ pub fn publish(
             draft,
         },
     ))?;
-    Ok(outcome.review.number as u64)
+    Ok(Published {
+        number: outcome.review.number as u64,
+        sync_failed: sync_failure(outcome.review_sync).or(push_sync_failed),
+    })
 }
 
 /// The name of the remote branch `branch` (a full ref) tracks, without its remote.
@@ -224,7 +231,13 @@ fn tracked_name(ctx: &Context, branch: &str) -> Result<Option<String>> {
 /// Ways to merge a pull request, as the forge offers them.
 pub use but_forge::ReviewMergeMethod as MergeMethod;
 
+/// Merge pull request `number`, then fetch so the target has the merge and the workspace can
+/// update from it.
 pub fn merge(path: &Path, number: u64, method: MergeMethod) -> Result<()> {
     let ctx = open(path)?.into_sync();
-    (runtime().handle()).block_on(forge::merge_review(ctx, number as usize, Some(method)))
+    (runtime().handle()).block_on(forge::merge_review(ctx, number as usize, Some(method)))?;
+    if let Err(err) = super::fetch(path) {
+        tracing::warn!(?err, "merged, but couldn't fetch");
+    }
+    Ok(())
 }

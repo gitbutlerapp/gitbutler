@@ -941,6 +941,7 @@ impl Navigator {
             .iter()
             .filter(|c| c.state == CommitState::Local)
             .count();
+        let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
         let (glyph, glyph_color) = match (&branch.review, branch.push) {
             (Some(review), _) => review::state_glyph(review.state, theme),
             (None, PushState::Integrated) => (Icon::Tick, theme.safe),
@@ -990,6 +991,14 @@ impl Navigator {
                                 }),
                         )
                     })
+                })
+                // So conflicts show while the commits are hidden too.
+                .when(conflicted > 0, |el| {
+                    el.child(count(
+                        Some(Icon::Warning),
+                        conflicted,
+                        style.meta(theme.danger),
+                    ))
                 })
                 .when(!branch.incoming.is_empty(), |el| {
                     el.child(count(

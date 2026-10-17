@@ -39,7 +39,14 @@ impl Store {
                             Ok(()) => store.fetch_failed.remove(&project),
                             Err(_) => store.fetch_failed.insert(project.clone(), Instant::now()),
                         };
-                        store.reload(&project, cx);
+                        // What a fetch changes is in the git directory, which the watcher
+                        // reloads for. A mutation's own reload comes after it anyway.
+                        let watched =
+                            (store.project(&project)).is_some_and(|entry| entry.watcher.is_some());
+                        let mutating = store.mutating.as_ref() == Some(&project);
+                        if (fetched.is_err() || !watched) && !mutating {
+                            store.reload(&project, cx);
+                        }
                     });
                     if reloaded.is_err() {
                         return;
@@ -47,6 +54,11 @@ impl Store {
                 }
             }
         })
+    }
+
+    /// When `id` was last fetched.
+    pub fn fetched_at(&self, id: &ProjectId) -> Option<Instant> {
+        self.fetched.get(id).copied()
     }
 
     fn due_for_fetch(&self, interval: Duration) -> Vec<(ProjectId, PathBuf)> {
@@ -122,7 +134,6 @@ impl Store {
             let Some(path) = path else {
                 continue;
             };
-            // Pull requests show as soon as they're listed; their checks take a request each.
             let reviews_path = path.clone();
             let refreshed = backend::run(move || backend::refresh_reviews(&reviews_path)).await;
             let Ok(_) = this.update(cx, |store, _| match &refreshed {
@@ -135,16 +146,18 @@ impl Store {
                 tracing::debug!(%id, "forge refresh failed: {err:#}");
                 continue;
             }
-            if this.update(cx, |store, cx| store.reload(&id, cx)).is_err() {
-                return;
+            if let Err(err) = backend::run(move || backend::refresh_checks(&path)).await {
+                tracing::debug!(%id, "CI refresh failed: {err:#}");
             }
-            match backend::run(move || backend::refresh_checks(&path)).await {
-                Ok(()) => {
-                    if this.update(cx, |store, cx| store.reload(&id, cx)).is_err() {
-                        return;
-                    }
+            // One reload shows the pull requests and their checks. A running mutation's own
+            // reload comes after it and shows them too.
+            let reloaded = this.update(cx, |store, cx| {
+                if store.mutating.as_ref() != Some(&id) {
+                    store.reload(&id, cx);
                 }
-                Err(err) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
+            });
+            if reloaded.is_err() {
+                return;
             }
         }
     }

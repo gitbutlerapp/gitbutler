@@ -129,25 +129,35 @@ pub fn test_signing(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// The project's remote branches, like `refs/remotes/origin/main`, to pick a target from.
+/// The project's remote branches, like `refs/remotes/origin/main`, to pick a target from:
+/// each remote's default branch first, then the rest by name.
 pub fn remote_branches(path: &Path) -> Result<Vec<String>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
-    let mut names: Vec<String> = repo
-        .references()?
-        .remote_branches()?
-        .filter_map(Result::ok)
-        .map(|reference| reference.name().as_bstr().to_string())
-        .filter(|name| !name.ends_with("/HEAD"))
-        .collect();
+    let (mut defaults, mut names) = (Vec::new(), Vec::new());
+    for reference in repo.references()?.remote_branches()?.filter_map(Result::ok) {
+        let name = reference.name().as_bstr().to_string();
+        match reference.target() {
+            gix::refs::TargetRef::Symbolic(default) if name.ends_with("/HEAD") => {
+                defaults.push(default.as_bstr().to_string())
+            }
+            _ => names.push(name),
+        }
+    }
     names.sort();
+    names.sort_by_key(|name| !defaults.contains(name));
     Ok(names)
 }
 
 /// Make `target` (a remote branch's full ref) what the workspace integrates into. Only the
-/// project's settings change; branches rebase onto it at the next update.
+/// project's settings change: a new project stays on the branch it has checked out, and
+/// branches rebase onto a changed target at the next update.
 pub fn set_target(path: &Path, target: &str) -> Result<()> {
     let mut ctx = open(path)?;
+    anyhow::ensure!(
+        !ctx.repo.get()?.head()?.is_unborn(),
+        "The repository has no commits yet. Make the first one, then pick the target."
+    );
     let name = full_name(target)?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, name.as_ref(), None)
 }
@@ -182,4 +192,50 @@ pub(super) fn app_settings() -> Result<AppSettingsWithDiskSync> {
     let config_dir = config_dir()?;
     std::fs::create_dir_all(&config_dir)?;
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::process::Command;
+
+    #[test]
+    fn the_default_branch_lists_first_and_picking_it_stays_on_the_branch() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path();
+        let git = |args: &[&str]| {
+            let out = Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}: {out:?}");
+            String::from_utf8(out.stdout).unwrap()
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.name", "T"]);
+        git(&["config", "user.email", "t@example.com"]);
+        git(&["config", "commit.gpgsign", "false"]);
+        git(&["commit", "-q", "--allow-empty", "-m", "first"]);
+        git(&["remote", "add", "origin", "https://example.com/repo.git"]);
+        git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        git(&[
+            "symbolic-ref",
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/main",
+        ]);
+        git(&["update-ref", "refs/remotes/origin/feature", "HEAD"]);
+
+        assert_eq!(
+            super::remote_branches(path).unwrap(),
+            ["refs/remotes/origin/main", "refs/remotes/origin/feature"],
+            "the remote's default branch first"
+        );
+        super::set_target(path, "refs/remotes/origin/main").unwrap();
+        assert_eq!(
+            git(&["symbolic-ref", "HEAD"]).trim(),
+            "refs/heads/main",
+            "picking a target leaves the checked-out branch alone, as the desktop app does"
+        );
+        assert!(!crate::backend::load_workspace(path).unwrap().managed);
+    }
 }

@@ -91,6 +91,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-c", CopySelection, workspace),
         KeyBinding::new("escape", Cancel, workspace),
         KeyBinding::new(".", ToggleNavigator, workspace),
+        KeyBinding::new("shift-p", Push, workspace),
         KeyBinding::new("up", SelectPrevious, nav),
         KeyBinding::new("k", SelectPrevious, nav),
         KeyBinding::new("down", SelectNext, nav),
@@ -104,7 +105,6 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("space", Confirm, nav),
         KeyBinding::new("r", RenameSelection, nav),
         KeyBinding::new("b", NewBranchOnTop, nav),
-        KeyBinding::new("shift-p", Push, nav),
         KeyBinding::new("o", OpenPullRequest, nav),
         KeyBinding::new("cmd-backspace", DeleteSelection, nav),
         KeyBinding::new("cmd-alt-backspace", UncommitSelection, nav),
@@ -274,9 +274,16 @@ impl AppView {
         }) else {
             return;
         };
-        self.prompt_branch(project, "New branch", "", window, cx, |path, _, name| {
-            backend::create_branch(path, Some(name))
-        });
+        let selected = project.clone();
+        self.prompt_branch(
+            project,
+            "New branch",
+            "",
+            window,
+            cx,
+            |path, _, name| backend::create_branch(path, Some(name)),
+            |store, ref_name, cx| store.select(Some(Selection::Branch(selected, ref_name)), cx),
+        );
     }
 
     /// Ask with a native dialog before doing something destructive.
@@ -439,14 +446,23 @@ impl AppView {
     }
 
     /// Open the pull request of the selected branch, or of the branch the selected commit
-    /// is on, in the browser.
-    fn open_pull_request(&mut self, _: &OpenPullRequest, _: &mut Window, cx: &mut Context<Self>) {
+    /// is on, in the browser. Without one, start one where that's possible.
+    fn open_pull_request(
+        &mut self,
+        _: &OpenPullRequest,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let url = self.selection(cx).and_then(|selection| {
             let branch = self.store.read(cx).branch_for(&selection)?;
             branch.review.as_ref()?.url.clone()
         });
+        let create = crate::pr::CreatePullRequest;
         match url {
             Some(url) => cx.open_url(&url),
+            None if window.is_action_available(&create, cx) => {
+                self.create_pull_request(&create, window, cx)
+            }
             None => self
                 .store
                 .update(cx, |store, cx| store.snack("No pull request here", cx)),
@@ -498,13 +514,25 @@ impl AppView {
     }
 
     /// Rebase onto the target, after asking when a dry run says that would leave commits
-    /// conflicted that aren't now.
+    /// conflicted that aren't now. Asking again while one waits or runs does nothing.
     pub fn update_from_target(
         &mut self,
         project: ProjectId,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let store = self.store.read(cx);
+        let Some(target) = store.workspace(&project).and_then(|ws| ws.target.as_ref()) else {
+            return;
+        };
+        if !target.needs_update {
+            let message = format!("Already up to date with {}", target.name);
+            self.store.update(cx, |store, cx| store.snack(message, cx));
+            return;
+        }
+        if store.updating(&project) {
+            return;
+        }
         let check = move |path: &Path| {
             let found = backend::update_conflicts(path)?;
             let mut detail = Vec::new();

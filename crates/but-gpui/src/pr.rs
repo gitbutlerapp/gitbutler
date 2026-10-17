@@ -9,11 +9,11 @@ use gpui::{
 use crate::app::AppView;
 use crate::backend::ai;
 use crate::backend::reviews::{self, MergeMethod};
-use crate::backend::{self, Forge, PushState, Review, ReviewState, short_ref};
+use crate::backend::{self, Forge, Review, ReviewState, Workspace, short_ref};
 use crate::state::{Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
-use crate::ui::text_input::{InputEvent, TextInput};
+use crate::ui::text_input::{InputEvent, Newline, TextInput};
 use crate::ui::{ButtonStyle, button, faint, h_flex, muted, switch, v_flex};
 
 actions!(pr, [CreatePullRequest, MergePullRequest]);
@@ -23,8 +23,6 @@ pub struct ReviewView {
     project: ProjectId,
     /// The branch, by full ref.
     branch: String,
-    /// The branch is pushed first when that's `Some`, forced if `true`.
-    push: Option<bool>,
     title: Entity<TextInput>,
     body: Entity<TextInput>,
     /// The branch it would merge into, once known.
@@ -32,6 +30,10 @@ pub struct ReviewView {
     draft: bool,
     /// The title and description being written with AI, streaming into the fields.
     writing: Option<Task<()>>,
+    /// The pull request is being created; the form closes once it is.
+    submitting: bool,
+    /// Why creating it failed, with the form left as it was to try again.
+    error: Option<String>,
 }
 
 impl EventEmitter<DismissEvent> for ReviewView {}
@@ -47,7 +49,6 @@ impl ReviewView {
         store: Entity<Store>,
         project: ProjectId,
         branch: String,
-        push: Option<bool>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -104,12 +105,13 @@ impl ReviewView {
             store,
             project,
             branch,
-            push,
             title,
             body,
             target: None,
             draft: false,
             writing: None,
+            submitting: false,
+            error: None,
         }
     }
 
@@ -168,38 +170,81 @@ impl ReviewView {
 
     fn submit(&mut self, cx: &mut Context<Self>) {
         let title = self.title.read(cx).text().trim().to_owned();
-        if title.is_empty() || self.writing.is_some() {
+        if title.is_empty() || self.writing.is_some() || self.submitting {
             return;
         }
         let body = self.body.read(cx).text().trim().to_owned();
-        let (branch, push, draft) = (self.branch.clone(), self.push, self.draft);
+        let (branch, draft) = (self.branch.clone(), self.draft);
         let project = self.project.clone();
         let refreshed = project.clone();
+        let view = cx.entity().downgrade();
+        self.submitting = true;
+        self.error = None;
+        cx.notify();
         self.store.update(cx, |store, cx| {
             store.run(
                 &project,
                 "Create pull request",
                 Overlay::default(),
-                move |path, _| reviews::publish(path, &branch, push, title, body, draft),
-                move |store, number, cx| {
-                    store.snack(format!("Created pull request #{number}"), cx);
+                // A failure goes to the form, which keeps what was typed.
+                move |path, _| {
+                    let published = reviews::publish(path, &branch, title, body, draft);
+                    Ok(
+                        published.map_err(|err| match backend::push_refusal(&err).as_deref() {
+                            None => format!("{err:#}"),
+                            Some("") => "Someone pushed to the branch since the last fetch, and \
+                                     pushing would drop their commits. Fetch to see them."
+                                .to_owned(),
+                            Some(said) => format!("The remote refused the push: {said}"),
+                        }),
+                    )
+                },
+                move |store, published, cx| {
+                    // The push can move the stack's other pull requests too.
                     store.refresh_forge(&refreshed);
+                    match published {
+                        Ok(published) => {
+                            store.snack(format!("Created pull request #{}", published.number), cx);
+                            if let Some(message) = published.sync_failed {
+                                let title = "The stack's other pull requests weren't updated";
+                                store.error(title, message, cx);
+                            }
+                            view.update(cx, |_, cx| cx.emit(DismissEvent)).ok();
+                        }
+                        Err(failed) => {
+                            let shown = view.update(cx, |this, cx| {
+                                this.submitting = false;
+                                this.error = Some(failed.clone());
+                                cx.notify();
+                            });
+                            if shown.is_err() {
+                                store.error("Create pull request failed", failed, cx);
+                            }
+                        }
+                    }
                 },
                 cx,
             )
         });
-        cx.emit(DismissEvent);
     }
 }
 
 impl Render for ReviewView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
-        let route = match (&self.target, self.push) {
-            (Some(target), _) => format!("{} → {target}", short_ref(&self.branch)),
-            (None, Some(_)) => format!("{} gets pushed first", short_ref(&self.branch)),
-            (None, None) => short_ref(&self.branch).to_owned(),
+        let route = match &self.target {
+            Some(target) => format!("{} → {target}", short_ref(&self.branch)),
+            None => short_ref(&self.branch).to_owned(),
         };
+        let push = (self.store.read(cx).workspace(&self.project))
+            .and_then(|ws| push_first(ws, &self.branch))
+            .map(|force| {
+                if force {
+                    "Gets force-pushed first, since it or a branch below it was rewritten"
+                } else {
+                    "Gets pushed first"
+                }
+            });
         let field = |input: &Entity<TextInput>, tall: bool| {
             let focused = input.focus_handle(cx).is_focused(window);
             div()
@@ -250,7 +295,8 @@ impl Render for ReviewView {
                             .text_size(px(12.))
                             .text_color(theme.text_2)
                             .child(SharedString::from(route)),
-                    ),
+                    )
+                    .children(push.map(|note| muted(note, &theme))),
             )
             .child(
                 v_flex()
@@ -258,7 +304,12 @@ impl Render for ReviewView {
                     .pb(px(16.))
                     .gap(px(6.))
                     .child(label("Title"))
-                    .child(field(&self.title, false))
+                    .child(field(&self.title, false).capture_action(cx.listener(
+                        |this, _: &Newline, window, cx| {
+                            window.focus(&this.body.focus_handle(cx), cx);
+                            cx.stop_propagation();
+                        },
+                    )))
                     .child(div().h(px(6.)))
                     .child(
                         h_flex()
@@ -295,7 +346,14 @@ impl Render for ReviewView {
                                     .child(div().text_size(px(13.)).child("Draft"))
                                     .child(muted("Not ready for review yet", &theme)),
                             ),
-                    ),
+                    )
+                    .children(self.error.clone().map(|err| {
+                        div()
+                            .pt(px(4.))
+                            .text_size(px(12.))
+                            .text_color(theme.danger)
+                            .child(err)
+                    })),
             )
             .child(
                 h_flex()
@@ -306,17 +364,24 @@ impl Render for ReviewView {
                     .py(px(12.))
                     .border_t_1()
                     .border_color(theme.border_3)
-                    .child(faint("⌘↩ in the description to submit", &theme).flex_1())
+                    .child(faint("⌘↩ to submit", &theme).flex_1())
                     .child(
                         button("pr-cancel", "Cancel")
                             .style(ButtonStyle::Ghost)
                             .on_click(cx.listener(|_, _, _, cx| cx.emit(DismissEvent))),
                     )
                     .child(
-                        button("pr-submit", confirm)
-                            .style(ButtonStyle::Gray)
-                            .disabled(empty_title || self.writing.is_some())
-                            .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
+                        button(
+                            "pr-submit",
+                            if self.submitting {
+                                "Creating…"
+                            } else {
+                                confirm
+                            },
+                        )
+                        .style(ButtonStyle::Gray)
+                        .disabled(empty_title || self.writing.is_some() || self.submitting)
+                        .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
                     ),
             )
     }
@@ -362,17 +427,8 @@ impl AppView {
         let Some((project, branch, None)) = self.review_target(cx) else {
             return;
         };
-        let Some(ws) = self.store.read(cx).workspace(&project) else {
-            return;
-        };
-        let push = ws.find_branch(&branch).and_then(|b| match b.push {
-            PushState::NothingToPush | PushState::Integrated => None,
-            PushState::NeedsForce | PushState::Unpushed | PushState::NeverPushed => {
-                Some(ws.needs_force(&branch))
-            }
-        });
         let store = self.store.clone();
-        let view = cx.new(|cx| ReviewView::new(store, project, branch, push, window, cx));
+        let view = cx.new(|cx| ReviewView::new(store, project, branch, window, cx));
         self.open_modal(view, window, cx);
     }
 
@@ -437,6 +493,15 @@ impl AppView {
         })
         .detach();
     }
+}
+
+/// Whether creating `branch`'s pull request pushes first, and whether forced: it or a branch
+/// below it has something to push.
+fn push_first(ws: &Workspace, branch: &str) -> Option<bool> {
+    let (stack, at) = ws.stack_of(branch)?;
+    (stack.branches[at..].iter())
+        .any(|below| below.push.can_push())
+        .then(|| ws.needs_force(branch))
 }
 
 /// Whether `selection`'s project is on a forge, so pull requests apply.

@@ -10,7 +10,7 @@ use anyhow::{Context as _, Result};
 use gpui::{Context, SharedString, Task};
 
 use super::{ProjectId, Selection, Store, StoreEvent};
-use crate::backend::{self, CommitId, Destination, SnapshotId, short_ref};
+use crate::backend::{self, CommitId, Destination, HunkKey, Selected, SnapshotId, short_ref};
 
 /// How long a mutation runs before the status bar says how long it's taking.
 pub const SLOW: Duration = Duration::from_millis(800);
@@ -24,8 +24,14 @@ pub struct Overlay {
     pub commits: HashSet<String>,
     /// Uncommitted files leaving whole, by path.
     pub files: HashSet<String>,
+    /// Hunks leaving uncommitted files that otherwise stay, by path.
+    pub hunks: HashMap<String, Vec<HunkKey>>,
+    /// Files leaving a commit whole, by the commit's key and the path.
+    pub commit_files: HashSet<(String, String)>,
     /// The branch (full ref) a new commit goes on top of, and its title.
     pub new_commit: Option<(String, SharedString)>,
+    /// It changes only uncommitted files, so the reload after it reads just those.
+    pub files_only: bool,
 }
 
 impl Overlay {
@@ -36,13 +42,33 @@ impl Overlay {
         }
     }
 
-    /// Hides the files taken whole; ones with only some hunks taken stay.
+    /// Hides the files taken whole, and of the others the hunks taken.
     pub fn files<'a>(selected: impl IntoIterator<Item = &'a backend::Selected>) -> Self {
+        let mut overlay = Self::default();
+        for s in selected {
+            let path = s.file.path.clone();
+            match &s.hunks {
+                None => {
+                    overlay.files.insert(path);
+                }
+                Some(hunks) => overlay.hunks.entry(path).or_default().extend(hunks),
+            }
+        }
+        overlay
+    }
+
+    /// Hides the files taken whole out of the commit with key `commit`.
+    pub fn commit_files<'a>(
+        commit: Option<String>,
+        selected: impl IntoIterator<Item = &'a backend::Selected>,
+    ) -> Self {
+        let Some(commit) = commit else {
+            return Self::default();
+        };
         Self {
-            files: selected
-                .into_iter()
+            commit_files: (selected.into_iter())
                 .filter(|s| s.hunks.is_none())
-                .map(|s| s.file.path.clone())
+                .map(|s| (commit.clone(), s.file.path.clone()))
                 .collect(),
             ..Self::default()
         }
@@ -50,6 +76,7 @@ impl Overlay {
 }
 
 const FETCH: &str = "Fetch";
+const UPDATE: &str = "Update";
 
 /// The commits an operation captured, found again by key when it runs, as operations queued
 /// before it may have rewritten them.
@@ -167,17 +194,22 @@ impl Store {
             |path, _| backend::fetch(path),
             move |store, (), cx| {
                 store.fetch_failed.remove(&fetched);
+                store.fetched.insert(fetched, Instant::now());
                 store.snack("Fetched", cx)
             },
             cx,
         );
     }
 
-    /// Rebase the project's branches onto its target's latest commits.
+    /// Rebase the project's branches onto its target's latest commits, unless an update
+    /// already waits or runs.
     pub fn update_from_target(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        if self.updating(project) {
+            return;
+        }
         self.run(
             project,
-            "Update",
+            UPDATE,
             Overlay::default(),
             move |path, _| backend::update_from_target(path),
             move |store, (), cx| store.snack_undoable("Updated from target", cx),
@@ -194,7 +226,6 @@ impl Store {
         protect: bool,
         cx: &mut Context<Self>,
     ) {
-        let force = (self.workspace(project)).is_some_and(|ws| ws.needs_force(&ref_name));
         let name = short_ref(&ref_name).to_owned();
         let pushed = project.clone();
         self.run(
@@ -203,7 +234,7 @@ impl Store {
             Overlay::default(),
             {
                 let ref_name = ref_name.clone();
-                move |path, _| match backend::push(path, &ref_name, force, protect) {
+                move |path, _| match backend::push(path, &ref_name, protect) {
                     Ok(_) => Ok(None),
                     Err(err) => backend::push_refusal(&err).map(Some).ok_or(err),
                 }
@@ -288,6 +319,29 @@ impl Store {
         );
     }
 
+    /// Add uncommitted `files` to commit `into`, then call `then` once that worked.
+    pub fn amend(
+        &mut self,
+        project: &ProjectId,
+        into: CommitId,
+        files: Arc<[Selected]>,
+        then: impl FnOnce(&mut Store, &mut Context<Store>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.run(
+            project,
+            format!("Amend {}", into.short()),
+            Overlay::files(files.iter()),
+            move |path, remap| backend::amend(path, remap.get(into)?, &files),
+            |store, (rewritten, left_out), cx| {
+                store.follow(&rewritten, cx);
+                store.report_left_out("Amended", &left_out, cx);
+                then(store, cx)
+            },
+            cx,
+        );
+    }
+
     pub fn uncommit(&mut self, project: &ProjectId, ids: Vec<CommitId>, cx: &mut Context<Self>) {
         let keys: Vec<String> = ids
             .iter()
@@ -342,8 +396,6 @@ impl Store {
                 store.start(&id, start_label, op, done, remap, cx)
             }),
         });
-        self.cut = None;
-        self.picked.clear();
         cx.emit(StoreEvent::Pending(project.clone()));
         cx.notify();
         if self.running.is_none() {
@@ -453,7 +505,11 @@ impl Store {
                     }
                     Err(err) => store.error(format!("{label} failed"), format!("{err:#}"), cx),
                 }
-                store.reload(&project, cx);
+                if (store.running.as_ref()).is_some_and(|r| r.overlay.files_only) {
+                    store.reload_files(&project, cx);
+                } else {
+                    store.reload(&project, cx);
+                }
             })
             .ok();
         })
@@ -497,6 +553,15 @@ impl Store {
         self.queue.len()
     }
 
+    /// Whether an update from the target waits or runs on `project`.
+    pub fn updating(&self, project: &ProjectId) -> bool {
+        let running = self.running.iter().map(|r| (&r.project, &r.label));
+        let queued = self.queue.iter().map(|q| (&q.project, &q.label));
+        running
+            .chain(queued)
+            .any(|(p, label)| p == project && label == UPDATE)
+    }
+
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {
         let running = self.running.iter().filter(move |r| r.project == *project);
         let queued = self.queue.iter().filter(move |q| q.project == *project);
@@ -513,6 +578,17 @@ impl Store {
         self.overlays(project).any(|o| o.files.contains(path))
     }
 
+    pub fn hides_hunk(&self, project: &ProjectId, path: &str, hunk: HunkKey) -> bool {
+        self.overlays(project)
+            .any(|o| o.hunks.get(path).is_some_and(|hunks| hunks.contains(&hunk)))
+    }
+
+    /// Whether the file at `path` is leaving the commit with key `commit`.
+    pub fn hides_commit_file(&self, project: &ProjectId, commit: &str, path: &str) -> bool {
+        self.overlays(project)
+            .any(|o| (o.commit_files.iter()).any(|(key, file)| key == commit && file == path))
+    }
+
     /// The titles of commits pending mutations will make on top of `ref_name`.
     pub fn new_commits(&self, project: &ProjectId, ref_name: &str) -> Vec<SharedString> {
         self.overlays(project)
@@ -527,9 +603,27 @@ impl Store {
         if let Some(Selection::Commit(project, id)) = &self.selection
             && let Some(new) = rewritten.get(id)
         {
-            let selection = Selection::Commit(project.clone(), *new);
-            self.select(Some(selection), cx);
+            let (project, from, to) = (project.clone(), *id, *new);
+            self.select_followed(project, from, to, cx);
         }
+    }
+
+    /// Select commit `to`, which commit `from`, selected until now, was rewritten into.
+    pub(super) fn select_followed(
+        &mut self,
+        project: ProjectId,
+        from: CommitId,
+        to: CommitId,
+        cx: &mut Context<Self>,
+    ) {
+        self.select(Some(Selection::Commit(project, to)), cx);
+        self.followed = Some((from, to));
+    }
+
+    /// Whether the selection moved from commit `from` to `to` as an operation rewrote it,
+    /// rather than to another commit: it's the same one to look at.
+    pub fn followed(&self, from: CommitId, to: CommitId) -> bool {
+        self.followed == Some((from, to))
     }
 }
 

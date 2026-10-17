@@ -253,9 +253,15 @@ impl Detail {
         let subscriptions = vec![
             cx.subscribe(&store, |this, _, event, cx| match event {
                 StoreEvent::SelectionChanged => {
+                    // The message being edited was of the commit as it was.
                     this.rewording = None;
-                    this.message_open = false;
-                    this.reset_view();
+                    // A commit an operation rewrote is still the one being looked at.
+                    let followed =
+                        (this.key_for_selection(cx)).is_some_and(|key| this.follows(&key, cx));
+                    if !followed {
+                        this.message_open = false;
+                        this.reset_view();
+                    }
                     let project = this.selected_project(cx);
                     if this.checks_project != project {
                         this.checks_project = project;
@@ -284,6 +290,9 @@ impl Detail {
                         || scope.as_ref() == Some(project)
                     {
                         this.rebuild_rows(cx);
+                        if let StoreEvent::Pending(_) = event {
+                            this.skip_taken(cx);
+                        }
                     }
                 }
             }),
@@ -587,9 +596,24 @@ impl Detail {
             .map(|(_, files)| files.clone())
     }
 
+    /// Whether `key` is of the commit the loaded diff is of, as an operation just rewrote
+    /// it: the same diff to look at, kept where it was.
+    fn follows(&self, key: &DiffKey, cx: &App) -> bool {
+        let Some(diff) = &self.diff else {
+            return false;
+        };
+        match (&diff.key.source, &key.source) {
+            (DiffSource::Commit(from), DiffSource::Commit(to)) => {
+                diff.key.project == key.project && self.store.read(cx).followed(*from, *to)
+            }
+            _ => false,
+        }
+    }
+
     /// Show a loaded diff, keeping the scroll position and checks when it's a reload.
     fn show_diff(&mut self, key: DiffKey, files: Arc<Vec<FileDiff>>, cx: &mut Context<Self>) {
-        if self.diff.as_ref().is_none_or(|diff| diff.key != key) {
+        let same = self.diff.as_ref().is_some_and(|diff| diff.key == key) || self.follows(&key, cx);
+        if !same {
             self.whole.clear();
         }
         const RECENT: usize = 16;
@@ -599,7 +623,6 @@ impl Detail {
         }
         self.recent.push((key.clone(), files.clone()));
         let rows = self.build_rows(&key, &files, cx);
-        let same = self.diff.as_ref().is_some_and(|diff| diff.key == key);
         let top = same.then(|| self.keep_place(&rows, &files));
         // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
         // is about the right size before they are.
@@ -658,10 +681,15 @@ impl Detail {
     }
 
     /// The diff's rows. Files folded by hand, or reviewed and not unfolded, show only their
-    /// header; uncommitted files a pending operation takes away are left out until it's done.
+    /// header; uncommitted files and hunks, or files of the commit shown, that a pending
+    /// operation takes away are left out until it's done.
     fn build_rows(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> Vec<DiffRow> {
         let store = self.store.read(cx);
         let worktree = key.source == DiffSource::Worktree;
+        let commit = match key.source {
+            DiffSource::Commit(id) => store.key_of(&key.project, id),
+            _ => None,
+        };
         let scope = key.review_scope();
         let terms = self.filter_terms(cx);
         diff::rows(
@@ -673,9 +701,13 @@ impl Detail {
                 !self.unfolded.contains(path) && (self.folded.contains(path) || reviewed)
             },
             |file| {
-                (worktree && store.hides_file(&key.project, &file.file.path))
-                    || !keeps_path(&terms, &file.file.path)
+                let path = &file.file.path;
+                (worktree && store.hides_file(&key.project, path))
+                    || (commit.as_ref())
+                        .is_some_and(|commit| store.hides_commit_file(&key.project, commit, path))
+                    || !keeps_path(&terms, path)
             },
+            |file, hunk| worktree && store.hides_hunk(&key.project, &file.file.path, hunk.key),
             |file| match self.whole.get(&file.file.path) {
                 Some(Some((fingerprint, lines))) if *fingerprint == file.fingerprint => {
                     Some(lines.len() as u32)
@@ -917,11 +949,46 @@ impl Detail {
                 hunk: None,
             };
         };
-        let hunk = self.cursor.hunk.and_then(|ix| {
-            let key = *hunk_keys(old).get(ix)?;
-            hunk_keys(&files[file]).iter().position(|k| *k == key)
-        });
+        let hunk = (self.cursor.hunk)
+            .and_then(|ix| follow_hunk(&hunk_keys(old), ix, &hunk_keys(&files[file])));
         Cursor { file, hunk }
+    }
+
+    /// Move the cursor off a file or hunk a pending operation just took away, onto the next
+    /// one shown, so the next key acts on what's on screen.
+    fn skip_taken(&mut self, cx: &App) {
+        let Some(diff) = &self.diff else {
+            return;
+        };
+        let Some(path) = diff.files.get(self.cursor.file).map(|f| &f.file.path) else {
+            return;
+        };
+        let at = (self.cursor.file, self.cursor.hunk);
+        // The files and hunks shown, in order, as the cursor can be on them.
+        let places: Vec<(usize, Option<usize>)> = (diff.rows.iter())
+            .filter_map(|row| match *row {
+                DiffRow::File(file) => Some((file, None)),
+                DiffRow::Hunk { file, hunk } => Some((file, Some(hunk))),
+                _ => None,
+            })
+            .collect();
+        let file_shown = places.iter().any(|(file, _)| *file == at.0);
+        // Not what the filter or a fold leaves out.
+        let taken = match file_shown {
+            false => keeps_path(&self.filter_terms(cx), path),
+            true => at.1.is_some() && !places.contains(&at) && !self.is_folded(at.0),
+        };
+        if !taken {
+            return;
+        }
+        // The next file shown, for a file taken, or the next hunk, for a hunk; failing that,
+        // the last before it.
+        let places: Vec<_> = (places.into_iter())
+            .filter(|(_, hunk)| hunk.is_some() == file_shown)
+            .collect();
+        if let Some(&(file, hunk)) = places.iter().find(|place| **place > at).or(places.last()) {
+            self.cursor = Cursor { file, hunk };
+        }
     }
 
     /// The loaded diff when it's of the project's own uncommitted changes, the ones the
@@ -962,6 +1029,22 @@ impl Detail {
                 app.open_in_editor(&project, worktree, Some(path), line, position, cx)
             })
             .ok();
+    }
+
+    /// Keep committing to branch `from` (a full ref) now that it's renamed `to`.
+    pub fn branch_renamed(&mut self, from: &str, to: &str, cx: &mut Context<Self>) {
+        if self.commit_target.as_deref() == Some(from) {
+            self.commit_target = Some(to.to_owned());
+            cx.notify();
+        }
+    }
+
+    /// Commit to `branch` of `project` next when it was made with the composer open.
+    pub fn branch_created(&mut self, project: &ProjectId, branch: String, cx: &mut Context<Self>) {
+        if self.composing && self.checks_project.as_ref() == Some(project) {
+            self.commit_target = Some(branch);
+            cx.notify();
+        }
     }
 
     /// The path of the file under the cursor, in any diff.
@@ -1292,5 +1375,51 @@ fn hunk_keys(file: &FileDiff) -> Vec<HunkKey> {
     match &file.body {
         DiffBody::Hunks { hunks, .. } => hunks.iter().map(|hunk| hunk.key).collect(),
         _ => Vec::new(),
+    }
+}
+
+/// Where hunk `ix` of a file's `old` hunks is among its hunks `now`. A hunk keeps its lines
+/// of the old side while hunks before it come and go and shift its new side. When it went
+/// too, say discarded, it's what moved up into its place.
+fn follow_hunk(old: &[HunkKey], ix: usize, now: &[HunkKey]) -> Option<usize> {
+    let lines = |key: &HunkKey| (key.0.old_start, key.0.old_lines);
+    (old.get(ix)
+        .and_then(|key| now.iter().position(|k| lines(k) == lines(key))))
+    .or_else(|| Some(ix.min(now.len().checked_sub(1)?)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::follow_hunk;
+    use crate::backend::HunkKey;
+
+    fn key(old_start: u32, new_start: u32) -> HunkKey {
+        HunkKey(but_core::HunkHeader {
+            old_start,
+            old_lines: 2,
+            new_start,
+            new_lines: 3,
+        })
+    }
+
+    #[test]
+    fn the_cursor_stays_on_its_hunk_as_hunks_around_it_go() {
+        let old = [key(1, 1), key(10, 11), key(20, 22)];
+        assert_eq!(
+            follow_hunk(&old, 1, &[key(10, 10), key(20, 21)]),
+            Some(0),
+            "the first hunk was discarded, shifting the new side of the one under the cursor"
+        );
+        assert_eq!(
+            follow_hunk(&old, 1, &[key(1, 1), key(20, 21)]),
+            Some(1),
+            "the hunk under the cursor was discarded: the next one moved up into its place"
+        );
+        assert_eq!(
+            follow_hunk(&old, 2, &[key(1, 1)]),
+            Some(0),
+            "the last hunk went: the one before it"
+        );
+        assert_eq!(follow_hunk(&old, 0, &[]), None, "no hunks left");
     }
 }

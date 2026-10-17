@@ -83,19 +83,25 @@ impl Detail {
                             .and_then(|ws| ws.find_branch(ref_name))
                             .is_some_and(|b| b.review.is_none() && !b.commits.is_empty())
                         && crate::pr::on_forge(store, selection);
+                    let pushable = workspace
+                        .filter(|ws| ws.find_branch(ref_name).is_some_and(|b| b.push.can_push()));
                     if can_create {
+                        // The next step once nothing's left to push.
+                        let style = match pushable {
+                            Some(_) => ButtonStyle::Ghost,
+                            None => ButtonStyle::Pop,
+                        };
                         actions.push(
                             button("create-pr", "Create pull request")
                                 .icon(Icon::Pr)
-                                .style(ButtonStyle::Ghost)
+                                .style(style)
                                 .dispatch(&crate::pr::CreatePullRequest)
                                 .into_any_element(),
                         );
                     }
-                    if let Some(branch) = workspace.and_then(|ws| ws.find_branch(ref_name))
-                        && branch.push.can_push()
-                    {
-                        let label = if branch.push == PushState::NeedsForce {
+                    if let Some(ws) = pushable {
+                        // Pushing takes the branches below along, so they count too.
+                        let label = if ws.needs_force(ref_name) {
                             "Force push"
                         } else {
                             "Push"

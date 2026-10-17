@@ -122,12 +122,14 @@ impl DiffRow {
 }
 
 /// Rows for `files`, with the files `folded` says are folded reduced to their header, the
-/// ones `hidden` says are hidden left out, and the ones `whole` gives the length of shown
-/// with every unchanged line. With `split`, a hunk's lines pair up side by side.
+/// files and hunks `hidden` and `hidden_hunk` say are hidden left out, and the files `whole`
+/// gives the length of shown with every unchanged line. With `split`, a hunk's lines pair up
+/// side by side.
 pub fn rows(
     files: &[FileDiff],
     folded: impl Fn(&FileDiff) -> bool,
     hidden: impl Fn(&FileDiff) -> bool,
+    hidden_hunk: impl Fn(&FileDiff, &Hunk) -> bool,
     whole: impl Fn(&FileDiff) -> Option<u32>,
     split: bool,
 ) -> Vec<DiffRow> {
@@ -153,33 +155,30 @@ pub fn rows(
                         context_rows(&mut rows, file_ix, next..header.new_start, ahead);
                     }
                     next = header.new_start + header.new_lines;
+                    if hidden_hunk(file, hunk) {
+                        continue;
+                    }
                     rows.push(DiffRow::Hunk {
                         file: file_ix,
                         hunk: hunk_ix,
                     });
-                    let last_hunk =
-                        hunk_ix + 1 == hunks.len() && total.is_none_or(|total| next > total);
                     if split {
-                        let pairs = pair_lines(&hunk.lines);
-                        let count = pairs.len();
-                        rows.extend(pairs.into_iter().enumerate().map(|(ix, (left, right))| {
+                        rows.extend(pair_lines(&hunk.lines).into_iter().map(|(left, right)| {
                             DiffRow::Pair {
                                 file: file_ix,
                                 hunk: hunk_ix,
                                 left,
                                 right,
-                                last: last_hunk && ix + 1 == count,
+                                last: false,
                             }
                         }));
                     } else {
-                        for line_ix in 0..hunk.lines.len() {
-                            rows.push(DiffRow::Line {
-                                file: file_ix,
-                                hunk: hunk_ix,
-                                line: line_ix,
-                                last: last_hunk && line_ix + 1 == hunk.lines.len(),
-                            });
-                        }
+                        rows.extend((0..hunk.lines.len()).map(|line| DiffRow::Line {
+                            file: file_ix,
+                            hunk: hunk_ix,
+                            line,
+                            last: false,
+                        }));
                     }
                 }
                 if let Some(total) = total.filter(|total| next <= *total) {
@@ -187,12 +186,16 @@ pub fn rows(
                     let ahead = i64::from(end.new_start + end.new_lines)
                         - i64::from(end.old_start + end.old_lines);
                     context_rows(&mut rows, file_ix, next..total + 1, ahead);
-                    if let Some(DiffRow::Context { last, .. }) = rows.last_mut() {
-                        *last = true;
-                    }
                 }
             }
             _ => rows.push(DiffRow::Note(file_ix)),
+        }
+        // The line before the gap ends the file's card.
+        if let Some(
+            DiffRow::Line { last, .. } | DiffRow::Pair { last, .. } | DiffRow::Context { last, .. },
+        ) = rows.last_mut()
+        {
+            *last = true;
         }
         rows.push(DiffRow::Gap);
     }

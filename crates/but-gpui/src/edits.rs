@@ -3,13 +3,15 @@
 //! unstack and unapply. `edit_actions` registers them around the navigator; Push is on the
 //! window instead, so the branch page's button reaches it.
 
+use std::path::Path;
+
 use gpui::{App, Context, Div, Window, actions, prelude::*};
 
 use crate::app::{
     AppView, DeleteSelection, NewBranchOnTop, Push, RenameSelection, UncommitSelection,
 };
-use crate::backend::{self, Commit, CommitId, Destination, Selected, Workspace, short_ref};
-use crate::state::{Cut, Overlay, ProjectId, Selection};
+use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
+use crate::state::{Cut, Overlay, ProjectId, Remap, Selection, Store};
 
 actions!(
     edits,
@@ -224,8 +226,21 @@ impl AppView {
         Some((selection.project().clone(), branch.ref_name.clone()))
     }
 
+    /// Push the selected branch, or from the uncommitted changes the branch they commit to.
     pub fn push_selected(&mut self, _: &Push, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some((project, ref_name)) = self.branch_of_selection(cx) {
+        let branch = match self.selection(cx) {
+            Some(Selection::Uncommitted(project)) => {
+                let target = self.detail.read(cx).effective_target(&project, cx);
+                let Some(target) = target else {
+                    return self
+                        .store
+                        .update(cx, |store, cx| store.snack("Select a branch to push", cx));
+                };
+                Some((project, target))
+            }
+            _ => self.branch_of_selection(cx),
+        };
+        if let Some((project, ref_name)) = branch {
             self.store
                 .update(cx, |store, cx| store.push(&project, ref_name, true, cx));
         }
@@ -263,6 +278,8 @@ impl AppView {
         match self.selection(cx) {
             Some(Selection::Branch(project, ref_name)) => {
                 let current = short_ref(&ref_name).to_owned();
+                let (selected, detail, from) =
+                    (project.clone(), self.detail.downgrade(), ref_name.clone());
                 self.prompt_branch(
                     project,
                     "Rename branch",
@@ -270,6 +287,11 @@ impl AppView {
                     window,
                     cx,
                     move |path, _, name| backend::rename_branch(path, &ref_name, name),
+                    move |store, to, cx| {
+                        (detail.update(cx, |detail, cx| detail.branch_renamed(&from, &to, cx)))
+                            .ok();
+                        store.select(Some(Selection::Branch(selected, to)), cx)
+                    },
                 )
             }
             Some(Selection::Commit(..)) => self
@@ -289,15 +311,35 @@ impl AppView {
             .branch_of_selection(cx)
             .filter(|(_, ref_name)| !ref_name.is_empty())
         {
-            self.prompt_branch(
+            self.prompt_new_branch(
                 project,
                 "New branch on top",
-                "",
                 window,
                 cx,
                 move |path, _, name| backend::create_dependent_branch(path, &below, name),
             );
         }
+    }
+
+    /// Ask for a branch name and make the branch with `op`, then select it. With the composer
+    /// open, it's what the next commit goes to.
+    fn prompt_new_branch(
+        &mut self,
+        project: ProjectId,
+        title: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        op: impl FnOnce(&Path, &Remap, &str) -> anyhow::Result<String> + Send + 'static,
+    ) {
+        let (selected, detail) = (project.clone(), self.detail.downgrade());
+        let done = move |store: &mut Store, branch: String, cx: &mut Context<Store>| {
+            (detail.update(cx, |detail, cx| {
+                detail.branch_created(&selected, branch.clone(), cx)
+            }))
+            .ok();
+            store.select(Some(Selection::Branch(selected, branch)), cx)
+        };
+        self.prompt_branch(project, title, "", window, cx, op, done);
     }
 
     fn uncommit_selection(
@@ -310,7 +352,7 @@ impl AppView {
             self.store.update(cx, |store, cx| {
                 let ids = match store.picked.is_empty() {
                     true => vec![id],
-                    false => store.picked.clone(),
+                    false => std::mem::take(&mut store.picked),
                 };
                 store.uncommit(&project, ids, cx)
             });
@@ -325,9 +367,33 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).to_owned();
+        let Some((stack, at)) =
+            (self.store.read(cx).workspace(&project)).and_then(|ws| ws.stack_of(&ref_name))
+        else {
+            return;
+        };
+        // Only the ref goes. Its commits stay in the stack, which needs another named branch
+        // to hold them: the one above, or below when there's none above.
+        let named = |b: &&Branch| !b.ref_name.is_empty();
+        if stack.branches.iter().filter(named).count() < 2
+            && stack.branches.iter().any(|b| !b.commits.is_empty())
+        {
+            let message = format!(
+                "To delete {name} and its commits, unapply it, then delete it from Branches"
+            );
+            return self.store.update(cx, |store, cx| store.snack(message, cx));
+        }
+        let above = at.checked_sub(1).map(|ix| &stack.branches[ix]);
+        let detail = match above.filter(named).or(stack.branches.get(at + 1)) {
+            Some(next) if !stack.branches[at].commits.is_empty() => format!(
+                "Its commits stay, as part of {}. You can undo this with ⌘Z.",
+                next.name
+            ),
+            _ => "You can undo this with ⌘Z.".to_owned(),
+        };
         self.confirm_then(
             format!("Delete branch {name}?"),
-            "Its commits go too. You can undo this with ⌘Z.",
+            &detail,
             "Delete",
             window,
             cx,
@@ -381,17 +447,29 @@ impl AppView {
     pub fn discard(
         &mut self,
         project: ProjectId,
-        changes: Vec<Selected>,
+        mut changes: Vec<Selected>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // Not what a pending discard or commit already takes, as after a quick second press.
+        let store = self.store.read(cx);
+        changes.retain(|change| {
+            let path = &change.file.path;
+            match &change.hunks {
+                None => !store.hides_file(&project, path),
+                Some(hunks) => !hunks.iter().all(|h| store.hides_hunk(&project, path, *h)),
+            }
+        });
         let run = move |this: &mut AppView, changes: Vec<Selected>, cx: &mut Context<AppView>| {
             let project = project.clone();
             this.store.update(cx, |store, cx| {
                 store.run(
                     &project,
                     "Discard",
-                    Overlay::files(&changes),
+                    Overlay {
+                        files_only: true,
+                        ..Overlay::files(&changes)
+                    },
                     move |path, _| backend::discard(path, &changes),
                     |store, (), cx| store.snack_undoable("Changes discarded", cx),
                     cx,
@@ -504,6 +582,7 @@ impl AppView {
         let label = format!("Squash {} commits", rest.len() + 1);
         // Oldest first, so their messages follow `into`'s in the order they were written.
         let rest = rest.iter().rev().map(|c| c.id).collect();
+        self.store.update(cx, |store, _| store.picked.clear());
         self.squash(project, rest, into, overlay, label, cx);
     }
 
@@ -558,7 +637,7 @@ impl AppView {
             return;
         };
         let title = format!("New branch below {}", short_ref(&ref_name));
-        self.prompt_branch(project, &title, "", window, cx, move |path, remap, name| {
+        self.prompt_new_branch(project, &title, window, cx, move |path, remap, name| {
             backend::create_branch_at_commit(path, remap.get(oldest)?, true, name)
         });
     }
@@ -571,7 +650,7 @@ impl AppView {
         };
         let id = commit.id;
         let title = format!("New branch ending at {}", id.short());
-        self.prompt_branch(project, &title, "", window, cx, move |path, remap, name| {
+        self.prompt_new_branch(project, &title, window, cx, move |path, remap, name| {
             backend::create_branch_at_commit(path, remap.get(id)?, false, name)
         });
     }
@@ -709,7 +788,7 @@ impl AppView {
             store.run(
                 &project,
                 "Split commit",
-                Overlay::default(),
+                Overlay::commit_files(store.key_of(&project, commit), files.iter()),
                 move |path, remap| backend::split_off(path, remap.get(commit)?, &files),
                 move |store, (rewritten, new), cx| {
                     store.follow(&rewritten, cx);
@@ -746,7 +825,7 @@ impl AppView {
                     store.run(
                         &project,
                         "Discard from commit",
-                        Overlay::default(),
+                        Overlay::commit_files(store.key_of(&project, commit), files.iter()),
                         move |path, remap| {
                             backend::discard_from_commit(path, remap.get(commit)?, &files)
                         },

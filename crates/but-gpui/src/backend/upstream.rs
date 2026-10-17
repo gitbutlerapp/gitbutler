@@ -9,7 +9,7 @@ use anyhow::Result;
 use bstr::ByteSlice;
 use but_core::DryRun;
 
-use super::ops::full_name;
+use super::ops::{full_name, holds};
 use super::{CommitId, open, runtime, title};
 
 #[derive(Debug, Clone)]
@@ -69,24 +69,63 @@ pub fn fetch_status(path: &Path) -> Result<(Option<i64>, Option<String>)> {
     ))
 }
 
-/// Push `ref_name` and the branches below it. Returns the name it has on its remote, which
-/// needn't be its local one.
-pub fn push(path: &Path, ref_name: &str, force: bool, protect: bool) -> Result<Option<String>> {
-    let ctx = open(path)?.into_sync();
-    let outcome = runtime().handle().block_on(
-        but_api::legacy::workspace::workspace_branch_and_ancestors_push(
-            ctx,
-            force,
-            !protect,
-            ref_name.to_owned(),
-            true,
-            Vec::new(),
-        ),
-    )?;
+/// Push `ref_name` and the branches below it, forced when one of them was rewritten since it
+/// was pushed. Returns the name it has on its remote, which needn't be its local one, and why
+/// updating the stack's pull requests afterwards failed, if it did.
+pub fn push(
+    path: &Path,
+    ref_name: &str,
+    protect: bool,
+) -> Result<(Option<String>, Option<String>)> {
+    let ctx = open(path)?;
+    // Decided when it runs, as an amend queued before it rewrites the branch.
+    let force = needs_force(&but_api::legacy::workspace::head_info(&ctx)?, ref_name);
+    let outcome = runtime()
+        .handle()
+        .block_on(
+            but_api::legacy::workspace::workspace_branch_and_ancestors_push(
+                ctx.into_sync(),
+                force,
+                !protect,
+                ref_name.to_owned(),
+                true,
+                Vec::new(),
+            ),
+        )
+        .map_err(|err| {
+            if err.downcast_ref::<but_error::Code>() != Some(&but_error::Code::GitNonFastForward) {
+                return err;
+            }
+            tracing::warn!(?err, "push rejected");
+            anyhow::anyhow!("The remote has commits this branch doesn't. Fetch, then pull them in.")
+        })?;
     let short = ref_name.strip_prefix("refs/heads/").unwrap_or(ref_name);
-    Ok((outcome.push.branch_to_remote.into_iter())
+    let remote = (outcome.push.branch_to_remote.into_iter())
         .find(|(branch, _, _)| branch == short || branch == ref_name)
-        .map(|(_, _, remote)| remote))
+        .map(|(_, _, remote)| remote);
+    Ok((remote, sync_failure(outcome.review_sync)))
+}
+
+/// Why updating the stack's pull requests failed, if it did.
+pub(super) fn sync_failure(outcome: but_forge::ReviewSyncOutcome) -> Option<String> {
+    match outcome {
+        but_forge::ReviewSyncOutcome::Failed { message } => {
+            tracing::warn!(%message, "the stack's pull requests weren't updated");
+            Some(message)
+        }
+        _ => None,
+    }
+}
+
+/// Whether pushing `ref_name` has to force: it or a branch below it in its stack was rewritten
+/// since it was pushed.
+fn needs_force(info: &but_workspace::RefInfo, ref_name: &str) -> bool {
+    use but_core::ui::PushStatus;
+    (info.stacks.iter()).any(|stack| {
+        (stack.segments.iter())
+            .skip_while(|segment| !holds(segment, ref_name))
+            .any(|segment| segment.push_status == PushStatus::UnpushedCommitsRequiringForce)
+    })
 }
 
 /// When `err` is force push protection stopping a push, what the remote itself said, if
@@ -207,7 +246,9 @@ fn newly_conflicted(
         .flat_map(|stack| &stack.segments)
         .filter_map(|segment| {
             let count = segment.commits.iter().filter(newly).count();
-            let name = segment.ref_info.as_ref()?.ref_name.shorten().to_string();
+            let name = (segment.ref_info.as_ref()).map_or("an unnamed branch".into(), |info| {
+                info.ref_name.shorten().to_string()
+            });
             (count > 0).then_some((name, count))
         })
         .collect()
