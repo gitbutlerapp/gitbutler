@@ -1,6 +1,6 @@
 //! The commit composer: which changes go in, the message, and the branch they land on.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use gpui::{AnyElement, App, Context, Focusable as _, Toggled, Window, div, prelude::*, px};
 
@@ -97,8 +97,21 @@ impl Detail {
             .collect()
     }
 
+    /// See [`Detail::conflicted`].
+    pub(super) fn refresh_conflicted(&mut self, cx: &App) {
+        let store = self.store.read(cx);
+        let conflicted = match (self.checks_project.as_ref()).and_then(|p| store.workspace(p)) {
+            Some(ws) => (ws.uncommitted.iter())
+                .filter(|f| f.conflicted)
+                .map(|f| f.path.clone())
+                .collect(),
+            None => HashSet::new(),
+        };
+        self.conflicted = conflicted;
+    }
+
     pub(super) fn file_check(&self, path: &str) -> Toggled {
-        if self.unchecked.contains(path) {
+        if self.unchecked.contains(path) || self.conflicted.contains(path) {
             return Toggled::False;
         }
         let partial = self.unchecked_hunks.iter().any(|(p, _)| p == path)
@@ -112,7 +125,10 @@ impl Detail {
 
     pub(super) fn hunk_check(&self, path: &str, key: HunkKey) -> Toggled {
         let entry = (path.to_owned(), key);
-        if self.unchecked.contains(path) || self.unchecked_hunks.contains(&entry) {
+        if self.unchecked.contains(path)
+            || self.conflicted.contains(path)
+            || self.unchecked_hunks.contains(&entry)
+        {
             Toggled::False
         } else if self.line_picks.contains_key(&entry) {
             Toggled::Mixed
@@ -134,6 +150,9 @@ impl Detail {
     }
 
     pub(super) fn toggle_hunk(&mut self, path: &str, key: HunkKey, cx: &mut Context<Self>) {
+        if self.conflicted.contains(path) {
+            return;
+        }
         let entry = (path.to_owned(), key);
         if self.line_picks.remove(&entry).is_some() {
             // Partly in: all of it now.
@@ -157,6 +176,9 @@ impl Detail {
         let Some(hunk) = self.worktree_file_hunks(path).iter().find(|h| h.key == key) else {
             return;
         };
+        if self.conflicted.contains(path) {
+            return;
+        }
         let changed: BTreeSet<usize> = hunk
             .lines
             .iter()
@@ -519,6 +541,11 @@ impl Detail {
     }
 
     pub(super) fn toggle_checked(&mut self, path: &str, cx: &mut Context<Self>) {
+        if self.conflicted.contains(path) {
+            let message = "Mark it resolved from its menu to commit it";
+            self.store.update(cx, |store, cx| store.snack(message, cx));
+            return;
+        }
         let check = self.file_check(path);
         self.unchecked_hunks
             .retain(|(hunk_path, _)| hunk_path != path);

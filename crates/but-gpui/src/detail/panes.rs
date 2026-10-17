@@ -364,10 +364,7 @@ impl Detail {
                     .map(FileDiff::stats);
                 let extras = FileRow {
                     stats,
-                    checkbox: self.composing.then(|| match file.conflicted {
-                        true => Toggled::False,
-                        false => self.file_check(&file.path),
-                    }),
+                    checkbox: self.composing.then(|| self.file_check(&file.path)),
                     review: Some(store.review(project, file)),
                     drag_from: Some((project.clone(), None)),
                     depth,
@@ -572,19 +569,14 @@ impl Detail {
             .aria_description(file.kind.word())
             .pl(px(10. + indent))
             .when_some(extras.checkbox, |el, check| {
-                let (path, conflicted) = (path.clone(), file.conflicted);
+                let path = path.clone();
                 el.child(
                     checkbox_box(("check", ix), check, theme)
                         // Checking a file doesn't scroll to it.
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                             cx.stop_propagation();
-                            if conflicted {
-                                let message = "Mark it resolved from its menu to commit it";
-                                this.store.update(cx, |store, cx| store.snack(message, cx));
-                            } else {
-                                this.toggle_checked(&path, cx)
-                            }
+                            this.toggle_checked(&path, cx)
                         })),
                 )
             })
@@ -1069,7 +1061,7 @@ impl Detail {
                     .when(commit.conflicted, |el| {
                         el.child(conflict_bar(
                             "This commit has conflicts".into(),
-                            "Resolve…",
+                            "Resolve…".into(),
                             theme,
                             |_, window, cx| {
                                 window
@@ -1143,10 +1135,18 @@ impl Detail {
             PushState::Integrated => "Integrated",
         };
         let files = self.render_diff_file_list(project, None, theme, cx);
-        // Commits list newest first; resolving the oldest first rebases the rest onto it.
+        // Resolving the oldest conflict first, even in a branch below, rebases the rest onto
+        // its result. Commits list newest first, and a stack's branches top first.
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
-        let oldest = branch.commits.iter().rev().find(|c| c.conflicted);
-        let resolve_oldest = oldest.map(|commit| {
+        let from_bottom: Vec<&backend::Branch> = (store.workspace(project))
+            .and_then(|ws| ws.stack_of(ref_name))
+            .map(|(stack, at)| stack.branches[at..].iter().rev().collect())
+            .unwrap_or_default();
+        let oldest = from_bottom.into_iter().find_map(|holder| {
+            let commit = holder.commits.iter().rev().find(|c| c.conflicted)?;
+            Some((holder, commit))
+        });
+        let resolve_oldest = oldest.filter(|_| conflicted > 0).map(|(holder, commit)| {
             let (store, oldest) = (
                 self.store.clone(),
                 Selection::Commit(project.clone(), commit.id),
@@ -1156,10 +1156,10 @@ impl Detail {
                     1 => "A commit has conflicts".to_owned(),
                     n => format!("{n} commits have conflicts"),
                 },
-                if conflicted == 1 {
-                    "Resolve…"
-                } else {
-                    "Resolve the oldest…"
+                match conflicted {
+                    _ if holder.ref_name != ref_name => format!("Resolve from {}…", holder.name),
+                    1 => "Resolve…".to_owned(),
+                    _ => "Resolve the oldest…".to_owned(),
                 },
                 theme,
                 move |_, window, cx| {
@@ -1329,7 +1329,7 @@ fn render_incoming(
 /// What's conflicted, on a red tint, with a button that starts resolving it.
 fn conflict_bar(
     text: String,
-    action: &'static str,
+    action: String,
     theme: &Theme,
     resolve: impl Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static,
 ) -> impl IntoElement {
