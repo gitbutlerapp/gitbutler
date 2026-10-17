@@ -33,15 +33,48 @@ use crate::ui::{
 /// so as part of `Detail` every scroll frame laid out the file list too.
 pub struct DiffPane {
     detail: WeakEntity<Detail>,
+    /// The files of the diff drawn last. Another diff is drawn a frame after the rest of the
+    /// detail, so the new file list and the new diff don't share one frame's budget.
+    shown: Option<Arc<Vec<FileDiff>>>,
+    /// Waiting for that frame: until it comes, what changes is drawn then.
+    deferred: bool,
     _observe: Subscription,
 }
 
 impl DiffPane {
-    pub fn new(detail: &Entity<Detail>, cx: &mut Context<Self>) -> Self {
+    pub fn new(detail: &Entity<Detail>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         Self {
             detail: detail.downgrade(),
+            shown: None,
+            deferred: false,
             // Whatever changes the detail can change the diff; scrolling only notifies this.
-            _observe: cx.observe(detail, |_, _, cx| cx.notify()),
+            _observe: cx.observe_in(detail, window, |this, detail, window, cx| {
+                if this.deferred {
+                    return;
+                }
+                let files = (detail.read(cx).diff.as_ref()).map(|diff| diff.files.clone());
+                let same = match (&this.shown, &files) {
+                    (Some(shown), Some(files)) => Arc::ptr_eq(shown, files),
+                    (shown, files) => shown.is_none() && files.is_none(),
+                };
+                if same {
+                    return cx.notify();
+                }
+                this.shown = files;
+                this.deferred = true;
+                // GPUI runs these as a frame starts, before drawing it: the outer one runs
+                // as the detail's frame starts and puts the diff in the frame after.
+                let pane = cx.entity().downgrade();
+                window.on_next_frame(move |window, _| {
+                    window.on_next_frame(move |_, cx| {
+                        (pane.update(cx, |this, cx| {
+                            this.deferred = false;
+                            cx.notify()
+                        }))
+                        .ok();
+                    })
+                });
+            }),
         }
     }
 }
