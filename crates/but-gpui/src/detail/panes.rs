@@ -664,10 +664,16 @@ fn render_incoming(
         .child(
             h_flex()
                 .gap(px(8.))
-                .child(div().flex_1().text_color(theme.warn).child(format!(
-                    "{} on the remote, not here",
-                    plural(titles.len(), "commit")
-                )))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .text_color(theme.warn)
+                        .child(format!(
+                            "{} on the remote, not here",
+                            plural(titles.len(), "commit")
+                        )),
+                )
                 .when_some(pull, |el, (project, ref_name)| {
                     el.child(
                         button("pull-remote", "Pull")
