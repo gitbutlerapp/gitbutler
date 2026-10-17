@@ -1518,6 +1518,36 @@ impl Detail {
     }
 }
 
+/// The checks that failed, a line each, opening its log when clicked.
+fn failed_checks(failed: &[(String, String)], theme: &Theme) -> impl IntoElement {
+    /// More than this many say little more than the count does.
+    const SHOWN: usize = 5;
+    v_flex()
+        .pl(px(24.))
+        .text_size(px(12.))
+        .children(
+            failed
+                .iter()
+                .take(SHOWN)
+                .enumerate()
+                .map(|(ix, (name, url))| {
+                    let url = url.clone();
+                    h_flex()
+                        .id(("failed-check", ix))
+                        .gap(px(6.))
+                        .min_w(px(0.))
+                        .text_color(theme.danger)
+                        .cursor_pointer()
+                        .tooltip(|_, cx| {
+                            crate::ui::Tooltip::with_key("Open why it failed".into(), None, cx)
+                        })
+                        .child(small_icon(Icon::Cross).text_color(theme.danger))
+                        .child(div().min_w(px(0.)).truncate().child(name.clone()))
+                        .on_click(move |_, _, cx| cx.open_url(&url))
+                }),
+        )
+}
+
 /// Where a pull request's review stands: who approved, who asked for changes, and whose
 /// review it's still waiting on, a line each. Nothing when there's nothing to say.
 fn review_line(
@@ -1655,11 +1685,20 @@ fn render_review(
                     el.child("·")
                         .child(small_icon(glyph).text_color(color))
                         .child(text)
-                })
-                .when(review.auto_merge, |el| {
-                    el.child("·").child("merges when checks pass")
                 }),
         )
+        .when(review.auto_merge, |el| {
+            el.child(
+                div()
+                    .pl(px(24.))
+                    .text_size(px(12.))
+                    .text_color(theme.text_2)
+                    .child("Merges when checks pass"),
+            )
+        })
+        .when(!review.failed_checks.is_empty(), |el| {
+            el.child(failed_checks(&review.failed_checks, theme))
+        })
         .children(review_line(review, verdicts, github, theme))
         .into_any_element()
 }

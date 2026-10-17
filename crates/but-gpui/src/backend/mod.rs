@@ -160,6 +160,16 @@ fn describe_reviews(ctx: &Context, stacks: &mut [Stack]) {
         let checks = but_api::legacy::forge::list_ci_checks_for_ref(ctx, &branch.name, cache_only)
             .unwrap_or_default();
         review.checks = (!checks.is_empty()).then(|| summarize_checks(&checks));
+        review.failed_checks = (checks.iter())
+            .filter(|check| check_failed(check) == Some(true))
+            .map(|check| {
+                let url = match check.html_url.as_str() {
+                    "" => check.details_url.clone(),
+                    url => url.to_owned(),
+                };
+                (check.name.clone(), url)
+            })
+            .collect();
     }
 }
 
@@ -212,19 +222,26 @@ fn review_state(review: &but_forge::ForgeReview) -> ReviewState {
 }
 
 fn summarize_checks(checks: &[but_forge::CiCheck]) -> Checks {
-    use but_forge::{CiConclusion as C, CiStatus as S};
     checks.iter().fold(Checks::default(), |mut sum, check| {
-        match &check.status {
-            S::Complete { conclusion, .. } => match conclusion {
-                C::Success | C::Neutral | C::Skipped => sum.passed += 1,
-                C::Failure | C::TimedOut | C::Cancelled | C::ActionRequired | C::Unknown => {
-                    sum.failed += 1
-                }
-            },
-            S::InProgress | S::Queued | S::Unknown => sum.running += 1,
+        match check_failed(check) {
+            Some(false) => sum.passed += 1,
+            Some(true) => sum.failed += 1,
+            None => sum.running += 1,
         }
         sum
     })
+}
+
+/// Whether a check that finished failed; `None` while it hasn't.
+fn check_failed(check: &but_forge::CiCheck) -> Option<bool> {
+    use but_forge::{CiConclusion as C, CiStatus as S};
+    match &check.status {
+        S::Complete { conclusion, .. } => Some(match conclusion {
+            C::Success | C::Neutral | C::Skipped => false,
+            C::Failure | C::TimedOut | C::Cancelled | C::ActionRequired | C::Unknown => true,
+        }),
+        S::InProgress | S::Queued | S::Unknown => None,
+    }
 }
 
 /// Ask the forge about the project's pull requests, refreshing the cache that
@@ -281,6 +298,7 @@ fn branch_from(segment: &but_workspace::ref_info::Segment) -> Branch {
                 state: ReviewState::Open,
                 url: None,
                 checks: None,
+                failed_checks: Vec::new(),
                 auto_merge: false,
                 author: None,
                 reviewers: Vec::new(),

@@ -136,6 +136,8 @@ pub struct Review {
     pub url: Option<String>,
     /// The CI checks on the branch, once any have been seen.
     pub checks: Option<Checks>,
+    /// The checks that failed: each one's name, and where to read why.
+    pub failed_checks: Vec<(String, String)>,
     /// The forge merges it on its own once its checks pass.
     pub auto_merge: bool,
     /// Who opened it, once the forge has said.
