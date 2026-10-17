@@ -879,7 +879,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				command: "branch_land",
 				actionName: "Land Branch",
 			},
-			query: (args) => args,
+			query: ({ branch, ...args }) => ({ ...args, branches: [branch] }),
 			invalidatesTags: (result) => [
 				invalidatesList(ReduxTag.HeadSha),
 				invalidatesList(ReduxTag.WorktreeChanges),
