@@ -124,6 +124,12 @@ pub fn activate(path: &Path) -> Result<()> {
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)
 }
 
+/// Check GitButler's workspace out again, after a plain `git checkout` of one branch left it.
+pub fn switch_back_to_workspace(path: &Path) -> Result<()> {
+    but_api::legacy::virtual_branches::switch_back_to_workspace(&mut open(path)?)?;
+    Ok(())
+}
+
 pub(crate) fn open(path: &Path) -> Result<Context> {
     Context::open(path).with_context(|| format!("Couldn't open {}", path.display()))
 }
@@ -131,7 +137,12 @@ pub(crate) fn open(path: &Path) -> Result<Context> {
 pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
-    let uncommitted = worktree_files(&*ctx.repo.get()?)?;
+    let (uncommitted, managed) = {
+        let repo = ctx.repo.get()?;
+        let head = repo.head_name()?;
+        let managed = head.is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
+        (worktree_files(&repo)?, managed)
+    };
     if let Some(editing) = edit::editing(&ctx)? {
         return Ok(Workspace {
             uncommitted,
@@ -151,10 +162,15 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
                 .collect(),
         })
         .collect();
+    // Linked worktrees' lanes count as behind too, but an update only rebases the stacks.
+    let target_commit = info.target_commit.as_ref().map(|target| target.commit_id);
+    let stacks_behind = info.has_lanes_behind_target
+        && (info.stacks.iter())
+            .any(|stack| stack.base.is_some_and(|base| Some(base) != target_commit));
     let target = info.target_ref.as_ref().map(|target| Target {
         name: target.ref_name.shorten().to_string(),
         behind: target.commits_ahead,
-        needs_update: !info.is_target_current || info.has_lanes_behind_target,
+        needs_update: !info.is_target_current || stacks_behind,
     });
     let listed = worktrees::linked(&ctx).unwrap_or_else(|err| {
         tracing::warn!("couldn't list the linked worktrees: {err:#}");
@@ -168,6 +184,7 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         forge: reviews::forge_of(&ctx),
         stacks,
         uncommitted,
+        managed,
         editing: None,
         worktrees,
         archived_worktrees,
@@ -228,6 +245,8 @@ fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
         time: inner.author.time.seconds,
         state: match local.relation {
             R::LocalOnly => CommitState::Local,
+            // The remote has an older version of it: amended or reworded since the push.
+            R::LocalAndRemote(remote) if remote != inner.id => CommitState::Local,
             R::LocalAndRemote(_) => CommitState::Pushed,
             R::Integrated(_) => CommitState::Integrated,
         },

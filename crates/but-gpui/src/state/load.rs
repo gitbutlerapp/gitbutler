@@ -189,7 +189,8 @@ impl Store {
                     store.set_projects(projects, cx);
                     if let Some(id) = added {
                         store.set_expanded(&id, true, cx);
-                        store.select(Some(Selection::Uncommitted(id)), cx);
+                        store.select(Some(Selection::Uncommitted(id.clone())), cx);
+                        store.added = Some(id);
                     }
                 }
                 Err(err) => store.error("Couldn't add the project", format!("{err:#}"), cx),
@@ -327,6 +328,15 @@ impl Store {
         self.load(id, Reload::full(), cx);
     }
 
+    /// Read `id`'s uncommitted files again, after an operation that changed only them.
+    pub(super) fn reload_files(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        let files = Reload {
+            main: true,
+            ..Reload::default()
+        };
+        self.load(id, files, cx);
+    }
+
     pub fn reload_all(&mut self, cx: &mut Context<Self>) {
         for id in self.expanded_ids() {
             self.reload(&id, cx);
@@ -382,6 +392,15 @@ impl Store {
                 if queued.is_none() {
                     store.validate_selection(&id, cx);
                 }
+                // A project just added opens on its page while it has no target: that's
+                // where one is picked.
+                let untargeted = store.workspace(&id).is_some_and(|ws| ws.target.is_none());
+                if store.added.take_if(|added| *added == id).is_some()
+                    && untargeted
+                    && store.selection == Some(Selection::Uncommitted(id.clone()))
+                {
+                    store.select(Some(Selection::Project(id.clone())), cx);
+                }
                 if settles {
                     store.settled(&id, cx);
                 }
@@ -423,7 +442,9 @@ impl Store {
         // change id; stay on it.
         let rewritten = match &self.selection {
             Some(Selection::Commit(project, commit)) if project == id => {
-                follow_by_key(self.workspace(id), &workspace, *commit).filter(|new| new != commit)
+                follow_by_key(self.workspace(id), &workspace, *commit)
+                    .filter(|new| new != commit)
+                    .map(|new| (*commit, new))
             }
             _ => None,
         };
@@ -449,7 +470,13 @@ impl Store {
                 | Cut::Files {
                     from: Some(commit), ..
                 } => follow(*commit).map(|new| *commit = new).is_some(),
-                Cut::Branch(..) | Cut::Files { from: None, .. } => true,
+                // Uncommitted files go when one of them is no longer uncommitted, and a
+                // branch when it's gone, as when renamed.
+                Cut::Files {
+                    from: None, files, ..
+                } => (files.iter())
+                    .all(|f| (workspace.uncommitted.iter()).any(|u| u.path == f.file.path)),
+                Cut::Branch(_, ref_name) => workspace.find_branch(ref_name).is_some(),
             };
             self.cut = kept.then_some(cut);
         }
@@ -469,9 +496,9 @@ impl Store {
         if unwatched {
             self.rewatch(id, cx);
         }
-        if let Some(commit) = rewritten {
+        if let Some((from, to)) = rewritten {
             let picked = std::mem::take(&mut self.picked);
-            self.select(Some(Selection::Commit(id.clone(), commit)), cx);
+            self.select_followed(id.clone(), from, to, cx);
             self.picked = picked;
         }
         self.save_soon(cx);

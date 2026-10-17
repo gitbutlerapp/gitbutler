@@ -228,7 +228,7 @@ impl Transfer {
             Transfer::UncommitFiles { from, files } => store.run(
                 project,
                 label,
-                Overlay::default(),
+                Overlay::commit_files(store.key_of(project, from), files.iter()),
                 move |path, remap| backend::uncommit_files(path, remap.get(from)?, &files),
                 |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
@@ -280,21 +280,11 @@ impl Transfer {
                 },
                 cx,
             ),
-            Transfer::Amend { into, files } => store.run(
-                project,
-                label,
-                Overlay::files(files.iter()),
-                move |path, remap| backend::amend(path, remap.get(into)?, &files),
-                |store, (rewritten, left_out), cx| {
-                    store.follow(&rewritten, cx);
-                    store.report_left_out("Amended", &left_out, cx)
-                },
-                cx,
-            ),
+            Transfer::Amend { into, files } => store.amend(project, into, files, |_, _| {}, cx),
             Transfer::MoveFiles { from, to, files } => store.run(
                 project,
                 label,
-                Overlay::default(),
+                Overlay::commit_files(store.key_of(project, from), files.iter()),
                 move |path, remap| {
                     backend::move_files(path, remap.get(from)?, remap.get(to)?, &files)
                 },

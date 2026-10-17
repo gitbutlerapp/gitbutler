@@ -156,11 +156,16 @@ impl SettingsView {
             ),
             Row::new(
                 "Target branch",
-                if has_stacks {
-                    "What the workspace integrates into and pull requests aim at. To change it, \
-                     unapply every branch first."
-                } else {
-                    "What the workspace integrates into and pull requests aim at."
+                match (has_stacks, &target) {
+                    (false, _) => "What the workspace integrates into and pull requests aim at.",
+                    (true, None) => {
+                        "What the workspace integrates into and pull requests aim at. Choose \
+                         one on the project's page."
+                    }
+                    (true, Some(_)) => {
+                        "What the workspace integrates into and pull requests aim at. To change \
+                         it, unapply every branch first."
+                    }
                 },
                 h_flex()
                     .gap(px(8.))

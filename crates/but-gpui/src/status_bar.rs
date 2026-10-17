@@ -55,7 +55,14 @@ impl AppView {
             let summary = store.selection.as_ref().and_then(|selection| {
                 let entry = store.project(selection.project())?;
                 let target = entry.workspace.as_ref()?.target.as_ref()?;
+                // A stack can be on an older target commit, as one just applied can.
                 Some(match target.behind {
+                    0 if target.needs_update => {
+                        format!(
+                            "{} · some branches are behind {}",
+                            entry.project.name, target.name
+                        )
+                    }
                     0 => format!("{} · up to date with {}", entry.project.name, target.name),
                     n => format!("{} · {n} behind {}", entry.project.name, target.name),
                 })

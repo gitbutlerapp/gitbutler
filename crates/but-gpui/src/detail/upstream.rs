@@ -10,7 +10,7 @@ use super::Detail;
 use super::panes::{list_heading, side_header, side_list};
 use crate::backend::upstream::{self, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge};
-use crate::state::ProjectId;
+use crate::state::{Overlay, ProjectId};
 use crate::theme::Theme;
 use crate::ui::{
     Icon, faint, h_flex, icon, list_row, muted, plural, relative_time, small_icon, v_flex,
@@ -254,6 +254,50 @@ impl Detail {
                             })),
                     )
             }))
+            .children(
+                (entry.workspace.as_ref())
+                    .filter(|ws| !ws.managed && ws.editing.is_none() && ws.target.is_some())
+                    .map(|ws| {
+                        // Outside the workspace, its one stack is the branch checked out.
+                        let on = match ws.stacks.first().and_then(|s| s.branches.first()) {
+                            Some(branch) if !branch.ref_name.is_empty() => {
+                                format!("On {}, outside the GitButler workspace.", branch.name)
+                            }
+                            _ => "Outside the GitButler workspace.".to_owned(),
+                        };
+                        let project = project.clone();
+                        h_flex()
+                            .mt(px(4.))
+                            .gap(px(8.))
+                            .p(px(8.))
+                            .rounded(px(6.))
+                            .bg(theme.hover())
+                            .child(div().flex_1().text_color(theme.text_1).child(format!(
+                                "{on} Other branches stay out of sight until you switch back."
+                            )))
+                            .child(
+                                crate::ui::button("switch-back", "Switch back")
+                                    .small()
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.store.update(cx, |store, cx| {
+                                            store.run(
+                                                &project,
+                                                "Switch back to the workspace",
+                                                Overlay::default(),
+                                                |path, _| backend::switch_back_to_workspace(path),
+                                                |store, (), cx| {
+                                                    store.snack(
+                                                        "Back in the GitButler workspace",
+                                                        cx,
+                                                    )
+                                                },
+                                                cx,
+                                            )
+                                        })
+                                    })),
+                            )
+                    }),
+            )
             .when(!entry.project.path.exists(), |el| {
                 let remove = project.clone();
                 el.child(

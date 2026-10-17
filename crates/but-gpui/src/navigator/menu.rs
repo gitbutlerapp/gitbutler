@@ -53,7 +53,9 @@ impl Navigator {
                 }];
                 if expanded {
                     items.push(action("Fetch", &Fetch));
-                    if let Some(target) = store.workspace(project).and_then(|ws| ws.target.as_ref())
+                    if let Some(target) = (store.workspace(project))
+                        .and_then(|ws| ws.target.as_ref())
+                        .filter(|target| target.needs_update)
                     {
                         items.push(MenuItem::action(
                             format!("Update from {}", target.name),
@@ -125,7 +127,12 @@ impl Navigator {
                     return items;
                 };
                 if branch.push.can_push() {
-                    items.push(action("Push", &Push));
+                    let label = if workspace.needs_force(ref_name) {
+                        "Force push"
+                    } else {
+                        "Push"
+                    };
+                    items.push(action(label, &Push));
                 }
                 if workspace.can_pull(ref_name) {
                     items.extend([

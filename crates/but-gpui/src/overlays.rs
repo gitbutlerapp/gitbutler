@@ -12,8 +12,8 @@ use gpui::{
 };
 
 use crate::app::AppView;
-use crate::backend;
-use crate::state::{Notice, Overlay, ProjectId, Remap, Selection};
+use crate::backend::{self, short_ref};
+use crate::state::{Notice, Overlay, ProjectId, Remap, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -30,6 +30,7 @@ pub struct ContextMenu {
 type MenuHandler = Rc<dyn Fn(&mut AppView, &mut Window, &mut Context<AppView>)>;
 type SubmitHandler = Box<dyn FnOnce(&mut AppView, String, &mut Window, &mut Context<AppView>)>;
 type CancelHandler = Box<dyn FnOnce(&mut AppView)>;
+type CheckHandler = Box<dyn Fn(&AppView, &str, &App) -> Option<SharedString>>;
 
 #[derive(Clone)]
 pub struct MenuItem {
@@ -79,6 +80,18 @@ impl MenuItem {
     }
 }
 
+/// The short name a branch named `name` gets, as the backend normalizes it, or why it
+/// can't have that name.
+fn branch_name(name: &str) -> Result<String, SharedString> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("Enter a name for the branch".into());
+    }
+    but_core::branch::normalize_short_name(name)
+        .map(|short| short.to_string())
+        .map_err(|_| "Git doesn't allow that as a branch name".into())
+}
+
 /// A small modal asking for one line of text: a branch name, a repository to clone, a pull
 /// request number, a comment, or credentials for Git.
 pub struct Prompt {
@@ -88,6 +101,10 @@ pub struct Prompt {
     input: Entity<TextInput>,
     on_submit: SubmitHandler,
     on_cancel: Option<CancelHandler>,
+    /// Why the text can't be submitted as it is, which keeps the prompt open.
+    check: Option<CheckHandler>,
+    /// What `check` said of the text last submitted, until it's edited.
+    hint: Option<SharedString>,
     _subscription: Subscription,
 }
 
@@ -102,8 +119,10 @@ impl AppView {
         cx.notify();
     }
 
-    /// Ask for a branch name, then run `op` with it and select the branch it returns. With
-    /// an `initial` name the branch is being renamed; without one, created.
+    /// Ask for a branch name, then run `op` with it and hand `done` the full ref name of the
+    /// branch it returns. With an `initial` name the branch is being renamed; without one,
+    /// created.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn prompt_branch(
         &mut self,
         project: ProjectId,
@@ -112,6 +131,7 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
         op: impl FnOnce(&Path, &Remap, &str) -> Result<String> + Send + 'static,
+        done: impl FnOnce(&mut Store, String, &mut Context<Store>) + 'static,
     ) {
         let confirm = if initial.is_empty() {
             "Create"
@@ -125,29 +145,40 @@ impl AppView {
             input
         });
         let label = format!("{confirm} branch");
+        let (current, checked) = (initial.to_owned(), project.clone());
+        let check = move |this: &AppView, name: &str, cx: &App| {
+            let short = match branch_name(name) {
+                Ok(short) => short,
+                Err(hint) => return Some(hint),
+            };
+            let taken = short != current
+                && (this.store.read(cx).workspace(&checked))
+                    .is_some_and(|ws| ws.branches().any(|b| short_ref(&b.ref_name) == short));
+            taken.then(|| format!("{short} already exists").into())
+        };
+        let current = initial.to_owned();
         self.open_prompt(
             title,
             None,
             confirm,
             input,
             None,
+            Some(Box::new(check)),
             window,
             cx,
             move |this, name, _, cx| {
-                let name = name.trim().to_owned();
-                if name.is_empty() {
+                // Renaming to the name it has does nothing.
+                if branch_name(&name).is_ok_and(|short| short == current) {
                     return;
                 }
-                let selected = project.clone();
+                let name = name.trim().to_owned();
                 this.store.update(cx, |store, cx| {
                     store.run(
                         &project,
                         label,
                         Overlay::default(),
                         move |path, remap| op(path, remap, &name),
-                        move |store, ref_name, cx| {
-                            store.select(Some(Selection::Branch(selected, ref_name)), cx)
-                        },
+                        done,
                         cx,
                     )
                 });
@@ -163,6 +194,7 @@ impl AppView {
         confirm: &str,
         input: Entity<TextInput>,
         on_cancel: Option<CancelHandler>,
+        check: Option<CheckHandler>,
         window: &mut Window,
         cx: &mut Context<Self>,
         on_submit: impl FnOnce(&mut AppView, String, &mut Window, &mut Context<AppView>) + 'static,
@@ -187,6 +219,13 @@ impl AppView {
                 |this, input, event, window, cx| match event {
                     InputEvent::Submit => {
                         let text = input.read(cx).text().to_owned();
+                        let hint = (this.prompt.as_ref())
+                            .and_then(|prompt| prompt.check.as_ref())
+                            .and_then(|check| check(this, &text, cx));
+                        if let Some(prompt) = this.prompt.as_mut().filter(|_| hint.is_some()) {
+                            prompt.hint = hint;
+                            return cx.notify();
+                        }
                         if let Some(prompt) = this.prompt.take() {
                             (prompt.on_submit)(this, text, window, cx);
                         }
@@ -196,7 +235,13 @@ impl AppView {
                     InputEvent::Cancel => {
                         this.cancel_prompt(window, cx);
                     }
-                    InputEvent::Changed => {}
+                    InputEvent::Changed => {
+                        if let Some(prompt) = &mut this.prompt
+                            && prompt.hint.take().is_some()
+                        {
+                            cx.notify();
+                        }
+                    }
                 },
             );
         window.focus(&input.focus_handle(cx), cx);
@@ -207,6 +252,8 @@ impl AppView {
             input,
             on_submit: Box::new(on_submit),
             on_cancel,
+            check,
+            hint: None,
             _subscription: subscription,
         });
         cx.notify();
@@ -241,6 +288,7 @@ impl AppView {
                         "Continue",
                         input,
                         Some(Box::new(move |_| backend::askpass::respond(id, None))),
+                        None,
                         window,
                         cx,
                         move |_, secret, _, _| backend::askpass::respond(id, Some(secret)),
@@ -414,6 +462,14 @@ impl AppView {
                                 .text_size(px(13.))
                                 .child(prompt.input.clone()),
                         )
+                        .when_some(prompt.hint.clone(), |el, hint| {
+                            el.child(
+                                div()
+                                    .text_size(px(12.))
+                                    .text_color(theme.danger)
+                                    .child(hint),
+                            )
+                        })
                         .child(
                             h_flex()
                                 .justify_end()

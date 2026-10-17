@@ -170,6 +170,11 @@ pub struct Store {
     /// Commits picked along with the selected one (⌘- or ⇧-click) to squash or uncommit
     /// together: two or more, or none, all in the selected commit's project.
     pub picked: Vec<CommitId>,
+    /// The commit the selection was on and the one it moved to, when it last moved because
+    /// an operation rewrote the commit.
+    followed: Option<(CommitId, CommitId)>,
+    /// A project just added, until its first load says which page it opens on.
+    added: Option<ProjectId>,
     /// What the pointer is dragging. Only meaningful while GPUI has a drag active.
     pub dragging: Option<Cut>,
     /// Pane widths the user dragged away from their defaults.
@@ -209,7 +214,7 @@ pub struct Store {
     changes: mpsc::UnboundedSender<Change>,
     _change_listener: Task<()>,
     _forge_poll: Task<()>,
-    /// When each project was last fetched in the background.
+    /// When each project was last fetched, in the background or when asked.
     fetched: HashMap<ProjectId, Instant>,
     /// When each project's background fetch last failed, as on credentials the user turned
     /// down or being offline; it waits a while before asking again, unless a fetch the user
@@ -249,6 +254,8 @@ impl Store {
             selection: None,
             cut: None,
             picked: Vec::new(),
+            followed: None,
+            added: None,
             dragging: None,
             toasts: Vec::new(),
             settling: None,
@@ -362,6 +369,7 @@ impl Store {
     }
 
     pub fn select(&mut self, selection: Option<Selection>, cx: &mut Context<Self>) {
+        self.followed = None;
         if !self.picked.is_empty() {
             self.picked.clear();
             cx.notify();
@@ -470,7 +478,7 @@ impl Store {
         );
     }
 
-    fn notify_user(&mut self, notice: Notice, cx: &mut Context<Self>) {
+    pub fn notify_user(&mut self, notice: Notice, cx: &mut Context<Self>) {
         let id = self.next_toast;
         self.next_toast += 1;
         let linger = match notice {

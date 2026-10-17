@@ -13,7 +13,7 @@ use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
-use super::{CommitId, Selected, open};
+use super::{ChangeKind, CommitId, Selected, open};
 
 /// Where a commit or a set of changes lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -506,13 +506,22 @@ pub fn discard(path: &Path, selected: &[Selected]) -> Result<()> {
     if !conflicted.is_empty() {
         but_workspace::resolve_worktree_conflicts(&repo, conflicted)?;
     }
-    let rejected = but_workspace::discard_workspace_changes(
-        &repo,
-        selected_specs(selected),
-        ctx.settings.context_lines,
-    )?;
-    if let Some(spec) = rejected.first() {
-        bail!("Couldn't discard {}", spec.path);
+    // An added or deleted file goes only whole, and its one hunk is all of it anyway.
+    let mut specs = selected_specs(selected);
+    for (spec, part) in specs.iter_mut().zip(selected) {
+        if matches!(part.file.kind, ChangeKind::Added | ChangeKind::Deleted) {
+            spec.hunk_headers.clear();
+        }
+    }
+    let rejected =
+        but_workspace::discard_workspace_changes(&repo, specs, ctx.settings.context_lines)?;
+    if !rejected.is_empty() {
+        // A file with nothing left to discard is as good as discarded.
+        let left = but_core::diff::worktree_changes(&repo)?.changes;
+        if let Some(spec) = (rejected.iter()).find(|spec| left.iter().any(|c| c.path == spec.path))
+        {
+            bail!("Couldn't discard {}", spec.path);
+        }
     }
     Ok(())
 }
@@ -632,6 +641,30 @@ mod tests {
         );
         let files = uncommitted(path);
         assert!(files.is_empty(), "nothing's left to commit: {files:?}");
+    }
+
+    #[test]
+    fn discarding_the_hunk_of_an_added_file_removes_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path();
+        git(path, &["init", "-q"]);
+        git(path, &["config", "user.name", "T"]);
+        git(path, &["config", "user.email", "t@example.com"]);
+        git(path, &["config", "commit.gpgsign", "false"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "first"]);
+        std::fs::write(path.join("new"), "one\ntwo\n").unwrap();
+
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+            panic!("a text diff");
+        };
+        let hunk = Selected {
+            file: diff[0].file.clone(),
+            hunks: Some(vec![hunks[0].key]),
+        };
+        discard(path, std::slice::from_ref(&hunk)).unwrap();
+        assert!(!path.join("new").exists(), "the whole file goes");
+        discard(path, &[hunk]).expect("nothing left to discard is no error");
     }
 
     #[test]

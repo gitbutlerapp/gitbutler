@@ -3,17 +3,19 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::hash::{Hash as _, Hasher as _};
 
-use gpui::{AnyElement, App, Context, Focusable as _, Toggled, Window, div, prelude::*, px};
+use gpui::{
+    AnyElement, AnyWindowHandle, App, Context, Focusable as _, Toggled, WeakEntity, Window, div,
+    prelude::*, px,
+};
 
-use super::{ChecksChanged, Detail, hunk_keys};
+use super::{ChecksChanged, Detail, DiffKey, hunk_keys};
 use crate::backend::{
-    self, CommitId, Destination, DiffBody, FileDiff, Hunk, HunkKey, LineKind, Selected, ai,
-    short_ref,
+    self, CommitId, Destination, DiffBody, DiffSource, FileDiff, Hunk, HunkKey, LineKind, Selected,
+    ai, short_ref,
 };
 use crate::overlays::MenuItem;
-use crate::state::{Overlay, ProjectId, Selection};
+use crate::state::{Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
-use crate::transfer::Transfer;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, Icon, button, faint, h_flex, icon_button, shortcut, small_icon, v_flex,
@@ -127,6 +129,36 @@ impl Checks {
     }
 }
 
+/// The hunks of `path` among `files`.
+fn file_hunks<'a>(files: &'a [FileDiff], path: &str) -> &'a [Hunk] {
+    (files.iter().find(|f| f.file.path == path))
+        .and_then(|file| match &file.body {
+            DiffBody::Hunks { hunks, .. } => Some(hunks.as_slice()),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+/// Once an operation the composer started lands: `f` on the pane in `window`, unless it has
+/// moved on from `project` by then.
+fn after_landing(
+    detail: &WeakEntity<Detail>,
+    window: AnyWindowHandle,
+    project: &ProjectId,
+    cx: &mut App,
+    f: impl FnOnce(&mut Detail, &mut Window, &mut Context<Detail>),
+) {
+    window
+        .update(cx, |_, window, cx| {
+            detail.update(cx, |detail, cx| {
+                if detail.checks_project.as_ref() == Some(project) {
+                    f(detail, window, cx)
+                }
+            })
+        })
+        .ok();
+}
+
 /// A hunk's lines, as kinds and text, hashed: what line picks index into.
 fn fingerprint(hunk: &Hunk) -> u64 {
     let mut hasher = std::hash::DefaultHasher::new();
@@ -196,15 +228,19 @@ impl Detail {
             .collect()
     }
 
+    /// The checked changes, less the files a pending operation already takes, as after a
+    /// quick second click.
+    fn changes_not_pending(&self, project: &ProjectId, cx: &App) -> Vec<Selected> {
+        let store = self.store.read(cx);
+        (self.selected_changes(cx).into_iter())
+            .filter(|s| !store.hides_file(project, &s.file.path))
+            .collect()
+    }
+
     /// The hunks of `path` in the loaded worktree diff.
     fn worktree_file_hunks(&self, path: &str) -> &[Hunk] {
         self.worktree_diff()
-            .and_then(|diff| diff.files.iter().find(|f| f.file.path == path))
-            .and_then(|file| match &file.body {
-                DiffBody::Hunks { hunks, .. } => Some(hunks.as_slice()),
-                _ => None,
-            })
-            .unwrap_or_default()
+            .map_or(&[], |diff| file_hunks(&diff.files, path))
     }
 
     pub(super) fn toggle_hunk(&mut self, path: &str, key: HunkKey, cx: &mut Context<Self>) {
@@ -330,12 +366,17 @@ impl Detail {
                 keep.get(path)
                     .is_some_and(|picked| picked.is_some_and(|picked| !picked.contains(key)))
             };
-            let diff_shown = (self.worktree_diff()).is_some_and(|diff| diff.key.project == project);
-            if diff_shown {
+            // The worktree's diff as last loaded: a drop or paste comes from another page,
+            // whose diff stays on screen while this one's loads again.
+            let worktree = DiffKey {
+                project,
+                source: DiffSource::Worktree,
+            };
+            if let Some(files) = self.recent_files(&worktree) {
                 let mut out = HashSet::new();
                 let mut lines = HashMap::new();
                 for (path, picked) in keep.iter().filter_map(|(p, picked)| Some((*p, (*picked)?))) {
-                    for hunk in self.worktree_file_hunks(path) {
+                    for hunk in file_hunks(&files, path) {
                         let entry = (path.to_owned(), hunk.key);
                         match self.checks.line_picks.get(&entry) {
                             _ if picked.contains(&hunk.key) => {}
@@ -414,7 +455,8 @@ impl Detail {
         cx.notify();
     }
 
-    pub(super) fn effective_target(&self, project: &ProjectId, cx: &App) -> Option<String> {
+    /// The branch the composer commits to.
+    pub fn effective_target(&self, project: &ProjectId, cx: &App) -> Option<String> {
         let workspace = self.store.read(cx).workspace(project)?;
         if let Some(target) = &self.commit_target
             && workspace.find_branch(target).is_some()
@@ -450,21 +492,16 @@ impl Detail {
         if self.choices_loading(&project, cx) {
             return;
         }
-        // Files a pending commit or discard already takes, as after a quick second click.
-        let store = self.store.read(cx);
-        let files: Vec<Selected> = self
-            .selected_changes(cx)
-            .into_iter()
-            .filter(|s| !store.hides_file(&project, &s.file.path))
-            .collect();
+        let files = self.changes_not_pending(&project, cx);
         if files.is_empty() {
             self.store
                 .update(cx, |store, cx| store.snack("Nothing checked to commit", cx));
             return;
         }
         let target = self.effective_target(&project, cx);
-        let message_input = self.message.clone();
         let detail = cx.entity().downgrade();
+        let window = window.window_handle();
+        let (finished, committed) = (project.clone(), message.clone());
         // The files leave the list and the commit shows on its branch right away.
         let overlay = Overlay {
             new_commit: target.clone().map(|branch| {
@@ -492,10 +529,14 @@ impl Detail {
                     Ok((branch, id))
                 },
                 move |store, (branch, (_id, left_out)), cx| {
-                    message_input.update(cx, |input, cx| input.set_text("", cx));
-                    detail
-                        .update(cx, |detail, cx| detail.close_composer(cx))
-                        .ok();
+                    // The box is shared by projects, and may hold the next commit's message
+                    // by now.
+                    after_landing(&detail, window, &finished, cx, |detail, window, cx| {
+                        if detail.message.read(cx).text().trim() == committed {
+                            (detail.message).update(cx, |input, cx| input.set_text("", cx));
+                            detail.finish_composing(window, cx);
+                        }
+                    });
                     store.report_left_out(
                         &format!("Committed to {}", short_ref(&branch)),
                         &left_out,
@@ -507,27 +548,52 @@ impl Detail {
         });
     }
 
+    /// Close the composer once what it committed landed. Focus stays in the pane if it was
+    /// in the message box, which goes away.
+    fn finish_composing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let typing = self.message.focus_handle(cx).is_focused(window);
+        self.close_composer(cx);
+        if typing {
+            window.focus(&self.focus, cx);
+        }
+    }
+
+    /// Whether a commit to the branch new commits go to is still pending, so the newest
+    /// commit shown there isn't the newest.
+    fn commit_pending(&self, project: &ProjectId, cx: &App) -> bool {
+        (self.effective_target(project, cx))
+            .is_some_and(|target| !self.store.read(cx).new_commits(project, &target).is_empty())
+    }
+
     /// The newest commit on the branch new commits go to, which Amend adds to.
     fn amend_target(&self, project: &ProjectId, cx: &App) -> Option<(CommitId, String)> {
+        if self.commit_pending(project, cx) {
+            return None;
+        }
         let target = self.effective_target(project, cx)?;
         let workspace = self.store.read(cx).workspace(project)?;
         let top = workspace.find_branch(&target)?.commits.first()?;
         Some((top.id, top.title.clone()))
     }
 
-    /// Whether hunk or line choices can't be told apart yet, as `project`'s diff is still
-    /// loading; says so when they can't.
+    /// Whether hunk or line choices can't be told apart yet, as `project`'s worktree diff
+    /// is loading or older than its files; says so when they can't. Choices index into the
+    /// diff as loaded, so committing them from another would take other lines.
     fn choices_loading(&self, project: &ProjectId, cx: &mut Context<Self>) -> bool {
-        let diff_shown = (self.worktree_diff()).is_some_and(|diff| diff.key.project == *project);
         let checks = &self.checks;
-        let loading =
-            (!checks.unchecked_hunks.is_empty() || !checks.line_picks.is_empty()) && !diff_shown;
-        if loading {
+        if checks.unchecked_hunks.is_empty() && checks.line_picks.is_empty() {
+            return false;
+        }
+        let current = self.loading.is_none()
+            && (self.worktree_diff()).is_some_and(|diff| diff.key.project == *project)
+            && (self.store.read(cx).workspace(project))
+                .is_some_and(|ws| self.shows_worktree(&ws.uncommitted));
+        if !current {
             self.store.update(cx, |store, cx| {
                 store.snack("Still loading the diff, try again in a moment", cx)
             });
         }
-        loading
+        !current
     }
 
     /// Add the checked changes to the newest commit of the target branch, keeping its
@@ -536,27 +602,36 @@ impl Detail {
         let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
             return;
         };
+        if self.commit_pending(&project, cx) {
+            self.store.update(cx, |store, cx| {
+                store.snack("Wait for the commit to finish", cx)
+            });
+            return;
+        }
         let Some((into, _)) = self.amend_target(&project, cx) else {
             return;
         };
         if self.choices_loading(&project, cx) {
             return;
         }
-        let files = self.selected_changes(cx);
+        let files = self.changes_not_pending(&project, cx);
         if files.is_empty() {
             self.store
                 .update(cx, |store, cx| store.snack("Nothing checked to amend", cx));
             return;
         }
-        self.store.update(cx, |store, cx| {
-            Transfer::Amend {
-                into,
-                files: files.into(),
-            }
-            .perform(&project, store, cx);
+        let detail = cx.entity().downgrade();
+        let window = window.window_handle();
+        let finished = project.clone();
+        // The composer stays open until it lands, so a failed amend keeps the choices.
+        let landed = move |_: &mut Store, cx: &mut Context<Store>| {
+            after_landing(&detail, window, &finished, cx, |detail, window, cx| {
+                detail.finish_composing(window, cx)
+            })
+        };
+        (self.store).update(cx, |store, cx| {
+            store.amend(&project, into, files.into(), landed, cx)
         });
-        self.close_composer(cx);
-        window.focus(&self.focus, cx);
     }
 
     /// The checked changes as a unified diff, for the AI to read.
@@ -836,13 +911,28 @@ impl Detail {
                         })
                     })
                     .collect();
-                let project = project.clone();
+                let (project, detail) = (project.clone(), detail.clone());
                 items.push(MenuItem::new("New branch…", move |this, window, cx| {
-                    let project = project.clone();
-                    this.store.update(cx, |store, cx| {
-                        store.select(Some(Selection::Uncommitted(project)), cx)
-                    });
-                    this.new_branch(&crate::app::NewBranch, window, cx);
+                    let (targeted, detail) = (project.clone(), detail.clone());
+                    // The new branch becomes the target, rather than the page shown.
+                    let handle = window.window_handle();
+                    this.prompt_branch(
+                        project.clone(),
+                        "New branch",
+                        "",
+                        window,
+                        cx,
+                        |path, _, name| backend::create_branch(path, Some(name)),
+                        move |_, ref_name, cx| {
+                            after_landing(&detail, handle, &targeted, cx, |detail, window, cx| {
+                                detail.commit_target = Some(ref_name);
+                                if detail.composing {
+                                    window.focus(&detail.message.focus_handle(cx), cx);
+                                }
+                                cx.notify();
+                            })
+                        },
+                    );
                 }));
                 let position = event.position();
                 app.update(cx, |app, cx| app.open_menu(position, items, cx))
