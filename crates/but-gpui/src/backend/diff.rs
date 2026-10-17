@@ -264,13 +264,14 @@ fn image_body(repo: &gix::Repository, file: &FileChange) -> Option<DiffBody> {
 }
 
 /// The new side of `file` as diff lines, numbered on that side, for showing the unchanged
-/// lines around its hunks. `None` when it has no new side to show, like a deletion. An
-/// uncommitted file is read from the project's linked `worktree` when there is one.
+/// lines around its hunks, with the widest of them in [`columns`]. `None` when it has no new
+/// side to show, like a deletion. An uncommitted file is read from the project's linked
+/// `worktree` when there is one.
 pub fn file_lines(
     path: &Path,
     worktree: Option<&str>,
     file: &FileChange,
-) -> Result<Option<Vec<DiffLine>>> {
+) -> Result<Option<(Vec<DiffLine>, u32)>> {
     let Some(state) = file.change.status.state() else {
         return Ok(None);
     };
@@ -283,26 +284,27 @@ pub fn file_lines(
     let mut highlighter = (text.len() <= WHOLE_HIGHLIGHT_LIMIT)
         .then(|| highlight::Highlighter::for_path(&file.path))
         .flatten();
-    Ok(Some(
-        text.lines()
-            .enumerate()
-            .map(|(ix, raw)| {
-                let text = display_text(raw);
-                let spans = highlighter
-                    .as_mut()
-                    .map(|h| h.line(&text))
-                    .unwrap_or_default();
-                DiffLine {
-                    kind: LineKind::Context,
-                    old: None,
-                    new: Some(ix as u32 + 1),
-                    text: text.into(),
-                    spans,
-                    emph: Vec::new(),
-                }
-            })
-            .collect(),
-    ))
+    let lines: Vec<DiffLine> = text
+        .lines()
+        .enumerate()
+        .map(|(ix, raw)| {
+            let text = display_text(raw);
+            let spans = highlighter
+                .as_mut()
+                .map(|h| h.line(&text))
+                .unwrap_or_default();
+            DiffLine {
+                kind: LineKind::Context,
+                old: None,
+                new: Some(ix as u32 + 1),
+                text: text.into(),
+                spans,
+                emph: Vec::new(),
+            }
+        })
+        .collect();
+    let widest = lines.iter().map(|line| columns(&line.text)).max();
+    Ok(Some((lines, widest.unwrap_or(0))))
 }
 
 /// Files shown whole are highlighted up to this size in bytes.

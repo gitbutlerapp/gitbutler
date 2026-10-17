@@ -18,8 +18,9 @@ use crate::ui::person::person_avatar;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, empty_state, faint, h_flex,
-    icon, icon_button, local_time, muted, plural, section_label, shortcut, small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, empty_state,
+    faint, h_flex, icon, icon_button, local_time, muted, plural, section_label, shortcut,
+    small_icon, v_flex,
 };
 
 impl Detail {
@@ -369,11 +370,7 @@ impl Detail {
                             .truncate()
                             .text_size(px(16.))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(if commit.title.is_empty() {
-                                "No message".to_owned()
-                            } else {
-                                commit.title.clone()
-                            }),
+                            .child(commit_title(&commit.title)),
                     )
                     .when(!body.is_empty(), |el| {
                         let open = self.message_open;
@@ -423,7 +420,7 @@ impl Detail {
                             .group_hover("commit-sha", |el| el.text_color(theme.text_2)),
                     )
                     .child(commit.id.short())
-                    .tooltip(|_, cx| Tooltip::with_key("Copy commit ID".into(), None, cx))
+                    .tooltip(Tooltip::text("Copy commit ID"))
                     .on_click(cx.listener(move |this, _, _, cx| {
                         let sha = sha.clone();
                         this.app.update(cx, |app, cx| app.copy_text(sha, cx)).ok();
@@ -691,10 +688,7 @@ fn render_incoming(
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .child(match title.as_str() {
-                            "" => "No message".to_owned(),
-                            title => title.to_owned(),
-                        }),
+                        .child(commit_title(title)),
                 )
         }))
         .into_any_element()
@@ -766,7 +760,8 @@ pub(super) fn side_list(
     .track_scroll(scroll)
     .size_full();
     let theme = Theme::get(cx);
-    scrolled(list, scrollbar, Scroll::Uniform(scroll.clone()), theme)
+    let scroll = Scroll::Div(scroll.0.borrow().base_handle.clone());
+    scrolled(list, scrollbar, scroll, theme)
 }
 
 /// A group's heading in a side list, sitting on the rows under it.

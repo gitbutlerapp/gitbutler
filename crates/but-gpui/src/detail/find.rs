@@ -8,7 +8,7 @@ use gpui::{
 };
 
 use super::Detail;
-use crate::backend::{DiffBody, FileDiff};
+use crate::backend::FileDiff;
 use crate::theme::Theme;
 use crate::ui::diff::DiffRow;
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -48,10 +48,7 @@ fn search(files: &[FileDiff], query: &str) -> Vec<(LineId, Range<usize>)> {
     let query = query.to_ascii_lowercase();
     let mut found = Vec::new();
     for (file_ix, file) in files.iter().enumerate() {
-        let DiffBody::Hunks { hunks, .. } = &file.body else {
-            continue;
-        };
-        for (hunk_ix, hunk) in hunks.iter().enumerate() {
+        for (hunk_ix, hunk) in file.hunks().iter().enumerate() {
             for (line_ix, line) in hunk.lines.iter().enumerate() {
                 // ASCII lowering keeps byte offsets where they were.
                 let text = line.text.to_ascii_lowercase();

@@ -40,7 +40,7 @@ actions!(
 const WRAP_AT: usize = 72;
 
 /// Whether `message` has body lines too long to read in `git log`.
-pub fn needs_rewrap(message: &str) -> bool {
+fn needs_rewrap(message: &str) -> bool {
     message
         .lines()
         .skip(1)
@@ -92,6 +92,29 @@ impl BranchEdits {
     }
 }
 
+/// Which edits of a commit have something to do, so its menu and the palette offer the
+/// same ones.
+#[derive(Default)]
+pub struct CommitEdits {
+    /// It's below the top of a named branch, so a new branch can end at it.
+    pub new_branch_here: bool,
+    /// Its message has body lines to rewrap.
+    pub rewrap: bool,
+    /// It has a change ID to copy.
+    pub change_id: bool,
+}
+
+impl CommitEdits {
+    pub fn of(branch: &Branch, commit: &Commit) -> Self {
+        Self {
+            new_branch_here: !branch.ref_name.is_empty()
+                && branch.commits.first().map(|c| c.id) != Some(commit.id),
+            rewrap: needs_rewrap(&commit.message),
+            change_id: commit.has_change_id(),
+        }
+    }
+}
+
 impl AppView {
     /// Register the edits on the element around the navigator and the detail. Delete, rename, new branch
     /// on top and uncommit are always there; the rest only where the selection lets them do
@@ -105,8 +128,12 @@ impl AppView {
         let store = self.store.read(cx);
         let picked = store.picked.len() > 1;
         match &store.selection {
-            Some(Selection::Commit(..)) => el
-                .on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
+            Some(Selection::Commit(project, id)) => {
+                let edits = (store.find_commit(project, *id))
+                    .map_or_else(CommitEdits::default, |(branch, commit)| {
+                        CommitEdits::of(branch, commit)
+                    });
+                el.on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
                     this.add_empty_commit(true, cx)
                 }))
                 .on_action(cx.listener(|this, _: &AddEmptyCommitBelow, _, cx| {
@@ -132,10 +159,19 @@ impl AppView {
                     });
                 }))
                 .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
-                .on_action(cx.listener(Self::new_branch_here))
-                .on_action(cx.listener(Self::rewrap_message))
-                .on_action(cx.listener(|this, _: &CopyChangeId, _, cx| this.copy_commit(true, cx)))
-                .on_action(cx.listener(|this, _: &CopyMessage, _, cx| this.copy_commit(false, cx))),
+                .when(edits.new_branch_here, |el| {
+                    el.on_action(cx.listener(Self::new_branch_here))
+                })
+                .when(edits.rewrap, |el| {
+                    el.on_action(cx.listener(Self::rewrap_message))
+                })
+                .when(edits.change_id, |el| {
+                    el.on_action(
+                        cx.listener(|this, _: &CopyChangeId, _, cx| this.copy_commit(true, cx)),
+                    )
+                })
+                .on_action(cx.listener(|this, _: &CopyMessage, _, cx| this.copy_commit(false, cx)))
+            }
             Some(Selection::Branch(project, ref_name)) => {
                 let Some(workspace) = store.workspace(project) else {
                     return el;

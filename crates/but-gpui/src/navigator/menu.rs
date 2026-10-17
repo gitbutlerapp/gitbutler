@@ -8,9 +8,9 @@ use crate::app::{
     OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection, UpdateFromTarget,
 };
 use crate::edits::{
-    AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CopyChangeId, CopyMessage,
-    MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage, SquashAll,
-    SquashPicked, TakeRemote, UnapplyStack, Unstack,
+    AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
+    CopyMessage, MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage,
+    SquashAll, SquashPicked, TakeRemote, UnapplyStack, Unstack,
 };
 use crate::overlays::MenuItem;
 use crate::state::Selection;
@@ -243,6 +243,7 @@ impl Navigator {
                 let Some((branch, commit)) = store.find_commit(project, *id) else {
                     return Vec::new();
                 };
+                let edits = CommitEdits::of(branch, commit);
                 let mut items = Vec::new();
                 if commit.conflicted {
                     items.push(action(
@@ -255,22 +256,21 @@ impl Navigator {
                     action("Cherry-pick", &CherryPick),
                     action("Edit message…", &RenameSelection).separated(),
                 ]);
-                if crate::edits::needs_rewrap(&commit.message) {
+                if edits.rewrap {
                     items.push(action("Rewrap message", &RewrapMessage));
                 }
                 items.extend([
                     action("Add empty commit above", &AddEmptyCommitAbove),
                     action("Add empty commit below", &AddEmptyCommitBelow),
                 ]);
-                if !branch.ref_name.is_empty() && branch.commits.first().map(|c| c.id) != Some(*id)
-                {
+                if edits.new_branch_here {
                     items.push(action("New branch ending here…", &NewBranchHere));
                 }
                 items.extend([
                     action("Move to a new branch", &MoveToNewBranch).separated(),
                     action("Copy commit ID", &CopySelection).separated(),
                 ]);
-                if commit.has_change_id() {
+                if edits.change_id {
                     items.push(action("Copy change ID", &CopyChangeId));
                 }
                 items.extend([

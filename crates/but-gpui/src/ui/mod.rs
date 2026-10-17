@@ -603,6 +603,14 @@ pub fn just_now(seconds: i64) -> bool {
     now() - seconds < 120
 }
 
+/// A commit's title as shown, with a stand-in when its message is empty.
+pub fn commit_title(title: &str) -> SharedString {
+    match title {
+        "" => "No message".into(),
+        title => title.to_owned().into(),
+    }
+}
+
 /// "1 commit", "3 commits".
 pub fn plural(n: usize, word: &str) -> String {
     match n {

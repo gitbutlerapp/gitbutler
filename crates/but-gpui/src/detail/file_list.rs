@@ -593,7 +593,7 @@ impl Detail {
                 .child(small_icon(Icon::Kebab).text_color(theme.text_2))
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     cx.stop_propagation();
-                    this.file_menu(menu.clone(), Some(None), event.position(), cx)
+                    this.file_menu(menu.clone(), None, event.position(), cx)
                 }))
         });
         let has_menu = more.is_some();
@@ -692,23 +692,23 @@ impl Detail {
             row = row.on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                    this.file_menu(menu.clone(), Some(None), event.position, cx)
+                    this.file_menu(menu.clone(), None, event.position, cx)
                 }),
             );
         }
         row.into_any_element()
     }
 
-    /// Open `menu` at `position`; `line` is as for [`Self::changes_menu`].
+    /// Open `menu` at `position`, with `line` where an editor should open the file.
     pub(super) fn file_menu(
         &mut self,
         menu: FileMenu,
-        line: Option<Option<u32>>,
+        line: Option<u32>,
         position: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
         match menu {
-            FileMenu::Cut(payload) => self.changes_menu(payload, line, position, cx),
+            FileMenu::Cut(payload) => self.changes_menu(payload, Some(line), position, cx),
             FileMenu::Linked(project, worktree, change) => {
                 let items = vec![
                     MenuItem::new("Discard changes…", move |this, window, cx| {

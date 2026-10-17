@@ -98,7 +98,6 @@ fn main() {
             app::bind_keys(cx);
             navigator::bind_keys(cx);
             detail::bind_keys(cx);
-            detail::bind_find_keys(cx);
             palette::bind_keys(cx);
             settings::bind_keys(cx);
             open_in::bind_keys(cx);

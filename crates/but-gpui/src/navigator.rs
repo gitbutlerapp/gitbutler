@@ -22,9 +22,9 @@ use crate::theme::Theme;
 use crate::transfer::{Transfer, drag_preview};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, dot, faint, h_flex, icon,
-    icon_button, just_now, list_row, plural, relative_time, resize_handle, review, section_label,
-    small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dot, faint,
+    h_flex, icon, icon_button, just_now, list_row, plural, relative_time, resize_handle, review,
+    section_label, small_icon, v_flex,
 };
 
 mod account;
@@ -1183,11 +1183,7 @@ impl Navigator {
                             el.italic().text_color(style.muted())
                         })
                         .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
-                        .child(if commit.title.is_empty() {
-                            "No message".to_owned()
-                        } else {
-                            commit.title.clone()
-                        }),
+                        .child(commit_title(&commit.title)),
                 )
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                 .child(
