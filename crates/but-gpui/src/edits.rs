@@ -74,11 +74,10 @@ impl AppView {
             .on_action(cx.listener(Self::uncommit_selection));
         let store = self.store.read(cx);
         let picked = store.picked.len() > 1;
-        let pullable = match &store.selection {
-            Some(Selection::Branch(project, ref_name)) => {
-                (store.workspace(project)).is_some_and(|ws| ws.can_pull(ref_name))
-            }
-            _ => false,
+        let (pullable, managed) = match &store.selection {
+            Some(Selection::Branch(project, ref_name)) => (store.workspace(project))
+                .map_or((false, false), |ws| (ws.can_pull(ref_name), ws.managed)),
+            _ => (false, false),
         };
         match store.selection {
             Some(Selection::Commit(..)) => el
@@ -90,11 +89,22 @@ impl AppView {
                 }))
                 .on_action(cx.listener(Self::cherry_pick))
                 .on_action(cx.listener(|this, _: &MoveToNewBranch, _, cx| {
-                    if let Some((project, commit)) = this.selected_commit(cx) {
-                        let id = commit.id;
-                        this.store
-                            .update(cx, |store, cx| store.move_to_new_branch(&project, id, cx));
-                    }
+                    let Some((project, commit)) = this.selected_commit(cx) else {
+                        return;
+                    };
+                    let id = commit.id;
+                    this.store.update(cx, |store, cx| {
+                        // A branch of its own sits beside the others, which only the
+                        // workspace has.
+                        if store.workspace(&project).is_some_and(|ws| !ws.managed) {
+                            return store.snack(
+                                "Moving a commit to a new branch needs the GitButler \
+                                 workspace. Go back to it from the project's page.",
+                                cx,
+                            );
+                        }
+                        store.move_to_new_branch(&project, id, cx)
+                    });
                 }))
                 .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
                 .on_action(cx.listener(Self::new_branch_here))
@@ -108,7 +118,8 @@ impl AppView {
                 .on_action(cx.listener(Self::squash_all))
                 .on_action(cx.listener(Self::new_branch_below))
                 .on_action(cx.listener(Self::unstack))
-                .on_action(cx.listener(Self::unapply_stack))
+                // Outside the workspace there are no stacks to take out of it.
+                .when(managed, |el| el.on_action(cx.listener(Self::unapply_stack)))
                 .on_action(cx.listener(Self::land_branch))
                 .when(pullable, |el| {
                     el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
@@ -131,58 +142,32 @@ impl AppView {
         if !(self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.can_pull(&ref_name)) {
             return;
         }
-        let name = short_ref(&ref_name).to_owned();
-        let question = format!("Make {name} the remote's version?");
-        let check_branch = ref_name.clone();
-        let checked = project.clone();
-        let run = move |this: &mut AppView, cx: &mut Context<AppView>| {
-            let (label, done) = if theirs {
-                (
-                    "Take the remote's version",
-                    format!("{name} is the remote's now"),
-                )
-            } else {
-                ("Pull from the remote", format!("Pulled into {name}"))
-            };
-            this.store.update(cx, |store, cx| {
-                store.run(
-                    &project,
-                    label,
-                    Overlay::default(),
-                    move |path, _| backend::pull_remote(path, &ref_name, theirs),
-                    move |store, (), cx| store.snack_undoable(done, cx),
-                    cx,
-                )
-            });
-        };
         if !theirs {
-            let check = move |path: &std::path::Path| {
-                let found = backend::pull_conflicts(path, &check_branch)?;
-                Ok((!found.is_empty()).then(|| {
-                    format!(
-                        "Rebasing your commits onto the remote's leaves conflicted commits in \
-                         {}. You can resolve them afterwards, or undo the pull.",
-                        crate::app::commit_counts(&found)
-                    )
-                }))
-            };
-            return self.check_then(
-                &checked,
-                check,
-                "Pull with conflicts?",
-                "Pull anyway",
-                window,
-                cx,
-                run,
-            );
+            return self.store.update(cx, |store, cx| {
+                store.pull_remote(&project, ref_name, false, cx)
+            });
         }
+        let name = short_ref(&ref_name).to_owned();
         self.confirm_then(
-            question,
+            format!("Make {name} the remote's version?"),
             "Its commits the remote doesn't have are dropped. You can undo this with ⌘Z.",
             "Take the remote's",
             window,
             cx,
-            run,
+            move |this, cx| {
+                this.store.update(cx, |store, cx| {
+                    store.run(
+                        &project,
+                        "Take the remote's version",
+                        Overlay::default(),
+                        move |path, _| backend::pull_remote(path, &ref_name, true),
+                        move |store, (), cx| {
+                            store.snack_undoable(format!("{name} is the remote's now"), cx)
+                        },
+                        cx,
+                    )
+                })
+            },
         );
     }
 

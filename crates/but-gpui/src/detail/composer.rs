@@ -4,8 +4,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::hash::{Hash as _, Hasher as _};
 
 use gpui::{
-    AnyElement, AnyWindowHandle, App, Context, Focusable as _, Toggled, WeakEntity, Window, div,
-    prelude::*, px,
+    AnyElement, AnyWindowHandle, App, Context, Focusable as _, Toggled, WeakEntity, Window,
+    actions, div, prelude::*, px,
 };
 
 use super::{ChecksChanged, Detail, DiffKey, hunk_keys};
@@ -13,13 +13,15 @@ use crate::backend::{
     self, CommitId, Destination, DiffBody, DiffSource, FileDiff, Hunk, HunkKey, LineKind, Selected,
     ai, short_ref,
 };
-use crate::overlays::MenuItem;
+use crate::palette::Choice;
 use crate::state::{Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, button, faint, h_flex, icon_button, shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, button, faint, h_flex, icon_button, shortcut, small_icon, v_flex,
 };
+
+actions!(composer, [PickCommitTarget]);
 
 /// What the next commit leaves out of the uncommitted changes; the rest goes in.
 #[derive(Default)]
@@ -228,12 +230,22 @@ impl Detail {
             .collect()
     }
 
-    /// The checked changes, less the files a pending operation already takes, as after a
-    /// quick second click.
+    /// The checked changes, less the files and hunks a pending operation already takes, as
+    /// after a quick second click.
     fn changes_not_pending(&self, project: &ProjectId, cx: &App) -> Vec<Selected> {
         let store = self.store.read(cx);
         (self.selected_changes(cx).into_iter())
             .filter(|s| !store.hides_file(project, &s.file.path))
+            .filter_map(|mut s| {
+                if let Some(hunks) = &mut s.hunks {
+                    hunks.retain(|hunk| !store.hides_hunk(project, &s.file.path, *hunk));
+                    // No hunks would take the whole file.
+                    if hunks.is_empty() {
+                        return None;
+                    }
+                }
+                Some(s)
+            })
             .collect()
     }
 
@@ -499,6 +511,7 @@ impl Detail {
             return;
         }
         let target = self.effective_target(&project, cx);
+        let run_hooks = self.store.read(cx).runs_hooks(&project);
         let detail = cx.entity().downgrade();
         let window = window.window_handle();
         let (finished, committed) = (project.clone(), message.clone());
@@ -520,15 +533,16 @@ impl Detail {
                         Some(branch) => branch,
                         None => backend::create_branch(path, None)?,
                     };
-                    let id = backend::commit(
+                    let committed = backend::commit(
                         path,
                         &Destination::Branch(branch.clone()),
                         &files,
                         &message,
+                        run_hooks,
                     )?;
-                    Ok((branch, id))
+                    Ok((branch, committed))
                 },
-                move |store, (branch, (_id, left_out)), cx| {
+                move |store, (branch, (_id, left_out, hook_failed)), cx| {
                     // The box is shared by projects, and may hold the next commit's message
                     // by now.
                     after_landing(&detail, window, &finished, cx, |detail, window, cx| {
@@ -542,6 +556,9 @@ impl Detail {
                         &left_out,
                         cx,
                     );
+                    if let Some(output) = hook_failed {
+                        store.error("Committed, but the post-commit hook failed", output, cx);
+                    }
                 },
                 cx,
             )
@@ -753,13 +770,11 @@ impl Detail {
             .count();
         let target = self.effective_target(project, cx);
         let message_focused = self.message.focus_handle(cx).is_focused(window);
-        let branches: Vec<(String, String)> = workspace
-            .branches()
-            .filter(|b| !b.ref_name.is_empty())
-            .map(|b| (b.ref_name.clone(), b.name.clone()))
-            .collect();
         v_flex()
             .flex_none()
+            .on_action(cx.listener(|this, _: &PickCommitTarget, window, cx| {
+                this.pick_commit_target(window, cx)
+            }))
             .p(px(12.))
             .gap(px(8.))
             .border_t_1()
@@ -771,7 +786,7 @@ impl Detail {
                     .text_size(px(12.))
                     .text_color(theme.text_2)
                     .child("Commit to")
-                    .child(self.render_target_picker(project.clone(), target, branches, theme, cx)),
+                    .child(self.render_target_picker(target, theme, cx)),
             )
             .child(
                 div()
@@ -869,9 +884,7 @@ impl Detail {
 
     fn render_target_picker(
         &self,
-        project: ProjectId,
         target: Option<String>,
-        branches: Vec<(String, String)>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> impl IntoElement {
@@ -880,8 +893,7 @@ impl Detail {
             .map(short_ref)
             .map(str::to_owned)
             .unwrap_or_else(|| "a new branch".to_owned());
-        let detail = cx.entity().downgrade();
-        let app = self.app.clone();
+        let key = shortcut(&PickCommitTarget, cx);
         h_flex()
             .id("commit-target")
             .h(px(22.))
@@ -895,49 +907,66 @@ impl Detail {
             .child(small_icon(Icon::Branch).text_color(theme.blue))
             .child(label)
             .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
-            .on_click(move |event, _, cx| {
-                let mut items: Vec<MenuItem> = branches
-                    .iter()
-                    .map(|(ref_name, name)| {
-                        let detail = detail.clone();
-                        let ref_name = ref_name.clone();
-                        MenuItem::new(name.clone(), move |_, _, cx| {
-                            detail
-                                .update(cx, |detail, cx| {
-                                    detail.commit_target = Some(ref_name.clone());
-                                    cx.notify();
-                                })
-                                .ok();
-                        })
-                    })
-                    .collect();
-                let (project, detail) = (project.clone(), detail.clone());
-                items.push(MenuItem::new("New branch…", move |this, window, cx| {
-                    let (targeted, detail) = (project.clone(), detail.clone());
-                    // The new branch becomes the target, rather than the page shown.
-                    let handle = window.window_handle();
-                    this.prompt_branch(
-                        project.clone(),
-                        "New branch",
-                        "",
-                        window,
-                        cx,
-                        |path, _, name| backend::create_branch(path, Some(name)),
-                        move |_, ref_name, cx| {
-                            after_landing(&detail, handle, &targeted, cx, |detail, window, cx| {
-                                detail.commit_target = Some(ref_name);
-                                if detail.composing {
-                                    window.focus(&detail.message.focus_handle(cx), cx);
-                                }
-                                cx.notify();
-                            })
-                        },
-                    );
-                }));
-                let position = event.position();
-                app.update(cx, |app, cx| app.open_menu(position, items, cx))
-                    .ok();
+            .tooltip(move |_, cx| {
+                Tooltip::with_key("Pick the branch to commit to".into(), key.clone(), cx)
             })
+            .on_click(cx.listener(|this, _, window, cx| this.pick_commit_target(window, cx)))
+    }
+
+    /// Pick the branch the next commit goes to, or make a new one for it, typing to filter.
+    fn pick_commit_target(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
+            return;
+        };
+        let current = self.effective_target(&project, cx);
+        let detail = cx.entity().downgrade();
+        let Some(workspace) = self.store.read(cx).workspace(&project) else {
+            return;
+        };
+        let mut choices: Vec<Choice> = (workspace.branches())
+            .filter(|branch| !branch.ref_name.is_empty())
+            .map(|branch| {
+                let (detail, ref_name) = (detail.clone(), branch.ref_name.clone());
+                let choice = Choice::new(branch.name.clone(), move |_, _, cx| {
+                    (detail.update(cx, |detail, cx| {
+                        detail.commit_target = Some(ref_name);
+                        cx.notify();
+                    }))
+                    .ok();
+                });
+                if current.as_ref() == Some(&branch.ref_name) {
+                    choice.detail("Current")
+                } else {
+                    choice
+                }
+            })
+            .collect();
+        choices.push(Choice::new("New branch…", move |this, window, cx| {
+            let (targeted, detail) = (project.clone(), detail.clone());
+            // The new branch becomes the target, rather than the page shown.
+            let handle = window.window_handle();
+            this.prompt_branch(
+                project,
+                "New branch",
+                "",
+                window,
+                cx,
+                |path, _, name| backend::create_branch(path, Some(name)),
+                move |_, ref_name, cx| {
+                    after_landing(&detail, handle, &targeted, cx, |detail, window, cx| {
+                        detail.commit_target = Some(ref_name);
+                        if detail.composing {
+                            window.focus(&detail.message.focus_handle(cx), cx);
+                        }
+                        cx.notify();
+                    })
+                },
+            );
+        }));
+        (self.app.update(cx, |app, cx| {
+            app.open_picker("Commit to a branch", "Pick", choices, window, cx)
+        }))
+        .ok();
     }
 }
 

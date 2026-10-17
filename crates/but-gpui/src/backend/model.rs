@@ -35,9 +35,12 @@ pub struct Workspace {
     pub forge: Option<Forge>,
     pub stacks: Vec<Stack>,
     pub uncommitted: Vec<FileChange>,
-    /// `HEAD` is GitButler's workspace. Otherwise one branch is checked out, as after a plain
-    /// `git checkout`, and the stacks are just that branch.
+    /// `HEAD` is GitButler's workspace. Otherwise one branch is checked out, as in a new
+    /// project or after a plain `git checkout`, and the stacks are just that branch.
     pub managed: bool,
+    /// The branch checked out instead of the workspace, by its short name. The stacks leave
+    /// it out when it's the target's own branch, as in a new project.
+    pub checked_out: Option<String>,
     /// The commit checked out to edit, while the project is in edit mode. There are no
     /// stacks to show then.
     pub editing: Option<super::edit::Editing>,

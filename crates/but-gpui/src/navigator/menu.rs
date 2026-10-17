@@ -197,14 +197,17 @@ impl Navigator {
                     };
                     items.push(MenuItem::action(label, &crate::edits::LandBranch, cx));
                 }
-                items.push(action(
-                    if stacked {
-                        "Unapply stack"
-                    } else {
-                        "Unapply branch"
-                    },
-                    &UnapplyStack,
-                ));
+                // Only the workspace has stacks to take out of it.
+                if workspace.managed {
+                    items.push(action(
+                        if stacked {
+                            "Unapply stack"
+                        } else {
+                            "Unapply branch"
+                        },
+                        &UnapplyStack,
+                    ));
+                }
                 items.extend([
                     action("Rename…", &RenameSelection).separated(),
                     action("Copy name", &CopySelection),

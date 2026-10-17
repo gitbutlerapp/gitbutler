@@ -258,31 +258,30 @@ impl Detail {
                 (entry.workspace.as_ref())
                     .filter(|ws| !ws.managed && ws.editing.is_none() && ws.target.is_some())
                     .map(|ws| {
-                        // Outside the workspace, its one stack is the branch checked out.
-                        let on = match ws.stacks.first().and_then(|s| s.branches.first()) {
-                            Some(branch) if !branch.ref_name.is_empty() => {
-                                format!("On {}, outside the GitButler workspace.", branch.name)
-                            }
-                            _ => "Outside the GitButler workspace.".to_owned(),
+                        let on = match &ws.checked_out {
+                            Some(branch) => format!("Working on {branch} directly."),
+                            None => "Working outside the workspace.".to_owned(),
                         };
                         let project = project.clone();
-                        h_flex()
+                        v_flex()
+                            .items_start()
                             .mt(px(4.))
                             .gap(px(8.))
                             .p(px(8.))
                             .rounded(px(6.))
                             .bg(theme.hover())
-                            .child(div().flex_1().text_color(theme.text_1).child(format!(
-                                "{on} Other branches stay out of sight until you switch back."
+                            .child(div().text_color(theme.text_1).child(format!(
+                                "{on} Use the GitButler workspace to work on several branches \
+                                 at once."
                             )))
                             .child(
-                                crate::ui::button("switch-back", "Switch back")
+                                crate::ui::button("switch-back", "Back to workspace")
                                     .small()
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.store.update(cx, |store, cx| {
                                             store.run(
                                                 &project,
-                                                "Switch back to the workspace",
+                                                "Back to workspace",
                                                 Overlay::default(),
                                                 |path, _| backend::switch_back_to_workspace(path),
                                                 |store, (), cx| {

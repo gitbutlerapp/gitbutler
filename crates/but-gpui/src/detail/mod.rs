@@ -85,6 +85,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("/", FilterFiles, c),
         // Works while typing the message too, as the composer's other key does.
         KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
+        KeyBinding::new("cmd-shift-b", composer::PickCommitTarget, Some("Detail")),
     ]);
 }
 
@@ -1036,6 +1037,21 @@ impl Detail {
         if self.commit_target.as_deref() == Some(from) {
             self.commit_target = Some(to.to_owned());
             cx.notify();
+        }
+    }
+
+    /// The commit composer is open.
+    pub fn composing(&self) -> bool {
+        self.composing
+    }
+
+    /// Commit what the open composer has once its message is written; until then, go to
+    /// the message box.
+    pub fn commit_or_write(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.composing && !self.message.read(cx).text().trim().is_empty() {
+            self.commit(window, cx)
+        } else {
+            self.focus_message(window, cx)
         }
     }
 

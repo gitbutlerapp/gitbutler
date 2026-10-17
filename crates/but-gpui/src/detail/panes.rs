@@ -85,23 +85,31 @@ impl Detail {
                         && crate::pr::on_forge(store, selection);
                     let pushable = workspace
                         .filter(|ws| ws.find_branch(ref_name).is_some_and(|b| b.push.can_push()));
+                    let pushing = store.pushing(selection.project(), ref_name);
                     if can_create {
                         // The next step once nothing's left to push.
                         let style = match pushable {
                             Some(_) => ButtonStyle::Ghost,
                             None => ButtonStyle::Pop,
                         };
+                        let label = match store.publishing(selection.project(), ref_name) {
+                            true => "Creating…",
+                            false => "Create pull request",
+                        };
                         actions.push(
-                            button("create-pr", "Create pull request")
+                            button("create-pr", label)
                                 .icon(Icon::Pr)
                                 .style(style)
+                                .disabled(pushing)
                                 .dispatch(&crate::pr::CreatePullRequest)
                                 .into_any_element(),
                         );
                     }
                     if let Some(ws) = pushable {
                         // Pushing takes the branches below along, so they count too.
-                        let label = if ws.needs_force(ref_name) {
+                        let label = if pushing {
+                            "Pushing…"
+                        } else if ws.needs_force(ref_name) {
                             "Force push"
                         } else {
                             "Push"
@@ -110,6 +118,7 @@ impl Detail {
                             button("push", label)
                                 .icon(Icon::ArrowUp)
                                 .style(ButtonStyle::Pop)
+                                .disabled(pushing)
                                 .tooltip_with_key(
                                     "Push this branch and the ones below it",
                                     shortcut(&crate::app::Push, cx),
@@ -533,12 +542,10 @@ impl Detail {
                 el.child(render_review(review, theme, cx))
             })
             .when(!branch.incoming.is_empty(), |el| {
-                el.child(render_incoming(
-                    &branch.incoming,
-                    ws.can_pull(ref_name),
-                    theme,
-                    cx,
-                ))
+                let pull = ws
+                    .can_pull(ref_name)
+                    .then(|| (project.clone(), ref_name.to_owned()));
+                el.child(render_incoming(&branch.incoming, pull, theme, cx))
             })
             .child(files)
             .into_any_element()
@@ -546,13 +553,14 @@ impl Detail {
 }
 
 /// The commits only the branch's remote has, as an agent or a teammate pushed them, and
-/// a way to bring them in.
+/// a way to bring them in: `pull`, the branch's project and full ref, when it can.
 fn render_incoming(
     titles: &[String],
-    can_pull: bool,
+    pull: Option<(ProjectId, String)>,
     theme: &Theme,
     cx: &Context<Detail>,
 ) -> AnyElement {
+    let can_pull = pull.is_some();
     v_flex()
         .flex_none()
         .px(px(16.))
@@ -568,15 +576,15 @@ fn render_incoming(
                     "{} on the remote, not here",
                     plural(titles.len(), "commit")
                 )))
-                .when(can_pull, |el| {
+                .when_some(pull, |el, (project, ref_name)| {
                     el.child(
                         button("pull-remote", "Pull")
                             .small()
                             .tooltip("Bring them in, with this branch's own commits on top")
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.app
-                                    .update(cx, |app, cx| app.pull_remote(false, window, cx))
-                                    .ok();
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.store.update(cx, |store, cx| {
+                                    store.pull_remote(&project, ref_name.clone(), false, cx)
+                                })
                             })),
                     )
                 }),

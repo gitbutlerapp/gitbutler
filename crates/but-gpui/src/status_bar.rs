@@ -3,8 +3,10 @@
 
 use gpui::{Action, AnyElement, Context, Window, div, prelude::*, px};
 
-use crate::app::{AppView, CommandPalette, CutSelection, PasteHere, ToggleNavigator, Undo};
-use crate::detail::{DiscardHunk, NextFile, NextHunk, ToggleReviewed};
+use crate::app::{
+    AppView, CommandPalette, CutSelection, PasteHere, StartCommit, ToggleNavigator, Undo,
+};
+use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk, ToggleReviewed};
 use crate::state::{SLOW, Selection};
 use crate::theme::Theme;
 use crate::ui::{Icon, STATUS_BAR_HEIGHT, h_flex, icon_button, keycap, shortcut, small_icon};
@@ -17,22 +19,19 @@ impl AppView {
     ) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
-        let working = match store.busy() {
-            Some(busy) => {
-                // How long it's taking once that's noticeable, and what waits behind it.
-                let elapsed = store
-                    .busy_for()
-                    .filter(|t| *t >= SLOW)
-                    .map(|t| format!(" {:.1}s", t.as_secs_f32()))
-                    .unwrap_or_default();
-                let queued = match store.queued() {
-                    0 => String::new(),
-                    n => format!(" · {n} more queued"),
-                };
-                Some(format!("{busy}…{elapsed}{queued}"))
-            }
-            None => (!self.checking.is_empty()).then(|| "Checking for conflicts…".to_owned()),
-        };
+        let working = store.busy().map(|busy| {
+            // How long it's taking once that's noticeable, and what waits behind it.
+            let elapsed = store
+                .busy_for()
+                .filter(|t| *t >= SLOW)
+                .map(|t| format!(" {:.1}s", t.as_secs_f32()))
+                .unwrap_or_default();
+            let queued = match store.queued() {
+                0 => String::new(),
+                n => format!(" · {n} more queued"),
+            };
+            format!("{busy}…{elapsed}{queued}")
+        });
         let state: AnyElement = if let Some(working) = working {
             h_flex()
                 .gap(px(6.))
@@ -70,10 +69,12 @@ impl AppView {
             div().children(summary).into_any_element()
         };
 
-        let detail_focused = self.detail.read(cx).is_focused(window, cx);
-        let reviewing =
-            detail_focused && matches!(store.selection, Some(Selection::Uncommitted(_)));
-        let hints: Vec<(&dyn Action, &str)> = if reviewing {
+        let detail = self.detail.read(cx);
+        let detail_focused = detail.is_focused(window, cx);
+        let uncommitted = matches!(store.selection, Some(Selection::Uncommitted(_)));
+        let hints: Vec<(&dyn Action, &str)> = if uncommitted && detail.composing() {
+            vec![(&StartCommit, "commit"), (&AmendTop, "amend")]
+        } else if detail_focused && uncommitted {
             vec![
                 (&NextHunk, "next hunk"),
                 (&ToggleReviewed, "reviewed"),

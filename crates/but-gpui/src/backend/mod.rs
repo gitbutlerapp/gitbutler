@@ -35,8 +35,7 @@ pub use model::*;
 pub use ops::*;
 pub use reviews::{refresh_checks, refresh_reviews};
 pub use upstream::{
-    fetch, land, pull_conflicts, pull_remote, push, push_refusal, update_conflicts,
-    update_from_target,
+    fetch, land, pull_conflicts, pull_remote, push, push_refusal, update_from_target,
 };
 pub use worktrees::reload_uncommitted;
 
@@ -137,11 +136,15 @@ pub(crate) fn open(path: &Path) -> Result<Context> {
 pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
-    let (uncommitted, managed) = {
+    let (uncommitted, managed, checked_out) = {
         let repo = ctx.repo.get()?;
         let head = repo.head_name()?;
-        let managed = head.is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
-        (worktree_files(&repo)?, managed)
+        let managed =
+            (head.as_ref()).is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
+        let checked_out = head
+            .filter(|_| !managed)
+            .map(|name| name.shorten().to_string());
+        (worktree_files(&repo)?, managed, checked_out)
     };
     if let Some(editing) = edit::editing(&ctx)? {
         return Ok(Workspace {
@@ -185,6 +188,7 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         stacks,
         uncommitted,
         managed,
+        checked_out,
         editing: None,
         worktrees,
         archived_worktrees,
