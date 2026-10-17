@@ -84,14 +84,7 @@ pub fn set_worktrees_enabled(on: bool) -> Result<()> {
 pub struct ProjectSettings {
     pub force_push_protection: bool,
     pub sign_commits: bool,
-    /// Where pull requests list the stack's other pull requests.
-    pub stack_info: StackInfo,
-    pub github_stacks: GitHubStacks,
 }
-
-pub use but_core::settings::git::ui::{
-    GitHubStackingMode as GitHubStacks, ReviewStackingDescription as StackInfo,
-};
 
 pub fn project_settings(id: &str, path: &Path) -> Result<ProjectSettings> {
     let project = gitbutler_project::get(id.parse().context("Invalid project id")?)?;
@@ -99,12 +92,6 @@ pub fn project_settings(id: &str, path: &Path) -> Result<ProjectSettings> {
     Ok(ProjectSettings {
         force_push_protection: project.force_push_protection,
         sign_commits: git.gitbutler_sign_commits.unwrap_or(false),
-        stack_info: git
-            .gitbutler_review_stacking_description
-            .unwrap_or(StackInfo::Bottom),
-        github_stacks: git
-            .gitbutler_github_stacking_mode
-            .unwrap_or(GitHubStacks::Auto),
     })
 }
 
@@ -126,36 +113,14 @@ pub fn update_project(
     )
 }
 
-/// Only the fields set in `git` are written to the repository's own config; what it reads
-/// from the user's global config stays there.
-fn set_git_config(path: &Path, git: GitConfigSettings) -> Result<()> {
-    config::set_gb_config(&open(path)?, git)
-}
-
+/// Only the fields set are written to the repository's own config; what it reads from the
+/// user's global config stays there.
 pub fn set_sign_commits(path: &Path, sign: bool) -> Result<()> {
-    set_git_config(
-        path,
-        GitConfigSettings {
-            gitbutler_sign_commits: Some(sign),
-            ..Default::default()
-        },
-    )
-}
-
-/// Where pull requests list the stack, and whether GitHub shows them as a native stack.
-pub fn set_stacking(
-    path: &Path,
-    info: Option<StackInfo>,
-    github: Option<GitHubStacks>,
-) -> Result<()> {
-    set_git_config(
-        path,
-        GitConfigSettings {
-            gitbutler_review_stacking_description: info,
-            gitbutler_github_stacking_mode: github,
-            ..Default::default()
-        },
-    )
+    let git = GitConfigSettings {
+        gitbutler_sign_commits: Some(sign),
+        ..Default::default()
+    };
+    config::set_gb_config(&open(path)?, git)
 }
 
 /// Sign a test commit with the project's settings, to tell whether signing works.

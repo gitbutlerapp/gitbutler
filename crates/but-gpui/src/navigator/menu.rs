@@ -7,7 +7,6 @@ use crate::app::{
     Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, NewBranchOnTop,
     OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection, UpdateFromTarget,
 };
-use crate::backend::Forge;
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage, MoveDown,
     MoveToNewBranch, MoveUp, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage, SquashAll,
@@ -54,12 +53,6 @@ impl Navigator {
                 }];
                 if expanded {
                     items.push(action("Fetch", &Fetch));
-                    if crate::pr::on_forge(store, target) {
-                        items.push(action(
-                            "Apply a pull request…",
-                            &crate::pr::ApplyPullRequest,
-                        ));
-                    }
                     if let Some(target) = store.workspace(project).and_then(|ws| ws.target.as_ref())
                     {
                         items.push(MenuItem::action(
@@ -157,50 +150,13 @@ impl Navigator {
                 }
                 if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
                     use crate::backend::ReviewState as S;
-                    use crate::pr::*;
                     match branch.review.as_ref().map(|r| r.state) {
-                        None if !branch.commits.is_empty() => {
-                            items.push(action("Create pull request…", &CreatePullRequest))
-                        }
-                        Some(state @ (S::Open | S::Draft)) => {
-                            items.extend([
-                                action("Edit pull request…", &EditPullRequest),
-                                action(
-                                    if state == S::Draft {
-                                        "Mark ready for review"
-                                    } else {
-                                        "Convert to draft"
-                                    },
-                                    &ToggleDraft,
-                                ),
-                                action("Merge pull request…", &MergePullRequest),
-                                action("Labels…", &LabelPullRequest),
-                            ]);
-                            // What only GitButler's GitHub support does so far.
-                            if workspace.forge == Some(Forge::GitHub) {
-                                items.extend([
-                                    action("Comment…", &CommentOnPullRequest),
-                                    action("Request review…", &RequestReview),
-                                ]);
-                            }
-                            // The forges GitButler can ask to merge on their own.
-                            let auto_merges =
-                                matches!(workspace.forge, Some(Forge::GitHub | Forge::GitLab));
-                            if state == S::Open && auto_merges {
-                                let on = branch.review.as_ref().is_some_and(|r| r.auto_merge);
-                                items.push(action(
-                                    if on {
-                                        "Don't merge automatically"
-                                    } else {
-                                        "Merge when checks pass"
-                                    },
-                                    &ToggleAutoMerge,
-                                ));
-                            }
-                            items.push(action("Close pull request…", &ClosePullRequest));
-                        }
-                        Some(S::Closed) => {
-                            items.push(action("Reopen pull request", &ClosePullRequest))
+                        None if !branch.commits.is_empty() => items.push(action(
+                            "Create pull request…",
+                            &crate::pr::CreatePullRequest,
+                        )),
+                        Some(S::Open) => {
+                            items.push(action("Merge pull request…", &crate::pr::MergePullRequest))
                         }
                         _ => {}
                     }
