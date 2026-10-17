@@ -43,7 +43,7 @@ impl Store {
                         // reloads for. A mutation's own reload comes after it anyway.
                         let watched =
                             (store.project(&project)).is_some_and(|entry| entry.watcher.is_some());
-                        let mutating = store.mutating.as_ref() == Some(&project);
+                        let mutating = store.mutating.contains(&project);
                         if (fetched.is_err() || !watched) && !mutating {
                             store.reload(&project, cx);
                         }
@@ -169,7 +169,7 @@ impl Store {
     /// Show what a forge refresh changed. A running mutation's own reload comes after it
     /// and shows it too.
     fn reload_forge(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        if self.mutating.as_ref() != Some(id) {
+        if !self.mutating.contains(id) {
             self.reload(id, cx);
         }
     }

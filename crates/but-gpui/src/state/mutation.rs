@@ -37,6 +37,9 @@ pub struct Overlay {
     pub pushes: Option<String>,
     /// It opens a pull request for the branch it pushes.
     pub publishes: bool,
+    /// It only talks to the remote or the forge and moves refs, leaving the worktree and
+    /// the commits alone, so reloads the watcher starts meanwhile go ahead.
+    pub remote_only: bool,
 }
 
 impl Overlay {
@@ -44,6 +47,15 @@ impl Overlay {
         Self {
             pushes: Some(ref_name.to_owned()),
             publishes,
+            remote_only: true,
+            ..Self::default()
+        }
+    }
+
+    /// For an operation that only talks to the remote or the forge.
+    pub fn remote() -> Self {
+        Self {
+            remote_only: true,
             ..Self::default()
         }
     }
@@ -139,9 +151,8 @@ pub(super) struct Queued {
 /// Starts a queued operation, with its commits as they are by then.
 type Start = Box<dyn FnOnce(&mut Store, Remap, &mut Context<Store>)>;
 
-/// The operation running now, from when it starts until the reload after it lands.
+/// A project's operation running now, from when it starts until the reload after it lands.
 pub(super) struct Running {
-    project: ProjectId,
     label: SharedString,
     overlay: Overlay,
     started: Instant,
@@ -203,7 +214,7 @@ impl Store {
         self.run(
             project,
             FETCH,
-            Overlay::default(),
+            Overlay::remote(),
             |path, _| backend::fetch(path),
             move |store, (), cx| {
                 store.fetch_failed.remove(&fetched);
@@ -516,32 +527,41 @@ impl Store {
         });
         cx.emit(StoreEvent::Pending(project.clone()));
         cx.notify();
-        if self.running.is_none() {
-            self.start_next(cx);
-        }
+        self.start_next(cx);
     }
 
+    /// Start the first waiting mutation of every project that has none running.
     pub(super) fn start_next(&mut self, cx: &mut Context<Self>) {
-        let Some(next) = self.queue.pop_front() else {
-            return;
-        };
-        let now = self
-            .workspace(&next.project)
-            .into_iter()
-            .flat_map(|ws| ws.commits());
-        let remap = Remap::new(
-            &next.captured,
-            now.map(|commit| (commit.key.as_str(), commit.id)),
-        );
-        self.running = Some(Running {
-            project: next.project,
-            label: next.label,
-            overlay: next.overlay,
-            started: Instant::now(),
-        });
-        (next.start)(self, remap, cx);
-        // Replacing the last one's ticker stops it.
-        self.busy_ticker = Self::tick_while_busy(cx);
+        let mut started = false;
+        while let Some(ix) =
+            (self.queue.iter()).position(|q| !self.running.contains_key(&q.project))
+        {
+            let Some(next) = self.queue.remove(ix) else {
+                break;
+            };
+            let now = self
+                .workspace(&next.project)
+                .into_iter()
+                .flat_map(|ws| ws.commits());
+            let remap = Remap::new(
+                &next.captured,
+                now.map(|commit| (commit.key.as_str(), commit.id)),
+            );
+            self.running.insert(
+                next.project,
+                Running {
+                    label: next.label,
+                    overlay: next.overlay,
+                    started: Instant::now(),
+                },
+            );
+            (next.start)(self, remap, cx);
+            started = true;
+        }
+        if started {
+            // Replacing the last one's ticker stops it.
+            self.busy_ticker = Self::tick_while_busy(cx);
+        }
     }
 
     /// Redraw while a mutation runs, so the status bar can say how long it's taking.
@@ -552,11 +572,10 @@ impl Store {
                     .timer(Duration::from_millis(250))
                     .await;
                 let Ok(true) = this.update(cx, |store, cx| {
-                    let busy = store.running.is_some();
-                    if store.busy_for().is_some_and(|t| t >= SLOW) {
+                    if store.busy().is_some_and(|(_, t)| t >= SLOW) {
                         cx.notify();
                     }
-                    busy
+                    !store.running.is_empty()
                 }) else {
                     break;
                 };
@@ -584,11 +603,14 @@ impl Store {
             if refused {
                 self.snack("Run `but resolve finish` or `but resolve cancel` first", cx);
             }
-            self.running = None;
+            // `start_next` goes on to this project's next operation.
+            self.running.remove(project);
             cx.emit(StoreEvent::Pending(project.clone()));
-            return self.start_next(cx);
+            return;
         };
-        self.mutating = Some(project.clone());
+        if !(self.running.get(project)).is_some_and(|r| r.overlay.remote_only) {
+            self.mutating.insert(project.clone());
+        }
         // While editing there are no commits to compare with afterwards; every commit would
         // count as the operation's own and lose its unread mark.
         let before: Option<HashSet<String>> = (!editing).then(|| {
@@ -609,8 +631,8 @@ impl Store {
             })
             .await;
             this.update(cx, |store, cx| {
-                store.mutating = None;
-                store.settling = Some(project.clone());
+                store.mutating.remove(&project);
+                store.settling.insert(project.clone());
                 // Set here rather than at the start, so a load the watcher started
                 // mid-operation can't use it up.
                 if let Some(before) = before {
@@ -623,7 +645,7 @@ impl Store {
                     }
                     Err(err) => store.error(format!("{label} failed"), format!("{err:#}"), cx),
                 }
-                if (store.running.as_ref()).is_some_and(|r| r.overlay.files_only) {
+                if (store.running.get(&project)).is_some_and(|r| r.overlay.files_only) {
                     store.reload_files(&project, cx);
                 } else {
                     store.reload(&project, cx);
@@ -640,51 +662,48 @@ impl Store {
         Some(commit.key.clone())
     }
 
-    /// The label of the mutation in flight, if any.
-    pub fn busy(&self) -> Option<&SharedString> {
-        self.running.as_ref().map(|running| &running.label)
+    /// The longest-running mutation in flight, and for how long, if any.
+    pub fn busy(&self) -> Option<(&SharedString, Duration)> {
+        (self.running.values())
+            .max_by_key(|running| running.started.elapsed())
+            .map(|running| (&running.label, running.started.elapsed()))
     }
 
-    pub fn busy_for(&self) -> Option<Duration> {
-        self.running
-            .as_ref()
-            .map(|running| running.started.elapsed())
-    }
-
-    /// End the running mutation once `id` has loaded what it did, or can't load at all,
-    /// and start the next one waiting.
+    /// End `id`'s running mutation once it has loaded what it did, or can't load at all,
+    /// and start what waits on it.
     pub(super) fn settled(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        if self.settling.as_ref() == Some(id) {
-            self.settling = None;
-            self.running = None;
+        if self.settling.remove(id) {
+            self.running.remove(id);
             cx.emit(StoreEvent::Pending(id.clone()));
             self.start_next(cx);
         }
     }
 
-    /// Operations quitting now would cut off: the one running, and the ones waiting.
+    /// Operations quitting now would cut off: the ones running, and the ones waiting.
     pub fn unfinished(&self) -> usize {
-        usize::from(self.mutating.is_some()) + self.queue.len()
+        let running = (self.running.keys()).filter(|id| !self.settling.contains(*id));
+        running.count() + self.queue.len()
     }
 
-    pub fn queued(&self) -> usize {
-        self.queue.len()
+    /// Operations besides the longest-running one: running elsewhere, or waiting.
+    pub fn others_busy(&self) -> usize {
+        self.running.len().saturating_sub(1) + self.queue.len()
     }
 
     /// Whether an update from the target waits or runs on `project`.
     pub fn updating(&self, project: &ProjectId) -> bool {
-        let running = self.running.iter().map(|r| (&r.project, &r.label));
-        let queued = self.queue.iter().map(|q| (&q.project, &q.label));
+        let running = self.running.get(project).map(|r| &r.label);
+        let queued = (self.queue.iter()).filter(|q| q.project == *project);
         running
-            .chain(queued)
-            .any(|(p, label)| p == project && label == UPDATE)
+            .into_iter()
+            .chain(queued.map(|q| &q.label))
+            .any(|label| label == UPDATE)
     }
 
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {
-        let running = self.running.iter().filter(move |r| r.project == *project);
         let queued = self.queue.iter().filter(move |q| q.project == *project);
-        running
-            .map(|r| &r.overlay)
+        (self.running.get(project).map(|r| &r.overlay))
+            .into_iter()
             .chain(queued.map(|q| &q.overlay))
     }
 

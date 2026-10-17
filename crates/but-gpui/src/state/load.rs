@@ -82,7 +82,7 @@ impl Store {
                 }
                 let Ok(()) = this.update(cx, |store, cx| {
                     for (id, reload) in reloads {
-                        if store.mutating.as_ref() == Some(&id) {
+                        if store.mutating.contains(&id) {
                             continue;
                         }
                         store.load(&id, reload, cx);
@@ -361,7 +361,7 @@ impl Store {
         let path = entry.project.path.clone();
         let id = id.clone();
         // Started after the mutation finished, so it sees what the mutation did.
-        let settles = self.settling.as_ref() == Some(&id);
+        let settles = self.settling.contains(&id);
         cx.notify();
         cx.spawn(async move |this, cx| {
             let result = backend::run(move || match shown {

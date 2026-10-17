@@ -189,17 +189,18 @@ pub struct Store {
     pub file_tree: bool,
     pub prefs: Prefs,
     pub toasts: Vec<Toast>,
-    /// The mutation in flight, if any. Mutations run one at a time, each until the reload
-    /// after it lands, so the next one sees what it did.
-    running: Option<Running>,
+    /// Each project's mutation in flight. A project's mutations run one at a time, each
+    /// until the reload after it lands, so the next one sees what it did; projects don't
+    /// wait on each other.
+    running: HashMap<ProjectId, Running>,
     busy_ticker: Task<()>,
-    /// Mutations asked for while one ran, in order.
+    /// Mutations waiting for their project's running one, in order.
     queue: VecDeque<Queued>,
-    /// The project a finished mutation waits on. Its next load to start ends `running`.
-    settling: Option<ProjectId>,
-    /// The project an operation is changing right now. Its own reload follows and sees all
-    /// of it, so the watcher's reloads for it would only queue in front.
-    mutating: Option<ProjectId>,
+    /// Projects whose finished mutation waits on a reload. The next load to start ends it.
+    settling: HashSet<ProjectId>,
+    /// Projects an operation is changing right now. Their own reload follows and sees all
+    /// of it, so the watcher's reloads for them would only queue in front.
+    mutating: HashSet<ProjectId>,
     /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
     last_snapshot: Option<(ProjectId, SnapshotId)>,
     next_toast: usize,
@@ -236,7 +237,7 @@ impl Store {
     #[cfg(feature = "dev-script")]
     pub fn is_settled(&self) -> bool {
         self.projects_loaded
-            && self.running.is_none()
+            && self.running.is_empty()
             && self.queue.is_empty()
             && self
                 .projects
@@ -258,9 +259,9 @@ impl Store {
             added: None,
             dragging: None,
             toasts: Vec::new(),
-            settling: None,
-            mutating: None,
-            running: None,
+            settling: HashSet::new(),
+            mutating: HashSet::new(),
+            running: HashMap::new(),
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
             last_snapshot: None,
