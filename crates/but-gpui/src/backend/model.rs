@@ -138,6 +138,8 @@ pub struct Review {
     pub checks: Option<Checks>,
     /// The forge merges it on its own once its checks pass.
     pub auto_merge: bool,
+    /// Who was asked to review it, or has: their logins, bots left out.
+    pub reviewers: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

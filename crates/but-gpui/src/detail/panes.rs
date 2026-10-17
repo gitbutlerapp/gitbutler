@@ -1412,6 +1412,16 @@ fn render_review(review: &backend::Review, theme: &Theme, cx: &Context<Detail>) 
                     el.child("·").child("merges when checks pass")
                 }),
         )
+        .when(!review.reviewers.is_empty(), |el| {
+            el.child(
+                div()
+                    .pl(px(24.))
+                    .text_size(px(12.))
+                    .text_color(theme.text_3)
+                    .truncate()
+                    .child(format!("Reviewers: {}", review.reviewers.join(", "))),
+            )
+        })
         .into_any_element()
 }
 
