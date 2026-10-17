@@ -4,23 +4,10 @@
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*, px};
 
 use super::{Row, SettingsView, field_with_save};
-use crate::backend::Forge;
-use crate::backend::settings::{self as backend, GitHubStacks, StackInfo};
+use crate::backend::settings as backend;
 use crate::state::ProjectId;
 use crate::theme::Theme;
 use crate::ui::{ButtonStyle, button, h_flex, muted, switch};
-
-const STACK_INFO: [(StackInfo, &str); 3] = [
-    (StackInfo::Bottom, "At the bottom"),
-    (StackInfo::Top, "At the top"),
-    (StackInfo::Disabled, "Off"),
-];
-
-const GITHUB_STACKS: [(GitHubStacks, &str); 3] = [
-    (GitHubStacks::Auto, "When GitHub offers them"),
-    (GitHubStacks::Native, "Always"),
-    (GitHubStacks::Disabled, "Never"),
-];
 
 impl SettingsView {
     /// Show `project`'s settings in the Project section, loading them.
@@ -114,7 +101,7 @@ impl SettingsView {
                 cx,
             );
         });
-        let (test_path, tested) = (path.clone(), project.clone());
+        let (test_path, tested) = (path, project.clone());
         let test_signing = cx.listener(move |this, _: &ClickEvent, _, cx| {
             let path = test_path.clone();
             this.signing = None;
@@ -146,51 +133,6 @@ impl SettingsView {
                 .update(cx, |app, cx| app.pick_target(project, window, cx))
                 .ok();
         });
-        let info_label = (STACK_INFO.iter())
-            .find(|(info, _)| *info == settings.stack_info)
-            .map_or("", |(_, label)| *label);
-        let stack_info = self.choice(
-            "stack-info",
-            info_label,
-            STACK_INFO.map(|(info, label)| (info, label.to_owned())),
-            {
-                let path = path.clone();
-                move |this, info: StackInfo, cx| {
-                    let path = path.clone();
-                    this.apply(
-                        "Couldn't change how stacks show",
-                        move || backend::set_stacking(&path, Some(info), None),
-                        Self::reload_project,
-                        cx,
-                    )
-                }
-            },
-            cx,
-        );
-        let github_label = (GITHUB_STACKS.iter())
-            .find(|(github, _)| *github == settings.github_stacks)
-            .map_or("", |(_, label)| *label);
-        let github_stacks = self.choice(
-            "github-stacks",
-            github_label,
-            GITHUB_STACKS.map(|(github, label)| (github, label.to_owned())),
-            move |this, github: GitHubStacks, cx| {
-                let path = path.clone();
-                this.apply(
-                    "Couldn't change how stacks show",
-                    move || backend::set_stacking(&path, None, Some(github)),
-                    Self::reload_project,
-                    cx,
-                )
-            },
-            cx,
-        );
-        let on_github = self
-            .store
-            .read(cx)
-            .workspace(project)
-            .and_then(|ws| ws.forge)
-            == Some(Forge::GitHub);
         let remove_id = project.clone();
         let project_name = self.project_name(cx).unwrap_or_default();
         let remove = cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -200,7 +142,7 @@ impl SettingsView {
             Ok(()) => div().text_color(theme.safe).child("Signing works"),
             Err(err) => div().text_color(theme.danger).child(err.clone()),
         });
-        let mut rows = vec![
+        vec![
             Row::new(
                 "Name",
                 "What the project is called in the navigator.",
@@ -262,12 +204,6 @@ impl SettingsView {
                     .child(switch("sign", sign, theme).on_click(toggle_sign)),
             ),
             Row::new(
-                "Stack in pull requests",
-                "Each pull request of a stack lists the others in its description, kept up to \
-                 date.",
-                stack_info,
-            ),
-            Row::new(
                 "Remove project",
                 "Takes it out of GitButler. The repository stays on disk as it is.",
                 button("remove-project", "Remove…")
@@ -275,20 +211,7 @@ impl SettingsView {
                     .style(ButtonStyle::Danger)
                     .on_click(remove),
             ),
-        ];
-        if on_github {
-            let at = rows.len() - 1;
-            rows.insert(
-                at,
-                Row::new(
-                    "GitHub stacks",
-                    "Show a stack's pull requests as one of GitHub's own stacks, where GitHub \
-                     offers them.",
-                    github_stacks,
-                ),
-            );
-        }
-        rows
+        ]
     }
 
     fn remove_project(

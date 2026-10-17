@@ -217,13 +217,6 @@ pub struct Detail {
     upstream: Option<upstream::Upstream>,
     upstream_scroll: UniformListScrollHandle,
     _upstream_load: Task<()>,
-    /// Where the review of the selected branch's pull request stands, once the forge said:
-    /// the project and pull request number it's for.
-    feedback: Option<(ProjectId, u64, backend::reviews::Feedback)>,
-    /// When it was last asked for and how the branch stood then, to ask again as the
-    /// workspace reloads: once a while has passed, or the branch moved or was pushed.
-    feedback_asked: Option<(Instant, pull_request::BranchMark)>,
-    _feedback_load: Task<()>,
     /// The Branches page's branches, for the project it shows, and its filter.
     branches: Option<branches::Branches>,
     branch_filter: Entity<TextInput>,
@@ -370,9 +363,6 @@ impl Detail {
             upstream: None,
             upstream_scroll: UniformListScrollHandle::new(),
             _upstream_load: Task::ready(()),
-            feedback: None,
-            feedback_asked: None,
-            _feedback_load: Task::ready(()),
             branches: None,
             branch_filter,
             branches_scroll: UniformListScrollHandle::new(),
@@ -429,11 +419,6 @@ impl Detail {
             Some(Selection::History(project)) => self.load_history(&project, false, cx),
             Some(Selection::Branches(project)) => self.load_branches(&project, force, cx),
             Some(Selection::Project(project)) => self.load_upstream(&project, false, force, cx),
-            Some(Selection::Branch(project, ref_name))
-                if force || self.feedback_stale(&project, &ref_name, cx) =>
-            {
-                self.load_feedback(&project, &ref_name, cx)
-            }
             _ => {}
         }
     }
@@ -1111,60 +1096,6 @@ impl Detail {
         self.app
             .update(cx, |app, cx| app.discard(project, vec![change], window, cx))
             .ok();
-    }
-
-    /// Show `path` in the loaded diff, at `line` of its new side when the diff has it.
-    /// Returns whether the diff has the file.
-    pub(super) fn reveal_line(
-        &mut self,
-        path: &str,
-        line: Option<u32>,
-        cx: &mut Context<Self>,
-    ) -> bool {
-        let Some(diff) = self.shown_diff() else {
-            return false;
-        };
-        let Some(file_ix) = diff.files.iter().position(|f| f.file.path == path) else {
-            return false;
-        };
-        let new_of = |hunk: usize, ix: usize| match &diff.files[file_ix].body {
-            DiffBody::Hunks { hunks, .. } => hunks.get(hunk)?.lines.get(ix)?.new,
-            _ => None,
-        };
-        let row = line.and_then(|line| {
-            self.row_of(|row| match *row {
-                DiffRow::Line {
-                    file,
-                    hunk,
-                    line: ix,
-                    ..
-                }
-                | DiffRow::Pair {
-                    file,
-                    hunk,
-                    right: Some(ix),
-                    ..
-                } => file == file_ix && new_of(hunk, ix) == Some(line),
-                DiffRow::Context { file, new, .. } => file == file_ix && new == line,
-                _ => false,
-            })
-        });
-        // A few lines above it, for what leads up to it; or the file, when the line isn't
-        // in the diff. The file filter can leave the file out entirely.
-        let file_row = || self.row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix));
-        let Some(item_ix) = row.map(|row| row.saturating_sub(3)).or_else(file_row) else {
-            return false;
-        };
-        self.cursor = Cursor {
-            file: file_ix,
-            hunk: None,
-        };
-        self.list.scroll_to(ListOffset {
-            item_ix,
-            offset_in_item: px(0.),
-        });
-        cx.notify();
-        true
     }
 
     fn scroll_to_file(&mut self, file_ix: usize, cx: &mut Context<Self>) {

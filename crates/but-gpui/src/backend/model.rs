@@ -201,10 +201,6 @@ pub struct Review {
     pub checks: Option<Checks>,
     /// The checks that failed: each one's name, and where to read why.
     pub failed_checks: Vec<(String, String)>,
-    /// The forge merges it on its own once its checks pass.
-    pub auto_merge: bool,
-    /// Who opened it, once the forge has said.
-    pub author: Option<String>,
     pub labels: Vec<String>,
     /// Who's been asked to review it, bots left out. GitHub lists only those who haven't
     /// reviewed yet; GitLab and Bitbucket keep the others.
@@ -383,38 +379,6 @@ pub struct Hunk {
     pub scope: Vec<String>,
 }
 
-impl Hunk {
-    /// Sub-hunks taking only the changed lines at `picks`: each run of picked added lines,
-    /// or removed ones, marked as one side only with `0,0` on the other, as the commit
-    /// engine expects.
-    pub fn picked(&self, picks: &std::collections::BTreeSet<usize>) -> Vec<HunkKey> {
-        let mut runs: Vec<but_core::HunkHeader> = Vec::new();
-        let mut previous = None;
-        for (ix, line) in self.lines.iter().enumerate() {
-            let kind = (picks.contains(&ix) && line.kind != LineKind::Context).then_some(line.kind);
-            match (kind, runs.last_mut()) {
-                (Some(LineKind::Added), Some(run)) if previous == kind => run.new_lines += 1,
-                (Some(LineKind::Removed), Some(run)) if previous == kind => run.old_lines += 1,
-                (Some(LineKind::Added), _) => runs.push(but_core::HunkHeader {
-                    old_start: 0,
-                    old_lines: 0,
-                    new_start: line.new.unwrap_or_default(),
-                    new_lines: 1,
-                }),
-                (Some(_), _) => runs.push(but_core::HunkHeader {
-                    old_start: line.old.unwrap_or_default(),
-                    old_lines: 1,
-                    new_start: 0,
-                    new_lines: 0,
-                }),
-                (None, _) => {}
-            }
-            previous = kind;
-        }
-        runs.into_iter().map(HunkKey).collect()
-    }
-}
-
 /// Identifies a hunk of a file's uncommitted changes, to commit just that part.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HunkKey(pub(crate) but_core::HunkHeader);
@@ -447,59 +411,4 @@ pub enum LineKind {
     Context,
     Added,
     Removed,
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::BTreeSet;
-
-    use but_core::HunkHeader;
-
-    use super::{DiffLine, Hunk, HunkKey, LineKind};
-
-    fn header(old_start: u32, old_lines: u32, new_start: u32, new_lines: u32) -> HunkHeader {
-        HunkHeader {
-            old_start,
-            old_lines,
-            new_start,
-            new_lines,
-        }
-    }
-
-    #[test]
-    fn picked_lines_become_one_sided_runs() {
-        let line = |kind, old, new| DiffLine {
-            kind,
-            old,
-            new,
-            text: "".into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        };
-        let hunk = Hunk {
-            key: HunkKey(header(1, 4, 1, 4)),
-            header: String::new(),
-            lines: vec![
-                line(LineKind::Context, Some(1), Some(1)),
-                line(LineKind::Removed, Some(2), None),
-                line(LineKind::Removed, Some(3), None),
-                line(LineKind::Added, None, Some(2)),
-                line(LineKind::Added, None, Some(3)),
-                line(LineKind::Context, Some(4), Some(4)),
-            ],
-            scope: Vec::new(),
-        };
-        let picks = BTreeSet::from([1, 2, 4]);
-        assert_eq!(
-            hunk.picked(&picks),
-            vec![HunkKey(header(2, 2, 0, 0)), HunkKey(header(0, 0, 3, 1))],
-            "both removals run together, the second addition stands alone"
-        );
-        let picks = BTreeSet::from([1, 3]);
-        assert_eq!(
-            hunk.picked(&picks),
-            vec![HunkKey(header(2, 1, 0, 0)), HunkKey(header(0, 0, 2, 1))],
-            "a removal and an addition never share a run"
-        );
-    }
 }

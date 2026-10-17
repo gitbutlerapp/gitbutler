@@ -9,9 +9,9 @@ use gpui::{
 };
 
 use super::Detail;
-use super::pull_request::{render_comments, render_review};
+use super::pull_request::render_review;
 use crate::app::StartCommit;
-use crate::backend::{self, CommitState, FileChange, Forge, PushState, short_ref};
+use crate::backend::{self, CommitState, FileChange, PushState, short_ref};
 use crate::state::{ProjectId, Review, Selection};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -524,32 +524,7 @@ impl Detail {
                     .children(resolve_oldest),
             )
             .when_some(branch.review.as_ref(), |el, review| {
-                let feedback = (self.feedback.as_ref())
-                    .filter(|(p, number, _)| p == project && *number == review.number)
-                    .map(|(.., feedback)| feedback);
-                let github = ws.forge == Some(Forge::GitHub);
-                // At most half the pane, scrolling on its own, so the files stay in view.
-                el.child(
-                    v_flex()
-                        .id("pull-request")
-                        .flex_shrink_0()
-                        .max_h(gpui::relative(0.5))
-                        .overflow_y_scroll()
-                        .child(render_review(
-                            review,
-                            feedback.map(|f| &f.verdicts),
-                            github,
-                            theme,
-                            cx,
-                        ))
-                        .children(feedback.and_then(|feedback| {
-                            self.render_threads(project, ref_name, &feedback.threads, theme, cx)
-                        }))
-                        .children(
-                            feedback
-                                .and_then(|feedback| render_comments(&feedback.comments, theme)),
-                        ),
-                )
+                el.child(render_review(review, theme, cx))
             })
             .when(!branch.incoming.is_empty(), |el| {
                 el.child(render_incoming(

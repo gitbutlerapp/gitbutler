@@ -1,6 +1,5 @@
 //! A branch's pull request: opening one (pushing the branch first when it needs it), and
-//! for one that exists, editing it, marking it ready or a draft, merging, closing and
-//! reopening it.
+//! merging one that's open.
 
 use gpui::{
     App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, PromptLevel,
@@ -9,7 +8,6 @@ use gpui::{
 
 use crate::app::AppView;
 use crate::backend::ai;
-use crate::backend::branches::{self, ApplyOutcome};
 use crate::backend::reviews::{self, MergeMethod};
 use crate::backend::{self, Forge, PushState, Review, ReviewState, short_ref};
 use crate::state::{Overlay, ProjectId, Selection, Store};
@@ -18,38 +16,15 @@ use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, button, faint, h_flex, muted, switch, v_flex};
 
-actions!(
-    pr,
-    [
-        CreatePullRequest,
-        EditPullRequest,
-        ToggleDraft,
-        ToggleAutoMerge,
-        RequestReview,
-        CommentOnPullRequest,
-        LabelPullRequest,
-        ApplyPullRequest,
-        MergePullRequest,
-        ClosePullRequest,
-    ]
-);
-
-enum Mode {
-    /// A new pull request; the branch is pushed first when that's `Some`, forced if `true`.
-    Create {
-        push: Option<bool>,
-    },
-    Edit {
-        number: u64,
-    },
-}
+actions!(pr, [CreatePullRequest, MergePullRequest]);
 
 pub struct ReviewView {
     store: Entity<Store>,
     project: ProjectId,
     /// The branch, by full ref.
     branch: String,
-    mode: Mode,
+    /// The branch is pushed first when that's `Some`, forced if `true`.
+    push: Option<bool>,
     title: Entity<TextInput>,
     body: Entity<TextInput>,
     /// The branch it would merge into, once known.
@@ -57,9 +32,6 @@ pub struct ReviewView {
     draft: bool,
     /// The title and description being written with AI, streaming into the fields.
     writing: Option<Task<()>>,
-    /// The fields hold the pull request's text. Editing waits for it, so saving can't
-    /// replace the description with an empty one.
-    loaded: bool,
 }
 
 impl EventEmitter<DismissEvent> for ReviewView {}
@@ -75,7 +47,7 @@ impl ReviewView {
         store: Entity<Store>,
         project: ProjectId,
         branch: String,
-        mode: Mode,
+        push: Option<bool>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -91,7 +63,7 @@ impl ReviewView {
         }
         let path = store.read(cx).path(&project);
         // A branch of one commit starts from that commit's message, as `but pr` does.
-        let single = store
+        let (subject, description) = store
             .read(cx)
             .workspace(&project)
             .and_then(|ws| ws.find_branch(&branch))
@@ -100,79 +72,44 @@ impl ReviewView {
                 let message = &b.commits[0].message;
                 let (subject, rest) = message.split_once('\n').unwrap_or((message, ""));
                 (subject.trim().to_owned(), rest.trim().to_owned())
-            });
-        match &mode {
-            Mode::Create { .. } => {
-                let (subject, description) =
-                    single.unwrap_or_else(|| (short_ref(&branch).to_owned(), String::new()));
-                title.update(cx, |input, cx| {
-                    input.set_text(subject, cx);
-                    input.select_all_text(cx);
-                });
-                body.update(cx, |input, cx| input.set_text(description.clone(), cx));
-                let ref_name = branch.clone();
-                if let Some(path) = path {
-                    cx.spawn(async move |this, cx| {
-                        let found =
-                            backend::run(move || reviews::new_review(&path, &ref_name)).await;
-                        this.update(cx, |this, cx| match found {
-                            Ok(new) => {
-                                this.target = Some(new.target);
-                                if let Some(template) =
-                                    new.template.filter(|_| description.is_empty())
-                                {
-                                    this.body
-                                        .update(cx, |input, cx| input.set_text(template, cx));
-                                }
-                                cx.notify();
-                            }
-                            Err(err) => this.store.update(cx, |store, cx| {
-                                store.error("Can't open a pull request", format!("{err:#}"), cx)
-                            }),
-                        })
-                        .ok();
-                    })
-                    .detach();
-                }
-            }
-            Mode::Edit { number } => {
-                let number = *number;
-                if let Some(path) = path {
-                    cx.spawn(async move |this, cx| {
-                        let text = backend::run(move || reviews::review_text(&path, number)).await;
-                        this.update(cx, |this, cx| match text {
-                            Ok((title, body)) => {
-                                this.title.update(cx, |input, cx| input.set_text(title, cx));
-                                this.body.update(cx, |input, cx| input.set_text(body, cx));
-                                this.loaded = true;
-                                cx.notify();
-                            }
-                            Err(err) => this.store.update(cx, |store, cx| {
-                                store.error(
-                                    "Couldn't read the pull request",
-                                    format!("{err:#}"),
-                                    cx,
-                                )
-                            }),
-                        })
-                        .ok();
-                    })
-                    .detach();
-                }
-            }
+            })
+            .unwrap_or_else(|| (short_ref(&branch).to_owned(), String::new()));
+        title.update(cx, |input, cx| {
+            input.set_text(subject, cx);
+            input.select_all_text(cx);
+        });
+        body.update(cx, |input, cx| input.set_text(description.clone(), cx));
+        let ref_name = branch.clone();
+        if let Some(path) = path {
+            cx.spawn(async move |this, cx| {
+                let found = backend::run(move || reviews::new_review(&path, &ref_name)).await;
+                this.update(cx, |this, cx| match found {
+                    Ok(new) => {
+                        this.target = Some(new.target);
+                        if let Some(template) = new.template.filter(|_| description.is_empty()) {
+                            this.body
+                                .update(cx, |input, cx| input.set_text(template, cx));
+                        }
+                        cx.notify();
+                    }
+                    Err(err) => this.store.update(cx, |store, cx| {
+                        store.error("Can't open a pull request", format!("{err:#}"), cx)
+                    }),
+                })
+                .ok();
+            })
+            .detach();
         }
-        let loaded = matches!(mode, Mode::Create { .. });
         Self {
             store,
             project,
             branch,
-            mode,
+            push,
             title,
             body,
             target: None,
             draft: false,
             writing: None,
-            loaded,
         }
     }
 
@@ -231,46 +168,26 @@ impl ReviewView {
 
     fn submit(&mut self, cx: &mut Context<Self>) {
         let title = self.title.read(cx).text().trim().to_owned();
-        if title.is_empty() || !self.loaded || self.writing.is_some() {
+        if title.is_empty() || self.writing.is_some() {
             return;
         }
         let body = self.body.read(cx).text().trim().to_owned();
-        let branch = self.branch.clone();
+        let (branch, push, draft) = (self.branch.clone(), self.push, self.draft);
         let project = self.project.clone();
         let refreshed = project.clone();
-        match self.mode {
-            Mode::Create { push } => {
-                let draft = self.draft;
-                self.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Create pull request",
-                        Overlay::default(),
-                        move |path, _| reviews::publish(path, &branch, push, title, body, draft),
-                        move |store, number, cx| {
-                            store.snack(format!("Created pull request #{number}"), cx);
-                            store.refresh_forge(&refreshed);
-                        },
-                        cx,
-                    )
-                });
-            }
-            Mode::Edit { number } => {
-                self.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Edit pull request",
-                        Overlay::default(),
-                        move |path, _| reviews::update(path, number, Some((title, body)), None),
-                        move |store, (), cx| {
-                            store.snack(format!("Updated #{number}"), cx);
-                            store.refresh_forge(&refreshed);
-                        },
-                        cx,
-                    )
-                });
-            }
-        }
+        self.store.update(cx, |store, cx| {
+            store.run(
+                &project,
+                "Create pull request",
+                Overlay::default(),
+                move |path, _| reviews::publish(path, &branch, push, title, body, draft),
+                move |store, number, cx| {
+                    store.snack(format!("Created pull request #{number}"), cx);
+                    store.refresh_forge(&refreshed);
+                },
+                cx,
+            )
+        });
         cx.emit(DismissEvent);
     }
 }
@@ -278,17 +195,10 @@ impl ReviewView {
 impl Render for ReviewView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
-        let creating = matches!(self.mode, Mode::Create { .. });
-        let heading = match self.mode {
-            Mode::Create { .. } => "Create a pull request".to_owned(),
-            Mode::Edit { number } => format!("Edit pull request #{number}"),
-        };
-        let route = match (&self.target, &self.mode) {
+        let route = match (&self.target, self.push) {
             (Some(target), _) => format!("{} → {target}", short_ref(&self.branch)),
-            (None, Mode::Create { push: Some(_) }) => {
-                format!("{} gets pushed first", short_ref(&self.branch))
-            }
-            _ => short_ref(&self.branch).to_owned(),
+            (None, Some(_)) => format!("{} gets pushed first", short_ref(&self.branch)),
+            (None, None) => short_ref(&self.branch).to_owned(),
         };
         let field = |input: &Entity<TextInput>, tall: bool| {
             let focused = input.focus_handle(cx).is_focused(window);
@@ -313,10 +223,10 @@ impl Render for ReviewView {
                 .text_color(theme.text_2)
                 .child(text)
         };
-        let confirm = match (creating, self.draft) {
-            (true, true) => "Create draft",
-            (true, false) => "Create pull request",
-            (false, _) => "Save",
+        let confirm = if self.draft {
+            "Create draft"
+        } else {
+            "Create pull request"
         };
         let empty_title = self.title.read(cx).text().trim().is_empty();
         modal(ModalSize::Medium, &theme)
@@ -332,7 +242,7 @@ impl Render for ReviewView {
                         div()
                             .text_size(px(15.))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(heading),
+                            .child("Create a pull request"),
                     )
                     .child(
                         div()
@@ -370,24 +280,22 @@ impl Render for ReviewView {
                             ),
                     )
                     .child(field(&self.body, true))
-                    .when(creating, |el| {
-                        el.child(
-                            h_flex()
-                                .pt(px(8.))
-                                .gap(px(10.))
-                                .child(switch("pr-draft", self.draft, &theme).on_click(
-                                    cx.listener(|this, _, _, cx| {
-                                        this.draft = !this.draft;
-                                        cx.notify();
-                                    }),
-                                ))
-                                .child(
-                                    v_flex()
-                                        .child(div().text_size(px(13.)).child("Draft"))
-                                        .child(muted("Not ready for review yet", &theme)),
-                                ),
-                        )
-                    }),
+                    .child(
+                        h_flex()
+                            .pt(px(8.))
+                            .gap(px(10.))
+                            .child(switch("pr-draft", self.draft, &theme).on_click(cx.listener(
+                                |this, _, _, cx| {
+                                    this.draft = !this.draft;
+                                    cx.notify();
+                                },
+                            )))
+                            .child(
+                                v_flex()
+                                    .child(div().text_size(px(13.)).child("Draft"))
+                                    .child(muted("Not ready for review yet", &theme)),
+                            ),
+                    ),
             )
             .child(
                 h_flex()
@@ -407,7 +315,7 @@ impl Render for ReviewView {
                     .child(
                         button("pr-submit", confirm)
                             .style(ButtonStyle::Gray)
-                            .disabled(empty_title || !self.loaded || self.writing.is_some())
+                            .disabled(empty_title || self.writing.is_some())
                             .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
                     ),
             )
@@ -419,37 +327,19 @@ impl AppView {
     /// branch, or the selected commit's branch: what the navigator's menu offers for it.
     pub fn pr_actions(&self, el: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
         let store = self.store.read(cx);
-        let Some(selection) = store.selection.as_ref().filter(|s| on_forge(store, s)) else {
+        let Some(branch) = (store.selection.as_ref())
+            .filter(|s| on_forge(store, s))
+            .and_then(|s| store.branch_for(s))
+            .filter(|b| !b.ref_name.is_empty())
+        else {
             return el;
         };
-        let el = el.on_action(cx.listener(Self::apply_pull_request));
-        let Some(branch) = (store.branch_for(selection)).filter(|b| !b.ref_name.is_empty()) else {
-            return el;
-        };
-        let forge = store.workspace(selection.project()).and_then(|ws| ws.forge);
         match branch.review.as_ref().map(|r| r.state) {
             None => el.when(!branch.commits.is_empty(), |el| {
                 el.on_action(cx.listener(Self::create_pull_request))
             }),
-            Some(state @ (ReviewState::Open | ReviewState::Draft)) => el
-                .on_action(cx.listener(Self::edit_pull_request))
-                .on_action(cx.listener(Self::toggle_draft))
-                .on_action(cx.listener(Self::merge_pull_request))
-                .on_action(cx.listener(Self::label_pull_request))
-                .on_action(cx.listener(Self::close_pull_request))
-                // What only GitButler's GitHub support does so far.
-                .when(forge == Some(Forge::GitHub), |el| {
-                    el.on_action(cx.listener(Self::comment_on_pull_request))
-                        .on_action(cx.listener(Self::request_review))
-                })
-                // The forges GitButler can ask to merge on their own.
-                .when(
-                    state == ReviewState::Open
-                        && matches!(forge, Some(Forge::GitHub | Forge::GitLab)),
-                    |el| el.on_action(cx.listener(Self::toggle_auto_merge)),
-                ),
-            Some(ReviewState::Closed) => el.on_action(cx.listener(Self::close_pull_request)),
-            Some(ReviewState::Merged) => el,
+            Some(ReviewState::Open) => el.on_action(cx.listener(Self::merge_pull_request)),
+            Some(ReviewState::Draft | ReviewState::Closed | ReviewState::Merged) => el,
         }
     }
 
@@ -482,370 +372,8 @@ impl AppView {
             }
         });
         let store = self.store.clone();
-        let view =
-            cx.new(|cx| ReviewView::new(store, project, branch, Mode::Create { push }, window, cx));
+        let view = cx.new(|cx| ReviewView::new(store, project, branch, push, window, cx));
         self.open_modal(view, window, cx);
-    }
-
-    pub fn edit_pull_request(
-        &mut self,
-        _: &EditPullRequest,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some((project, branch, Some(Review { number, .. }))) = self.review_target(cx) else {
-            return;
-        };
-        let store = self.store.clone();
-        let view =
-            cx.new(|cx| ReviewView::new(store, project, branch, Mode::Edit { number }, window, cx));
-        self.open_modal(view, window, cx);
-    }
-
-    /// Mark a draft ready for review, or an open pull request a draft again.
-    pub fn toggle_draft(&mut self, _: &ToggleDraft, _: &mut Window, cx: &mut Context<Self>) {
-        let Some((project, _, Some(Review { number, state, .. }))) = self.review_target(cx) else {
-            return;
-        };
-        let draft = match state {
-            ReviewState::Draft => false,
-            ReviewState::Open => true,
-            ReviewState::Merged | ReviewState::Closed => return,
-        };
-        self.run_on_review(
-            project,
-            "Change draft",
-            move |path| reviews::set_draft(path, number, draft),
-            if draft {
-                "Converted to a draft"
-            } else {
-                "Marked ready for review"
-            },
-            cx,
-        );
-    }
-
-    /// Have an open pull request merge once its checks pass, or stop it from doing so.
-    pub fn toggle_auto_merge(
-        &mut self,
-        _: &ToggleAutoMerge,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some((
-            project,
-            _,
-            Some(Review {
-                number,
-                state: ReviewState::Open,
-                auto_merge: on,
-                ..
-            }),
-        )) = self.review_target(cx)
-        else {
-            return;
-        };
-        self.run_on_review(
-            project,
-            "Auto-merge",
-            move |path| reviews::set_auto_merge(path, number, !on),
-            if on {
-                "It won't merge on its own"
-            } else {
-                "Merges once its checks pass"
-            },
-            cx,
-        );
-    }
-
-    /// Ask for a pull request's number, then fetch its branch, from a fork too, and apply
-    /// it to the workspace to try it out.
-    pub fn apply_pull_request(
-        &mut self,
-        _: &ApplyPullRequest,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(project) = self.selected_project(cx) else {
-            return;
-        };
-        let input = cx.new(|cx| TextInput::new("Pull request number", false, cx));
-        self.open_prompt(
-            "Apply a pull request",
-            Some("Its branch is fetched, from a fork too, and added to the workspace.".into()),
-            "Apply",
-            input,
-            None,
-            window,
-            cx,
-            move |this, text, _, cx| {
-                let Ok(number) = text.trim().trim_start_matches('#').parse::<u64>() else {
-                    let message = "That isn't a pull request number";
-                    return this.store.update(cx, |store, cx| store.snack(message, cx));
-                };
-                let selected = project.clone();
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        format!("Apply pull request #{number}"),
-                        Overlay::default(),
-                        move |path, _| branches::apply_review(path, number),
-                        move |store, (applied, branch), cx| match applied {
-                            ApplyOutcome::Applied => {
-                                if let Some(branch) = branch {
-                                    store.select(Some(Selection::Branch(selected, branch)), cx);
-                                }
-                                store.snack_undoable(format!("Applied #{number}"), cx)
-                            }
-                            ApplyOutcome::AlreadyApplied => store.snack(
-                                format!(
-                                    "#{number} is in the workspace already: pull its branch \
-                                     for any new commits"
-                                ),
-                                cx,
-                            ),
-                            ApplyOutcome::Conflicts(stacks) => store.error(
-                                format!("#{number} wasn't applied"),
-                                format!("It conflicts with {}", stacks.join(", ")),
-                                cx,
-                            ),
-                        },
-                        cx,
-                    )
-                })
-            },
-        );
-    }
-
-    /// Pick a label of the repository to put on the pull request, or to take off one it has.
-    pub fn label_pull_request(
-        &mut self,
-        _: &LabelPullRequest,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some((
-            project,
-            _,
-            Some(Review {
-                number,
-                state: ReviewState::Open | ReviewState::Draft,
-                labels,
-                ..
-            }),
-        )) = self.review_target(cx)
-        else {
-            return;
-        };
-        let Some(path) = self.store.read(cx).path(&project) else {
-            return;
-        };
-        self.toggle_on_review(
-            project,
-            move || reviews::repo_labels(&path),
-            labels,
-            "Couldn't list the labels",
-            "Put on or take off a label",
-            "Label",
-            "Labels changed",
-            move |path, label, on| reviews::set_label(path, number, label, on),
-            window,
-            cx,
-        );
-    }
-
-    /// Ask for a comment on the pull request as a whole, post it, then have the branch
-    /// page ask again where the review stands.
-    pub fn comment_on_pull_request(
-        &mut self,
-        _: &CommentOnPullRequest,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some((project, branch, Some(Review { number, .. }))) = self.review_target(cx) else {
-            return;
-        };
-        self.post_to_review(
-            project,
-            branch,
-            format!("Comment on #{number}"),
-            "Comment",
-            "Commented",
-            move |path, body| reviews::comment(path, number, body),
-            window,
-            cx,
-        );
-    }
-
-    /// Ask for an answer to a conversation on `ref_name`'s pull request, post it, then have
-    /// the branch page ask again where the review stands.
-    pub fn reply_to_thread(
-        &mut self,
-        project: ProjectId,
-        ref_name: String,
-        id: String,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.post_to_review(
-            project,
-            ref_name,
-            "Reply to the conversation".into(),
-            "Reply",
-            "Replied",
-            move |path, body| reviews::reply_to_thread(path, id, body),
-            window,
-            cx,
-        );
-    }
-
-    /// Ask for a line to `verb` with, then `post` it to the forge off the UI thread: on
-    /// success say `done` and have the branch page ask the forge where `branch`'s review
-    /// stands.
-    #[allow(clippy::too_many_arguments)]
-    fn post_to_review(
-        &mut self,
-        project: ProjectId,
-        branch: String,
-        title: String,
-        verb: &'static str,
-        done: &'static str,
-        post: impl FnOnce(&std::path::Path, String) -> anyhow::Result<()> + Send + 'static,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(path) = self.store.read(cx).path(&project) else {
-            return;
-        };
-        let input = cx.new(|cx| TextInput::new(verb, false, cx));
-        self.open_prompt(
-            &title,
-            None,
-            verb,
-            input,
-            None,
-            window,
-            cx,
-            move |_, text, _, cx| {
-                let text = text.trim().to_owned();
-                if text.is_empty() {
-                    return;
-                }
-                // Kept for the error, so Copy error gets it back.
-                let sent = text.clone();
-                cx.spawn(async move |this, cx| {
-                    let posted = backend::run(move || post(&path, text)).await;
-                    this.update(cx, |this, cx| match posted {
-                        Ok(()) => {
-                            this.store.update(cx, |store, cx| store.snack(done, cx));
-                            this.detail.update(cx, |detail, cx| {
-                                detail.load_feedback(&project, &branch, cx)
-                            })
-                        }
-                        Err(err) => this.store.update(cx, |store, cx| {
-                            let title = format!("Couldn't {}", verb.to_lowercase());
-                            store.error(title, format!("{err:#}\n\nWhat you wrote: {sent}"), cx)
-                        }),
-                    })
-                    .ok();
-                })
-                .detach();
-            },
-        );
-    }
-
-    /// `load` names from the forge off the UI thread, then offer them in a picker titled
-    /// `title`, the ones `on` ticked. Picking one runs `set` with it and whether to turn it
-    /// on, as `label`, saying `done` after. A failed load says so under `failed`.
-    #[allow(clippy::too_many_arguments)]
-    fn toggle_on_review(
-        &mut self,
-        project: ProjectId,
-        load: impl FnOnce() -> anyhow::Result<Vec<String>> + Send + 'static,
-        on: Vec<String>,
-        failed: &'static str,
-        title: &'static str,
-        label: &'static str,
-        done: &'static str,
-        set: impl Fn(&std::path::Path, String, bool) -> anyhow::Result<()> + Clone + Send + 'static,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        cx.spawn_in(window, async move |this, cx| {
-            let loaded = backend::run(load).await;
-            this.update_in(cx, |this, window, cx| match loaded {
-                Ok(names) => {
-                    let choices = (names.into_iter())
-                        .map(|name| {
-                            let turn_on = !on.contains(&name);
-                            let shown = if turn_on {
-                                name.clone()
-                            } else {
-                                format!("✓ {name}")
-                            };
-                            let (project, set) = (project.clone(), set.clone());
-                            crate::palette::Choice::new(shown, move |this, _, cx| {
-                                let op = move |path: &std::path::Path| set(path, name, turn_on);
-                                this.run_on_review(project, label, op, done, cx)
-                            })
-                        })
-                        .collect();
-                    this.open_picker(title, "Toggle", choices, window, cx);
-                }
-                Err(err) => {
-                    let message = format!("{err:#}");
-                    this.store
-                        .update(cx, |store, cx| store.error(failed, message, cx))
-                }
-            })
-            .ok();
-        })
-        .detach();
-    }
-
-    /// Pick someone of the repository's to ask for a review of the pull request, or, ticked,
-    /// to ask no longer. Its author isn't offered: the forge won't ask them.
-    pub fn request_review(
-        &mut self,
-        _: &RequestReview,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some((
-            project,
-            _,
-            Some(Review {
-                number,
-                state: ReviewState::Open | ReviewState::Draft,
-                reviewers,
-                author,
-                ..
-            }),
-        )) = self.review_target(cx)
-        else {
-            return;
-        };
-        let Some(path) = self.store.read(cx).path(&project) else {
-            return;
-        };
-        let load = move || {
-            let logins = reviews::reviewer_candidates(&path)?;
-            Ok((logins.into_iter())
-                .filter(|login| author.as_ref() != Some(login))
-                .collect())
-        };
-        self.toggle_on_review(
-            project,
-            load,
-            reviewers,
-            "Couldn't list who can review",
-            "Ask someone to review, or no longer",
-            "Request review",
-            "Reviewers changed",
-            move |path, login, ask| reviews::request_review(path, number, login, ask),
-            window,
-            cx,
-        );
     }
 
     /// Merge the pull request, asking how.
@@ -890,79 +418,24 @@ impl AppView {
                 _ => return,
             };
             this.update(cx, |this, cx| {
-                this.run_on_review(
-                    project,
-                    "Merge pull request",
-                    move |path| reviews::merge(path, number, method),
-                    "Merged. Update to bring it into your workspace",
-                    cx,
-                )
+                let refreshed = project.clone();
+                this.store.update(cx, |store, cx| {
+                    store.run(
+                        &project,
+                        "Merge pull request",
+                        Overlay::default(),
+                        move |path, _| reviews::merge(path, number, method),
+                        move |store, (), cx| {
+                            store.snack("Merged. Update to bring it into your workspace", cx);
+                            store.refresh_forge(&refreshed);
+                        },
+                        cx,
+                    )
+                })
             })
             .ok();
         })
         .detach();
-    }
-
-    /// Close an open pull request after asking, or reopen a closed one.
-    pub fn close_pull_request(
-        &mut self,
-        _: &ClosePullRequest,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some((project, _, Some(Review { number, state, .. }))) = self.review_target(cx) else {
-            return;
-        };
-        match state {
-            ReviewState::Closed => self.run_on_review(
-                project,
-                "Reopen pull request",
-                move |path| reviews::update(path, number, None, Some(true)),
-                "Reopened",
-                cx,
-            ),
-            ReviewState::Open | ReviewState::Draft => self.confirm_then(
-                format!("Close pull request #{number}?"),
-                "The branch stays as it is. You can reopen it later.",
-                "Close",
-                window,
-                cx,
-                move |this, cx| {
-                    this.run_on_review(
-                        project,
-                        "Close pull request",
-                        move |path| reviews::update(path, number, None, Some(false)),
-                        "Closed",
-                        cx,
-                    )
-                },
-            ),
-            ReviewState::Merged => {}
-        }
-    }
-
-    fn run_on_review(
-        &mut self,
-        project: ProjectId,
-        label: &'static str,
-        op: impl FnOnce(&std::path::Path) -> anyhow::Result<()> + Send + 'static,
-        done: &'static str,
-        cx: &mut Context<Self>,
-    ) {
-        self.store.update(cx, |store, cx| {
-            let refreshed = project.clone();
-            store.run(
-                &project,
-                label,
-                Overlay::default(),
-                move |path, _| op(path),
-                move |store, (), cx| {
-                    store.snack(done, cx);
-                    store.refresh_forge(&refreshed);
-                },
-                cx,
-            )
-        });
     }
 }
 
