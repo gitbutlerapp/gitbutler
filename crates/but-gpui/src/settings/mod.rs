@@ -608,6 +608,14 @@ impl Render for SettingsView {
 }
 
 impl AppView {
+    /// Settings, at Accounts, signing in to GitButler.
+    pub fn sign_in(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_accounts(window, cx);
+        if let Some(view) = self.modal_view::<SettingsView>() {
+            view.update(cx, |view, cx| view.log_in_to_gitbutler(window, cx));
+        }
+    }
+
     /// Settings, at Accounts: where a forge account gets connected.
     pub fn open_accounts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.open_settings(&OpenSettings, window, cx);

@@ -126,10 +126,73 @@ pub fn github_signed_in(device_code: &str) -> Result<Option<String>> {
     }
 }
 
-/// Who is signed in to GitButler, if anyone.
-pub fn gitbutler_user() -> Option<String> {
-    let profile = but_api::legacy::users::get_user_profile_local().ok()??;
-    profile.name.or(profile.login).or(profile.email)
+/// Who is signed in to GitButler.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GitButlerUser {
+    /// Their name, else their login, else their email.
+    pub name: String,
+    pub login: Option<String>,
+    pub email: Option<String>,
+    /// Where their picture is, if they have one.
+    pub picture: Option<String>,
+}
+
+impl From<but_api::legacy::users::UserProfile> for GitButlerUser {
+    fn from(profile: but_api::legacy::users::UserProfile) -> Self {
+        let name = (profile.name.clone())
+            .or_else(|| profile.login.clone())
+            .or_else(|| profile.email.clone())
+            .unwrap_or_else(|| "your account".into());
+        Self {
+            name,
+            login: profile.login,
+            email: profile.email,
+            picture: Some(profile.picture).filter(|url| !url.is_empty()),
+        }
+    }
+}
+
+/// Who is signed in to GitButler, if anyone. Reads the profile on disk only: no network,
+/// no keychain.
+pub fn gitbutler_user() -> Option<GitButlerUser> {
+    Some(
+        but_api::legacy::users::get_user_profile_local()
+            .ok()??
+            .into(),
+    )
+}
+
+/// The picture at `url`, as an image to draw.
+pub fn avatar(url: &str) -> Result<std::sync::Arc<gpui::Image>> {
+    use gpui::ImageFormat as F;
+    let bytes = runtime().handle().block_on(async {
+        anyhow::Ok(reqwest::get(url).await?.error_for_status()?.bytes().await?)
+    })?;
+    let format = match bytes.as_ref() {
+        [0x89, b'P', b'N', b'G', ..] => F::Png,
+        [0xFF, 0xD8, ..] => F::Jpeg,
+        [b'G', b'I', b'F', ..] => F::Gif,
+        [
+            b'R',
+            b'I',
+            b'F',
+            b'F',
+            _,
+            _,
+            _,
+            _,
+            b'W',
+            b'E',
+            b'B',
+            b'P',
+            ..,
+        ] => F::Webp,
+        _ => anyhow::bail!("Not a picture GitButler can draw"),
+    };
+    Ok(std::sync::Arc::new(gpui::Image::from_bytes(
+        format,
+        bytes.to_vec(),
+    )))
 }
 
 /// The page to sign in to GitButler on. It shows a token to paste back here.
@@ -137,12 +200,8 @@ pub fn gitbutler_login_url() -> Result<String> {
     Ok(but_api::legacy::users::get_login_token()?.url)
 }
 
-pub fn gitbutler_log_in(token: &str) -> Result<String> {
-    let profile = but_api::legacy::users::login_and_persist(token.trim().to_owned())?;
-    Ok(profile
-        .name
-        .or(profile.login)
-        .unwrap_or_else(|| "your account".into()))
+pub fn gitbutler_log_in(token: &str) -> Result<GitButlerUser> {
+    Ok(but_api::legacy::users::login_and_persist(token.trim().to_owned())?.into())
 }
 
 pub fn gitbutler_log_out() -> Result<()> {

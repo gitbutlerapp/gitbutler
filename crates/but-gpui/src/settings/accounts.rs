@@ -28,7 +28,6 @@ const SIGN_IN_POLL: Duration = Duration::from_secs(5);
 #[derive(Default)]
 pub(super) struct Accounts {
     list: Vec<Account>,
-    user: Option<String>,
     /// A token being added: for which forge, with its fields.
     adding: Option<(Forge, Entity<TextInput>, Entity<TextInput>)>,
     /// GitHub's browser sign-in, waiting: the code the user enters there.
@@ -56,12 +55,12 @@ fn token_help(forge: Forge) -> &'static str {
 impl SettingsView {
     /// Read the accounts again, as after a change.
     pub(super) fn load_accounts(&mut self, cx: &mut Context<Self>) {
+        // Another app may have signed in or out meanwhile.
+        self.store.update(cx, |store, cx| store.load_account(cx));
         cx.spawn(async move |this, cx| {
-            let read = run(|| Ok((accounts::accounts(), accounts::gitbutler_user()))).await;
-            if let Ok((list, user)) = read {
+            if let Ok(list) = run(|| Ok(accounts::accounts())).await {
                 this.update(cx, |this, cx| {
                     this.accounts.list = list;
-                    this.accounts.user = user;
                     cx.notify();
                 })
                 .ok();
@@ -181,7 +180,7 @@ impl SettingsView {
     }
 
     /// GitButler's sign-in: its page shows a token to paste back here.
-    fn log_in_to_gitbutler(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn log_in_to_gitbutler(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let input = cx.new(|cx| TextInput::new("Paste the token", false, cx).masked());
         cx.subscribe(&input, |this, input, event, cx| match event {
             InputEvent::Submit => {
@@ -192,11 +191,13 @@ impl SettingsView {
                     this.update(cx, |this, cx| {
                         match logged_in {
                             Ok(who) => this.store.update(cx, |store, cx| {
-                                store.snack(format!("Signed in to GitButler as {who}"), cx)
+                                store.snack(format!("Signed in to GitButler as {}", who.name), cx)
                             }),
                             Err(err) => this.error("Couldn't sign in", err, cx),
                         }
-                        this.load_accounts(cx);
+                        // Whether AI can use GitButler's key changed with it.
+                        this.forget_ai();
+                        this.store.update(cx, |store, cx| store.load_account(cx));
                     })
                     .ok();
                 })
@@ -229,33 +230,30 @@ impl SettingsView {
     pub(super) fn account_rows(&self, window: &Window, cx: &Context<Self>) -> Vec<Row> {
         let theme = Theme::get(cx);
         let mut rows = Vec::new();
-        let gitbutler: AnyElement = match (&self.accounts.user, &self.accounts.login) {
+        let user = self.store.read(cx).account.user.as_ref();
+        let gitbutler: AnyElement = match (user, &self.accounts.login) {
             (_, Some(input)) => token_field(input, None, window, theme, cx),
-            (Some(_), None) => button("log-out", "Log out")
+            (Some(_), None) => button("log-out", "Sign out")
                 .small()
                 .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                    this.apply(
-                        "Couldn't log out",
-                        accounts::gitbutler_log_out,
-                        Self::load_accounts,
-                        cx,
-                    )
+                    this.forget_ai();
+                    this.store.update(cx, |store, cx| store.sign_out(cx))
                 }))
                 .into_any_element(),
-            (None, None) => button("log-in", "Log in…")
+            (None, None) => button("log-in", "Sign in…")
                 .small()
                 .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                     this.log_in_to_gitbutler(window, cx)
                 }))
                 .into_any_element(),
         };
-        let description: SharedString = match (&self.accounts.user, &self.accounts.login) {
+        let description: SharedString = match (user, &self.accounts.login) {
             (_, Some(_)) => {
                 "Sign in on the page that opened, then paste the token it shows.".into()
             }
             (Some(user), None) => {
-                format!("Signed in as {user}. AI can use GitButler's key.").into()
+                format!("Signed in as {}. AI can use GitButler's key.", user.name).into()
             }
             (None, None) => "Sign in to use GitButler's AI key, with no key of your own.".into(),
         };
