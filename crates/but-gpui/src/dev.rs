@@ -14,13 +14,14 @@
 //! drop 120 500            # let go of a held drag there
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! shot /tmp/view.png      # render the current frame to a PNG
-//! perf next key down      # time an input until loads settle, plus one frame
+//! perf next key down      # time an input until loads settle, plus one frame, and the
+//!                         # longest the UI thread was busy meanwhile (`stall`)
 //! perf startup            # time from launch until the first loads settle
 //! quit
 //! ```
 
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
@@ -33,6 +34,31 @@ use gpui::{
 use crate::app::AppView;
 
 static LAUNCHED: OnceLock<Instant> = OnceLock::new();
+
+/// Since when the UI thread's longest busy stretch is being kept, and how long it was. Nothing
+/// can be drawn while that thread is busy, so at 120Hz no stretch should pass 8.3ms.
+static STALL: Mutex<(Option<Instant>, Duration)> = Mutex::new((None, Duration::ZERO));
+
+/// Wake on the UI thread every millisecond: a late wake is how long it was busy.
+fn watch_stalls(cx: &mut App) {
+    cx.spawn(async move |cx| {
+        loop {
+            let asleep = Instant::now();
+            cx.background_executor()
+                .timer(Duration::from_millis(1))
+                .await;
+            let mut stall = STALL.lock().expect("not poisoned");
+            if let Some(since) = stall.0 {
+                let late = asleep
+                    .max(since)
+                    .elapsed()
+                    .saturating_sub(Duration::from_millis(1));
+                stall.1 = stall.1.max(late);
+            }
+        }
+    })
+    .detach();
+}
 
 /// Called first thing in `main`, so `perf startup` can time from launch.
 pub fn mark_launch() {
@@ -59,6 +85,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             &objc2_foundation::NSString::from_str("Scripted run"),
         ),
     );
+    watch_stalls(cx);
     cx.spawn(async move |cx| {
         for (line_no, line) in script.lines().enumerate() {
             let line = line.split('#').next().unwrap_or_default().trim();
@@ -81,16 +108,20 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                 "perf" => {
                     let (label, input) = rest.split_once(' ').unwrap_or((rest, ""));
                     // Draw first so the timing doesn't include catching up on earlier steps.
-                    cx.update_window(window, |_, window, cx| window.draw(cx).clear(cx))?;
+                    cx.update_window(window, |_, window, cx| frame(window, cx))?;
+                    *STALL.lock().expect("not poisoned") = (Some(Instant::now()), Duration::ZERO);
                     let started = match label {
                         "startup" => *LAUNCHED.get().context("mark_launch wasn't called")?,
                         _ => Instant::now(),
                     };
+                    let mut draw = Duration::ZERO;
                     if !input.is_empty() {
                         let (command, rest) = input.split_once(' ').unwrap_or((input, ""));
                         cx.update_window(window, |_, window, cx| {
                             dispatch(command, rest, window, cx)
                         })??;
+                        // What the input shows at once, before anything it loads lands.
+                        draw = frames(window, cx).await?;
                     }
                     while !cx.update_window(window, |_, window, cx| settled(window, cx))?
                         && started.elapsed() < Duration::from_secs(60)
@@ -100,16 +131,14 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                             .await;
                     }
                     let data = started.elapsed();
-                    let draw = cx.update_window(window, |_, window, cx| {
-                        let start = Instant::now();
-                        window.draw(cx).clear(cx);
-                        start.elapsed()
-                    })?;
+                    let draw = draw.max(frames(window, cx).await?);
+                    let stall = STALL.lock().expect("not poisoned").1.max(draw);
                     println!(
-                        "PERF {label} total={:.1}ms data={:.1}ms draw={:.1}ms",
+                        "PERF {label} total={:.1}ms data={:.1}ms draw={:.1}ms stall={:.1}ms",
                         (data + draw).as_secs_f64() * 1e3,
                         data.as_secs_f64() * 1e3,
                         draw.as_secs_f64() * 1e3,
+                        stall.as_secs_f64() * 1e3,
                     );
                     Ok(())
                 }
@@ -125,7 +154,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             cx.background_executor()
                 .timer(Duration::from_millis(120))
                 .await;
-            cx.update_window(window, |_, window, cx| window.draw(cx).clear(cx))
+            cx.update_window(window, |_, window, cx| frame(window, cx))
                 .ok();
         }
         anyhow::Ok(())
@@ -144,8 +173,37 @@ fn settled(window: &mut Window, cx: &mut App) -> bool {
 fn run(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Result<()> {
     // macOS stops drawing windows that aren't on screen; draw now so hit-testing and
     // screenshots see the current state.
-    window.draw(cx).clear(cx);
+    frame(window, cx);
     dispatch(command, rest, window, cx)
+}
+
+/// The frames a change asks for, as each can ask for the next, a millisecond apart: the
+/// slowest of them.
+async fn frames(window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> Result<Duration> {
+    let mut slowest = Duration::ZERO;
+    for _ in 0..4 {
+        let (took, more) = cx.update_window(window, |_, window, cx| {
+            let start = Instant::now();
+            let more = frame(window, cx);
+            (start.elapsed(), more)
+        })?;
+        slowest = slowest.max(took);
+        if !more {
+            break;
+        }
+        cx.background_executor()
+            .timer(Duration::from_millis(1))
+            .await;
+    }
+    Ok(slowest)
+}
+
+/// One frame as the display link would draw it: what waits for the next frame runs, then the
+/// window draws. Whether anything waited, which may have asked for a frame after this one.
+fn frame(window: &mut Window, cx: &mut App) -> bool {
+    let waited = window.simulate_next_frame(cx) > 0;
+    window.draw(cx).clear(cx);
+    waited
 }
 
 fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Result<()> {
