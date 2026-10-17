@@ -61,6 +61,28 @@ pub(super) fn rewritten(workspace: &but_api::WorkspaceState) -> Rewritten {
 }
 
 /// Whole files, or just some of their hunks.
+/// The `selected` files a merge left conflicted, as the index has them now: what the UI
+/// asks for may predate the merge.
+fn unmerged<'a>(ctx: &but_ctx::Context, selected: &'a [Selected]) -> Result<Vec<&'a str>> {
+    let index = ctx.repo.get()?.index_or_empty()?;
+    Ok((selected.iter())
+        .map(|part| part.file.path.as_str())
+        .filter(|path| {
+            (index.entry_index_by_path(path.as_bytes().as_bstr())).is_ok_and(|ix| {
+                index.entries()[ix].stage() != gix::index::entry::Stage::Unconflicted
+            })
+        })
+        .collect())
+}
+
+/// Refuse conflicted files, which would go in markers and all.
+fn refuse_conflicted(ctx: &but_ctx::Context, selected: &[Selected]) -> Result<()> {
+    if let Some(path) = unmerged(ctx, selected)?.first() {
+        bail!("Mark {path} resolved first: it still has conflicts");
+    }
+    Ok(())
+}
+
 fn selected_specs(selected: &[Selected]) -> Vec<DiffSpec> {
     selected
         .iter()
@@ -139,6 +161,7 @@ pub fn commit(
     message: &str,
 ) -> Result<(CommitId, LeftOut)> {
     let mut ctx = open(path)?;
+    refuse_conflicted(&ctx, selected)?;
     let changes = selected_specs(selected);
     if changes.is_empty() {
         bail!("Nothing to commit");
@@ -301,6 +324,7 @@ pub fn remove_branch(path: &Path, ref_name: &str) -> Result<()> {
 /// Fold the `selected` uncommitted changes into `commit`.
 pub fn amend(path: &Path, commit: CommitId, selected: &[Selected]) -> Result<(Rewritten, LeftOut)> {
     let mut ctx = open(path)?;
+    refuse_conflicted(&ctx, selected)?;
     let outcome = but_api::commit::amend::commit_amend(
         &mut ctx,
         commit.0,
@@ -473,6 +497,15 @@ pub fn discard_commit(path: &Path, commit: CommitId) -> Result<()> {
 /// Throw away the `selected` uncommitted changes.
 pub fn discard(path: &Path, selected: &[Selected]) -> Result<()> {
     let mut ctx = open(path)?;
+    // Discarding goes by status, which leaves conflicted files out: take them as they are
+    // first, then throw that away.
+    let conflicted: Vec<bstr::BString> = (unmerged(&ctx, selected)?.into_iter())
+        .map(Into::into)
+        .collect();
+    if !conflicted.is_empty() {
+        let _guard = ctx.exclusive_worktree_access();
+        but_workspace::resolve_worktree_conflicts(&*ctx.repo.get()?, conflicted)?;
+    }
     let rejected =
         but_api::legacy::workspace::discard_worktree_changes(&mut ctx, selected_specs(selected))?;
     if let Some(spec) = rejected.first() {
@@ -605,10 +638,10 @@ fn newly_conflicted(
     info: &but_workspace::RefInfo,
     conflicted: &[(gix::ObjectId, but_core::ChangeId)],
 ) -> Vec<(String, usize)> {
+    // A commit made without a change ID gets one from its commit ID, as the rebase does.
     let newly = |commit: &&but_workspace::ref_info::LocalCommit| {
-        !commit.inner.has_conflicts
-            && (commit.inner.change_id.as_ref())
-                .is_some_and(|id| conflicted.iter().any(|(_, change)| change == id))
+        let id = commit.inner.change_id();
+        !commit.inner.has_conflicts && conflicted.iter().any(|(_, change)| *change == *id)
     };
     (info.stacks.iter())
         .flat_map(|stack| &stack.segments)
@@ -668,6 +701,82 @@ mod tests {
             .unwrap();
         assert!(out.status.success(), "git {args:?}: {out:?}");
         String::from_utf8(out.stdout).unwrap()
+    }
+
+    /// A repository mid-merge, with `file` changed on both sides and left conflicted.
+    fn conflicted_repo() -> (tempfile::TempDir, CommitId) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path();
+        git(path, &["init", "-q", "-b", "main"]);
+        git(path, &["config", "user.name", "T"]);
+        git(path, &["config", "user.email", "t@example.com"]);
+        git(path, &["config", "commit.gpgsign", "false"]);
+        let commit = |content: &str| {
+            std::fs::write(path.join("file"), content).unwrap();
+            git(path, &["commit", "-q", "-am", content.trim()]);
+        };
+        std::fs::write(path.join("file"), "base\n").unwrap();
+        git(path, &["add", "file"]);
+        git(path, &["commit", "-q", "-m", "base"]);
+        git(path, &["checkout", "-q", "-b", "other"]);
+        commit("theirs\n");
+        git(path, &["checkout", "-q", "main"]);
+        commit("ours\n");
+        let merge = Command::new("git")
+            .current_dir(path)
+            .args(["merge", "-q", "other"])
+            .output()
+            .unwrap();
+        assert!(!merge.status.success(), "both sides changed the line");
+        let head = git(path, &["rev-parse", "HEAD"]);
+        let head = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        (dir, head)
+    }
+
+    #[test]
+    fn a_conflicted_file_is_listed_and_kept_out_until_marked_resolved() {
+        let (dir, head) = conflicted_repo();
+        let path = dir.path();
+        let files = crate::backend::load_uncommitted(path).unwrap();
+        assert_eq!(
+            files.len(),
+            1,
+            "status alone leaves the file out: {files:?}"
+        );
+        assert!(files[0].conflicted, "its index entry is unmerged");
+
+        let whole = Selected {
+            file: files[0].clone(),
+            hunks: None,
+        };
+        let refused = amend(path, head, std::slice::from_ref(&whole)).unwrap_err();
+        assert!(
+            refused.to_string().contains("resolved first"),
+            "the markers would go in: {refused:#}"
+        );
+
+        mark_resolved(path, vec!["file".into()]).unwrap();
+        let files = crate::backend::load_uncommitted(path).unwrap();
+        assert_eq!(files.len(), 1, "the markers are still a change: {files:?}");
+        assert!(!files[0].conflicted, "the index takes the file as it is");
+    }
+
+    #[test]
+    fn discarding_a_conflicted_file_takes_it_back_to_head() {
+        let (dir, _) = conflicted_repo();
+        let path = dir.path();
+        let files = crate::backend::load_uncommitted(path).unwrap();
+        let whole = Selected {
+            file: files[0].clone(),
+            hunks: None,
+        };
+        discard(path, &[whole]).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(path.join("file")).unwrap(),
+            "ours\n"
+        );
+        let files = crate::backend::load_uncommitted(path).unwrap();
+        assert!(files.is_empty(), "nothing's left to commit: {files:?}");
     }
 
     #[test]

@@ -206,6 +206,8 @@ pub struct AppView {
     modal: Option<(AnyView, Subscription)>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
+    /// A dry run is checking what an operation would conflict, before it's queued.
+    pub checking: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -259,6 +261,7 @@ impl AppView {
             palette: None,
             modal: None,
             recent_commands: Vec::new(),
+            checking: false,
             _subscriptions: subscriptions,
         }
     }
@@ -806,12 +809,18 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // As the files are now: a cut may predate the merge that conflicted them, or the
+        // marking that resolved them.
         if let Cut::Files {
-            from: None, files, ..
+            project,
+            from: None,
+            files,
         } = payload
-            && let Some(selected) = files.iter().find(|f| f.file.conflicted)
+            && let Some(workspace) = self.store.read(cx).workspace(project)
+            && let Some(file) = (workspace.uncommitted.iter())
+                .find(|u| u.conflicted && files.iter().any(|f| f.file.path == u.path))
         {
-            let message = format!("Mark {} resolved first", selected.file.path);
+            let message = format!("Mark {} resolved first", file.path);
             self.store.update(cx, |store, cx| store.snack(message, cx));
             return;
         }
@@ -1081,11 +1090,23 @@ impl AppView {
         cx: &mut Context<Self>,
         then: impl FnOnce(&mut AppView, &mut Context<AppView>) + 'static,
     ) {
+        // Asking again while it checks would queue the operation twice.
+        if self.checking {
+            return;
+        }
+        self.checking = true;
+        cx.notify();
         cx.spawn_in(window, async move |this, cx| {
             let warning = backend::run(check).await.ok().flatten();
-            this.update_in(cx, |this, window, cx| match warning {
-                None => then(this, cx),
-                Some(detail) => this.confirm_then(title.into(), &detail, confirm, window, cx, then),
+            this.update_in(cx, |this, window, cx| {
+                this.checking = false;
+                cx.notify();
+                match warning {
+                    None => then(this, cx),
+                    Some(detail) => {
+                        this.confirm_then(title.into(), &detail, confirm, window, cx, then)
+                    }
+                }
             })
             .ok();
         })

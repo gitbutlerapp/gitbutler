@@ -159,6 +159,9 @@ pub struct Detail {
     rewording: Option<(Entity<TextInput>, Subscription)>,
     /// The project the checkboxes and commit target above belong to.
     checks_project: Option<ProjectId>,
+    /// Its uncommitted paths a merge left conflicted, which stay unchecked until they're
+    /// marked resolved.
+    conflicted: HashSet<String>,
     /// The commit message box is open; until then there are no checkboxes.
     composing: bool,
     cursor: Cursor,
@@ -232,6 +235,7 @@ impl Detail {
                         this.close_composer(cx);
                         this.commit_target = None;
                     }
+                    this.refresh_conflicted(cx);
                     match this.selection(cx) {
                         Some(Selection::History(project)) => this.load_history(&project, false, cx),
                         Some(Selection::Branches(project)) => {
@@ -245,6 +249,7 @@ impl Detail {
                     this.refresh_diff(true, cx);
                 }
                 StoreEvent::Loaded(project) => {
+                    this.refresh_conflicted(cx);
                     // Calling a file resolved lasts as long as that edit does.
                     if this.editing(project, cx).is_none() {
                         this.marked_resolved.retain(|(p, ..)| p != project);
@@ -332,6 +337,7 @@ impl Detail {
             marked_resolved: HashSet::new(),
             rewording: None,
             checks_project: None,
+            conflicted: HashSet::new(),
             composing: false,
             cursor: Cursor::default(),
             message_open: false,

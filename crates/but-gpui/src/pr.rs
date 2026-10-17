@@ -626,7 +626,13 @@ impl AppView {
                 &project,
                 label,
                 Overlay::default(),
-                move |path, _| op(path),
+                move |path, _| {
+                    op(path)?;
+                    // The reload that follows reads the forge cache: bring it up to date, so
+                    // menus offer what's true now. Failing that, the next poll catches up.
+                    crate::backend::refresh_reviews(path).ok();
+                    Ok(())
+                },
                 move |store, (), cx| {
                     store.snack(done, cx);
                     store.refresh_forge(&refreshed);

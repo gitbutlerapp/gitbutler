@@ -34,6 +34,13 @@ impl AppView {
                 .child(small_icon(Icon::Clock).text_color(theme.pop))
                 .child(format!("{busy}…{elapsed}{queued}"))
                 .into_any_element()
+        } else if self.checking {
+            h_flex()
+                .gap(px(6.))
+                .text_color(theme.pop)
+                .child(small_icon(Icon::Clock).text_color(theme.pop))
+                .child("Checking for conflicts…")
+                .into_any_element()
         } else if let Some(cut) = &store.cut {
             h_flex()
                 .gap(px(6.))
