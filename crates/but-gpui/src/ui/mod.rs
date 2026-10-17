@@ -653,8 +653,18 @@ pub fn resize_handle(pane: Pane, store: Entity<Store>, theme: &Theme) -> impl In
         .bottom_0()
         .right(px(-2.))
         .w(px(5.))
+        .group("resize-handle")
         .cursor(CursorStyle::ResizeLeftRight)
-        .hover(|el| el.bg(theme.pop.opacity(0.5)))
+        // A line along the pane's last column of pixels, as but.dev marks it.
+        .child(
+            div()
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .left(px(2.))
+                .w(px(1.))
+                .group_hover("resize-handle", |el| el.bg(theme.border_1)),
+        )
         .on_drag(pane, |_, _, _, cx| cx.new(|_| EmptyView))
         .on_click(move |event, _, cx| {
             if event.click_count() == 2 {
