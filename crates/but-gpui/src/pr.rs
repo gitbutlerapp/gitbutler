@@ -716,6 +716,8 @@ impl AppView {
                 if text.is_empty() {
                     return;
                 }
+                // Kept for the error, so Copy error gets it back.
+                let sent = text.clone();
                 cx.spawn(async move |this, cx| {
                     let posted = backend::run(move || post(&path, text)).await;
                     this.update(cx, |this, cx| match posted {
@@ -727,7 +729,7 @@ impl AppView {
                         }
                         Err(err) => this.store.update(cx, |store, cx| {
                             let title = format!("Couldn't {}", verb.to_lowercase());
-                            store.error(title, format!("{err:#}"), cx)
+                            store.error(title, format!("{err:#}\n\nWhat you wrote: {sent}"), cx)
                         }),
                     })
                     .ok();
