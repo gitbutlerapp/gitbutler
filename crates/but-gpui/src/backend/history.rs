@@ -5,6 +5,7 @@ use std::path::Path;
 
 use anyhow::{Context as _, Result};
 use but_api::legacy::oplog::{self, RestoreKind};
+use but_oplog::legacy::OperationKind;
 
 use super::{SnapshotId, open};
 
@@ -34,36 +35,35 @@ pub fn list(
     let operations = snapshots
         .into_iter()
         .map(|snapshot| {
-            let details = snapshot.details;
-            let kind = details.as_ref().map(|d| d.operation.kind_str());
-            let (title, detail) = match kind {
-                Some(kind @ ("UNDO" | "REDO" | "RESTORE")) => {
-                    let title = match kind {
-                        "UNDO" => "Undo",
-                        "REDO" => "Redo",
-                        _ => "Restore",
-                    };
-                    let restored = oplog::peel_restore_snapshot(&ctx, snapshot.commit_id)
-                        .ok()
-                        .flatten()
-                        .and_then(|peeled| peeled.details)
-                        .map(|d| d.operation.title().to_owned());
-                    (title.to_owned(), restored)
-                }
-                Some(_) => {
-                    let details = details.expect("kind came from the details");
-                    // What it was done to: a commit's title, a branch, a file.
-                    let about = ["message", "name", "branch", "file"]
-                        .iter()
-                        .find_map(|key| {
-                            let trailer = details.trailers.iter().find(|t| t.key() == *key)?;
-                            let value = trailer.value();
-                            let line = value.lines().next()?;
-                            Some(line.strip_prefix("refs/heads/").unwrap_or(line).to_owned())
-                        });
-                    let body = details.body.filter(|b| !b.trim().is_empty());
-                    (details.operation.title().to_owned(), about.or(body))
-                }
+            // An undo, redo or restore says which operation it took back.
+            let restored = |title: &str| {
+                let restored = oplog::peel_restore_snapshot(&ctx, snapshot.commit_id)
+                    .ok()
+                    .flatten()
+                    .and_then(|peeled| peeled.details)
+                    .map(|d| d.operation.title().to_owned());
+                (title.to_owned(), restored)
+            };
+            use OperationKind as K;
+            let (title, detail) = match snapshot.details {
+                Some(details) => match details.operation {
+                    K::RestoreFromSnapshotViaUndo => restored("Undo"),
+                    K::RestoreFromSnapshotViaRedo => restored("Redo"),
+                    K::RestoreFromSnapshot => restored("Restore"),
+                    _ => {
+                        // What it was done to: a commit's title, a branch, a file.
+                        let about = ["message", "name", "branch", "file"]
+                            .iter()
+                            .find_map(|key| {
+                                let trailer = details.trailers.iter().find(|t| t.key() == *key)?;
+                                let value = trailer.value();
+                                let line = value.lines().next()?;
+                                Some(line.strip_prefix("refs/heads/").unwrap_or(line).to_owned())
+                            });
+                        let body = details.body.filter(|b| !b.trim().is_empty());
+                        (details.operation.title().to_owned(), about.or(body))
+                    }
+                },
                 None => ("Unknown operation".to_owned(), None),
             };
             Operation {

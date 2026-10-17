@@ -95,7 +95,6 @@ impl Workspace {
         })
     }
 
-    /// Whether `ref_name` has branches stacked on it. Pulling its remote's commits into it
     /// Whether pushing `ref_name`, which pushes the branches below it too, has to force:
     /// it or one of those was rewritten since it was pushed.
     pub fn needs_force(&self, ref_name: &str) -> bool {
@@ -104,6 +103,7 @@ impl Workspace {
         })
     }
 
+    /// Whether `ref_name` has branches stacked on it. Pulling its remote's commits into it
     /// then moves its reference to the top of the stack, so the app doesn't offer it.
     pub fn has_branches_above(&self, ref_name: &str) -> bool {
         self.stack_of(ref_name).is_some_and(|(_, at)| at > 0)

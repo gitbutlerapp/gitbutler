@@ -7,7 +7,9 @@ use anyhow::Result;
 use bstr::ByteSlice;
 use but_branches::ListedStackStatus;
 
-use super::{CommitId, ReviewState, open, review_state};
+use super::ops::full_name;
+use super::reviews::review_state;
+use super::{CommitId, ReviewState, open, title};
 
 #[derive(Debug, Clone)]
 pub struct OtherBranch {
@@ -68,7 +70,7 @@ pub struct BranchCommit {
 /// The commits `ref_name` has that the target doesn't, newest first.
 pub fn branch_commits(path: &Path, ref_name: &str) -> Result<Vec<BranchCommit>> {
     let ctx = open(path)?;
-    let name = gix::refs::FullName::try_from(ref_name)?;
+    let name = full_name(ref_name)?;
     let remote = but_core::extract_remote_name_and_short_name(
         name.as_ref(),
         &ctx.repo.get()?.remote_names(),
@@ -83,12 +85,7 @@ pub fn branch_commits(path: &Path, ref_name: &str) -> Result<Vec<BranchCommit>> 
         .into_iter()
         .map(|commit| BranchCommit {
             id: CommitId(commit.id),
-            title: commit
-                .message
-                .lines()
-                .next()
-                .map(|line| line.to_str_lossy().into_owned())
-                .unwrap_or_default(),
+            title: title(&commit.message),
             time: (commit.committed_at / 1000) as i64,
         })
         .collect())
@@ -105,7 +102,7 @@ pub enum ApplyOutcome {
 /// Apply `ref_name` to the workspace. A remote branch gets a local branch to apply.
 pub fn apply(path: &Path, ref_name: &str) -> Result<ApplyOutcome> {
     let mut ctx = open(path)?;
-    let name = gix::refs::FullName::try_from(ref_name)?;
+    let name = full_name(ref_name)?;
     Ok(apply_outcome(&but_api::branch::apply(
         &mut ctx,
         name.as_ref(),
