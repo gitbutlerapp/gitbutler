@@ -263,15 +263,26 @@ impl AppView {
         match self.selection(cx) {
             Some(Selection::Branch(project, ref_name)) => {
                 let current = short_ref(&ref_name).to_owned();
+                // An unnamed branch has no ref to rename, so it gets one at its newest commit.
+                let unnamed_top = (self.store.read(cx).workspace(&project))
+                    .filter(|_| ref_name.is_empty())
+                    .and_then(|ws| Some(ws.find_branch("")?.commits.first()?.id));
+                let title = match unnamed_top {
+                    Some(_) => "Name branch",
+                    None => "Rename branch",
+                };
                 let (selected, detail, from) =
                     (project.clone(), self.detail.downgrade(), ref_name.clone());
                 self.prompt_branch(
                     project,
-                    "Rename branch",
+                    title,
                     &current,
                     window,
                     cx,
-                    move |path, _, name| backend::rename_branch(path, &ref_name, name),
+                    move |path, remap, name| match unnamed_top {
+                        Some(top) => backend::name_branch(path, remap.get(top)?, name),
+                        None => backend::rename_branch(path, &ref_name, name),
+                    },
                     move |store, to, cx| {
                         (detail.update(cx, |detail, cx| detail.branch_renamed(&from, &to, cx)))
                             .ok();

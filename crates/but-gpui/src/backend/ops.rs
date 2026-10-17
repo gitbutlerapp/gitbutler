@@ -334,6 +334,16 @@ pub fn rename_branch(path: &Path, ref_name: &str, new_name: &str) -> Result<Stri
     Ok(outcome.new_ref.to_string())
 }
 
+/// Name the main checkout's unnamed branch whose newest commit is `top`, putting a `HEAD`
+/// detached there on it, and return its full ref name.
+pub fn name_branch(path: &Path, top: CommitId, name: &str) -> Result<String> {
+    let mut ctx = open(path)?;
+    let new_ref = branch_ref(name)?;
+    let outcome =
+        but_api::branch::branch_name_segment(&mut ctx, ChangesSource::Head, top.0, Some(new_ref))?;
+    Ok(outcome.new_ref.to_string())
+}
+
 pub fn remove_branch(path: &Path, ref_name: &str) -> Result<()> {
     let mut ctx = open(path)?;
     but_api::branch::branch_remove(&mut ctx, full_name(ref_name)?)?;
@@ -911,6 +921,40 @@ mod tests {
         let workspace = crate::backend::load_workspace(path).unwrap();
         assert!(!workspace.managed, "still outside the workspace");
         assert_eq!(workspace.checked_out.as_deref(), Some("feature"));
+    }
+
+    #[test]
+    fn naming_an_unnamed_branch_makes_it_a_stack_and_undoes() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        git(
+            path,
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
+        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        crate::backend::settings::set_target(path, "refs/remotes/origin/main").unwrap();
+        // A commit made with plain Git on the workspace branch belongs to no branch.
+        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+        let head = git(path, &["rev-parse", "HEAD"]);
+        let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        let branch_at_top = |path: &Path| {
+            let workspace = crate::backend::load_workspace(path).unwrap();
+            (workspace.branches())
+                .find(|b| b.commits.first().map(|c| c.id) == Some(top))
+                .map(|b| b.ref_name.clone())
+        };
+        assert_eq!(branch_at_top(path).as_deref(), Some(""), "it shows unnamed");
+
+        assert_eq!(name_branch(path, top, "named").unwrap(), "refs/heads/named");
+        assert_eq!(branch_at_top(path).as_deref(), Some("refs/heads/named"));
+
+        crate::backend::history::undo(path, false).unwrap();
+        assert_eq!(
+            branch_at_top(path).as_deref(),
+            Some(""),
+            "undo takes the name away"
+        );
     }
 
     #[test]
