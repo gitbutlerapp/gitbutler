@@ -82,7 +82,12 @@ pub fn push(
 ) -> Result<(Option<String>, Option<String>)> {
     let ctx = open(path)?;
     // Decided when it runs, as an amend queued before it rewrites the branch.
-    let force = needs_force(&but_api::legacy::workspace::head_info(&ctx)?, ref_name);
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    // As in the desktop app, a conflicted commit stays here until it's resolved.
+    if pushed_with(&info, ref_name).any(|segment| segment.commits.iter().any(|c| c.has_conflicts)) {
+        anyhow::bail!("Resolve the conflicted commits first, so they aren't pushed");
+    }
+    let force = needs_force(&info, ref_name);
     let outcome = runtime()
         .handle()
         .block_on(
@@ -124,10 +129,17 @@ pub(super) fn sync_failure(outcome: but_forge::ReviewSyncOutcome) -> Option<Stri
 /// since it was pushed.
 fn needs_force(info: &but_workspace::RefInfo, ref_name: &str) -> bool {
     use but_core::ui::PushStatus;
-    (info.stacks.iter()).any(|stack| {
-        (stack.segments.iter())
-            .skip_while(|segment| !holds(segment, ref_name))
-            .any(|segment| segment.push_status == PushStatus::UnpushedCommitsRequiringForce)
+    pushed_with(info, ref_name)
+        .any(|segment| segment.push_status == PushStatus::UnpushedCommitsRequiringForce)
+}
+
+/// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.
+fn pushed_with<'a>(
+    info: &'a but_workspace::RefInfo,
+    ref_name: &'a str,
+) -> impl Iterator<Item = &'a but_workspace::ref_info::Segment> {
+    (info.stacks.iter()).flat_map(move |stack| {
+        (stack.segments.iter()).skip_while(move |segment| !holds(segment, ref_name))
     })
 }
 

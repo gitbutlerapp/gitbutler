@@ -126,7 +126,7 @@ impl Navigator {
                 else {
                     return items;
                 };
-                if workspace.can_push(ref_name) {
+                if workspace.can_push(ref_name) && !workspace.pushes_conflicts(ref_name) {
                     let label = if workspace.needs_force(ref_name) {
                         "Force push"
                     } else {

@@ -88,6 +88,8 @@ impl Detail {
                     let pushable = workspace.filter(|ws| ws.can_push(ref_name));
                     let pushing = store.pushing(selection.project(), ref_name);
                     let busy = pushing.then_some("Wait for the push to finish");
+                    let conflicted = (workspace.is_some_and(|ws| ws.pushes_conflicts(ref_name)))
+                        .then_some("Resolve the conflicted commits first");
                     // Landing directly takes the place of a pull request, forge or not.
                     let land = (store.lands_directly(selection.project()))
                         .then_some(workspace)
@@ -142,7 +144,7 @@ impl Detail {
                             button("push", label)
                                 .icon(Icon::ArrowUp)
                                 .style(ButtonStyle::Pop)
-                                .disabled_because(busy)
+                                .disabled_because(busy.or(conflicted))
                                 .tooltip_with_key(
                                     "Push this branch and the ones below it",
                                     shortcut(&crate::app::Push, cx),
