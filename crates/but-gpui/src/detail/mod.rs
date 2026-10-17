@@ -1087,15 +1087,15 @@ impl Detail {
         Some(diff.files.get(self.cursor.file)?.file.path.clone())
     }
 
-    /// The uncommitted file under the cursor, with the project it's in. Never a file the
-    /// diff doesn't show, as one the filter hides.
-    fn cursor_file(&self) -> Option<(ProjectId, FileDiff)> {
-        let diff = self.worktree_diff()?;
+    /// The uncommitted file under the cursor, with the project it's in and the linked
+    /// worktree it's of, if any. Never a file the diff doesn't show, as one the filter hides.
+    fn cursor_file(&self) -> Option<(ProjectId, Option<Arc<str>>, FileDiff)> {
+        let diff = (self.diff.as_ref()).filter(|diff| diff.key.source.live())?;
         if !self.shown_files().contains(&self.cursor.file) {
             return None;
         }
         let file = diff.files.get(self.cursor.file)?;
-        Some((diff.key.project.clone(), file.clone()))
+        Some((diff.key.project.clone(), diff.key.linked(), file.clone()))
     }
 
     /// The indexes of the files the diff shows, in ascending order for the binary searches
@@ -1174,7 +1174,7 @@ impl Detail {
         self.rebuild_rows(cx);
     }
 
-    /// Throw away one hunk, or the whole file when `hunk` is `None`. Undo brings it back.
+    /// Throw away one hunk, or the whole file when `hunk` is `None`.
     pub fn discard(
         &mut self,
         file_ix: usize,
@@ -1186,7 +1186,7 @@ impl Detail {
             file: file_ix,
             hunk,
         };
-        let Some((project, file)) = self.cursor_file() else {
+        let Some((project, worktree, file)) = self.cursor_file() else {
             return;
         };
         let hunks = match (hunk, &file.body) {
@@ -1202,7 +1202,9 @@ impl Detail {
             hunks,
         };
         self.app
-            .update(cx, |app, cx| app.discard(project, vec![change], window, cx))
+            .update(cx, |app, cx| {
+                app.discard(project, worktree, vec![change], window, cx)
+            })
             .ok();
     }
 

@@ -730,7 +730,7 @@ impl Detail {
                         })
                     }),
                     MenuItem::new("Discard changes…", move |this, window, cx| {
-                        this.discard(project.clone(), files.to_vec(), window, cx)
+                        this.discard(project.clone(), None, files.to_vec(), window, cx)
                     })
                     .danger(),
                 ]);
