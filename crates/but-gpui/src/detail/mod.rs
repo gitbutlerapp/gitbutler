@@ -13,6 +13,7 @@ mod history;
 mod panes;
 mod pull_request;
 mod upstream;
+mod worktree;
 
 pub use diff_view::DiffPane;
 
@@ -412,6 +413,7 @@ impl Detail {
             Selection::History(project) => self.history_source(project)?,
             Selection::Branches(project) => self.branches_source(project)?,
             Selection::Uncommitted(_) => DiffSource::Worktree,
+            Selection::Worktree(_, name) => DiffSource::Linked(name.clone()),
             Selection::Commit(_, id) => DiffSource::Commit(*id),
             Selection::Branch(project, ref_name) => {
                 let branch = store.workspace(project)?.find_branch(ref_name)?;
@@ -464,11 +466,16 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(&key.project) else {
             return;
         };
-        let source = key.source;
+        let source = key.source.clone();
         let worktree = (source.live())
             .then(|| self.store.read(cx).workspace(&key.project))
             .flatten()
-            .map(|ws| ws.uncommitted.clone());
+            .and_then(|ws| match &source {
+                DiffSource::Linked(name) => (ws.worktrees.iter())
+                    .find(|worktree| worktree.name == *name)
+                    .map(|worktree| worktree.uncommitted.clone()),
+                _ => Some(ws.uncommitted.clone()),
+            });
         if source.live() && worktree.is_none() {
             // The workspace is still loading and lists the files itself; diffing now would run
             // a second status on the same repository, slowing both. Its `Loaded` brings us back.
@@ -510,9 +517,10 @@ impl Detail {
             }
             // Only the files likely on screen are highlighted first; the rest follow.
             const FIRST: usize = 16;
-            let (first_path, first_worktree) = (path.clone(), worktree.clone());
+            let first = (path.clone(), source.clone(), worktree.clone());
             let result = backend::run(move || {
-                backend::load_diff(&first_path, source, first_worktree, previous, Some(FIRST))
+                let (path, source, worktree) = first;
+                backend::load_diff(&path, source, worktree, previous, Some(FIRST))
             })
             .await;
             let shown = this
@@ -992,10 +1000,15 @@ impl Detail {
             _ => None,
         };
         let (project, path) = (diff.key.project.clone(), file.file.path.clone());
+        // A linked worktree's file opens from its own checkout.
+        let worktree = match &diff.key.source {
+            DiffSource::Linked(name) => Some(name.clone()),
+            _ => None,
+        };
         let position = window.mouse_position();
         self.app
             .update(cx, |app, cx| {
-                app.open_in_editor(&project, Some(path), line, position, cx)
+                app.open_in_editor(&project, worktree, Some(path), line, position, cx)
             })
             .ok();
     }
@@ -1217,6 +1230,9 @@ impl Render for Detail {
                         self.render_branch_side(project, ref_name, &theme, cx)
                     }
                     Selection::History(project) => self.render_history_side(project, &theme, cx),
+                    Selection::Worktree(project, name) => {
+                        self.render_worktree_side(project, name, &theme, cx)
+                    }
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)
                     }

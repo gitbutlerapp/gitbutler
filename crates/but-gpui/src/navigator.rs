@@ -237,6 +237,11 @@ impl Navigator {
             if matches!(&store.dragging, Some(Cut::Commit(project, _)) if project == id) {
                 rows.push(Row::NewBranch(id.clone()));
             }
+            rows.extend(
+                (workspace.worktrees.iter()).map(|worktree| {
+                    Row::Item(Selection::Worktree(id.clone(), worktree.name.clone()))
+                }),
+            );
             rows.push(Row::Item(Selection::Branches(id.clone())));
             rows.push(Row::Item(Selection::History(id.clone())));
         }
@@ -587,6 +592,7 @@ impl Navigator {
                 style,
                 cx,
             )),
+            Selection::Worktree(id, name) => self.worktree_row(item, id, name, style, cx),
         };
         match el {
             Some(el) => self.drop_target(el, item.clone(), window, theme, cx),
@@ -797,6 +803,63 @@ impl Navigator {
             .child(div().flex_1().child(label))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
             .into_any_element()
+    }
+
+    /// A linked worktree: its name, the branch it has checked out and how many files it
+    /// has changed.
+    fn worktree_row(
+        &self,
+        item: &Selection,
+        id: &ProjectId,
+        name: &str,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let store = self.store.read(cx);
+        let theme = style.theme;
+        let worktree = (store.workspace(id)?.worktrees.iter()).find(|w| &*w.name == name)?;
+        let n = worktree.uncommitted.len();
+        Some(
+            style
+                .row(format!("worktree-{id}-{name}"), 6.)
+                .aria_label(format!("Worktree {name}"))
+                .child(icon(Icon::Folder).text_color(if n > 0 {
+                    style.meta(theme.warn)
+                } else {
+                    style.muted()
+                }))
+                .child(
+                    div()
+                        .flex_none()
+                        .max_w(px(120.))
+                        .truncate()
+                        .child(name.to_owned()),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .font_family(theme.mono_font.clone())
+                        .text_size(px(11.))
+                        .text_color(style.muted())
+                        .children(worktree.branch.clone()),
+                )
+                // Written to in the last two minutes, likely by the agent working in it.
+                .when(worktree.last_activity().is_some_and(just_now), |el| {
+                    el.child(
+                        div()
+                            .id(ElementId::Name(format!("active-{id}-{name}").into()))
+                            .child(dot(style.meta(theme.safe)))
+                            .tooltip(|_, cx| {
+                                Tooltip::with_key("Changed in the last 2 minutes".into(), None, cx)
+                            }),
+                    )
+                })
+                .when(n > 0, |el| el.child(count(None, n, style.meta(theme.warn))))
+                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .into_any_element(),
+        )
     }
 
     fn uncommitted_row(
@@ -1199,6 +1262,32 @@ impl Navigator {
                         ));
                     }
                 }
+                let archived = (store.workspace(project))
+                    .map_or_else(Vec::new, |ws| ws.archived_worktrees.clone());
+                if !archived.is_empty() {
+                    let project = project.clone();
+                    items.push(MenuItem::new(
+                        "Show an archived worktree…",
+                        move |this, window, cx| {
+                            let choices = (archived.iter())
+                                .map(|name| {
+                                    let (project, name) = (project.clone(), name.clone());
+                                    crate::palette::Choice::new(
+                                        name.to_string(),
+                                        move |this, _, cx| {
+                                            this.store.update(cx, |store, cx| {
+                                                store.set_worktree_archived(
+                                                    &project, name, false, cx,
+                                                )
+                                            })
+                                        },
+                                    )
+                                })
+                                .collect();
+                            this.open_picker("Show a worktree again", "Show", choices, window, cx)
+                        },
+                    ));
+                }
                 if let Some(path) = store.path(project) {
                     let label = self
                         .app
@@ -1209,7 +1298,7 @@ impl Navigator {
                     items.extend([
                         MenuItem::new(label, move |this, window, cx| {
                             let position = window.mouse_position();
-                            this.open_in_editor(&editor_project, None, None, position, cx)
+                            this.open_in_editor(&editor_project, None, None, None, position, cx)
                         })
                         .separated(),
                         MenuItem::new("Open in terminal", move |this, _, cx| {
@@ -1435,6 +1524,29 @@ impl Navigator {
                     action("Discard commit…", &DeleteSelection).danger(),
                 ]);
                 items
+            }
+            Selection::Worktree(project, name) => {
+                let Some(worktree) = (store.workspace(project))
+                    .and_then(|ws| ws.worktrees.iter().find(|w| w.name == *name))
+                else {
+                    return Vec::new();
+                };
+                let path = worktree.path.clone();
+                let copied = path.display().to_string();
+                let (project, name) = (project.clone(), name.clone());
+                vec![
+                    MenuItem::new("Reveal in Finder", move |_, _, cx| cx.reveal_path(&path)),
+                    MenuItem::new("Copy path", move |this, _, cx| {
+                        this.copy_text(copied.clone(), cx)
+                    }),
+                    MenuItem::new("Archive", move |this, _, cx| {
+                        let (project, name) = (project.clone(), name.clone());
+                        this.store.update(cx, |store, cx| {
+                            store.set_worktree_archived(&project, name, true, cx)
+                        })
+                    })
+                    .separated(),
+                ]
             }
             Selection::Branches(_) | Selection::History(_) => Vec::new(),
         }

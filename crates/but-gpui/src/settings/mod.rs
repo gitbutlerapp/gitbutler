@@ -88,6 +88,7 @@ pub struct SettingsView {
     editors: Vec<Program>,
     terminals: Vec<Program>,
     fetch_interval: Option<u64>,
+    worktrees: bool,
     accounts: accounts::Accounts,
     ai: ai::Ai,
     /// How the last signing test went, while it applies to the project shown.
@@ -147,6 +148,7 @@ impl SettingsView {
             editors: Vec::new(),
             terminals: Vec::new(),
             fetch_interval: None,
+            worktrees: false,
             accounts: Default::default(),
             ai,
             signing: None,
@@ -161,14 +163,16 @@ impl SettingsView {
                     backend::editors(),
                     backend::terminals(),
                     backend::fetch_interval(),
+                    backend::worktrees_enabled(),
                 ))
             })
             .await;
-            if let Ok((editors, terminals, fetch_interval)) = loaded {
+            if let Ok((editors, terminals, fetch_interval, worktrees)) = loaded {
                 this.update(cx, |this, cx| {
                     this.editors = editors;
                     this.terminals = terminals;
                     this.fetch_interval = fetch_interval;
+                    this.worktrees = worktrees;
                     cx.notify();
                 })
                 .ok();
@@ -386,14 +390,44 @@ impl SettingsView {
             },
             cx,
         );
-        vec![Row {
-            section: Section::Git,
-            title: "Fetch automatically".into(),
-            description: "Keeps the target and each branch's remote current, for every \
-                          expanded project. GitButler's other apps share this."
-                .into(),
-            control,
-        }]
+        let theme = Theme::get(cx);
+        let worktrees =
+            switch("worktrees", self.worktrees, theme).on_click(cx.listener(|this, _, _, cx| {
+                let on = !this.worktrees;
+                this.worktrees = on;
+                cx.notify();
+                cx.spawn(async move |this, cx| {
+                    let saved =
+                        crate::backend::run(move || backend::set_worktrees_enabled(on)).await;
+                    this.update(cx, |this, cx| match saved {
+                        // Watched and listed again, with their worktrees or without.
+                        Ok(()) => this.store.update(cx, |store, cx| store.reopen_expanded(cx)),
+                        Err(err) => this.error("Couldn't change the worktree setting", err, cx),
+                    })
+                    .ok();
+                })
+                .detach();
+            }));
+        vec![
+            Row {
+                section: Section::Git,
+                title: "Fetch automatically".into(),
+                description: "Keeps the target and each branch's remote current, for every \
+                              expanded project. GitButler's other apps share this."
+                    .into(),
+                control,
+            },
+            Row {
+                section: Section::Git,
+                title: "Linked worktrees".into(),
+                description: "Experimental. Lists each project's linked worktrees, like the \
+                              ones agents work in, with their uncommitted changes. Worktrees \
+                              that exist when this goes on start archived: a project's menu \
+                              shows them again. GitButler's other apps share this."
+                    .into(),
+                control: worktrees.into_any_element(),
+            },
+        ]
     }
 
     /// The rows to show: the section's, or every row the search matches.

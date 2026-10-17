@@ -34,6 +34,31 @@ pub struct Workspace {
     /// The commit checked out to edit, while the project is in edit mode. There are no
     /// stacks to show then.
     pub editing: Option<super::edit::Editing>,
+    /// Its linked worktrees, like ones agents work in, when GitButler's worktree support is
+    /// on: newest first, archived ones left out.
+    pub worktrees: Vec<Worktree>,
+    /// The names of the worktrees archived, to bring back.
+    pub archived_worktrees: Vec<std::sync::Arc<str>>,
+}
+
+/// A linked worktree and its uncommitted changes.
+#[derive(Debug, Clone)]
+pub struct Worktree {
+    /// Its stable name, the folder name under `.git/worktrees/`.
+    pub name: std::sync::Arc<str>,
+    pub path: std::path::PathBuf,
+    /// The branch it has checked out, or `None` for a detached `HEAD`.
+    pub branch: Option<String>,
+    pub uncommitted: Vec<FileChange>,
+}
+
+impl Worktree {
+    /// When one of its uncommitted files was last written, in seconds since the epoch.
+    pub fn last_activity(&self) -> Option<i64> {
+        (self.uncommitted.iter())
+            .filter_map(|file| file.modified.map(|ms| ms / 1000))
+            .max()
+    }
 }
 
 impl Workspace {
@@ -82,7 +107,8 @@ impl Workspace {
         let committed = self
             .branches()
             .filter_map(|branch| branch.commits.first().map(|c| c.time));
-        edited.chain(committed).max()
+        let in_worktrees = self.worktrees.iter().filter_map(Worktree::last_activity);
+        edited.chain(committed).chain(in_worktrees).max()
     }
 
     pub fn unpushed_commits(&self) -> usize {

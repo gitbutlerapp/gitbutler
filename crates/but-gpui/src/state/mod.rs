@@ -36,6 +36,8 @@ pub enum Selection {
     Branches(ProjectId),
     /// The operation log, to look back at and restore.
     History(ProjectId),
+    /// A linked worktree, by name, and its uncommitted changes.
+    Worktree(ProjectId, std::sync::Arc<str>),
 }
 
 impl Selection {
@@ -46,7 +48,8 @@ impl Selection {
             | Selection::Branch(project, _)
             | Selection::Commit(project, _)
             | Selection::Branches(project)
-            | Selection::History(project) => project,
+            | Selection::History(project)
+            | Selection::Worktree(project, _) => project,
         }
     }
 }
@@ -377,7 +380,8 @@ impl Store {
             Selection::Project(_)
             | Selection::Uncommitted(_)
             | Selection::Branches(_)
-            | Selection::History(_) => None,
+            | Selection::History(_)
+            | Selection::Worktree(..) => None,
         }
     }
 
@@ -594,6 +598,18 @@ impl Store {
         cx.notify();
     }
 
+    /// Watch and load every expanded project again, after a setting changed what they
+    /// watch and list.
+    pub fn reopen_expanded(&mut self, cx: &mut Context<Self>) {
+        let expanded: Vec<ProjectId> = (self.projects.iter())
+            .filter(|entry| entry.expanded)
+            .map(|entry| entry.id.clone())
+            .collect();
+        for id in expanded {
+            self.open_project(&id, cx);
+        }
+    }
+
     /// Prepare `id` for display and start watching it, then load it.
     fn open_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         let Some(entry) = self.project_mut(id) else {
@@ -669,12 +685,7 @@ impl Store {
             // While editing, what's resolved changes with the files, so it's read again too.
             let shown = shown.filter(|shown| shown.editing.is_none());
             let result = backend::run(move || match shown {
-                Some(shown) => {
-                    backend::load_uncommitted(&path).map(|uncommitted| backend::Workspace {
-                        uncommitted,
-                        ..shown
-                    })
-                }
+                Some(shown) => backend::reload_uncommitted(&path, shown),
                 None => backend::load_workspace(&path),
             })
             .await;
@@ -801,6 +812,7 @@ impl Store {
             | Selection::History(_) => true,
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
+            Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
         };
         if !still_there {
             self.select(
@@ -887,9 +899,20 @@ impl Store {
                 .collect();
             self.picked = if picked.len() > 1 { picked } else { Vec::new() };
         }
+        // The file watcher learns which worktrees to watch when it starts, so one added,
+        // shown again or archived starts it over.
+        let unwatched = self.workspace(id).is_some_and(|old| {
+            let names = |ws: &backend::Workspace| -> HashSet<Arc<str>> {
+                ws.worktrees.iter().map(|w| w.name.clone()).collect()
+            };
+            names(old) != names(&workspace)
+        });
         if let Some(entry) = self.project_mut(id) {
             entry.workspace = Some(workspace);
             entry.error = None;
+        }
+        if unwatched {
+            self.open_project(id, cx);
         }
         if let Some(commit) = rewritten {
             let picked = std::mem::take(&mut self.picked);

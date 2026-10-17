@@ -16,6 +16,7 @@ pub mod reviews;
 pub mod settings;
 pub mod upstream;
 pub mod watch;
+pub mod worktrees;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -27,6 +28,7 @@ use but_ctx::Context;
 
 pub use model::*;
 pub use ops::*;
+pub use worktrees::reload_uncommitted;
 
 /// Process-wide setup, before any other call.
 pub fn init() {
@@ -103,6 +105,10 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         behind: target.commits_ahead,
         needs_update: !info.is_target_current || info.has_lanes_behind_target,
     });
+    let (worktrees, archived_worktrees) = worktrees::linked(&ctx).unwrap_or_else(|err| {
+        tracing::warn!("couldn't list the linked worktrees: {err:#}");
+        Default::default()
+    });
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     Ok(Workspace {
         target,
@@ -110,18 +116,14 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         stacks,
         uncommitted,
         editing: None,
+        worktrees,
+        archived_worktrees,
     })
 }
 
 /// `message` with its body wrapped as `git log` and `but reword` expect.
 pub fn wrapped_message(message: &str) -> String {
     but_action::commit_format::format_commit_message(message)
-}
-
-/// Just the uncommitted files, for when only the worktree changed.
-pub fn load_uncommitted(path: &Path) -> Result<Vec<FileChange>> {
-    let ctx = open(path)?;
-    worktree_files(&*ctx.repo.get()?)
 }
 
 /// Fill in what the forge cache knows about each branch's pull request: its title, state,
@@ -357,9 +359,11 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
 }
 
 /// What a diff is about.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DiffSource {
     Worktree,
+    /// The uncommitted changes of the linked worktree with this name, like an agent's.
+    Linked(std::sync::Arc<str>),
     /// The worktree of a commit being edited: its changes as they are on disk now.
     Edit,
     Commit(CommitId),
@@ -382,9 +386,12 @@ pub enum DiffSource {
 }
 
 impl DiffSource {
-    /// Whether the diff follows the worktree, so it's loaded again as files change.
-    pub fn live(self) -> bool {
-        matches!(self, DiffSource::Worktree | DiffSource::Edit)
+    /// Whether the diff follows a worktree, so it's loaded again as files change.
+    pub fn live(&self) -> bool {
+        matches!(
+            self,
+            DiffSource::Worktree | DiffSource::Edit | DiffSource::Linked(_)
+        )
     }
 }
 
@@ -420,16 +427,25 @@ pub fn load_diff(
 ) -> Result<Vec<FileDiff>> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
-    let repo = ctx.repo.get()?;
+    let main = ctx.repo.get()?;
+    // A linked worktree's changes are read and diffed in its own checkout.
+    let linked = match &source {
+        DiffSource::Linked(name) => Some(but_workspace::worktrees::open_worktree_repo(
+            &main,
+            name.as_bytes().as_bstr(),
+        )?),
+        _ => None,
+    };
+    let repo = linked.as_ref().unwrap_or(&main);
     let tree_changes = |base, tip| -> Result<Vec<FileChange>> {
-        let changes = but_core::diff::tree_changes(&repo, base, tip)?;
+        let changes = but_core::diff::tree_changes(repo, base, tip)?;
         Ok(changes.into_iter().map(file_change).collect())
     };
-    let changes: Vec<FileChange> = match source {
+    let changes: Vec<FileChange> = match &source {
         // With modification times, so review marks match the workspace's file list.
-        DiffSource::Worktree | DiffSource::Edit => match worktree {
+        DiffSource::Worktree | DiffSource::Edit | DiffSource::Linked(_) => match worktree {
             Some(files) => files,
-            None => worktree_files(&repo)?,
+            None => worktree_files(repo)?,
         },
         DiffSource::Commit(id) => {
             let details =
@@ -581,13 +597,22 @@ fn load_file(
 }
 
 /// The new side of `file` as diff lines, numbered on that side, for showing the unchanged
-/// lines around its hunks. `None` when it has no new side to show, like a deletion.
-pub fn file_lines(path: &Path, file: &FileChange) -> Result<Option<Vec<DiffLine>>> {
+/// lines around its hunks. `None` when it has no new side to show, like a deletion. An
+/// uncommitted file is read from the project's linked `worktree` when there is one.
+pub fn file_lines(
+    path: &Path,
+    worktree: Option<&str>,
+    file: &FileChange,
+) -> Result<Option<Vec<DiffLine>>> {
     let Some(state) = file.change.status.state() else {
         return Ok(None);
     };
     let ctx = open(path)?;
-    let repo = ctx.repo.get()?;
+    let main = ctx.repo.get()?;
+    let linked = worktree
+        .map(|name| but_workspace::worktrees::open_worktree_repo(&main, name.as_bytes().as_bstr()))
+        .transpose()?;
+    let repo = linked.as_ref().unwrap_or(&main);
     let bytes = if state.id.is_null() {
         let workdir = repo.workdir().context("the repository has no worktree")?;
         std::fs::read(workdir.join(&file.path))?

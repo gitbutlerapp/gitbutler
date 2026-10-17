@@ -79,82 +79,87 @@ impl Detail {
         // `mark` is for a file whose markers are still there: whether the user called it
         // resolved anyway, which its right-click menu changes.
         let commit = editing.commit;
-        let row = |id: (&'static str, usize),
-                   path: &str,
-                   status: Option<bool>,
-                   mark: Option<bool>| {
-            let (name, dir) = split_path(path);
-            let (glyph, color, note) = match (status, mark) {
-                (Some(false), _) => (Icon::Warning, theme.danger, Some("conflicted")),
-                (Some(true), Some(true)) => (Icon::Tick, theme.safe, Some("marked resolved")),
-                (Some(true), _) => (Icon::Tick, theme.safe, Some("resolved")),
-                (None, _) => (Icon::File, theme.text_3, None),
-            };
-            let (project, file) = (project.clone(), path.to_owned());
-            let (menu_project, menu_file) = (project.clone(), file.clone());
-            list_row(id, false, theme)
-                .text_size(px(13.))
-                .child(small_icon(glyph).text_color(color))
-                .child(div().flex_none().child(name.to_owned()))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .truncate()
-                        .text_size(px(11.))
-                        .text_color(theme.text_3)
-                        .child(dir.to_owned()),
-                )
-                .children(note.map(|note| {
-                    div()
-                        .flex_none()
-                        .text_size(px(11.))
-                        .text_color(color)
-                        .child(note)
-                }))
-                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                    let (project, file) = (project.clone(), file.clone());
-                    let position = event.position();
-                    this.app
-                        .update(cx, |app, cx| {
-                            app.open_in_editor(&project, Some(file), None, position, cx)
-                        })
-                        .ok();
-                }))
-                .on_mouse_down(
-                    MouseButton::Right,
-                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        let (project, file) = (menu_project.clone(), menu_file.clone());
-                        let position = event.position;
-                        let open = MenuItem::new("Open in editor", {
-                            let (project, file) = (project.clone(), file.clone());
-                            move |app, _, cx| {
-                                app.open_in_editor(&project, Some(file.clone()), None, position, cx)
-                            }
-                        });
-                        let mut items = vec![open];
-                        if let Some(marked) = mark {
-                            let label = if marked {
-                                "Count as conflicted again"
-                            } else {
-                                "Mark resolved"
-                            };
-                            items.push(MenuItem::new(label, move |app, _, cx| {
-                                let key = (project.clone(), commit, file.clone());
-                                app.detail.update(cx, |detail, cx| {
-                                    if !detail.marked_resolved.remove(&key) {
-                                        detail.marked_resolved.insert(key);
-                                    }
-                                    cx.notify();
-                                });
-                            }));
-                        }
+        let row =
+            |id: (&'static str, usize), path: &str, status: Option<bool>, mark: Option<bool>| {
+                let (name, dir) = split_path(path);
+                let (glyph, color, note) = match (status, mark) {
+                    (Some(false), _) => (Icon::Warning, theme.danger, Some("conflicted")),
+                    (Some(true), Some(true)) => (Icon::Tick, theme.safe, Some("marked resolved")),
+                    (Some(true), _) => (Icon::Tick, theme.safe, Some("resolved")),
+                    (None, _) => (Icon::File, theme.text_3, None),
+                };
+                let (project, file) = (project.clone(), path.to_owned());
+                let (menu_project, menu_file) = (project.clone(), file.clone());
+                list_row(id, false, theme)
+                    .text_size(px(13.))
+                    .child(small_icon(glyph).text_color(color))
+                    .child(div().flex_none().child(name.to_owned()))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .truncate()
+                            .text_size(px(11.))
+                            .text_color(theme.text_3)
+                            .child(dir.to_owned()),
+                    )
+                    .children(note.map(|note| {
+                        div()
+                            .flex_none()
+                            .text_size(px(11.))
+                            .text_color(color)
+                            .child(note)
+                    }))
+                    .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                        let (project, file) = (project.clone(), file.clone());
+                        let position = event.position();
                         this.app
-                            .update(cx, |app, cx| app.open_menu(event.position, items, cx))
+                            .update(cx, |app, cx| {
+                                app.open_in_editor(&project, None, Some(file), None, position, cx)
+                            })
                             .ok();
-                    }),
-                )
-        };
+                    }))
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                            let (project, file) = (menu_project.clone(), menu_file.clone());
+                            let position = event.position;
+                            let open = MenuItem::new("Open in editor", {
+                                let (project, file) = (project.clone(), file.clone());
+                                move |app, _, cx| {
+                                    app.open_in_editor(
+                                        &project,
+                                        None,
+                                        Some(file.clone()),
+                                        None,
+                                        position,
+                                        cx,
+                                    )
+                                }
+                            });
+                            let mut items = vec![open];
+                            if let Some(marked) = mark {
+                                let label = if marked {
+                                    "Count as conflicted again"
+                                } else {
+                                    "Mark resolved"
+                                };
+                                items.push(MenuItem::new(label, move |app, _, cx| {
+                                    let key = (project.clone(), commit, file.clone());
+                                    app.detail.update(cx, |detail, cx| {
+                                        if !detail.marked_resolved.remove(&key) {
+                                            detail.marked_resolved.insert(key);
+                                        }
+                                        cx.notify();
+                                    });
+                                }));
+                            }
+                            this.app
+                                .update(cx, |app, cx| app.open_menu(event.position, items, cx))
+                                .ok();
+                        }),
+                    )
+            };
         let files = editing.files.iter().enumerate().map(|(ix, file)| {
             let has_markers = file.resolved == Some(false);
             let status = file
