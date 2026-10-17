@@ -5,8 +5,8 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, Background, CursorStyle, ElementId, HighlightStyle, Hsla, MouseButton,
-    MouseDownEvent, Pixels, Point, Role, SharedString, StyledText, Window, combine_highlights, div,
-    pattern_slash, prelude::*, px,
+    MouseDownEvent, Pixels, Point, Role, ScrollHandle, SharedString, StyledText, Window,
+    combine_highlights, div, pattern_slash, prelude::*, px,
 };
 
 use super::file_icons::file_icon;
@@ -314,6 +314,17 @@ pub struct LineDecor {
     pub wrap: bool,
     /// The digits in the widest line number of the line's file, which every row's numbers fit.
     pub digits: usize,
+    /// How the line's text scrolls sideways when it doesn't wrap, on the old side and the
+    /// new; a unified row takes the new side's.
+    pub sideways: [Sideways; 2],
+}
+
+/// How a line's text scrolls sideways when it doesn't wrap: through `scroll`, with the rest of
+/// its file's lines on that side, all as wide as the widest of them, `columns` wide.
+#[derive(Clone, Default)]
+pub struct Sideways {
+    pub scroll: ScrollHandle,
+    pub columns: u32,
 }
 
 /// What the pointer does to a line's text, given the byte offset in the line it's at:
@@ -640,16 +651,36 @@ fn line_text(
     ))
 }
 
-/// The text of a line, after its numbers.
-fn text_cell(text: StyledText, wrap: bool, theme: &Theme) -> gpui::Div {
+/// The text of a line, after its numbers. Unless it wraps, it scrolls sideways, as far as its
+/// file's widest line on that side and a digit's room after it.
+fn text_cell(
+    id: ElementId,
+    text: StyledText,
+    wrap: bool,
+    sideways: &Sideways,
+    theme: &Theme,
+) -> gpui::Stateful<gpui::Div> {
+    let digit = theme.code_text * 0.6;
     div()
+        .id(id)
         .flex_1()
         .min_w(px(0.))
         .pl(px(8.))
-        .when(!wrap, |el| el.whitespace_nowrap())
-        .overflow_hidden()
         .text_color(theme.text_1)
-        .child(text)
+        .map(|el| match wrap {
+            true => el.overflow_hidden().child(text),
+            // Every line of the side as wide, so they all scroll as far.
+            false => el
+                .overflow_x_scroll()
+                .restrict_scroll_to_axis()
+                .track_scroll(&sideways.scroll)
+                .child(
+                    div()
+                        .whitespace_nowrap()
+                        .min_w(px((sideways.columns + 1) as f32 * digit))
+                        .child(text),
+                ),
+        })
 }
 
 /// A row of a file's card, a line tall or taller when wrapping.
@@ -709,6 +740,7 @@ pub fn line_row(
         found,
         wrap,
         digits,
+        sideways,
     } = decor;
     let id = row_id(place);
     let look = look(line.kind, theme);
@@ -746,7 +778,13 @@ pub fn line_row(
             number_cell(number, digits, &look, theme),
             toggle,
         ))
-        .child(text_cell(text, wrap, theme))
+        .child(text_cell(
+            ("line-text", id).into(),
+            text,
+            wrap,
+            &sideways[1],
+            theme,
+        ))
         .when_some(select, |el, select| {
             let at_down = at.clone();
             el.cursor(CursorStyle::IBeam)
@@ -778,15 +816,11 @@ pub fn context_row(
     let place = (file, 0xfffff, new as usize);
     if split {
         let sides = [Some((line, Some(old))), Some((line, Some(new)))];
-        return pair_row(
-            sides,
-            Default::default(),
-            place,
-            last,
-            theme,
-            decor.wrap,
-            decor.digits,
-        );
+        let halves = (decor.sideways).map(|sideways| Half {
+            sideways,
+            ..Default::default()
+        });
+        return pair_row(sides, halves, place, last, theme, decor.wrap, decor.digits);
     }
     line_row(line, Some(new), place, last, theme, decor)
 }
@@ -797,6 +831,7 @@ pub struct Half {
     pub excluded: bool,
     pub toggle: Option<OnToggle>,
     pub found: Vec<(Range<usize>, bool)>,
+    pub sideways: Sideways,
 }
 
 /// A side-by-side row: a line from the old side on the left and one from the new on the
@@ -811,7 +846,9 @@ pub fn pair_row(
     digits: usize,
 ) -> AnyElement {
     let id = row_id(place);
-    let side = |line: Option<(&DiffLine, Option<u32>)>, half: Half, name: &'static str| {
+    let side = |line: Option<(&DiffLine, Option<u32>)>,
+                half: Half,
+                [name, text_name]: [&'static str; 2]| {
         let Some((line, number)) = line else {
             // Nothing on this side: a hatched gap the other side's lines line up against.
             return (div().flex_1().min_w(px(0.)).h_full()).bg(pattern_slash(
@@ -832,13 +869,19 @@ pub fn pair_row(
                 number_cell(number, digits, &look, theme),
                 half.toggle,
             ))
-            .child(text_cell(text, wrap, theme))
+            .child(text_cell(
+                (text_name, id).into(),
+                text,
+                wrap,
+                &half.sideways,
+                theme,
+            ))
             .when(half.excluded, |el| el.opacity(0.45))
     };
     line_card(("diff-pair", id).into(), last, wrap, theme)
-        .child(side(left, left_half, "pair-left"))
+        .child(side(left, left_half, ["pair-left", "pair-left-text"]))
         .child(div().flex_none().w(px(1.)).h_full().bg(theme.border_3))
-        .child(side(right, right_half, "pair-right"))
+        .child(side(right, right_half, ["pair-right", "pair-right-text"]))
         .into_any_element()
 }
 

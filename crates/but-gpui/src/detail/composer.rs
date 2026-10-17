@@ -1056,6 +1056,7 @@ mod tests {
                 hunks: vec![hunk],
                 added: 1,
                 removed: 1,
+                widest: [0, 0],
             },
             fingerprint: 0,
             annotated: true,

@@ -126,7 +126,7 @@ impl Detail {
             },
             // An unchanged line of a file shown whole, from its new side.
             DiffRow::Context { file, new, .. } => {
-                let (_, lines) = self.whole.get(&diff.files.get(file)?.file.path)?.as_ref()?;
+                let (_, lines, _) = self.whole.get(&diff.files.get(file)?.file.path)?.as_ref()?;
                 lines.get((new as usize).checked_sub(1)?)
             }
             _ => None,
@@ -140,6 +140,7 @@ impl Detail {
             hunks,
             added,
             removed,
+            ..
         } = &file.body
         else {
             return 0;
@@ -151,13 +152,43 @@ impl Detail {
             side(|line| line.old).max(side(|line| line.new))
         });
         let whole = match self.whole.get(&file.file.path) {
-            Some(Some((_, lines))) => {
+            Some(Some((_, lines, _))) => {
                 let new = lines.len() as u32;
                 new.max((new + removed).saturating_sub(*added))
             }
             _ => 0,
         };
         last.max(whole).to_string().len()
+    }
+
+    /// How `file`'s lines scroll sideways on each side, or with `split` off, both sides as one.
+    fn sideways(&self, file: &FileDiff, split: bool) -> [diff::Sideways; 2] {
+        let DiffBody::Hunks { widest, .. } = &file.body else {
+            return Default::default();
+        };
+        let whole = match self.whole.get(&file.file.path) {
+            Some(Some((_, _, whole))) => *whole,
+            _ => 0,
+        };
+        let columns = widest.map(|side| side.max(whole));
+        let scroll = self
+            .sideways
+            .get(&file.file.path)
+            .cloned()
+            .unwrap_or_default();
+        match split {
+            true => [0, 1].map(|side| diff::Sideways {
+                scroll: scroll[side].clone(),
+                columns: columns[side],
+            }),
+            false => {
+                let both = diff::Sideways {
+                    scroll: scroll[1].clone(),
+                    columns: columns[0].max(columns[1]),
+                };
+                [both.clone(), both]
+            }
+        }
     }
 
     /// The selection in order, unless it's empty.
@@ -718,6 +749,7 @@ impl Detail {
                     found: self.found_on(place),
                     wrap: store.prefs.wrap,
                     digits: self.number_digits(&diff.files[file]),
+                    sideways: self.sideways(&diff.files[file], false),
                 };
                 let number = match text.kind {
                     LineKind::Removed => text.old,
@@ -737,7 +769,8 @@ impl Detail {
                     return padded.into_any_element();
                 };
                 let lines = &hunks[hunk].lines;
-                let half = |line: Option<usize>| {
+                let [old_side, new_side] = self.sideways(&diff.files[file], true);
+                let half = |line: Option<usize>, sideways| {
                     let Some(line) = line else {
                         return diff::Half::default();
                     };
@@ -746,6 +779,7 @@ impl Detail {
                         excluded,
                         toggle,
                         found: self.found_on((file, hunk, line)),
+                        sideways,
                     }
                 };
                 let sides = [
@@ -755,7 +789,7 @@ impl Detail {
                 // Each line is on one row only, so the right one, or the left where there's
                 // none, tells rows apart.
                 let place = (file, hunk, right.or(left).unwrap_or_default());
-                let halves = [half(left), half(right)];
+                let halves = [half(left, old_side), half(right, new_side)];
                 let digits = self.number_digits(&diff.files[file]);
                 let pair =
                     diff::pair_row(sides, halves, place, last, theme, store.prefs.wrap, digits);
@@ -790,6 +824,7 @@ impl Detail {
                     selected: self.selected_in_row(ix),
                     wrap: store.prefs.wrap,
                     digits: self.number_digits(&diff.files[file]),
+                    sideways: self.sideways(&diff.files[file], store.prefs.split),
                     ..Default::default()
                 };
                 let split = store.prefs.split;
@@ -875,9 +910,14 @@ impl Detail {
             return;
         }
         cx.spawn(async move |this, cx| {
-            let lines =
-                backend::run(move || backend::file_lines(&root, worktree.as_deref(), &change))
-                    .await;
+            let lines = backend::run(move || {
+                let lines = backend::file_lines(&root, worktree.as_deref(), &change)?;
+                Ok(lines.map(|lines| {
+                    let widest = lines.iter().map(|line| backend::columns(&line.text));
+                    (widest.max().unwrap_or(0), lines)
+                }))
+            })
+            .await;
             this.update(cx, |this, cx| {
                 this.whole_reading.remove(&path);
                 if !this.whole.contains_key(&path) {
@@ -898,9 +938,9 @@ impl Detail {
                     return;
                 }
                 match lines {
-                    Ok(Some(lines)) => {
+                    Ok(Some((widest, lines))) => {
                         this.whole
-                            .insert(path, Some((fingerprint, Arc::new(lines))));
+                            .insert(path, Some((fingerprint, Arc::new(lines), widest)));
                     }
                     Ok(None) => {
                         this.whole.remove(&path);

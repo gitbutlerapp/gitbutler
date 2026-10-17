@@ -10,7 +10,7 @@ use bstr::ByteSlice;
 
 use super::{
     CommitId, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind, SnapshotId,
-    annotate, file_change, highlight, open, worktree_files,
+    annotate, columns, file_change, highlight, open, worktree_files,
 };
 
 /// What a diff is about.
@@ -193,17 +193,22 @@ fn load_file(
             lines_added,
             lines_removed,
             ..
-        }) => DiffBody::Hunks {
-            hunks: hunks.iter().map(parse_hunk).collect(),
-            added: lines_added,
-            removed: lines_removed,
-        },
+        }) => {
+            let hunks: Vec<Hunk> = hunks.iter().map(parse_hunk).collect();
+            DiffBody::Hunks {
+                widest: widest(&hunks),
+                hunks,
+                added: lines_added,
+                removed: lines_removed,
+            }
+        }
     };
     if annotate
         && let DiffBody::Hunks {
             hunks,
             added,
             removed,
+            ..
         } = &mut body
         && *added + *removed <= HIGHLIGHT_LIMIT
     {
@@ -404,6 +409,21 @@ fn side_bytes(data: gix::diff::blob::platform::resource::Data<'_>) -> Option<&[u
         Data::Buffer { buf, .. } => Some(buf),
         Data::Binary { .. } => None,
     }
+}
+
+/// The widest line on each side of `hunks`, old then new, in [`columns`].
+fn widest(hunks: &[Hunk]) -> [u32; 2] {
+    let mut widest = [0, 0];
+    for line in hunks.iter().flat_map(|hunk| &hunk.lines) {
+        let columns = columns(&line.text);
+        if line.kind != LineKind::Added {
+            widest[0] = widest[0].max(columns);
+        }
+        if line.kind != LineKind::Removed {
+            widest[1] = widest[1].max(columns);
+        }
+    }
+    widest
 }
 
 /// Files with more changed lines than this aren't highlighted, to keep big diffs fast.

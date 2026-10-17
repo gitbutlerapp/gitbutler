@@ -26,7 +26,7 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
-    ListAlignment, ListOffset, ListState, SharedString, Subscription, Task,
+    ListAlignment, ListOffset, ListState, ScrollHandle, SharedString, Subscription, Task,
     UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*, px,
 };
 
@@ -149,8 +149,9 @@ struct LoadedDiff {
     rows: Vec<DiffRow>,
 }
 
-/// A file's new side as diff lines, read for the patch with this fingerprint.
-type FileLines = (u64, Arc<Vec<DiffLine>>);
+/// A file's new side as diff lines, read for the patch with this fingerprint, and the
+/// widest of them in columns.
+type FileLines = (u64, Arc<Vec<DiffLine>>, u32);
 
 /// A spot in the diff's text: a row of the diff and a byte offset in that row's line.
 type TextPoint = (usize, usize);
@@ -193,6 +194,9 @@ pub struct Detail {
     whole: HashMap<String, Option<FileLines>>,
     /// Files whose lines are being read, one read each at a time.
     whole_reading: HashSet<String>,
+    /// How far each file's lines are scrolled sideways, by path: the old side's and the new
+    /// side's, which a unified diff scrolls.
+    sideways: HashMap<String, [ScrollHandle; 2]>,
     /// The commit message being edited, with the subscription that saves it.
     rewording: Option<(Entity<TextInput>, Subscription)>,
     /// The project the checks and commit target above belong to.
@@ -352,6 +356,7 @@ impl Detail {
             filtering: false,
             whole: HashMap::new(),
             whole_reading: HashSet::new(),
+            sideways: HashMap::new(),
             rewording: None,
             checks_project: None,
             composing: false,
@@ -626,6 +631,10 @@ impl Detail {
         let same = self.diff.as_ref().is_some_and(|diff| diff.key == key) || self.follows(&key, cx);
         if !same {
             self.whole.clear();
+            self.sideways.clear();
+        }
+        for file in files.iter() {
+            self.sideways.entry(file.file.path.clone()).or_default();
         }
         const RECENT: usize = 16;
         self.recent.retain(|(recent, _)| *recent != key);
@@ -651,7 +660,7 @@ impl Detail {
         let stale: Vec<usize> = (files.iter().enumerate())
             .filter(|(_, file)| {
                 matches!(self.whole.get(&file.file.path),
-                    Some(Some((fingerprint, _))) if *fingerprint != file.fingerprint)
+                    Some(Some((fingerprint, ..))) if *fingerprint != file.fingerprint)
             })
             .map(|(ix, _)| ix)
             .collect();
@@ -720,7 +729,7 @@ impl Detail {
             },
             |file, hunk| worktree && store.hides_hunk(&key.project, &file.file.path, hunk.key),
             |file| match self.whole.get(&file.file.path) {
-                Some(Some((fingerprint, lines))) if *fingerprint == file.fingerprint => {
+                Some(Some((fingerprint, lines, _))) if *fingerprint == file.fingerprint => {
                     Some(lines.len() as u32)
                 }
                 _ => None,
