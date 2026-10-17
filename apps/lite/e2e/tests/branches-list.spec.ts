@@ -1,6 +1,27 @@
-import type { LiteElectronApi } from "../../electron/src/ipc.ts";
-import type { ListedStack } from "@gitbutler/but-sdk";
+import type { ListedStack, ListedBranch } from "@gitbutler/but-sdk";
+import type { Locator } from "@playwright/test";
+import type { App } from "../app.ts";
 import { expect, test } from "../test.ts";
+
+/**
+ * Unfold every branch in the list. It virtualises, so unfolding what is mounted
+ * stages more rows to unfold: walk down it until the last of them shows its commits.
+ */
+const unfoldEveryBranch = async (app: App, row: Locator): Promise<void> => {
+	await row.hover();
+	for (let pass = 0; pass < 10; pass++) {
+		// One round trip for every mounted toggle.
+		await row.evaluate((row) => {
+			const toggles = row
+				.closest('[role="tree"]')
+				?.querySelectorAll<HTMLElement>('button[aria-label="Unfold commits"]');
+			for (const toggle of toggles ?? []) toggle.click();
+		});
+		if (await app.isScrolledToEnd(row)) break;
+		await app.page.mouse.wheel(0, 600);
+	}
+	await app.listScroll(row, 0);
+};
 
 test.describe("branches list", () => {
 	test.use({ scenario: "project-with-many-unapplied-branches.sh" });
@@ -8,244 +29,150 @@ test.describe("branches list", () => {
 	// Each unfolded branch runs a commit virtualizer on the borrowed list
 	// scroller, so with the selected branch scrolled away from, they used to
 	// stamp the offset they last remembered back over the scroll the user made.
-	test("scrolls to the last branch while the first one is selected", async ({ appWindow }) => {
-		// Seeding a project this size and then unfolding and driving it by hand
-		// costs more than the default budget allows for on a loaded CI runner.
+	test("scrolls to the last branch while the first one is selected", async ({ app }) => {
+		// Seeding a project this size and unfolding it costs more than the default budget on CI.
 		test.slow();
-
-		await appWindow
-			.getByRole("group", { name: "Pages" })
-			.getByRole("button", { name: "Branches" })
-			.click();
-
-		const branches = appWindow.getByRole("treeitem", { name: /^branch-\d+$/ });
-		await expect(branches.first()).toBeVisible();
-
-		// `unfold` asks every branch the list currently has mounted to show its
-		// commits, which is what puts a commit virtualizer on the shared scroller.
-		// It rides along with the scroll reading because both need the same
-		// element and each round trip costs the same as the whole batch.
-		const scroll = (unfold = false): Promise<{ offset: number; end: number }> =>
-			appWindow.evaluate((unfoldMounted) => {
-				// Anchored on a branch row: the hidden sidebar tabs are still in the
-				// document, and they look just like this list from the outside.
-				const row = document.querySelector('[role="treeitem"][aria-label^="branch-"]');
-				const tree = row?.closest('[role="tree"]');
-				// The nearest box that scrolls: the list sits in a ScrollArea, whose
-				// viewport wraps the tree in a content box of its own.
-				let scroller = tree?.parentElement ?? null;
-				while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY))
-					scroller = scroller.parentElement;
-				if (!tree || !scroller) throw new Error("Branches list has no scroller");
-
-				if (unfoldMounted) {
-					for (const toggle of tree.querySelectorAll<HTMLElement>(
-						'button[aria-label="Unfold commits"]',
-					))
-						toggle.click();
-				}
-
-				return {
-					offset: Math.round(scroller.scrollTop),
-					end: Math.round(scroller.scrollHeight - scroller.clientHeight),
-				};
-			}, unfold);
-
-		const start = await branches.first().boundingBox();
-		if (start === null) throw new Error("Branch row has no bounding box");
-		await appWindow.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
-
-		// The list virtualises, so unfolding what is mounted stages more rows to
-		// unfold: walk down it until the last of them is showing its commits.
-		for (let pass = 0; pass < 10; pass++) {
-			const { offset, end } = await scroll(true);
-			if (offset >= end) break;
-			await appWindow.mouse.wheel(0, 600);
-		}
-
-		await appWindow.evaluate(() => {
-			const row = document.querySelector('[role="treeitem"][aria-label^="branch-"]');
-			let scroller = row?.closest('[role="tree"]')?.parentElement ?? null;
-			while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY))
-				scroller = scroller.parentElement;
-			scroller?.scrollTo({ top: 0 });
-		});
-
-		await expect(branches.first()).toBeVisible();
-		// Pin the branch by name: which one the list puts first is its own
-		// business, and every locator below has to keep meaning that same one.
-		const firstName = await branches.first().getAttribute("aria-label");
-		if (firstName === null) throw new Error("Branch row has no name");
-
-		const first = appWindow.getByRole("treeitem", { name: firstName, exact: true });
-		// The tree item spans the branch row and the commits under it, so aim at
-		// the name rather than the item's middle, which is a commit row.
-		await first.getByTitle(firstName, { exact: true }).click();
-		await expect(first).toHaveAttribute("aria-selected", "true");
-
+		await app.goTo("Branches");
+		const branches = app.getByRole("treeitem", { name: /^branch-\d+$/ });
+		await unfoldEveryBranch(app, branches.first());
+		const first = await branches.first().getAttribute("aria-label");
+		if (first === null) throw new Error("Branch row has no name");
+		await app.selectBranch(first);
 		// The branches have to outgrow their panel for any of this to mean anything.
-		expect((await scroll()).end).toBeGreaterThan(0);
+		expect((await app.listScroll(app.branch(first))).end).toBeGreaterThan(0);
 
-		const box = await first.boundingBox();
-		if (box === null) throw new Error("Branch row has no bounding box");
-		await appWindow.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+		await app.wheelThroughList(app.branchName(first));
 
-		// Enough wheel to cross the whole list several times over; the scroller
-		// stops at its end. Few, large steps rather than many small ones: each one
-		// is a round trip, and a stuck list stays stuck however finely it is asked
-		// to move.
-		for (let step = 0; step < 16; step++) await appWindow.mouse.wheel(0, 400);
-
-		await expect
-			.poll(async () => {
-				const { offset, end } = await scroll();
-				return offset >= end;
-			})
-			.toBe(true);
+		await expect.poll(() => app.isScrolledToEnd(branches.first())).toBe(true);
 	});
 });
+
+const reviews: Record<string, Partial<ListedBranch>> = {
+	branch1: {
+		reviewStatus: "open",
+		review: {
+			number: 42,
+			title: "Speed up branch listing in large repositories",
+			htmlUrl: "https://example.com/pull/42",
+			unitSymbol: "#",
+			createdAt: "2026-09-01T12:00:00Z",
+			author: { login: "octocat", name: null },
+			labels: [
+				{ name: "performance", color: "0e8a16", description: "Performance improvements" },
+				{ name: "@gitbutler/lite", color: "#ffffff", description: null },
+				{ name: "needs review", color: null, description: null },
+			],
+		},
+	},
+	branch2: {
+		reviewStatus: "draft",
+		review: {
+			number: 43,
+			title: "A draft without optional metadata",
+			htmlUrl: "https://example.com/pull/43",
+			unitSymbol: "!",
+			labels: [],
+			author: null,
+			createdAt: null,
+		},
+	},
+};
 
 test.describe("recent branch reviews", () => {
 	test.use({ scenario: "project-with-remote-branches.sh" });
 
-	test("shows review metadata and filters by labels, authors, and review numbers", async ({
-		appWindow,
-		electronApp,
-	}) => {
-		const stacks = await appWindow.evaluate(async () => {
-			const projectId = location.pathname.split("/")[2];
-			if (projectId === undefined) throw new Error("No project in the URL");
-			return (window as unknown as { lite: LiteElectronApi }).lite.branchList(projectId);
-		});
-		const enriched: Array<ListedStack> = stacks.map((stack) => ({
+	test.beforeEach(async ({ app }) => {
+		const stacks = await app.page.evaluate((id) => window.lite.branchList(id), app.projectId);
+		const withReviews: Array<ListedStack> = stacks.map((stack) => ({
 			...stack,
-			branches: stack.branches.map((branch) =>
-				branch.displayName === "branch1"
-					? {
-							...branch,
-							reviewStatus: "open",
-							review: {
-								number: 42,
-								title: "Speed up branch listing in large repositories",
-								htmlUrl: "https://example.com/pull/42",
-								unitSymbol: "#",
-								createdAt: "2026-09-01T12:00:00Z",
-								author: { login: "octocat", name: null },
-								labels: [
-									{ name: "performance", color: "0e8a16", description: "Performance improvements" },
-									{ name: "@gitbutler/lite", color: "#ffffff", description: null },
-									{ name: "needs review", color: null, description: null },
-								],
-							},
-						}
-					: branch.displayName === "branch2"
-						? {
-								...branch,
-								reviewStatus: "draft",
-								review: {
-									number: 43,
-									title: "A draft without optional metadata",
-									htmlUrl: "https://example.com/pull/43",
-									unitSymbol: "!",
-									labels: [],
-									author: null,
-									createdAt: null,
-								},
-							}
-						: branch,
-			),
+			branches: stack.branches.map((branch) => ({
+				...branch,
+				...reviews[branch.displayName],
+			})),
 		}));
-		await electronApp.evaluate(({ ipcMain }, stacks) => {
-			ipcMain.removeHandler("branchList");
-			ipcMain.handle("branchList", () => stacks);
-			ipcMain.removeHandler("openInWebBrowser");
-			ipcMain.handle("openInWebBrowser", (_event, url: string) => {
-				(globalThis as { openedReviewUrl?: string }).openedReviewUrl = url;
-			});
-		}, enriched);
-		await appWindow.reload();
-		await appWindow
-			.getByRole("group", { name: "Pages" })
-			.getByRole("button", { name: "Branches", exact: true })
-			.click();
-		const branch = appWindow.getByRole("treeitem", { name: "branch1", exact: true });
+		await app.backend.stub({ branchList: withReviews });
+		await app.reload();
+		await app.goTo("Branches");
+	});
+
+	test("shows a branch's review title, labels and author", async ({ app }) => {
+		const branch = app.branch("branch1");
+
+		await expect(branch).toShow("Speed up branch listing in large repositories");
+		await expect(branch).toShow("performance");
+		await expect(branch.getByText(/by octocat/)).toBeVisible();
+		await expect(branch).toShow("2 commits");
 		await expect(branch).toHaveAccessibleDescription(
 			/Speed up branch listing in large repositories.*performance.*octocat/,
 		);
-		await expect(
-			branch.getByText("Speed up branch listing in large repositories", { exact: true }),
-		).toBeVisible();
-		await expect(branch.getByText("performance", { exact: true })).toBeVisible();
-		// A colourless label is still a pill, not bare text: the outline gives it its shape.
-		const colorless = branch.getByTitle("needs review", { exact: true });
+	});
+
+	test("marks a draft review without optional metadata", async ({ app }) => {
+		await expect(app.branch("branch2")).toShow("Draft");
+	});
+
+	test("draws a colourless label as an outlined pill", async ({ app }) => {
+		const colorless = app.branch("branch1").getByTitle("needs review", { exact: true });
+
 		await expect(colorless).toHaveCSS("border-top-style", "solid");
 		await expect(colorless).not.toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
-		await expect(branch.getByText(/by octocat/)).toBeVisible();
-		await expect(branch.getByText("2 commits", { exact: true })).toBeVisible();
-		await expect(
-			appWindow
-				.getByRole("treeitem", { name: "branch2", exact: true })
-				.getByText("Draft", { exact: true }),
-		).toBeVisible();
-		await expect(
-			appWindow
-				.getByRole("treeitem", { name: "branch3", exact: true })
-				.getByTitle("branch3", { exact: true }),
-		).toBeVisible();
+	});
 
-		const sidebar = appWindow.locator("#sidebar-panel");
-		await appWindow
-			.getByRole("treeitem", { name: "branch3", exact: true })
-			.getByTitle("branch3", { exact: true })
-			.click();
-		await appWindow.mouse.move(800, 40);
-		const heading = branch.getByTitle("Speed up branch listing in large repositories", {
-			exact: true,
+	test("hovering a reviewed branch moves nothing and fits the sidebar", async ({ app }) => {
+		const branch = app.branch("branch1");
+		// Selected, the menu shows without a hover.
+		await app.selectBranch("branch3");
+
+		await expect(
+			branch.getByTitle("Speed up branch listing in large repositories", { exact: true }),
+		).toHoldStillOnHover({ revealing: app.branchMenu("branch1") });
+		await expect(branch.getByText("performance", { exact: true })).toHoldStillOnHover({
+			revealing: app.branchMenu("branch1"),
 		});
-		const label = branch.getByText("performance", { exact: true });
-		const beforeHover = {
-			row: await branch.boundingBox(),
-			heading: await heading.boundingBox(),
-			label: await label.boundingBox(),
-		};
-		await expect(branch.getByRole("button", { name: "Branch menu" })).toBeHidden();
-		await heading.hover();
-		await expect(branch.getByRole("button", { name: "Branch menu" })).toBeVisible();
-		expect({
-			row: await branch.boundingBox(),
-			heading: await heading.boundingBox(),
-			label: await label.boundingBox(),
-		}).toEqual(beforeHover);
-		expect(await sidebar.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-
-		await branch.getByRole("link", { name: "Open #42 in browser" }).click();
 		expect(
-			await electronApp.evaluate(
-				() => (globalThis as { openedReviewUrl?: string }).openedReviewUrl,
-			),
-		).toBe("https://example.com/pull/42");
-		await branch.getByTitle("branch1", { exact: true }).click();
-		await expect(branch).toHaveAttribute("aria-selected", "true");
-		await branch.getByRole("button", { name: "Unfold commits" }).click();
-		await expect(branch).toHaveAttribute("aria-expanded", "true");
-		await expect(branch.getByRole("treeitem", { name: "branch1: second commit" })).toBeVisible();
-		await branch.getByRole("button", { name: "Fold commits" }).click();
+			await app.page.locator("#sidebar-panel").evaluate((el) => el.scrollWidth <= el.clientWidth),
+		).toBe(true);
+	});
 
-		await appWindow.getByRole("button", { name: "Filter branches", exact: true }).click();
-		const filter = appWindow.getByRole("textbox", { name: "Filter branches" });
+	test("opens the review in the browser", async ({ app }) => {
+		const opened = await app.backend.record("openInWebBrowser");
+
+		await app.branch("branch1").getByRole("link", { name: "Open #42 in browser" }).click();
+
+		await expect.poll(opened).toEqual([["https://example.com/pull/42"]]);
+	});
+
+	test("unfolds a reviewed branch's commits", async ({ app }) => {
+		await app.selectBranch("branch1");
+
+		await app.branch("branch1").getByRole("button", { name: "Unfold commits" }).click();
+
+		await expect(
+			app.branch("branch1").getByRole("treeitem", { name: "branch1: second commit" }),
+		).toBeVisible();
+	});
+
+	test("filters by label, author and review number", async ({ app }) => {
+		await app.getByRole("button", { name: "Filter branches", exact: true }).click();
+		const filter = app.getByRole("textbox", { name: "Filter branches" });
+
 		for (const query of ["performance", "octocat", "#42"]) {
 			await filter.fill(query);
-			await expect(branch).toBeVisible();
-			await expect(appWindow.getByRole("treeitem", { name: "branch2", exact: true })).toHaveCount(
-				0,
-			);
+			await expect(app.branch("branch1")).toBeVisible();
+			await expect(app.branch("branch2")).toHaveCount(0);
 		}
 		await filter.fill("!43");
-		await expect(appWindow.getByRole("treeitem", { name: "branch2", exact: true })).toBeVisible();
-		await expect(branch).toHaveCount(0);
+		await expect(app.branch("branch2")).toBeVisible();
+		await expect(app.branch("branch1")).toHaveCount(0);
+	});
+
+	test("says when no branch matches the filter, and Escape clears it", async ({ app }) => {
+		await app.getByRole("button", { name: "Filter branches", exact: true }).click();
+		const filter = app.getByRole("textbox", { name: "Filter branches" });
+
 		await filter.fill("#999");
-		await expect(appWindow.getByText("No branches match", { exact: true })).toBeVisible();
+		await expect(app).toShow("No branches match");
 		await filter.press("Escape");
-		await expect(branch).toBeVisible();
+		await expect(app.branch("branch1")).toBeVisible();
 	});
 });

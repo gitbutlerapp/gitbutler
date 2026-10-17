@@ -17,33 +17,28 @@ const lanes = [
 	},
 ];
 
-for (const { lane, scenario, appSettings, branch: branchName, commit: commitTitle } of lanes) {
+for (const { lane, scenario, appSettings, branch, commit } of lanes) {
 	test.describe(`a ${lane} branch`, () => {
 		test.use({ scenario, appSettings });
 
-		test("folding hands its selected commit's place to the branch", async ({ appWindow }) => {
-			const branch = appWindow.getByRole("treeitem", { name: branchName, exact: true });
-			const commit = appWindow.getByRole("treeitem", { name: commitTitle, exact: true });
-			await commit.click();
-			await expect(commit).toHaveAttribute("aria-selected", "true");
+		test("folding hands its selected commit's place to the branch", async ({ app }) => {
+			await app.selectCommit(commit);
 
-			await branch.getByRole("button", { name: "Fold commits" }).click();
+			await app.branch(branch).getByRole("button", { name: "Fold commits" }).click();
 
-			await expect(commit).toBeHidden();
-			await expect(branch).toHaveAttribute("aria-selected", "true");
+			await expect(app.commit(commit)).toBeHidden();
+			await expect(app.branch(branch)).toBeSelected();
 		});
 
-		test("the fold key folds the selected branch", async ({ appWindow }) => {
-			const branch = appWindow.getByRole("treeitem", { name: branchName, exact: true });
-			await branch.getByText(branchName, { exact: true }).click();
-			await expect(branch).toHaveAttribute("aria-selected", "true");
+		test("the fold key folds the selected branch", async ({ app }) => {
+			await app.selectBranch(branch);
 
-			await appWindow.keyboard.press("z");
+			await app.press("z");
 
-			await expect(branch.getByRole("button", { name: "Unfold commits" })).toBeVisible();
 			await expect(
-				appWindow.getByRole("treeitem", { name: commitTitle, exact: true }),
-			).toBeHidden();
+				app.branch(branch).getByRole("button", { name: "Unfold commits" }),
+			).toBeVisible();
+			await expect(app.commit(commit)).toBeHidden();
 		});
 	});
 }

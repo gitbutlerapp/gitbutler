@@ -1,35 +1,22 @@
+// A pull request on branch C with reviewers, checks and conversations, as the
+// PR panel and its merge checklist see it.
+
 import type {
-	ForgeReview,
-	ForgeInfo,
-	ForgeReviewSubmission,
-	ForgeReviewComment,
-	ForgeReviewThread,
 	CiCheck,
+	ForgeReviewComment,
+	ForgeReviewSubmission,
+	ForgeReviewThread,
 } from "@gitbutler/but-sdk";
-import type { ElectronApplication, Page } from "@playwright/test";
-const review: ForgeReview = {
-	number: 1,
-	title: "Improve keyboard navigation in large repositories",
+import { aReview, type FakeForge } from "./forge.ts";
+
+const review = aReview({
 	sourceBranch: "C",
-	targetBranch: "master",
-	htmlUrl: "https://github.com/example/repo/pull/1",
+	title: "Improve keyboard navigation in large repositories",
 	body: "This change makes outstanding review work explicit.",
-	author: null,
 	labels: [
 		{ name: "accessibility", color: "0e8a16", description: "Keyboard and screen reader support" },
 		{ name: "@gitbutler/lite", color: "5319e7", description: null },
 	],
-	draft: false,
-	sha: "0000000000000000000000000000000000000001",
-	integrationCommitShas: [],
-	createdAt: "2026-08-01T00:00:00Z",
-	modifiedAt: "2026-08-02T00:00:00Z",
-	mergedAt: null,
-	closedAt: null,
-	repositorySshUrl: null,
-	repositoryHttpsUrl: null,
-	repoOwner: null,
-	headRepoIsFork: false,
 	reviewers: [1, 2, 3, 4].map((id) => ({
 		id,
 		login: `reviewer${id}`,
@@ -38,26 +25,7 @@ const review: ForgeReview = {
 		avatarUrl: null,
 		isBot: false,
 	})),
-	autoMergeEnabled: false,
-	unitSymbol: "#",
-	lastSyncAt: "2026-08-02T00:00:00Z",
-};
-const forge: ForgeInfo = {
-	name: "github",
-	baseUrl: "https://github.com/example/repo",
-	commitUrlPath: "/commit/",
-	prUrlPath: "/pull/",
-	unit: { symbol: "#", name: "pull request", abbr: "PR" },
-	posthogLabel: "",
-	capabilities: {
-		prService: true,
-		checks: true,
-		repoInfo: false,
-		listService: false,
-		reviewComments: true,
-		reviewManagement: false,
-	},
-};
+});
 const author = {
 	id: 5,
 	login: "review-agent",
@@ -139,79 +107,33 @@ const checks: Array<CiCheck> = [
 	},
 ];
 
-export type ReviewState = {
-	/** Everyone has approved, every conversation is resolved and nothing is pending. */
-	clear?: boolean;
-	failing?: boolean;
-	review?: Partial<ForgeReview>;
-};
-
-export const setChecklistReviewState = async (
-	electronApp: ElectronApplication,
-	options: ReviewState = {},
-) => {
-	const currentReview = {
-		...review,
-		...(options.clear ? { reviewers: [] } : {}),
-		...options.review,
-	};
-	const currentChecks = options.failing
-		? checks.map((check) => ({
-				...check,
-				status: {
-					complete: { conclusion: "failure" as const, completed_at: "2026-09-01T00:01:00Z" },
-				},
-			}))
-		: checks;
-	await electronApp.evaluate(
-		({ ipcMain }, data) => {
-			const responses = {
-				forgeInfo: data.forge,
-				listReviews: [data.review],
-				getReview: data.review,
-				listKnownGithubAccounts: [{ type: "patUsername", info: { username: "test" } }],
-				getReviewMergeStatus: data.mergeStatus,
-				listCiChecks: data.checks,
-				listReviewSubmissions: data.submissions,
-				listReviewComments: data.comments,
-				listReviewThreads: data.threads,
-				listReviewTimelineEvents: [],
-				listReviewReactions: [],
-				currentForgeLogin: "test",
-			};
-			for (const [key, value] of Object.entries(responses)) {
-				ipcMain.removeHandler(key);
-				ipcMain.handle(key, () => value);
-			}
+/**
+ * By default the review is blocked: four reviews pending and one unresolved
+ * conversation. `clear` approves and resolves everything; `failing` fails the checks.
+ */
+export const mergeReadiness = ({
+	clear = false,
+	failing = false,
+}: { clear?: boolean; failing?: boolean } = {}): FakeForge => ({
+	reviews: [clear ? { ...review, reviewers: [] } : review],
+	activity: {
+		mergeStatus: {
+			isMergeable: clear && !failing,
+			mergeableState: clear && !failing ? "clean" : "blocked",
+			commentsCount: 1,
 		},
-		{
-			review: currentReview,
-			forge,
-			checks: currentChecks,
-			submissions: options.clear
-				? submissions.map((submission) => ({ ...submission, state: "approved" as const }))
-				: submissions,
-			comments: options.clear ? [] : comments,
-			threads: threads.map((thread) => ({ ...thread, isResolved: options.clear === true })),
-			mergeStatus: {
-				isMergeable: options.clear === true && !options.failing,
-				mergeableState: options.clear && !options.failing ? "clean" : "blocked",
-				commentsCount: 1,
-			},
-		},
-	);
-};
-
-export const openMergeReadinessReview = async (
-	appWindow: Page,
-	electronApp: ElectronApplication,
-	state: ReviewState = {},
-) => {
-	await appWindow.setViewportSize({ width: 1440, height: 900 });
-	await setChecklistReviewState(electronApp, state);
-	await appWindow.reload();
-	await appWindow
-		.getByRole("treeitem", { name: "C", exact: true })
-		.getByTitle("C", { exact: true })
-		.click();
-};
+		checks: failing
+			? checks.map((check) => ({
+					...check,
+					status: {
+						complete: { conclusion: "failure" as const, completed_at: "2026-09-01T00:01:00Z" },
+					},
+				}))
+			: checks,
+		submissions: clear
+			? submissions.map((submission) => ({ ...submission, state: "approved" as const }))
+			: submissions,
+		comments: clear ? [] : comments,
+		threads: threads.map((thread) => ({ ...thread, isResolved: clear })),
+	},
+});

@@ -9,24 +9,12 @@
 // is the caller's job: pairs that are byte-identical between two runs did not
 // change, and only the rest are worth showing a reviewer.
 
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import type { Page } from "@playwright/test";
-import { openMergeReadinessReview } from "../merge-readiness-fixture.ts";
+import { mkdirSync, rmSync } from "node:fs";
+import type { App } from "../app.ts";
+import { mergeReadiness } from "../merge-readiness-fixture.ts";
 import { enabled, goToTab, openProject, outputDir, shoot } from "../screenshot-helpers.ts";
+import type { Repo } from "../repo.ts";
 import { expect, test } from "../test.ts";
-
-/** The preload calls the edit-mode surface is reached through. */
-type EditModeBridge = {
-	headInfo: (projectId: string) => Promise<{
-		stacks: Array<{ id: string; segments: Array<{ commits: Array<{ id: string }> }> }>;
-	}>;
-	enterEditMode: (payload: {
-		projectId: string;
-		commitId: string;
-		stackId: string;
-	}) => Promise<unknown>;
-};
 
 test.describe("screenshots", () => {
 	test.skip(!enabled, "set SCREENSHOT_OUT to capture screenshots");
@@ -54,60 +42,49 @@ test.describe("screenshots", () => {
 			await shoot(appWindow, "details-pane", "#details-panel");
 		});
 
-		test("pull request form", async ({ appWindow }) => {
+		test("pull request form", async ({ app, appWindow }) => {
 			await openProject(appWindow);
 			// The branch tab is Redux state, not a route, so like the commit form
 			// this surface depends on a click producing a frame.
-			// The title, not the row: the row's middle is one of the commits inside it.
-			await appWindow
-				.getByRole("treeitem", { name: "C", exact: true })
-				.getByTitle("C", { exact: true })
-				.click();
-			await appWindow.getByRole("tab", { name: "Pull Request", exact: true }).click();
-			await expect(appWindow.getByPlaceholder("PR title")).toBeVisible();
+			await app.selectBranch("C");
+			await app.branchTab("Pull Request").click();
+			await expect(app.pullRequestForm).toBeVisible();
 			await shoot(appWindow, "pr-form", "#details-panel");
 		});
 
-		test("pull request panel", async ({ appWindow, electronApp }) => {
-			await openProject(appWindow);
-			// A branch with an open review opens on its pull request; the fixture
-			// stubs the forge so the panel has reviewers, checks and labels to show.
-			await openMergeReadinessReview(appWindow, electronApp);
-			await expect(
-				appWindow.getByRole("heading", {
-					name: "Improve keyboard navigation in large repositories",
-				}),
-			).toBeVisible();
-			// Both sides settle on the merge status; the checklist also loads its to-dos.
-			await expect(appWindow.getByRole("button", { name: "Merge", exact: true })).toBeDisabled();
-			await expect(appWindow.getByText(/Checking mergeability|Loading to-dos/)).toHaveCount(0);
-			await shoot(appWindow, "pr-panel", "#details-panel");
+		test.describe("with a pull request", () => {
+			// The forge gives the panel reviewers, checks and labels to show.
+			test.use({ forge: mergeReadiness() });
+
+			test("pull request panel", async ({ app, appWindow }) => {
+				await openProject(appWindow);
+				// A branch with an open review opens on its pull request.
+				await app.selectBranch("C");
+				await expect(
+					appWindow.getByRole("heading", {
+						name: "Improve keyboard navigation in large repositories",
+					}),
+				).toBeVisible();
+				// Both sides settle on the merge status; the checklist also loads its to-dos.
+				await expect(app.mergeButton).toBeDisabled();
+				await expect(appWindow.getByText(/Checking mergeability|Loading to-dos/)).toHaveCount(0);
+				await shoot(appWindow, "pr-panel", "#details-panel");
+			});
 		});
 	});
 
 	test.describe("edit mode", () => {
 		test.use({ scenario: "project-with-conflicted-commit.sh" });
 
-		test("edit mode page", async ({ appWindow }) => {
+		test("edit mode page", async ({ app, appWindow }) => {
 			await openProject(appWindow);
 
 			// Edit mode is repository state rather than a route, so it is entered
 			// through the same call the commit menu makes and then reloaded into:
 			// the surface has to be reached by a load, never by a click.
-			await appWindow.evaluate(async () => {
-				const lite = (window as unknown as { lite: EditModeBridge }).lite;
-				const projectId = location.pathname.split("/")[2];
-				if (projectId === undefined) throw new Error("No project in the URL");
-
-				const { stacks } = await lite.headInfo(projectId);
-				const stack = stacks[0];
-				const commit = stack?.segments.flatMap((segment) => segment.commits)[0];
-				if (!stack || !commit) throw new Error("The seeded project has no commit to edit");
-
-				await lite.enterEditMode({ projectId, commitId: commit.id, stackId: stack.id });
-			});
-			await appWindow.reload();
-			await expect(appWindow.getByRole("heading", { name: "Editing commit" })).toBeVisible();
+			await app.enterEditMode();
+			await app.reload();
+			await expect(app.editModeHeading).toBeVisible();
 
 			// The page centres a 640px column in the whole outlet, so clipping the
 			// outlet would be mostly empty background: clip the column itself.
@@ -124,9 +101,9 @@ test.describe("screenshots", () => {
 			await shoot(appWindow, "branches-tab", "#sidebar-panel");
 		});
 
-		test("project picker", async ({ appWindow }) => {
+		test("project picker", async ({ app, appWindow }) => {
 			await openProject(appWindow);
-			await appWindow.getByRole("combobox", { name: /select project/i }).click();
+			await app.projectPicker.click();
 			await shoot(appWindow, "project-picker", '[class*="ProjectPicker-module_popup"]');
 		});
 	});
@@ -137,30 +114,27 @@ test.describe("screenshots", () => {
 		test.use({ scenario: "project-in-single-branch-three-branch-stack.sh" });
 
 		/** Leaves the seeded clone with one added and one modified file. */
-		const dirty = async (appWindow: Page, workdir: string): Promise<void> => {
-			const clone = path.join(workdir, "local-clone");
-			writeFileSync(path.join(clone, "added.txt"), "a new, uncommitted file\n");
-			writeFileSync(path.join(clone, "base.txt"), "base, now modified\n");
-			await appWindow.reload();
-			await appWindow.getByRole("main").waitFor();
+		const dirty = async (app: App, repo: Repo): Promise<void> => {
+			await repo.write("added.txt", "a new, uncommitted file\n");
+			await repo.write("base.txt", "base, now modified\n");
 			// Wait for the rows themselves. Without this both runs can photograph an
 			// empty list, match, and be reported as "unchanged" — a surface silently
 			// contributing nothing while looking like coverage.
-			await expect(appWindow.getByText("added.txt")).toBeVisible();
+			await expect(app.uncommittedFile("added.txt")).toBeVisible();
 		};
 
-		test("uncommitted file rows", async ({ appWindow, testEnvironment }) => {
+		test("uncommitted file rows", async ({ app, appWindow, repo }) => {
 			await openProject(appWindow);
-			await dirty(appWindow, testEnvironment.workdir);
+			await dirty(app, repo);
 			await shoot(appWindow, "uncommitted", "#sidebar-panel");
 		});
 
-		test("commit form", async ({ appWindow, testEnvironment }) => {
+		test("commit form", async ({ app, appWindow, repo }) => {
 			await openProject(appWindow);
-			await dirty(appWindow, testEnvironment.workdir);
+			await dirty(app, repo);
 			// Expanding the form is in-app state, not a navigation, so this surface
 			// depends on a click producing a frame the way the dialogs do.
-			await appWindow.getByRole("button", { name: /start commit/i }).click();
+			await app.startCommit();
 			await shoot(appWindow, "commit-form", "#sidebar-panel");
 		});
 	});
