@@ -4,6 +4,7 @@
 use gpui::{AnyElement, ClickEvent, Context, div, prelude::*, px};
 
 use super::Detail;
+use super::panes::side_header;
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::{Icon, Tooltip, empty_state, h_flex, icon, plural, v_flex};
@@ -52,16 +53,9 @@ impl Detail {
         v_flex()
             .size_full()
             .child(
-                v_flex()
-                    .flex_none()
-                    .p(px(16.))
-                    .gap(px(6.))
-                    .border_b_1()
-                    .border_color(theme.border_3)
+                side_header(theme)
                     .child(
-                        gpui::div()
-                            .flex()
-                            .items_center()
+                        h_flex()
                             .gap(px(8.))
                             .child(icon(Icon::Folder).text_color(theme.text_2))
                             .child(

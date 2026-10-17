@@ -1,35 +1,35 @@
 //! The Branches page: branches outside the workspace, local ones first, then the ones only a
 //! remote has, each with what it would bring in, ready to apply or delete.
 
-use std::ops::Range;
-
 use gpui::{
-    AnyElement, Context, Focusable as _, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
-    Window, div, prelude::*, px, uniform_list,
+    AnyElement, ClickEvent, Context, Focusable as _, MouseButton, MouseDownEvent, Pixels, Point,
+    SharedString, Window, div, prelude::*, px,
 };
 
 use super::Detail;
+use super::panes::{Crumb, list_heading, side_list};
 use crate::app::MenuItem;
 use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
 use crate::backend::{self, CommitId, DiffSource};
 use crate::navigator::drag_preview;
 use crate::state::{Cut, Overlay, ProjectId, Selection};
 use crate::theme::Theme;
-use crate::ui::scrollbar::{Scroll, scrolled};
-use crate::ui::{Icon, empty_state, field, list_row, relative_time, small_icon};
+use crate::ui::{
+    ButtonStyle, Icon, button, empty_state, field, list_row, relative_time, small_icon, v_flex,
+};
 
 pub(super) struct Branches {
-    pub project: ProjectId,
+    project: ProjectId,
     /// The workspace's branches and target when the list loaded; a reload that changes
     /// neither leaves the list as it is. `None` until it has loaded.
-    pub seen: Option<u64>,
-    pub list: Vec<OtherBranch>,
+    seen: Option<u64>,
+    list: Vec<OtherBranch>,
     /// The selected branch, by ref.
-    pub selected: Option<String>,
+    selected: Option<String>,
     /// The selected branch's commits, by what they were loaded for.
-    pub commits: Option<(Loaded, Vec<BranchCommit>)>,
+    commits: Option<(Loaded, Vec<BranchCommit>)>,
     /// One of those commits, to see on its own and to copy into the workspace.
-    pub commit: Option<CommitId>,
+    commit: Option<CommitId>,
 }
 
 impl Branches {
@@ -131,8 +131,7 @@ impl Detail {
         self.branches.as_ref().filter(|b| b.project == *project)
     }
 
-    /// The branch the page has selected.
-    pub(super) fn selected_other_branch(&self, project: &ProjectId) -> Option<&OtherBranch> {
+    fn selected_other_branch(&self, project: &ProjectId) -> Option<&OtherBranch> {
         self.branches_for(project)?.selected_branch()
     }
 
@@ -147,13 +146,11 @@ impl Detail {
         })
     }
 
-    /// The commit of the selected branch the page shows, if one is selected.
-    pub(super) fn selected_branch_commit(&self, project: &ProjectId) -> Option<CommitId> {
+    fn selected_branch_commit(&self, project: &ProjectId) -> Option<CommitId> {
         self.branches_for(project)?.commit
     }
 
-    /// The title of the selected branch's selected commit.
-    pub(super) fn selected_branch_commit_title(&self, project: &ProjectId) -> Option<String> {
+    fn selected_branch_commit_title(&self, project: &ProjectId) -> Option<String> {
         let branches = self.branches_for(project)?;
         let (_, commits) = branches.commits.as_ref()?;
         let commit = commits.iter().find(|c| Some(c.id) == branches.commit)?;
@@ -251,10 +248,8 @@ impl Detail {
             branches.selected = Some(ref_name);
             branches.commit = None;
         }
-        self.reset_view();
         self.load_branch_commits(cx);
-        self.refresh_diff(true, cx);
-        cx.notify();
+        self.show_picked(cx);
     }
 
     /// Open the Branches page on `ref_name`.
@@ -290,9 +285,7 @@ impl Detail {
         if let Some(branches) = &mut self.branches {
             branches.commit = Some(id);
         }
-        self.reset_view();
-        self.refresh_diff(true, cx);
-        cx.notify();
+        self.show_picked(cx);
     }
 
     /// Select commit `id` and offer to copy it into the workspace, or its ID.
@@ -319,7 +312,7 @@ impl Detail {
     }
 
     /// Pick up the selected commit, to put a copy of it where ⌘V lands in the workspace.
-    pub(super) fn copy_branch_commit(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+    fn copy_branch_commit(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
         let Some(id) = self.selected_branch_commit(project) else {
             return;
         };
@@ -327,7 +320,7 @@ impl Detail {
         self.app.update(cx, |app, cx| app.cut(cut, cx)).ok();
     }
 
-    pub(super) fn apply_branch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+    fn apply_branch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
         let Some(branch) = self.selected_other_branch(project) else {
             return;
         };
@@ -356,7 +349,7 @@ impl Detail {
         });
     }
 
-    pub(super) fn delete_other_branch(
+    fn delete_other_branch(
         &mut self,
         project: &ProjectId,
         window: &mut Window,
@@ -409,171 +402,212 @@ impl Detail {
             return empty_state("Loading branches…", "", theme);
         };
         let rows = self.branch_rows(branches, cx);
-        let list: AnyElement = if rows.is_empty() {
-            empty_state(
-                if branches.list.is_empty() {
-                    "Every branch is applied"
-                } else {
-                    "No branches match"
-                },
-                "",
-                theme,
-            )
+        let list = if rows.is_empty() {
+            let empty = if branches.list.is_empty() {
+                "Every branch is applied"
+            } else {
+                "No branches match"
+            };
+            div()
+                .flex_1()
+                .min_h(px(0.))
+                .child(empty_state(empty, "", theme))
         } else {
-            uniform_list(
+            side_list(
                 "other-branches",
                 rows.len(),
-                cx.processor(move |this, range: Range<usize>, _, cx| {
-                    let theme = Theme::get(cx).clone();
-                    let Some(branches) = this.branches.as_ref() else {
-                        return Vec::new();
-                    };
-                    range
-                        .filter_map(|ix| rows.get(ix).map(|row| (ix, row)))
-                        .map(|(ix, row)| match row {
-                            Row::Heading(heading) => div()
-                                .w_full()
-                                .h(px(crate::ui::ROW_HEIGHT))
-                                .flex()
-                                .items_end()
-                                .px(px(14.))
-                                .pb(px(4.))
-                                .text_size(px(11.))
-                                .text_color(theme.text_3)
-                                .child(*heading)
-                                .into_any_element(),
-                            Row::Commit(commit_ix) => {
-                                let Some((_, commits)) = &branches.commits else {
-                                    return div().into_any_element();
-                                };
-                                let commit = &commits[*commit_ix];
-                                let id = commit.id;
-                                let label: SharedString = commit.title.clone().into();
-                                let project = branches.project.clone();
-                                let payload = Cut::Pick(project.clone(), id);
-                                div()
-                                    .w_full()
-                                    .child(
-                                        list_row(
-                                            ("other-commit", ix),
-                                            branches.commit == Some(id),
-                                            &theme,
-                                        )
-                                        .pl(px(30.))
-                                        .aria_label(label.clone())
-                                        .child(small_icon(Icon::Commit).text_color(theme.text_3))
-                                        .child(
-                                            div()
-                                                .flex_1()
-                                                .min_w(px(0.))
-                                                .truncate()
-                                                .text_size(px(12.))
-                                                .child(label.clone()),
-                                        )
-                                        .child(
-                                            div()
-                                                .flex_none()
-                                                .text_size(px(11.))
-                                                .text_color(theme.text_3)
-                                                .child(relative_time(commit.time)),
-                                        )
-                                        .on_click(cx.listener(move |this, _, _, cx| {
-                                            this.select_branch_commit(id, cx)
-                                        }))
-                                        .on_mouse_down(
-                                            MouseButton::Right,
-                                            cx.listener(
-                                                move |this, event: &MouseDownEvent, _, cx| {
-                                                    let at = event.position;
-                                                    this.branch_commit_menu(&project, id, at, cx)
-                                                },
-                                            ),
-                                        )
-                                        .on_drag(payload, drag_preview(this.store.clone(), label)),
+                &self.branches_scroll,
+                "branches-scrollbar",
+                cx,
+                move |this, ix, theme, cx| {
+                    let branches = this.branches.as_ref()?;
+                    Some(match rows.get(ix)? {
+                        Row::Heading(heading) => list_heading(*heading, theme),
+                        Row::Commit(commit_ix) => {
+                            let Some((_, commits)) = &branches.commits else {
+                                return Some(div().into_any_element());
+                            };
+                            let commit = &commits[*commit_ix];
+                            let id = commit.id;
+                            let label: SharedString = commit.title.clone().into();
+                            let project = branches.project.clone();
+                            let payload = Cut::Pick(project.clone(), id);
+                            list_row(("other-commit", ix), branches.commit == Some(id), theme)
+                                .pl(px(30.))
+                                .aria_label(label.clone())
+                                .child(small_icon(Icon::Commit).text_color(theme.text_3))
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w(px(0.))
+                                        .truncate()
+                                        .text_size(px(12.))
+                                        .child(label.clone()),
+                                )
+                                .child(
+                                    div()
+                                        .flex_none()
+                                        .text_size(px(11.))
+                                        .text_color(theme.text_3)
+                                        .child(relative_time(commit.time)),
+                                )
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.select_branch_commit(id, cx)
+                                }))
+                                .on_mouse_down(
+                                    MouseButton::Right,
+                                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                                        let at = event.position;
+                                        this.branch_commit_menu(&project, id, at, cx)
+                                    }),
+                                )
+                                .on_drag(payload, drag_preview(this.store.clone(), label))
+                                .into_any_element()
+                        }
+                        Row::Branch(branch_ix) => {
+                            let branch = &branches.list[*branch_ix];
+                            let selected = branches.selected.as_ref() == Some(&branch.ref_name);
+                            let ref_name = branch.ref_name.clone();
+                            let merged = branch.ahead == Some(0);
+                            list_row(("other-branch", ix), selected, theme)
+                                .child(small_icon(Icon::Branch).text_color(theme.text_2))
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w(px(0.))
+                                        .truncate()
+                                        .font_family(theme.mono_font.clone())
+                                        .text_size(px(12.))
+                                        .text_color(if merged { theme.text_2 } else { theme.blue })
+                                        .child(SharedString::from(branch.name.clone())),
+                                )
+                                .when_some(branch.review, |el, (number, _)| {
+                                    el.child(
+                                        div()
+                                            .text_size(px(11.))
+                                            .text_color(theme.text_2)
+                                            .child(format!("#{number}")),
                                     )
-                                    .into_any_element()
-                            }
-                            Row::Branch(branch_ix) => {
-                                let branch = &branches.list[*branch_ix];
-                                let selected = branches.selected.as_ref() == Some(&branch.ref_name);
-                                let ref_name = branch.ref_name.clone();
-                                let merged = branch.ahead == Some(0);
-                                div()
-                                    .w_full()
-                                    .child(
-                                        list_row(("other-branch", ix), selected, &theme)
-                                            .child(
-                                                small_icon(Icon::Branch).text_color(theme.text_2),
-                                            )
-                                            .child(
-                                                div()
-                                                    .flex_1()
-                                                    .min_w(px(0.))
-                                                    .truncate()
-                                                    .font_family(theme.mono_font.clone())
-                                                    .text_size(px(12.))
-                                                    .text_color(if merged {
-                                                        theme.text_2
-                                                    } else {
-                                                        theme.blue
-                                                    })
-                                                    .child(SharedString::from(branch.name.clone())),
-                                            )
-                                            .when_some(branch.review, |el, (number, _)| {
-                                                el.child(
-                                                    div()
-                                                        .text_size(px(11.))
-                                                        .text_color(theme.text_2)
-                                                        .child(format!("#{number}")),
-                                                )
-                                            })
-                                            .when(merged, |el| {
-                                                el.child(
-                                                    div()
-                                                        .text_size(px(11.))
-                                                        .text_color(theme.text_3)
-                                                        .child("in target"),
-                                                )
-                                            })
-                                            .when_some(branch.time, |el, time| {
-                                                el.child(
-                                                    div()
-                                                        .flex_none()
-                                                        .text_size(px(11.))
-                                                        .text_color(theme.text_3)
-                                                        .child(relative_time(time)),
-                                                )
-                                            })
-                                            .on_click(cx.listener(move |this, _, _, cx| {
-                                                this.select_other_branch(ref_name.clone(), cx)
-                                            })),
+                                })
+                                .when(merged, |el| {
+                                    el.child(
+                                        div()
+                                            .text_size(px(11.))
+                                            .text_color(theme.text_3)
+                                            .child("in target"),
                                     )
-                                    .into_any_element()
-                            }
-                        })
-                        .collect()
-                }),
+                                })
+                                .when_some(branch.time, |el, time| {
+                                    el.child(
+                                        div()
+                                            .flex_none()
+                                            .text_size(px(11.))
+                                            .text_color(theme.text_3)
+                                            .child(relative_time(time)),
+                                    )
+                                })
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.select_other_branch(ref_name.clone(), cx)
+                                }))
+                                .into_any_element()
+                        }
+                    })
+                },
             )
-            .track_scroll(&self.branches_scroll)
-            .size_full()
-            .into_any_element()
         };
-        gpui::div()
-            .flex()
-            .flex_col()
+        v_flex()
             .size_full()
             .child(filter)
-            .child(scrolled(
-                list,
-                "branches-scrollbar",
-                Scroll::Uniform(self.branches_scroll.clone()),
-                theme,
-            ))
+            .child(list)
             .into_any_element()
     }
 
+    /// The header's crumbs for the selected branch and commit, and what can be done with
+    /// them.
+    pub(super) fn branches_header(
+        &self,
+        project: &ProjectId,
+        crumbs: &mut Vec<Crumb>,
+        actions: &mut Vec<AnyElement>,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) {
+        let Some(branch) = self.selected_other_branch(project) else {
+            return;
+        };
+        crumbs.push((branch.name.clone().into(), None));
+        let local = branch.local;
+        if let Some(summary) = self.other_branch_summary(project) {
+            actions.push(
+                div()
+                    .text_size(px(12.))
+                    .text_color(theme.text_2)
+                    .child(summary)
+                    .into_any_element(),
+            );
+        }
+        if let Some(title) = self.selected_branch_commit_title(project) {
+            crumbs.push((title.into(), None));
+            let project = project.clone();
+            actions.push(
+                button("copy-commit", "Cherry-pick")
+                    .style(ButtonStyle::Ghost)
+                    .tooltip(
+                        "Copy this commit, then press ⌘V on a branch or commit to put it \
+                         there. Dragging it there does the same.",
+                    )
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.copy_branch_commit(&project, cx)
+                    }))
+                    .into_any_element(),
+            );
+        }
+        // A linked worktree has it checked out: deleting or applying it would pull it out
+        // from under that worktree.
+        let worktree = (self.store.read(cx).workspace(project).filter(|_| local))
+            .and_then(|ws| {
+                (ws.worktrees.iter()).find(|w| w.branch.as_deref() == Some(branch.name.as_str()))
+            })
+            .map(|worktree| worktree.name.clone());
+        if let Some(name) = worktree {
+            let shown = Selection::Worktree(project.clone(), name);
+            let store = self.store.clone();
+            actions.push(
+                button("open-worktree", "Open worktree")
+                    .style(ButtonStyle::Pop)
+                    .tooltip("A linked worktree has it checked out")
+                    .on_click(move |_, _, cx| {
+                        store.update(cx, |store, cx| store.select(Some(shown.clone()), cx))
+                    })
+                    .into_any_element(),
+            );
+        } else {
+            if local {
+                let project = project.clone();
+                actions.push(
+                    button("delete-other", "Delete…")
+                        .style(ButtonStyle::Ghost)
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            this.delete_other_branch(&project, window, cx)
+                        }))
+                        .into_any_element(),
+                );
+            }
+            let project = project.clone();
+            actions.push(
+                button("apply-branch", "Apply")
+                    .style(ButtonStyle::Pop)
+                    .tooltip("Add it to the workspace, beside your other branches")
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.apply_branch(&project, cx)
+                    }))
+                    .into_any_element(),
+            );
+        }
+    }
+
     /// What the page's header says about the selected branch: who and how far ahead.
-    pub(super) fn other_branch_summary(&self, project: &ProjectId) -> Option<String> {
+    fn other_branch_summary(&self, project: &ProjectId) -> Option<String> {
         let branch = self.selected_other_branch(project)?;
         let ahead = match branch.ahead {
             Some(0) => "already in the target".to_owned(),

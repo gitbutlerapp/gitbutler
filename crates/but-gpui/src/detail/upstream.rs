@@ -2,20 +2,17 @@
 //! commits the workspace doesn't have yet first, each with the pull request that landed
 //! it. Selecting one shows its diff.
 
-use std::ops::Range;
 use std::time::{Duration, Instant};
 
-use gpui::{AnyElement, Context, SharedString, div, prelude::*, px, uniform_list};
+use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
+use super::panes::{list_heading, side_header, side_list};
 use crate::backend::upstream::{self, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource};
 use crate::state::ProjectId;
 use crate::theme::Theme;
-use crate::ui::scrollbar::{Scroll, scrolled};
-use crate::ui::{
-    Icon, ROW_HEIGHT, h_flex, icon, list_row, plural, relative_time, small_icon, v_flex,
-};
+use crate::ui::{Icon, h_flex, icon, list_row, plural, relative_time, small_icon, v_flex};
 
 /// How many target commits a page holds.
 const PAGE: u32 = 50;
@@ -25,15 +22,16 @@ const PAGE: u32 = 50;
 const STALE_AFTER: Duration = Duration::from_secs(60);
 
 pub(super) struct Upstream {
-    pub project: ProjectId,
-    pub commits: Vec<TargetCommit>,
-    pub more: bool,
-    pub selected: Option<CommitId>,
-    /// When the project last fetched successfully, and why the last fetch failed.
-    pub fetched: Option<i64>,
+    project: ProjectId,
+    commits: Vec<TargetCommit>,
+    more: bool,
+    selected: Option<CommitId>,
+    /// When the project last fetched successfully.
+    fetched: Option<i64>,
+    /// Why the last fetch failed.
+    fetch_error: Option<String>,
     /// The forge the project is on, when no account for it is connected.
-    pub unconnected_forge: Option<String>,
-    pub fetch_error: Option<String>,
+    unconnected_forge: Option<String>,
     /// What the list was loaded for, and when.
     seen: (u64, Instant),
 }
@@ -153,7 +151,7 @@ impl Detail {
         hasher.finish()
     }
 
-    pub(super) fn upstream_for(&self, project: &ProjectId) -> Option<&Upstream> {
+    fn upstream_for(&self, project: &ProjectId) -> Option<&Upstream> {
         self.upstream.as_ref().filter(|u| u.project == *project)
     }
 
@@ -190,9 +188,7 @@ impl Detail {
         if let Some(upstream) = &mut self.upstream {
             upstream.selected = Some(id);
         }
-        self.reset_view();
-        self.refresh_diff(true, cx);
-        cx.notify();
+        self.show_picked(cx);
     }
 
     pub(super) fn render_upstream_side(
@@ -213,12 +209,7 @@ impl Detail {
         let upstream = self.upstream_for(project);
         let fetched = upstream.and_then(|u| u.fetched);
         let fetch_error = upstream.and_then(|u| u.fetch_error.clone());
-        let about = v_flex()
-            .flex_none()
-            .p(px(16.))
-            .gap(px(6.))
-            .border_b_1()
-            .border_color(theme.border_3)
+        let about = side_header(theme)
             .text_size(px(12.))
             .child(
                 div()
@@ -365,105 +356,70 @@ impl Detail {
         }
         let target = target.unwrap_or_else(|| "the target".into());
         let rows = self.upstream_rows(upstream, &target);
-        let list = uniform_list(
-            "target-commits",
-            rows.len(),
-            cx.processor(move |this, range: Range<usize>, _, cx| {
-                let theme = Theme::get(cx).clone();
-                let Some(upstream) = this.upstream.as_ref() else {
-                    return Vec::new();
-                };
-                range
-                    .filter_map(|ix| rows.get(ix).map(|row| (ix, row)))
-                    .map(|(ix, row)| match row {
-                        Row::Heading(heading) => div()
-                            .w_full()
-                            .h(px(ROW_HEIGHT))
-                            .flex()
-                            .items_end()
-                            .px(px(14.))
-                            .pb(px(4.))
-                            .text_size(px(11.))
-                            .text_color(theme.text_3)
-                            .child(SharedString::from(heading.clone()))
-                            .into_any_element(),
+        v_flex()
+            .size_full()
+            .child(about)
+            .child(side_list(
+                "target-commits",
+                rows.len(),
+                &self.upstream_scroll,
+                "target-scrollbar",
+                cx,
+                move |this, ix, theme, cx| {
+                    let upstream = this.upstream.as_ref()?;
+                    Some(match rows.get(ix)? {
+                        Row::Heading(heading) => list_heading(heading.clone(), theme),
                         Row::Commit(commit_ix) => {
                             let commit = &upstream.commits[*commit_ix];
                             let id = commit.id;
-                            div()
-                                .w_full()
+                            let selected = upstream.selected == Some(id);
+                            let glyph = if commit.incoming {
+                                theme.warn
+                            } else {
+                                theme.text_3
+                            };
+                            list_row(("target-commit", ix), selected, theme)
+                                .child(small_icon(Icon::Commit).text_color(glyph))
                                 .child(
-                                    list_row(
-                                        ("target-commit", ix),
-                                        upstream.selected == Some(id),
-                                        &theme,
-                                    )
-                                    .child(small_icon(Icon::Commit).text_color(
-                                        if commit.incoming {
-                                            theme.warn
-                                        } else {
-                                            theme.text_3
-                                        },
-                                    ))
-                                    .child(
-                                        div()
-                                            .flex_1()
-                                            .min_w(px(0.))
-                                            .truncate()
-                                            .when(!commit.incoming, |el| {
-                                                el.text_color(theme.text_2)
-                                            })
-                                            .child(SharedString::from(commit.title.clone())),
-                                    )
-                                    .when_some(commit.review.as_ref(), |el, (number, _)| {
-                                        el.child(
-                                            div()
-                                                .text_size(px(11.))
-                                                .text_color(theme.text_2)
-                                                .child(SharedString::from(number.clone())),
-                                        )
-                                    })
-                                    .child(
-                                        div()
-                                            .flex_none()
-                                            .text_size(px(11.))
-                                            .text_color(theme.text_3)
-                                            .child(relative_time(commit.time)),
-                                    )
-                                    .on_click(cx.listener(
-                                        move |this, _, _, cx| this.select_target_commit(id, cx),
-                                    )),
+                                    div()
+                                        .flex_1()
+                                        .min_w(px(0.))
+                                        .truncate()
+                                        .when(!commit.incoming, |el| el.text_color(theme.text_2))
+                                        .child(SharedString::from(commit.title.clone())),
                                 )
+                                .when_some(commit.review.as_ref(), |el, (number, _)| {
+                                    el.child(
+                                        div()
+                                            .text_size(px(11.))
+                                            .text_color(theme.text_2)
+                                            .child(SharedString::from(number.clone())),
+                                    )
+                                })
+                                .child(
+                                    div()
+                                        .flex_none()
+                                        .text_size(px(11.))
+                                        .text_color(theme.text_3)
+                                        .child(relative_time(commit.time)),
+                                )
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.select_target_commit(id, cx)
+                                }))
                                 .into_any_element()
                         }
                         Row::More => {
                             let project = upstream.project.clone();
-                            div()
-                                .w_full()
-                                .child(
-                                    list_row("target-more", false, &theme)
-                                        .text_color(theme.text_2)
-                                        .child("Show older")
-                                        .on_click(cx.listener(move |this, _, _, cx| {
-                                            this.load_upstream(&project, true, true, cx)
-                                        })),
-                                )
+                            list_row("target-more", false, theme)
+                                .text_color(theme.text_2)
+                                .child("Show older")
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.load_upstream(&project, true, false, cx)
+                                }))
                                 .into_any_element()
                         }
                     })
-                    .collect()
-            }),
-        )
-        .track_scroll(&self.upstream_scroll)
-        .size_full();
-        v_flex()
-            .size_full()
-            .child(about)
-            .child(scrolled(
-                list,
-                "target-scrollbar",
-                Scroll::Uniform(self.upstream_scroll.clone()),
-                theme,
+                },
             ))
             .into_any_element()
     }

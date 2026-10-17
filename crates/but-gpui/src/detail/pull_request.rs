@@ -117,14 +117,25 @@ pub(super) fn render_review(
 /// and whether it was pushed.
 pub(super) type BranchMark = Option<(backend::CommitId, backend::PushState)>;
 
+/// How long a pull request's reviews and conversations go before a reload asks again.
+const FEEDBACK_STALE: Duration = Duration::from_secs(60);
+
 impl Detail {
-    pub(super) fn branch_mark(&self, project: &ProjectId, ref_name: &str, cx: &App) -> BranchMark {
+    fn branch_mark(&self, project: &ProjectId, ref_name: &str, cx: &App) -> BranchMark {
         let branch = self
             .store
             .read(cx)
             .workspace(project)?
             .find_branch(ref_name)?;
         Some((branch.commits.first()?.id, branch.push))
+    }
+
+    /// Whether a reload should ask the forge again about `ref_name`'s pull request: a push
+    /// can dismiss approvals, and a reviewer can weigh in any time.
+    pub(super) fn feedback_stale(&self, project: &ProjectId, ref_name: &str, cx: &App) -> bool {
+        let mark = self.branch_mark(project, ref_name, cx);
+        (self.feedback_asked.as_ref())
+            .is_none_or(|(at, asked)| at.elapsed() >= FEEDBACK_STALE || *asked != mark)
     }
 
     /// Ask the forge where the review of `ref_name`'s open pull request stands, for its card:

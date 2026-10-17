@@ -4,25 +4,22 @@
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, ElementId, Hsla, MouseButton, MouseDownEvent, Pixels,
-    Point, SharedString, Stateful, Toggled, Window, div, prelude::*, px, uniform_list,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Hsla, SharedString, Stateful,
+    UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
 };
 
-use super::file_tree::{self, TreeRow};
+use super::Detail;
 use super::pull_request::{render_comments, render_review};
-use super::{Detail, FilterFiles, checkbox_box, keeps_path};
 use crate::app::StartCommit;
-use crate::app::{AppView, MenuItem};
-use crate::backend::{self, CommitState, DiffSource, FileChange, FileDiff, PushState, Selected};
-use crate::state::{Cut, Overlay, ProjectId, Review, Selection};
+use crate::backend::{self, CommitState, FileChange, PushState};
+use crate::state::{ProjectId, Review, Selection};
 use crate::theme::Theme;
 use crate::transfer::short_ref;
-use crate::ui::diff;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, button, dot, empty_state, h_flex, icon, icon_button,
-    list_row, plural, relative_time, shortcut, small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, button, empty_state, h_flex, icon, icon_button,
+    plural, relative_time, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -34,7 +31,7 @@ impl Detail {
     ) -> impl IntoElement {
         let store = self.store.read(cx);
         // Each crumb but the last links to what it names.
-        let mut crumbs: Vec<(SharedString, Option<Selection>)> = Vec::new();
+        let mut crumbs: Vec<Crumb> = Vec::new();
         let mut actions: Vec<AnyElement> = Vec::new();
         if let Some(selection) = selection
             && let Some(entry) = store.project(selection.project())
@@ -80,32 +77,9 @@ impl Detail {
                         );
                     }
                 }
-                Selection::Uncommitted(project) => {
+                Selection::Uncommitted(_) => {
                     crumbs.push(("Uncommitted changes".into(), None));
-                    if store.to_review(project) > 0 {
-                        let project = project.clone();
-                        let store_handle = self.store.clone();
-                        actions.push(
-                            button("review-all", "Mark all reviewed")
-                                .icon(Icon::Tick)
-                                .style(ButtonStyle::Ghost)
-                                .on_click(move |_, _, cx| {
-                                    store_handle.update(cx, |store, cx| {
-                                        let unreviewed: Vec<FileChange> = store
-                                            .workspace(&project)
-                                            .map(|ws| ws.uncommitted.clone())
-                                            .unwrap_or_default()
-                                            .into_iter()
-                                            .filter(|f| {
-                                                store.review(&project, f) != Review::Reviewed
-                                            })
-                                            .collect();
-                                        store.set_reviewed(&project, &unreviewed, true, cx)
-                                    })
-                                })
-                                .into_any_element(),
-                        );
-                    }
+                    actions.extend(self.mark_all_reviewed(cx));
                 }
                 Selection::Branch(_, ref_name) => {
                     crumbs.push((short_ref(ref_name).to_owned().into(), None));
@@ -150,132 +124,15 @@ impl Detail {
                 }
                 Selection::Branches(project) => {
                     crumbs.push(("Branches".into(), Some(selection.clone())));
-                    if let Some(branch) = self.selected_other_branch(project) {
-                        crumbs.push((branch.name.clone().into(), None));
-                        let local = branch.local;
-                        if let Some(summary) = self.other_branch_summary(project) {
-                            actions.push(
-                                div()
-                                    .text_size(px(12.))
-                                    .text_color(theme.text_2)
-                                    .child(summary)
-                                    .into_any_element(),
-                            );
-                        }
-                        if let Some(title) = self.selected_branch_commit_title(project) {
-                            crumbs.push((title.into(), None));
-                            let project = project.clone();
-                            actions.push(
-                                button("copy-commit", "Cherry-pick")
-                                    .style(ButtonStyle::Ghost)
-                                    .tooltip(
-                                        "Copy this commit, then press ⌘V on a branch or commit \
-                                         to put it there. Dragging it there does the same.",
-                                    )
-                                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                                        this.copy_branch_commit(&project, cx)
-                                    }))
-                                    .into_any_element(),
-                            );
-                        }
-                        // A linked worktree has it checked out: deleting or applying it
-                        // would pull it out from under that worktree.
-                        let worktree = (workspace.filter(|_| local))
-                            .and_then(|ws| {
-                                (ws.worktrees.iter())
-                                    .find(|w| w.branch.as_deref() == Some(branch.name.as_str()))
-                            })
-                            .map(|worktree| worktree.name.clone());
-                        if let Some(name) = worktree {
-                            let shown = Selection::Worktree(project.clone(), name);
-                            let store = self.store.clone();
-                            actions.push(
-                                button("open-worktree", "Open worktree")
-                                    .style(ButtonStyle::Pop)
-                                    .tooltip("A linked worktree has it checked out")
-                                    .on_click(move |_, _, cx| {
-                                        store.update(cx, |store, cx| {
-                                            store.select(Some(shown.clone()), cx)
-                                        })
-                                    })
-                                    .into_any_element(),
-                            );
-                        } else {
-                            if local {
-                                let project = project.clone();
-                                actions.push(
-                                    button("delete-other", "Delete…")
-                                        .style(ButtonStyle::Ghost)
-                                        .on_click(cx.listener(
-                                            move |this, _: &ClickEvent, window, cx| {
-                                                this.delete_other_branch(&project, window, cx)
-                                            },
-                                        ))
-                                        .into_any_element(),
-                                );
-                            }
-                            let project = project.clone();
-                            actions.push(
-                                button("apply-branch", "Apply")
-                                    .style(ButtonStyle::Pop)
-                                    .tooltip("Add it to the workspace, beside your other branches")
-                                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                                        this.apply_branch(&project, cx)
-                                    }))
-                                    .into_any_element(),
-                            );
-                        }
-                    }
+                    self.branches_header(project, &mut crumbs, &mut actions, theme, cx);
                 }
-                Selection::Worktree(project, name) => {
+                Selection::Worktree(_, name) => {
                     crumbs.push((format!("Worktree {name}").into(), None));
-                    let scope = crate::state::worktree_review_scope(project, name);
-                    let unreviewed: Vec<FileChange> = (workspace.into_iter())
-                        .flat_map(|ws| &ws.worktrees)
-                        .filter(|w| w.name == *name)
-                        .flat_map(|w| &w.uncommitted)
-                        .filter(|f| store.review(&scope, f) != Review::Reviewed)
-                        .cloned()
-                        .collect();
-                    if !unreviewed.is_empty() {
-                        let store_handle = self.store.clone();
-                        actions.push(
-                            button("review-all", "Mark all reviewed")
-                                .icon(Icon::Tick)
-                                .style(ButtonStyle::Ghost)
-                                .on_click(move |_, _, cx| {
-                                    store_handle.update(cx, |store, cx| {
-                                        store.set_reviewed(&scope, &unreviewed, true, cx)
-                                    })
-                                })
-                                .into_any_element(),
-                        );
-                    }
+                    actions.extend(self.mark_all_reviewed(cx));
                 }
                 Selection::History(project) => {
                     crumbs.push(("History".into(), None));
-                    let snapshot = cx.listener({
-                        let project = project.clone();
-                        move |this, _: &ClickEvent, _, cx| this.take_snapshot(&project, cx)
-                    });
-                    actions.push(
-                        button("snapshot", "Take snapshot")
-                            .style(ButtonStyle::Ghost)
-                            .tooltip("Save how the project is now, to come back to later")
-                            .on_click(snapshot)
-                            .into_any_element(),
-                    );
-                    if self.selected_operation(project).is_some() {
-                        let project = project.clone();
-                        actions.push(
-                            button("restore", "Restore to before this")
-                                .style(ButtonStyle::Gray)
-                                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                                    this.restore_selected(&project, window, cx)
-                                }))
-                                .into_any_element(),
-                        );
-                    }
+                    self.history_header(project, &mut actions, cx);
                 }
                 Selection::Commit(project, id) => {
                     if let Some((branch, commit)) = workspace.and_then(|ws| ws.find_commit(*id)) {
@@ -338,548 +195,33 @@ impl Detail {
             })
     }
 
-    /// A file list, flat or as a tree as the user chose, drawn only as far as it's on
-    /// screen: an agent can leave thousands of files.
-    fn file_list(&self, id: &'static str, source: FileSource, cx: &Context<Self>) -> AnyElement {
+    /// "Mark all reviewed" for the selected checkout's uncommitted files, while any still
+    /// want a look. It marks them as they are when clicked.
+    fn mark_all_reviewed(&self, cx: &App) -> Option<AnyElement> {
+        let key = self.key_for_selection(cx)?;
+        let scope = key.review_scope()?;
         let store = self.store.read(cx);
-        let tree = store.file_tree;
-        let terms = self.filter_terms(cx);
-        // Each shown file's position in its source, as files a pending operation takes away
-        // aren't shown.
-        let (index, paths): (Vec<usize>, Vec<&str>) = match &source {
-            FileSource::Uncommitted(project) => store
-                .workspace(project)
-                .map(|ws| {
-                    ws.uncommitted
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, f)| {
-                            !store.hides_file(project, &f.path) && keeps_path(&terms, &f.path)
-                        })
-                        .map(|(pos, f)| (pos, f.path.as_str()))
-                        .unzip()
-                })
-                .unwrap_or_default(),
-            FileSource::Diff(..) => self
-                .diff
-                .as_ref()
-                .map(|diff| {
-                    diff.files
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, f)| keeps_path(&terms, &f.file.path))
-                        .map(|(pos, f)| (pos, f.file.path.as_str()))
-                        .unzip()
-                })
-                .unwrap_or_default(),
-        };
-        let rows: Vec<TreeRow> = if tree {
-            file_tree::tree_rows(&paths, &self.collapsed_dirs)
-        } else {
-            (0..paths.len())
-                .map(|pos| TreeRow::File { pos, depth: 0 })
-                .collect()
-        };
-        let handle = match source {
-            FileSource::Uncommitted(_) => self.uncommitted_files.clone(),
-            FileSource::Diff(..) => self.diff_files.clone(),
-        };
-        let list = uniform_list(
-            id,
-            rows.len(),
-            cx.processor(move |this, range: Range<usize>, _, cx| {
-                let theme = Theme::get(cx).clone();
-                range
-                    .filter_map(|ix| match &rows[ix] {
-                        dir @ TreeRow::Dir { .. } => this.render_dir_row(dir, &source, &theme, cx),
-                        TreeRow::File { pos, depth } => {
-                            let depth = tree.then_some(*depth);
-                            this.render_source_file(&source, index[*pos], depth, &theme, cx)
-                        }
-                    })
-                    // A list item is as wide as its content unless a column stretches it.
-                    .map(|row| v_flex().w_full().child(row))
-                    .collect::<Vec<_>>()
-            }),
-        )
-        .track_scroll(&handle)
-        .size_full();
-        let theme = Theme::get(cx);
-        scrolled(list, "files-scrollbar", Scroll::Uniform(handle), theme).into_any_element()
-    }
-
-    /// The `pos`th file of `source`, with what its list shows beside it.
-    fn render_source_file(
-        &self,
-        source: &FileSource,
-        pos: usize,
-        depth: Option<usize>,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Option<AnyElement> {
-        match source {
-            FileSource::Uncommitted(project) => {
-                let store = self.store.read(cx);
-                let file = store.workspace(project)?.uncommitted.get(pos)?;
-                let stats = self
-                    .diff
-                    .as_ref()
-                    .filter(|diff| diff.key.source == DiffSource::Worktree)
-                    .and_then(|diff| diff.files.iter().find(|f| f.file.path == file.path))
-                    .map(FileDiff::stats);
-                let extras = FileRow {
-                    stats,
-                    checkbox: self.composing.then(|| self.file_check(&file.path)),
-                    review: Some(store.review(project, file)),
-                    drag_from: Some((project.clone(), None)),
-                    depth,
-                };
-                Some(self.render_file_row(pos, file, extras, theme, cx))
-            }
-            FileSource::Diff(project, commit) => {
-                let diff = self.diff.as_ref()?;
-                let file = diff.files.get(pos)?;
-                // A linked worktree's files are reviewed too.
-                let review = (diff.key.review_scope())
-                    .map(|scope| self.store.read(cx).review(&scope, &file.file));
-                let extras = FileRow {
-                    stats: Some(file.stats()),
-                    review,
-                    drag_from: commit.map(|id| (project.clone(), Some(id))),
-                    depth,
-                    ..Default::default()
-                };
-                Some(self.render_file_row(pos, &file.file, extras, theme, cx))
-            }
-        }
-    }
-
-    /// The files under the folder `dir` in `source`, to act on together.
-    fn folder_payload(&self, source: &FileSource, dir: &str, cx: &gpui::App) -> Option<Cut> {
-        let prefix = format!("{dir}/");
-        // Only what the folder shows: not files the filter or a pending operation hides.
-        let terms = self.filter_terms(cx);
-        let under = |path: &str| path.starts_with(&prefix) && keeps_path(&terms, path);
-        let store = self.store.read(cx);
-        let (project, from, files): (_, _, Vec<FileChange>) = match source {
-            FileSource::Uncommitted(project) => (
-                project.clone(),
-                None,
-                (store.workspace(project)?.uncommitted.iter())
-                    .filter(|f| under(&f.path) && !store.hides_file(project, &f.path))
-                    .cloned()
-                    .collect(),
-            ),
-            FileSource::Diff(project, Some(commit)) => (
-                project.clone(),
-                Some(*commit),
-                self.diff
-                    .as_ref()?
-                    .files
-                    .iter()
-                    .map(|f| f.file.clone())
-                    .filter(|f| under(&f.path))
-                    .collect(),
-            ),
-            FileSource::Diff(_, None) => return None,
-        };
-        let files: Vec<Selected> = files
-            .into_iter()
-            .map(|file| Selected { file, hunks: None })
-            .collect();
-        (!files.is_empty()).then(|| Cut::Files {
-            project,
-            from,
-            files: files.into(),
-        })
-    }
-
-    fn render_dir_row(
-        &self,
-        row: &TreeRow,
-        source: &FileSource,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Option<AnyElement> {
-        let TreeRow::Dir {
-            path,
-            name,
-            depth,
-            collapsed,
-            files,
-        } = row.clone()
-        else {
+        let files = key.uncommitted(store)?;
+        if (files.iter()).all(|f| store.review(&scope, f) == Review::Reviewed) {
             return None;
-        };
-        let row = list_row(ElementId::Name(format!("dir-{path}").into()), false, theme)
-            .pl(px(10. + TREE_INDENT * depth as f32))
-            .gap(px(6.))
-            .text_color(theme.text_2)
-            .child(
-                small_icon(if collapsed {
-                    Icon::ChevronRight
-                } else {
-                    Icon::ChevronDown
-                })
-                .text_color(theme.text_3),
-            )
-            .child(small_icon(Icon::Folder).text_color(theme.text_3))
-            .child(div().flex_1().min_w(px(0.)).truncate().child(name))
-            .when(collapsed, |el| {
-                el.child(
-                    div()
-                        .text_size(px(11.))
-                        .text_color(theme.text_3)
-                        .child(files.to_string()),
-                )
-            })
-            .on_mouse_down(
-                MouseButton::Right,
-                cx.listener({
-                    let (source, path) = (source.clone(), path.clone());
-                    move |this, event: &MouseDownEvent, _, cx| {
-                        if let Some(payload) = this.folder_payload(&source, &path, cx) {
-                            // A folder: no one file to open.
-                            this.changes_menu(payload, None, event.position, cx)
-                        }
-                    }
-                }),
-            )
-            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                if !this.collapsed_dirs.remove(&path) {
-                    this.collapsed_dirs.insert(path.clone());
-                }
-                cx.notify();
-            }));
-        Some(row.into_any_element())
-    }
-
-    /// A file list's header while the file filter is open: the filter, how many of the
-    /// list's `paths` it keeps, and a way to close it.
-    fn filter_header<'a>(
-        &self,
-        paths: impl Iterator<Item = &'a str>,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Div {
-        let terms = self.filter_terms(cx);
-        let (kept, total) = paths.fold((0, 0), |(kept, total), path| {
-            (kept + usize::from(keeps_path(&terms, path)), total + 1)
-        });
-        h_flex()
-            .h(px(36.))
-            .pl(px(16.))
-            .pr(px(8.))
-            .gap(px(8.))
-            .flex_none()
-            .text_size(px(12.))
-            .child(small_icon(Icon::Search).text_color(theme.text_3))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w(px(0.))
-                    .text_size(px(13.))
-                    .child(self.file_filter.clone()),
-            )
-            .child(
-                div()
-                    .flex_none()
-                    .text_color(theme.text_3)
-                    .child(format!("{kept} of {total}")),
-            )
-            .child(
-                icon_button("close-filter", Icon::Cross)
-                    .small()
-                    .tooltip("Close the filter")
-                    .on_click(cx.listener(|this, _, window, cx| this.close_filter(window, cx))),
-            )
-    }
-
-    fn filter_button(&self, cx: &Context<Self>) -> impl IntoElement {
-        icon_button("filter-files", Icon::Search)
-            .small()
-            .tooltip_with_key("Filter files", shortcut(&FilterFiles, cx))
-            .on_click(cx.listener(|this, _, window, cx| this.open_filter(window, cx)))
-    }
-
-    fn tree_toggle(&self, cx: &Context<Self>) -> impl IntoElement {
-        let tree = self.store.read(cx).file_tree;
+        }
         let store = self.store.clone();
-        icon_button(
-            "file-tree",
-            if tree { Icon::List } else { Icon::FolderTree },
-        )
-        .small()
-        .tooltip(if tree { "Show as list" } else { "Show as tree" })
-        .on_click(move |_, _, cx| {
-            store.update(cx, |store, cx| store.set_file_tree(!tree, cx));
-        })
-    }
-
-    fn render_file_row(
-        &self,
-        ix: usize,
-        file: &FileChange,
-        extras: FileRow,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let (name, dir) = diff::split_path(&file.path);
-        let path = file.path.clone();
-        let diff_ix = self.diff_index(&file.path);
-        let current = diff_ix.is_some_and(|d| d == self.cursor.file);
-        let reviewed = extras.review == Some(Review::Reviewed);
-        // In a tree a file lines up with its directory's name, and the path is the tree.
-        let indent = extras
-            .depth
-            .map_or(0., |depth| TREE_INDENT * depth as f32 + 18.);
-        let dir = if extras.depth.is_some() { "" } else { dir };
-        let mut row = list_row(("file", ix), current, theme)
-            .aria_label(file.path.clone())
-            .aria_description(file.kind.word())
-            .pl(px(10. + indent))
-            .when_some(extras.checkbox, |el, check| {
-                let path = path.clone();
-                el.child(
-                    checkbox_box(("check", ix), check, theme)
-                        // Checking a file doesn't scroll to it.
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            cx.stop_propagation();
-                            this.toggle_checked(&path, cx)
-                        })),
-                )
-            })
-            .child(if file.conflicted {
-                small_icon(Icon::Warning)
-                    .size(px(10.))
-                    .text_color(theme.danger)
-                    .into_any_element()
-            } else {
-                div()
-                    .flex_none()
-                    .w(px(10.))
-                    .text_size(px(11.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .text_color(diff::change_color(file.kind, theme))
-                    .child(file.kind.letter())
-                    .into_any_element()
-            })
-            .child(
-                h_flex()
-                    .flex_1()
-                    .min_w(px(0.))
-                    .gap(px(6.))
-                    .overflow_hidden()
-                    // Reviewed files step back, as in Lite's file list.
-                    .when(reviewed, |el| el.opacity(0.5))
-                    .child(
-                        div()
-                            .flex_none()
-                            .max_w(px(160.))
-                            .truncate()
-                            .child(name.to_owned()),
-                    )
-                    .child(
-                        div()
-                            .min_w(px(0.))
-                            .truncate()
-                            .text_size(px(12.))
-                            .text_color(theme.text_3)
-                            .child(dir.to_owned()),
-                    ),
-            )
-            .when_some(extras.stats, |el, (added, removed)| {
-                el.child(diff::stats(added, removed, theme))
-            })
-            // A conflicted file says so where the others say when they changed.
-            .children(
-                match (file.conflicted, file.modified) {
-                    (true, _) => Some((theme.danger, "conflicted".to_owned())),
-                    (false, Some(ms)) => Some((theme.text_3, relative_time(ms / 1000))),
-                    (false, None) => None,
-                }
-                .map(|(color, text)| {
-                    div()
-                        .flex_none()
-                        .text_size(px(11.))
-                        .text_color(color)
-                        .child(text)
-                }),
-            )
-            .when_some(extras.review, |el, review| {
-                el.child(match review {
-                    Review::Reviewed => small_icon(Icon::Tick)
-                        .text_color(theme.pop)
-                        .into_any_element(),
-                    Review::Changed => dot(theme.warn).mx(px(3.)).into_any_element(),
-                    Review::NotReviewed => div().flex_none().w(px(12.)).into_any_element(),
-                })
-            })
-            .when_some(diff_ix, |el, diff_ix| {
-                el.on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, _: &MouseDownEvent, _, cx| {
-                        this.scroll_to_file(diff_ix, cx)
-                    }),
-                )
-            });
-        if let Some((project, from)) = extras.drag_from {
-            let payload = Cut::Files {
-                project,
-                from,
-                files: vec![Selected {
-                    file: file.clone(),
-                    hunks: None,
-                }]
-                .into(),
-            };
-            let label: SharedString = file.path.clone().into();
-            let menu_payload = payload.clone();
-            row = row
-                .on_drag(
-                    payload,
-                    crate::navigator::drag_preview(self.store.clone(), label),
-                )
-                .on_mouse_down(
-                    MouseButton::Right,
-                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        this.changes_menu(menu_payload.clone(), Some(None), event.position, cx)
-                    }),
-                );
-        }
-        row.into_any_element()
-    }
-
-    /// What right-clicking files, a folder or a hunk offers: moving them, taking them out,
-    /// and for a single file (`line` where an editor should open it) opening or copying
-    /// its path; a folder's menu has no `line`.
-    pub(super) fn changes_menu(
-        &mut self,
-        payload: Cut,
-        line: Option<Option<u32>>,
-        position: Point<Pixels>,
-        cx: &mut Context<Self>,
-    ) {
-        let Cut::Files {
-            project,
-            from,
-            files,
-        } = payload.clone()
-        else {
-            return;
-        };
-        let hunk = files.iter().any(|f| f.hunks.is_some());
-        let what = match (hunk, files.len()) {
-            (true, _) => "hunk",
-            (false, 1) => "file",
-            (false, _) => "files",
-        };
-        let cut = payload.clone();
-        let mut items = vec![MenuItem::new("Cut", move |this: &mut AppView, _, cx| {
-            this.cut(cut.clone(), cx)
-        })];
-        match from {
-            None => {
-                let conflicted: Vec<String> = (files.iter())
-                    .filter(|f| f.file.conflicted)
-                    .map(|f| f.file.path.clone())
-                    .collect();
-                if !conflicted.is_empty() {
-                    let project = project.clone();
-                    items.insert(
-                        0,
-                        MenuItem::new("Mark resolved", move |this, _, cx| {
-                            let files = conflicted.clone();
-                            this.store.update(cx, |store, cx| {
-                                store.run(
-                                    &project,
-                                    "Mark resolved",
-                                    Overlay::default(),
-                                    move |path, _| backend::mark_resolved(path, files),
-                                    |store, (), cx| store.snack_undoable("Marked resolved", cx),
-                                    cx,
-                                )
-                            })
-                        }),
-                    );
-                }
-                let (review_project, review_files) = (project.clone(), files.clone());
-                let (project, files) = (project.clone(), files.clone());
-                items.extend([
-                    MenuItem::new("Mark reviewed", move |this, _, cx| {
-                        let changes: Vec<FileChange> =
-                            review_files.iter().map(|f| f.file.clone()).collect();
-                        this.store.update(cx, |store, cx| {
-                            store.set_reviewed(&review_project, &changes, true, cx)
-                        })
-                    }),
-                    MenuItem::new("Discard changes…", move |this, window, cx| {
-                        this.discard(project.clone(), files.to_vec(), window, cx)
+        Some(
+            button("review-all", "Mark all reviewed")
+                .icon(Icon::Tick)
+                .style(ButtonStyle::Ghost)
+                .on_click(move |_, _, cx| {
+                    store.update(cx, |store, cx| {
+                        let files: Vec<FileChange> = (key.uncommitted(store).unwrap_or_default())
+                            .iter()
+                            .filter(|f| store.review(&scope, f) != Review::Reviewed)
+                            .cloned()
+                            .collect();
+                        store.set_reviewed(&scope, &files, true, cx)
                     })
-                    .danger(),
-                ]);
-            }
-            Some(commit) => {
-                let uncommitted = Selection::Uncommitted(project.clone());
-                let (split_project, split_files) = (project.clone(), files.clone());
-                let (drop_project, drop_files) = (project.clone(), files.clone());
-                items.extend([
-                    MenuItem::new(format!("Uncommit {what}"), move |this, window, cx| {
-                        this.transfer(&payload, &uncommitted, Default::default(), window, cx);
-                    }),
-                    MenuItem::new("Split into a new commit", move |this, _, cx| {
-                        this.split_off(split_project.clone(), commit, split_files.clone(), cx)
-                    }),
-                    MenuItem::new(
-                        format!("Discard {what} from commit…"),
-                        move |this, window, cx| {
-                            this.discard_from_commit(
-                                drop_project.clone(),
-                                commit,
-                                drop_files.clone(),
-                                window,
-                                cx,
-                            )
-                        },
-                    )
-                    .danger(),
-                ]);
-            }
-        }
-        if let [file] = &*files
-            && let Some(line) = line
-            && let Some(root) = self.store.read(cx).path(&project)
-        {
-            let relative = file.file.path.clone();
-            let absolute = root.join(&relative);
-            let full = absolute.display().to_string();
-            let (open_project, open_file) = (project.clone(), relative.clone());
-            let label = self
-                .app
-                .upgrade()
-                .map(|app| app.read(cx).open_in_editor_label(cx))
-                .unwrap_or_default();
-            items.extend([
-                MenuItem::new(label, move |this, _, cx| {
-                    let file = Some(open_file.clone());
-                    this.open_in_editor(&open_project, None, file, line, position, cx)
                 })
-                .separated(),
-                MenuItem::new("Copy path", move |this, _, cx| {
-                    this.copy_text(relative.clone(), cx)
-                }),
-                MenuItem::new("Copy full path", move |this, _, cx| {
-                    this.copy_text(full.clone(), cx)
-                }),
-                MenuItem::new("Reveal in Finder", move |_, _, cx| {
-                    cx.reveal_path(&absolute)
-                }),
-            ]);
-        }
-        self.app
-            .update(cx, |app, cx| app.open_menu(position, items, cx))
-            .ok();
+                .into_any_element(),
+        )
     }
 
     /// What an agent left uncommitted, laid out for reviewing first. The commit box
@@ -895,55 +237,6 @@ impl Detail {
         let Some(workspace) = store.workspace(project) else {
             return empty_state("Loading…", "", theme);
         };
-        let files = self.file_list(
-            "uncommitted-files",
-            FileSource::Uncommitted(project.clone()),
-            cx,
-        );
-        let (added, removed) = self.diff.as_ref().map_or((0, 0), |d| {
-            d.files
-                .iter()
-                .map(FileDiff::stats)
-                .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr))
-        });
-        let to_review = store.to_review(project);
-
-        let paths = workspace.uncommitted.iter().map(|f| f.path.as_str());
-        let list_header = if self.filtering {
-            self.filter_header(paths, theme, cx)
-        } else {
-            h_flex()
-                .h(px(36.))
-                .px(px(16.))
-                .gap(px(8.))
-                .flex_none()
-                .text_size(px(12.))
-                .child(div().font_weight(gpui::FontWeight::SEMIBOLD).child(
-                    match workspace.uncommitted.len() {
-                        0 => "No changes".to_owned(),
-                        n => plural(n, "file"),
-                    },
-                ))
-                .child(diff::stats(added, removed, theme))
-                .child(div().flex_1())
-                .child(self.filter_button(cx))
-                .child(self.tree_toggle(cx))
-                .when(!workspace.uncommitted.is_empty(), |el| {
-                    el.child(
-                        div()
-                            .text_color(if to_review > 0 {
-                                theme.warn
-                            } else {
-                                theme.text_3
-                            })
-                            .child(match to_review {
-                                0 => "All reviewed".to_owned(),
-                                n => format!("{n} to review"),
-                            }),
-                    )
-                })
-        };
-
         let footer = if !self.composing {
             let target = self
                 .effective_target(project, cx)
@@ -980,20 +273,7 @@ impl Detail {
 
         v_flex()
             .size_full()
-            .child(list_header)
-            .child(v_flex().flex_1().min_h(px(0.)).child(files).when(
-                workspace.uncommitted.is_empty(),
-                |el| {
-                    el.child(
-                        div()
-                            .px(px(16.))
-                            .py(px(8.))
-                            .text_size(px(12.))
-                            .text_color(theme.text_2)
-                            .child("Your working directory matches the last commit"),
-                    )
-                },
-            ))
+            .child(self.render_uncommitted_files(project, &workspace.uncommitted, theme, cx))
             .when(!workspace.uncommitted.is_empty(), |el| el.child(footer))
             .into_any_element()
     }
@@ -1122,12 +402,8 @@ impl Detail {
         v_flex()
             .size_full()
             .child(
-                v_flex()
-                    .flex_none()
-                    .p(px(16.))
+                side_header(theme)
                     .gap(px(12.))
-                    .border_b_1()
-                    .border_color(theme.border_3)
                     .child(message)
                     .when(commit.conflicted, |el| {
                         el.child(conflict_bar(
@@ -1241,12 +517,7 @@ impl Detail {
         v_flex()
             .size_full()
             .child(
-                v_flex()
-                    .flex_none()
-                    .p(px(16.))
-                    .gap(px(6.))
-                    .border_b_1()
-                    .border_color(theme.border_3)
+                side_header(theme)
                     .child(
                         h_flex()
                             .gap(px(8.))
@@ -1304,56 +575,6 @@ impl Detail {
                 el.child(render_incoming(&branch.incoming, !stacked, theme, cx))
             })
             .child(files)
-            .into_any_element()
-    }
-
-    /// The files of the loaded commit or branch diff, each a jump target and draggable
-    /// when it belongs to a single commit.
-    pub(super) fn render_diff_file_list(
-        &self,
-        project: &ProjectId,
-        commit: Option<backend::CommitId>,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let Some(diff) = self.shown_diff() else {
-            return div()
-                .px(px(16.))
-                .py(px(10.))
-                .text_size(px(12.))
-                .text_color(theme.text_2)
-                .child(if self.loading.is_some() {
-                    "Loading…"
-                } else {
-                    ""
-                })
-                .into_any_element();
-        };
-        let rows = self.file_list("diff-files", FileSource::Diff(project.clone(), commit), cx);
-        let header = if self.filtering {
-            let paths = diff.files.iter().map(|f| f.file.path.as_str());
-            self.filter_header(paths, theme, cx)
-        } else {
-            h_flex()
-                .h(px(36.))
-                .px(px(16.))
-                .gap(px(4.))
-                .flex_none()
-                .text_size(px(12.))
-                .child(
-                    div()
-                        .flex_1()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .child(format!("{} changed", plural(diff.files.len(), "file"))),
-                )
-                .child(self.filter_button(cx))
-                .child(self.tree_toggle(cx))
-        };
-        v_flex()
-            .flex_1()
-            .min_h(px(0.))
-            .child(header)
-            .child(rows)
             .into_any_element()
     }
 }
@@ -1445,27 +666,58 @@ fn conflict_bar(
         )
 }
 
-/// Where a file list's files come from.
-#[derive(Clone)]
-enum FileSource {
-    Uncommitted(ProjectId),
-    /// The loaded diff's files: a commit's, or a branch's with no commit.
-    Diff(ProjectId, Option<backend::CommitId>),
+/// A crumb of the header: what it names, and what clicking it selects.
+pub(super) type Crumb = (SharedString, Option<Selection>);
+
+/// The block at the top of a side panel, saying what's selected.
+pub(super) fn side_header(theme: &Theme) -> Div {
+    v_flex()
+        .flex_none()
+        .p(px(16.))
+        .gap(px(6.))
+        .border_b_1()
+        .border_color(theme.border_3)
 }
 
-/// What a file row shows besides the file itself.
-#[derive(Default)]
-struct FileRow {
-    stats: Option<(u32, u32)>,
-    /// Shown while composing a commit.
-    checkbox: Option<Toggled>,
-    /// Shown for uncommitted files.
-    review: Option<Review>,
-    /// Lets the row be dragged and right-clicked as these changes.
-    drag_from: Option<(ProjectId, Option<backend::CommitId>)>,
-    /// How deep the file sits in a tree; it then shows only its name.
-    depth: Option<usize>,
+/// One of the lists beside the diff, drawn only as far as it's on screen, with a
+/// scrollbar whose state goes by `scrollbar`. `row` draws the item at an index.
+pub(super) fn side_list(
+    id: &'static str,
+    count: usize,
+    scroll: &UniformListScrollHandle,
+    scrollbar: &'static str,
+    cx: &Context<Detail>,
+    row: impl Fn(&Detail, usize, &Theme, &Context<Detail>) -> Option<AnyElement> + 'static,
+) -> Div {
+    let list = uniform_list(
+        id,
+        count,
+        cx.processor(move |this, range: Range<usize>, _, cx| {
+            let theme = Theme::get(cx);
+            range
+                .filter_map(|ix| row(this, ix, theme, cx))
+                // A list item is as wide as its content unless something stretches it.
+                .map(|row| div().w_full().child(row))
+                .collect::<Vec<_>>()
+        }),
+    )
+    .track_scroll(scroll)
+    .size_full();
+    let theme = Theme::get(cx);
+    scrolled(list, scrollbar, Scroll::Uniform(scroll.clone()), theme)
 }
 
-/// How far each level of a file tree steps in.
-const TREE_INDENT: f32 = 14.;
+/// A group's heading in a side list, sitting on the rows under it.
+pub(super) fn list_heading(text: impl Into<SharedString>, theme: &Theme) -> AnyElement {
+    div()
+        .w_full()
+        .h(px(ROW_HEIGHT))
+        .flex()
+        .items_end()
+        .px(px(14.))
+        .pb(px(4.))
+        .text_size(px(11.))
+        .text_color(theme.text_3)
+        .child(text.into())
+        .into_any_element()
+}
