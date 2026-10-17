@@ -45,7 +45,7 @@ impl AppView {
             h_flex()
                 .gap(px(6.))
                 .min_w(px(0.))
-                .child(div().text_color(theme.pop).child("Cut"))
+                .child(div().text_color(theme.pop).child(cut.verb()))
                 .child(div().truncate().child(cut.describe()))
                 .children(shortcut(&PasteHere, cx).map(|keys| keycap(&keys, &theme)))
                 .child("paste here")

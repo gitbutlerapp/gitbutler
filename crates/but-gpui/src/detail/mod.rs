@@ -199,6 +199,7 @@ pub struct Detail {
     branch_filter: Entity<TextInput>,
     branches_scroll: UniformListScrollHandle,
     _branches_load: Task<()>,
+    _branch_commits_load: Task<()>,
     /// The History page's operations, for the project it shows.
     history: Option<history::History>,
     history_scroll: UniformListScrollHandle,
@@ -383,6 +384,7 @@ impl Detail {
             branch_filter,
             branches_scroll: UniformListScrollHandle::new(),
             _branches_load: Task::ready(()),
+            _branch_commits_load: Task::ready(()),
             history: None,
             history_scroll: UniformListScrollHandle::new(),
             _history_load: Task::ready(()),

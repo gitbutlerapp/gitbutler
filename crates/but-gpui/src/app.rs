@@ -792,12 +792,11 @@ impl AppView {
     }
 
     pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
-        let verb = if matches!(cut, Cut::Pick(..)) {
-            "Copied"
-        } else {
-            "Cut"
-        };
-        let message = format!("{verb} {}. Pick a spot and press ⌘V.", cut.describe());
+        let message = format!(
+            "{} {}. Pick a spot and press ⌘V.",
+            cut.verb(),
+            cut.describe()
+        );
         self.store.update(cx, |store, cx| {
             store.set_cut(Some(cut), cx);
             store.snack(message, cx);

@@ -4,13 +4,16 @@
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, Context, Focusable as _, SharedString, Window, div, prelude::*, px, uniform_list,
+    AnyElement, Context, Focusable as _, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
+    Window, div, prelude::*, px, uniform_list,
 };
 
 use super::Detail;
-use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
-use crate::backend::{self, DiffSource};
-use crate::state::{Overlay, ProjectId, Selection};
+use crate::app::MenuItem;
+use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
+use crate::backend::{self, CommitId, DiffSource};
+use crate::navigator::drag_preview;
+use crate::state::{Cut, Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{Icon, empty_state, field, list_row, relative_time, small_icon};
@@ -23,12 +26,29 @@ pub(super) struct Branches {
     pub list: Vec<OtherBranch>,
     /// The selected branch, by ref.
     pub selected: Option<String>,
+    /// The selected branch's commits, by what they were loaded for.
+    pub commits: Option<(Loaded, Vec<BranchCommit>)>,
+    /// One of those commits, to see on its own and to copy into the workspace.
+    pub commit: Option<CommitId>,
 }
 
-/// A row of the list: a group's heading or a branch, by index into the list.
+impl Branches {
+    fn selected_branch(&self) -> Option<&OtherBranch> {
+        let selected = self.selected.as_ref()?;
+        self.list.iter().find(|b| b.ref_name == *selected)
+    }
+}
+
+/// A branch's tip and how many commits it has that the target doesn't: a fetch can land
+/// some of its commits on the target without moving its tip.
+type Loaded = (CommitId, Option<usize>);
+
+/// A row of the list: a group's heading, a branch by index into the list, or a commit of
+/// the selected branch.
 enum Row {
     Heading(&'static str),
     Branch(usize),
+    Commit(usize),
 }
 
 impl Detail {
@@ -59,22 +79,24 @@ impl Detail {
                         Vec::new()
                     }
                 };
-                let previous = this
-                    .branches
-                    .take()
-                    .filter(|b| b.project == project)
-                    .and_then(|b| b.selected);
+                let previous = this.branches.take().filter(|b| b.project == project);
                 // Local branches list first, so the first of those when there is one.
                 let first = list.iter().find(|b| b.local).or(list.first());
-                let selected = previous
+                let selected = (previous.as_ref().and_then(|b| b.selected.clone()))
                     .filter(|ref_name| list.iter().any(|b| b.ref_name == *ref_name))
                     .or_else(|| first.map(|b| b.ref_name.clone()));
+                // What was loaded for the selected branch, as long as it stays selected.
+                let (commits, commit) = (previous.filter(|b| b.selected == selected))
+                    .map_or((None, None), |b| (b.commits, b.commit));
                 this.branches = Some(Branches {
                     project,
                     seen,
                     list,
                     selected,
+                    commits,
+                    commit,
                 });
+                this.load_branch_commits(cx);
                 this.refresh_diff(false, cx);
                 cx.notify();
             })
@@ -107,14 +129,80 @@ impl Detail {
 
     /// The branch the page has selected.
     pub(super) fn selected_other_branch(&self, project: &ProjectId) -> Option<&OtherBranch> {
-        let branches = self.branches_for(project)?;
-        let selected = branches.selected.as_ref()?;
-        branches.list.iter().find(|b| b.ref_name == *selected)
+        self.branches_for(project)?.selected_branch()
     }
 
     pub(super) fn branches_source(&self, project: &ProjectId) -> Option<DiffSource> {
+        if let Some(id) = self.selected_branch_commit(project) {
+            return Some(DiffSource::Commit(id));
+        }
         let tip = self.selected_other_branch(project)?.tip;
         Some(DiffSource::Branch { tip })
+    }
+
+    /// The commit of the selected branch the page shows, if one is selected.
+    pub(super) fn selected_branch_commit(&self, project: &ProjectId) -> Option<CommitId> {
+        self.branches_for(project)?.commit
+    }
+
+    /// The title of the selected branch's selected commit.
+    pub(super) fn selected_branch_commit_title(&self, project: &ProjectId) -> Option<String> {
+        let branches = self.branches_for(project)?;
+        let (_, commits) = branches.commits.as_ref()?;
+        let commit = commits.iter().find(|c| Some(c.id) == branches.commit)?;
+        Some(commit.title.clone())
+    }
+
+    /// Load the selected branch's commits, unless they're loaded for it as it is already. A
+    /// selected commit the branch no longer has is let go.
+    fn load_branch_commits(&mut self, cx: &mut Context<Self>) {
+        let Some(branches) = &self.branches else {
+            return;
+        };
+        let Some(branch) = branches.selected_branch() else {
+            return;
+        };
+        let key = (branch.tip, branch.ahead);
+        if branches
+            .commits
+            .as_ref()
+            .is_some_and(|(loaded, _)| *loaded == key)
+        {
+            return;
+        }
+        let Some(path) = self.store.read(cx).path(&branches.project) else {
+            return;
+        };
+        let ref_name = branch.ref_name.clone();
+        self._branch_commits_load = cx.spawn(async move |this, cx| {
+            let result = backend::run(move || branches::branch_commits(&path, &ref_name)).await;
+            this.update(cx, |this, cx| {
+                let commits = match result {
+                    Ok(commits) => commits,
+                    // Left unloaded, to try again when the branch is next selected.
+                    Err(err) => {
+                        return tracing::warn!("couldn't list the branch's commits: {err:#}");
+                    }
+                };
+                // Unless another branch was selected meanwhile, or this one moved.
+                let Some(branches) = (this.branches.as_mut())
+                    .filter(|b| b.selected_branch().is_some_and(|b| (b.tip, b.ahead) == key))
+                else {
+                    return;
+                };
+                let kept = branches
+                    .commit
+                    .filter(|id| commits.iter().any(|c| c.id == *id));
+                let dropped = branches.commit.is_some() && kept.is_none();
+                branches.commit = kept;
+                branches.commits = Some((key, commits));
+                if dropped {
+                    this.refresh_diff(true, cx);
+                }
+                cx.notify();
+            })
+            .ok();
+        });
     }
 
     /// The branches the filter keeps, local ones first, under headings.
@@ -135,7 +223,17 @@ impl Detail {
                 .collect();
             if !group.is_empty() {
                 rows.push(Row::Heading(heading));
-                rows.extend(group.into_iter().map(Row::Branch));
+                for ix in group {
+                    rows.push(Row::Branch(ix));
+                    let branch = &branches.list[ix];
+                    // By its tip only, so the rows stay while a fetch has them reload.
+                    if branches.selected.as_ref() == Some(&branch.ref_name)
+                        && let Some(((tip, _), commits)) = &branches.commits
+                        && *tip == branch.tip
+                    {
+                        rows.extend((0..commits.len()).map(Row::Commit));
+                    }
+                }
             }
         }
         rows
@@ -144,9 +242,51 @@ impl Detail {
     fn select_other_branch(&mut self, ref_name: String, cx: &mut Context<Self>) {
         if let Some(branches) = &mut self.branches {
             branches.selected = Some(ref_name);
+            branches.commit = None;
+        }
+        self.load_branch_commits(cx);
+        self.refresh_diff(true, cx);
+        cx.notify();
+    }
+
+    fn select_branch_commit(&mut self, id: CommitId, cx: &mut Context<Self>) {
+        if let Some(branches) = &mut self.branches {
+            branches.commit = Some(id);
         }
         self.refresh_diff(true, cx);
         cx.notify();
+    }
+
+    /// Select commit `id` and offer to copy it into the workspace, or its ID.
+    fn branch_commit_menu(
+        &mut self,
+        project: &ProjectId,
+        id: CommitId,
+        at: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        self.select_branch_commit(id, cx);
+        let project = project.clone();
+        let items = vec![
+            MenuItem::new("Cherry-pick", move |app, _, cx| {
+                app.cut(Cut::Pick(project.clone(), id), cx)
+            }),
+            MenuItem::new("Copy commit ID", move |app, _, cx| {
+                app.copy_text(id.0.to_string(), cx)
+            }),
+        ];
+        self.app
+            .update(cx, |app, cx| app.open_menu(at, items, cx))
+            .ok();
+    }
+
+    /// Pick up the selected commit, to put a copy of it where ⌘V lands in the workspace.
+    pub(super) fn copy_branch_commit(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let Some(id) = self.selected_branch_commit(project) else {
+            return;
+        };
+        let cut = Cut::Pick(project.clone(), id);
+        self.app.update(cx, |app, cx| app.cut(cut, cx)).ok();
     }
 
     pub(super) fn apply_branch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
@@ -263,6 +403,57 @@ impl Detail {
                                 .text_color(theme.text_3)
                                 .child(*heading)
                                 .into_any_element(),
+                            Row::Commit(commit_ix) => {
+                                let Some((_, commits)) = &branches.commits else {
+                                    return div().into_any_element();
+                                };
+                                let commit = &commits[*commit_ix];
+                                let id = commit.id;
+                                let label: SharedString = commit.title.clone().into();
+                                let project = branches.project.clone();
+                                let payload = Cut::Pick(project.clone(), id);
+                                div()
+                                    .w_full()
+                                    .child(
+                                        list_row(
+                                            ("other-commit", ix),
+                                            branches.commit == Some(id),
+                                            &theme,
+                                        )
+                                        .pl(px(30.))
+                                        .aria_label(label.clone())
+                                        .child(small_icon(Icon::Commit).text_color(theme.text_3))
+                                        .child(
+                                            div()
+                                                .flex_1()
+                                                .min_w(px(0.))
+                                                .truncate()
+                                                .text_size(px(12.))
+                                                .child(label.clone()),
+                                        )
+                                        .child(
+                                            div()
+                                                .flex_none()
+                                                .text_size(px(11.))
+                                                .text_color(theme.text_3)
+                                                .child(relative_time(commit.time)),
+                                        )
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            this.select_branch_commit(id, cx)
+                                        }))
+                                        .on_mouse_down(
+                                            MouseButton::Right,
+                                            cx.listener(
+                                                move |this, event: &MouseDownEvent, _, cx| {
+                                                    let at = event.position;
+                                                    this.branch_commit_menu(&project, id, at, cx)
+                                                },
+                                            ),
+                                        )
+                                        .on_drag(payload, drag_preview(this.store.clone(), label)),
+                                    )
+                                    .into_any_element()
+                            }
                             Row::Branch(branch_ix) => {
                                 let branch = &branches.list[*branch_ix];
                                 let selected = branches.selected.as_ref() == Some(&branch.ref_name);
