@@ -143,7 +143,7 @@ impl AppView {
         cx.set_global(theme);
         let app = cx.entity().downgrade();
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
-        let diff = cx.new(|cx| DiffPane::new(&detail, cx));
+        let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
         let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), cx));
         window.focus(&navigator.focus_handle(cx), cx);
         let subscriptions = vec![
