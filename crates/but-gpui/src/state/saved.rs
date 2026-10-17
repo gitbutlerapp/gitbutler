@@ -73,6 +73,10 @@ impl Store {
         self.prefs.run_hooks.contains(project.as_ref())
     }
 
+    pub fn lands_directly(&self, project: &super::ProjectId) -> bool {
+        self.prefs.land_directly.contains(project.as_ref())
+    }
+
     pub fn set_prefs(&mut self, update: impl FnOnce(&mut Prefs), cx: &mut Context<Self>) {
         update(&mut self.prefs);
         self.save_soon(cx);
@@ -199,6 +203,8 @@ pub struct Prefs {
     /// Projects, by id, whose Git hooks run around commits and pushes. Off unless picked,
     /// as in the desktop app.
     pub run_hooks: HashSet<String>,
+    /// Projects, by id, whose branches offer Land in place of Create pull request.
+    pub land_directly: HashSet<String>,
 }
 
 /// Where the window was: the display it was on, and its left, top, width and height on that
