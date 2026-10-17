@@ -831,6 +831,32 @@ mod tests {
     }
 
     #[test]
+    fn a_refused_push_keeps_only_what_the_remote_said() {
+        use but_error::Code;
+        let refused = |stderr: &str| {
+            anyhow::anyhow!("git command exited with non-zero exit code 1:\n\nSTDERR:\n{stderr}")
+                .context(Code::GitForcePushProtection)
+        };
+        let protected = refused(
+            "remote: error: GH006: Protected branch update failed for refs/heads/main.\n\
+             remote: \n ! [remote rejected] main -> main (protected branch hook declined)",
+        );
+        assert_eq!(
+            push_refusal(&protected).as_deref(),
+            Some("error: GH006: Protected branch update failed for refs/heads/main."),
+            "the remote's own words, blank lines dropped"
+        );
+        let stale = refused(" ! [rejected] main -> main (stale info)");
+        assert_eq!(
+            push_refusal(&stale).as_deref(),
+            Some(""),
+            "nothing from the remote: someone pushed since the last fetch"
+        );
+        let other = anyhow::anyhow!("failed to connect");
+        assert_eq!(push_refusal(&other), None, "not protection at all");
+    }
+
+    #[test]
     fn amending_some_hunks_leaves_the_rest_uncommitted() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path();
