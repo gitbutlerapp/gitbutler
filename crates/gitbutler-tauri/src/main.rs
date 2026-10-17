@@ -77,6 +77,9 @@ fn main() -> anyhow::Result<()> {
     ) {
         tauri_context.config_mut().app.security.csp = updated_csp;
     };
+    if app_settings.get()?.feature_flags.lite_frontend {
+        gitbutler_tauri::lite_frontend::serve(&mut tauri_context);
+    }
 
     if let Some(project_to_open) =
         std::env::var_os("GITBUTLER_PROJECT_DIR").map(std::path::PathBuf::from)
