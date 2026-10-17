@@ -41,7 +41,7 @@ pub fn list(
                     .ok()
                     .flatten()
                     .and_then(|peeled| peeled.details)
-                    .map(|d| d.operation.title().to_owned());
+                    .map(|d| operation_title(d.operation).to_owned());
                 (title.to_owned(), restored)
             };
             use OperationKind as K;
@@ -61,7 +61,10 @@ pub fn list(
                                 Some(short_ref(line).to_owned())
                             });
                         let body = details.body.filter(|b| !b.trim().is_empty());
-                        (details.operation.title().to_owned(), about.or(body))
+                        (
+                            operation_title(details.operation).to_owned(),
+                            about.or(body),
+                        )
                     }
                 },
                 None => ("Unknown operation".to_owned(), None),
@@ -106,7 +109,9 @@ pub fn undo(path: &Path, redo: bool) -> Result<Option<&'static str>> {
     let Some(snapshot) = snapshot else {
         return Ok(None);
     };
-    let title = snapshot.details.map(|details| details.operation.title());
+    let title = snapshot
+        .details
+        .map(|details| operation_title(details.operation));
     restore_titled(&mut ctx, snapshot.commit_id, title, kind).map(Some)
 }
 
@@ -127,9 +132,23 @@ pub fn undo_snapshot(path: &Path, snapshot: SnapshotId) -> Result<&'static str> 
     let target = oplog::get_undo_target_snapshot(&ctx)?
         .filter(|target| target.commit_id == snapshot.0)
         .context("Something else changed the workspace since. ⌘Z undoes one step at a time.")?;
-    let title = target.details.map(|details| details.operation.title());
+    let title = target
+        .details
+        .map(|details| operation_title(details.operation));
     let kind = RestoreKind::RestoreFromSnapshotViaUndo;
     restore_titled(&mut ctx, snapshot.0, title, kind)
+}
+
+/// What the app calls an operation, where the oplog's name for it is another client's.
+fn operation_title(kind: OperationKind) -> &'static str {
+    use OperationKind as K;
+    match kind {
+        K::UndoCommit => "Uncommitted",
+        K::InsertBlankCommit => "Empty commit added",
+        K::MergeUpstream | K::UpdateWorkspaceBase => "Updated from target",
+        K::SetBaseBranch => "Changed target",
+        other => other.title(),
+    }
 }
 
 /// Restore snapshot `id` and name the operation it takes back, as the CLI does: when `id`
@@ -142,7 +161,9 @@ fn restore_titled(
 ) -> Result<&'static str> {
     let title = oplog::peel_restore_snapshot(ctx, id)?
         .map_or(title, |peeled| {
-            peeled.details.map(|details| details.operation.title())
+            peeled
+                .details
+                .map(|details| operation_title(details.operation))
         })
         .unwrap_or("Unknown operation");
     oplog::restore_snapshot_with_kind(ctx, kind, id)?;
