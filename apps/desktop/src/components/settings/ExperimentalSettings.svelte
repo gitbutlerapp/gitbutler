@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { BACKEND } from "$lib/backend";
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Toggle } from "@gitbutler/ui-svelte";
+	import { Button, CardGroup, Toggle } from "@gitbutler/ui-svelte";
 
+	const backend = inject(BACKEND);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
 </script>
@@ -49,6 +51,32 @@
 			/>
 		{/snippet}
 	</CardGroup.Item>
+
+	{#if backend.platformName !== "web"}
+		<CardGroup.Item labelFor="lite-frontend">
+			{#snippet title()}
+				Lite interface
+			{/snippet}
+			{#snippet caption()}
+				Use the new Lite interface instead of this one. Takes effect after a restart.
+			{/snippet}
+			{#snippet actions()}
+				<div class="flex gap-8 items-center">
+					{#if $settingsStore?.featureFlags.liteFrontend}
+						<Button kind="outline" onclick={() => backend.relaunch()}>Restart</Button>
+					{/if}
+					<Toggle
+						id="lite-frontend"
+						checked={$settingsStore?.featureFlags.liteFrontend}
+						onclick={() =>
+							settingsService.updateFeatureFlags({
+								liteFrontend: !$settingsStore?.featureFlags.liteFrontend,
+							})}
+					/>
+				</div>
+			{/snippet}
+		</CardGroup.Item>
+	{/if}
 </CardGroup>
 
 <style>
