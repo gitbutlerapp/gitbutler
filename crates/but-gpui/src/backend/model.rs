@@ -362,12 +362,22 @@ impl FileDiff {
     }
 }
 
+/// The columns `text` takes in a monospace font: one a character, and two for those of three
+/// bytes or more, which counts the wide ones, like CJK and emoji, generously.
+pub fn columns(text: &str) -> u32 {
+    text.chars()
+        .map(|c| if c.len_utf8() < 3 { 1 } else { 2 })
+        .sum()
+}
+
 #[derive(Debug, Clone)]
 pub enum DiffBody {
     Hunks {
         hunks: Vec<Hunk>,
         added: u32,
         removed: u32,
+        /// The widest line on each side, old then new, in [`columns`].
+        widest: [u32; 2],
     },
     Binary,
     /// An image, shown before and after; a side is missing for an added or deleted file.
