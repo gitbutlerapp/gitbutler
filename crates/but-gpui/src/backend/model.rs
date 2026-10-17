@@ -82,6 +82,9 @@ pub struct Worktree {
     pub path: std::path::PathBuf,
     /// The branch it has checked out, or `None` for a detached `HEAD`.
     pub branch: Option<String>,
+    /// The last commit of the bottom branch of its lane, which a branch moves below to go
+    /// under the worktree's branches. `None` when that branch has no commits of its own.
+    pub lane_end: Option<CommitId>,
     pub uncommitted: Vec<FileChange>,
     /// When it or its branch last moved, as a commit or checkout does, in seconds since the
     /// epoch, from their reflogs.

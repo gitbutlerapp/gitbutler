@@ -180,7 +180,15 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         None
     });
     let worktrees_listed = listed.is_some();
-    let (worktrees, archived_worktrees) = listed.unwrap_or_default();
+    let (mut worktrees, archived_worktrees) = listed.unwrap_or_default();
+    for worktree in &mut worktrees {
+        let lane = (info.worktrees.iter()).find(|lane| lane.name == worktree.name.as_ref());
+        let bottom = lane.and_then(|lane| {
+            (lane.segments.iter().rev()).find(|segment| segment.ref_name().is_some())
+        });
+        worktree.lane_end =
+            bottom.and_then(|segment| segment.commits.last().map(|c| CommitId(c.id)));
+    }
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     Ok(Workspace {
         target,

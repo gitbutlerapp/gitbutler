@@ -6,14 +6,15 @@ use std::time::{Duration, UNIX_EPOCH};
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable, Hsla,
-    KeyBinding, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent, Pixels,
-    SharedString, Stateful, Subscription, WeakEntity, Window, actions, div, list, prelude::*, px,
+    KeyBinding, ListAlignment, ListOffset, ListState, Modifiers, MouseButton, MouseDownEvent,
+    Pixels, SharedString, Stateful, Subscription, WeakEntity, Window, actions, div, list,
+    prelude::*, px,
 };
 
 use crate::app::{
     AddProject, AppView, Collapse, Confirm, Expand, Refresh, SelectNext, SelectPrevious,
 };
-use crate::backend::{CommitId, CommitState, PushState, Worktree};
+use crate::backend::{CommitId, CommitState, PushState, Worktree, short_ref};
 use crate::detail::{ChecksChanged, Detail};
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
@@ -70,6 +71,9 @@ enum Row {
     Pending(SharedString),
     /// Where a commit of the project being dragged lands in a new branch of its own.
     NewBranch(ProjectId),
+    /// After a stack, while one of the project's branches is dragged: where it lands below
+    /// the stack's last branch, which this selects.
+    LaneEnd(Selection),
     /// After a project's worktrees: how many are inactive, which it shows or hides.
     Inactive(ProjectId, usize),
 }
@@ -248,6 +252,14 @@ impl Navigator {
                     if branch.commits.len() > shown {
                         let hidden = branch.commits.len() - shown;
                         rows.push(Row::More(id.clone(), branch.ref_name.clone(), hidden));
+                    }
+                }
+                if let Some(dragged @ Cut::Branch(..)) = &store.dragging
+                    && let Some(last) = stack.branches.last()
+                {
+                    let below = Selection::Branch(id.clone(), last.ref_name.clone());
+                    if Transfer::resolve(dragged, &below, Modifiers::shift(), store).is_some() {
+                        rows.push(Row::LaneEnd(below));
                     }
                 }
             }
@@ -579,6 +591,42 @@ impl Navigator {
                         }
                     }))
                     .into_any_element()
+            }
+            Some(Row::LaneEnd(below)) => {
+                let (highlight, below) = (theme.pop, below.clone());
+                let name = match &below {
+                    Selection::Branch(_, ref_name) => short_ref(ref_name).to_string(),
+                    _ => String::new(),
+                };
+                // Padded, not margined: a margin collapses through the card's ground.
+                let zone = h_flex()
+                    .id(("lane-end-drop", ix))
+                    .h(px(24.))
+                    .mx(px(6.))
+                    .justify_center()
+                    .gap(px(6.))
+                    .rounded(px(4.))
+                    .border_1()
+                    .border_dashed()
+                    .border_color(theme.border_2)
+                    .text_size(px(12.))
+                    .text_color(theme.text_2)
+                    .child(small_icon(Icon::Branch).text_color(theme.text_2))
+                    .child(format!("Move below {name}"))
+                    .drag_over::<Cut>(move |style, _, _, _| {
+                        style
+                            .bg(highlight.opacity(0.14))
+                            .border_color(highlight)
+                            .text_color(highlight)
+                    })
+                    .on_drop(cx.listener(move |this, payload: &Cut, window, cx| {
+                        this.app
+                            .update(cx, |app, cx| {
+                                app.transfer(payload, &below, Modifiers::shift(), window, cx)
+                            })
+                            .ok();
+                    }));
+                div().py(px(2.)).child(zone).into_any_element()
             }
             Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
