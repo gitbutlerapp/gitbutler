@@ -13,6 +13,9 @@
 		lineColor: string;
 		isCommitting: boolean;
 		isFirst?: boolean;
+		/** The zone under the lane's last branch, anchored on that branch's last commit. */
+		isLast?: boolean;
+		belowCommitId?: string;
 	}
 
 	const {
@@ -23,16 +26,29 @@
 		lineColor,
 		isCommitting,
 		isFirst = false,
+		isLast = false,
+		belowCommitId,
 	}: Props = $props();
 </script>
 
 {#if !isCommitting}
-	{@const moveBranchHandler = new MoveBranchDzHandler(projectId, stackId, branchName, worktree)}
+	{@const moveBranchHandler = new MoveBranchDzHandler(
+		projectId,
+		stackId,
+		branchName,
+		worktree,
+		belowCommitId,
+	)}
 	<Dropzone handlers={[moveBranchHandler]}>
 		{#snippet overlay({ hovered, activated })}
-			{#if isFirst}
+			{#if isFirst || isLast}
 				{#if activated}
-					<div data-testid="BranchListInsertionDropzone" class="dropzone-target top-dropzone">
+					<div
+						data-testid="BranchListInsertionDropzone"
+						class="dropzone-target"
+						class:top-dropzone={isFirst}
+						class:bottom-dropzone={isLast}
+					>
 						<BranchDropIndicator {hovered} />
 					</div>
 				{/if}
@@ -47,7 +63,7 @@
 			{/if}
 		{/snippet}
 	</Dropzone>
-{:else if !isFirst}
+{:else if !isFirst && !isLast}
 	<BranchDividerLine {lineColor} />
 {/if}
 
@@ -56,6 +72,13 @@
 		display: flex;
 		flex-direction: column;
 		margin-top: -12px;
+		padding: 12px 0;
+	}
+
+	.bottom-dropzone {
+		display: flex;
+		flex-direction: column;
+		margin-bottom: -12px;
 		padding: 12px 0;
 	}
 </style>

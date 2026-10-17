@@ -6,6 +6,7 @@ import { UI_STATE } from "$lib/state/uiState.svelte";
 import { inject } from "@gitbutler/core/context";
 import type { DropResult } from "$lib/dragging/dropResult";
 import type { DropzoneHandler } from "$lib/dragging/handler";
+import type { InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 
 export class BranchDropData {
 	constructor(
@@ -25,6 +26,23 @@ export class BranchDropData {
 	}
 }
 
+/**
+ * Where a branch dropped on `targetBranchName`'s zone goes: above the branch, or
+ * for the zone under the branch, below its last commit. Below the branch's
+ * reference would put the moved branch between the reference and its commits.
+ */
+export function moveBranchPlacement(
+	targetBranchName: string,
+	belowCommitId?: string,
+): { relativeTo: RelativeTo; side: InsertSide } {
+	return belowCommitId === undefined
+		? {
+				relativeTo: { type: "reference", subject: normalizeReferenceSubject(targetBranchName) },
+				side: "above",
+			}
+		: { relativeTo: { type: "commit", subject: belowCommitId }, side: "below" };
+}
+
 export function acceptsSameStackBranchDrop(
 	data: BranchDropData,
 	targetBranchName: string,
@@ -41,6 +59,8 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 		private readonly branchName: string,
 		/** The linked worktree whose lane this is, if not a stack's. */
 		private readonly worktree?: string,
+		/** The branch's last commit: this is the zone under the branch, not above it. */
+		private readonly belowCommitId?: string,
 	) {}
 
 	print(): string {
@@ -63,7 +83,7 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 		await this.stackService.moveBranch({
 			projectId: this.projectId,
 			subjectBranch: normalizeReferenceSubject(data.branchName),
-			targetBranch: normalizeReferenceSubject(this.branchName),
+			...moveBranchPlacement(this.branchName, this.belowCommitId),
 		});
 	}
 }

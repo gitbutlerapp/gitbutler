@@ -204,7 +204,7 @@ describe("buildStackEndpoints", () => {
 		]);
 	});
 
-	test("uses move_branch with normalized refs and dryRun disabled", () => {
+	test("uses move_branch with the given anchor and dryRun disabled", () => {
 		const endpoints = buildStackEndpoints(createEndpointBuilder());
 		const query = endpoints.moveBranch.query;
 
@@ -217,7 +217,8 @@ describe("buildStackEndpoints", () => {
 			query?.({
 				projectId: "project-1",
 				subjectBranch: "refs/heads/feature/source",
-				targetBranch: "refs/heads/feature/target",
+				relativeTo: { type: "reference", subject: "refs/heads/feature/target" },
+				side: "above",
 			}),
 		).toEqual({
 			projectId: "project-1",

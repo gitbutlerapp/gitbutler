@@ -822,18 +822,19 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			{
 				projectId: string;
 				subjectBranch: string;
-				targetBranch: string;
+				relativeTo: RelativeTo;
+				side: InsertSide;
 			}
 		>({
 			extraOptions: {
 				command: "move_branch",
 				actionName: "Move Branch",
 			},
-			query: ({ projectId, subjectBranch, targetBranch }) => ({
+			query: ({ projectId, subjectBranch, relativeTo, side }) => ({
 				projectId,
 				subjectBranch,
-				relativeTo: { type: "reference", subject: targetBranch },
-				side: "above",
+				relativeTo,
+				side,
 				dryRun: false,
 			}),
 			invalidatesTags: [
