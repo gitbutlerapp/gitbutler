@@ -3786,6 +3786,21 @@ Outcome {
 
 "#]]
     );
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph(&repo, &meta, &mut db)?.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:D on 85efbe4 {41}
+│   └── 📙:D
+│       └── ·7076dee (🏘️) ►E
+└── ≡📙:A on 85efbe4 {44}
+    ├── 📙:A
+    │   └── ·f084d61 (🏘️)
+    └── 📙:D
+        └── ·7076dee (🏘️) ►E
+
+"#]]
+    );
     // future improvement: it should most definitely not create a merge if both tips have shared in-workspace commits in their ancestry
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
