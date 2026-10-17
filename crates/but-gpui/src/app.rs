@@ -415,7 +415,11 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         match self.selection(cx) {
-            Some(Selection::Commit(project, id)) => self.discard_commit(project, id, window, cx),
+            Some(Selection::Commit(..)) => {
+                if let Some((project, id)) = self.single_commit(cx) {
+                    self.discard_commit(project, id, window, cx)
+                }
+            }
             Some(Selection::Branch(project, ref_name)) => {
                 self.remove_branch(project, ref_name, window, cx)
             }
@@ -764,7 +768,9 @@ impl AppView {
 
     fn cut_selection(&mut self, _: &CutSelection, _: &mut Window, cx: &mut Context<Self>) {
         let cut = match self.selection(cx) {
-            Some(Selection::Commit(project, id)) => Some(Cut::Commit(project, id)),
+            Some(Selection::Commit(..)) => {
+                (self.single_commit(cx)).map(|(project, id)| Cut::Commit(project, id))
+            }
             Some(Selection::Branch(project, ref_name)) if !ref_name.is_empty() => {
                 Some(Cut::Branch(project, ref_name))
             }

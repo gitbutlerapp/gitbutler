@@ -9,7 +9,7 @@ use anyhow::{Context as _, Result};
 use gpui::{Context, SharedString, Task};
 
 use super::{ProjectId, Selection, Store, StoreEvent};
-use crate::backend::{self, CommitId, PushState, SnapshotId};
+use crate::backend::{self, CommitId, SnapshotId};
 use crate::transfer::short_ref;
 
 /// How long a mutation runs before the status bar says how long it's taking.
@@ -193,10 +193,7 @@ impl Store {
         protect: bool,
         cx: &mut Context<Self>,
     ) {
-        let force = self
-            .workspace(project)
-            .and_then(|ws| ws.find_branch(&ref_name))
-            .is_some_and(|branch| branch.push == PushState::NeedsForce);
+        let force = (self.workspace(project)).is_some_and(|ws| ws.needs_force(&ref_name));
         let name = short_ref(&ref_name).to_owned();
         let pushed = project.clone();
         self.run(

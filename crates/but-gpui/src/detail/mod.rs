@@ -251,10 +251,7 @@ impl Detail {
                 StoreEvent::SelectionChanged => {
                     this.rewording = None;
                     this.message_open = false;
-                    this.text_selection = None;
-                    this.cursor = Cursor::default();
-                    this.folded.clear();
-                    this.unfolded.clear();
+                    this.reset_view();
                     let project = this.selected_project(cx);
                     if this.checks_project != project {
                         this.checks_project = project;
@@ -446,6 +443,15 @@ impl Detail {
         })
     }
 
+    /// Forget how the last diff was looked at: its text selection, cursor and folds. For a
+    /// new selection, or another item picked on the same page.
+    fn reset_view(&mut self) {
+        self.text_selection = None;
+        self.cursor = Cursor::default();
+        self.folded.clear();
+        self.unfolded.clear();
+    }
+
     /// Load the diff for the current selection. `selection_changed` resets the scroll;
     /// otherwise only a worktree diff, which can change under us, is reloaded.
     fn refresh_diff(&mut self, selection_changed: bool, cx: &mut Context<Self>) {
@@ -471,15 +477,14 @@ impl Detail {
         self.reload_queued = false;
         if current != Some(&key) {
             self.diff_error = None;
-            if selection_changed {
-                // The previous diff stays until this one lands, usually a frame or two
-                // later, rather than flashing an empty pane; a slow load says so.
-                self.waiting_since = Some(Instant::now());
-                self._waiting = cx.spawn(async move |this, cx| {
-                    cx.background_executor().timer(SHOW_LOADING).await;
-                    this.update(cx, |_, cx| cx.notify()).ok();
-                });
-            }
+            // The previous diff stays until this one lands, usually a frame or two later,
+            // rather than flashing an empty pane; a slow load says so. As when another
+            // commit lands on the branch shown, not only when the selection changes.
+            self.waiting_since = Some(Instant::now());
+            self._waiting = cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(SHOW_LOADING).await;
+                this.update(cx, |_, cx| cx.notify()).ok();
+            });
         }
         let Some(path) = self.store.read(cx).path(&key.project) else {
             return;
@@ -556,7 +561,13 @@ impl Detail {
                             }
                             this.show_diff(key.clone(), files, cx);
                         }
-                        Err(err) => this.diff_error = Some(format!("{err:#}").into()),
+                        Err(err) => {
+                            this.diff_error = Some(format!("{err:#}").into());
+                            // Nothing may act on the files of what was shown before.
+                            if this.diff.as_ref().is_some_and(|diff| diff.key != key) {
+                                this.diff = None;
+                            }
+                        }
                     }
                     cx.notify();
                     if std::mem::take(&mut this.reload_queued) {

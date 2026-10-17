@@ -105,10 +105,12 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         behind: target.commits_ahead,
         needs_update: !info.is_target_current || info.has_lanes_behind_target,
     });
-    let (worktrees, archived_worktrees) = worktrees::linked(&ctx).unwrap_or_else(|err| {
+    let listed = worktrees::linked(&ctx).unwrap_or_else(|err| {
         tracing::warn!("couldn't list the linked worktrees: {err:#}");
-        Default::default()
+        None
     });
+    let worktrees_listed = listed.is_some();
+    let (worktrees, archived_worktrees) = listed.unwrap_or_default();
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     Ok(Workspace {
         target,
@@ -118,6 +120,7 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         editing: None,
         worktrees,
         archived_worktrees,
+        worktrees_listed,
     })
 }
 
@@ -373,9 +376,11 @@ pub enum DiffSource {
         newest: CommitId,
     },
     /// What a branch outside the workspace changes: from where it forked off the target to
-    /// its tip `tip`, as its pull request would show.
+    /// its tip `tip`, as its pull request would show. `ahead` is how many commits it has that
+    /// the target doesn't: a fetch can land some on the target without moving the tip.
     Branch {
         tip: CommitId,
+        ahead: Option<usize>,
     },
     /// What the operation that snapshot `id` was taken for changed: up to the snapshot
     /// after it, `newer`, or to now.
@@ -464,7 +469,7 @@ pub fn load_diff(
                 .map(|id| id.detach());
             tree_changes(base, newest.0)?
         }
-        DiffSource::Branch { tip } => {
+        DiffSource::Branch { tip, .. } => {
             let target = ctx
                 .project_meta()?
                 .target_ref

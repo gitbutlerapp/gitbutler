@@ -13,9 +13,12 @@ use super::{Workspace, Worktree, open, worktree_files};
 
 /// The active linked worktrees with their uncommitted changes, and the names of the
 /// archived ones.
-pub(super) fn linked(ctx: &Context) -> Result<(Vec<Worktree>, Vec<Arc<str>>)> {
+type Listing = (Vec<Worktree>, Vec<Arc<str>>);
+
+/// The project's [`Listing`]; `None` with GitButler's worktree support off.
+pub(super) fn linked(ctx: &Context) -> Result<Option<Listing>> {
     if !ctx.settings.feature_flags.worktree_manipulation {
-        return Ok(Default::default());
+        return Ok(None);
     }
     let listing = {
         let guard = ctx.shared_worktree_access();
@@ -37,7 +40,7 @@ pub(super) fn linked(ctx: &Context) -> Result<(Vec<Worktree>, Vec<Arc<str>>)> {
     let archived = (listing.archived.iter())
         .map(|listed| listed.name.to_str_lossy().into())
         .collect();
-    Ok((active, archived))
+    Ok(Some((active, archived)))
 }
 
 /// `shown` with the uncommitted files read again of the main checkout, with `main`, and of

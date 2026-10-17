@@ -1,7 +1,5 @@
 //! File watching, so the UI follows changes made by editors, agents and other GitButler clients.
 
-use std::sync::OnceLock;
-
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_settings::AppSettingsWithDiskSync;
@@ -70,13 +68,10 @@ fn linked_worktrees(path: &std::path::Path) -> Result<Vec<gitbutler_filemonitor:
         .collect())
 }
 
+/// GitButler's app settings as they are on disk now. Read afresh each time: the other apps
+/// change them too, and saving a copy read earlier would put their changes back.
 pub(super) fn settings() -> Result<AppSettingsWithDiskSync> {
-    static SETTINGS: OnceLock<AppSettingsWithDiskSync> = OnceLock::new();
-    if let Some(settings) = SETTINGS.get() {
-        return Ok(settings.clone());
-    }
     let config_dir = but_path::app_config_dir()?;
     std::fs::create_dir_all(&config_dir)?;
-    let settings = AppSettingsWithDiskSync::new_with_customization(config_dir, None)?;
-    Ok(SETTINGS.get_or_init(|| settings).clone())
+    AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }

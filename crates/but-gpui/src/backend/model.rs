@@ -39,6 +39,9 @@ pub struct Workspace {
     pub worktrees: Vec<Worktree>,
     /// The names of the worktrees archived, to bring back.
     pub archived_worktrees: Vec<std::sync::Arc<str>>,
+    /// Whether the worktrees were listed: GitButler's worktree support is on and listing
+    /// them worked. Otherwise the lists say nothing about which worktrees are gone.
+    pub worktrees_listed: bool,
 }
 
 /// A linked worktree and its uncommitted changes.
@@ -93,6 +96,14 @@ impl Workspace {
     }
 
     /// Whether `ref_name` has branches stacked on it. Pulling its remote's commits into it
+    /// Whether pushing `ref_name`, which pushes the branches below it too, has to force:
+    /// it or one of those was rewritten since it was pushed.
+    pub fn needs_force(&self, ref_name: &str) -> bool {
+        self.stack_of(ref_name).is_some_and(|(stack, at)| {
+            (stack.branches[at..].iter()).any(|branch| branch.push == PushState::NeedsForce)
+        })
+    }
+
     /// then moves its reference to the top of the stack, so the app doesn't offer it.
     pub fn has_branches_above(&self, ref_name: &str) -> bool {
         self.stack_of(ref_name).is_some_and(|(_, at)| at > 0)

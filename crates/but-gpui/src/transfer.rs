@@ -61,6 +61,10 @@ impl Transfer {
         if payload.project() != target.project() {
             return None;
         }
+        // An unnamed branch has no ref to put things on or stack onto.
+        if matches!(target, Selection::Branch(_, branch) if branch.is_empty()) {
+            return None;
+        }
         let workspace = store.workspace(target.project())?;
         Some(match (payload, target) {
             (Cut::Commit(_, id), Selection::Uncommitted(_)) => Transfer::Uncommit(*id),

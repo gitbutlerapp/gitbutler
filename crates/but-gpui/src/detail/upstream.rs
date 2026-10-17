@@ -190,6 +190,7 @@ impl Detail {
         if let Some(upstream) = &mut self.upstream {
             upstream.selected = Some(id);
         }
+        self.reset_view();
         self.refresh_diff(true, cx);
         cx.notify();
     }

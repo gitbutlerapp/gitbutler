@@ -107,6 +107,7 @@ impl Detail {
         if let Some(history) = &mut self.history {
             history.selected = Some(id);
         }
+        self.reset_view();
         self.refresh_diff(true, cx);
         cx.notify();
     }

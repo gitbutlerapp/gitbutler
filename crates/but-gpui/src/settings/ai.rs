@@ -239,10 +239,14 @@ impl SettingsView {
         let Some(config) = &self.ai.config else {
             return Vec::new();
         };
-        let provider_name = PROVIDERS
-            .iter()
-            .find(|(id, _)| *id == config.provider)
-            .map_or("OpenAI", |(_, name)| *name);
+        // A provider chosen in GitButler's other apps that these settings can't change, like
+        // OpenRouter: only picking another one here can be saved.
+        let known = PROVIDERS.iter().find(|(id, _)| *id == config.provider);
+        let provider_name = match (known, config.provider.as_str()) {
+            (Some((_, name)), _) => *name,
+            (None, "openrouter") => "OpenRouter",
+            (None, other) => other,
+        };
         let (model, endpoint, key) = provider_parts(config);
         let control = self.choice(
             "ai-provider",
@@ -256,13 +260,22 @@ impl SettingsView {
         let mut rows = vec![Row {
             section: Section::Ai,
             title: "Provider".into(),
-            description: if config.is_configured {
+            description: if known.is_none() {
+                format!(
+                    "{provider_name} was set up in another GitButler app, which is where it \
+                     changes. Pick a provider here to use that instead."
+                )
+                .into()
+            } else if config.is_configured {
                 "Writes commit messages and pull request descriptions when you ask.".into()
             } else {
                 format!("{provider_name} needs a key before it can write anything.").into()
             },
             control,
         }];
+        if known.is_none() {
+            return rows;
+        }
         if let Some((option, has_key)) = key {
             let option = if self.ai.own_pending { OWN_KEY } else { option };
             let provider = config.provider.clone();

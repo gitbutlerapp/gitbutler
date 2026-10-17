@@ -438,11 +438,15 @@ pub fn split_off(
 ) -> Result<(Rewritten, CommitId)> {
     use but_oplog::legacy::{OperationKind, SnapshotDetails};
     let mut ctx = open(path)?;
+    // The lock first: the metadata read before it could be written back over another
+    // process's change.
+    let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let changes = selected_specs(files);
-    let (new, workspace) = but_transaction::with_transaction(
+    let (new, workspace) = but_transaction::with_transaction_with_perm(
         &mut ctx,
         &mut meta,
+        guard.write_permission(),
         SnapshotDetails::new(OperationKind::MoveCommitFile),
         DryRun::No,
         |mut tx| {
@@ -460,10 +464,12 @@ pub fn move_to_new_branch(path: &Path, commit: CommitId) -> Result<(Rewritten, S
     use but_oplog::legacy::{OperationKind, SnapshotDetails};
     let mut ctx = open(path)?;
     let name = branch_ref(&but_api::branch::branch_canned_name(&ctx)?)?;
+    let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let workspace = but_transaction::with_transaction(
+    let workspace = but_transaction::with_transaction_with_perm(
         &mut ctx,
         &mut meta,
+        guard.write_permission(),
         SnapshotDetails::new(OperationKind::MoveCommit),
         DryRun::No,
         |mut tx| {
@@ -611,16 +617,15 @@ fn integrate_remote(
     };
     let plan = but_api::branch::get_initial_branch_integration(ctx, name.as_ref(), Some(strategy))?;
     // Rebasing would bring back the remote's versions of commits rewritten here, beside
-    // their new ones: the same change, or failing a change ID, the same subject.
+    // their new ones: the same change ID on both sides, or with neither having one, as
+    // after plain git, the same subject. A change ID on one side only tells them apart.
     let divergence = &plan.divergence;
     let rewritten_here = divergence.upstream_only.iter().any(|remote| {
-        divergence
-            .local_only
-            .iter()
-            .any(|local| match (&remote.change_id, &local.change_id) {
-                (Some(a), Some(b)) => a == b,
-                _ => remote.subject == local.subject,
-            })
+        (divergence.local_only.iter()).any(|local| match (&remote.change_id, &local.change_id) {
+            (Some(a), Some(b)) => a == b,
+            (None, None) => remote.subject == local.subject,
+            _ => false,
+        })
     });
     anyhow::ensure!(
         theirs || !rewritten_here,
