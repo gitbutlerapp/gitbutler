@@ -22,14 +22,14 @@ impl Detail {
 
     /// Whether a conflicted file still counts as conflicted: its markers are there and the
     /// user hasn't called it resolved anyway.
-    fn still_conflicted(&self, editing: &Editing, file: &EditedFile) -> bool {
-        file.resolved == Some(false)
-            && !(self.marked_resolved).contains(&(editing.commit, file.path.clone()))
+    fn still_conflicted(&self, project: &ProjectId, editing: &Editing, file: &EditedFile) -> bool {
+        let mark = (project.clone(), editing.commit, file.path.clone());
+        file.resolved == Some(false) && !self.marked_resolved.contains(&mark)
     }
 
-    fn unresolved(&self, editing: &Editing) -> usize {
+    fn unresolved(&self, project: &ProjectId, editing: &Editing) -> usize {
         (editing.files.iter())
-            .filter(|file| self.still_conflicted(editing, file))
+            .filter(|file| self.still_conflicted(project, editing, file))
             .count()
     }
 
@@ -140,7 +140,7 @@ impl Detail {
                                 "Mark resolved"
                             };
                             items.push(MenuItem::new(label, move |app, _, cx| {
-                                let key = (commit, file.clone());
+                                let key = (project.clone(), commit, file.clone());
                                 app.detail.update(cx, |detail, cx| {
                                     if !detail.marked_resolved.remove(&key) {
                                         detail.marked_resolved.insert(key);
@@ -157,7 +157,9 @@ impl Detail {
         };
         let files = editing.files.iter().enumerate().map(|(ix, file)| {
             let has_markers = file.resolved == Some(false);
-            let status = file.resolved.map(|_| !self.still_conflicted(editing, file));
+            let status = file
+                .resolved
+                .map(|_| !self.still_conflicted(project, editing, file));
             let mark = has_markers.then(|| status == Some(true));
             row(("edited", ix), &file.path, status, mark)
         });
@@ -174,7 +176,7 @@ impl Detail {
                 .text_color(theme.text_3)
                 .child(text)
         };
-        let unresolved = self.unresolved(editing);
+        let unresolved = self.unresolved(project, editing);
         let footer = h_flex()
             .flex_none()
             .h(px(44.))
@@ -249,7 +251,7 @@ impl Detail {
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) {
-        let unresolved = self.editing(project, cx).map_or(0, |e| self.unresolved(e));
+        let unresolved = (self.editing(project, cx)).map_or(0, |e| self.unresolved(project, e));
         let save = {
             let project = project.clone();
             move |store: &mut crate::state::Store, cx: &mut Context<crate::state::Store>| {
