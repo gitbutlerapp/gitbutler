@@ -115,7 +115,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-type ApiEntry = (&'static str, &'static [&'static str], &'static str, u32);
+type ApiEntry = (&'static str, &'static [&'static str], &'static str);
 
 /// Collect every napi endpoint present in these declarations.
 ///
@@ -123,19 +123,16 @@ type ApiEntry = (&'static str, &'static [&'static str], &'static str, u32);
 /// with. A disagreement fails generation rather than wiring an object field
 /// into the wrong positional argument.
 fn api_entries(declarations: &str) -> anyhow::Result<Vec<ApiEntry>> {
-    let mut entries: Vec<(&str, &[&str], &str, u32)> = Vec::new();
+    let mut entries: Vec<ApiEntry> = Vec::new();
     let mut mismatches: Vec<String> = Vec::new();
 
     for entry in inventory::iter::<but_schemars::ApiFnEntry> {
         match declared_param_names(declarations, entry.js_name) {
             // Absent from this build: feature-gated out of this SDK variant.
             None => continue,
-            Some(declared) if declared == entry.params => entries.push((
-                entry.js_name,
-                entry.params,
-                entry.source_file,
-                entry.source_line,
-            )),
+            Some(declared) if declared == entry.params => {
+                entries.push((entry.js_name, entry.params, entry.source_file))
+            }
             Some(declared) => mismatches.push(format!(
                 "  {}: registered {:?}, declared {:?}",
                 entry.js_name, entry.params, declared
@@ -149,7 +146,7 @@ fn api_entries(declarations: &str) -> anyhow::Result<Vec<ApiEntry>> {
         mismatches.join("\n")
     );
 
-    entries.sort_by_key(|(name, _, _, _)| *name);
+    entries.sort_by_key(|(name, _, _)| *name);
     Ok(entries)
 }
 
@@ -157,7 +154,7 @@ fn api_entries(declarations: &str) -> anyhow::Result<Vec<ApiEntry>> {
 ///
 /// napi-rs owns these declarations and already carries the Rust documentation;
 /// the link belongs there too. Existing generated links are removed first so
-/// running but-ts repeatedly, or after a source line moves, stays idempotent.
+/// running but-ts repeatedly stays idempotent.
 fn api_declarations_with_source_links(declarations: &str, entries: &[ApiEntry]) -> String {
     let mut declarations: String = declarations
         .split_inclusive('\n')
@@ -168,13 +165,13 @@ fn api_declarations_with_source_links(declarations: &str, entries: &[ApiEntry]) 
         })
         .collect();
 
-    for (name, _, source_file, source_line) in entries {
+    for (name, _, source_file) in entries {
         let needle = format!("export declare function {name}(");
         let Some(declaration_start) = declarations.find(&needle) else {
             continue;
         };
         let source_file = source_file.replace('\\', "/");
-        let link = format!(" * {{@link ../../../../../{source_file}:{source_line}}}\n");
+        let link = format!(" * {{@link ../../../../../{source_file}}}\n");
         let before = &declarations[..declaration_start];
 
         let before_trimmed = before.trim_end();
@@ -231,7 +228,7 @@ fn write_api_param_names(output_path: &Path, entries: &[ApiEntry]) -> anyhow::Re
     let mut dts = js.clone();
     writeln!(js, "export const apiParamNames = {{")?;
     writeln!(dts, "export declare const apiParamNames: {{")?;
-    for (name, params, _, _) in entries {
+    for (name, params, _) in entries {
         let quoted: Vec<String> = params.iter().map(|p| format!("\"{p}\"")).collect();
         writeln!(js, "\t{name}: [{}],", quoted.join(", "))?;
         writeln!(dts, "\treadonly {name}: readonly [{}];", quoted.join(", "))?;
@@ -244,7 +241,7 @@ fn write_api_param_names(output_path: &Path, entries: &[ApiEntry]) -> anyhow::Re
     std::fs::write(dir.join("apiParamNames.d.ts"), dts)?;
     eprintln!("Wrote parameter names for {} endpoints", entries.len());
 
-    let in_this_variant: Vec<&str> = entries.iter().map(|(name, _, _, _)| *name).collect();
+    let in_this_variant: Vec<&str> = entries.iter().map(|(name, _, _)| *name).collect();
     write_cache_tags(dir, &in_this_variant)?;
     Ok(())
 }
@@ -844,14 +841,13 @@ mod tests {
 
     #[test]
     fn api_declarations_have_rust_source_links() {
-        let entries: [(&str, &[&str], &str, u32); 3] = [
-            ("nothing", &[], "crates/but-api/src/nothing.rs", 10),
-            ("one", &["projectId"], "crates/but-api/src/one.rs", 20),
+        let entries: [ApiEntry; 3] = [
+            ("nothing", &[], "crates/but-api/src/nothing.rs"),
+            ("one", &["projectId"], "crates/but-api/src/one.rs"),
             (
                 "many",
                 &["projectId", "commitId"],
                 "crates/but-api/src/many.rs",
-                30,
             ),
         ];
 
@@ -871,18 +867,18 @@ export declare function many(projectId: string, commitId: string): void
 /**
  * Existing documentation.
  *
- * {@link ../../../../../crates/but-api/src/nothing.rs:10}
+ * {@link ../../../../../crates/but-api/src/nothing.rs}
  */
 export declare function nothing(): void
 /**
  * One-line documentation.
  *
- * {@link ../../../../../crates/but-api/src/one.rs:20}
+ * {@link ../../../../../crates/but-api/src/one.rs}
  */
 export declare function one(projectId: string): void
 /* Ordinary generated comment. */
 /**
- * {@link ../../../../../crates/but-api/src/many.rs:30}
+ * {@link ../../../../../crates/but-api/src/many.rs}
  */
 export declare function many(projectId: string, commitId: string): void
 

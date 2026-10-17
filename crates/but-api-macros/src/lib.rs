@@ -397,7 +397,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
                     js_name: #js_name_str,
                     params: &[#(#napi_param_js_names),*],
                     source_file: file!(),
-                    source_line: line!(),
                     provides: #provides_value,
                     invalidates: #invalidates_value,
                 }
