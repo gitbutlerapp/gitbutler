@@ -18,7 +18,8 @@ use but_api::{
 };
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
-    WindowState, askpass, csp::csp_with_extras, env, logs, menu, projects, settings, zip,
+    WindowState, askpass, csp::csp_with_extras, env, logs, menu, notifications, projects, settings,
+    zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -365,6 +366,7 @@ fn main() -> anyhow::Result<()> {
                 zip::get_project_archive_path,
                 zip::get_anonymous_graph_path,
                 settings::get_app_settings,
+                notifications::show_notification,
                 settings::update_onboarding_complete,
                 settings::update_telemetry,
                 settings::update_feature_flags,

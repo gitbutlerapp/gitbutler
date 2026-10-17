@@ -34,3 +34,5 @@ pub mod env;
 pub mod csp;
 
 pub mod lite_frontend;
+
+pub mod notifications;
