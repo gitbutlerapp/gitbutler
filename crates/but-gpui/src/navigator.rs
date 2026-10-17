@@ -59,7 +59,8 @@ enum Row {
     /// A project, its uncommitted changes, a branch or a commit.
     Item(Selection),
     Note(SharedString, bool),
-    StackCaption(usize),
+    /// Above a stack of more than one branch: the project and the branches' refs.
+    StackCaption(ProjectId, Vec<String>),
     Section(&'static str),
     /// A branch's commits folded away, and how many.
     More(ProjectId, String, usize),
@@ -184,7 +185,8 @@ impl Navigator {
             rows.push(Row::Item(Selection::Uncommitted(id.clone())));
             for stack in &workspace.stacks {
                 if stack.branches.len() > 1 {
-                    rows.push(Row::StackCaption(stack.branches.len()));
+                    let refs = stack.branches.iter().map(|b| b.ref_name.clone());
+                    rows.push(Row::StackCaption(id.clone(), refs.collect()));
                 }
                 for branch in &stack.branches {
                     let key = (id.clone(), branch.ref_name.clone());
@@ -323,6 +325,19 @@ impl Navigator {
         }
     }
 
+    /// Close every branch of a stack to its row, or open them all when they all are.
+    fn toggle_stack(&mut self, keys: &[(ProjectId, String)], cx: &mut Context<Self>) {
+        let closed = keys.iter().all(|key| self.closed_branches.contains(key));
+        for key in keys {
+            if closed {
+                self.closed_branches.remove(key);
+            } else {
+                self.closed_branches.insert(key.clone());
+            }
+        }
+        cx.notify();
+    }
+
     /// Close a branch to its row or open it again, as double-clicking a folder does.
     fn toggle_branch(&mut self, key: (ProjectId, String), cx: &mut Context<Self>) {
         if !self.closed_branches.remove(&key) {
@@ -441,15 +456,26 @@ impl Navigator {
                 .text_color(theme.text_3)
                 .child(*title)
                 .into_any_element(),
-            Some(Row::StackCaption(n)) => h_flex()
-                .h(px(22.))
-                .pl(px(14.))
-                .gap(px(6.))
-                .text_size(px(11.))
-                .text_color(theme.text_3)
-                .child(small_icon(Icon::Stack).text_color(theme.text_3))
-                .child(format!("Stack of {n}"))
-                .into_any_element(),
+            Some(Row::StackCaption(project, refs)) => {
+                let keys: Vec<(ProjectId, String)> =
+                    refs.iter().map(|r| (project.clone(), r.clone())).collect();
+                h_flex()
+                    .id(("stack", ix))
+                    .h(px(22.))
+                    .pl(px(14.))
+                    .gap(px(6.))
+                    .text_size(px(11.))
+                    .text_color(theme.text_3)
+                    .cursor_pointer()
+                    .hover(|el| el.text_color(theme.text_2))
+                    .tooltip(|_, cx| {
+                        Tooltip::with_key("Hide or show the stack's commits".into(), None, cx)
+                    })
+                    .child(small_icon(Icon::Stack).text_color(theme.text_3))
+                    .child(format!("Stack of {}", refs.len()))
+                    .on_click(cx.listener(move |this, _, _, cx| this.toggle_stack(&keys, cx)))
+                    .into_any_element()
+            }
             Some(Row::NewBranch(project)) => {
                 let (highlight, project) = (theme.pop, project.clone());
                 h_flex()
