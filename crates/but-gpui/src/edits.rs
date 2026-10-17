@@ -173,6 +173,7 @@ impl AppView {
         let name = short_ref(&ref_name).to_owned();
         let question = format!("Make {name} the remote's version?");
         let (check_branch, path) = (ref_name.clone(), self.store.read(cx).path(&project));
+        let checked = project.clone();
         let run = move |this: &mut AppView, cx: &mut Context<AppView>| {
             let (label, done) = if theirs {
                 (
@@ -208,6 +209,7 @@ impl AppView {
                 }))
             };
             return self.check_then(
+                &checked,
                 check,
                 "Pull with conflicts?",
                 "Pull anyway",

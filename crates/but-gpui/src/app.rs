@@ -1,6 +1,7 @@
 //! The window's root: the project navigator on the left, details on the right, and the
 //! overlays (menus, prompts, toasts) above both.
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -206,8 +207,9 @@ pub struct AppView {
     modal: Option<(AnyView, Subscription)>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
-    /// A dry run is checking what an operation would conflict, before it's queued.
-    pub checking: bool,
+    /// Projects where a dry run is checking what an operation would conflict, before
+    /// it's queued.
+    pub checking: HashSet<ProjectId>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -261,7 +263,7 @@ impl AppView {
             palette: None,
             modal: None,
             recent_commands: Vec::new(),
-            checking: false,
+            checking: HashSet::new(),
             _subscriptions: subscriptions,
         }
     }
@@ -1063,12 +1065,14 @@ impl AppView {
                 detail.join(" ")
             }))
         };
+        let updated = project.clone();
         let update = move |this: &mut AppView, cx: &mut Context<AppView>| {
             this.store.update(cx, |store, cx| {
-                store.update_from_target(&project, branch, cx)
+                store.update_from_target(&updated, branch, cx)
             })
         };
         self.check_then(
+            &project,
             check,
             "Update with conflicts?",
             "Update anyway",
@@ -1081,8 +1085,10 @@ impl AppView {
     /// Run `check` off the UI thread, then `then` straight away when it has nothing to warn
     /// about, or after asking with what it says. A failed check leaves it to `then` to
     /// report what's wrong.
+    #[allow(clippy::too_many_arguments)]
     pub fn check_then(
         &mut self,
+        project: &ProjectId,
         check: impl FnOnce() -> anyhow::Result<Option<String>> + Send + 'static,
         title: &'static str,
         confirm: &'static str,
@@ -1091,15 +1097,15 @@ impl AppView {
         then: impl FnOnce(&mut AppView, &mut Context<AppView>) + 'static,
     ) {
         // Asking again while it checks would queue the operation twice.
-        if self.checking {
+        if !self.checking.insert(project.clone()) {
             return;
         }
-        self.checking = true;
         cx.notify();
+        let project = project.clone();
         cx.spawn_in(window, async move |this, cx| {
             let warning = backend::run(check).await.ok().flatten();
             this.update_in(cx, |this, window, cx| {
-                this.checking = false;
+                this.checking.remove(&project);
                 cx.notify();
                 match warning {
                     None => then(this, cx),
