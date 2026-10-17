@@ -417,7 +417,9 @@ impl Navigator {
                 } else {
                     theme.text_2
                 })
-                .when(*is_error, |el| el.child(small_icon(Icon::Warning)))
+                .when(*is_error, |el| {
+                    el.child(small_icon(Icon::Warning).text_color(theme.danger))
+                })
                 .child(div().flex_1().min_w(px(0.)).child(text.clone()))
                 .into_any_element(),
             Some(Row::Pending(title)) => h_flex()
@@ -445,7 +447,7 @@ impl Navigator {
                 .gap(px(6.))
                 .text_size(px(11.))
                 .text_color(theme.text_3)
-                .child(small_icon(Icon::Stack))
+                .child(small_icon(Icon::Stack).text_color(theme.text_3))
                 .child(format!("Stack of {n}"))
                 .into_any_element(),
             Some(Row::NewBranch(project)) => {
@@ -463,7 +465,7 @@ impl Navigator {
                     .border_color(theme.border_2)
                     .text_size(px(12.))
                     .text_color(theme.text_2)
-                    .child(small_icon(Icon::Branch))
+                    .child(small_icon(Icon::Branch).text_color(theme.text_2))
                     .child("New branch")
                     .drag_over::<Cut>(move |style, _, _, _| {
                         style

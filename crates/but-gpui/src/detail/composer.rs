@@ -693,7 +693,7 @@ impl Detail {
             .hover(|el| el.bg(theme.fill_gray.opacity(0.14)))
             .font_family(theme.mono_font.clone())
             .text_color(theme.blue)
-            .child(small_icon(Icon::Branch))
+            .child(small_icon(Icon::Branch).text_color(theme.blue))
             .child(label)
             .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
             .on_click(move |event, _, cx| {
