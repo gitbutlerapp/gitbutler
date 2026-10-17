@@ -74,8 +74,10 @@ impl AppView {
         let typing = window.focused(cx).is_some_and(|focused| {
             focused != detail.focus_handle(cx) && focused != self.focus_handle(cx)
         });
-        let uncommitted = matches!(store.selection, Some(Selection::Uncommitted(_)));
-        let hints: Vec<(&dyn Action, &str)> = if uncommitted && detail.composing() {
+        let main = matches!(store.selection, Some(Selection::Uncommitted(_)));
+        // A linked worktree's changes review and discard as the main checkout's do.
+        let uncommitted = main || matches!(store.selection, Some(Selection::Worktree(..)));
+        let hints: Vec<(&dyn Action, &str)> = if main && detail.composing() {
             vec![(&StartCommit, "commit"), (&AmendTop, "amend")]
         } else if typing || (detail_focused && !detail.has_files()) || store.selection.is_none() {
             Vec::new()
