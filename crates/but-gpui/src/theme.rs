@@ -14,7 +14,8 @@ pub struct Theme {
     pub text_1: Hsla,
     pub text_2: Hsla,
     pub text_3: Hsla,
-    /// Stronger and softer rules.
+    /// The strongest rule, then stronger and softer ones.
+    pub border_1: Hsla,
     pub border_2: Hsla,
     pub border_3: Hsla,
     /// The solid gray of a focused selection; hover and unfocused selection are tints of it.
@@ -138,6 +139,7 @@ impl Theme {
             // details, on both grounds.
             text_2: pick(0x6e6e6e, 0xb2b2b2),
             text_3: pick(0x8a8a8a, 0x7d7d7d),
+            border_1: pick(0xb2b2b2, 0x6d6d6d),
             border_2: pick(0xcccccc, 0x565656),
             border_3: pick(0xdddddc, 0x434343),
             fill_gray: pick(0x434343, 0xf2f2f2),
