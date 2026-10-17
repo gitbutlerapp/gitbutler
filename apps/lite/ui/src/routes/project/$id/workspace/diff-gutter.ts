@@ -58,12 +58,26 @@ export const diffGutterUnsafeCSS = `
 		--gitbutler-diff-gutter-seam-color: var(--diffs-bg, var(--bg-1));
 	}
 
-	[data-column-number] {
+	/* A buffer stands in for a number cell on the side a line is missing from, so it keeps the cell's
+	   width: the column is as wide as what is rendered, and the far side of a long one-sided hunk
+	   renders nothing else, so a narrower buffer would pull the column in mid-scroll. */
+	[data-column-number],
+	[data-gutter-buffer] {
 		/* Where the gutter's business ends and the file's own margin begins. */
 		--gitbutler-diff-number-start: var(--gitbutler-diff-gutter-width);
-		--gitbutler-diff-number-film: transparent;
 
 		padding-left: calc(2ch + var(--gitbutler-diff-number-start));
+	}
+
+	[data-indicators="bars"] :is([data-column-number], [data-gutter-buffer]) {
+		--gitbutler-diff-number-start: calc(
+			var(--gitbutler-diff-gutter-width) + var(--gitbutler-diff-gutter-seam)
+		);
+	}
+
+	[data-column-number] {
+		--gitbutler-diff-number-film: transparent;
+
 		background-image: linear-gradient(
 			to right,
 			transparent var(--gitbutler-diff-number-start),
@@ -90,10 +104,6 @@ export const diffGutterUnsafeCSS = `
 	   controls sit above this, and the fill is the row's, so only a stripe of the surface can
 	   separate them. */
 	[data-indicators="bars"] [data-column-number] {
-		--gitbutler-diff-number-start: calc(
-			var(--gitbutler-diff-gutter-width) + var(--gitbutler-diff-gutter-seam)
-		);
-
 		background-image:
 			linear-gradient(
 				to right,
