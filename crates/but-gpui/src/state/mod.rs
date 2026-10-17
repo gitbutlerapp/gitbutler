@@ -86,10 +86,11 @@ impl Cut {
         }
     }
 
-    /// "Copied" for a cherry-pick, which leaves the commit where it is; "Cut" otherwise.
+    /// "Cherry-picking" for a cherry-pick, which leaves the commit where it is; "Cut"
+    /// otherwise. Not "Copied", which ⌘C says of the clipboard.
     pub fn verb(&self) -> &'static str {
         if matches!(self, Cut::CherryPick(..)) {
-            "Copied"
+            "Cherry-picking"
         } else {
             "Cut"
         }
