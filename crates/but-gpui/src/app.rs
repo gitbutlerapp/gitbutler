@@ -502,6 +502,17 @@ impl AppView {
     }
 
     /// Put `text` on the clipboard and say so.
+    /// What right-clicking `target`'s row in the navigator offers, opened at `position`.
+    pub fn open_row_menu(
+        &mut self,
+        target: &Selection,
+        position: gpui::Point<gpui::Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        let items = self.navigator.read(cx).menu_items(target, cx);
+        self.open_menu(position, items, cx);
+    }
+
     pub fn copy_text(&mut self, text: String, cx: &mut Context<Self>) {
         let message = copied(&text);
         cx.write_to_clipboard(ClipboardItem::new_string(text));
@@ -634,13 +645,14 @@ impl Render for AppView {
                     .flex_row()
                     .flex_1()
                     .min_h(px(0.))
+                    // What the navigator's menus and keys, and the commit header's menu, do to
+                    // the selection.
+                    .map(|el| self.edit_actions(el, cx))
                     .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
                     .when(self.navigator_open, |el| {
                         let width = self.store.read(cx).width(Pane::Navigator);
                         el.child(
                             div()
-                                // What the navigator's menus and keys do to the selection.
-                                .map(|el| self.edit_actions(el, cx))
                                 .w(px(width))
                                 .flex_none()
                                 .h_full()

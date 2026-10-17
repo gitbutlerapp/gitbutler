@@ -199,6 +199,8 @@ pub struct Prefs {
     pub wrap: bool,
     /// Diffs show the old side beside the new rather than one above the other.
     pub split: bool,
+    /// Changed lines go without their green and red ground, keeping the bar beside them.
+    pub plain_lines: bool,
     pub code_size: crate::theme::CodeSize,
     /// Projects, by id, whose Git hooks run around commits and pushes. Off unless picked,
     /// as in the desktop app.

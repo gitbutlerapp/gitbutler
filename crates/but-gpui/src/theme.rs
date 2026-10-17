@@ -44,6 +44,9 @@ pub struct Theme {
     pub diff_removed_emph: Hsla,
     /// The box that stands for the unchanged lines between hunks.
     pub diff_separator: Hsla,
+    /// The colours a person without a picture can be, as but.dev draws them: a ground and the
+    /// pattern on it.
+    pub person: [[Hsla; 2]; 5],
     pub ui_font: SharedString,
     pub mono_font: SharedString,
     /// Code in diffs: its size and the height of a line of it.
@@ -162,6 +165,15 @@ impl Theme {
             diff_added_emph: added.opacity(if dark { 0.2 } else { 0.15 }),
             diff_removed_emph: removed.opacity(if dark { 0.2 } else { 0.15 }),
             diff_separator: tint(pick(0x000000, 0xffffff), 0.04, 0.1),
+            // Design-core's pop, purple, safe, warn and danger: the 80 step under the 70.
+            person: [
+                [(0xd0f2f2, 0x115151), (0x9ee7e7, 0x177070)],
+                [(0xe7dbf3, 0x3e1964), (0xcfb5e9, 0x57238b)],
+                [(0xd4f1e5, 0x15543a), (0xa6e5cb, 0x1d744e)],
+                [(0xfae9d0, 0x724403), (0xf8d29e, 0x9d5d04)],
+                [(0xf4dad6, 0x621d13), (0xebb4ab, 0x87291a)],
+            ]
+            .map(|steps| steps.map(|(light, dark_value)| pick(light, dark_value))),
             ui_font: ui_font.into(),
             mono_font: mono_font.into(),
             // Shiki's GitHub light and dark, as but.dev highlights diffs. In `Token` order:
@@ -180,6 +192,17 @@ impl Theme {
 
     pub fn token(&self, token: Token) -> Hsla {
         self.syntax[token as usize]
+    }
+
+    /// This theme with changed lines on the plain ground, for diffs without line backgrounds.
+    pub fn plain_lines(&self) -> Self {
+        Theme {
+            diff_added_bg: self.bg_1,
+            diff_removed_bg: self.bg_1,
+            diff_added_gutter: self.bg_1,
+            diff_removed_gutter: self.bg_1,
+            ..self.clone()
+        }
     }
 
     pub fn hover(&self) -> Hsla {

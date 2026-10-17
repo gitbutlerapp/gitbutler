@@ -3,6 +3,7 @@
 pub mod diff;
 pub mod file_icons;
 pub mod modal;
+pub mod person;
 pub mod review;
 pub mod scrollbar;
 pub mod text_input;
@@ -64,9 +65,12 @@ icons! {
     Eye => "eye",
     File => "file",
     FileDiff => "file-diff",
+    FilesSidebar => "files-sidebar",
     Folder => "folder",
     FolderFill => "folder-fill",
     FolderTree => "folder-tree",
+    Hash => "hash",
+    Kebab => "kebab",
     Link => "link",
     List => "list",
     Plus => "plus",
@@ -76,8 +80,10 @@ icons! {
     Refresh => "refresh",
     Search => "search",
     Sidebar => "sidebar",
+    SidebarNarrow => "sidebar-narrow",
     Stack => "stack",
     TextBlock => "text-block",
+    TextWrap => "text-wrap",
     Tick => "tick",
     Warning => "warning",
 }
@@ -105,7 +111,9 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
-        Ok((icon_bytes(path).or_else(|| file_icons::load(path))).map(Cow::Borrowed))
+        Ok((icon_bytes(path).or_else(|| file_icons::load(path)))
+            .map(Cow::Borrowed)
+            .or_else(|| person::load(path).map(Cow::Owned)))
     }
 
     fn list(&self, _path: &str) -> anyhow::Result<Vec<SharedString>> {
@@ -618,6 +626,14 @@ pub fn relative_time(seconds: i64) -> String {
         2_592_000..31_536_000 => format!("{}mo", delta / 2_592_000),
         _ => format!("{}y", delta / 31_536_000),
     }
+}
+
+/// `seconds` (since the epoch) as the time here, the way but.dev dates a commit:
+/// "16/10/2026, 21:04".
+pub fn local_time(seconds: i64) -> String {
+    let offset = gix::date::Time::now_local_or_utc().offset;
+    gix::date::Time::new(seconds, offset)
+        .format_or_unix(gix::date::time::CustomFormat::new("%d/%m/%Y, %H:%M"))
 }
 
 pub fn empty_state(

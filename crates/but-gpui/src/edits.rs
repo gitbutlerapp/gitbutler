@@ -63,7 +63,7 @@ pub fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
 }
 
 impl AppView {
-    /// Register the edits on the element around the navigator. Delete, rename, new branch
+    /// Register the edits on the element around the navigator and the detail. Delete, rename, new branch
     /// on top and uncommit are always there; the rest only where the selection lets them do
     /// something, which is also what the palette offers.
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
