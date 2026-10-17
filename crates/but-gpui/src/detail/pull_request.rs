@@ -9,14 +9,15 @@ use gpui::{
 };
 
 use super::Detail;
-use crate::app::MenuItem;
 use crate::backend;
+use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::review as ui_review;
 use crate::ui::{
-    ButtonStyle, Icon, button, h_flex, icon, list_row, plural, shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, button, h_flex, icon, list_row, muted, plural, section_label, shortcut,
+    small_icon, v_flex,
 };
 
 /// A branch's pull request in two lines, as t3code shows one: what it is, then its number,
@@ -98,13 +99,7 @@ pub(super) fn render_review(
             ))
         })
         .when(review.auto_merge, |el| {
-            el.child(
-                div()
-                    .pl(px(24.))
-                    .text_size(px(12.))
-                    .text_color(theme.text_2)
-                    .child("Merges when checks pass"),
-            )
+            el.child(muted("Merges when checks pass", theme).pl(px(24.)))
         })
         .when(!review.failed_checks.is_empty(), |el| {
             el.child(failed_checks(&review.failed_checks, theme))
@@ -319,14 +314,10 @@ fn feedback_section(heading: String, theme: &Theme) -> Div {
         .border_b_1()
         .border_color(theme.border_3)
         .child(
-            div()
+            section_label(heading, theme)
                 .px(px(16.))
                 .pt(px(10.))
-                .pb(px(4.))
-                .text_size(px(11.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(theme.text_3)
-                .child(heading),
+                .pb(px(4.)),
         )
 }
 

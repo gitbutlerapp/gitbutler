@@ -11,14 +11,14 @@ use gpui::{
     Window, div, list, prelude::*, px,
 };
 
-use super::{Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleReviewed, checkbox_box};
+use super::{Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleReviewed};
 use crate::app::AppView;
 use crate::backend::{self, ChangeKind, DiffBody, DiffLine, DiffSource, LineKind, Selected};
 use crate::state::{Cut, ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::scrollbar::{Scroll, scrollbar};
-use crate::ui::{ButtonStyle, Icon, button, empty_state, h_flex, icon_button, shortcut};
+use crate::ui::{ButtonStyle, Icon, button, checkbox, empty_state, h_flex, icon_button, shortcut};
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
 /// list notifies the view that drew it, and GPUI draws everything inside a notified view again,
@@ -305,7 +305,7 @@ impl Detail {
             return div().into_any_element();
         };
         let row = diff.rows[ix];
-        let worktree = diff.key.source == DiffSource::Worktree;
+        let worktree = self.worktree_diff().is_some();
         let store = self.store.read(cx);
         // What dragging or right-clicking a file or some of its hunks carries: changes of the
         // worktree or of one commit. A branch's diff spans commits, so it carries nothing.
@@ -314,11 +314,7 @@ impl Detail {
                 DiffSource::Worktree => None,
                 // Not a commit of the target's history, on the project page: it isn't the
                 // workspace's to change.
-                DiffSource::Commit(id)
-                    if store
-                        .workspace(&diff.key.project)
-                        .is_some_and(|ws| ws.find_commit(id).is_some()) =>
-                {
+                DiffSource::Commit(id) if store.find_commit(&diff.key.project, id).is_some() => {
                     Some(id)
                 }
                 _ => return None,
@@ -395,9 +391,9 @@ impl Detail {
                     };
                 let composing = self.composing && worktree;
                 let leading = composing.then(|| {
-                    let check = self.hunk_check(path, key);
+                    let check = self.checks.hunk_check(path, key);
                     let (path, entity) = (path.clone(), entity.clone());
-                    checkbox_box(("hunk-check", ix), check, theme)
+                    checkbox(("hunk-check", ix), check, theme)
                         .on_click(move |_, _, cx| {
                             entity
                                 .update(cx, |detail, cx| detail.toggle_hunk(&path, key, cx))
@@ -422,7 +418,7 @@ impl Detail {
                     HeaderDecor {
                         leading,
                         trailing: discard,
-                        excluded: composing && !self.hunk_checked(path, key),
+                        excluded: composing && !self.checks.hunk_checked(path, key),
                         current,
                         ..Default::default()
                     },
@@ -441,7 +437,7 @@ impl Detail {
                         let label = format!("{path} · line {line}");
                         el.on_drag(
                             carried,
-                            crate::navigator::drag_preview(self.store.clone(), label.into()),
+                            crate::transfer::drag_preview(self.store.clone(), label.into()),
                         )
                     })
                     .into_any_element()
@@ -608,10 +604,7 @@ impl Detail {
             return;
         };
         let (change, fingerprint) = (file.file.clone(), file.fingerprint);
-        let worktree = match &diff.key.source {
-            DiffSource::Linked(name) => Some(name.clone()),
-            _ => None,
-        };
+        let worktree = diff.key.linked();
         let path = change.path.clone();
         // One read at a time: the one under way reads again when it lands stale.
         if !self.whole_reading.insert(path.clone()) {
@@ -675,14 +668,14 @@ impl Detail {
         let DiffBody::Hunks { hunks, .. } = &diff.files[file].body else {
             return (false, None);
         };
-        if !self.composing || diff.key.source != DiffSource::Worktree {
+        if !self.composing || self.worktree_diff().is_none() {
             return (false, None);
         }
         let (path, key) = (diff.files[file].file.path.clone(), hunks[hunk].key);
         if hunks[hunk].lines[line].kind == LineKind::Context {
-            return (!self.hunk_checked(&path, key), None);
+            return (!self.checks.hunk_checked(&path, key), None);
         }
-        let excluded = !self.line_checked(&path, key, line);
+        let excluded = !self.checks.line_checked(&path, key, line);
         let entity = entity.clone();
         let toggle = Rc::new(move |_: &mut Window, cx: &mut App| {
             entity
@@ -741,7 +734,7 @@ fn review_button(
             theme.text_2
         })
         .hover(|el| el.bg(theme.hover()))
-        .child(checkbox_box(("review-check", ix), check, theme))
+        .child(checkbox(("review-check", ix), check, theme))
         .child(label)
         .tooltip(move |_, cx| {
             crate::ui::Tooltip::with_key(

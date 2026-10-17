@@ -8,9 +8,9 @@ use gpui::{App, Context, Div, KeyBinding, Window, actions, prelude::*};
 use crate::app::{
     AppView, DeleteSelection, NewBranchOnTop, Push, RenameSelection, UncommitSelection,
 };
-use crate::backend::{self, Commit, CommitId, Destination, Selected, Workspace};
+use crate::backend::{self, Commit, CommitId, Destination, Selected, Workspace, short_ref};
 use crate::state::{Cut, Overlay, ProjectId, Selection};
-use crate::transfer::{Transfer, remapped, short_ref};
+use crate::transfer::Transfer;
 
 actions!(
     edits,
@@ -112,11 +112,7 @@ impl AppView {
         let picked = store.picked.len() > 1;
         let pullable = match &store.selection {
             Some(Selection::Branch(project, ref_name)) => {
-                (store.workspace(project)).is_some_and(|ws| {
-                    ws.find_branch(ref_name)
-                        .is_some_and(|b| !b.incoming.is_empty())
-                        && !ws.has_branches_above(ref_name)
-                })
+                (store.workspace(project)).is_some_and(|ws| ws.can_pull(ref_name))
             }
             _ => false,
         };
@@ -171,11 +167,7 @@ impl AppView {
         let Some((project, ref_name)) = self.selected_named_branch(cx) else {
             return;
         };
-        let Some(workspace) = self.store.read(cx).workspace(&project) else {
-            return;
-        };
-        let incoming = (workspace.find_branch(&ref_name)).map_or(0, |b| b.incoming.len());
-        if incoming == 0 || workspace.has_branches_above(&ref_name) {
+        if !(self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.can_pull(&ref_name)) {
             return;
         }
         let name = short_ref(&ref_name).to_owned();
@@ -239,7 +231,7 @@ impl AppView {
         let Some(Selection::Commit(project, id)) = &store.selection else {
             return None;
         };
-        let (_, commit) = store.workspace(project)?.find_commit(*id)?;
+        let (_, commit) = store.find_commit(project, *id)?;
         Some((project.clone(), commit))
     }
 
@@ -502,7 +494,7 @@ impl AppView {
                 &project,
                 "Add empty commit",
                 Overlay::default(),
-                move |path, remap| backend::insert_empty_commit(path, &remapped(to, remap)?),
+                move |path, remap| backend::insert_empty_commit(path, &remap.destination(to)?),
                 move |store, id, cx| {
                     store.select(Some(Selection::Commit(selected, id)), cx);
                     store.snack_undoable("Empty commit added", cx)
@@ -515,7 +507,7 @@ impl AppView {
     /// Pick up the selected commit to put a copy of it where ⌘V lands.
     fn cherry_pick(&mut self, _: &CherryPick, _: &mut Window, cx: &mut Context<Self>) {
         if let Some((project, id)) = self.single_commit(cx) {
-            self.cut(Cut::Pick(project, id), cx);
+            self.cut(Cut::CherryPick(project, id), cx);
         }
     }
 

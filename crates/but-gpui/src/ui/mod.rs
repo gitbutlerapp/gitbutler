@@ -9,7 +9,7 @@ pub mod text_input;
 use std::borrow::Cow;
 
 use gpui::{
-    AnyElement, App, AssetSource, ClickEvent, CursorStyle, Div, DragMoveEvent, ElementId,
+    Action, AnyElement, App, AssetSource, ClickEvent, CursorStyle, Div, DragMoveEvent, ElementId,
     EmptyView, Entity, Hsla, Role, SharedString, Stateful, Svg, Toggled, Window, div, prelude::*,
     px, svg,
 };
@@ -144,10 +144,6 @@ pub fn faint(text: impl IntoElement, theme: &Theme) -> Div {
 }
 
 /// The heading over a group of rows.
-#[expect(
-    dead_code,
-    reason = "the navigator, editing and pull request headings move to it next"
-)]
 pub fn section_label(text: impl IntoElement, theme: &Theme) -> Div {
     faint(text, theme).font_weight(gpui::FontWeight::SEMIBOLD)
 }
@@ -187,6 +183,33 @@ pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Stateful<Div
         .when(on, |el| el.justify_end())
         .hover(|el| el.opacity(0.9))
         .child(div().size(px(14.)).rounded_full().bg(gpui::white()))
+}
+
+/// A checkbox, ticked, empty or, for a group partly checked, a dash.
+pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stateful<Div> {
+    let on = check != Toggled::False;
+    div()
+        .id(id)
+        .role(Role::CheckBox)
+        .aria_toggled(check)
+        .flex_none()
+        .size(px(14.))
+        .rounded(px(3.))
+        .border_1()
+        .border_color(if on { theme.pop } else { theme.border_2 })
+        .when(on, |el| el.bg(theme.pop))
+        .flex()
+        .items_center()
+        .justify_center()
+        .map(|el| match check {
+            Toggled::True => el.child(
+                small_icon(Icon::Tick)
+                    .size(px(10.))
+                    .text_color(gpui::white()),
+            ),
+            Toggled::Mixed => el.child(div().w(px(8.)).h(px(2.)).rounded(px(1.)).bg(gpui::white())),
+            Toggled::False => el,
+        })
 }
 
 /// A button showing a choice, which opens a menu of the others when clicked.
@@ -346,6 +369,12 @@ impl Button {
     ) -> Self {
         self.on_click = Some(Box::new(handler));
         self
+    }
+
+    /// Dispatch `action` when clicked, as its keys would.
+    pub fn dispatch(self, action: &dyn Action) -> Self {
+        let action = action.boxed_clone();
+        self.on_click(move |_, window, cx| window.dispatch_action(action.boxed_clone(), cx))
     }
 }
 

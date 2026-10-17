@@ -10,7 +10,7 @@ use but_api::legacy::forge;
 use but_ctx::Context;
 
 use super::ops::holds;
-use super::{Checks, PushState, Review, ReviewState, open, push, runtime, title};
+use super::{Checks, Forge, PushState, Review, ReviewState, open, push, runtime, title};
 
 /// Make a call to the forge, which goes over the network, and wait for its answer.
 fn forge_call<T, F: Future<Output = Result<T>>>(
@@ -20,8 +20,9 @@ fn forge_call<T, F: Future<Output = Result<T>>>(
     runtime().handle().block_on(call(open(path)?.into_sync()))
 }
 
-/// Which forge hosts the project, like "GitHub", when its target's remote says so.
-pub fn forge_name(ctx: &Context) -> Option<String> {
+/// Which forge hosts the project, when its target's remote says so or the project picks
+/// one in its settings.
+fn forge_name(ctx: &Context) -> Option<but_forge::ForgeName> {
     let meta = ctx.project_meta().ok()?;
     meta.target_ref.as_ref()?;
     let url = forge::remote_url(&meta, &*ctx.repo.get().ok()?).ok()?;
@@ -30,8 +31,18 @@ pub fn forge_name(ctx: &Context) -> Option<String> {
         .forge_override
         .as_deref()
         .and_then(but_forge::ForgeName::from_override_str);
-    let info = but_forge::derive_forge_repo_info(&url, overridden)?;
-    Some(format!("{:?}", info.forge))
+    Some(but_forge::derive_forge_repo_info(&url, overridden)?.forge)
+}
+
+/// [`forge_name`] as the app names forges.
+pub(super) fn forge_of(ctx: &Context) -> Option<Forge> {
+    use but_forge::ForgeName as F;
+    Some(match forge_name(ctx)? {
+        F::GitHub => Forge::GitHub,
+        F::GitLab => Forge::GitLab,
+        F::Bitbucket => Forge::Bitbucket,
+        F::Azure => Forge::Azure,
+    })
 }
 
 /// The pull requests the forge cache knows about, by number. Reads only the cache;
@@ -161,14 +172,7 @@ pub fn new_review(path: &Path, branch: &str) -> Result<NewReview> {
         None => forge::list_available_review_templates(&ctx)
             .ok()
             .and_then(|paths| paths.into_iter().next())
-            .and_then(|path| {
-                let forge = but_forge::derive_forge_repo_info(
-                    &forge::remote_url(&ctx.project_meta().ok()?, &*ctx.repo.get().ok()?).ok()?,
-                    None,
-                )?
-                .forge;
-                forge::pr_template(&ctx, path.into(), forge).ok()
-            }),
+            .and_then(|path| forge::pr_template(&ctx, path.into(), forge_name(&ctx)?).ok()),
     };
     Ok(NewReview { target, template })
 }

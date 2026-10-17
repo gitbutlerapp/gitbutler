@@ -207,7 +207,7 @@ impl Store {
         let removed = id.to_string();
         cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
-                backend::settings::remove_project(&removed)?;
+                backend::remove_project(&removed)?;
                 backend::list_projects()
             })
             .await;
@@ -447,7 +447,7 @@ impl Store {
             };
             let kept = match &mut cut {
                 Cut::Commit(_, commit)
-                | Cut::Pick(_, commit)
+                | Cut::CherryPick(_, commit)
                 | Cut::Files {
                     from: Some(commit), ..
                 } => follow(*commit).map(|new| *commit = new).is_some(),

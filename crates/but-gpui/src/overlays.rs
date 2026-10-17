@@ -17,7 +17,7 @@ use crate::state::{Notice, Overlay, ProjectId, Remap, Selection};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, list_row, popover,
+    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, list_row, muted, popover,
     shortcut, v_flex,
 };
 
@@ -401,12 +401,7 @@ impl AppView {
                                 .child(prompt.title.clone()),
                         )
                         .when_some(prompt.detail.clone(), |el, detail| {
-                            el.child(
-                                div()
-                                    .text_size(px(12.))
-                                    .text_color(theme.text_2)
-                                    .child(detail),
-                            )
+                            el.child(muted(detail, theme))
                         })
                         .child(
                             div()
@@ -541,13 +536,7 @@ impl AppView {
                                             .child(title.clone()),
                                     ),
                             )
-                            .child(
-                                div()
-                                    .text_size(px(12.))
-                                    .text_color(theme.text_2)
-                                    .line_clamp(4)
-                                    .child(detail.clone()),
-                            )
+                            .child(muted(detail.clone(), theme).line_clamp(4))
                             .child(
                                 h_flex()
                                     .gap(px(6.))

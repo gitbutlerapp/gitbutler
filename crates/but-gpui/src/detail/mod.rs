@@ -25,7 +25,7 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
-    ListAlignment, ListOffset, ListState, Role, SharedString, Subscription, Task, Toggled,
+    ListAlignment, ListOffset, ListState, SharedString, Subscription, Task,
     UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*, px,
 };
 
@@ -38,8 +38,7 @@ use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, button, empty_state, h_flex, resize_handle, resize_pane, shortcut,
-    small_icon, v_flex,
+    ButtonStyle, button, empty_state, h_flex, resize_handle, resize_pane, shortcut, v_flex,
 };
 
 actions!(
@@ -1006,7 +1005,8 @@ impl Detail {
         Some((diff.key.project.clone(), file.clone()))
     }
 
-    /// The files the diff shows, in order: not those a filter or a pending operation hides.
+    /// The indexes of the files the diff shows, in ascending order for the binary searches
+    /// over them (Find's among them): not those a filter or a pending operation hides.
     fn shown_files(&self) -> Vec<usize> {
         (self.diff.iter())
             .flat_map(|diff| &diff.rows)
@@ -1345,12 +1345,11 @@ fn welcome(theme: &Theme, cx: &Context<Detail>) -> AnyElement {
                             "Pick a folder with a Git repository",
                             shortcut(&AddProject, cx),
                         )
-                        .on_click(|_, window, cx| window.dispatch_action(Box::new(AddProject), cx)),
+                        .dispatch(&AddProject),
                 )
                 .child(
-                    button("welcome-clone", "Clone a repository…").on_click(|_, window, cx| {
-                        window.dispatch_action(Box::new(crate::projects::CloneRepository), cx)
-                    }),
+                    button("welcome-clone", "Clone a repository…")
+                        .dispatch(&crate::projects::CloneRepository),
                 ),
         )
         .into_any_element()
@@ -1361,34 +1360,4 @@ fn hunk_keys(file: &FileDiff) -> Vec<HunkKey> {
         DiffBody::Hunks { hunks, .. } => hunks.iter().map(|hunk| hunk.key).collect(),
         _ => Vec::new(),
     }
-}
-
-pub(super) fn checkbox_box(
-    id: impl Into<gpui::ElementId>,
-    check: Toggled,
-    theme: &Theme,
-) -> gpui::Stateful<gpui::Div> {
-    let on = check != Toggled::False;
-    div()
-        .id(id)
-        .role(Role::CheckBox)
-        .aria_toggled(check)
-        .flex_none()
-        .size(px(14.))
-        .rounded(px(3.))
-        .border_1()
-        .border_color(if on { theme.pop } else { theme.border_2 })
-        .when(on, |el| el.bg(theme.pop))
-        .flex()
-        .items_center()
-        .justify_center()
-        .map(|el| match check {
-            Toggled::True => el.child(
-                small_icon(Icon::Tick)
-                    .size(px(10.))
-                    .text_color(gpui::white()),
-            ),
-            Toggled::Mixed => el.child(div().w(px(8.)).h(px(2.)).rounded(px(1.)).bg(gpui::white())),
-            Toggled::False => el,
-        })
 }

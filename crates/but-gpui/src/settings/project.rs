@@ -4,6 +4,7 @@
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*, px};
 
 use super::{Row, SettingsView, field_with_save};
+use crate::backend::Forge;
 use crate::backend::settings::{self as backend, GitHubStacks, StackInfo};
 use crate::state::ProjectId;
 use crate::theme::Theme;
@@ -188,8 +189,8 @@ impl SettingsView {
             .store
             .read(cx)
             .workspace(project)
-            .and_then(|ws| ws.forge.as_deref())
-            == Some("GitHub");
+            .and_then(|ws| ws.forge)
+            == Some(Forge::GitHub);
         let remove_id = project.clone();
         let project_name = self.project_name(cx).unwrap_or_default();
         let remove = cx.listener(move |this, _: &ClickEvent, window, cx| {

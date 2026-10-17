@@ -8,12 +8,14 @@ use gpui::{
 
 use super::Detail;
 use super::panes::side_header;
-use crate::app::MenuItem;
 use crate::backend::edit::{self, EditedFile, Editing};
+use crate::overlays::MenuItem;
 use crate::state::{Overlay, ProjectId, SAVE_EDIT, STOP_EDITING};
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
-use crate::ui::{ButtonStyle, Icon, button, h_flex, list_row, plural, small_icon, v_flex};
+use crate::ui::{
+    ButtonStyle, Icon, button, faint, h_flex, list_row, plural, section_label, small_icon, v_flex,
+};
 
 impl Detail {
     /// The commit `project` is editing, if it's in edit mode.
@@ -63,14 +65,10 @@ impl Detail {
                  rewrite the commit. The commits above it move onto the result.",
             );
         let heading = |text: String| {
-            div()
+            section_label(text, theme)
                 .px(px(16.))
                 .pt(px(12.))
                 .pb(px(4.))
-                .text_size(px(11.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(theme.text_3)
-                .child(text)
         };
         // `mark` is for a file whose markers are still there: whether the user called it
         // resolved anyway, which its right-click menu changes.
@@ -91,13 +89,10 @@ impl Detail {
                     .child(small_icon(glyph).text_color(color))
                     .child(div().flex_none().child(name.to_owned()))
                     .child(
-                        div()
+                        faint(dir.to_owned(), theme)
                             .flex_1()
                             .min_w(px(0.))
-                            .truncate()
-                            .text_size(px(11.))
-                            .text_color(theme.text_3)
-                            .child(dir.to_owned()),
+                            .truncate(),
                     )
                     .children(note.map(|note| {
                         div()

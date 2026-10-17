@@ -12,8 +12,9 @@ mod accounts;
 mod ai;
 mod project;
 
-use crate::app::{AppView, MenuItem};
+use crate::app::AppView;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
+use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Store};
 use crate::theme::{Appearance, CodeSize, Theme};
 use crate::ui::modal::{ModalSize, modal};

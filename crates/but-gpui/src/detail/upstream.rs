@@ -9,10 +9,12 @@ use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 use super::Detail;
 use super::panes::{list_heading, side_header, side_list};
 use crate::backend::upstream::{self, TargetCommit};
-use crate::backend::{self, CommitId, DiffSource};
+use crate::backend::{self, CommitId, DiffSource, Forge};
 use crate::state::ProjectId;
 use crate::theme::Theme;
-use crate::ui::{Icon, h_flex, icon, list_row, plural, relative_time, small_icon, v_flex};
+use crate::ui::{
+    Icon, faint, h_flex, icon, list_row, muted, plural, relative_time, small_icon, v_flex,
+};
 
 /// How many target commits a page holds.
 const PAGE: u32 = 50;
@@ -31,7 +33,7 @@ pub(super) struct Upstream {
     /// Why the last fetch failed.
     fetch_error: Option<String>,
     /// The forge the project is on, when no account for it is connected.
-    unconnected_forge: Option<String>,
+    unconnected_forge: Option<Forge>,
     /// What the list was loaded for, and when.
     seen: (u64, Instant),
 }
@@ -75,14 +77,12 @@ impl Detail {
             .store
             .read(cx)
             .workspace(&project)
-            .and_then(|ws| ws.forge.clone());
+            .and_then(|ws| ws.forge);
         self._upstream_load = cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
                 let page = upstream::target_commits(&path, after, PAGE)?;
-                let connected = forge.as_ref().is_none_or(|forge| {
-                    backend::accounts::accounts()
-                        .iter()
-                        .any(|account| account.forge.name() == forge)
+                let connected = forge.is_none_or(|forge| {
+                    (backend::accounts::accounts().iter()).any(|account| account.forge == forge)
                 });
                 Ok((
                     page,
@@ -233,30 +233,27 @@ impl Detail {
                     .text_color(theme.danger)
                     .child(format!("The last fetch failed: {err}"))
             }))
-            .children(
-                upstream
-                    .and_then(|u| u.unconnected_forge.clone())
-                    .map(|forge| {
-                        h_flex()
-                            .mt(px(4.))
-                            .gap(px(8.))
-                            .p(px(8.))
-                            .rounded(px(6.))
-                            .bg(theme.fill_gray.opacity(0.06))
-                            .child(div().flex_1().text_color(theme.text_1).child(format!(
-                                "Connect {forge} to see pull requests and CI here."
-                            )))
-                            .child(
-                                crate::ui::button("connect-forge", "Connect…")
-                                    .small()
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.app
-                                            .update(cx, |app, cx| app.open_accounts(window, cx))
-                                            .ok();
-                                    })),
-                            )
-                    }),
-            )
+            .children(upstream.and_then(|u| u.unconnected_forge).map(|forge| {
+                h_flex()
+                    .mt(px(4.))
+                    .gap(px(8.))
+                    .p(px(8.))
+                    .rounded(px(6.))
+                    .bg(theme.hover())
+                    .child(div().flex_1().text_color(theme.text_1).child(format!(
+                        "Connect {} to see pull requests and CI here.",
+                        forge.name()
+                    )))
+                    .child(
+                        crate::ui::button("connect-forge", "Connect…")
+                            .small()
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.app
+                                    .update(cx, |app, cx| app.open_accounts(window, cx))
+                                    .ok();
+                            })),
+                    )
+            }))
             .when(!entry.project.path.exists(), |el| {
                 let (locate, remove) = (project.clone(), project.clone());
                 el.child(
@@ -335,11 +332,11 @@ impl Detail {
                                 .child("No target branch"),
                         )
                         .child(
-                            div()
-                                .mb(px(8.))
-                                .text_size(px(12.))
-                                .text_color(theme.text_2)
-                                .child("Pick the branch your work goes into, like origin/main"),
+                            muted(
+                                "Pick the branch your work goes into, like origin/main",
+                                theme,
+                            )
+                            .mb(px(8.)),
                         )
                         .child(
                             crate::ui::button("pick-target", "Choose a target branch…").on_click(
@@ -396,13 +393,7 @@ impl Detail {
                                             .child(SharedString::from(number.clone())),
                                     )
                                 })
-                                .child(
-                                    div()
-                                        .flex_none()
-                                        .text_size(px(11.))
-                                        .text_color(theme.text_3)
-                                        .child(relative_time(commit.time)),
-                                )
+                                .child(faint(relative_time(commit.time), theme).flex_none())
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.select_target_commit(id, cx)
                                 }))

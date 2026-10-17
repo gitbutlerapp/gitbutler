@@ -75,6 +75,7 @@ fn main() {
             cx.set_global(Theme::for_appearance(
                 theme::Appearance::System,
                 cx.window_appearance(),
+                theme::CodeSize::default(),
             ));
             ui::text_input::bind_keys(cx);
             app::bind_keys(cx);

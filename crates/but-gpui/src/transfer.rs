@@ -3,10 +3,14 @@
 
 use std::sync::Arc;
 
-use gpui::{Context, Modifiers, SharedString};
+use gpui::{
+    App, Context, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*, px,
+};
 
-use crate::backend::{self, CommitId, Destination, Selected};
-use crate::state::{Cut, Overlay, Remap, Selection, Store};
+use crate::backend::{self, CommitId, Destination, Selected, short_ref};
+use crate::state::{Cut, Overlay, Selection, Store};
+use crate::theme::Theme;
+use crate::ui::{Icon, popover, small_icon};
 
 pub enum Transfer {
     Uncommit(CommitId),
@@ -109,11 +113,11 @@ impl Transfer {
                 }
                 Transfer::MoveCommit { id: *id, to }
             }
-            (Cut::Pick(_, id), Selection::Branch(_, branch)) => Transfer::CherryPick {
+            (Cut::CherryPick(_, id), Selection::Branch(_, branch)) => Transfer::CherryPick {
                 id: *id,
                 to: Destination::Branch(branch.clone()),
             },
-            (Cut::Pick(_, id), Selection::Commit(_, target_id)) if id != target_id => {
+            (Cut::CherryPick(_, id), Selection::Commit(_, target_id)) if id != target_id => {
                 Transfer::CherryPick {
                     id: *id,
                     to: if held.shift {
@@ -237,7 +241,7 @@ impl Transfer {
                 label,
                 Overlay::default(),
                 move |path, remap| {
-                    backend::move_commits(path, &[remap.get(id)?], &remapped(to, remap)?)
+                    backend::move_commits(path, &[remap.get(id)?], &remap.destination(to)?)
                 },
                 |store, rewritten, cx| store.follow(&rewritten, cx),
                 cx,
@@ -249,7 +253,7 @@ impl Transfer {
                 move |path, remap| {
                     // A commit from outside the workspace can't have been rewritten.
                     let id = remap.get(id).unwrap_or(id);
-                    backend::cherry_pick(path, id, &remapped(to, remap)?)
+                    backend::cherry_pick(path, id, &remap.destination(to)?)
                 },
                 |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
@@ -313,15 +317,85 @@ fn place(to: &Destination) -> String {
     }
 }
 
-/// `to`, with the commit it's relative to as it is after the operations queued before.
-pub fn remapped(to: Destination, remap: &Remap) -> anyhow::Result<Destination> {
-    Ok(match to {
-        Destination::AboveCommit(id) => Destination::AboveCommit(remap.get(id)?),
-        Destination::BelowCommit(id) => Destination::BelowCommit(remap.get(id)?),
-        branch => branch,
-    })
+/// The first of `payload`'s uncommitted files that a merge left conflicted. Those stay out
+/// of commits until marked resolved, so the payload lands nowhere. It goes by the files as
+/// they are now: a cut may predate the merge that conflicted them, or the marking that
+/// resolved them.
+pub fn conflicted_file<'a>(payload: &Cut, store: &'a Store) -> Option<&'a str> {
+    let Cut::Files {
+        project,
+        from: None,
+        files,
+    } = payload
+    else {
+        return None;
+    };
+    (store.workspace(project)?.uncommitted.iter())
+        .find(|u| u.conflicted && files.iter().any(|f| f.file.path == u.path))
+        .map(|u| u.path.as_str())
 }
 
-pub fn short_ref(ref_name: &str) -> &str {
-    ref_name.strip_prefix("refs/heads/").unwrap_or(ref_name)
+/// Start a drag of a `Cut` labelled `label`, letting the store know what's in flight so
+/// the rows can say what a drop would do.
+pub fn drag_preview(
+    store: Entity<Store>,
+    label: SharedString,
+) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+    move |payload, _, _, cx| {
+        store.update(cx, |store, _| store.dragging = Some(payload.clone()));
+        let preview = cx.new(|_| DragPreview {
+            label: label.clone(),
+            payload: payload.clone(),
+        });
+        // GPUI drops the preview when the drag ends, dropped or not.
+        let store = store.clone();
+        cx.observe_release(&preview, move |_, cx| {
+            store.update(cx, |store, _| store.dragging = None);
+        })
+        .detach();
+        preview
+    }
+}
+
+/// The pill that follows the pointer while dragging, and what it carries.
+pub struct DragPreview {
+    pub label: SharedString,
+    pub payload: Cut,
+}
+
+impl Render for DragPreview {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = Theme::get(cx);
+        let held = window.modifiers();
+        let hint = match &self.payload {
+            Cut::Commit(..) if held.alt => Some("Squash"),
+            Cut::Commit(..) | Cut::CherryPick(..) if held.shift => Some("Below"),
+            Cut::Commit(..) => Some("⌥ squash · ⇧ below"),
+            Cut::CherryPick(..) => Some("⇧ below"),
+            Cut::Branch(..) | Cut::Files { .. } => None,
+        };
+        popover(theme)
+            .flex_row()
+            .items_center()
+            .gap(px(8.))
+            .px(px(10.))
+            .h(px(28.))
+            .max_w(px(320.))
+            .border_color(theme.pop)
+            .font_family(theme.ui_font.clone())
+            .text_size(px(12.))
+            .text_color(theme.text_1)
+            .child(
+                small_icon(match self.payload {
+                    Cut::Commit(..) | Cut::CherryPick(..) => Icon::Commit,
+                    Cut::Branch(..) => Icon::Branch,
+                    Cut::Files { .. } => Icon::File,
+                })
+                .text_color(theme.pop),
+            )
+            .child(div().truncate().child(self.label.clone()))
+            .when_some(hint, |el, hint| {
+                el.child(div().flex_none().text_color(theme.text_2).child(hint))
+            })
+    }
 }

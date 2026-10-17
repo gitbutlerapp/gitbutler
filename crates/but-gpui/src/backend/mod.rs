@@ -174,7 +174,7 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     Ok(Workspace {
         target,
-        forge: reviews::forge_name(&ctx),
+        forge: reviews::forge_of(&ctx),
         stacks,
         uncommitted,
         editing: None,

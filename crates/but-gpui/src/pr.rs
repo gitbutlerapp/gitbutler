@@ -11,13 +11,12 @@ use crate::app::AppView;
 use crate::backend::ai;
 use crate::backend::branches::{self, ApplyOutcome};
 use crate::backend::reviews::{self, MergeMethod};
-use crate::backend::{self, PushState, Review, ReviewState};
+use crate::backend::{self, Forge, PushState, Review, ReviewState, short_ref};
 use crate::state::{Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
-use crate::transfer::short_ref;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, button, h_flex, switch, v_flex};
+use crate::ui::{ButtonStyle, button, faint, h_flex, muted, switch, v_flex};
 
 actions!(
     pr,
@@ -385,12 +384,7 @@ impl Render for ReviewView {
                                 .child(
                                     v_flex()
                                         .child(div().text_size(px(13.)).child("Draft"))
-                                        .child(
-                                            div()
-                                                .text_size(px(12.))
-                                                .text_color(theme.text_2)
-                                                .child("Not ready for review yet"),
-                                        ),
+                                        .child(muted("Not ready for review yet", &theme)),
                                 ),
                         )
                     }),
@@ -404,13 +398,7 @@ impl Render for ReviewView {
                     .py(px(12.))
                     .border_t_1()
                     .border_color(theme.border_3)
-                    .child(
-                        div()
-                            .flex_1()
-                            .text_size(px(11.))
-                            .text_color(theme.text_3)
-                            .child("⌘↩ in the description to submit"),
-                    )
+                    .child(faint("⌘↩ in the description to submit", &theme).flex_1())
                     .child(
                         button("pr-cancel", "Cancel")
                             .style(ButtonStyle::Ghost)
@@ -438,7 +426,7 @@ impl AppView {
         let Some(branch) = (store.branch_for(selection)).filter(|b| !b.ref_name.is_empty()) else {
             return el;
         };
-        let forge = (store.workspace(selection.project())).and_then(|ws| ws.forge.as_deref());
+        let forge = store.workspace(selection.project()).and_then(|ws| ws.forge);
         match branch.review.as_ref().map(|r| r.state) {
             None => el.when(!branch.commits.is_empty(), |el| {
                 el.on_action(cx.listener(Self::create_pull_request))
@@ -450,13 +438,14 @@ impl AppView {
                 .on_action(cx.listener(Self::label_pull_request))
                 .on_action(cx.listener(Self::close_pull_request))
                 // What only GitButler's GitHub support does so far.
-                .when(forge == Some("GitHub"), |el| {
+                .when(forge == Some(Forge::GitHub), |el| {
                     el.on_action(cx.listener(Self::comment_on_pull_request))
                         .on_action(cx.listener(Self::request_review))
                 })
                 // The forges GitButler can ask to merge on their own.
                 .when(
-                    state == ReviewState::Open && matches!(forge, Some("GitHub" | "GitLab")),
+                    state == ReviewState::Open
+                        && matches!(forge, Some(Forge::GitHub | Forge::GitLab)),
                     |el| el.on_action(cx.listener(Self::toggle_auto_merge)),
                 ),
             Some(ReviewState::Closed) => el.on_action(cx.listener(Self::close_pull_request)),
@@ -879,8 +868,8 @@ impl AppView {
             return;
         };
         // GitLab merges as the project is set up to, whatever is asked for.
-        let gitlab = (self.store.read(cx).workspace(&project)).and_then(|ws| ws.forge.as_deref())
-            == Some("GitLab");
+        let gitlab = (self.store.read(cx).workspace(&project)).and_then(|ws| ws.forge)
+            == Some(Forge::GitLab);
         let methods: &[&str] = if gitlab {
             &["Merge", "Cancel"]
         } else {

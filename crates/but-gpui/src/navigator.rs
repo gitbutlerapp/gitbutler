@@ -5,8 +5,8 @@ use std::collections::HashSet;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable, Hsla,
-    KeyBinding, ListAlignment, ListState, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
-    Stateful, Subscription, WeakEntity, Window, actions, div, list, prelude::*, px,
+    KeyBinding, ListAlignment, ListState, MouseButton, MouseDownEvent, SharedString, Stateful,
+    Subscription, WeakEntity, Window, actions, div, list, prelude::*, px,
 };
 
 use crate::app::{
@@ -16,12 +16,12 @@ use crate::backend::{CommitId, CommitState, PushState};
 use crate::detail::{ChecksChanged, Detail};
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
-use crate::transfer::Transfer;
+use crate::transfer::{Transfer, conflicted_file, drag_preview};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, h_flex, icon,
-    icon_button, just_now, list_row, popover, relative_time, resize_handle, review, small_icon,
-    v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, faint, h_flex, icon,
+    icon_button, just_now, list_row, relative_time, resize_handle, review, section_label,
+    small_icon, v_flex,
 };
 
 mod menu;
@@ -452,10 +452,7 @@ impl Navigator {
             Some(Row::Section(title)) => h_flex()
                 .h(px(26.))
                 .px(px(12.))
-                .text_size(px(11.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(theme.text_3)
-                .child(*title)
+                .child(section_label(*title, theme))
                 .into_any_element(),
             Some(Row::StackCaption(project, n, refs)) => {
                 let keys: Vec<(ProjectId, String)> =
@@ -871,10 +868,9 @@ impl Navigator {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let theme = style.theme;
-        let n = store.workspace(id).map_or(0, |ws| ws.uncommitted.len());
-        let conflicted = (store.workspace(id)).map_or(0, |ws| {
-            ws.uncommitted.iter().filter(|f| f.conflicted).count()
-        });
+        let uncommitted = store.workspace(id).map_or(&[][..], |ws| &ws.uncommitted);
+        let n = uncommitted.len();
+        let conflicted = uncommitted.iter().filter(|f| f.conflicted).count();
         style
             .row(format!("uncommitted-{id}"), 6.)
             .aria_label("Uncommitted changes")
@@ -904,7 +900,7 @@ impl Navigator {
                 ))
             })
             .when(n > 0, |el| {
-                let to_review = store.to_review(id);
+                let to_review = store.unreviewed(id, uncommitted);
                 if to_review > 0 {
                     el.child(count(Some(Icon::Eye), to_review, style.meta(theme.warn)))
                 } else {
@@ -1006,12 +1002,7 @@ impl Navigator {
                     el.child(count(Some(Icon::ArrowUp), unpushed, style.meta(theme.blue)))
                 })
                 .when(branch.commits.is_empty(), |el| {
-                    el.child(
-                        div()
-                            .text_size(px(11.))
-                            .text_color(theme.text_3)
-                            .child("empty"),
-                    )
+                    el.child(faint("empty", theme))
                 })
                 .when(closed, |el| {
                     el.child(count(
@@ -1063,7 +1054,7 @@ impl Navigator {
         let (_, commit) = store.find_commit(id, *commit_id)?;
         let cut = store.cut.as_ref();
         let is_cut =
-            matches!(cut, Some(Cut::Commit(_, cut) | Cut::Pick(_, cut)) if cut == commit_id);
+            matches!(cut, Some(Cut::Commit(_, cut) | Cut::CherryPick(_, cut)) if cut == commit_id);
         let (glyph, color) = if commit.conflicted {
             (Icon::Warning, theme.danger)
         } else {
@@ -1137,8 +1128,12 @@ impl Navigator {
             store.cut.as_ref()
         };
         let held = window.modifiers();
-        let verdict = pending
-            .map(|payload| Transfer::resolve(payload, &target, held, store).map(|t| t.verb()));
+        // Conflicted files land nowhere, but the drop still says why.
+        let verdict = pending.map(|payload| {
+            Transfer::resolve(payload, &target, held, store)
+                .filter(|_| conflicted_file(payload, store).is_none())
+                .map(|t| t.verb())
+        });
         let store = self.store.clone();
         let can_drop_target = target.clone();
         let menu_target = target.clone();
@@ -1256,12 +1251,12 @@ impl Render for Navigator {
             .child(
                 icon_button("refresh", Icon::Refresh)
                     .tooltip("Reload  ⌘R")
-                    .on_click(|_, window, cx| window.dispatch_action(Box::new(Refresh), cx)),
+                    .dispatch(&Refresh),
             )
             .child(
                 icon_button("add-project", Icon::Plus)
                     .tooltip("Add project  ⌘O")
-                    .on_click(|_, window, cx| window.dispatch_action(Box::new(AddProject), cx)),
+                    .dispatch(&AddProject),
             );
 
         v_flex()
@@ -1320,70 +1315,5 @@ impl Render for Navigator {
                 }
             })
             .child(resize_handle(Pane::Navigator, self.store.clone(), &theme))
-    }
-}
-
-/// Start a drag of a `Cut` labelled `label`, letting the store know what's in flight so
-/// the rows can say what a drop would do.
-pub fn drag_preview(
-    store: Entity<Store>,
-    label: SharedString,
-) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
-    move |payload, _, _, cx| {
-        store.update(cx, |store, _| store.dragging = Some(payload.clone()));
-        let preview = cx.new(|_| DragPreview {
-            label: label.clone(),
-            payload: payload.clone(),
-        });
-        // GPUI drops the preview when the drag ends, dropped or not.
-        let store = store.clone();
-        cx.observe_release(&preview, move |_, cx| {
-            store.update(cx, |store, _| store.dragging = None);
-        })
-        .detach();
-        preview
-    }
-}
-
-/// The pill that follows the pointer while dragging, and what it carries.
-pub struct DragPreview {
-    pub label: SharedString,
-    pub payload: Cut,
-}
-
-impl Render for DragPreview {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = Theme::get(cx);
-        let held = window.modifiers();
-        let hint = match &self.payload {
-            Cut::Commit(..) if held.alt => Some("Squash"),
-            Cut::Commit(..) | Cut::Pick(..) if held.shift => Some("Below"),
-            Cut::Commit(..) => Some("⌥ squash · ⇧ below"),
-            Cut::Pick(..) => Some("⇧ below"),
-            Cut::Branch(..) | Cut::Files { .. } => None,
-        };
-        popover(theme)
-            .flex_row()
-            .items_center()
-            .gap(px(8.))
-            .px(px(10.))
-            .h(px(28.))
-            .max_w(px(320.))
-            .border_color(theme.pop)
-            .font_family(theme.ui_font.clone())
-            .text_size(px(12.))
-            .text_color(theme.text_1)
-            .child(
-                small_icon(match self.payload {
-                    Cut::Commit(..) | Cut::Pick(..) => Icon::Commit,
-                    Cut::Branch(..) => Icon::Branch,
-                    Cut::Files { .. } => Icon::File,
-                })
-                .text_color(theme.pop),
-            )
-            .child(div().truncate().child(self.label.clone()))
-            .when_some(hint, |el, hint| {
-                el.child(div().flex_none().text_color(theme.text_2).child(hint))
-            })
     }
 }

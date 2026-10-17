@@ -10,8 +10,9 @@ use futures::channel::mpsc;
 use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
 
 use crate::backend::watch::Watcher;
-use crate::backend::{Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace};
-use crate::transfer::short_ref;
+use crate::backend::{
+    Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace, short_ref,
+};
 
 mod background;
 mod load;
@@ -61,8 +62,8 @@ impl Selection {
 #[derive(Debug, Clone)]
 pub enum Cut {
     Commit(ProjectId, CommitId),
-    /// A commit to put a copy of somewhere else: a cherry-pick.
-    Pick(ProjectId, CommitId),
+    /// A commit to put a copy of somewhere else.
+    CherryPick(ProjectId, CommitId),
     /// A branch to stack on another, with the branches above it.
     Branch(ProjectId, String),
     /// Files from the worktree (`from: None`), down to the hunks checked, or from a commit.
@@ -78,7 +79,7 @@ impl Cut {
     pub fn project(&self) -> &ProjectId {
         match self {
             Cut::Commit(project, _)
-            | Cut::Pick(project, _)
+            | Cut::CherryPick(project, _)
             | Cut::Branch(project, _)
             | Cut::Files { project, .. } => project,
         }
@@ -86,7 +87,7 @@ impl Cut {
 
     /// "Copied" for a cherry-pick, which leaves the commit where it is; "Cut" otherwise.
     pub fn verb(&self) -> &'static str {
-        if matches!(self, Cut::Pick(..)) {
+        if matches!(self, Cut::CherryPick(..)) {
             "Copied"
         } else {
             "Cut"
@@ -95,7 +96,7 @@ impl Cut {
 
     pub fn describe(&self) -> String {
         match self {
-            Cut::Commit(_, id) | Cut::Pick(_, id) => format!("commit {}", id.short()),
+            Cut::Commit(_, id) | Cut::CherryPick(_, id) => format!("commit {}", id.short()),
             Cut::Branch(_, ref_name) => short_ref(ref_name).to_owned(),
             Cut::Files { files, .. } if files.len() == 1 => files[0].file.path.clone(),
             Cut::Files { files, .. } => format!("{} files", files.len()),

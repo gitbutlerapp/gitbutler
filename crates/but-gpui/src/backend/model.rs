@@ -14,6 +14,11 @@ impl CommitId {
     }
 }
 
+/// A branch's name without `refs/heads/`.
+pub fn short_ref(ref_name: &str) -> &str {
+    ref_name.strip_prefix("refs/heads/").unwrap_or(ref_name)
+}
+
 #[derive(Debug, Clone)]
 pub struct Project {
     /// Stable id from GitButler's project registry.
@@ -26,9 +31,8 @@ pub struct Project {
 pub struct Workspace {
     /// The branch everything integrates into, like `origin/main`.
     pub target: Option<Target>,
-    /// The forge that hosts the target, like "GitHub", when there is one to make pull
-    /// requests on.
-    pub forge: Option<String>,
+    /// The forge that hosts the target, when there is one to make pull requests on.
+    pub forge: Option<Forge>,
     pub stacks: Vec<Stack>,
     pub uncommitted: Vec<FileChange>,
     /// The commit checked out to edit, while the project is in edit mode. There are no
@@ -42,6 +46,26 @@ pub struct Workspace {
     /// Whether the worktrees were listed: GitButler's worktree support is on and listing
     /// them worked. Otherwise the lists say nothing about which worktrees are gone.
     pub worktrees_listed: bool,
+}
+
+/// A forge: where a project's pull requests live, and what a forge account signs in to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Forge {
+    GitHub,
+    GitLab,
+    Bitbucket,
+    Azure,
+}
+
+impl Forge {
+    pub fn name(self) -> &'static str {
+        match self {
+            Forge::GitHub => "GitHub",
+            Forge::GitLab => "GitLab",
+            Forge::Bitbucket => "Bitbucket",
+            Forge::Azure => "Azure",
+        }
+    }
 }
 
 /// A linked worktree and its uncommitted changes.
@@ -103,10 +127,12 @@ impl Workspace {
         })
     }
 
-    /// Whether `ref_name` has branches stacked on it. Pulling its remote's commits into it
-    /// then moves its reference to the top of the stack, so the app doesn't offer it.
-    pub fn has_branches_above(&self, ref_name: &str) -> bool {
-        self.stack_of(ref_name).is_some_and(|(_, at)| at > 0)
+    /// Whether `ref_name` can pull the commits only its remote has: it has some, and no
+    /// branches stacked on it. Pulling into a branch with others above moves its reference
+    /// to the top of the stack, so the app doesn't offer it.
+    pub fn can_pull(&self, ref_name: &str) -> bool {
+        self.stack_of(ref_name)
+            .is_some_and(|(stack, at)| at == 0 && !stack.branches[0].incoming.is_empty())
     }
 
     /// When anything last happened here, in seconds: a file written or a commit made.

@@ -63,7 +63,7 @@ impl AppView {
                     };
                     store.update(cx, |store, cx| store.snack(format!("Cloning {name}…"), cx));
                     let target = into.clone();
-                    let cloned = backend::run(move || settings::clone(url.trim(), &target)).await;
+                    let cloned = backend::run(move || backend::clone(url.trim(), &target)).await;
                     store.update(cx, |store, cx| match cloned {
                         Ok(()) => store.add_project(into, cx),
                         Err(err) => {
@@ -85,7 +85,7 @@ impl AppView {
                 return;
             };
             let id = project.to_string();
-            let moved = backend::run(move || settings::relocate_project(&id, &path)).await;
+            let moved = backend::run(move || backend::relocate_project(&id, &path)).await;
             store.update(cx, |store, cx| match moved {
                 Ok(()) => store.load_projects(cx),
                 Err(err) => store.error("Couldn't move the project", format!("{err:#}"), cx),

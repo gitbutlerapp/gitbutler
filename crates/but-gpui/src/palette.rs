@@ -24,7 +24,7 @@ use crate::edits::{
 use crate::state::Selection;
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{h_flex, keycap, list_row, popover, shortcut, v_flex};
+use crate::ui::{h_flex, keycap, list_row, muted, popover, shortcut, v_flex};
 
 actions!(palette, [PaletteUp, PaletteDown, GoToBranch]);
 
@@ -374,12 +374,7 @@ impl AppView {
                     .gap(px(12.))
                     .child(div().flex_1().truncate().child(choice.label.clone()))
                     .when_some(choice.detail.clone(), |el, detail| {
-                        el.child(
-                            div()
-                                .text_size(px(12.))
-                                .text_color(theme.text_2)
-                                .child(detail),
-                        )
+                        el.child(muted(detail, &theme))
                     })
                     .when_some(choice.key.clone(), |el, key| el.child(keycap(&key, &theme)))
                     .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {

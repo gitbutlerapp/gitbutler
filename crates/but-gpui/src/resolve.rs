@@ -10,10 +10,10 @@ use gpui::{
 
 use crate::backend::conflicts::{self, ConflictHunk, Conflicts, Pick};
 use crate::backend::{self, CommitId};
-use crate::state::{Overlay, ProjectId, Selection, Store};
+use crate::state::{Overlay, ProjectId, Store};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
-use crate::ui::{ButtonStyle, button, h_flex, plural, v_flex};
+use crate::ui::{ButtonStyle, button, h_flex, muted, plural, v_flex};
 
 actions!(resolve, [ResolveConflicts, EditByHand]);
 
@@ -57,10 +57,7 @@ impl ResolveView {
         commit: CommitId,
         cx: &mut Context<Self>,
     ) -> Self {
-        let title = store
-            .read(cx)
-            .workspace(&project)
-            .and_then(|ws| ws.find_commit(commit))
+        let title = (store.read(cx).find_commit(&project, commit))
             .map(|(_, c)| c.title.clone())
             .unwrap_or_default();
         if let Some(path) = store.read(cx).path(&project) {
@@ -177,7 +174,7 @@ impl ResolveView {
                     div()
                         .px(px(10.))
                         .py(px(4.))
-                        .bg(theme.fill_gray.opacity(0.06))
+                        .bg(theme.hover())
                         .font_family(theme.ui_font.clone())
                         .text_size(px(11.))
                         .text_color(theme.text_2)
@@ -204,11 +201,7 @@ impl ResolveView {
                 label,
             )
             .small()
-            .style(if picked == Some(pick) {
-                ButtonStyle::Gray
-            } else {
-                ButtonStyle::Ghost
-            })
+            .selected(picked == Some(pick))
             .on_click(cx.listener(move |this, _, _, cx| {
                 let key = (path.clone(), ix);
                 if this.picks.get(&key) == Some(&pick) {
@@ -277,12 +270,7 @@ impl Render for ResolveView {
                                             .font_weight(gpui::FontWeight::SEMIBOLD)
                                             .child(file.path.clone()),
                                     )
-                                    .child(
-                                        div()
-                                            .text_size(px(12.))
-                                            .text_color(theme.text_2)
-                                            .child(plural(file.hunks.len(), "conflict")),
-                                    ),
+                                    .child(muted(plural(file.hunks.len(), "conflict"), &theme)),
                             )
                             .children(file.hunks.iter().enumerate().map(|(ix, hunk)| {
                                 self.render_hunk(&file.path, ix, hunk, &theme, cx)
@@ -351,9 +339,10 @@ impl Render for ResolveView {
                                 )
                             }),
                     )
-                    .child(div().text_size(px(12.)).text_color(theme.text_2).child(
-                        "Current is what the commit now sits on; incoming is the \
-                                 commit's own change. Conflicts you don't pick stay for later.",
+                    .child(muted(
+                        "Current is what the commit now sits on; incoming is the commit's own \
+                         change. Conflicts you don't pick stay for later.",
+                        &theme,
                     )),
             )
             .child(
@@ -431,19 +420,11 @@ impl Render for ResolveView {
 
 impl crate::app::AppView {
     /// Register the actions here on the window while the selected commit is conflicted.
-    /// Resolve is also there on a branch with a conflicted commit: its page's button selects
-    /// that commit, then sends Resolve before the window is drawn again.
     pub fn resolve_actions(&self, el: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
-        if self.selected_conflicted(cx).is_some() {
-            return el
-                .on_action(cx.listener(Self::resolve_conflicts))
-                .on_action(cx.listener(Self::edit_by_hand));
-        }
-        let store = self.store.read(cx);
-        let branch_conflicted = matches!(&store.selection, Some(branch @ Selection::Branch(..))
-            if store.branch_for(branch).is_some_and(|b| b.commits.iter().any(|c| c.conflicted)));
-        el.when(branch_conflicted, |el| {
+        let conflicted = self.selected_conflicted(cx).is_some();
+        el.when(conflicted, |el| {
             el.on_action(cx.listener(Self::resolve_conflicts))
+                .on_action(cx.listener(Self::edit_by_hand))
         })
     }
 
@@ -468,9 +449,19 @@ impl crate::app::AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((project, commit)) = self.selected_conflicted(cx) else {
-            return;
-        };
+        if let Some((project, commit)) = self.selected_conflicted(cx) {
+            self.resolve_commit(project, commit, window, cx);
+        }
+    }
+
+    /// Open the resolver for `project`'s conflicted commit `commit`.
+    pub fn resolve_commit(
+        &mut self,
+        project: ProjectId,
+        commit: CommitId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let store = self.store.clone();
         let view = cx.new(|cx| ResolveView::new(store, project, commit, cx));
         self.open_modal(view, window, cx);

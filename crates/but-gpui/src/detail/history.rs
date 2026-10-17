@@ -9,7 +9,7 @@ use crate::backend::history::Operation;
 use crate::backend::{self, DiffSource, SnapshotId};
 use crate::state::{Overlay, ProjectId};
 use crate::theme::Theme;
-use crate::ui::{ButtonStyle, button, list_row, relative_time};
+use crate::ui::{ButtonStyle, button, faint, list_row, relative_time};
 
 /// How many operations a page of the log holds.
 const PAGE: usize = 60;
@@ -245,13 +245,7 @@ impl Detail {
                                     .text_color(theme.text_2)
                                     .children(operation.detail.clone()),
                             )
-                            .child(
-                                div()
-                                    .flex_none()
-                                    .text_size(px(11.))
-                                    .text_color(theme.text_3)
-                                    .child(relative_time(operation.time)),
-                            )
+                            .child(faint(relative_time(operation.time), theme).flex_none())
                             .on_click(
                                 cx.listener(move |this, _, _, cx| this.select_operation(id, cx)),
                             )
