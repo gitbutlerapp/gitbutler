@@ -1340,7 +1340,7 @@ fn render_incoming(
 impl Detail {
     /// Ask the forge where the review of `ref_name`'s open pull request stands, for its card.
     /// Once per visit to the branch, rather than on every reload.
-    pub(super) fn load_feedback(
+    pub(crate) fn load_feedback(
         &mut self,
         project: &ProjectId,
         ref_name: &str,
@@ -1459,7 +1459,14 @@ impl Detail {
                         let url = menu_url.clone();
                         let (project, ref_name, id) =
                             (project.clone(), ref_name.clone(), id.clone());
+                        let (reply_project, reply_ref, reply_id) =
+                            (project.clone(), ref_name.clone(), id.clone());
                         let items = vec![
+                            MenuItem::new("Reply…", move |app, window, cx| {
+                                let (project, ref_name, id) =
+                                    (reply_project.clone(), reply_ref.clone(), reply_id.clone());
+                                app.reply_to_thread(project, ref_name, id, window, cx)
+                            }),
                             MenuItem::new("Open on the forge", move |_, _, cx| cx.open_url(&url)),
                             MenuItem::new("Mark resolved", move |app, _, cx| {
                                 let (project, ref_name, id) =
