@@ -71,7 +71,7 @@ const hostChannels: Record<string, Subscribe> = {
 	...updater.channels,
 	...notifications.channels,
 	...ai.channels,
-	askpassPrompt: (listener) => listenNow("git_prompt", listener),
+	askpassPrompt: (listener) => listenNow("askpass_prompt", listener),
 };
 
 const sdkParamNames: Record<string, ReadonlyArray<string>> = apiParamNames;

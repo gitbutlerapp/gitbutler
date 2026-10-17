@@ -151,8 +151,11 @@ fn main() -> anyhow::Result<()> {
                     let handle = app_handle.clone();
                     move |event| {
                         handle
-                            .emit("git_prompt", event)
-                            .expect("tauri event emission doesn't fail in practice")
+                            .emit("git_prompt", &event)
+                            .expect("tauri event emission doesn't fail in practice");
+                        handle
+                            .emit("askpass_prompt", askpass::LitePromptEvent::from(event))
+                            .expect("tauri event emission doesn't fail in practice");
                     }
                 });
 
