@@ -287,7 +287,7 @@ impl Transfer {
                 },
                 |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_undoable("Copied", cx)
+                    store.snack_undoable("Cherry-picked", cx)
                 },
                 cx,
             ),
