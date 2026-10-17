@@ -96,9 +96,9 @@ impl Store {
     }
 
     /// Bring what's been seen of `id` up to date with the `workspace` it just loaded: what's
-    /// gone is forgotten, and what's new is news unless the app made it. `settled` is false
+    /// gone is forgotten, and what's new is news unless the app made it. `latest` is false
     /// when a newer load is already queued behind this one.
-    pub(super) fn update_seen(&mut self, id: &ProjectId, workspace: &Workspace, settled: bool) {
+    pub(super) fn update_seen(&mut self, id: &ProjectId, workspace: &Workspace, latest: bool) {
         let commits: HashSet<&str> = workspace
             .commits()
             .map(|commit| commit.key.as_str())
@@ -115,7 +115,7 @@ impl Store {
                 .filter(|key| first_sight || before.is_some_and(|before| !before.contains(**key)))
                 .map(|key| key.to_string()),
         );
-        if settled {
+        if latest {
             self.rebaseline.remove(id);
         }
         // Review marks go with their files, in the main checkout and in each linked worktree.

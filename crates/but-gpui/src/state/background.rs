@@ -5,9 +5,9 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use futures::{StreamExt as _, channel::mpsc};
-use gpui::{AsyncApp, Context, Task, WeakEntity};
+use gpui::{Context, Task};
 
-use super::{ProjectId, Store};
+use super::{ProjectId, Reload, Store};
 use crate::backend;
 
 impl Store {
@@ -40,12 +40,11 @@ impl Store {
                             Err(_) => store.fetch_failed.insert(project.clone(), Instant::now()),
                         };
                         // What a fetch changes is in the git directory, which the watcher
-                        // reloads for. A mutation's own reload comes after it anyway.
+                        // reloads for.
                         let watched =
                             (store.project(&project)).is_some_and(|entry| entry.watcher.is_some());
-                        let mutating = store.mutating.contains(&project);
-                        if (fetched.is_err() || !watched) && !mutating {
-                            store.reload(&project, cx);
+                        if fetched.is_err() || !watched {
+                            store.load_or_defer(&project, Reload::full(), cx);
                         }
                     });
                     if reloaded.is_err() {
@@ -97,80 +96,67 @@ impl Store {
                 // Not the projects that failed last time: that's a missing account or a
                 // keychain prompt the user turned down, and asking again every minute
                 // would only nag. Opening a project or pushing asks again.
-                let Ok(ids) = this.update(cx, |store, _| {
-                    let mut ids = store.expanded_ids();
-                    ids.retain(|id| !store.forge_failed.contains(id));
-                    ids
+                let Ok(()) = this.update(cx, |store, _| {
+                    for id in store.expanded_ids() {
+                        if !store.forge_failed.contains(&id) {
+                            store.refresh_forge(&id);
+                        }
+                    }
                 }) else {
                     break;
                 };
-                for id in ids {
-                    if this
-                        .update(cx, |store, _| store.refresh_forge(&id))
-                        .is_err()
-                    {
-                        return;
-                    }
-                }
             }
         })
     }
 
     /// Works through forge refreshes one at a time. Reading the forge token can stop on a
     /// keychain prompt, and one prompt is plenty; it also keeps the forge's rate limit happy.
-    pub(super) async fn forge_worker(
-        this: WeakEntity<Store>,
+    pub(super) fn forge_worker(
         mut requested: mpsc::UnboundedReceiver<ProjectId>,
-        cx: &mut AsyncApp,
-    ) {
-        while let Some(id) = requested.next().await {
-            let Ok(path) = this.update(cx, |store, _| {
-                store.forge_queued.remove(&id);
-                let open = store.project(&id).filter(|entry| entry.expanded);
-                open.map(|entry| entry.project.path.clone())
-            }) else {
-                return;
-            };
-            let Some(path) = path else {
-                continue;
-            };
-            let reviews_path = path.clone();
-            let refreshed = backend::run(move || backend::refresh_reviews(&reviews_path)).await;
-            // The pull requests show without waiting for their checks.
-            let Ok(_) = this.update(cx, |store, cx| match &refreshed {
-                Ok(changed) => {
-                    store.forge_failed.remove(&id);
-                    if *changed {
-                        store.reload_forge(&id, cx);
+        cx: &mut Context<Self>,
+    ) -> Task<()> {
+        cx.spawn(async move |this, cx| {
+            while let Some(id) = requested.next().await {
+                let Ok(path) = this.update(cx, |store, _| {
+                    store.forge_queued.remove(&id);
+                    let open = store.project(&id).filter(|entry| entry.expanded);
+                    open.map(|entry| entry.project.path.clone())
+                }) else {
+                    return;
+                };
+                let Some(path) = path else {
+                    continue;
+                };
+                let reviews_path = path.clone();
+                let refreshed = backend::run(move || backend::refresh_reviews(&reviews_path)).await;
+                // The pull requests show without waiting for their checks.
+                let Ok(_) = this.update(cx, |store, cx| match &refreshed {
+                    Ok(changed) => {
+                        store.forge_failed.remove(&id);
+                        if *changed {
+                            store.load_or_defer(&id, Reload::full(), cx);
+                        }
                     }
+                    Err(_) => {
+                        store.forge_failed.insert(id.clone());
+                    }
+                }) else {
+                    return;
+                };
+                if let Err(err) = refreshed {
+                    tracing::debug!(%id, "forge refresh failed: {err:#}");
+                    continue;
                 }
-                Err(_) => {
-                    store.forge_failed.insert(id.clone());
+                let checked = backend::run(move || backend::refresh_checks(&path)).await;
+                let reloaded = this.update(cx, |store, cx| match checked {
+                    Ok(true) => store.load_or_defer(&id, Reload::full(), cx),
+                    Ok(false) => {}
+                    Err(err) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
+                });
+                if reloaded.is_err() {
+                    return;
                 }
-            }) else {
-                return;
-            };
-            if let Err(err) = refreshed {
-                tracing::debug!(%id, "forge refresh failed: {err:#}");
-                continue;
             }
-            let checked = backend::run(move || backend::refresh_checks(&path)).await;
-            let reloaded = this.update(cx, |store, cx| match checked {
-                Ok(true) => store.reload_forge(&id, cx),
-                Ok(false) => {}
-                Err(err) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
-            });
-            if reloaded.is_err() {
-                return;
-            }
-        }
-    }
-
-    /// Show what a forge refresh changed. A running mutation's own reload comes after it
-    /// and shows it too.
-    fn reload_forge(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        if !self.mutating.contains(id) {
-            self.reload(id, cx);
-        }
+        })
     }
 }

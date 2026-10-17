@@ -8,9 +8,11 @@
 //! key cmd-shift-n         # a keystroke, as in key bindings
 //! type hello world        # text, one keystroke per character
 //! move 120 300            # window coordinates in logical pixels
-//! click 120 300          # also dclick and tclick; append `cmd` or `shift` to hold them
+//! click 120 300           # also dclick and tclick; append `cmd`, `alt` or `shift` to
+//!                         # hold them
 //! rclick 120 300
-//! drag 120 300 120 500    # append `alt` or `shift` to hold them, `hold` to keep the button down
+//! drag 120 300 120 500    # append `cmd`, `alt` or `shift` to hold them on letting go, and
+//!                         # `hold` to keep the button down
 //! drop 120 500            # let go of a held drag there
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! scroll 900 400 0 200    # and by 200 to the right
@@ -94,59 +96,67 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                 continue;
             }
             let (command, rest) = line.split_once(' ').unwrap_or((line, ""));
-            let result: Result<()> = match command {
-                "wait" => {
-                    let ms: u64 = rest.parse().context("wait takes milliseconds")?;
-                    cx.background_executor()
-                        .timer(Duration::from_millis(ms))
-                        .await;
-                    Ok(())
-                }
-                "quit" => {
-                    cx.update(|cx| cx.quit());
-                    Ok(())
-                }
-                "perf" => {
-                    let (label, input) = rest.split_once(' ').unwrap_or((rest, ""));
-                    // Draw first so the timing doesn't include catching up on earlier steps.
-                    cx.update_window(window, |_, window, cx| frame(window, cx))?;
-                    *STALL.lock().expect("not poisoned") = (Some(Instant::now()), Duration::ZERO);
-                    let started = match label {
-                        "startup" => *LAUNCHED.get().context("mark_launch wasn't called")?,
-                        _ => Instant::now(),
-                    };
-                    let mut draw = Duration::ZERO;
-                    if !input.is_empty() {
-                        let (command, rest) = input.split_once(' ').unwrap_or((input, ""));
-                        cx.update_window(window, |_, window, cx| {
-                            dispatch(command, rest, window, cx)
-                        })??;
-                        // What the input shows at once, before anything it loads lands.
-                        draw = frames(window, cx).await?;
-                    }
-                    while !cx.update_window(window, |_, window, cx| settled(window, cx))?
-                        && started.elapsed() < Duration::from_secs(60)
-                    {
+            // A failed step is reported and the script goes on, so it still reaches `quit`.
+            let result: Result<()> = async {
+                match command {
+                    "wait" => {
+                        let ms: u64 = rest.parse().context("wait takes milliseconds")?;
                         cx.background_executor()
-                            .timer(Duration::from_millis(1))
+                            .timer(Duration::from_millis(ms))
                             .await;
+                        Ok(())
                     }
-                    let data = started.elapsed();
-                    let draw = draw.max(frames(window, cx).await?);
-                    let stall = STALL.lock().expect("not poisoned").1.max(draw);
-                    println!(
-                        "PERF {label} total={:.1}ms data={:.1}ms draw={:.1}ms stall={:.1}ms",
-                        (data + draw).as_secs_f64() * 1e3,
-                        data.as_secs_f64() * 1e3,
-                        draw.as_secs_f64() * 1e3,
-                        stall.as_secs_f64() * 1e3,
-                    );
-                    Ok(())
+                    "quit" => {
+                        cx.update(|cx| cx.quit());
+                        Ok(())
+                    }
+                    "perf" => {
+                        let (label, input) = rest.split_once(' ').unwrap_or((rest, ""));
+                        // Draw first so the timing doesn't include catching up on earlier steps.
+                        cx.update_window(window, |_, window, cx| frame(window, cx))?;
+                        *STALL.lock().expect("not poisoned") =
+                            (Some(Instant::now()), Duration::ZERO);
+                        let started = match label {
+                            "startup" => *LAUNCHED.get().context("mark_launch wasn't called")?,
+                            _ => Instant::now(),
+                        };
+                        let mut draw = Duration::ZERO;
+                        if !input.is_empty() {
+                            let (command, rest) = input.split_once(' ').unwrap_or((input, ""));
+                            cx.update_window(window, |_, window, cx| {
+                                dispatch(command, rest, window, cx)
+                            })??;
+                            // What the input shows at once, before anything it loads lands.
+                            draw = frames(window, cx).await?;
+                        }
+                        while !cx.update_window(window, |_, window, cx| settled(window, cx))?
+                            && started.elapsed() < Duration::from_secs(60)
+                        {
+                            cx.background_executor()
+                                .timer(Duration::from_millis(1))
+                                .await;
+                        }
+                        let data = started.elapsed();
+                        let draw = draw.max(frames(window, cx).await?);
+                        let stall = STALL.lock().expect("not poisoned").1.max(draw);
+                        println!(
+                            "PERF {label} total={:.1}ms data={:.1}ms draw={:.1}ms stall={:.1}ms",
+                            (data + draw).as_secs_f64() * 1e3,
+                            data.as_secs_f64() * 1e3,
+                            draw.as_secs_f64() * 1e3,
+                            stall.as_secs_f64() * 1e3,
+                        );
+                        Ok(())
+                    }
+                    _ => cx.update_window(window, |_, window, cx| {
+                        // macOS stops drawing windows that aren't on screen; draw now so
+                        // hit-testing and screenshots see the current state.
+                        frame(window, cx);
+                        dispatch(command, rest, window, cx)
+                    })?,
                 }
-                _ => cx
-                    .update_window(window, |_, window, cx| run(command, rest, window, cx))
-                    .and_then(|result| result),
-            };
+            }
+            .await;
             if let Err(err) = result {
                 eprintln!("script line {}: {line}: {err:#}", line_no + 1);
             }
@@ -158,7 +168,6 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             cx.update_window(window, |_, window, cx| frame(window, cx))
                 .ok();
         }
-        anyhow::Ok(())
     })
     .detach();
 }
@@ -169,13 +178,6 @@ fn settled(window: &mut Window, cx: &mut App) -> bool {
         let app = app.read(cx);
         app.store.read(cx).is_settled() && app.detail.read(cx).is_settled()
     })
-}
-
-fn run(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Result<()> {
-    // macOS stops drawing windows that aren't on screen; draw now so hit-testing and
-    // screenshots see the current state.
-    frame(window, cx);
-    dispatch(command, rest, window, cx)
 }
 
 /// The frames a change asks for, as each can ask for the next, a millisecond apart: the
@@ -215,6 +217,12 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             .collect()
     };
     let held = |name| rest.split_whitespace().any(|part| part == name);
+    let modifiers = Modifiers {
+        platform: held("cmd"),
+        alt: held("alt"),
+        shift: held("shift"),
+        ..Default::default()
+    };
     match command {
         "key" => {
             // Hold the modifiers around the key, as a keyboard does, so code that reads
@@ -280,23 +288,16 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 "tclick" => 3,
                 _ => 1,
             };
-            let modifiers = Modifiers {
-                platform: held("cmd"),
-                shift: held("shift"),
-                ..Default::default()
-            };
+            let at = point(px(x), px(y));
             for count in 1..=clicks {
-                press(window, cx, point(px(x), px(y)), button, modifiers, count);
+                window.dispatch_event(mouse_move(at, None, modifiers), cx);
+                window.dispatch_event(mouse_down(button, at, modifiers, count), cx);
+                window.dispatch_event(mouse_up(button, at, modifiers, count), cx);
             }
         }
         "drag" => {
             let [x1, y1, x2, y2] = numbers()?[..] else {
                 bail!("drag takes x1 y1 x2 y2");
-            };
-            let release_modifiers = Modifiers {
-                alt: held("alt"),
-                shift: held("shift"),
-                ..Default::default()
             };
             let (from, to) = (point(px(x1), px(y1)), point(px(x2), px(y2)));
             let left = MouseButton::Left;
@@ -305,14 +306,14 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 let t = step as f32 / 8.;
                 let at = point(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
                 let modifiers = if step == 8 {
-                    release_modifiers
+                    modifiers
                 } else {
                     Modifiers::default()
                 };
                 window.dispatch_event(mouse_move(at, Some(left), modifiers), cx);
             }
             if !held("hold") {
-                window.dispatch_event(mouse_up(left, to, release_modifiers, 1), cx);
+                window.dispatch_event(mouse_up(left, to, modifiers, 1), cx);
             }
         }
         "drop" => {
@@ -331,19 +332,6 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
         other => bail!("unknown command {other}"),
     }
     Ok(())
-}
-
-fn press(
-    window: &mut Window,
-    cx: &mut App,
-    position: Point<Pixels>,
-    button: MouseButton,
-    modifiers: Modifiers,
-    click_count: usize,
-) {
-    window.dispatch_event(mouse_move(position, None, modifiers), cx);
-    window.dispatch_event(mouse_down(button, position, modifiers, click_count), cx);
-    window.dispatch_event(mouse_up(button, position, modifiers, click_count), cx);
 }
 
 fn mouse_move(

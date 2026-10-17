@@ -29,9 +29,17 @@ pub(super) struct Reload {
 }
 
 impl Reload {
-    fn full() -> Self {
+    pub(super) fn full() -> Self {
         Self {
             full: true,
+            ..Self::default()
+        }
+    }
+
+    /// The main checkout's files, after an operation that changed only them.
+    pub(super) fn files() -> Self {
+        Self {
+            main: true,
             ..Self::default()
         }
     }
@@ -48,7 +56,7 @@ impl Reload {
         }
     }
 
-    fn merge(&mut self, other: Reload) {
+    pub(super) fn merge(&mut self, other: Reload) {
         self.full |= other.full;
         self.main |= other.main;
         self.linked.extend(other.linked);
@@ -82,10 +90,7 @@ impl Store {
                 }
                 let Ok(()) = this.update(cx, |store, cx| {
                     for (id, reload) in reloads {
-                        if store.mutating.contains(&id) {
-                            continue;
-                        }
-                        store.load(&id, reload, cx);
+                        store.load_or_defer(&id, reload, cx);
                     }
                 }) else {
                     break;
@@ -302,15 +307,13 @@ impl Store {
                 entry.loading = false;
                 // The full reload below reads whatever was asked for meanwhile.
                 entry.queued = None;
-                if watcher.is_ok() {
-                    store.refresh_forge(&id);
-                }
-                let Some(entry) = store.project_mut(&id) else {
-                    return;
-                };
                 match watcher {
-                    Ok(watcher) if entry.expanded => entry.watcher = Some(watcher),
-                    Ok(_) => {}
+                    Ok(watcher) => {
+                        if entry.expanded {
+                            entry.watcher = Some(watcher);
+                        }
+                        store.refresh_forge(&id);
+                    }
                     Err(err) => {
                         tracing::warn!("Couldn't open {}: {err:#}", entry.project.name);
                         entry.error = Some(load_error(&entry.project, &err));
@@ -328,15 +331,6 @@ impl Store {
         self.load(id, Reload::full(), cx);
     }
 
-    /// Read `id`'s uncommitted files again, after an operation that changed only them.
-    pub(super) fn reload_files(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        let files = Reload {
-            main: true,
-            ..Reload::default()
-        };
-        self.load(id, files, cx);
-    }
-
     pub fn reload_all(&mut self, cx: &mut Context<Self>) {
         for id in self.expanded_ids() {
             self.reload(&id, cx);
@@ -345,7 +339,7 @@ impl Store {
 
     /// Load `id` again: all of it, or unless `reload` is full, just the uncommitted files it
     /// names on top of the commits already shown, which skips walking the commit graph.
-    fn load(&mut self, id: &ProjectId, reload: Reload, cx: &mut Context<Self>) {
+    pub(super) fn load(&mut self, id: &ProjectId, reload: Reload, cx: &mut Context<Self>) {
         let Some(entry) = self.project_mut(id) else {
             self.settled(id, cx);
             return;
@@ -355,14 +349,18 @@ impl Store {
             return;
         }
         entry.loading = true;
+        // Only a project with nothing loaded yet shows that it's loading, so other loads start
+        // without a redraw.
+        if entry.workspace.is_none() {
+            cx.notify();
+        }
         // Loads of one project don't overlap, so these commits are still current.
         let shown = (!reload.full).then(|| entry.workspace.clone()).flatten();
         let full = shown.is_none();
         let path = entry.project.path.clone();
         let id = id.clone();
         // Started after the mutation finished, so it sees what the mutation did.
-        let settles = self.settling.contains(&id);
-        cx.notify();
+        let settles = self.settles(&id);
         cx.spawn(async move |this, cx| {
             let result = backend::run(move || match shown {
                 Some(shown) => {
@@ -415,12 +413,12 @@ impl Store {
         .detach();
     }
 
-    /// `settled` is false when a newer load is already queued behind this one.
+    /// `latest` is false when a newer load is already queued behind this one.
     fn workspace_loaded(
         &mut self,
         id: &ProjectId,
         workspace: Workspace,
-        settled: bool,
+        latest: bool,
         cx: &mut Context<Self>,
     ) {
         // While a commit is being edited there's nothing else to look at or act on, and
@@ -437,7 +435,7 @@ impl Store {
             }
             return;
         }
-        self.update_seen(id, &workspace, settled);
+        self.update_seen(id, &workspace, latest);
         // An agent amending or rebasing the selected commit gives it a new id but keeps its
         // change id; stay on it.
         let rewritten = match &self.selection {
