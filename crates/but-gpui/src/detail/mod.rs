@@ -184,10 +184,10 @@ pub struct Detail {
     upstream: Option<upstream::Upstream>,
     upstream_scroll: UniformListScrollHandle,
     _upstream_load: Task<()>,
-    /// How the reviewers of the selected branch's pull request decided, once the forge said:
-    /// the project and pull request number they're for.
-    verdicts: Option<(ProjectId, u64, backend::reviews::Verdicts)>,
-    _verdicts_load: Task<()>,
+    /// Where the review of the selected branch's pull request stands, once the forge said:
+    /// the project and pull request number it's for.
+    feedback: Option<(ProjectId, u64, backend::reviews::Feedback)>,
+    _feedback_load: Task<()>,
     /// The Branches page's branches, for the project it shows, and its filter.
     branches: Option<branches::Branches>,
     branch_filter: Entity<TextInput>,
@@ -249,7 +249,7 @@ impl Detail {
                             this.load_upstream(&project, false, true, cx)
                         }
                         Some(Selection::Branch(project, ref_name)) => {
-                            this.load_verdicts(&project, &ref_name, cx)
+                            this.load_feedback(&project, &ref_name, cx)
                         }
                         _ => {}
                     }
@@ -358,8 +358,8 @@ impl Detail {
             upstream: None,
             upstream_scroll: UniformListScrollHandle::new(),
             _upstream_load: Task::ready(()),
-            verdicts: None,
-            _verdicts_load: Task::ready(()),
+            feedback: None,
+            _feedback_load: Task::ready(()),
             branches: None,
             branch_filter,
             branches_scroll: UniformListScrollHandle::new(),
@@ -1086,6 +1086,60 @@ impl Detail {
         self.app
             .update(cx, |app, cx| app.discard(project, vec![change], window, cx))
             .ok();
+    }
+
+    /// Show `path` in the loaded diff, at `line` of its new side when the diff has it.
+    /// Returns whether the diff has the file.
+    pub(super) fn reveal_line(
+        &mut self,
+        path: &str,
+        line: Option<u32>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(diff) = self.shown_diff() else {
+            return false;
+        };
+        let Some(file_ix) = diff.files.iter().position(|f| f.file.path == path) else {
+            return false;
+        };
+        let new_of = |hunk: usize, ix: usize| match &diff.files[file_ix].body {
+            DiffBody::Hunks { hunks, .. } => hunks.get(hunk)?.lines.get(ix)?.new,
+            _ => None,
+        };
+        let row = line.and_then(|line| {
+            self.row_of(|row| match *row {
+                DiffRow::Line {
+                    file,
+                    hunk,
+                    line: ix,
+                    ..
+                }
+                | DiffRow::Pair {
+                    file,
+                    hunk,
+                    right: Some(ix),
+                    ..
+                } => file == file_ix && new_of(hunk, ix) == Some(line),
+                DiffRow::Context { file, new, .. } => file == file_ix && new == line,
+                _ => false,
+            })
+        });
+        match row {
+            Some(row) => {
+                self.cursor = Cursor {
+                    file: file_ix,
+                    hunk: None,
+                };
+                // A few lines above it, for what leads up to it.
+                self.list.scroll_to(ListOffset {
+                    item_ix: row.saturating_sub(3),
+                    offset_in_item: px(0.),
+                });
+                cx.notify();
+            }
+            None => self.scroll_to_file(file_ix, cx),
+        }
+        true
     }
 
     fn scroll_to_file(&mut self, file_ix: usize, cx: &mut Context<Self>) {

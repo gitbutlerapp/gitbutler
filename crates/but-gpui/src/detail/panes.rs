@@ -1202,10 +1202,18 @@ impl Detail {
                     .children(resolve_oldest),
             )
             .when_some(branch.review.as_ref(), |el, review| {
-                let verdicts = (self.verdicts.as_ref())
+                let feedback = (self.feedback.as_ref())
                     .filter(|(p, number, _)| p == project && *number == review.number)
-                    .map(|(.., verdicts)| verdicts);
-                el.child(render_review(review, verdicts, theme, cx))
+                    .map(|(.., feedback)| feedback);
+                el.child(render_review(
+                    review,
+                    feedback.map(|f| &f.verdicts),
+                    theme,
+                    cx,
+                ))
+                .children(feedback.and_then(|feedback| {
+                    self.render_threads(project, ref_name, &feedback.threads, theme, cx)
+                }))
             })
             .when(!branch.incoming.is_empty(), |el| {
                 let stacked =
@@ -1330,9 +1338,9 @@ fn render_incoming(
 }
 
 impl Detail {
-    /// Ask the forge how the reviewers of `ref_name`'s open pull request decided, for its
-    /// card. Once per visit to the branch, rather than on every reload.
-    pub(super) fn load_verdicts(
+    /// Ask the forge where the review of `ref_name`'s open pull request stands, for its card.
+    /// Once per visit to the branch, rather than on every reload.
+    pub(super) fn load_feedback(
         &mut self,
         project: &ProjectId,
         ref_name: &str,
@@ -1348,23 +1356,159 @@ impl Detail {
             return;
         };
         let project = project.clone();
-        self._verdicts_load = cx.spawn(async move |this, cx| {
-            let verdicts = backend::run(move || backend::reviews::verdicts(&path, number)).await;
+        self._feedback_load = cx.spawn(async move |this, cx| {
+            let feedback = backend::run(move || backend::reviews::feedback(&path, number)).await;
             // A forge that can't say, or no account for it, leaves the card as it was.
-            let Ok(verdicts) = verdicts else {
+            let Ok(feedback) = feedback else {
                 return;
             };
             this.update(cx, |this, cx| {
-                this.verdicts = Some((project, number, verdicts));
+                this.feedback = Some((project, number, feedback));
                 cx.notify();
             })
             .ok();
         });
     }
+
+    /// Mark a conversation on the pull request resolved, then ask again where it stands.
+    fn resolve_thread(
+        &mut self,
+        project: ProjectId,
+        ref_name: String,
+        id: String,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(path) = self.store.read(cx).path(&project) else {
+            return;
+        };
+        cx.spawn(async move |this, cx| {
+            let resolved = backend::run(move || backend::reviews::resolve_thread(&path, id)).await;
+            this.update(cx, |this, cx| match resolved {
+                Ok(()) => {
+                    this.store
+                        .update(cx, |store, cx| store.snack("Resolved", cx));
+                    this.load_feedback(&project, &ref_name, cx)
+                }
+                Err(err) => this.store.update(cx, |store, cx| {
+                    store.error("Couldn't resolve the conversation", format!("{err:#}"), cx)
+                }),
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// The conversations still open on the branch's pull request: where each is and how it
+    /// opened. A click shows its line in the diff; its menu opens it on the forge or
+    /// resolves it.
+    fn render_threads(
+        &self,
+        project: &ProjectId,
+        ref_name: &str,
+        threads: &[backend::reviews::Thread],
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        /// More than this many are better read on the forge.
+        const SHOWN: usize = 8;
+        if threads.is_empty() {
+            return None;
+        }
+        let rows = threads.iter().take(SHOWN).enumerate().map(|(ix, thread)| {
+            let (name, _) = diff::split_path(&thread.path);
+            let place = match thread.line {
+                Some(line) => format!("{name}:{line}"),
+                None => name.to_owned(),
+            };
+            let (path, line, url) = (thread.path.clone(), thread.line, thread.url.clone());
+            let menu_url = url.clone();
+            let (project, ref_name, id) = (project.clone(), ref_name.to_owned(), thread.id.clone());
+            list_row(("thread", ix), false, theme)
+                .text_size(px(12.))
+                .gap(px(6.))
+                .child(
+                    div()
+                        .flex_none()
+                        .font_family(theme.mono_font.clone())
+                        .text_color(theme.text_3)
+                        .child(place),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .child(format!("{}: {}", thread.author, thread.opening)),
+                )
+                .when(thread.replies > 0, |el| {
+                    el.child(div().flex_none().text_color(theme.text_3).child(
+                        match thread.replies {
+                            1 => "1 reply".to_owned(),
+                            n => format!("{n} replies"),
+                        },
+                    ))
+                })
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    if !this.reveal_line(&path, line, cx) {
+                        cx.open_url(&url);
+                    }
+                }))
+                .on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                        let url = menu_url.clone();
+                        let (project, ref_name, id) =
+                            (project.clone(), ref_name.clone(), id.clone());
+                        let items = vec![
+                            MenuItem::new("Open on the forge", move |_, _, cx| cx.open_url(&url)),
+                            MenuItem::new("Mark resolved", move |app, _, cx| {
+                                let (project, ref_name, id) =
+                                    (project.clone(), ref_name.clone(), id.clone());
+                                app.detail.update(cx, |detail, cx| {
+                                    detail.resolve_thread(project, ref_name, id, cx)
+                                })
+                            }),
+                        ];
+                        this.app
+                            .update(cx, |app, cx| app.open_menu(event.position, items, cx))
+                            .ok();
+                    }),
+                )
+        });
+        let more = threads.len().saturating_sub(SHOWN);
+        Some(
+            v_flex()
+                .flex_none()
+                .pb(px(8.))
+                .border_b_1()
+                .border_color(theme.border_3)
+                .child(
+                    div()
+                        .px(px(16.))
+                        .pt(px(10.))
+                        .pb(px(4.))
+                        .text_size(px(11.))
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_color(theme.text_3)
+                        .child(format!("{} open", plural(threads.len(), "conversation"))),
+                )
+                .children(rows)
+                .when(more > 0, |el| {
+                    el.child(
+                        div()
+                            .px(px(16.))
+                            .text_size(px(12.))
+                            .text_color(theme.text_3)
+                            .child(format!("And {more} more on the forge")),
+                    )
+                })
+                .into_any_element(),
+        )
+    }
 }
 
 /// Where a pull request's review stands: who approved, who asked for changes, and whose
-/// review it's still waiting on. Nothing when there's nothing to say.
+/// review it's still waiting on, a line each. Nothing when there's nothing to say.
 fn review_line(
     review: &backend::Review,
     verdicts: Option<&backend::reviews::Verdicts>,
@@ -1399,22 +1543,14 @@ fn review_line(
                 .child(format!("{label} {}", logins.join(", ")))
         })
         .collect();
-    if parts.is_empty() {
-        return None;
-    }
-    let mut line = h_flex()
-        .pl(px(24.))
-        .gap(px(6.))
-        .flex_wrap()
-        .text_size(px(12.))
-        .text_color(theme.text_3);
-    for (ix, part) in parts.into_iter().enumerate() {
-        if ix > 0 {
-            line = line.child("·");
-        }
-        line = line.child(part);
-    }
-    Some(line.into_any_element())
+    // One to a line: the pane is narrow, and logins run long.
+    (!parts.is_empty()).then(|| {
+        v_flex()
+            .pl(px(24.))
+            .text_size(px(12.))
+            .children(parts)
+            .into_any_element()
+    })
 }
 
 /// What's conflicted, on a red tint, with a button that starts resolving it.
