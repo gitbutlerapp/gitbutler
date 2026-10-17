@@ -136,6 +136,8 @@ pub struct Review {
     pub url: Option<String>,
     /// The CI checks on the branch, once any have been seen.
     pub checks: Option<Checks>,
+    /// The forge merges it on its own once its checks pass.
+    pub auto_merge: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -135,6 +135,14 @@ pub fn set_draft(path: &Path, number: u64, draft: bool) -> Result<()> {
         .block_on(forge::set_review_draftiness(ctx, number as usize, draft))
 }
 
+/// Have the forge merge a pull request once its checks pass, or stop it from doing so.
+pub fn set_auto_merge(path: &Path, number: u64, enable: bool) -> Result<()> {
+    let ctx = open(path)?.into_sync();
+    runtime()
+        .handle()
+        .block_on(forge::set_review_auto_merge(ctx, number as usize, enable))
+}
+
 /// Change a pull request's title and description, or close or reopen it.
 pub fn update(
     path: &Path,

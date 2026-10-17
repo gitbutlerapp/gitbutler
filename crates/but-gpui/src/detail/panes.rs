@@ -1364,6 +1364,9 @@ fn render_review(review: &backend::Review, theme: &Theme, cx: &Context<Detail>) 
                     el.child("·")
                         .child(small_icon(glyph).text_color(color))
                         .child(text)
+                })
+                .when(review.auto_merge, |el| {
+                    el.child("·").child("merges when checks pass")
                 }),
         )
         .into_any_element()

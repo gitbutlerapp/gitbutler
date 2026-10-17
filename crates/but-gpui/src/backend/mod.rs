@@ -145,6 +145,7 @@ fn describe_reviews(ctx: &Context, stacks: &mut [Stack]) {
             review.title = cached.title.clone();
             review.url = Some(cached.html_url.clone());
             review.state = review_state(cached);
+            review.auto_merge = cached.auto_merge_enabled;
         }
         // A merged pull request drops out of the open ones the forge lists.
         if branch.push == PushState::Integrated {
@@ -275,6 +276,7 @@ fn branch_from(segment: &but_workspace::ref_info::Segment) -> Branch {
                 state: ReviewState::Open,
                 url: None,
                 checks: None,
+                auto_merge: false,
             }),
     }
 }

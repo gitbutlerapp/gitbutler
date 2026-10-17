@@ -1343,6 +1343,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::create_pull_request))
             .on_action(cx.listener(Self::edit_pull_request))
             .on_action(cx.listener(Self::toggle_draft))
+            .on_action(cx.listener(Self::toggle_auto_merge))
             .on_action(cx.listener(Self::merge_pull_request))
             .on_action(cx.listener(Self::close_pull_request))
             .on_action(cx.listener(Self::go_to_branch))
