@@ -781,7 +781,7 @@ export declare function forgetGitlabAccount(account: GitlabAccountIdentifier): P
 /**
  * Read application-global AI configuration without exposing stored secrets.
  *
- * {@link ../../../../../crates/but-api/src/ai.rs:220}
+ * {@link ../../../../../crates/but-api/src/ai.rs:221}
  */
 export declare function getAiConfiguration(): Promise<AiConfiguration>
 
@@ -1366,7 +1366,7 @@ export declare function requestReview(projectId: string, reviewId: number, login
 /**
  * Clear application-global AI configuration and stored provider API keys.
  *
- * {@link ../../../../../crates/but-api/src/ai.rs:258}
+ * {@link ../../../../../crates/but-api/src/ai.rs:259}
  */
 export declare function resetAiConfiguration(): Promise<AiConfiguration>
 
@@ -1610,7 +1610,7 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
 /**
  * Validate and save one complete application-global AI configuration.
  *
- * {@link ../../../../../crates/but-api/src/ai.rs:226}
+ * {@link ../../../../../crates/but-api/src/ai.rs:227}
  */
 export declare function updateAiConfiguration(update: AiConfigurationUpdate): Promise<AiConfiguration>
 
