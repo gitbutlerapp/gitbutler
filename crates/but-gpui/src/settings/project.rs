@@ -1,13 +1,25 @@
 //! The Project section: the selected project's name, target branch, force-push
 //! protection and commit signing, and removing it from GitButler.
 
-use gpui::{App, ClickEvent, Context, DismissEvent, Focusable as _, Window, div, prelude::*, px};
+use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*, px};
 
-use super::{Row, Section, SettingsView};
+use super::{Row, SettingsView, field_with_save};
 use crate::backend::settings::{self as backend, GitHubStacks, StackInfo};
 use crate::state::ProjectId;
 use crate::theme::Theme;
-use crate::ui::{ButtonStyle, button, field, h_flex, switch};
+use crate::ui::{ButtonStyle, button, h_flex, muted, switch};
+
+const STACK_INFO: [(StackInfo, &str); 3] = [
+    (StackInfo::Bottom, "At the bottom"),
+    (StackInfo::Top, "At the top"),
+    (StackInfo::Disabled, "Off"),
+];
+
+const GITHUB_STACKS: [(GitHubStacks, &str); 3] = [
+    (GitHubStacks::Auto, "When GitHub offers them"),
+    (GitHubStacks::Native, "Always"),
+    (GitHubStacks::Disabled, "Never"),
+];
 
 impl SettingsView {
     /// Show `project`'s settings in the Project section, loading them.
@@ -36,6 +48,12 @@ impl SettingsView {
         });
     }
 
+    /// Read the project list and the project's settings again, as after changing them.
+    fn reload_project(&mut self, cx: &mut Context<Self>) {
+        self.store.update(cx, |store, cx| store.load_projects(cx));
+        self.show_project(self.project.clone(), cx);
+    }
+
     pub(super) fn project_name(&self, cx: &App) -> Option<String> {
         let project = self.project.as_ref()?;
         Some(self.store.read(cx).project(project)?.project.name.clone())
@@ -57,6 +75,7 @@ impl SettingsView {
         self.apply(
             "Couldn't rename the project",
             move || backend::update_project(&project, Some(name), None),
+            Self::reload_project,
             cx,
         );
     }
@@ -66,10 +85,12 @@ impl SettingsView {
         let (Some(project), Some(settings)) = (&self.project, &self.project_settings) else {
             return Vec::new();
         };
+        // Settings are only read for a project with a path.
+        let Some(path) = self.store.read(cx).path(project) else {
+            return Vec::new();
+        };
         let name_changed =
             self.project_name(cx).as_deref() != Some(self.name.read(cx).text().trim());
-        let name_focused = self.name.focus_handle(cx).is_focused(window);
-        let path = self.store.read(cx).path(project);
         let id = project.clone();
         let force = settings.force_push_protection;
         let sign = settings.sign_commits;
@@ -78,25 +99,23 @@ impl SettingsView {
             this.apply(
                 "Couldn't change force-push protection",
                 move || backend::update_project(&id, None, Some(!force)),
+                Self::reload_project,
                 cx,
             );
         });
         let sign_path = path.clone();
         let toggle_sign = cx.listener(move |this, _: &ClickEvent, _, cx| {
-            let Some(path) = sign_path.clone() else {
-                return;
-            };
+            let path = sign_path.clone();
             this.apply(
                 "Couldn't change commit signing",
                 move || backend::set_sign_commits(&path, !sign),
+                Self::reload_project,
                 cx,
             );
         });
         let (test_path, tested) = (path.clone(), project.clone());
         let test_signing = cx.listener(move |this, _: &ClickEvent, _, cx| {
-            let Some(path) = test_path.clone() else {
-                return;
-            };
+            let path = test_path.clone();
             this.signing = None;
             let tested = tested.clone();
             cx.spawn(async move |this, cx| {
@@ -126,54 +145,40 @@ impl SettingsView {
                 .update(cx, |app, cx| app.pick_target(project, window, cx))
                 .ok();
         });
-        let info_label = match settings.stack_info {
-            StackInfo::Bottom => "At the bottom",
-            StackInfo::Top => "At the top",
-            StackInfo::Disabled => "Off",
-        };
-        let github_label = match settings.github_stacks {
-            GitHubStacks::Auto => "When GitHub offers them",
-            GitHubStacks::Native => "Always",
-            GitHubStacks::Disabled => "Never",
-        };
+        let info_label = (STACK_INFO.iter())
+            .find(|(info, _)| *info == settings.stack_info)
+            .map_or("", |(_, label)| *label);
         let stack_info = self.choice(
             "stack-info",
             info_label,
-            [
-                (StackInfo::Bottom, "At the bottom".to_owned()),
-                (StackInfo::Top, "At the top".to_owned()),
-                (StackInfo::Disabled, "Off".to_owned()),
-            ],
+            STACK_INFO.map(|(info, label)| (info, label.to_owned())),
             {
                 let path = path.clone();
                 move |this, info: StackInfo, cx| {
-                    let Some(path) = path.clone() else {
-                        return;
-                    };
+                    let path = path.clone();
                     this.apply(
                         "Couldn't change how stacks show",
                         move || backend::set_stacking(&path, Some(info), None),
+                        Self::reload_project,
                         cx,
                     )
                 }
             },
             cx,
         );
+        let github_label = (GITHUB_STACKS.iter())
+            .find(|(github, _)| *github == settings.github_stacks)
+            .map_or("", |(_, label)| *label);
         let github_stacks = self.choice(
             "github-stacks",
             github_label,
-            [
-                (GitHubStacks::Auto, "When GitHub offers them".to_owned()),
-                (GitHubStacks::Native, "Always".to_owned()),
-                (GitHubStacks::Disabled, "Never".to_owned()),
-            ],
+            GITHUB_STACKS.map(|(github, label)| (github, label.to_owned())),
             move |this, github: GitHubStacks, cx| {
-                let Some(path) = path.clone() else {
-                    return;
-                };
+                let path = path.clone();
                 this.apply(
                     "Couldn't change how stacks show",
                     move || backend::set_stacking(&path, None, Some(github)),
+                    Self::reload_project,
                     cx,
                 )
             },
@@ -191,77 +196,52 @@ impl SettingsView {
             this.remove_project(remove_id.clone(), &project_name, window, cx)
         });
         let signing_note = self.signing.as_ref().map(|result| match result {
-            Ok(()) => div()
-                .text_color(theme.safe)
-                .child("Signing works")
-                .into_any_element(),
-            Err(err) => div()
-                .text_color(theme.danger)
-                .child(err.clone())
-                .into_any_element(),
+            Ok(()) => div().text_color(theme.safe).child("Signing works"),
+            Err(err) => div().text_color(theme.danger).child(err.clone()),
         });
         let mut rows = vec![
-            Row {
-                section: Section::Project,
-                title: "Name".into(),
-                description: "What the project is called in the navigator.".into(),
-                control: h_flex()
-                    .gap(px(6.))
-                    .when(name_changed, |el| {
-                        el.child(
-                            button("save-name", "Save")
-                                .small()
-                                .style(ButtonStyle::Gray)
-                                .on_click(cx.listener(|this, _, _, cx| this.save_name(cx))),
-                        )
-                    })
-                    .child(field(&self.name, name_focused, theme).w(px(220.)))
-                    .into_any_element(),
-            },
-            Row {
-                section: Section::Project,
-                title: "Target branch".into(),
-                description: if has_stacks {
+            Row::new(
+                "Name",
+                "What the project is called in the navigator.",
+                field_with_save(
+                    &self.name,
+                    name_changed,
+                    |this, _, cx| this.save_name(cx),
+                    window,
+                    cx,
+                ),
+            ),
+            Row::new(
+                "Target branch",
+                if has_stacks {
                     "What the workspace integrates into and pull requests aim at. To change it, \
                      unapply every branch first."
                 } else {
                     "What the workspace integrates into and pull requests aim at."
-                }
-                .into(),
-                control: h_flex()
+                },
+                h_flex()
                     .gap(px(8.))
                     .child(
-                        div()
-                            .font_family(theme.mono_font.clone())
-                            .text_size(px(12.))
-                            .text_color(theme.text_2)
-                            .child(target.unwrap_or_else(|| "None".into())),
+                        muted(target.unwrap_or_else(|| "None".into()), theme)
+                            .font_family(theme.mono_font.clone()),
                     )
                     .child(
                         button("change-target", "Change…")
                             .small()
                             .disabled(has_stacks)
                             .on_click(change_target),
-                    )
-                    .into_any_element(),
-            },
-            Row {
-                section: Section::Project,
-                title: "Protect force pushes".into(),
-                description: "A force push stops if someone else pushed to the branch since \
-                              you last fetched, rather than dropping their commits."
-                    .into(),
-                control: switch("force-push", force, theme)
-                    .on_click(protect)
-                    .into_any_element(),
-            },
-            Row {
-                section: Section::Project,
-                title: "Sign commits".into(),
-                description: "Sign the commits GitButler makes, with the key and program \
-                              your Git config names."
-                    .into(),
-                control: h_flex()
+                    ),
+            ),
+            Row::new(
+                "Protect force pushes",
+                "A force push stops if someone else pushed to the branch since you last fetched, \
+                 rather than dropping their commits.",
+                switch("force-push", force, theme).on_click(protect),
+            ),
+            Row::new(
+                "Sign commits",
+                "Sign the commits GitButler makes, with the key and program your Git config names.",
+                h_flex()
                     .gap(px(8.))
                     .children(signing_note.map(|note| {
                         div()
@@ -278,41 +258,33 @@ impl SettingsView {
                                 .on_click(test_signing),
                         )
                     })
-                    .child(switch("sign", sign, theme).on_click(toggle_sign))
-                    .into_any_element(),
-            },
-            Row {
-                section: Section::Project,
-                title: "Stack in pull requests".into(),
-                description: "Each pull request of a stack lists the others in its description, \
-                              kept up to date."
-                    .into(),
-                control: stack_info,
-            },
-            Row {
-                section: Section::Project,
-                title: "Remove project".into(),
-                description: "Takes it out of GitButler. The repository stays on disk as it is."
-                    .into(),
-                control: button("remove-project", "Remove…")
+                    .child(switch("sign", sign, theme).on_click(toggle_sign)),
+            ),
+            Row::new(
+                "Stack in pull requests",
+                "Each pull request of a stack lists the others in its description, kept up to \
+                 date.",
+                stack_info,
+            ),
+            Row::new(
+                "Remove project",
+                "Takes it out of GitButler. The repository stays on disk as it is.",
+                button("remove-project", "Remove…")
                     .small()
                     .style(ButtonStyle::Danger)
-                    .on_click(remove)
-                    .into_any_element(),
-            },
+                    .on_click(remove),
+            ),
         ];
         if on_github {
             let at = rows.len() - 1;
             rows.insert(
                 at,
-                Row {
-                    section: Section::Project,
-                    title: "GitHub stacks".into(),
-                    description: "Show a stack's pull requests as one of GitHub's own stacks, \
-                                  where GitHub offers them."
-                        .into(),
-                    control: github_stacks,
-                },
+                Row::new(
+                    "GitHub stacks",
+                    "Show a stack's pull requests as one of GitHub's own stacks, where GitHub \
+                     offers them.",
+                    github_stacks,
+                ),
             );
         }
         rows

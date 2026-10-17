@@ -475,6 +475,23 @@ impl TextInput {
     fn range_from_utf16(&self, range_utf16: &Range<usize>) -> Range<usize> {
         self.offset_from_utf16(range_utf16.start)..self.offset_from_utf16(range_utf16.end)
     }
+
+    /// Put `new_text` over the UTF-16 range the platform gave, or else the marked text or
+    /// the selection, and return the byte range it now takes. A single-line field gets
+    /// spaces for newlines, which keeps the length.
+    fn splice(&mut self, range_utf16: Option<Range<usize>>, new_text: &str) -> Range<usize> {
+        let range = range_utf16
+            .map(|range_utf16| self.range_from_utf16(&range_utf16))
+            .or(self.marked_range.clone())
+            .unwrap_or(self.selected_range.clone());
+        if self.multiline {
+            self.content.replace_range(range.clone(), new_text);
+        } else {
+            self.content
+                .replace_range(range.clone(), &new_text.replace('\n', " "));
+        }
+        range.start..range.start + new_text.len()
+    }
 }
 
 impl EntityInputHandler for TextInput {
@@ -550,18 +567,8 @@ impl EntityInputHandler for TextInput {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let range = range_utf16
-            .as_ref()
-            .map(|range_utf16| self.range_from_utf16(range_utf16))
-            .or(self.marked_range.clone())
-            .unwrap_or(self.selected_range.clone());
-        let new_text = if self.multiline {
-            new_text.to_owned()
-        } else {
-            new_text.replace('\n', " ")
-        };
-        self.content.replace_range(range.clone(), &new_text);
-        self.selected_range = range.start + new_text.len()..range.start + new_text.len();
+        let end = self.splice(range_utf16, new_text).end;
+        self.selected_range = end..end;
         self.selection_reversed = false;
         self.marked_range.take();
         window.notify_text_input_changed(&self.focus_handle);
@@ -578,15 +585,9 @@ impl EntityInputHandler for TextInput {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let range = range_utf16
-            .as_ref()
-            .map(|range_utf16| self.range_from_utf16(range_utf16))
-            .or(self.marked_range.clone())
-            .unwrap_or(self.selected_range.clone());
-        self.content.replace_range(range.clone(), new_text);
-        self.marked_range =
-            (!new_text.is_empty()).then(|| range.start..range.start + new_text.len());
-        let insertion_start_utf16 = self.offset_to_utf16(range.start);
+        let inserted = self.splice(range_utf16, new_text);
+        self.marked_range = (!inserted.is_empty()).then(|| inserted.clone());
+        let insertion_start_utf16 = self.offset_to_utf16(inserted.start);
         let inserted_length_utf16 = new_text.encode_utf16().count();
         self.selected_range = new_selected_range_utf16
             .map(|selected| {
@@ -595,7 +596,7 @@ impl EntityInputHandler for TextInput {
                         ..insertion_start_utf16 + selected.end.min(inserted_length_utf16)),
                 )
             })
-            .unwrap_or_else(|| range.start + new_text.len()..range.start + new_text.len());
+            .unwrap_or(inserted.end..inserted.end);
         self.selection_reversed = false;
         window.notify_text_input_changed(&self.focus_handle);
         cx.emit(InputEvent::Changed);
@@ -781,9 +782,15 @@ impl Element for TextElement {
                     .collect();
                 }
             }
+            // Without a newline the line is the whole text, already shared.
+            let line = if raw.len() == text.len() {
+                text.clone()
+            } else {
+                raw.to_owned().into()
+            };
             let shaped = window
                 .text_system()
-                .shape_text(raw.to_owned().into(), font_size, &runs, wrap_width, None)
+                .shape_text(line, font_size, &runs, wrap_width, None)
                 .ok()
                 .and_then(|mut lines| lines.pop())
                 .unwrap_or_default();

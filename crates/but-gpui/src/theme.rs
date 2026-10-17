@@ -8,7 +8,6 @@ use crate::backend::Token;
 
 #[derive(Clone)]
 pub struct Theme {
-    /// Which of the two themes this is.
     pub dark: bool,
     /// Surfaces: content and recessed (navigator, diff ground).
     pub bg_1: Hsla,
@@ -67,14 +66,21 @@ pub enum Appearance {
     Dark,
 }
 
-impl Theme {
-    /// This theme with code in diffs at `size`.
-    pub fn with_code(mut self, size: CodeSize) -> Self {
-        (self.code_text, self.code_line) = match size {
+impl CodeSize {
+    /// The size of code in diffs and the height of a line of it.
+    fn metrics(self) -> (f32, f32) {
+        match self {
             CodeSize::Small => (11., 18.),
             CodeSize::Medium => (12., 20.),
             CodeSize::Large => (14., 23.),
-        };
+        }
+    }
+}
+
+impl Theme {
+    /// This theme with code in diffs at `size`.
+    pub fn with_code(mut self, size: CodeSize) -> Self {
+        (self.code_text, self.code_line) = size.metrics();
         self
     }
 
@@ -107,10 +113,11 @@ impl Theme {
 
         let safe = pick(0x259466, 0x2eb87f);
         let danger = pick(0xd64029, 0xe28576);
+        let (code_text, code_line) = CodeSize::default().metrics();
         Theme {
             dark,
-            code_text: 12.,
-            code_line: 20.,
+            code_text,
+            code_line,
             bg_1: pick(0xffffff, 0x292929),
             bg_2: pick(0xf2f2f2, 0x1e1e1e),
             text_1: pick(0x1e1e1e, 0xf8f8f8),

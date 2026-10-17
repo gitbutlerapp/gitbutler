@@ -2,14 +2,13 @@
 //! with whose key, and which model. GitButler's other apps share it. It's read only when
 //! shown, as reading it checks the keychain for stored keys.
 
-use gpui::{Context, Entity, Focusable as _, SharedString, Window, prelude::*, px};
+use gpui::{Context, Entity, SharedString, Window, prelude::*, px};
 
-use super::{Row, Section, SettingsView};
+use super::{Row, SettingsView, field_with_save};
 use crate::backend::run;
 use crate::backend::settings::{self as backend, AiConfiguration, AiConfigurationUpdate};
-use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, button, field, h_flex};
+use crate::ui::{button, h_flex};
 
 const PROVIDERS: [(&str, &str); 4] = [
     ("openai", "OpenAI"),
@@ -205,39 +204,14 @@ impl SettingsView {
         }
     }
 
-    /// A field with Save beside it while it differs from what's stored.
-    fn ai_field(
-        &self,
-        input: &Entity<TextInput>,
-        stored: &str,
-        window: &Window,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> gpui::AnyElement {
-        let changed = input.read(cx).text().trim() != stored;
-        let focused = input.focus_handle(cx).is_focused(window);
-        let save = input.clone();
-        h_flex()
-            .gap(px(6.))
-            .when(changed, |el| {
-                el.child(
-                    button(
-                        SharedString::from(format!("save-{}", input.entity_id())),
-                        "Save",
-                    )
-                    .small()
-                    .style(ButtonStyle::Gray)
-                    .on_click(cx.listener(move |this, _, _, cx| this.save_ai_field(&save, cx))),
-                )
-            })
-            .child(field(input, focused, theme).w(px(220.)))
-            .into_any_element()
-    }
-
     pub(super) fn ai_rows(&self, window: &Window, cx: &Context<Self>) -> Vec<Row> {
-        let theme = Theme::get(cx);
         let Some(config) = &self.ai.config else {
             return Vec::new();
+        };
+        // A field with Save while it differs from what's stored.
+        let ai_field = |input: &Entity<TextInput>, stored: &str| {
+            let changed = input.read(cx).text().trim() != stored;
+            field_with_save(input, changed, Self::save_ai_field, window, cx)
         };
         // A provider chosen in GitButler's other apps that these settings can't change, like
         // OpenRouter: only picking another one here can be saved.
@@ -257,22 +231,17 @@ impl SettingsView {
             },
             cx,
         );
-        let mut rows = vec![Row {
-            section: Section::Ai,
-            title: "Provider".into(),
-            description: if known.is_none() {
-                format!(
-                    "{provider_name} was set up in another GitButler app, which is where it \
-                     changes. Pick a provider here to use that instead."
-                )
-                .into()
-            } else if config.is_configured {
-                "Writes commit messages and pull request descriptions when you ask.".into()
-            } else {
-                format!("{provider_name} needs a key before it can write anything.").into()
-            },
-            control,
-        }];
+        let description = if known.is_none() {
+            format!(
+                "{provider_name} was set up in another GitButler app, which is where it changes. \
+                 Pick a provider here to use that instead."
+            )
+        } else if config.is_configured {
+            "Writes commit messages and pull request descriptions when you ask.".into()
+        } else {
+            format!("{provider_name} needs a key before it can write anything.")
+        };
+        let mut rows = vec![Row::new("Provider", description, control)];
         if known.is_none() {
             return rows;
         }
@@ -283,11 +252,7 @@ impl SettingsView {
                 let provider = provider.clone();
                 button(SharedString::from(format!("ai-key-{id}")), label)
                     .small()
-                    .style(if option == id {
-                        ButtonStyle::Gray
-                    } else {
-                        ButtonStyle::Ghost
-                    })
+                    .selected(option == id)
                     .on_click(cx.listener(move |this, _, _, cx| {
                         // Without a key stored yet, wait for one before saving.
                         this.ai.own_pending = id == OWN_KEY && !has_key;
@@ -305,45 +270,35 @@ impl SettingsView {
                         )
                     }))
             };
-            rows.push(Row {
-                section: Section::Ai,
-                title: "Key".into(),
-                description: "GitButler's needs you signed in to GitButler; your own stays in \
-                              the keychain."
-                    .into(),
-                control: h_flex()
+            rows.push(Row::new(
+                "Key",
+                "GitButler's needs you signed in to GitButler; your own stays in the keychain.",
+                h_flex()
                     .gap(px(2.))
                     .child(choice(GITBUTLERS_KEY, "GitButler's"))
-                    .child(choice(OWN_KEY, "Your own"))
-                    .into_any_element(),
-            });
+                    .child(choice(OWN_KEY, "Your own")),
+            ));
             if option == OWN_KEY {
-                rows.push(Row {
-                    section: Section::Ai,
-                    title: "API key".into(),
-                    description: if has_key {
-                        "A key is stored. Paste another to replace it.".into()
-                    } else {
-                        format!("Paste your {provider_name} key.").into()
-                    },
-                    control: self.ai_field(&self.ai.key, "", window, theme, cx),
-                });
+                let description = if has_key {
+                    "A key is stored. Paste another to replace it.".into()
+                } else {
+                    format!("Paste your {provider_name} key.")
+                };
+                rows.push(Row::new("API key", description, ai_field(&self.ai.key, "")));
             }
         }
         if let Some(endpoint) = endpoint {
-            rows.push(Row {
-                section: Section::Ai,
-                title: "Endpoint".into(),
-                description: format!("Where {provider_name} listens.").into(),
-                control: self.ai_field(&self.ai.endpoint, endpoint, window, theme, cx),
-            });
+            rows.push(Row::new(
+                "Endpoint",
+                format!("Where {provider_name} listens."),
+                ai_field(&self.ai.endpoint, endpoint),
+            ));
         }
-        rows.push(Row {
-            section: Section::Ai,
-            title: "Model".into(),
-            description: format!("The {provider_name} model to ask.").into(),
-            control: self.ai_field(&self.ai.model, model, window, theme, cx),
-        });
+        rows.push(Row::new(
+            "Model",
+            format!("The {provider_name} model to ask."),
+            ai_field(&self.ai.model, model),
+        ));
         rows
     }
 }

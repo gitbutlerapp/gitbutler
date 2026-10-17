@@ -66,8 +66,6 @@ struct BarState {
     drawn: (bool, bool),
 }
 
-/// The scrollbar for `scroll`, to place over a positioned element exactly the list's size.
-/// Nothing when the list fits.
 /// `list` filling the height left for it, with its scrollbar over its right edge.
 pub fn scrolled(list: impl IntoElement, id: &'static str, scroll: Scroll, theme: &Theme) -> Div {
     div()
@@ -78,6 +76,8 @@ pub fn scrolled(list: impl IntoElement, id: &'static str, scroll: Scroll, theme:
         .children(scrollbar(id, scroll, theme))
 }
 
+/// The scrollbar for `scroll`, to place over a positioned element exactly the list's size.
+/// Nothing when the list fits.
 pub fn scrollbar(
     id: &'static str,
     scroll: Scroll,

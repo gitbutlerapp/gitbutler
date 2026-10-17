@@ -19,7 +19,8 @@ use crate::theme::{Appearance, CodeSize, Theme};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, button, dropdown, field, h_flex, icon_button, list_row, switch, v_flex,
+    ButtonStyle, Icon, button, dropdown, faint, field, h_flex, icon_button, list_row, muted,
+    switch, v_flex,
 };
 
 actions!(settings, [OpenSettings]);
@@ -59,10 +60,23 @@ impl Section {
 
 /// One setting: what it's called, what it does, and the control that changes it.
 struct Row {
-    section: Section,
     title: SharedString,
     description: SharedString,
     control: AnyElement,
+}
+
+impl Row {
+    fn new(
+        title: impl Into<SharedString>,
+        description: impl Into<SharedString>,
+        control: impl IntoElement,
+    ) -> Self {
+        Row {
+            title: title.into(),
+            description: description.into(),
+            control: control.into_any_element(),
+        }
+    }
 }
 
 /// How often background fetching can run, in minutes; `None` is off.
@@ -188,12 +202,13 @@ impl SettingsView {
         });
     }
 
-    /// Run `op` in the background, then reload the project list or the project's
-    /// settings so the dialog and the navigator show the result.
+    /// Run `op` in the background, report it if it fails, then `reload` what it changed so
+    /// the dialog shows the result.
     fn apply(
         &mut self,
         failed: &'static str,
         op: impl FnOnce() -> anyhow::Result<()> + Send + 'static,
+        reload: fn(&mut Self, &mut Context<Self>),
         cx: &mut Context<Self>,
     ) {
         cx.spawn(async move |this, cx| {
@@ -202,9 +217,7 @@ impl SettingsView {
                 if let Err(err) = result {
                     this.error(failed, err, cx);
                 }
-                this.store.update(cx, |store, cx| store.load_projects(cx));
-                let project = this.project.clone();
-                this.show_project(project, cx);
+                reload(this, cx);
             })
             .ok();
         })
@@ -311,62 +324,45 @@ impl SettingsView {
             },
         );
         vec![
-            Row {
-                section: Section::General,
-                title: "Appearance".into(),
-                description: "Light, dark, or whichever macOS is set to.".into(),
-                control: appearance.into_any_element(),
-            },
-            Row {
-                section: Section::General,
-                title: "Code size".into(),
-                description: "How large code shows in diffs.".into(),
-                control: code.into_any_element(),
-            },
-            Row {
-                section: Section::General,
-                title: "Wrap long lines".into(),
-                description: "Diff lines wider than the pane continue on the next row. ⌥Z in a \
-                              diff turns it on and off."
-                    .into(),
-                control: switch("wrap", prefs.wrap, theme)
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.app
-                            .update(cx, |app, cx| {
-                                app.detail.update(cx, |detail, cx| detail.toggle_wrap(cx))
-                            })
-                            .ok();
-                    }))
-                    .into_any_element(),
-            },
-            Row {
-                section: Section::General,
-                title: "Side by side".into(),
-                description: "Diffs show the old lines beside the new ones. ⌘B in a diff \
-                              switches."
-                    .into(),
-                control: switch("split", prefs.split, theme)
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.app
-                            .update(cx, |app, cx| {
-                                app.detail.update(cx, |detail, cx| detail.toggle_split(cx))
-                            })
-                            .ok();
-                    }))
-                    .into_any_element(),
-            },
-            Row {
-                section: Section::General,
-                title: "Editor".into(),
-                description: "Where \"Open in editor\" opens files, at the line you're on.".into(),
-                control: editor,
-            },
-            Row {
-                section: Section::General,
-                title: "Terminal".into(),
-                description: "Where \"Open in terminal\" opens the project.".into(),
-                control: terminal,
-            },
+            Row::new(
+                "Appearance",
+                "Light, dark, or whichever macOS is set to.",
+                appearance,
+            ),
+            Row::new("Code size", "How large code shows in diffs.", code),
+            Row::new(
+                "Wrap long lines",
+                "Diff lines wider than the pane continue on the next row. ⌥Z in a diff turns it \
+                 on and off.",
+                switch("wrap", prefs.wrap, theme).on_click(cx.listener(|this, _, _, cx| {
+                    this.app
+                        .update(cx, |app, cx| {
+                            app.detail.update(cx, |detail, cx| detail.toggle_wrap(cx))
+                        })
+                        .ok();
+                })),
+            ),
+            Row::new(
+                "Side by side",
+                "Diffs show the old lines beside the new ones. ⌘B in a diff switches.",
+                switch("split", prefs.split, theme).on_click(cx.listener(|this, _, _, cx| {
+                    this.app
+                        .update(cx, |app, cx| {
+                            app.detail.update(cx, |detail, cx| detail.toggle_split(cx))
+                        })
+                        .ok();
+                })),
+            ),
+            Row::new(
+                "Editor",
+                "Where \"Open in editor\" opens files, at the line you're on.",
+                editor,
+            ),
+            Row::new(
+                "Terminal",
+                "Where \"Open in terminal\" opens the project.",
+                terminal,
+            ),
         ]
     }
 
@@ -409,52 +405,61 @@ impl SettingsView {
                 .detach();
             }));
         vec![
-            Row {
-                section: Section::Git,
-                title: "Fetch automatically".into(),
-                description: "Keeps the target and each branch's remote current, for every \
-                              expanded project. GitButler's other apps share this."
-                    .into(),
+            Row::new(
+                "Fetch automatically",
+                "Keeps the target and each branch's remote current, for every expanded project. \
+                 GitButler's other apps share this.",
                 control,
-            },
-            Row {
-                section: Section::Git,
-                title: "Linked worktrees".into(),
-                description: "Experimental. Lists each project's linked worktrees, like the \
-                              ones agents work in, with their uncommitted changes. Worktrees \
-                              that exist when this goes on start archived: a project's menu \
-                              shows them again. GitButler's other apps share this."
-                    .into(),
-                control: worktrees.into_any_element(),
-            },
+            ),
+            Row::new(
+                "Linked worktrees",
+                "Experimental. Lists each project's linked worktrees, like the ones agents work \
+                 in, with their uncommitted changes. Worktrees that exist when this goes on start \
+                 archived: a project's menu shows them again. GitButler's other apps share this.",
+                worktrees,
+            ),
         ]
     }
 
-    /// The rows to show: the section's, or every row the search matches.
-    fn rows(&self, window: &Window, cx: &Context<Self>) -> (Vec<Row>, bool) {
-        let query = self.search.read(cx).text().trim().to_lowercase();
-        let all = self
-            .general_rows(cx)
-            .into_iter()
-            .chain(self.git_rows(cx))
-            .chain(self.ai_rows(window, cx))
-            .chain(self.account_rows(window, cx))
-            .chain(self.project_rows(window, cx));
-        if query.is_empty() {
-            return (
-                all.filter(|row| row.section == self.section).collect(),
-                false,
-            );
+    fn section_rows(&self, section: Section, window: &Window, cx: &Context<Self>) -> Vec<Row> {
+        match section {
+            Section::General => self.general_rows(cx),
+            Section::Git => self.git_rows(cx),
+            Section::Ai => self.ai_rows(window, cx),
+            Section::Accounts => self.account_rows(window, cx),
+            Section::Project => self.project_rows(window, cx),
         }
-        let matches = |row: &Row| {
-            let text =
-                format!("{} {} {}", row.section.title(), row.title, row.description).to_lowercase();
-            query.split_whitespace().all(|word| text.contains(word))
-        };
-        (all.filter(matches).collect(), true)
     }
 
-    fn render_row(row: Row, show_section: bool, theme: &Theme) -> AnyElement {
+    /// The rows to show: the current section's, or with a `query` every row it matches, each
+    /// with the section it's in.
+    fn rows(
+        &self,
+        query: &str,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Vec<(Option<Section>, Row)> {
+        if query.is_empty() {
+            let rows = self.section_rows(self.section, window, cx);
+            return rows.into_iter().map(|row| (None, row)).collect();
+        }
+        let matches = |section: Section, row: &Row| {
+            let text =
+                format!("{} {} {}", section.title(), row.title, row.description).to_lowercase();
+            query.split_whitespace().all(|word| text.contains(word))
+        };
+        Section::ALL
+            .into_iter()
+            .flat_map(|section| {
+                let rows = self.section_rows(section, window, cx);
+                rows.into_iter()
+                    .filter(move |row| matches(section, row))
+                    .map(move |row| (Some(section), row))
+            })
+            .collect()
+    }
+
+    fn render_row(section: Option<Section>, row: Row, theme: &Theme) -> AnyElement {
         h_flex()
             .gap(px(24.))
             .py(px(14.))
@@ -468,14 +473,10 @@ impl SettingsView {
                     .child(
                         h_flex()
                             .gap(px(6.))
-                            .when(show_section, |el| {
-                                el.child(
-                                    div()
-                                        .text_size(px(11.))
-                                        .text_color(theme.text_3)
-                                        .child(format!("{} ›", row.section.title())),
-                                )
-                            })
+                            .children(
+                                section
+                                    .map(|section| faint(format!("{} ›", section.title()), theme)),
+                            )
                             .child(
                                 div()
                                     .text_size(px(13.))
@@ -483,12 +484,7 @@ impl SettingsView {
                                     .child(row.title),
                             ),
                     )
-                    .child(
-                        div()
-                            .text_size(px(12.))
-                            .text_color(theme.text_2)
-                            .child(row.description),
-                    ),
+                    .child(muted(row.description, theme)),
             )
             .child(row.control)
             .into_any_element()
@@ -498,7 +494,9 @@ impl SettingsView {
 impl Render for SettingsView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
-        let (rows, searching) = self.rows(window, cx);
+        let query = self.search.read(cx).text().trim().to_lowercase();
+        let searching = !query.is_empty();
+        let rows = self.rows(&query, window, cx);
         let search_focused = self.search.focus_handle(cx).is_focused(window);
         let sections = Section::ALL.into_iter().map(|section| {
             let selected = !searching && self.section == section;
@@ -525,19 +523,13 @@ impl Render for SettingsView {
         } else {
             self.section.title().into()
         };
-        let projects: Vec<(ProjectId, String)> = self
-            .store
-            .read(cx)
-            .projects
-            .iter()
-            .map(|entry| (entry.id.clone(), entry.project.name.clone()))
-            .collect();
+        let projects = &self.store.read(cx).projects;
         let pick_project = (!searching && self.section == Section::Project && projects.len() > 1)
             .then(|| {
                 self.choice(
                     "pick-project",
                     "Other project",
-                    projects,
+                    (projects.iter()).map(|entry| (entry.id.clone(), entry.project.name.clone())),
                     |this, id: ProjectId, cx| this.show_project(Some(id), cx),
                     cx,
                 )
@@ -607,7 +599,7 @@ impl Render for SettingsView {
                             })
                             .children(
                                 rows.into_iter()
-                                    .map(|row| Self::render_row(row, searching, &theme)),
+                                    .map(|(section, row)| Self::render_row(section, row, &theme)),
                             ),
                     ),
             )
@@ -642,6 +634,32 @@ impl AppView {
     }
 }
 
+/// A text field with Save beside it while `changed`, which runs `save`.
+fn field_with_save(
+    input: &Entity<TextInput>,
+    changed: bool,
+    save: impl Fn(&mut SettingsView, &Entity<TextInput>, &mut Context<SettingsView>) + 'static,
+    window: &Window,
+    cx: &Context<SettingsView>,
+) -> gpui::Div {
+    let focused = input.focus_handle(cx).is_focused(window);
+    let saved = input.clone();
+    h_flex()
+        .gap(px(6.))
+        .when(changed, |el| {
+            el.child(
+                button(
+                    SharedString::from(format!("save-{}", input.entity_id())),
+                    "Save",
+                )
+                .small()
+                .style(ButtonStyle::Gray)
+                .on_click(cx.listener(move |this, _, _, cx| save(this, &saved, cx))),
+            )
+        })
+        .child(field(input, focused, Theme::get(cx)).w(px(220.)))
+}
+
 /// Buttons for a setting with a few values, the current one `current` filled in. Unlike a
 /// dropdown's menu, a button's click doesn't run inside the app's own update, so `pick`
 /// can update the app.
@@ -657,11 +675,7 @@ fn segmented<T: Copy + PartialEq + 'static>(
             let pick = pick.clone();
             button(SharedString::from(format!("{id}-{label}")), label)
                 .small()
-                .style(if current == choice {
-                    ButtonStyle::Gray
-                } else {
-                    ButtonStyle::Ghost
-                })
+                .selected(current == choice)
                 .on_click(move |_, window, cx| pick(choice, window, cx))
         }))
 }
