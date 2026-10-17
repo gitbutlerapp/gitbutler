@@ -1,6 +1,7 @@
 //! Linked worktrees, like the ones agents work in, each with its uncommitted changes. They
 //! are listed when GitButler's experimental worktree support is on; archived ones are hidden.
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -39,22 +40,34 @@ pub(super) fn linked(ctx: &Context) -> Result<(Vec<Worktree>, Vec<Arc<str>>)> {
     Ok((active, archived))
 }
 
-/// `shown` with its uncommitted files read again, and those of its linked worktrees, for
-/// when only files changed.
-pub fn reload_uncommitted(path: &Path, shown: Workspace) -> Result<Workspace> {
+/// `shown` with the uncommitted files read again of the main checkout, with `main`, and of
+/// the `linked` worktrees, for when only files changed.
+pub fn reload_uncommitted(
+    path: &Path,
+    mut shown: Workspace,
+    main: bool,
+    linked: &HashSet<Arc<str>>,
+) -> Result<Workspace> {
+    let started = std::time::Instant::now();
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
-    let worktrees = (shown.worktrees.into_iter())
-        .filter_map(|mut worktree| {
-            worktree.uncommitted = files_of(&repo, &worktree.name)?;
-            Some(worktree)
-        })
-        .collect();
-    Ok(Workspace {
-        uncommitted: worktree_files(&repo)?,
-        worktrees,
-        ..shown
-    })
+    if main {
+        shown.uncommitted = worktree_files(&repo)?;
+    }
+    shown.worktrees.retain_mut(|worktree| {
+        if !linked.contains(&worktree.name) {
+            return true;
+        }
+        match files_of(&repo, &worktree.name) {
+            Some(files) => {
+                worktree.uncommitted = files;
+                true
+            }
+            None => false,
+        }
+    });
+    tracing::debug!(elapsed = ?started.elapsed(), main, ?linked, "reloaded uncommitted files");
+    Ok(shown)
 }
 
 /// The uncommitted files of worktree `name`, or nothing when it can't be read, as when an
