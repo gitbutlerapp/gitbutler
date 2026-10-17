@@ -810,23 +810,32 @@ impl AppView {
         let Some(workspace) = store.workspace(&project) else {
             return;
         };
-        let Some(target) = workspace.target.as_ref().map(|t| t.name.clone()) else {
+        let Some((target, behind)) =
+            (workspace.target.as_ref()).map(|t| (t.name.clone(), t.needs_update))
+        else {
             return;
         };
         let Some(whole_stack) = land_scope(workspace, &ref_name) else {
             return;
         };
         let name = short_ref(&ref_name).to_owned();
-        let what = if whole_stack {
-            format!("{name} and the branches below it")
-        } else {
-            name.clone()
+        let (what, whose) = match whole_stack {
+            true => (format!("{name} and the branches below it"), "Their"),
+            false => (name.clone(), "Its"),
+        };
+        // Landing brings the target's new commits into the workspace, as Update does.
+        let update = match behind {
+            true => format!(
+                " Your other branches and changes then update onto {target}, which can leave \
+                 conflicts."
+            ),
+            false => String::new(),
         };
         self.confirm_then(
             format!("Land {what} on {target}?"),
             &format!(
-                "Their commits go straight onto {target} and get pushed, skipping review. \
-                 A push can't be undone."
+                "{whose} commits go straight onto {target} and get pushed, skipping review. \
+                 A push can't be undone.{update}"
             ),
             "Land",
             window,
