@@ -17,8 +17,10 @@ mod worktree;
 
 pub use diff_view::DiffPane;
 
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -199,6 +201,8 @@ pub struct Detail {
     cursor: Cursor,
     /// Whether the selected commit's message shows its body, not just its title.
     message_open: bool,
+    /// How tall a commit's header across the page was drawn, which the diff starts below.
+    pub(super) header_height: Rc<Cell<f32>>,
     /// Directories folded shut in tree-shaped file lists, by path.
     collapsed_dirs: HashSet<String>,
     /// Text selected in the diff, from where the drag started to where it is now.
@@ -352,6 +356,7 @@ impl Detail {
             composing: false,
             cursor: Cursor::default(),
             message_open: false,
+            header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
             collapsed_dirs: HashSet::new(),
             text_selection: None,
             selecting: false,
@@ -1203,6 +1208,16 @@ impl Detail {
     }
 }
 
+impl Detail {
+    /// How far below the breadcrumbs the diff starts: under a commit's header, when there's one.
+    pub fn view_header_height(&self, cx: &App) -> f32 {
+        match self.selection(cx) {
+            Some(Selection::Commit(..)) => self.header_height.get(),
+            _ => 0.,
+        }
+    }
+}
+
 impl Focusable for Detail {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus.clone()
@@ -1255,8 +1270,17 @@ impl Render for Detail {
                     },
                 };
                 let width = self.store.read(cx).width(Pane::Files);
-                h_flex()
-                    .size_full()
+                // A commit's header runs across the page, over its files and its diff.
+                let header = match selection {
+                    Selection::Commit(project, id) => {
+                        Some(self.render_commit_header(project, *id, &theme, cx))
+                    }
+                    _ => None,
+                };
+                let panes = h_flex()
+                    .w_full()
+                    .flex_1()
+                    .min_h(px(0.))
                     .items_start()
                     .on_drag_move(resize_pane(Pane::Files, self.store.clone()))
                     .when(!self.files_hidden, |el| {
@@ -1273,7 +1297,11 @@ impl Render for Detail {
                         )
                     })
                     // `DiffPane` draws the diff over this space.
-                    .child(div().flex_1())
+                    .child(div().flex_1());
+                v_flex()
+                    .size_full()
+                    .children(header)
+                    .child(panes)
                     .into_any_element()
             }
         };
