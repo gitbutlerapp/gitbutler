@@ -358,11 +358,7 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
         if let Err(err) = result {
             tracing::error!(error = ?err, "failed to open url for {}", event.id().0);
         }
-
-        return;
     }
-
-    tracing::error!("unhandled 'help' menu event: {}", event.id().0);
 }
 
 fn emit<R: Runtime>(window: &WebviewWindow<R>, event: &str, shortcut: &str) {
