@@ -273,7 +273,10 @@ impl Transfer {
                 move |path, remap| {
                     backend::move_commits(path, &[remap.get(id)?], &remap.destination(to)?)
                 },
-                |store, rewritten, cx| store.follow(&rewritten, cx),
+                |store, rewritten, cx| {
+                    store.follow(&rewritten, cx);
+                    store.snack_undoable("Commit moved", cx)
+                },
                 cx,
             ),
             Transfer::CherryPick { id, to } => store.run(
@@ -330,7 +333,10 @@ impl Transfer {
                 move |path, remap| {
                     backend::move_files(path, remap.get(from)?, remap.get(to)?, &files)
                 },
-                |store, rewritten, cx| store.follow(&rewritten, cx),
+                |store, rewritten, cx| {
+                    store.follow(&rewritten, cx);
+                    store.snack_undoable("Changes moved", cx)
+                },
                 cx,
             ),
             Transfer::StageOnBranch { branch, files } => return Some((branch, files)),
