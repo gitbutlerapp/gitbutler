@@ -304,8 +304,15 @@ impl AppView {
             _ => self.branch_of_selection(cx),
         };
         if let Some((project, ref_name)) = branch {
-            self.store
-                .update(cx, |store, cx| store.push(&project, ref_name, true, cx));
+            self.store.update(cx, |store, cx| {
+                match store
+                    .workspace(&project)
+                    .is_some_and(|ws| ws.can_push(&ref_name))
+                {
+                    true => store.push(&project, ref_name, true, cx),
+                    false => store.snack("Nothing to push yet", cx),
+                }
+            });
         }
     }
 

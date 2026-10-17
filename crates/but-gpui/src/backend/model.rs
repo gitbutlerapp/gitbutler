@@ -134,6 +134,13 @@ impl Workspace {
         })
     }
 
+    /// Whether pushing `ref_name`, which pushes the branches below it too, has commits to
+    /// send.
+    pub fn can_push(&self, ref_name: &str) -> bool {
+        self.stack_of(ref_name)
+            .is_some_and(|(stack, at)| (stack.branches[at..].iter()).any(Branch::can_push))
+    }
+
     /// Whether pushing `ref_name`, which pushes the branches below it too, has to force:
     /// it or one of those was rewritten since it was pushed.
     pub fn needs_force(&self, ref_name: &str) -> bool {
@@ -253,9 +260,14 @@ pub enum PushState {
     Integrated,
 }
 
-impl PushState {
-    pub fn can_push(self) -> bool {
-        matches!(self, Self::Unpushed | Self::NeedsForce | Self::NeverPushed)
+impl Branch {
+    /// Whether a push has commits to send: a branch with none has nothing yet.
+    pub fn can_push(&self) -> bool {
+        !self.commits.is_empty()
+            && matches!(
+                self.push,
+                PushState::Unpushed | PushState::NeedsForce | PushState::NeverPushed
+            )
     }
 }
 

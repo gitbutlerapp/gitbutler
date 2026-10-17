@@ -126,7 +126,7 @@ impl Navigator {
                 else {
                     return items;
                 };
-                if branch.push.can_push() {
+                if workspace.can_push(ref_name) {
                     let label = if workspace.needs_force(ref_name) {
                         "Force push"
                     } else {

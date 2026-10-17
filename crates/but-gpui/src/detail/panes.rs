@@ -85,8 +85,7 @@ impl Detail {
                             .and_then(|ws| ws.find_branch(ref_name))
                             .is_some_and(|b| b.review.is_none() && !b.commits.is_empty())
                         && crate::pr::on_forge(store, selection);
-                    let pushable = workspace
-                        .filter(|ws| ws.find_branch(ref_name).is_some_and(|b| b.push.can_push()));
+                    let pushable = workspace.filter(|ws| ws.can_push(ref_name));
                     let pushing = store.pushing(selection.project(), ref_name);
                     let busy = pushing.then_some("Wait for the push to finish");
                     // Landing directly takes the place of a pull request, forge or not.
@@ -621,7 +620,10 @@ impl Detail {
                             ),
                     )
                     .child(muted(
-                        format!("{} · {push}", plural(branch.commits.len(), "commit")),
+                        match branch.commits.len() {
+                            0 => "No commits yet".to_owned(),
+                            n => format!("{} · {push}", plural(n, "commit")),
+                        },
                         theme,
                     ))
                     .children(resolve_oldest),

@@ -520,10 +520,7 @@ impl AppView {
 /// Whether creating `branch`'s pull request pushes first, and whether forced: it or a branch
 /// below it has something to push.
 fn push_first(ws: &Workspace, branch: &str) -> Option<bool> {
-    let (stack, at) = ws.stack_of(branch)?;
-    (stack.branches[at..].iter())
-        .any(|below| below.push.can_push())
-        .then(|| ws.needs_force(branch))
+    ws.can_push(branch).then(|| ws.needs_force(branch))
 }
 
 /// Whether `selection`'s project is on a forge, so pull requests apply.
