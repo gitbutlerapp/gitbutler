@@ -7,6 +7,7 @@ use gpui::{
 };
 
 use super::Detail;
+use super::panes::side_header;
 use crate::app::MenuItem;
 use crate::backend::edit::{self, EditedFile, Editing};
 use crate::state::{Overlay, ProjectId, SAVE_EDIT, STOP_EDITING};
@@ -40,12 +41,7 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let about = v_flex()
-            .flex_none()
-            .p(px(16.))
-            .gap(px(6.))
-            .border_b_1()
-            .border_color(theme.border_3)
+        let about = side_header(theme)
             .text_size(px(12.))
             .text_color(theme.text_2)
             .child(

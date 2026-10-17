@@ -6,6 +6,7 @@ mod branches;
 mod composer;
 mod diff_view;
 mod editing;
+mod file_list;
 mod file_tree;
 mod find;
 pub use find::{FindInDiff, bind_keys as bind_find_keys};
@@ -17,7 +18,8 @@ mod worktree;
 
 pub use diff_view::DiffPane;
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -112,12 +114,31 @@ impl DiffKey {
             _ => None,
         }
     }
+
+    /// The uncommitted files this diff follows, as the store has them: the project's
+    /// own checkout's, or a linked worktree's. `None` for a diff of commits.
+    fn uncommitted<'a>(&self, store: &'a Store) -> Option<&'a [FileChange]> {
+        let workspace = store.workspace(&self.project)?;
+        match &self.source {
+            DiffSource::Worktree | DiffSource::Edit => Some(&workspace.uncommitted),
+            DiffSource::Linked(name) => (workspace.worktrees.iter())
+                .find(|worktree| worktree.name == *name)
+                .map(|worktree| &worktree.uncommitted[..]),
+            _ => None,
+        }
+    }
+
+    /// The linked worktree this diff is of, whose files open from its own checkout.
+    fn linked(&self) -> Option<Arc<str>> {
+        match &self.source {
+            DiffSource::Linked(name) => Some(name.clone()),
+            _ => None,
+        }
+    }
 }
 
 /// How long a diff loads before the pane says it's loading.
 const SHOW_LOADING: Duration = Duration::from_millis(150);
-/// How long a pull request's reviews and conversations go before a reload asks again.
-const FEEDBACK_STALE: Duration = Duration::from_secs(60);
 
 struct LoadedDiff {
     key: DiffKey,
@@ -127,6 +148,9 @@ struct LoadedDiff {
 
 /// A file's new side as diff lines, read for the patch with this fingerprint.
 type FileLines = (u64, Arc<Vec<DiffLine>>);
+
+/// A spot in the diff's text: a row of the diff and a byte offset in that row's line.
+type TextPoint = (usize, usize);
 
 /// The files checked for the next commit changed.
 pub struct ChecksChanged;
@@ -158,12 +182,7 @@ pub struct Detail {
     message: Entity<TextInput>,
     /// The branch (full ref) new commits go to; `None` creates a branch.
     commit_target: Option<String>,
-    /// Uncommitted paths left out of the next commit.
-    unchecked: HashSet<String>,
-    /// Hunks left out of the next commit, in files that are otherwise in.
-    unchecked_hunks: HashSet<(String, HunkKey)>,
-    /// Hunks only some of whose changed lines go in the next commit: those lines, by index.
-    line_picks: HashMap<(String, HunkKey), BTreeSet<usize>>,
+    checks: composer::Checks,
     /// Narrows the file list and the diff to the paths it matches, while `filtering`.
     file_filter: Entity<TextInput>,
     filtering: bool,
@@ -175,11 +194,8 @@ pub struct Detail {
     marked_resolved: HashSet<(ProjectId, backend::CommitId, String)>,
     /// The commit message being edited, with the subscription that saves it.
     rewording: Option<(Entity<TextInput>, Subscription)>,
-    /// The project the checkboxes and commit target above belong to.
+    /// The project the checks and commit target above belong to.
     checks_project: Option<ProjectId>,
-    /// Its uncommitted paths a merge left conflicted, which stay unchecked until they're
-    /// marked resolved.
-    conflicted: HashSet<String>,
     /// The commit message box is open; until then there are no checkboxes.
     composing: bool,
     cursor: Cursor,
@@ -259,19 +275,7 @@ impl Detail {
                         this.commit_target = None;
                     }
                     this.refresh_conflicted(cx);
-                    match this.selection(cx) {
-                        Some(Selection::History(project)) => this.load_history(&project, false, cx),
-                        Some(Selection::Branches(project)) => {
-                            this.load_branches(&project, true, cx)
-                        }
-                        Some(Selection::Project(project)) => {
-                            this.load_upstream(&project, false, true, cx)
-                        }
-                        Some(Selection::Branch(project, ref_name)) => {
-                            this.load_feedback(&project, &ref_name, cx)
-                        }
-                        _ => {}
-                    }
+                    this.reload_page(true, cx);
                     this.refresh_diff(true, cx);
                 }
                 StoreEvent::Loaded(project) => {
@@ -280,36 +284,15 @@ impl Detail {
                     if this.editing(project, cx).is_none() {
                         this.marked_resolved.retain(|(p, ..)| p != project);
                     }
-                    match this.selection(cx) {
-                        Some(Selection::History(shown)) if shown == *project => {
-                            this.load_history(project, false, cx)
+                    if this.selected_project(cx).as_ref() == Some(project) {
+                        this.reload_page(false, cx);
+                        // A reload that didn't touch the files shown, like the forge poll's,
+                        // shouldn't re-highlight them.
+                        let unchanged = (this.store.read(cx).workspace(project))
+                            .is_some_and(|ws| this.shows_worktree(&ws.uncommitted));
+                        if !unchanged {
+                            this.refresh_diff(false, cx);
                         }
-                        Some(Selection::Branches(shown)) if shown == *project => {
-                            this.load_branches(project, false, cx)
-                        }
-                        Some(Selection::Project(shown)) if shown == *project => {
-                            this.load_upstream(project, false, false, cx)
-                        }
-                        // A push can dismiss approvals; a reviewer can weigh in any time.
-                        Some(Selection::Branch(shown, ref_name)) if shown == *project => {
-                            let mark = this.branch_mark(&shown, &ref_name, cx);
-                            let stale = (this.feedback_asked.as_ref()).is_none_or(|(at, asked)| {
-                                at.elapsed() >= FEEDBACK_STALE || *asked != mark
-                            });
-                            if stale {
-                                this.load_feedback(&shown, &ref_name, cx)
-                            }
-                        }
-                        _ => {}
-                    }
-                    // A reload that didn't touch the files shown, like the forge poll's,
-                    // shouldn't re-highlight them.
-                    let store = this.store.read(cx);
-                    let unchanged = store
-                        .workspace(project)
-                        .is_some_and(|ws| this.shows_worktree(&ws.uncommitted));
-                    if this.selected_project(cx).as_ref() == Some(project) && !unchanged {
-                        this.refresh_diff(false, cx);
                     }
                 }
                 StoreEvent::Reviewed(project) | StoreEvent::Pending(project) => {
@@ -367,9 +350,7 @@ impl Detail {
             diff_files: UniformListScrollHandle::new(),
             message,
             commit_target: None,
-            unchecked: HashSet::new(),
-            unchecked_hunks: HashSet::new(),
-            line_picks: HashMap::new(),
+            checks: Default::default(),
             file_filter,
             filtering: false,
             whole: HashMap::new(),
@@ -377,7 +358,6 @@ impl Detail {
             marked_resolved: HashSet::new(),
             rewording: None,
             checks_project: None,
-            conflicted: HashSet::new(),
             composing: false,
             cursor: Cursor::default(),
             message_open: false,
@@ -443,6 +423,22 @@ impl Detail {
         })
     }
 
+    /// Load what the selected page lists beside the diff: on selecting it (`force`), and
+    /// when its project reloads, if what it lists may have changed.
+    fn reload_page(&mut self, force: bool, cx: &mut Context<Self>) {
+        match self.selection(cx) {
+            Some(Selection::History(project)) => self.load_history(&project, false, cx),
+            Some(Selection::Branches(project)) => self.load_branches(&project, force, cx),
+            Some(Selection::Project(project)) => self.load_upstream(&project, false, force, cx),
+            Some(Selection::Branch(project, ref_name))
+                if force || self.feedback_stale(&project, &ref_name, cx) =>
+            {
+                self.load_feedback(&project, &ref_name, cx)
+            }
+            _ => {}
+        }
+    }
+
     /// Forget how the last diff was looked at: its text selection, cursor and folds. For a
     /// new selection, or another item picked on the same page.
     fn reset_view(&mut self) {
@@ -450,6 +446,13 @@ impl Detail {
         self.cursor = Cursor::default();
         self.folded.clear();
         self.unfolded.clear();
+    }
+
+    /// Show the diff of what was just picked on the selected page, from its top.
+    fn show_picked(&mut self, cx: &mut Context<Self>) {
+        self.reset_view();
+        self.refresh_diff(true, cx);
+        cx.notify();
     }
 
     /// Load the diff for the current selection. `selection_changed` resets the scroll;
@@ -489,27 +492,14 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(&key.project) else {
             return;
         };
-        let source = key.source.clone();
-        let worktree = (source.live())
-            .then(|| self.store.read(cx).workspace(&key.project))
-            .flatten()
-            .and_then(|ws| match &source {
-                DiffSource::Linked(name) => (ws.worktrees.iter())
-                    .find(|worktree| worktree.name == *name)
-                    .map(|worktree| worktree.uncommitted.clone()),
-                _ => Some(ws.uncommitted.clone()),
-            });
-        if source.live() && worktree.is_none() {
+        let worktree = key.uncommitted(self.store.read(cx)).map(<[_]>::to_vec);
+        if key.source.live() && worktree.is_none() {
             // The workspace is still loading and lists the files itself; diffing now would run
             // a second status on the same repository, slowing both. Its `Loaded` brings us back.
             return;
         }
         self.loading = Some(key.clone());
-        let previous = self
-            .recent
-            .iter()
-            .find(|(recent, _)| *recent == key)
-            .map(|(_, files)| files.clone());
+        let previous = self.recent_files(&key);
         if let Some(files) = previous.clone()
             && !key.source.live()
             && files.iter().all(|file| file.annotated)
@@ -534,16 +524,29 @@ impl Detail {
         } else {
             Duration::ZERO
         };
+        self.spawn_load(key, path, worktree, previous, delay, cx);
+    }
+
+    /// Load `key`'s diff after `delay`: first with only the files likely on screen
+    /// highlighted, to show it soon, then with all of them.
+    fn spawn_load(
+        &mut self,
+        key: DiffKey,
+        path: PathBuf,
+        worktree: Option<Vec<FileChange>>,
+        previous: Option<Arc<Vec<FileDiff>>>,
+        delay: Duration,
+        cx: &mut Context<Self>,
+    ) {
+        let source = key.source.clone();
         self._load = cx.spawn(async move |this, cx| {
             if !delay.is_zero() {
                 cx.background_executor().timer(delay).await;
             }
-            // Only the files likely on screen are highlighted first; the rest follow.
             const FIRST: usize = 16;
-            let first = (path.clone(), source.clone(), worktree.clone());
-            let result = backend::run(move || {
-                let (path, source, worktree) = first;
-                backend::load_diff(&path, source, worktree, previous, Some(FIRST))
+            let result = backend::run({
+                let (path, source, worktree) = (path.clone(), source.clone(), worktree.clone());
+                move || backend::load_diff(&path, source, worktree, previous, Some(FIRST))
             })
             .await;
             let shown = this
@@ -600,14 +603,19 @@ impl Detail {
         });
     }
 
+    /// The files `key` had when it was last shown, if that was lately.
+    fn recent_files(&self, key: &DiffKey) -> Option<Arc<Vec<FileDiff>>> {
+        (self.recent.iter())
+            .find(|(recent, _)| recent == key)
+            .map(|(_, files)| files.clone())
+    }
+
     /// Show a loaded diff, keeping the scroll position and checks when it's a reload.
     fn show_diff(&mut self, key: DiffKey, files: Arc<Vec<FileDiff>>, cx: &mut Context<Self>) {
         if self.diff.as_ref().is_none_or(|diff| diff.key != key) {
             self.whole.clear();
         }
-        let before = (self.recent.iter())
-            .find(|(recent, _)| *recent == key)
-            .map(|(_, files)| files.clone());
+        let before = self.recent_files(&key);
         const RECENT: usize = 16;
         self.recent.retain(|(recent, _)| *recent != key);
         if self.recent.len() == RECENT {
@@ -625,63 +633,8 @@ impl Detail {
             self.cursor = self.cursor_in(&files);
         }
         if key.source == DiffSource::Worktree {
-            let present: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
-            self.unchecked
-                .retain(|path| present.contains(path.as_str()));
-            let hunks: HashSet<(&str, HunkKey)> = files
-                .iter()
-                .flat_map(|f| {
-                    hunk_keys(f)
-                        .into_iter()
-                        .map(|key| (f.file.path.as_str(), key))
-                })
-                .collect();
-            // A hunk left out stays out when an edit renumbers it: what's out now is every
-            // hunk over the same committed lines.
-            let renumbered = |path: &str, key: HunkKey| {
-                let file = files.iter().find(|f| f.file.path == path);
-                (file.map(hunk_keys).unwrap_or_default().into_iter())
-                    .filter(move |now| covers_same_lines(*now, key))
-            };
-            self.unchecked_hunks = (self.unchecked_hunks.iter())
-                .flat_map(|(path, key)| match hunks.contains(&(path.as_str(), *key)) {
-                    true => vec![(path.clone(), *key)],
-                    false => renumbered(path, *key)
-                        .map(|now| (path.clone(), now))
-                        .collect(),
-                })
-                .collect();
-            // Picked lines are by their place in the hunk, which holds only while the
-            // hunk's lines stay the same; an edit can change them under the same header.
-            let lines = |files: &[FileDiff], path: &str, key: HunkKey| {
-                let file = files.iter().find(|f| f.file.path == path)?;
-                match &file.body {
-                    DiffBody::Hunks { hunks, .. } => hunks.iter().find(|h| h.key == key),
-                    _ => None,
-                }
-                .map(|hunk| {
-                    (hunk.lines.iter())
-                        .map(|line| (line.kind, line.text.clone()))
-                        .collect::<Vec<_>>()
-                })
-            };
-            // A hunk whose picks can't be trusted any more is left out rather than taken
-            // whole: committing lines that weren't picked is the worse mistake.
-            let stale: Vec<(String, HunkKey)> = (self.line_picks.keys())
-                .filter(|(path, key)| {
-                    let then = before.as_deref().and_then(|b| lines(b, path, *key));
-                    then.is_none() || then != lines(&files, path, *key)
-                })
-                .cloned()
-                .collect();
-            for (path, key) in stale {
-                self.line_picks.remove(&(path.clone(), key));
-                // An edit can renumber the hunk, but the lines it covers on the committed
-                // side stay put: every hunk over them now is left out.
-                for now in renumbered(&path, key) {
-                    self.unchecked_hunks.insert((path.clone(), now));
-                }
-            }
+            self.checks
+                .reconcile(&files, before.as_deref().map(Vec::as_slice));
         }
         if self.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
             self.text_selection = None;
@@ -880,15 +833,7 @@ impl Detail {
         })
     }
 
-    fn diff_index(&self, path: &str) -> Option<usize> {
-        self.diff
-            .as_ref()?
-            .files
-            .iter()
-            .position(|f| f.file.path == path)
-    }
-
-    /// Wrap long lines, or stop. Rows change height, so the list measures them again.
+    /// Show diffs side by side, or one above the other.
     pub fn toggle_split(&mut self, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
             store.set_prefs(|prefs| prefs.split = !prefs.split, cx)
@@ -896,6 +841,7 @@ impl Detail {
         self.rebuild_rows(cx);
     }
 
+    /// Wrap long lines, or stop. Rows change height, so the list measures them again.
     pub fn toggle_wrap(&mut self, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
             store.set_prefs(|prefs| prefs.wrap = !prefs.wrap, cx)
@@ -1003,11 +949,16 @@ impl Detail {
         Cursor { file, hunk }
     }
 
+    /// The loaded diff when it's of the project's own uncommitted changes, the ones the
+    /// composer commits.
+    fn worktree_diff(&self) -> Option<&LoadedDiff> {
+        (self.diff.as_ref()).filter(|diff| diff.key.source == DiffSource::Worktree)
+    }
+
     /// Whether the loaded diff is the worktree's and shows exactly `files` as they are now.
     fn shows_worktree(&self, files: &[FileChange]) -> bool {
-        self.diff.as_ref().is_some_and(|diff| {
-            diff.key.source == DiffSource::Worktree
-                && diff.files.len() == files.len()
+        self.worktree_diff().is_some_and(|diff| {
+            diff.files.len() == files.len()
                 && diff.files.iter().zip(files).all(|(shown, now)| {
                     shown.file.path == now.path
                         && shown.file.modified == now.modified
@@ -1016,7 +967,6 @@ impl Detail {
         })
     }
 
-    /// The path of the file under the cursor, in any diff.
     /// Open the file under the cursor in the editor, at its hunk.
     fn open_in_editor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(diff) = &self.diff else {
@@ -1030,11 +980,7 @@ impl Detail {
             _ => None,
         };
         let (project, path) = (diff.key.project.clone(), file.file.path.clone());
-        // A linked worktree's file opens from its own checkout.
-        let worktree = match &diff.key.source {
-            DiffSource::Linked(name) => Some(name.clone()),
-            _ => None,
-        };
+        let worktree = diff.key.linked();
         let position = window.mouse_position();
         self.app
             .update(cx, |app, cx| {
@@ -1043,6 +989,7 @@ impl Detail {
             .ok();
     }
 
+    /// The path of the file under the cursor, in any diff.
     pub fn cursor_path(&self) -> Option<String> {
         let diff = self.diff.as_ref()?;
         Some(diff.files.get(self.cursor.file)?.file.path.clone())
@@ -1051,10 +998,7 @@ impl Detail {
     /// The uncommitted file under the cursor, with the project it's in. Never a file the
     /// diff doesn't show, as one the filter hides.
     fn cursor_file(&self) -> Option<(ProjectId, FileDiff)> {
-        let diff = self
-            .diff
-            .as_ref()
-            .filter(|diff| diff.key.source == DiffSource::Worktree)?;
+        let diff = self.worktree_diff()?;
         if !self.shown_files().contains(&self.cursor.file) {
             return None;
         }
@@ -1104,7 +1048,7 @@ impl Detail {
                     .iter()
                     .enumerate()
                     .skip(file_ix + 1)
-                    .filter(|(ix, _)| shown.contains(ix))
+                    .filter(|(ix, _)| shown.binary_search(ix).is_ok())
                     .find(|(_, f)| store.review(&project, &f.file) != Review::Reviewed)
                     .map(|(ix, _)| ix)
             });
@@ -1356,17 +1300,6 @@ impl Render for Detail {
     }
 }
 
-/// Whether two hunks touch any of the same lines of the committed side, or lines next to
-/// them: leaning toward yes keeps what was left out of a commit out of it.
-fn covers_same_lines(a: HunkKey, b: HunkKey) -> bool {
-    let lines = |key: HunkKey| {
-        let start = key.0.old_start;
-        start.saturating_sub(1)..start + key.0.old_lines.max(1) + 1
-    };
-    let (a, b) = (lines(a), lines(b));
-    a.start < b.end && b.start < a.end
-}
-
 /// Whether `path` has every one of `terms` in it.
 fn keeps_path(terms: &[String], path: &str) -> bool {
     if terms.is_empty() {
@@ -1458,38 +1391,4 @@ pub(super) fn checkbox_box(
             Toggled::Mixed => el.child(div().w(px(8.)).h(px(2.)).rounded(px(1.)).bg(gpui::white())),
             Toggled::False => el,
         })
-}
-
-/// A spot in the diff's text: a row of the diff and a byte offset in that row's line.
-type TextPoint = (usize, usize);
-
-#[cfg(test)]
-mod tests {
-    use super::covers_same_lines;
-    use crate::backend::HunkKey;
-
-    fn key(old_start: u32, old_lines: u32) -> HunkKey {
-        HunkKey(but_core::HunkHeader {
-            old_start,
-            old_lines,
-            new_start: old_start,
-            new_lines: old_lines,
-        })
-    }
-
-    #[test]
-    fn renumbered_hunks_cover_the_same_committed_lines() {
-        assert!(
-            covers_same_lines(key(10, 7), key(12, 3)),
-            "a hunk grown around the old one covers its lines"
-        );
-        assert!(
-            covers_same_lines(key(5, 0), key(6, 1)),
-            "an insertion after line 5 touches line 6 next to it"
-        );
-        assert!(
-            !covers_same_lines(key(1, 7), key(40, 7)),
-            "hunks far apart don't"
-        );
-    }
 }
