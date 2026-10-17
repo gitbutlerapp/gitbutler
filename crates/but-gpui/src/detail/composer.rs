@@ -1,6 +1,7 @@
 //! The commit composer: which changes go in, the message, and the branch they land on.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::hash::{Hash as _, Hasher as _};
 
 use gpui::{AnyElement, App, Context, Focusable as _, Toggled, Window, div, prelude::*, px};
 
@@ -25,21 +26,18 @@ pub(super) struct Checks {
     unchecked: HashSet<String>,
     /// Hunks left out of the next commit, in files that are otherwise in.
     unchecked_hunks: HashSet<(String, HunkKey)>,
-    /// Hunks only some of whose changed lines go in the next commit: those lines, by index.
-    line_picks: HashMap<(String, HunkKey), BTreeSet<usize>>,
-    /// Uncommitted paths a merge left conflicted, which stay unchecked until they're
-    /// marked resolved.
-    conflicted: HashSet<String>,
+    /// Hunks only some of whose changed lines go in the next commit: those lines by their
+    /// index in the hunk, and the [`fingerprint`] of the lines they index.
+    line_picks: HashMap<(String, HunkKey), (BTreeSet<usize>, u64)>,
 }
 
 impl Checks {
     pub(super) fn file_check(&self, path: &str) -> Toggled {
-        if self.unchecked.contains(path) || self.conflicted.contains(path) {
-            return Toggled::False;
-        }
-        let partial = self.unchecked_hunks.iter().any(|(p, _)| p == path)
-            || self.line_picks.keys().any(|(p, _)| p == path);
-        if partial {
+        if self.unchecked.contains(path) {
+            Toggled::False
+        } else if (self.unchecked_hunks.iter()).any(|(p, _)| p == path)
+            || self.line_picks.keys().any(|(p, _)| p == path)
+        {
             Toggled::Mixed
         } else {
             Toggled::True
@@ -48,10 +46,7 @@ impl Checks {
 
     pub(super) fn hunk_check(&self, path: &str, key: HunkKey) -> Toggled {
         let entry = (path.to_owned(), key);
-        if self.unchecked.contains(path)
-            || self.conflicted.contains(path)
-            || self.unchecked_hunks.contains(&entry)
-        {
+        if self.unchecked.contains(path) || self.unchecked_hunks.contains(&entry) {
             Toggled::False
         } else if self.line_picks.contains_key(&entry) {
             Toggled::Mixed
@@ -65,24 +60,23 @@ impl Checks {
         self.hunk_check(path, key) != Toggled::False
     }
 
-    /// Whether the changed line at `line` of a hunk goes in the next commit.
+    /// Whether the line at index `line` of a hunk goes in the next commit.
     pub(super) fn line_checked(&self, path: &str, key: HunkKey, line: usize) -> bool {
         match self.hunk_check(path, key) {
-            Toggled::Mixed => self.line_picks[&(path.to_owned(), key)].contains(&line),
+            Toggled::Mixed => self.line_picks[&(path.to_owned(), key)].0.contains(&line),
             check => check == Toggled::True,
         }
     }
 
-    /// Put everything back in, but for conflicted files.
+    /// Put everything back in.
     fn clear(&mut self) {
         self.unchecked.clear();
         self.unchecked_hunks.clear();
         self.line_picks.clear();
     }
 
-    /// Carry what's left out over to a reload of the worktree diff, `files`, whose files
-    /// were `before`.
-    pub(super) fn reconcile(&mut self, files: &[FileDiff], before: Option<&[FileDiff]>) {
+    /// Carry what's left out over to a reload of the worktree diff, `files`.
+    pub(super) fn reconcile(&mut self, files: &[FileDiff]) {
         let present: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
         self.unchecked
             .retain(|path| present.contains(path.as_str()));
@@ -109,38 +103,37 @@ impl Checks {
                     .collect(),
             })
             .collect();
-        // Picked lines are by their place in the hunk, which holds only while the
-        // hunk's lines stay the same; an edit can change them under the same header.
-        let lines = |files: &[FileDiff], path: &str, key: HunkKey| {
+        // Picked lines hold only while their hunk's lines stay the same. A hunk whose lines
+        // changed is left out rather than taken whole: committing lines that weren't
+        // picked is the worse mistake.
+        let current = |path: &str, key: HunkKey| {
             let file = files.iter().find(|f| f.file.path == path)?;
-            match &file.body {
-                DiffBody::Hunks { hunks, .. } => hunks.iter().find(|h| h.key == key),
-                _ => None,
-            }
-            .map(|hunk| {
-                (hunk.lines.iter())
-                    .map(|line| (line.kind, line.text.clone()))
-                    .collect::<Vec<_>>()
-            })
+            let DiffBody::Hunks { hunks, .. } = &file.body else {
+                return None;
+            };
+            hunks.iter().find(|h| h.key == key).map(fingerprint)
         };
-        // A hunk whose picks can't be trusted any more is left out rather than taken
-        // whole: committing lines that weren't picked is the worse mistake.
-        let stale: Vec<(String, HunkKey)> = (self.line_picks.keys())
-            .filter(|(path, key)| {
-                let then = before.and_then(|b| lines(b, path, *key));
-                then.is_none() || then != lines(files, path, *key)
-            })
-            .cloned()
+        let stale: Vec<(String, HunkKey)> = (self.line_picks.iter())
+            .filter(|((path, key), (_, print))| current(path, *key) != Some(*print))
+            .map(|(entry, _)| entry.clone())
             .collect();
         for (path, key) in stale {
             self.line_picks.remove(&(path.clone(), key));
-            // An edit can renumber the hunk, but the lines it covers on the committed
-            // side stay put: every hunk over them now is left out.
-            for now in renumbered(&path, key) {
-                self.unchecked_hunks.insert((path.clone(), now));
-            }
+            let out: Vec<_> = renumbered(&path, key)
+                .map(|now| (path.clone(), now))
+                .collect();
+            self.unchecked_hunks.extend(out);
         }
     }
+}
+
+/// A hunk's lines, as kinds and text, hashed: what line picks index into.
+fn fingerprint(hunk: &Hunk) -> u64 {
+    let mut hasher = std::hash::DefaultHasher::new();
+    for line in &hunk.lines {
+        (line.kind, &*line.text).hash(&mut hasher);
+    }
+    hasher.finish()
 }
 
 /// Whether two hunks touch any of the same lines of the committed side, or lines next to
@@ -174,7 +167,7 @@ impl Detail {
             return Vec::new();
         };
         (workspace.uncommitted.iter())
-            .filter(|file| !file.conflicted && !self.checks.unchecked.contains(&file.path))
+            .filter(|file| !self.checks.unchecked.contains(&file.path))
             .filter_map(|file| {
                 let hunks = self.worktree_file_hunks(&file.path);
                 let partial = self.checks.file_check(&file.path) == Toggled::Mixed;
@@ -183,12 +176,11 @@ impl Detail {
                 if hunks.is_empty() && partial {
                     return None;
                 }
-                let picked: Vec<HunkKey> = hunks
-                    .iter()
+                let picked: Vec<HunkKey> = (hunks.iter())
                     .flat_map(|hunk| match self.checks.hunk_check(&file.path, hunk.key) {
                         Toggled::True => vec![hunk.key],
                         Toggled::Mixed => {
-                            hunk.picked(&self.checks.line_picks[&(file.path.clone(), hunk.key)])
+                            hunk.picked(&self.checks.line_picks[&(file.path.clone(), hunk.key)].0)
                         }
                         Toggled::False => Vec::new(),
                     })
@@ -215,24 +207,7 @@ impl Detail {
             .unwrap_or_default()
     }
 
-    /// See [`Checks::conflicted`].
-    pub(super) fn refresh_conflicted(&mut self, cx: &App) {
-        let store = self.store.read(cx);
-        self.checks.conflicted = (self.checks_project.as_ref())
-            .and_then(|p| store.workspace(p))
-            .map(|ws| {
-                (ws.uncommitted.iter())
-                    .filter(|f| f.conflicted)
-                    .map(|f| f.path.clone())
-                    .collect()
-            })
-            .unwrap_or_default();
-    }
-
     pub(super) fn toggle_hunk(&mut self, path: &str, key: HunkKey, cx: &mut Context<Self>) {
-        if self.checks.conflicted.contains(path) {
-            return;
-        }
         let entry = (path.to_owned(), key);
         if self.checks.line_picks.remove(&entry).is_some() {
             // Partly in: all of it now.
@@ -256,20 +231,17 @@ impl Detail {
         let Some(hunk) = self.worktree_file_hunks(path).iter().find(|h| h.key == key) else {
             return;
         };
-        if self.checks.conflicted.contains(path) {
-            return;
-        }
-        let changed: BTreeSet<usize> = hunk
-            .lines
-            .iter()
-            .enumerate()
+        let print = fingerprint(hunk);
+        let changed: BTreeSet<usize> = (hunk.lines.iter().enumerate())
             .filter(|(_, l)| l.kind != LineKind::Context)
             .map(|(ix, _)| ix)
             .collect();
         let entry = (path.to_owned(), key);
         let mut picks = match self.checks.hunk_check(path, key) {
             Toggled::True => changed.clone(),
-            Toggled::Mixed => self.checks.line_picks.remove(&entry).unwrap_or_default(),
+            Toggled::Mixed => {
+                (self.checks.line_picks.remove(&entry)).map_or_else(BTreeSet::new, |(p, _)| p)
+            }
             Toggled::False => BTreeSet::new(),
         };
         if !picks.remove(&line) {
@@ -282,7 +254,7 @@ impl Detail {
         if picks.is_empty() {
             self.checks.unchecked_hunks.insert(entry);
         } else if picks != changed {
-            self.checks.line_picks.insert(entry, picks);
+            self.checks.line_picks.insert(entry, (picks, print));
         }
         self.settle_checks(path, cx);
     }
@@ -313,6 +285,17 @@ impl Detail {
     }
 
     pub fn focus_message(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // A file a merge left conflicted can't be committed until it's marked resolved, so
+        // it starts out of the commit.
+        if !self.composing
+            && let Some(workspace) = (self.checks_project.as_ref())
+                .and_then(|project| self.store.read(cx).workspace(project))
+        {
+            let conflicted = (workspace.uncommitted.iter())
+                .filter(|file| file.conflicted)
+                .map(|file| file.path.clone());
+            self.checks.unchecked.extend(conflicted.collect::<Vec<_>>());
+        }
         self.composing = true;
         window.focus(&self.message.focus_handle(cx), cx);
         cx.notify();
@@ -343,45 +326,39 @@ impl Detail {
             // Of a file staged in part, just its picked hunks go in, and of a hunk it has
             // picked lines of, just those lines; the rest stay out. Every other hunk and line
             // choice goes.
+            let left_out = |path: &str, key: &HunkKey| {
+                keep.get(path)
+                    .is_some_and(|picked| picked.is_some_and(|picked| !picked.contains(key)))
+            };
             let diff_shown = (self.worktree_diff()).is_some_and(|diff| diff.key.project == project);
-            if !diff_shown {
-                // Hunks unknown until the diff loads: keep the choices the drop left out,
-                // and committing waits for the diff to tell them apart.
-                let left_out = |path: &str, key: &HunkKey| {
-                    keep.get(path)
-                        .is_some_and(|picked| picked.is_some_and(|picked| !picked.contains(key)))
-                };
-                let checks = &mut self.checks;
-                checks
-                    .unchecked_hunks
-                    .retain(|(path, key)| left_out(path, key));
-                checks
-                    .line_picks
-                    .retain(|(path, key), _| left_out(path, key));
-                cx.emit(ChecksChanged);
-                self.focus_message(window, cx);
-                return;
-            }
-            let mut out = HashSet::new();
-            let mut lines = HashMap::new();
-            for (path, picked) in keep.iter().filter_map(|(p, picked)| Some((*p, (*picked)?))) {
-                for hunk in self.worktree_file_hunks(path) {
-                    let key = (path.to_owned(), hunk.key);
-                    let picks = (self.checks.line_picks.get(&key))
-                        .filter(|picks| hunk.picked(picks).iter().all(|k| picked.contains(k)));
-                    match picks {
-                        _ if picked.contains(&hunk.key) => {}
-                        Some(picks) => {
-                            lines.insert(key, picks.clone());
-                        }
-                        None => {
-                            out.insert(key);
+            if diff_shown {
+                let mut out = HashSet::new();
+                let mut lines = HashMap::new();
+                for (path, picked) in keep.iter().filter_map(|(p, picked)| Some((*p, (*picked)?))) {
+                    for hunk in self.worktree_file_hunks(path) {
+                        let entry = (path.to_owned(), hunk.key);
+                        match self.checks.line_picks.get(&entry) {
+                            _ if picked.contains(&hunk.key) => {}
+                            Some(picks)
+                                if hunk.picked(&picks.0).iter().all(|k| picked.contains(k)) =>
+                            {
+                                lines.insert(entry, picks.clone());
+                            }
+                            _ => {
+                                out.insert(entry);
+                            }
                         }
                     }
                 }
+                self.checks.unchecked_hunks = out;
+                self.checks.line_picks = lines;
+            } else {
+                // Hunks unknown until the diff loads: keep the choices the drop left out,
+                // and committing waits for the diff to tell them apart.
+                let checks = &mut self.checks;
+                (checks.unchecked_hunks).retain(|(path, key)| left_out(path, key));
+                (checks.line_picks).retain(|(path, key), _| left_out(path, key));
             }
-            self.checks.unchecked_hunks = out;
-            self.checks.line_picks = lines;
         }
         cx.emit(ChecksChanged);
         self.focus_message(window, cx);
@@ -663,11 +640,6 @@ impl Detail {
     }
 
     pub(super) fn toggle_checked(&mut self, path: &str, cx: &mut Context<Self>) {
-        if self.checks.conflicted.contains(path) {
-            let message = "Mark it resolved from its menu to commit it";
-            self.store.update(cx, |store, cx| store.snack(message, cx));
-            return;
-        }
         let checks = &mut self.checks;
         let check = checks.file_check(path);
         checks
@@ -881,8 +853,14 @@ impl Detail {
 
 #[cfg(test)]
 mod tests {
-    use super::covers_same_lines;
-    use crate::backend::HunkKey;
+    use std::collections::BTreeSet;
+
+    use gpui::Toggled;
+
+    use super::{Checks, covers_same_lines, fingerprint};
+    use crate::backend::{
+        ChangeKind, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind,
+    };
 
     fn key(old_start: u32, old_lines: u32) -> HunkKey {
         HunkKey(but_core::HunkHeader {
@@ -906,6 +884,88 @@ mod tests {
         assert!(
             !covers_same_lines(key(1, 7), key(40, 7)),
             "hunks far apart don't"
+        );
+    }
+
+    #[test]
+    fn line_picks_last_only_while_their_hunk_is_unchanged() {
+        let line = |kind, text: &str| DiffLine {
+            kind,
+            old: Some(10),
+            new: Some(10),
+            text: text.into(),
+            spans: Vec::new(),
+            emph: Vec::new(),
+        };
+        let hunk = |key, added: &str| Hunk {
+            key,
+            header: String::new(),
+            lines: vec![
+                line(LineKind::Context, "fn main() {"),
+                line(LineKind::Removed, "    old();"),
+                line(LineKind::Added, added),
+            ],
+            scope: Vec::new(),
+        };
+        let state = but_core::ChangeState {
+            id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+            kind: gix::object::tree::EntryKind::Blob,
+        };
+        let file = |hunk| FileDiff {
+            file: FileChange {
+                path: "a.rs".into(),
+                previous_path: None,
+                kind: ChangeKind::Modified,
+                modified: None,
+                conflicted: false,
+                change: but_core::TreeChange {
+                    path: "a.rs".into(),
+                    status: but_core::TreeStatus::Modification {
+                        previous_state: state,
+                        state,
+                        flags: None,
+                    },
+                },
+            },
+            body: DiffBody::Hunks {
+                hunks: vec![hunk],
+                added: 1,
+                removed: 1,
+            },
+            fingerprint: 0,
+            annotated: true,
+        };
+        let mut checks = Checks::default();
+        let picked = hunk(key(10, 2), "    new();");
+        checks.line_picks.insert(
+            ("a.rs".into(), picked.key),
+            (BTreeSet::from([2]), fingerprint(&picked)),
+        );
+
+        checks.reconcile(&[file(picked.clone())]);
+        assert_eq!(
+            checks.hunk_check("a.rs", key(10, 2)),
+            Toggled::Mixed,
+            "a reload that leaves the hunk as it was keeps its picks"
+        );
+
+        checks.reconcile(&[file(hunk(key(10, 2), "    newer();"))]);
+        assert_eq!(
+            checks.hunk_check("a.rs", key(10, 2)),
+            Toggled::False,
+            "a hunk whose lines changed under its picks is left out, not taken whole"
+        );
+
+        checks.unchecked_hunks.clear();
+        checks.line_picks.insert(
+            ("a.rs".into(), picked.key),
+            (BTreeSet::from([2]), fingerprint(&picked)),
+        );
+        checks.reconcile(&[file(hunk(key(11, 2), "    new();"))]);
+        assert_eq!(
+            checks.hunk_check("a.rs", key(11, 2)),
+            Toggled::False,
+            "a hunk an edit above moved is left out under its new header too"
         );
     }
 }
