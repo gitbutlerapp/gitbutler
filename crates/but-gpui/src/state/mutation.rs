@@ -3,6 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result};
@@ -94,6 +95,14 @@ pub(super) struct Queued {
 
 /// Starts a queued operation, with its commits as they are by then.
 type Start = Box<dyn FnOnce(&mut Store, Remap, &mut Context<Store>)>;
+
+/// The operation running now, from when it starts until the reload after it lands.
+pub(super) struct Running {
+    project: ProjectId,
+    label: SharedString,
+    overlay: Overlay,
+    started: Instant,
+}
 
 impl Store {
     /// Confirm an operation, or warn about the changes it had to leave out.
@@ -246,7 +255,7 @@ impl Store {
     pub fn set_worktree_archived(
         &mut self,
         project: &ProjectId,
-        name: std::sync::Arc<str>,
+        name: Arc<str>,
         archived: bool,
         cx: &mut Context<Self>,
     ) {
@@ -258,7 +267,7 @@ impl Store {
         self.run(
             project,
             label,
-            super::Overlay::default(),
+            Overlay::default(),
             move |path, _| backend::worktrees::set_archived(path, &name, archived),
             move |store, (), cx| store.snack(done, cx),
             cx,
@@ -358,7 +367,7 @@ impl Store {
         self.picked.clear();
         cx.emit(StoreEvent::Pending(project.clone()));
         cx.notify();
-        if self.busy.is_none() {
+        if self.running.is_none() {
             self.start_next(cx);
         }
     }
@@ -375,8 +384,12 @@ impl Store {
             &next.captured,
             now.map(|commit| (commit.key.as_str(), commit.id)),
         );
-        self.busy = Some(next.label);
-        self.running = Some((next.project.clone(), next.overlay, Instant::now()));
+        self.running = Some(Running {
+            project: next.project,
+            label: next.label,
+            overlay: next.overlay,
+            started: Instant::now(),
+        });
         (next.start)(self, remap, cx);
         // Replacing the last one's ticker stops it.
         self.busy_ticker = Self::tick_while_busy(cx);
@@ -422,7 +435,6 @@ impl Store {
             if refused {
                 self.snack("Save the edited commit, or stop editing it, first", cx);
             }
-            self.busy = None;
             self.running = None;
             cx.emit(StoreEvent::Pending(project.clone()));
             return self.start_next(cx);
@@ -471,14 +483,30 @@ impl Store {
 
     /// The key of `project`'s commit `id`, which survives rewrites.
     pub fn key_of(&self, project: &ProjectId, id: CommitId) -> Option<String> {
-        let (_, commit) = self.workspace(project)?.find_commit(id)?;
+        let (_, commit) = self.find_commit(project, id)?;
         Some(commit.key.clone())
+    }
+
+    /// The label of the mutation in flight, if any.
+    pub fn busy(&self) -> Option<&SharedString> {
+        self.running.as_ref().map(|running| &running.label)
     }
 
     pub fn busy_for(&self) -> Option<Duration> {
         self.running
             .as_ref()
-            .map(|(_, _, started)| started.elapsed())
+            .map(|running| running.started.elapsed())
+    }
+
+    /// End the running mutation once `id` has loaded what it did, or can't load at all,
+    /// and start the next one waiting.
+    pub(super) fn settled(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if self.settling.as_ref() == Some(id) {
+            self.settling = None;
+            self.running = None;
+            cx.emit(StoreEvent::Pending(id.clone()));
+            self.start_next(cx);
+        }
     }
 
     /// Operations quitting now would cut off: the one running, and the ones waiting.
@@ -491,10 +519,10 @@ impl Store {
     }
 
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {
-        let running = self.running.iter().filter(move |(p, ..)| p == project);
+        let running = self.running.iter().filter(move |r| r.project == *project);
         let queued = self.queue.iter().filter(move |q| q.project == *project);
         running
-            .map(|(_, overlay, _)| overlay)
+            .map(|r| &r.overlay)
             .chain(queued.map(|q| &q.overlay))
     }
 
