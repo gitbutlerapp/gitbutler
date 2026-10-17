@@ -458,7 +458,7 @@ pick local-tip
 }
 
 #[test]
-fn keeps_graph_truth_even_when_change_ids_match() -> Result<()> {
+fn pull_rebase_skips_remote_commits_paired_with_local_ones() -> Result<()> {
     let mut repo = read_only_in_memory_scenario_named(
         "journey03",
         "01-rewritten-local-commit-is-paired-with-remote",
@@ -503,8 +503,6 @@ fn keeps_graph_truth_even_when_change_ids_match() -> Result<()> {
         ),
         snapbox::str![[r#"
 merge-base merge-base
-pick remote-only
-pick remote-tip
 pick local-only
 pick local-tip
 "#]]
@@ -535,8 +533,9 @@ pick local-tip
 
     assert_eq!(
         step_ids,
-        vec![remote_only, remote_tip, local_only, local_tip],
-        "expected application order to follow the graph, even for rewritten commits"
+        vec![local_only, local_tip],
+        "remote commits paired by message or change-id are older versions of the local ones, \
+         so replaying them would apply the same change twice"
     );
     Ok(())
 }
@@ -586,8 +585,6 @@ fn initial_steps_strategy_variants_are_distinct_presets() -> Result<()> {
         snapbox::str![[r#"
 pull-rebase
 merge-base merge-base
-pick remote-only
-pick remote-tip
 pick local-only
 pick local-tip
 
@@ -846,7 +843,6 @@ fn initial_steps_smart_squash_does_not_target_integrated_local_commits() -> Resu
         ),
         snapbox::str![[r#"
 merge-base merge-base
-pick upstream
 pick editable-local
 "#]]
     );
@@ -3854,6 +3850,94 @@ fn apply_initial_steps_does_not_replay_an_upstream_commit_already_merged_locally
         "only the missing upstream tip should be inserted above the local merge",
     );
 
+    Ok(())
+}
+
+#[test]
+fn pull_rebase_skips_remote_copies_of_rebased_local_commits() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description_and_graph(
+            "local-rebased-remote-keeps-old-copy",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            },
+        )?;
+    configure_tracking_for_branch_a(&mut repo)?;
+    snapbox::assert_data_eq!(
+        normalized_graph_snapshot(&repo)?,
+        snapbox::str![[r#"
+* 9185f01 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 3ddcea4 (A) A2
+* 97ff28d A1
+* b438207 (origin/main, main) M1
+| * d9d6af2 (origin/A, new-origin) R1
+| * 1cfe403 A2
+| * 291efee A1
+|/
+* fafd9d0 init
+"#]]
+    );
+
+    let labels = [
+        (repo.rev_parse_single("A~3")?.detach(), "merge-base"),
+        (repo.rev_parse_single("A~1")?.detach(), "local-A1"),
+        (repo.rev_parse_single("A")?.detach(), "local-A2"),
+        (repo.rev_parse_single("origin/A~2")?.detach(), "remote-A1"),
+        (repo.rev_parse_single("origin/A~1")?.detach(), "remote-A2"),
+        (repo.rev_parse_single("origin/A")?.detach(), "remote-R1"),
+    ];
+    let mut ws = graph.into_workspace()?;
+    let initial = get_initial_integration_steps_for_branch(
+        r("refs/heads/A"),
+        BranchIntegrationStrategy::PullRebase,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
+    // The remote copies of A1 and A2 are older versions of the local commits, so only R1 is new.
+    snapbox::assert_data_eq!(
+        labeled_integration_snapshot(&initial.integration, &labels),
+        snapbox::str![[r#"
+merge-base merge-base
+pick remote-R1
+pick local-A1
+pick local-A2
+"#]]
+    );
+
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        initial.integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+        &mut db,
+    )?;
+    rebase.materialize(Default::default())?;
+
+    snapbox::assert_data_eq!(
+        normalized_graph_snapshot(&repo)?,
+        snapbox::str![[r#"
+* 2d62f53 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* eb5eca5 (A) A2
+* d7bb178 A1
+* 13b64b7 R1
+* b438207 (origin/main, main) M1
+| * d9d6af2 (origin/A, new-origin) R1
+| * 1cfe403 A2
+| * 291efee A1
+|/
+* fafd9d0 init
+"#]]
+    );
+    for rev in ["A", "A~1", "A~2"] {
+        let commit = Commit::from_id(repo.rev_parse_single(rev)?)?;
+        assert!(
+            !commit.is_conflicted(),
+            "{rev} should replay cleanly as nothing is applied twice"
+        );
+    }
     Ok(())
 }
 

@@ -1179,6 +1179,98 @@ RefInfo {
 }
 
 #[test]
+fn remote_with_same_tree_as_rebased_local_has_no_remote_commits() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) =
+        read_only_in_memory_scenario("remote-merged-target-local-rebased-same-tree")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 8b64176 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 66568e0 (A) add a2
+* 4168f97 add a1
+| *   9a52dfd (origin/A) Merge branch 'main' into A
+| |/  
+| |/  
+|/|   
+* | 35685b4 (origin/main, origin/HEAD, main) add target2
+* | 214ec5b add target1
+| * 2134798 add a2
+| * 0e7997b add a1
+|/  
+* c166d42 init-integration
+
+"#]]
+    );
+
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let info = ref_info(
+        repo.find_reference("A")?,
+        &meta,
+        &mut db,
+        standard_options(),
+    )?;
+    // The remote's merge of the target adds nothing the local branch lacks, so only a force-push is left.
+    snapbox::assert_data_eq!(
+        info.to_debug(),
+        snapbox::str![[r#"
+RefInfo {
+    symbolic_remote_names: {
+        "origin",
+    },
+    stacks: [
+        Stack {
+            id: Some(
+                00000000-0000-0000-0000-000000000001,
+            ),
+            base: Some(
+                Sha1(35685b49f53cce23681cfeaacd7f895a07479f33),
+            ),
+            segments: [
+                ref_info::ui::Segment {
+                    id: NodeIndex(0),
+                    ref_name: "►A",
+                    remote_tracking_ref_name: "refs/remotes/origin/A",
+                    commits: [
+                        LocalCommit(66568e0, "add a2\n", local/remote(2134798)),
+                        LocalCommit(4168f97, "add a1\n", local/remote(0e7997b)),
+                    ],
+                    commits_on_remote: [],
+                    metadata: Branch,
+                    push_status: UnpushedCommitsRequiringForce,
+                    base: "35685b4",
+                },
+            ],
+        },
+    ],
+    target_ref: Some(
+        TargetRef {
+            ref_name: FullName(
+                "refs/remotes/origin/main",
+            ),
+            segment_index: NodeIndex(2),
+            commits_ahead: 0,
+        },
+    ),
+    target_commit: Some(
+        TargetCommit {
+            commit_id: Sha1(35685b49f53cce23681cfeaacd7f895a07479f33),
+            segment_index: NodeIndex(3),
+        },
+    ),
+    is_target_current: true,
+    lower_bound: Some(
+        NodeIndex(3),
+    ),
+    ancestor_workspace_commit: None,
+}
+
+"#]]
+        .raw()
+    );
+    Ok(())
+}
+
+#[test]
 fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) =
         read_only_in_memory_scenario("two-branches-one-advanced-one-parent-ws-commit")?;
