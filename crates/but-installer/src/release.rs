@@ -3,9 +3,10 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result, anyhow, bail};
+use reqwest::StatusCode;
 use serde::Deserialize;
 
-use crate::{config::InstallerConfig, http::create_client};
+use crate::{config::InstallerConfig, http};
 
 /// Release information from the GitButler API
 #[derive(Debug, Deserialize)]
@@ -24,55 +25,36 @@ pub struct PlatformInfo {
 
 pub(crate) fn fetch_release(config: &InstallerConfig) -> Result<Release> {
     let url = config.releases_url();
-    let mut easy = create_client()?;
+    let response = http::get(&url)
+        .with_context(|| format!("Failed to fetch release information from {url}"))?;
 
-    easy.url(&url)
-        .with_context(|| format!("Failed to set URL: {url}"))?;
-
-    let mut response_data = Vec::new();
-    {
-        let mut transfer = easy.transfer();
-        transfer
-            .write_function(|data| {
-                response_data.extend_from_slice(data);
-                Ok(data.len())
-            })
-            .context("Failed to set write function")?;
-        transfer
-            .perform()
-            .with_context(|| format!("Failed to fetch release information from {url}"))?;
-    }
-
-    let response_code = easy
-        .response_code()
-        .context("Failed to get response code")?;
-
-    if response_code != 200 {
+    let status = response.status();
+    if status != StatusCode::OK {
         match &config.version_request {
             crate::config::VersionRequest::Specific(version) => {
                 bail!(
-                    "Failed to fetch release information for version {version}. Version may not exist. HTTP {response_code}"
+                    "Failed to fetch release information for version {version}. Version may not exist. HTTP {status}"
                 );
             }
             crate::config::VersionRequest::Nightly => {
-                bail!("Failed to fetch nightly release information. HTTP {response_code}");
+                bail!("Failed to fetch nightly release information. HTTP {status}");
             }
             crate::config::VersionRequest::Release => {
-                bail!("Failed to fetch release information from {url}. HTTP {response_code}");
+                bail!("Failed to fetch release information from {url}. HTTP {status}");
             }
         }
     }
 
     // Validate the effective URL after following redirects
     // This protects against malicious redirects to untrusted domains or insecure protocols
-    let effective_url = easy
-        .effective_url()
-        .context("Failed to get effective URL")?
-        .ok_or_else(|| anyhow!("Effective URL is missing"))?;
-
+    let effective_url = response.url().as_str();
     validate_api_url(effective_url).with_context(|| {
         format!("Release API was redirected to an untrusted URL: {effective_url}")
     })?;
+
+    let response_data = response
+        .bytes()
+        .with_context(|| format!("Failed to fetch release information from {url}"))?;
 
     let release: Release =
         serde_json::from_slice(&response_data).context("Failed to parse release information")?;
