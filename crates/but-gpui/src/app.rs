@@ -279,6 +279,10 @@ impl AppView {
         self.store.read(cx).selection.clone()
     }
 
+    fn selected_project(&self, cx: &App) -> Option<ProjectId> {
+        Some(self.store.read(cx).selection.as_ref()?.project().clone())
+    }
+
     fn quit(&mut self, _: &Quit, window: &mut Window, cx: &mut Context<Self>) {
         if self.can_quit(window, cx) {
             cx.quit();
@@ -329,20 +333,20 @@ impl AppView {
     }
 
     fn undo(&mut self, _: &Undo, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
+        if let Some(project) = self.selected_project(cx) {
             self.store
                 .update(cx, |store, cx| store.undo(&project, false, cx));
         }
     }
 
     fn fetch(&mut self, _: &Fetch, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
+        if let Some(project) = self.selected_project(cx) {
             self.store.update(cx, |store, cx| store.fetch(&project, cx));
         }
     }
 
     pub fn new_branch(&mut self, _: &NewBranch, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(project) = self.selection(cx).map(|s| s.project().clone()).or_else(|| {
+        let Some(project) = self.selected_project(cx).or_else(|| {
             self.store
                 .read(cx)
                 .projects
@@ -477,7 +481,6 @@ impl AppView {
             cx,
             move |this, cx| {
                 let project = project.clone();
-                let ref_name = ref_name.clone();
                 this.store.update(cx, |store, cx| {
                     store.run(
                         &project,
@@ -918,7 +921,7 @@ impl AppView {
     }
 
     fn start_commit(&mut self, _: &StartCommit, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
+        if let Some(project) = self.selected_project(cx) {
             self.store.update(cx, |store, cx| {
                 store.select(Some(Selection::Uncommitted(project)), cx)
             });
@@ -928,7 +931,7 @@ impl AppView {
     }
 
     fn redo(&mut self, _: &Redo, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
+        if let Some(project) = self.selected_project(cx) {
             self.store
                 .update(cx, |store, cx| store.undo(&project, true, cx));
         }
@@ -983,7 +986,7 @@ impl AppView {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(project) = self.selection(cx).map(|s| s.project().clone()) {
+        if let Some(project) = self.selected_project(cx) {
             self.store
                 .update(cx, |store, cx| store.update_from_target(&project, None, cx));
         }
@@ -1373,7 +1376,7 @@ impl Render for AppView {
             .flex_col()
             .bg(theme.bg_1)
             .text_color(theme.text_1)
-            .font_family(theme.ui_font.clone())
+            .font_family(theme.ui_font)
             .text_size(px(13.))
             .line_height(px(18.))
             .child(

@@ -10,7 +10,7 @@ use crate::backend::history::Operation;
 use crate::backend::{self, DiffSource, SnapshotId};
 use crate::state::{Overlay, ProjectId};
 use crate::theme::Theme;
-use crate::ui::scrollbar::{Scroll, scrollbar};
+use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{list_row, relative_time};
 
 /// How many operations a page of the log holds.
@@ -250,17 +250,9 @@ impl Detail {
             )
             .track_scroll(&self.history_scroll)
             .size_full();
-        div()
-            .relative()
-            .flex_1()
-            .min_h(px(0.))
+        let scroll = Scroll::Uniform(self.history_scroll.clone());
+        scrolled(list, "history-scrollbar", scroll, theme)
             .pt(px(6.))
-            .child(list)
-            .children(scrollbar(
-                "history-scrollbar",
-                Scroll::Uniform(self.history_scroll.clone()),
-                theme,
-            ))
             .into_any_element()
     }
 }

@@ -370,14 +370,11 @@ impl Store {
         self.mutating = Some(project.clone());
         // While editing there are no commits to compare with afterwards; every commit would
         // count as the operation's own and lose its unread mark.
-        let before: Option<HashSet<String>> = self
-            .workspace(project)
-            .is_none_or(|ws| ws.editing.is_none())
-            .then(|| {
-                self.workspace(project).map_or_else(HashSet::new, |ws| {
-                    ws.commits().map(|commit| commit.key.clone()).collect()
-                })
-            });
+        let before: Option<HashSet<String>> = (!editing).then(|| {
+            self.workspace(project).map_or_else(HashSet::new, |ws| {
+                ws.commits().map(|commit| commit.key.clone()).collect()
+            })
+        });
         cx.notify();
         let project = project.clone();
         cx.spawn(async move |this, cx| {

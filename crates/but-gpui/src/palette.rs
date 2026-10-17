@@ -472,23 +472,15 @@ impl AppView {
                                 .bg(theme.bg_2)
                                 .text_size(px(12.))
                                 .text_color(theme.text_2)
-                                .child(
-                                    h_flex()
-                                        .gap(px(4.))
-                                        .child(keycap("↑ ↓", &theme))
-                                        .child("Move"),
-                                )
-                                .child(
-                                    h_flex()
-                                        .gap(px(4.))
-                                        .child(keycap("↩", &theme))
-                                        .child(palette.verb),
-                                )
-                                .child(
-                                    h_flex()
-                                        .gap(px(4.))
-                                        .child(keycap("esc", &theme))
-                                        .child("Close"),
+                                .children(
+                                    [("↑ ↓", "Move"), ("↩", palette.verb), ("esc", "Close")].map(
+                                        |(key, hint)| {
+                                            h_flex()
+                                                .gap(px(4.))
+                                                .child(keycap(key, &theme))
+                                                .child(hint)
+                                        },
+                                    ),
                                 ),
                         ),
                 )

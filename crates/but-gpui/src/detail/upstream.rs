@@ -12,7 +12,7 @@ use crate::backend::upstream::{self, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource};
 use crate::state::ProjectId;
 use crate::theme::Theme;
-use crate::ui::scrollbar::{Scroll, scrollbar};
+use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     Icon, ROW_HEIGHT, h_flex, icon, list_row, plural, relative_time, small_icon, v_flex,
 };
@@ -363,16 +363,15 @@ impl Detail {
                 .into_any_element();
         }
         let target = target.unwrap_or_else(|| "the target".into());
-        let count = self.upstream_rows(upstream, &target).len();
+        let rows = self.upstream_rows(upstream, &target);
         let list = uniform_list(
             "target-commits",
-            count,
+            rows.len(),
             cx.processor(move |this, range: Range<usize>, _, cx| {
                 let theme = Theme::get(cx).clone();
                 let Some(upstream) = this.upstream.as_ref() else {
                     return Vec::new();
                 };
-                let rows = this.upstream_rows(upstream, &target);
                 range
                     .filter_map(|ix| rows.get(ix).map(|row| (ix, row)))
                     .map(|(ix, row)| match row {
@@ -459,18 +458,12 @@ impl Detail {
         v_flex()
             .size_full()
             .child(about)
-            .child(
-                div()
-                    .relative()
-                    .flex_1()
-                    .min_h(px(0.))
-                    .child(list)
-                    .children(scrollbar(
-                        "target-scrollbar",
-                        Scroll::Uniform(self.upstream_scroll.clone()),
-                        theme,
-                    )),
-            )
+            .child(scrolled(
+                list,
+                "target-scrollbar",
+                Scroll::Uniform(self.upstream_scroll.clone()),
+                theme,
+            ))
             .into_any_element()
     }
 }

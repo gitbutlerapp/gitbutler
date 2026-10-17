@@ -83,6 +83,29 @@ pub fn stream(
         .context("The AI provider answered with nothing")
 }
 
+/// [`stream`] off the UI thread, calling `show` with the answer so far as it arrives.
+pub async fn write(
+    system: &'static str,
+    prompt: String,
+    mut show: impl FnMut(&str),
+) -> Result<String> {
+    let (sender, mut tokens) = futures::channel::mpsc::unbounded::<String>();
+    let answer = super::run(move || {
+        stream(system, prompt, move |token| {
+            sender.unbounded_send(token.to_owned()).ok();
+        })
+    });
+    // Ends when `stream` returns and drops the sender.
+    let pump = async {
+        let mut text = String::new();
+        while let Some(token) = futures::StreamExt::next(&mut tokens).await {
+            text.push_str(&token);
+            show(&text);
+        }
+    };
+    futures::join!(answer, pump).0
+}
+
 /// Split a generated pull request into its title and body, dropping a fence around the
 /// whole answer and a first body line that only repeats the title. Safe on a partial
 /// answer, as it streams.
