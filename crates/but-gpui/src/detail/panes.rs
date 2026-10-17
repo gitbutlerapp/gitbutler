@@ -316,18 +316,13 @@ impl Detail {
             return empty_state("Commit not found", "", theme);
         };
         let files = self.render_diff_file_list(theme, cx);
+        let banner = commit
+            .conflicted
+            .then(|| self.conflict_banner(cx))
+            .flatten();
         v_flex()
             .size_full()
-            .when(commit.conflicted, |el| {
-                el.child(side_header(theme).child(conflict_bar(
-                    "This commit has conflicts".into(),
-                    "Resolve…".into(),
-                    theme,
-                    |_, window, cx| {
-                        window.dispatch_action(Box::new(crate::resolve::ResolveConflicts), cx)
-                    },
-                )))
-            })
+            .children(banner.map(|banner| side_header(theme).child(banner)))
             .child(files)
             .into_any_element()
     }
@@ -455,6 +450,12 @@ impl Detail {
         let target = Selection::Commit(project.clone(), id);
         let menu = h_flex()
             .h(px(22.))
+            .gap(px(8.))
+            .children(super::resolve::apply_button(
+                self,
+                cx.entity().downgrade(),
+                cx,
+            ))
             .child(
                 icon_button("commit-menu", Icon::Kebab).on_click(cx.listener(
                     move |this, event: &ClickEvent, _, cx| {
@@ -574,27 +575,30 @@ impl Detail {
                 })
             });
         let resolve_oldest = oldest.map(|(holder, commit)| {
-            let (store, app) = (self.store.clone(), self.app.clone());
+            let app = self.app.clone();
             let (project, id) = (project.clone(), commit.id);
-            conflict_bar(
+            super::resolve::warn_banner(
                 match conflicted {
                     1 => "A commit has conflicts".to_owned(),
                     n => format!("{n} commits have conflicts"),
                 },
-                match conflicted {
-                    _ if holder.ref_name != ref_name => format!("Resolve from {}…", holder.name),
-                    1 => "Resolve…".to_owned(),
-                    _ => "Resolve the oldest…".to_owned(),
+                match holder.ref_name == ref_name {
+                    true => {
+                        "Start with the oldest: the ones above it are rebuilt on it.".to_owned()
+                    }
+                    false => format!("The oldest is in {}, below this branch.", holder.name),
                 },
+                Some(
+                    super::resolve::banner_action("resolve", "Resolve", theme)
+                        .on_click(move |_, window, cx| {
+                            app.update(cx, |app, cx| {
+                                app.resolve_commit(project.clone(), id, window, cx)
+                            })
+                            .ok();
+                        })
+                        .into_any_element(),
+                ),
                 theme,
-                move |_, window, cx| {
-                    let oldest = Selection::Commit(project.clone(), id);
-                    store.update(cx, |store, cx| store.select(Some(oldest), cx));
-                    app.update(cx, |app, cx| {
-                        app.resolve_commit(project.clone(), id, window, cx)
-                    })
-                    .ok();
-                },
             )
         });
         v_flex()
@@ -692,31 +696,6 @@ fn render_incoming(
                 )
         }))
         .into_any_element()
-}
-
-/// What's conflicted, on a red tint, with a button that starts resolving it.
-fn conflict_bar(
-    text: String,
-    action: String,
-    theme: &Theme,
-    resolve: impl Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static,
-) -> impl IntoElement {
-    h_flex()
-        .gap(px(8.))
-        .px(px(10.))
-        .py(px(8.))
-        .rounded(px(6.))
-        .bg(theme.danger.opacity(0.08))
-        .text_size(px(12.))
-        .text_color(theme.danger)
-        .child(small_icon(Icon::Warning).text_color(theme.danger))
-        .child(div().flex_1().child(text))
-        .child(
-            button("resolve", action)
-                .small()
-                .style(ButtonStyle::Gray)
-                .on_click(resolve),
-        )
 }
 
 /// A crumb of the header: what it names, and what clicking it selects.

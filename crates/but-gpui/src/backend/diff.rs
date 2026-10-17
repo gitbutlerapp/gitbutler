@@ -9,8 +9,8 @@ use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 
 use super::{
-    CommitId, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind, SnapshotId,
-    annotate, checkout, columns, file_change, highlight, open, worktree_files,
+    CommitId, Conflict, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind,
+    SnapshotId, annotate, checkout, columns, file_change, highlight, open, worktree_files,
 };
 
 /// What a diff is about.
@@ -131,8 +131,174 @@ pub fn load_diff(
     )
     .into_iter()
     .collect::<Result<Vec<_>>>()?;
+    let mut diffs = diffs;
+    if let DiffSource::Commit(id) = source {
+        add_conflicts(&ctx, id, &mut diffs);
+    }
     tracing::debug!(elapsed = ?started.elapsed(), ?source, "loaded diff");
     Ok(diffs)
+}
+
+/// Give `diffs` the conflicts of `commit`, when it's conflicted: on the files its diff has,
+/// and as files of their own where the diff has nothing else of them. Conflicted files go
+/// first, as they're what the commit needs.
+fn add_conflicts(ctx: &but_ctx::Context, commit: CommitId, diffs: &mut Vec<FileDiff>) {
+    let found = match but_api::resolve::commit_conflicts(ctx, commit.0) {
+        Ok(found) => found,
+        Err(err) => return tracing::warn!("couldn't read {commit:?}'s conflicts: {err:#}"),
+    };
+    for file in &found.files {
+        let conflicts = conflicts_of(file);
+        let ix = match diffs.iter().position(|diff| diff.file.path == file.path) {
+            Some(ix) => ix,
+            None => {
+                diffs.push(FileDiff {
+                    file: super::file_change(file.change.clone().into()),
+                    body: DiffBody::Empty,
+                    fingerprint: 0,
+                    annotated: true,
+                });
+                diffs.len() - 1
+            }
+        };
+        let diff = &mut diffs[ix];
+        diff.file.conflicted = true;
+        let lines = conflicts
+            .iter()
+            .flat_map(|c| [&c.new_base, &c.commit, &c.before, &c.after]);
+        let conflict_columns = (lines.flatten())
+            .map(|line| columns(&line.text))
+            .max()
+            .unwrap_or(0);
+        match &mut diff.body {
+            DiffBody::Hunks {
+                widest,
+                conflicts: slot,
+                ..
+            } => {
+                *widest = widest.map(|side| side.max(conflict_columns));
+                *slot = conflicts;
+            }
+            body => {
+                *body = DiffBody::Hunks {
+                    hunks: Vec::new(),
+                    added: 0,
+                    removed: 0,
+                    widest: [conflict_columns; 2],
+                    conflicts,
+                }
+            }
+        }
+    }
+    for manual in found.manual {
+        if let Some(diff) = diffs.iter_mut().find(|diff| diff.file.path == manual.path) {
+            diff.file.conflicted = true;
+            diff.body = DiffBody::Unresolvable(manual.reason);
+        }
+    }
+    diffs.sort_by_key(|diff| !diff.file.conflicted);
+}
+
+/// A file's conflicts, numbered as its diff numbers the new side. The diff is of the commit
+/// with every conflict left as its new base has it, so each conflict starts as far before
+/// where the commit's own lines would put it as the earlier conflicts' lines differ.
+fn conflicts_of(file: &but_api::resolve::ConflictedFile) -> Vec<Conflict> {
+    let count = |text: &str| text.lines().count() as u32;
+    let lines = |text: &str, from: u32| -> Vec<DiffLine> {
+        (text.lines().zip(from..))
+            .map(|(raw, new)| DiffLine {
+                kind: LineKind::Context,
+                old: None,
+                new: Some(new),
+                text: display_text(raw).into(),
+                spans: Vec::new(),
+                emph: Vec::new(),
+            })
+            .collect()
+    };
+    let mut shift = 0i64;
+    (file.hunks.iter().enumerate())
+        .map(|(index, hunk)| {
+            let at = u32::try_from(i64::from(hunk.line) - shift)
+                .unwrap_or(1)
+                .max(1);
+            shift += i64::from(count(&hunk.theirs)) - i64::from(count(&hunk.ours));
+            let mut conflict = Conflict {
+                id: hunk.id.clone(),
+                index,
+                at,
+                before: lines(
+                    &hunk.context_before,
+                    at.saturating_sub(count(&hunk.context_before)),
+                ),
+                new_base: lines(&hunk.ours, at),
+                commit: lines(&hunk.theirs, at),
+                ancestor: hunk.base.as_deref().map(|base| lines(base, at)),
+                after: lines(&hunk.context_after, at + count(&hunk.ours)),
+                new_base_text: hunk.ours.clone(),
+                commit_text: hunk.theirs.clone(),
+            };
+            annotate_conflict(&file.path, &mut conflict);
+            conflict
+        })
+        .collect()
+}
+
+/// Highlight a conflict's lines, each side reading on from the lines before it, and mark
+/// the words the two sides differ in.
+fn annotate_conflict(path: &str, conflict: &mut Conflict) {
+    let Conflict {
+        before,
+        new_base,
+        commit,
+        ancestor,
+        after,
+        ..
+    } = conflict;
+    let highlight = |lead: &[&[DiffLine]], lines: &mut [DiffLine]| {
+        let Some(mut highlighter) = highlight::Highlighter::for_path(path) else {
+            return;
+        };
+        for line in lead.iter().flat_map(|lines| lines.iter()) {
+            highlighter.line(&line.text);
+        }
+        for line in lines {
+            line.spans = highlighter.line(&line.text);
+        }
+    };
+    highlight(&[], before);
+    highlight(&[before], new_base);
+    highlight(&[before], commit);
+    if let Some(ancestor) = ancestor {
+        highlight(&[before], ancestor);
+    }
+    highlight(&[before, new_base], after);
+    // The sides as a removal and an addition, which marks the words that differ.
+    let mut pair = Hunk {
+        key: HunkKey(but_core::HunkHeader {
+            old_start: 0,
+            old_lines: 0,
+            new_start: 0,
+            new_lines: 0,
+        }),
+        header: String::new(),
+        lines: (new_base.iter().map(|line| (line, LineKind::Removed)))
+            .chain(commit.iter().map(|line| (line, LineKind::Added)))
+            .map(|(line, kind)| DiffLine {
+                kind,
+                ..line.clone()
+            })
+            .collect(),
+        scope: Vec::new(),
+    };
+    annotate::emphasize(&mut pair);
+    let (base_emph, commit_emph) = pair.lines.split_at(new_base.len());
+    for (line, marked) in new_base.iter_mut().zip(base_emph) {
+        line.emph = marked.emph.clone();
+    }
+    for (line, marked) in commit.iter_mut().zip(commit_emph) {
+        line.emph = marked.emph.clone();
+    }
 }
 
 /// One file's diff, reused from `previous` when its patch is the same, else parsed and,
@@ -196,6 +362,7 @@ fn load_file(
                 hunks,
                 added: lines_added,
                 removed: lines_removed,
+                conflicts: Vec::new(),
             }
         }
     };

@@ -26,8 +26,6 @@ mod pr;
 #[cfg(target_os = "macos")]
 mod projects;
 #[cfg(target_os = "macos")]
-mod resolve;
-#[cfg(target_os = "macos")]
 mod settings;
 #[cfg(target_os = "macos")]
 mod state;

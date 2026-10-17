@@ -27,7 +27,7 @@ use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, button, checkbox, empty_state, h_flex, icon, icon_button, shortcut,
-    v_flex,
+    toggle_group, v_flex,
 };
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -141,6 +141,7 @@ impl Detail {
             added,
             removed,
             widest,
+            ..
         } = &file.body
         else {
             return layout;
@@ -419,15 +420,7 @@ impl Detail {
                 Tooltip::with_key(tip.into(), files_key.clone(), cx)
             })
             .on_click(act(&ToggleFiles));
-        let group = || {
-            h_flex()
-                .flex_none()
-                .p(px(2.))
-                .gap(px(2.))
-                .rounded(px(6.))
-                .border_1()
-                .border_color(theme.border_3)
-        };
+        let group = || toggle_group(theme);
         // A choice of the group, which `action` makes when `on` isn't already.
         let choice = |id: &'static str,
                       label: &'static str,
@@ -758,6 +751,18 @@ impl Detail {
                 let layout = self.layout(&diff.files[file], &store.prefs);
                 let element =
                     diff::context_row(line, file, (old, new), last, theme, &layout, decor);
+                padded.child(element).into_any_element()
+            }
+            DiffRow::Conflict {
+                file,
+                conflict,
+                part,
+            } => {
+                let Some(found) = diff.files[file].conflicts().get(conflict) else {
+                    return padded.into_any_element();
+                };
+                let layout = self.layout(&diff.files[file], &store.prefs);
+                let element = self.conflict_row(found, part, &layout, last, entity, cx);
                 padded.child(element).into_any_element()
             }
             DiffRow::Note(file) => padded

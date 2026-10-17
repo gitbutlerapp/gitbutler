@@ -248,7 +248,7 @@ impl Navigator {
                 if commit.conflicted {
                     items.push(action(
                         "Resolve conflicts…",
-                        &crate::resolve::ResolveConflicts,
+                        &crate::detail::ResolveConflicts,
                     ));
                 }
                 items.extend([

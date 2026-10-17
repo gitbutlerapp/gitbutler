@@ -1042,6 +1042,7 @@ mod tests {
                 added: 1,
                 removed: 1,
                 widest: [0, 0],
+                conflicts: Vec::new(),
             },
             fingerprint: 0,
             annotated: true,

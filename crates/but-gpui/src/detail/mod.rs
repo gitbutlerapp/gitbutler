@@ -12,10 +12,12 @@ pub use find::FindInDiff;
 mod history;
 mod panes;
 mod pull_request;
+mod resolve;
 mod upstream;
 mod worktree;
 
 pub use diff_view::DiffPane;
+pub use resolve::ResolveConflicts;
 
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
@@ -90,6 +92,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-shift-b", composer::PickCommitTarget, Some("Detail")),
     ]);
     find::bind_keys(cx);
+    resolve::bind_keys(cx);
 }
 
 /// Where the keyboard is in the diff.
@@ -221,6 +224,8 @@ pub struct Detail {
     writing: Option<Task<()>>,
     /// The find bar over the diff, while it's open.
     find: Option<find::Find>,
+    /// What's picked for the shown commit's conflicts, until it's applied.
+    resolving: resolve::Resolving,
     /// The project page's target history, for the project it shows.
     upstream: Option<upstream::Upstream>,
     upstream_scroll: UniformListScrollHandle,
@@ -370,6 +375,7 @@ impl Detail {
             unfolded: HashSet::new(),
             writing: None,
             find: None,
+            resolving: Default::default(),
             upstream: None,
             upstream_scroll: UniformListScrollHandle::new(),
             _upstream_load: Task::ready(()),
@@ -666,6 +672,7 @@ impl Detail {
             .map(|(ix, _)| ix)
             .collect();
         self.diff = Some(LoadedDiff { key, files, rows });
+        self.prune_resolving();
         for file in stale {
             self.load_whole(file, cx);
         }
@@ -736,6 +743,7 @@ impl Detail {
                 _ => None,
             },
             store.prefs.split,
+            |conflict| self.conflict_view(conflict),
         )
     }
 
@@ -1319,9 +1327,15 @@ impl Render for Detail {
                     .into_any_element()
             }
         };
+        let conflicts = self.conflicted_commit().is_some();
         v_flex()
             .id("detail")
-            .key_context("Detail")
+            .key_context(if conflicts {
+                "Detail Conflicts"
+            } else {
+                "Detail"
+            })
+            .when(conflicts, |el| resolve::conflict_keys(el, cx))
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &NextFile, _, cx| this.move_file(1, cx)))
             .on_action(cx.listener(|this, _: &PreviousFile, _, cx| this.move_file(-1, cx)))
