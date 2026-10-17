@@ -46,8 +46,8 @@ export const buildAppliedAddressSpace = ({
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	foldedSegments: Record<string, true>;
 }): AddressSpace<Address> => {
-	// Operations take a card's rows, a worktree's uncommitted files, and a
-	// worktree's branches; not the section's rows or a worktree's own commits.
+	// Operations take a card's rows and a worktree lane's rows alike; not the
+	// section's rows.
 	const owned = (address: Address): Row => ({ address, owned: true });
 	const foreign = (address: Address): Row => ({ address, owned: false });
 	// A lane's rows in reading order: files, then per segment its branch and its
@@ -67,7 +67,7 @@ export const buildAppliedAddressSpace = ({
 				...(isFolded(segment)
 					? []
 					: [
-							foreign(
+							owned(
 								commitAddress({
 									commitId: commit.id,
 									changeId: commit.changeId,

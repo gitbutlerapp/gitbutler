@@ -84,7 +84,11 @@ export type BranchLane =
 			canUpdateFromRemote: boolean;
 			bottomRelativeTo: RelativeTo | null;
 	  }
-	| { type: "worktree" };
+	| {
+			type: "worktree";
+			/** False for the branch the worktree has checked out, which git keeps. */
+			canRemove: boolean;
+	  };
 
 const CIBubble: FC<{ checks: AggregateCIChecks }> = (p) => {
 	switch (p.checks.status) {
@@ -441,10 +445,10 @@ export const BranchRow: FC<
 			accelerator: toElectronAccelerator(sidebarHotkeys.openPRInBrowser.hotkey),
 			onSelect: openPRInBrowser,
 		}),
+		insertBlankCommitMenuItem(insertBlankCommit, "below"),
+		nativeMenuSeparator,
 		...(lane.type === "stack"
 			? [
-					insertBlankCommitMenuItem(insertBlankCommit, "below"),
-					nativeMenuSeparator,
 					nativeMenuItem({
 						label: "Create Branch",
 						submenu: [
@@ -467,20 +471,19 @@ export const BranchRow: FC<
 						enabled: lane.canTearOff && !isTearOffBranchPending,
 						onSelect: tearOff,
 					}),
-					nativeMenuItem({
-						label: "Delete Branch Reference",
-						enabled: lane.canRemove && !isBranchRemovePending,
-						accelerator: toElectronAccelerator(sidebarHotkeys.deleteBranchRef.hotkey),
-						onSelect: () =>
-							branchRemove({
-								projectId,
-								refName: refName.fullNameBytes,
-							}),
-					}),
-					nativeMenuSeparator,
-					...lane.stackMenuItems,
 				]
 			: []),
+		nativeMenuItem({
+			label: "Delete Branch Reference",
+			enabled: lane.canRemove && !isBranchRemovePending,
+			accelerator: toElectronAccelerator(sidebarHotkeys.deleteBranchRef.hotkey),
+			onSelect: () =>
+				branchRemove({
+					projectId,
+					refName: refName.fullNameBytes,
+				}),
+		}),
+		...(lane.type === "stack" ? [nativeMenuSeparator, ...lane.stackMenuItems] : []),
 	];
 
 	return (
