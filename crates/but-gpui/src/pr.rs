@@ -24,6 +24,7 @@ actions!(
         CreatePullRequest,
         EditPullRequest,
         ToggleDraft,
+        ToggleAutoMerge,
         MergePullRequest,
         ClosePullRequest,
     ]
@@ -494,6 +495,33 @@ impl AppView {
                 "Converted to a draft"
             } else {
                 "Marked ready for review"
+            },
+            cx,
+        );
+    }
+
+    /// Have an open pull request merge once its checks pass, or stop it from doing so.
+    pub fn toggle_auto_merge(
+        &mut self,
+        _: &ToggleAutoMerge,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((project, _, Some((number, ReviewState::Open)))) = self.review_target(cx) else {
+            return;
+        };
+        let store = self.store.read(cx);
+        let on = (store.selection.as_ref())
+            .and_then(|selection| store.branch_for(selection)?.review.as_ref())
+            .is_some_and(|review| review.auto_merge);
+        self.run_on_review(
+            project,
+            "Auto-merge",
+            move |path| reviews::set_auto_merge(path, number, !on),
+            if on {
+                "It won't merge on its own"
+            } else {
+                "Merges once its checks pass"
             },
             cx,
         );

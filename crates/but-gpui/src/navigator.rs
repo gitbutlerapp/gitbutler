@@ -1215,19 +1215,35 @@ impl Navigator {
                         None if !branch.commits.is_empty() => {
                             items.push(action("Create pull request…", &CreatePullRequest))
                         }
-                        Some(state @ (S::Open | S::Draft)) => items.extend([
-                            action("Edit pull request…", &EditPullRequest),
-                            action(
-                                if state == S::Draft {
-                                    "Mark ready for review"
-                                } else {
-                                    "Convert to draft"
-                                },
-                                &ToggleDraft,
-                            ),
-                            action("Merge pull request…", &MergePullRequest),
-                            action("Close pull request…", &ClosePullRequest),
-                        ]),
+                        Some(state @ (S::Open | S::Draft)) => {
+                            items.extend([
+                                action("Edit pull request…", &EditPullRequest),
+                                action(
+                                    if state == S::Draft {
+                                        "Mark ready for review"
+                                    } else {
+                                        "Convert to draft"
+                                    },
+                                    &ToggleDraft,
+                                ),
+                                action("Merge pull request…", &MergePullRequest),
+                            ]);
+                            // The forges GitButler can ask to merge on their own.
+                            let auto_merges =
+                                matches!(workspace.forge.as_deref(), Some("GitHub" | "GitLab"));
+                            if state == S::Open && auto_merges {
+                                let on = branch.review.as_ref().is_some_and(|r| r.auto_merge);
+                                items.push(action(
+                                    if on {
+                                        "Don't merge automatically"
+                                    } else {
+                                        "Merge when checks pass"
+                                    },
+                                    &ToggleAutoMerge,
+                                ));
+                            }
+                            items.push(action("Close pull request…", &ClosePullRequest));
+                        }
                         Some(S::Closed) => {
                             items.push(action("Reopen pull request", &ClosePullRequest))
                         }
