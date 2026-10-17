@@ -5,11 +5,11 @@
 use crate::tags::CacheTag;
 use but_hunk_assignment::WorktreeChanges;
 use gitbutler_operating_modes::OperatingMode;
-use schemars::JsonSchema;
 use serde::Serialize;
 
 /// The type of payloads a watcher event can have
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum WatcherPayload {
     /// Git remote information was fetched.
@@ -131,7 +131,8 @@ impl WatcherEventKind {
 }
 
 /// Git fetch event
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherGitFetchPayload;
 
@@ -139,7 +140,8 @@ pub struct WatcherGitFetchPayload;
 but_schemars::register_sdk_type!(WatcherGitFetchPayload);
 
 /// Git head (and operating mode) change event
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherGitHeadPayload {
     /// The symbolic ref HEAD points at, or `null` when HEAD is detached.
@@ -152,7 +154,8 @@ pub struct WatcherGitHeadPayload {
 but_schemars::register_sdk_type!(WatcherGitHeadPayload);
 
 /// Git files activity. Supplies the head sha
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherGitActivityPayload {
     /// The SHA of the repository's HEAD.
@@ -163,7 +166,8 @@ pub struct WatcherGitActivityPayload {
 but_schemars::register_sdk_type!(WatcherGitActivityPayload);
 
 /// Workspace activity that requires the UI to re-read branch/stack state.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherWorkspaceActivityPayload;
 
@@ -171,7 +175,8 @@ pub struct WatcherWorkspaceActivityPayload;
 but_schemars::register_sdk_type!(WatcherWorkspaceActivityPayload);
 
 /// Cache tags another process declared stale, spelled as `cache-tags` exports them.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherExternalInvalidationPayload {
     /// A client drops every cache providing one of these.
@@ -182,7 +187,8 @@ pub struct WatcherExternalInvalidationPayload {
 but_schemars::register_sdk_type!(WatcherExternalInvalidationPayload);
 
 /// Worktree files changes.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherWorktreeChangesPayload {
     /// Worktree-relative paths that triggered the event, using the same lossy
@@ -196,7 +202,8 @@ pub struct WatcherWorktreeChangesPayload {
 but_schemars::register_sdk_type!(WatcherWorktreeChangesPayload);
 
 /// Linked worktree files changes.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherLinkedWorktreeChangesPayload {
     /// The stable name of the linked worktree, as
