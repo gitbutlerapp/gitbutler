@@ -20,6 +20,10 @@ The title is plain text: no leading \"#\", no quotes, no prefix.
 Never repeat the title as a heading or first line of the body — it is shown above the body already.
 Return nothing else: no commentary, no surrounding code fence.";
 
+pub const RESOLVE_SYSTEM: &str = "You resolve merge conflicts in code. Return only the lines that \
+replace the conflict, exactly as they belong in the file: no Markdown, no code fence, no \
+commentary.";
+
 /// How much diff or history goes to the model.
 const CONTEXT_LIMIT: usize = 5_000;
 
@@ -63,6 +67,35 @@ pub fn pr_prompt(title: &str, body: &str, messages: &[String]) -> String {
         "Commit messages:\n```\n{}\n```",
         clipped(&messages)
     ));
+    sections.join("\n\n")
+}
+
+/// What to ask for a merge of one conflict in `path`, between what the commit `title` sits on,
+/// called `new_base`, and the commit itself, with the lines around them and, when known, the
+/// lines before either changed them.
+pub fn resolve_prompt(
+    path: &str,
+    title: &str,
+    new_base: &str,
+    sides: [&str; 2],
+    ancestor: Option<&str>,
+    around: [&str; 2],
+) -> String {
+    let block = |label: String, text: &str| format!("{label}\n```\n{}\n```", clipped(text));
+    let mut sections = vec![
+        format!(
+            "Merge two versions of the same lines in {path}. The commit \"{title}\" changed \
+             them, and so did {new_base}, which it now sits on. Keep what each meant to do."
+        ),
+        block("The lines before:".into(), around[0]),
+        block(format!("{new_base} has:"), sides[0]),
+        block("The commit has:".into(), sides[1]),
+    ];
+    if let Some(ancestor) = ancestor {
+        sections.push(block("Before either changed them:".into(), ancestor));
+    }
+    sections.push(block("The lines after:".into(), around[1]));
+    sections.push("Return only the merged lines.".into());
     sections.join("\n\n")
 }
 
@@ -141,7 +174,8 @@ pub fn split_title_body(text: &str) -> (String, String) {
     (title, body.to_owned())
 }
 
-fn strip_fence(text: &str) -> &str {
+/// `text` without a code fence around it, also while it streams in.
+pub fn strip_fence(text: &str) -> &str {
     let text = text.trim();
     let Some(after) = text.strip_prefix("```") else {
         return text;

@@ -368,6 +368,14 @@ impl FileDiff {
             _ => &[],
         }
     }
+
+    /// Its conflicts, in file order.
+    pub fn conflicts(&self) -> &[Conflict] {
+        match &self.body {
+            DiffBody::Hunks { conflicts, .. } => conflicts,
+            _ => &[],
+        }
+    }
 }
 
 /// The columns `text` takes in a monospace font: one a character, and two for those of three
@@ -386,6 +394,8 @@ pub enum DiffBody {
         removed: u32,
         /// The widest line on each side, old then new, in [`columns`].
         widest: [u32; 2],
+        /// Where a conflicted commit and its new base both changed the file, in file order.
+        conflicts: Vec<Conflict>,
     },
     Binary,
     /// An image, shown before and after; a side is missing for an added or deleted file.
@@ -398,6 +408,32 @@ pub enum DiffBody {
     },
     /// Mode changes and the like, with no lines to show.
     Empty,
+    /// A conflict the app can't split into lines to pick between, like a file one side
+    /// deleted, and why.
+    Unresolvable(String),
+}
+
+/// Lines a conflicted commit and its new base both changed: what each has there, with the
+/// unchanged lines around them, numbered as the file's diff numbers its new side.
+#[derive(Debug, Clone)]
+pub struct Conflict {
+    /// Stays the same while resolving others rewrites the commit.
+    pub id: String,
+    /// Its place among the file's conflicts, which resolving addresses it by.
+    pub index: usize,
+    /// The new-side line of the file's diff it starts at.
+    pub at: u32,
+    pub before: Vec<DiffLine>,
+    /// What the commit now sits on has these lines.
+    pub new_base: Vec<DiffLine>,
+    /// The commit's own lines.
+    pub commit: Vec<DiffLine>,
+    /// The lines before either side changed them, when the merge knows.
+    pub ancestor: Option<Vec<DiffLine>>,
+    pub after: Vec<DiffLine>,
+    /// Each side as the file has it, to keep both or edit from.
+    pub new_base_text: String,
+    pub commit_text: String,
 }
 
 #[derive(Debug, Clone)]

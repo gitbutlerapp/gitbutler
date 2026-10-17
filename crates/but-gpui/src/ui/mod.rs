@@ -1,5 +1,6 @@
 //! Shared building blocks so every surface draws rows, buttons and counts the same way.
 
+pub mod conflict;
 pub mod diff;
 pub mod file_icons;
 pub mod modal;
@@ -127,6 +128,17 @@ pub fn icon(icon: Icon) -> Svg {
 
 pub fn small_icon(icon: Icon) -> Svg {
     svg().path(icon.path()).size(px(12.)).flex_none()
+}
+
+/// A row of toggles in one bordered group, as ui-react's `ToggleGroupStyles`.
+pub fn toggle_group(theme: &Theme) -> Div {
+    h_flex()
+        .flex_none()
+        .p(px(2.))
+        .gap(px(2.))
+        .rounded(px(6.))
+        .border_1()
+        .border_color(theme.border_3)
 }
 
 pub fn h_flex() -> Div {
@@ -293,6 +305,8 @@ pub struct Button {
     small: bool,
     /// On an inverted ground, like a selected row.
     inverted: bool,
+    /// The colour of the ground it sits on, as a banner's action takes its banner's.
+    tint: Option<Hsla>,
     on_click: Option<ClickHandler>,
     tooltip: Option<SharedString>,
     tooltip_key: Option<SharedString>,
@@ -309,6 +323,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         disabled: None,
         small: false,
         inverted: false,
+        tint: None,
         on_click: None,
         tooltip: None,
         tooltip_key: None,
@@ -352,6 +367,11 @@ impl Button {
 
     pub fn small(mut self) -> Self {
         self.small = true;
+        self
+    }
+
+    pub fn tint(mut self, tint: Hsla) -> Self {
+        self.tint = Some(tint);
         self
     }
 
@@ -415,14 +435,14 @@ impl RenderOnce for Button {
                 theme.danger.opacity(0.16),
             ),
         };
-        let (fg, bg, hover) = if self.inverted && self.style != ButtonStyle::Pop {
-            (
+        let (fg, bg, hover) = match self.tint {
+            Some(tint) => (tint, bg.map(|_| tint.opacity(0.12)), tint.opacity(0.16)),
+            None if self.inverted && self.style != ButtonStyle::Pop => (
                 theme.text_inverted,
                 bg.map(|_| theme.text_inverted.opacity(0.14)),
                 theme.text_inverted.opacity(0.22),
-            )
-        } else {
-            (fg, bg, hover)
+            ),
+            None => (fg, bg, hover),
         };
         let height = if self.small { px(22.) } else { px(28.) };
         let has_label = self.label.is_some();

@@ -9,9 +9,10 @@ use gpui::{
     combine_highlights, div, pattern_slash, prelude::*, px,
 };
 
+use super::conflict::{self, Part};
 use super::file_icons::file_icon;
 use super::{Icon, h_flex, plural, small_icon, v_flex};
-use crate::backend::{ChangeKind, DiffBody, DiffLine, FileDiff, Hunk, LineKind};
+use crate::backend::{ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind};
 use crate::theme::Theme;
 
 pub const FILE_HEADER_HEIGHT: f32 = 38.;
@@ -42,6 +43,12 @@ pub enum DiffRow {
         hunk: usize,
         left: Option<usize>,
         right: Option<usize>,
+    },
+    /// Part of a conflict, by its place among its file's conflicts.
+    Conflict {
+        file: usize,
+        conflict: usize,
+        part: Part,
     },
     /// Binary, too large or empty: a one-line explanation instead of lines.
     Note(usize),
@@ -103,7 +110,8 @@ impl DiffRow {
             | DiffRow::Hunk { file, .. }
             | DiffRow::Line { file, .. }
             | DiffRow::Pair { file, .. }
-            | DiffRow::Context { file, .. } => Some(file),
+            | DiffRow::Context { file, .. }
+            | DiffRow::Conflict { file, .. } => Some(file),
             DiffRow::Gap => None,
         }
     }
@@ -118,7 +126,7 @@ pub fn ends_card(rows: &[DiffRow], ix: usize) -> bool {
 /// Rows for `files`, with the files `folded` says are folded reduced to their header, the
 /// files and hunks `hidden` and `hidden_hunk` say are hidden left out, and the files `whole`
 /// gives the length of shown with every unchanged line. With `split`, a hunk's lines pair up
-/// side by side.
+/// side by side. A file's conflicts sit among its hunks by line, laid out as `view` says.
 pub fn rows(
     files: &[FileDiff],
     folded: impl Fn(&FileDiff) -> bool,
@@ -126,6 +134,7 @@ pub fn rows(
     hidden_hunk: impl Fn(&FileDiff, &Hunk) -> bool,
     whole: impl Fn(&FileDiff) -> Option<u32>,
     split: bool,
+    view: impl Fn(&Conflict) -> conflict::View,
 ) -> Vec<DiffRow> {
     let mut rows = Vec::new();
     for (file_ix, file) in files.iter().enumerate() {
@@ -138,14 +147,30 @@ pub fn rows(
             continue;
         }
         match &file.body {
-            DiffBody::Hunks { hunks, .. } if !hunks.is_empty() => {
+            DiffBody::Hunks {
+                hunks, conflicts, ..
+            } if !hunks.is_empty() || !conflicts.is_empty() => {
                 let total = whole(file);
                 // The first new-side line not shown yet.
                 let mut next = 1;
+                let mut pending = conflicts.iter().peekable();
+                // The conflicts before `line`, with the unchanged lines up to each when the
+                // file shows whole, which stand in for the conflict's own.
+                let mut conflicts_before =
+                    |rows: &mut Vec<DiffRow>, line: u32, ahead, next: &mut u32| {
+                        while let Some(found) = pending.next_if(|c| c.at < line) {
+                            if total.is_some() {
+                                context_rows(rows, file_ix, *next..found.at, ahead);
+                                *next = found.at + found.new_base.len() as u32;
+                            }
+                            conflict::rows(rows, file_ix, found, view(found), total.is_none());
+                        }
+                    };
                 for (hunk_ix, hunk) in hunks.iter().enumerate() {
                     let header = hunk.key.0;
+                    let ahead = i64::from(header.new_start) - i64::from(header.old_start);
+                    conflicts_before(&mut rows, header.new_start, ahead, &mut next);
                     if total.is_some() {
-                        let ahead = i64::from(header.new_start) - i64::from(header.old_start);
                         context_rows(&mut rows, file_ix, next..header.new_start, ahead);
                     }
                     next = header.new_start + header.new_lines;
@@ -173,10 +198,13 @@ pub fn rows(
                         }));
                     }
                 }
+                let ahead = hunks.last().map_or(0, |end| {
+                    let end = end.key.0;
+                    i64::from(end.new_start + end.new_lines)
+                        - i64::from(end.old_start + end.old_lines)
+                });
+                conflicts_before(&mut rows, u32::MAX, ahead, &mut next);
                 if let Some(total) = total.filter(|total| next <= *total) {
-                    let end = hunks[hunks.len() - 1].key.0;
-                    let ahead = i64::from(end.new_start + end.new_lines)
-                        - i64::from(end.old_start + end.old_lines);
                     context_rows(&mut rows, file_ix, next..total + 1, ahead);
                 }
             }
@@ -336,7 +364,7 @@ fn row_id((file, hunk, line): (usize, usize, usize)) -> usize {
 }
 
 /// The sides and ground of a file's card, of which each of its rows draws a slice.
-fn card(el: gpui::Div, theme: &Theme) -> gpui::Div {
+pub(super) fn card(el: gpui::Div, theme: &Theme) -> gpui::Div {
     el.w_full()
         .border_l_1()
         .border_r_1()
@@ -420,6 +448,7 @@ pub fn file_header(ix: usize, file: &FileDiff, theme: &Theme, decor: HeaderDecor
                         }),
                 ),
         )
+        .when(file.file.conflicted, |el| el.child(conflicted_badge(theme)))
         .child(stats(added, removed, theme))
         .children(change_scale(added, removed, theme))
         // Parts what the file changed from what can be done to it.
@@ -521,6 +550,19 @@ pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDec
         .into_any_element()
 }
 
+/// What a conflicted file says before its actions, as ui-react's danger `Badge`.
+fn conflicted_badge(theme: &Theme) -> gpui::Div {
+    div()
+        .flex_none()
+        .px(px(6.))
+        .py(px(1.))
+        .rounded(px(9.))
+        .bg(theme.danger.opacity(0.12))
+        .text_color(theme.danger)
+        .text_size(px(11.))
+        .child("Conflicted")
+}
+
 /// In place of the lines of a file without any to show: an image's two sides, or why
 /// there's nothing.
 pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
@@ -532,6 +574,9 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
         DiffBody::Binary => "Binary file".to_owned(),
         DiffBody::TooLarge { bytes } => {
             format!("Too large to show ({:.1} MB)", *bytes as f64 / 1_000_000.)
+        }
+        DiffBody::Unresolvable(reason) => {
+            format!("Can't be resolved here: {reason}. `but resolve` in a terminal can.")
         }
         DiffBody::Empty | DiffBody::Hunks { .. } => match file.file.kind {
             ChangeKind::Renamed => "Renamed without changes".to_owned(),
@@ -553,15 +598,16 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
 
 /// How a line of `kind` looks: its ground, its numbers' ground and colour, its changed words'
 /// ground, and the bar down its edge, which tells an addition from a removal without colour.
-struct Look {
-    bg: Option<Hsla>,
-    number: Hsla,
-    emph: Hsla,
-    bar: Option<Background>,
+#[derive(Clone)]
+pub(super) struct Look {
+    pub bg: Option<Hsla>,
+    pub number: Hsla,
+    pub emph: Hsla,
+    pub bar: Option<Background>,
 }
 
 /// With `plain`, a changed line keeps the card's ground.
-fn look(kind: LineKind, plain: bool, theme: &Theme) -> Look {
+pub(super) fn look(kind: LineKind, plain: bool, theme: &Theme) -> Look {
     match kind {
         LineKind::Context => Look {
             bg: None,
@@ -586,14 +632,14 @@ fn look(kind: LineKind, plain: bool, theme: &Theme) -> Look {
 }
 
 /// The width of a digit of code: Geist Mono's are 0.6em wide.
-fn digit_width(theme: &Theme) -> f32 {
+pub(super) fn digit_width(theme: &Theme) -> f32 {
     theme.code_text * 0.6
 }
 
 /// A line's number, in a column that fits `digits`, at least three, as on but.dev: with two
 /// digits' room on the left, where the bar goes, and one on the right. With `toggle`, a click
 /// on it puts the line in the next commit or takes it out.
-fn number_cell(
+pub(super) fn number_cell(
     n: Option<u32>,
     digits: usize,
     look: &Look,
@@ -633,7 +679,7 @@ fn number_cell(
 }
 
 /// A line's text with its syntax, changed words, Find's matches and the selection marked.
-fn line_text(
+pub(super) fn line_text(
     line: &DiffLine,
     emph_bg: Hsla,
     found: Vec<(Range<usize>, bool)>,
@@ -665,7 +711,7 @@ fn line_text(
 
 /// The text of a line, after its numbers. Unless it wraps, it scrolls sideways, as far as its
 /// file's widest line on that side and a digit's room after it.
-fn text_cell(
+pub(super) fn text_cell(
     id: ElementId,
     text: StyledText,
     wrap: bool,
@@ -695,7 +741,12 @@ fn text_cell(
 }
 
 /// A row of a file's card, a line tall or taller when wrapping.
-fn line_card(id: ElementId, last: bool, wrap: bool, theme: &Theme) -> gpui::Stateful<gpui::Div> {
+pub(super) fn line_card(
+    id: ElementId,
+    last: bool,
+    wrap: bool,
+    theme: &Theme,
+) -> gpui::Stateful<gpui::Div> {
     card(h_flex(), theme)
         .id(id)
         .map(|el| {
