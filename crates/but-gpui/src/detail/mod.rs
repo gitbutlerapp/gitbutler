@@ -315,7 +315,16 @@ impl Detail {
                 &file_filter,
                 window,
                 |this, _, event, window, cx| match event {
-                    InputEvent::Changed => this.rebuild_rows(cx),
+                    InputEvent::Changed => {
+                        this.rebuild_rows(cx);
+                        // So the diff's keys act on a file in view.
+                        let shown = this.shown_files();
+                        if let Some(&file) = shown.first()
+                            && !shown.contains(&this.cursor.file)
+                        {
+                            this.cursor = Cursor { file, hunk: None };
+                        }
+                    }
                     InputEvent::Submit => window.focus(&this.focus, cx),
                     InputEvent::Cancel => this.close_filter(window, cx),
                 },
