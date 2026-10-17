@@ -15,6 +15,10 @@ pub fn show_notification(
     if window.is_focused().context("failed to read window focus")? {
         return Ok(());
     }
+    #[cfg(target_os = "macos")]
+    if !notify_rust::request_auth_blocking().context("failed to request notification permission")? {
+        return Ok(());
+    }
     let mut notification = Notification::new();
     notification.summary(&title).body(&body);
     #[cfg(all(unix, not(target_os = "macos")))]
