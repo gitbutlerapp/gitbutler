@@ -8,7 +8,7 @@ use gpui::{
     SharedString, Stateful, Window, actions, div, prelude::*, px,
 };
 
-use crate::backend::conflicts::{self, ConflictHunk, Conflicts, Pick};
+use crate::backend::conflicts::{self, CommitConflicts, ConflictHunk, Pick};
 use crate::backend::{self, CommitId};
 use crate::state::{Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
@@ -22,7 +22,7 @@ const CONTEXT_LINES: usize = 3;
 
 /// Every conflict shown, by file and 0-based hunk, as picks are kept.
 fn conflict_keys(
-    conflicts: &Option<Result<Conflicts, SharedString>>,
+    conflicts: &Option<Result<CommitConflicts, SharedString>>,
 ) -> impl Iterator<Item = (String, usize)> + '_ {
     let files = match conflicts {
         Some(Ok(found)) => found.files.as_slice(),
@@ -37,7 +37,7 @@ pub struct ResolveView {
     commit: CommitId,
     title: SharedString,
     focus: FocusHandle,
-    conflicts: Option<Result<Conflicts, SharedString>>,
+    conflicts: Option<Result<CommitConflicts, SharedString>>,
     /// Picks by file and 0-based hunk.
     picks: HashMap<(String, usize), Pick>,
     /// The picks are being applied.
@@ -249,15 +249,15 @@ impl ResolveView {
             .font_family(theme.mono_font.clone())
             .text_size(px(12.))
             .line_height(px(18.))
-            .children(context(&hunk.before, true))
+            .children(context(&hunk.context_before, true))
             .child(
                 h_flex()
                     .items_start()
                     .gap(px(8.))
-                    .child(side("Current", &hunk.current, Pick::Current))
-                    .child(side("Incoming", &hunk.incoming, Pick::Incoming)),
+                    .child(side("Current", &hunk.ours, Pick::Current))
+                    .child(side("Incoming", &hunk.theirs, Pick::Incoming)),
             )
-            .children(context(&hunk.after, false))
+            .children(context(&hunk.context_after, false))
             .child(
                 h_flex()
                     .gap(px(4.))
@@ -318,10 +318,10 @@ impl Render for ResolveView {
                                         .font_weight(gpui::FontWeight::SEMIBOLD)
                                         .child("Needs editing by hand"),
                                 )
-                                .children(found.manual.iter().map(|(path, reason)| {
+                                .children(found.manual.iter().map(|file| {
                                     div()
                                         .text_color(theme.text_2)
-                                        .child(format!("{path}: {reason}"))
+                                        .child(format!("{}: {}", file.path, file.reason))
                                 }))
                                 .child(muted(
                                     format!(

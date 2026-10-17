@@ -68,7 +68,7 @@ pub fn pr_prompt(title: &str, body: &str, messages: &[String]) -> String {
 
 /// Ask the configured provider, calling `on_text` with each piece of the answer as it
 /// arrives. Returns the whole answer.
-pub fn stream(
+fn stream(
     system: &str,
     prompt: String,
     on_text: impl Fn(&str) + Send + Sync + 'static,

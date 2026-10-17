@@ -1,37 +1,16 @@
 //! A conflicted commit's conflicts, and resolving them hunk by hunk without leaving the
-//! workspace. "Current" is what the commit now sits on, "incoming" the commit's own
-//! change, as in a rebase.
+//! workspace. The app calls a hunk's "ours" side current, what the commit now sits on, and
+//! its "theirs" side incoming, the commit's own change, as in a rebase.
 
 use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::Result;
 use but_api::resolve::{self, HunkResolution, ResolutionSpec};
+pub use but_api::resolve::{CommitConflicts, ConflictHunk};
 
 use super::ops::rewritten;
 use super::{CommitId, Rewritten, open};
-
-#[derive(Debug, Clone)]
-pub struct Conflicts {
-    pub files: Vec<ConflictedFile>,
-    /// Files with no hunks to pick between, like a side deleting the file, each with why.
-    /// Only edit mode can resolve those.
-    pub manual: Vec<(String, String)>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ConflictedFile {
-    pub path: String,
-    pub hunks: Vec<ConflictHunk>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ConflictHunk {
-    pub before: String,
-    pub current: String,
-    pub incoming: String,
-    pub after: String,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pick {
@@ -42,32 +21,8 @@ pub enum Pick {
     Ai,
 }
 
-pub fn conflicts(path: &Path, commit: CommitId) -> Result<Conflicts> {
-    let found = resolve::commit_conflicts(&open(path)?, commit.0)?;
-    Ok(Conflicts {
-        files: found
-            .files
-            .into_iter()
-            .map(|file| ConflictedFile {
-                path: file.path,
-                hunks: file
-                    .hunks
-                    .into_iter()
-                    .map(|hunk| ConflictHunk {
-                        before: hunk.context_before,
-                        current: hunk.ours,
-                        incoming: hunk.theirs,
-                        after: hunk.context_after,
-                    })
-                    .collect(),
-            })
-            .collect(),
-        manual: found
-            .manual
-            .into_iter()
-            .map(|file| (file.path, file.reason))
-            .collect(),
-    })
+pub fn conflicts(path: &Path, commit: CommitId) -> Result<CommitConflicts> {
+    resolve::commit_conflicts(&open(path)?, commit.0)
 }
 
 /// What resolving left.
@@ -85,7 +40,7 @@ pub fn resolve(
     path: &Path,
     commit: CommitId,
     picks: &HashMap<(String, usize), Pick>,
-    hunks: &Conflicts,
+    hunks: &CommitConflicts,
 ) -> Result<(Rewritten, Resolved)> {
     let specs = picks
         .iter()
@@ -101,11 +56,11 @@ pub fn resolve(
                         .find(|f| f.path == *file)
                         .and_then(|f| f.hunks.get(*ix));
                     HunkResolution::Content(hunk.map_or_else(String::new, |hunk| {
-                        let mut both = hunk.current.clone();
+                        let mut both = hunk.ours.clone();
                         if !both.is_empty() && !both.ends_with('\n') {
                             both.push('\n');
                         }
-                        both + &hunk.incoming
+                        both + &hunk.theirs
                     }))
                 }
             };

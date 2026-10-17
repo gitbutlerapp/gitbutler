@@ -10,7 +10,7 @@ use bstr::ByteSlice;
 
 use super::{
     CommitId, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind, SnapshotId,
-    annotate, columns, file_change, highlight, open, worktree_files,
+    annotate, checkout, columns, file_change, highlight, open, worktree_files,
 };
 
 /// What a diff is about.
@@ -59,25 +59,21 @@ pub fn load_diff(
 ) -> Result<Vec<FileDiff>> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
-    let main = ctx.repo.get()?;
     // A linked worktree's changes are read and diffed in its own checkout.
     let linked = match &source {
-        DiffSource::Linked(name) => Some(but_workspace::worktrees::open_worktree_repo(
-            &main,
-            name.as_bytes().as_bstr(),
-        )?),
+        DiffSource::Linked(name) => Some(name.as_ref()),
         _ => None,
     };
-    let repo = linked.as_ref().unwrap_or(&main);
+    let repo = checkout(&ctx, linked)?;
     let tree_changes = |base, tip| -> Result<Vec<FileChange>> {
-        let changes = but_core::diff::tree_changes(repo, base, tip)?;
+        let changes = but_core::diff::tree_changes(&repo, base, tip)?;
         Ok(changes.into_iter().map(file_change).collect())
     };
     let changes: Vec<FileChange> = match &source {
         // With modification times, so review marks match the workspace's file list.
         DiffSource::Worktree | DiffSource::Linked(_) => match worktree {
             Some(files) => files,
-            None => worktree_files(repo)?,
+            None => worktree_files(&repo)?,
         },
         DiffSource::Commit(id) => {
             let details =
@@ -124,7 +120,7 @@ pub fn load_diff(
     // Only the first `annotate` files are highlighted and given scope names; the rest stay
     // plain unless reused.
     let first = annotate.unwrap_or(usize::MAX);
-    let repo = repo.clone().into_sync();
+    let repo = repo.into_sync();
     let diffs = parallel_map(
         changes,
         || repo.to_thread_local(),
@@ -278,13 +274,8 @@ pub fn file_lines(
     let Some(state) = file.change.status.state() else {
         return Ok(None);
     };
-    let ctx = open(path)?;
-    let main = ctx.repo.get()?;
-    let linked = worktree
-        .map(|name| but_workspace::worktrees::open_worktree_repo(&main, name.as_bytes().as_bstr()))
-        .transpose()?;
-    let repo = linked.as_ref().unwrap_or(&main);
-    let bytes = read_side(repo, state, &file.path)?;
+    let repo = checkout(&open(path)?, worktree)?;
+    let bytes = read_side(&repo, state, &file.path)?;
     if bytes.contains(&0) {
         return Ok(None);
     }
@@ -334,42 +325,33 @@ fn parallel_map<T: Send, S, R: Send>(
     state: impl Fn() -> S + Sync,
     f: impl Fn(&S, usize, T) -> R + Sync,
 ) -> Vec<R> {
-    use std::sync::Mutex;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     let threads = std::thread::available_parallelism()
         .map_or(4, |n| n.get())
         .min(items.len());
-    let next = AtomicUsize::new(0);
-    let items: Vec<Mutex<Option<T>>> = items
-        .into_iter()
-        .map(|item| Mutex::new(Some(item)))
-        .collect();
-    let results: Vec<Mutex<Option<R>>> = items.iter().map(|_| Mutex::new(None)).collect();
-    std::thread::scope(|scope| {
-        for _ in 0..threads {
-            scope.spawn(|| {
-                let state = state();
-                loop {
-                    let index = next.fetch_add(1, Ordering::Relaxed);
-                    let Some(item) = items.get(index) else {
-                        break;
-                    };
-                    let item = item.lock().expect("each item is taken once").take();
-                    let result = f(&state, index, item.expect("each item is taken once"));
-                    *results[index].lock().expect("each result is set once") = Some(result);
-                }
-            });
-        }
+    let queue = std::sync::Mutex::new(items.into_iter().enumerate());
+    let mut results: Vec<(usize, R)> = std::thread::scope(|scope| {
+        let workers: Vec<_> = (0..threads)
+            .map(|_| {
+                scope.spawn(|| {
+                    let state = state();
+                    let mut done = Vec::new();
+                    loop {
+                        // Taken out first, so the lock is free while `f` runs.
+                        let next = queue.lock().expect("no thread panics holding it").next();
+                        let Some((index, item)) = next else {
+                            break done;
+                        };
+                        done.push((index, f(&state, index, item)));
+                    }
+                })
+            })
+            .collect();
+        (workers.into_iter())
+            .flat_map(|worker| worker.join().expect("`f` doesn't panic"))
+            .collect()
     });
-    results
-        .into_iter()
-        .map(|result| {
-            result
-                .into_inner()
-                .expect("each result is set once")
-                .expect("every item is mapped")
-        })
-        .collect()
+    results.sort_unstable_by_key(|(index, _)| *index);
+    results.into_iter().map(|(_, result)| result).collect()
 }
 
 /// A hash of a file's patch, hunk headers included, so two equal ones have the same lines.
@@ -437,11 +419,7 @@ const LINE_LIMIT: usize = 2000;
 fn display_text(raw: &str) -> String {
     let mut text = raw.trim_end_matches('\r').replace('\t', "    ");
     if text.len() > LINE_LIMIT {
-        let cut = (0..=LINE_LIMIT)
-            .rev()
-            .find(|ix| text.is_char_boundary(*ix))
-            .unwrap_or(0);
-        text.truncate(cut);
+        text.truncate(text.floor_char_boundary(LINE_LIMIT));
         text.push('…');
     }
     text
@@ -471,14 +449,8 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
             LineKind::Added => (None, Some(new)),
             LineKind::Removed => (Some(old), None),
         };
-        match kind {
-            LineKind::Context => {
-                old += 1;
-                new += 1;
-            }
-            LineKind::Added => new += 1,
-            LineKind::Removed => old += 1,
-        }
+        old += u32::from(old_no.is_some());
+        new += u32::from(new_no.is_some());
         lines.push(DiffLine {
             kind,
             old: old_no,

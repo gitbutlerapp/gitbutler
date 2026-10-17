@@ -25,8 +25,7 @@ impl SettingsView {
             return;
         };
         self._load = cx.spawn(async move |this, cx| {
-            let id = project.to_string();
-            let loaded = crate::backend::run(move || backend::project_settings(&id, &path)).await;
+            let loaded = crate::backend::run(move || backend::project_settings(&path)).await;
             this.update(cx, |this, cx| {
                 match loaded {
                     Ok(settings) => this.project_settings = Some(settings),

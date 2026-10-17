@@ -14,7 +14,7 @@ use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
-use super::{ChangeKind, CommitId, Selected, open};
+use super::{ChangeKind, CommitId, Selected, checkout, open};
 
 /// Where a commit or a set of changes lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -308,9 +308,8 @@ pub fn unapply_stack(path: &Path, branch: &str) -> Result<()> {
 
 pub(super) fn holds(segment: &but_workspace::ref_info::Segment, branch: &str) -> bool {
     segment
-        .ref_info
-        .as_ref()
-        .is_some_and(|info| info.ref_name.as_bstr() == branch)
+        .ref_name()
+        .is_some_and(|name| name.as_bstr() == branch)
 }
 
 /// An empty commit at `at`, to move changes into later.
@@ -364,7 +363,6 @@ pub fn remove_branch(path: &Path, ref_name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Fold the `selected` uncommitted changes into `commit`.
 /// Add the `selected` changes to `commit`. With `run_hooks`, pre-commit runs first and can
 /// refuse, and post-commit runs after, as the desktop app does; what a failed post-commit
 /// printed comes back as the third value.
@@ -564,12 +562,7 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
     // One lock throughout, so what's conflicted can't change under the discard.
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    let main = ctx.repo.get()?;
-    let linked = (worktree.map(|name| {
-        but_workspace::worktrees::open_worktree_repo(&main, name.as_bytes().as_bstr())
-    }))
-    .transpose()?;
-    let repo = linked.as_ref().unwrap_or(&main);
+    let repo = &checkout(&ctx, worktree)?;
     // Discarding goes by status, which leaves conflicted files out: take them as they are,
     // then throw that away. Only whole: discarding part of one would take the rest of it
     // as resolved, markers and all.
@@ -586,7 +579,7 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
     // The snapshot is recorded before anything changes, as the but-api discard does: undo
     // then brings back whatever goes, conflicts included, even when some of it couldn't be
     // discarded. The oplog can't restore a linked worktree, so its discard has none.
-    if linked.is_none() {
+    if worktree.is_none() {
         let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
             &ctx,
             SnapshotDetails::new(OperationKind::DiscardChanges),
@@ -597,9 +590,6 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
             tracing::warn!(?err, "couldn't record the discard for undo");
         }
     }
-    if !conflicted.is_empty() {
-        but_workspace::resolve_worktree_conflicts(repo, conflicted)?;
-    }
     // An added or deleted file goes only whole, and its one hunk is all of it anyway.
     let mut specs = selected_specs(selected);
     for (spec, part) in specs.iter_mut().zip(selected) {
@@ -609,7 +599,19 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
     }
     let context_lines = ctx.settings.context_lines;
     let specs = current_hunks(repo, specs, context_lines)?;
-    let rejected = but_workspace::discard_workspace_changes(repo, specs, context_lines)?;
+    // Conflicted files go last: resolving one takes its conflict away, so a failure after
+    // that would lose it, and a linked worktree has no snapshot to bring it back.
+    let (conflicted_specs, rest): (Vec<_>, Vec<_>) =
+        (specs.into_iter()).partition(|spec| conflicted.contains(&spec.path));
+    let mut rejected = but_workspace::discard_workspace_changes(repo, rest, context_lines)?;
+    if !conflicted.is_empty() {
+        but_workspace::resolve_worktree_conflicts(repo, conflicted)?;
+        rejected.extend(but_workspace::discard_workspace_changes(
+            repo,
+            conflicted_specs,
+            context_lines,
+        )?);
+    }
     if !rejected.is_empty() {
         // A file with nothing left to discard is as good as discarded.
         let left = but_core::diff::worktree_changes(repo)?.changes;
@@ -717,19 +719,12 @@ mod tests {
 
     /// A repository mid-merge, with `file` changed on both sides and left conflicted.
     fn conflicted_repo() -> (tempfile::TempDir, CommitId) {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = repo_with("base\n");
         let path = dir.path();
-        git(path, &["init", "-q", "-b", "main"]);
-        git(path, &["config", "user.name", "T"]);
-        git(path, &["config", "user.email", "t@example.com"]);
-        git(path, &["config", "commit.gpgsign", "false"]);
         let commit = |content: &str| {
             std::fs::write(path.join("file"), content).unwrap();
             git(path, &["commit", "-q", "-am", content.trim()]);
         };
-        std::fs::write(path.join("file"), "base\n").unwrap();
-        git(path, &["add", "file"]);
-        git(path, &["commit", "-q", "-m", "base"]);
         git(path, &["checkout", "-q", "-b", "other"]);
         commit("theirs\n");
         git(path, &["checkout", "-q", "main"]);
@@ -802,13 +797,8 @@ mod tests {
 
     #[test]
     fn discarding_the_hunk_of_an_added_file_removes_it() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = repo_with("one\n");
         let path = dir.path();
-        git(path, &["init", "-q"]);
-        git(path, &["config", "user.name", "T"]);
-        git(path, &["config", "user.email", "t@example.com"]);
-        git(path, &["config", "commit.gpgsign", "false"]);
-        git(path, &["commit", "-q", "--allow-empty", "-m", "first"]);
         std::fs::write(path.join("new"), "one\ntwo\n").unwrap();
 
         let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
@@ -864,17 +854,56 @@ mod tests {
     }
 
     #[test]
-    fn amending_some_hunks_leaves_the_rest_uncommitted() {
-        let dir = tempfile::tempdir().unwrap();
+    fn a_failed_discard_in_a_linked_worktree_leaves_its_conflicts() {
+        let dir = repo_with("base\n");
         let path = dir.path();
-        git(path, &["init", "-q"]);
-        git(path, &["config", "user.name", "T"]);
-        git(path, &["config", "user.email", "t@example.com"]);
-        git(path, &["config", "commit.gpgsign", "false"]);
+        let outside = tempfile::tempdir().unwrap();
+        let linked = outside.path().join("agent");
+        let linked_dir = linked.to_str().unwrap();
+        git(path, &["worktree", "add", "-q", "-b", "agent", linked_dir]);
+        git(path, &["checkout", "-q", "-b", "other"]);
+        std::fs::write(path.join("file"), "theirs\n").unwrap();
+        git(path, &["commit", "-q", "-am", "theirs"]);
+        std::fs::write(linked.join("file"), "ours\n").unwrap();
+        std::fs::write(linked.join("gone"), "one\n").unwrap();
+        git(&linked, &["add", "gone"]);
+        git(&linked, &["commit", "-q", "-am", "ours"]);
+        let merge = Command::new("git")
+            .current_dir(&linked)
+            .args(["merge", "-q", "other"])
+            .output()
+            .unwrap();
+        assert!(!merge.status.success(), "both sides changed the line");
+        std::fs::write(linked.join("gone"), "two\n").unwrap();
+
+        let diff = load_diff(path, DiffSource::Linked("agent".into()), None, None, None).unwrap();
+        let selected: Vec<Selected> = (diff.iter())
+            .map(|file| Selected {
+                file: file.file.clone(),
+                hunks: match &file.body {
+                    DiffBody::Hunks { hunks, .. } if file.file.path == "gone" => {
+                        Some(vec![hunks[0].key])
+                    }
+                    _ => None,
+                },
+            })
+            .collect();
+        assert_eq!(selected.len(), 2, "the conflicted file and the edit");
+        // Deleted since the diff was shown, so its hunk can't be discarded alone.
+        std::fs::remove_file(linked.join("gone")).unwrap();
+        discard(path, Some("agent"), &selected).unwrap_err();
+        assert_eq!(
+            git(&linked, &["ls-files", "-u", "file"]).lines().count(),
+            3,
+            "with no snapshot to undo from, the conflict is still there to resolve"
+        );
+    }
+
+    #[test]
+    fn amending_some_hunks_leaves_the_rest_uncommitted() {
         let mut lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
-        std::fs::write(path.join("file"), lines.concat()).unwrap();
-        git(path, &["add", "file"]);
-        git(path, &["commit", "-q", "-m", "first"]);
+        let dir = repo_with(&lines.concat());
+        let path = dir.path();
         lines[0] = "first edit\n".into();
         lines[19] = "last edit\n".into();
         std::fs::write(path.join("file"), lines.concat()).unwrap();

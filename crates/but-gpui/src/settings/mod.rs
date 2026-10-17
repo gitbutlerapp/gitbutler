@@ -225,6 +225,21 @@ impl SettingsView {
         .detach();
     }
 
+    /// Show the fetch interval as saved, which a change that failed left as it was.
+    fn reload_fetch_interval(&mut self, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            let saved = crate::backend::run(|| Ok(backend::fetch_interval())).await;
+            if let Ok(minutes) = saved {
+                this.update(cx, |this, cx| {
+                    this.fetch_interval = minutes;
+                    cx.notify();
+                })
+                .ok();
+            }
+        })
+        .detach();
+    }
+
     fn open_menu(&self, event: &ClickEvent, items: Vec<MenuItem>, cx: &mut App) {
         let position = event.position();
         self.app
@@ -375,15 +390,12 @@ impl SettingsView {
             |this, minutes: Option<u64>, cx| {
                 this.fetch_interval = minutes;
                 cx.notify();
-                let failed = "Couldn't change how often to fetch";
-                cx.spawn(async move |this, cx| {
-                    let saved =
-                        crate::backend::run(move || backend::set_fetch_interval(minutes)).await;
-                    if let Err(err) = saved {
-                        this.update(cx, |this, cx| this.error(failed, err, cx)).ok();
-                    }
-                })
-                .detach();
+                this.apply(
+                    "Couldn't change how often to fetch",
+                    move || backend::set_fetch_interval(minutes),
+                    Self::reload_fetch_interval,
+                    cx,
+                );
             },
             cx,
         );
@@ -399,7 +411,11 @@ impl SettingsView {
                     this.update(cx, |this, cx| match saved {
                         // Watched and listed again, with their worktrees or without.
                         Ok(()) => this.store.update(cx, |store, cx| store.reopen_expanded(cx)),
-                        Err(err) => this.error("Couldn't change the worktree setting", err, cx),
+                        Err(err) => {
+                            this.worktrees = !on;
+                            cx.notify();
+                            this.error("Couldn't change the worktree setting", err, cx)
+                        }
                     })
                     .ok();
                 })

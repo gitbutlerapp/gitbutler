@@ -11,7 +11,7 @@ use but_ctx::Context;
 
 use super::ops::holds;
 use super::upstream::sync_failure;
-use super::{Checks, Forge, PushState, Review, ReviewState, open, push, runtime};
+use super::{Checks, Forge, PushState, Review, ReviewState, open, push, runtime, short_ref};
 
 /// Which forge hosts the project, when its target's remote says so or the project picks
 /// one in its settings.
@@ -218,10 +218,7 @@ pub fn publish(
     // The pull request's head is the branch as the remote names it: what a push reports,
     // or for a branch pushed before, the remote branch it tracks.
     let (pushed, push_sync_failed) = push(path, branch, true, run_hooks)?;
-    let short = branch
-        .strip_prefix("refs/heads/")
-        .unwrap_or(branch)
-        .to_owned();
+    let short = short_ref(branch).to_owned();
     let ctx = open(path)?;
     let pushed = match pushed {
         Some(name) => Some(name),

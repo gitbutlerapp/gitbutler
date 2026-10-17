@@ -172,21 +172,7 @@ pub fn avatar(url: &str) -> Result<std::sync::Arc<gpui::Image>> {
         [0x89, b'P', b'N', b'G', ..] => F::Png,
         [0xFF, 0xD8, ..] => F::Jpeg,
         [b'G', b'I', b'F', ..] => F::Gif,
-        [
-            b'R',
-            b'I',
-            b'F',
-            b'F',
-            _,
-            _,
-            _,
-            _,
-            b'W',
-            b'E',
-            b'B',
-            b'P',
-            ..,
-        ] => F::Webp,
+        b if b.starts_with(b"RIFF") && b.get(8..12) == Some(b"WEBP".as_slice()) => F::Webp,
         _ => anyhow::bail!("Not a picture GitButler can draw"),
     };
     Ok(std::sync::Arc::new(gpui::Image::from_bytes(

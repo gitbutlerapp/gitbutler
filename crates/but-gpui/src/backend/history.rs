@@ -7,7 +7,7 @@ use anyhow::{Context as _, Result};
 use but_api::legacy::oplog::{self, RestoreKind};
 use but_oplog::legacy::OperationKind;
 
-use super::{SnapshotId, open};
+use super::{SnapshotId, open, short_ref};
 
 /// One operation in the log.
 #[derive(Debug, Clone)]
@@ -58,7 +58,7 @@ pub fn list(
                                 let trailer = details.trailers.iter().find(|t| t.key() == *key)?;
                                 let value = trailer.value();
                                 let line = value.lines().next()?;
-                                Some(line.strip_prefix("refs/heads/").unwrap_or(line).to_owned())
+                                Some(short_ref(line).to_owned())
                             });
                         let body = details.body.filter(|b| !b.trim().is_empty());
                         (details.operation.title().to_owned(), about.or(body))

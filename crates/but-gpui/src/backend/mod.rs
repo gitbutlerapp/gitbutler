@@ -133,6 +133,17 @@ pub(crate) fn open(path: &Path) -> Result<Context> {
     Context::open(path).with_context(|| format!("Couldn't open {}", path.display()))
 }
 
+/// The project's main checkout, or its linked `worktree` with that name.
+fn checkout(ctx: &Context, worktree: Option<&str>) -> Result<gix::Repository> {
+    let main = ctx.repo.get()?;
+    match worktree {
+        Some(name) => {
+            but_workspace::worktrees::open_worktree_repo(&main, name.as_bytes().as_bstr())
+        }
+        None => Ok(main.clone()),
+    }
+}
+
 pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;

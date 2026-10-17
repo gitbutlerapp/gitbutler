@@ -11,7 +11,7 @@ use but_core::DryRun;
 use but_core::sync::RepoExclusive;
 
 use super::ops::{full_name, holds};
-use super::{CommitId, open, runtime, title};
+use super::{CommitId, open, runtime, short_ref, title};
 
 #[derive(Debug, Clone)]
 pub struct TargetCommit {
@@ -102,7 +102,7 @@ pub fn push(
             tracing::warn!(?err, "push rejected");
             anyhow::anyhow!("The remote has commits this branch doesn't. Fetch, then pull them in.")
         })?;
-    let short = ref_name.strip_prefix("refs/heads/").unwrap_or(ref_name);
+    let short = short_ref(ref_name);
     let remote = (outcome.push.branch_to_remote.into_iter())
         .find(|(branch, _, _)| branch == short || branch == ref_name)
         .map(|(_, _, remote)| remote);
@@ -228,9 +228,16 @@ pub fn update_from_target(path: &Path, confirmed: bool) -> Result<UpdateOutcome>
     // Held from the dry run through the update, so nothing lands in between.
     let mut guard = ctx.exclusive_worktree_access();
     if !confirmed {
-        let found = update_conflicts(&mut ctx, &info, guard.write_permission())?;
-        if !found.branches.is_empty() || !found.files.is_empty() {
-            return Ok(UpdateOutcome::WouldConflict(found));
+        let preview = integrate_upstream(&mut ctx, &info, DryRun::Yes, guard.write_permission())?;
+        let branches = newly_conflicted(&info, &preview.workspace_state.conflicted_commits);
+        let files: Vec<String> = (preview.worktree_conflicts.iter())
+            .map(|path| path.to_str_lossy().into_owned())
+            .collect();
+        if !branches.is_empty() || !files.is_empty() {
+            return Ok(UpdateOutcome::WouldConflict(UpdateConflicts {
+                branches,
+                files,
+            }));
         }
     }
     let updated = integrate_upstream(&mut ctx, &info, DryRun::No, guard.write_permission())?;
@@ -257,21 +264,6 @@ pub struct UpdateConflicts {
     pub branches: Vec<(String, usize)>,
     /// Uncommitted files the target changed too, which get conflict markers.
     pub files: Vec<String>,
-}
-
-/// A dry run of [`update_from_target()`] with `info` as the workspace is now, for what it
-/// would leave conflicted.
-pub fn update_conflicts(
-    ctx: &mut but_ctx::Context,
-    info: &but_workspace::RefInfo,
-    perm: &mut RepoExclusive,
-) -> Result<UpdateConflicts> {
-    let preview = integrate_upstream(ctx, info, DryRun::Yes, perm)?;
-    let branches = newly_conflicted(info, &preview.workspace_state.conflicted_commits);
-    let files = (preview.worktree_conflicts.iter())
-        .map(|path| path.to_str_lossy().into_owned())
-        .collect();
-    Ok(UpdateConflicts { branches, files })
 }
 
 /// The branches (full refs, empty for an unnamed one) in `info` with commits among

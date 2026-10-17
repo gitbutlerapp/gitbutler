@@ -86,11 +86,12 @@ pub struct ProjectSettings {
     pub sign_commits: bool,
 }
 
-pub fn project_settings(id: &str, path: &Path) -> Result<ProjectSettings> {
-    let project = gitbutler_project::get(id.parse().context("Invalid project id")?)?;
-    let git = config::get_gb_config(&open(path)?)?;
+pub fn project_settings(path: &Path) -> Result<ProjectSettings> {
+    let ctx = open(path)?;
+    let git = config::get_gb_config(&ctx)?;
     Ok(ProjectSettings {
-        force_push_protection: project.force_push_protection,
+        // The value a push checks.
+        force_push_protection: ctx.legacy_project.force_push_protection,
         sign_commits: git.gitbutler_sign_commits.unwrap_or(false),
     })
 }
