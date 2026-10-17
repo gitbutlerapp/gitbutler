@@ -17,8 +17,8 @@ use crate::state::{Notice, Overlay, ProjectId, Remap, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, list_row, muted, popover,
-    shortcut, v_flex,
+    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, error_summary, h_flex, icon, keycap, list_row,
+    muted, popover, shortcut, v_flex,
 };
 
 /// A right-click menu.
@@ -594,13 +594,13 @@ impl AppView {
                                             .child(title.clone()),
                                     ),
                             )
-                            .child(muted(detail.clone(), theme).line_clamp(4))
+                            .child(muted(error_summary(detail), theme).line_clamp(4))
                             .child(
                                 h_flex()
                                     .gap(px(6.))
                                     .justify_end()
                                     .child(
-                                        button(("copy-error", id), "Copy error")
+                                        button(("copy-error", id), "Copy error message")
                                             .small()
                                             .style(ButtonStyle::Ghost)
                                             .on_click(move |_, _, cx| {

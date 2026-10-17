@@ -13,7 +13,8 @@ use crate::backend::{self, CommitId, DiffSource, Forge};
 use crate::state::{Overlay, ProjectId};
 use crate::theme::Theme;
 use crate::ui::{
-    Icon, faint, h_flex, icon, list_row, muted, plural, relative_time, small_icon, v_flex,
+    Icon, error_summary, faint, h_flex, icon, list_row, muted, plural, relative_time, small_icon,
+    v_flex,
 };
 
 /// How many target commits a page holds.
@@ -230,7 +231,7 @@ impl Detail {
             .children(fetch_error.map(|err| {
                 div()
                     .text_color(theme.danger)
-                    .child(format!("The last fetch failed: {err}"))
+                    .child(format!("The last fetch failed: {}", error_summary(&err)))
             }))
             .children(upstream.and_then(|u| u.unconnected_forge).map(|forge| {
                 v_flex()
