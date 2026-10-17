@@ -1,6 +1,8 @@
 //! The file lists beside the diff: uncommitted files, or the loaded diff's, flat or as a
 //! tree, with what right-clicking them offers.
 
+use std::sync::Arc;
+
 use gpui::{
     AnyElement, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels, Point,
     SharedString, Stateful, StyledText, Toggled, div, img, prelude::*, px,
@@ -29,6 +31,16 @@ enum FileSource {
     Diff(ProjectId, Option<backend::CommitId>),
 }
 
+/// What right-clicking a file or hunk offers, and for which changes.
+#[derive(Clone)]
+pub(super) enum FileMenu {
+    /// Changes as they'd be cut, to move or take out: see [`Detail::changes_menu`].
+    Cut(Cut),
+    /// A change of the linked worktree with this name. It doesn't move into the workspace,
+    /// so it can only be thrown away.
+    Linked(ProjectId, Arc<str>, Selected),
+}
+
 /// What a file row shows besides the file itself.
 #[derive(Default)]
 struct FileRow {
@@ -42,6 +54,8 @@ struct FileRow {
     review: Option<Review>,
     /// Lets the row be dragged and right-clicked as these changes.
     drag_from: Option<(ProjectId, Option<backend::CommitId>)>,
+    /// The linked worktree the file is of, which right-clicking it can throw away.
+    linked: Option<(ProjectId, Arc<str>)>,
     /// How deep the file sits in a tree; it then shows only its name.
     depth: Option<usize>,
 }
@@ -293,6 +307,7 @@ impl Detail {
                     checkbox: self.composing.then(|| self.checks.file_check(&file.path)),
                     review: Some(store.review(project, file)),
                     drag_from: Some((project.clone(), None)),
+                    linked: None,
                     depth,
                 };
                 Some(self.render_file_row(pos, file, extras, theme, cx))
@@ -308,6 +323,7 @@ impl Detail {
                     stats: Some(file.stats()),
                     review,
                     drag_from: commit.map(|id| (project.clone(), Some(id))),
+                    linked: (diff.key.linked()).map(|worktree| (project.clone(), worktree)),
                     depth,
                     ..Default::default()
                 };
@@ -525,18 +541,22 @@ impl Detail {
             }
         };
         // What right-clicking the row, or its ⋯, offers for the file.
-        let menu_payload = (extras.drag_from.clone()).map(|(project, from)| Cut::Files {
-            project,
-            from,
-            files: vec![Selected {
-                file: file.clone(),
-                hunks: None,
-            }]
-            .into(),
-        });
+        let whole = Selected {
+            file: file.clone(),
+            hunks: None,
+        };
+        let menu = match (extras.drag_from.clone(), extras.linked) {
+            (Some((project, from)), _) => Some(FileMenu::Cut(Cut::Files {
+                project,
+                from,
+                files: vec![whole].into(),
+            })),
+            (None, Some((project, worktree))) => Some(FileMenu::Linked(project, worktree, whole)),
+            (None, None) => None,
+        };
         // The ⋯ takes the mark's place while the pointer is on the row or the row is current.
         // A plain glyph rather than a button: a list draws it on every row.
-        let more = menu_payload.clone().map(|payload| {
+        let more = menu.clone().map(|menu| {
             div()
                 .id(("file-menu", ix))
                 .absolute()
@@ -553,7 +573,7 @@ impl Detail {
                 .child(small_icon(Icon::Kebab).text_color(theme.text_2))
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     cx.stop_propagation();
-                    this.changes_menu(payload.clone(), Some(None), event.position(), cx)
+                    this.file_menu(menu.clone(), Some(None), event.position(), cx)
                 }))
         });
         let has_menu = more.is_some();
@@ -652,15 +672,40 @@ impl Detail {
                 );
             }
         }
-        if let Some(menu_payload) = menu_payload {
+        if let Some(menu) = menu {
             row = row.on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                    this.changes_menu(menu_payload.clone(), Some(None), event.position, cx)
+                    this.file_menu(menu.clone(), Some(None), event.position, cx)
                 }),
             );
         }
         row.into_any_element()
+    }
+
+    /// Open `menu` at `position`; `line` is as for [`Self::changes_menu`].
+    pub(super) fn file_menu(
+        &mut self,
+        menu: FileMenu,
+        line: Option<Option<u32>>,
+        position: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        match menu {
+            FileMenu::Cut(payload) => self.changes_menu(payload, line, position, cx),
+            FileMenu::Linked(project, worktree, change) => {
+                let items = vec![
+                    MenuItem::new("Discard changes…", move |this, window, cx| {
+                        let (worktree, changes) = (Some(worktree.clone()), vec![change.clone()]);
+                        this.discard(project.clone(), worktree, changes, window, cx)
+                    })
+                    .danger(),
+                ];
+                self.app
+                    .update(cx, |app, cx| app.open_menu(position, items, cx))
+                    .ok();
+            }
+        }
     }
 
     /// What right-clicking files, a folder or a hunk offers: moving them, taking them out,
