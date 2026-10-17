@@ -155,6 +155,12 @@ impl AppView {
                 this.store
                     .update(cx, |store, cx| store.save_window_place(window, cx));
             }),
+            // The CLI and GitButler's other apps add and remove projects too.
+            cx.observe_window_activation(window, |this, window, cx| {
+                if window.is_window_active() {
+                    this.store.update(cx, |store, cx| store.load_projects(cx));
+                }
+            }),
         ];
         // Closing the window quits, so it asks the same as ⌘Q.
         let this = cx.entity().downgrade();
