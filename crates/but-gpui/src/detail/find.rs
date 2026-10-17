@@ -109,7 +109,7 @@ impl Detail {
         let query = find.input.read(cx).text().to_owned();
         find.matches = search(&diff.files, &query);
         find.matches
-            .retain(|((file, _, _), _)| shown.contains(file));
+            .retain(|((file, _, _), _)| shown.binary_search(file).is_ok());
         find.by_line.clear();
         for (ix, (line, _)) in find.matches.iter().enumerate() {
             find.by_line.entry(*line).or_default().push(ix);
