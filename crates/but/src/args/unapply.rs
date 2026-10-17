@@ -18,18 +18,21 @@ use crate::args::atoms::CliIdArg;
 /// the target's local tracking branch, if available. The unapplied branch is preserved
 /// and stays unapplied when switching back with `but switch --workspace`.
 ///
-/// The identifier can be:
+/// Several branches or stacks can be given at once: `but unapply <a> <b>`.
+///
+/// Each identifier can be:
 /// - A CLI ID pointing to a stack or branch (e.g., "bu" from `but status`)
 /// - A branch name
 ///
 /// If a branch name (or an identifier pointing to a branch) is provided,
-/// the entire stack containing that branch will be unapplied.
+/// the entire stack containing that branch will be unapplied. Identifiers that
+/// point into the same stack unapply it once.
 ///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct Platform {
-    /// The branch or stack to unapply.
-    #[clap(value_name = "BRANCH_OR_STACK")]
-    pub target: CliIdArg,
+    /// The branches or stacks to unapply.
+    #[clap(value_name = "BRANCH_OR_STACK", required = true)]
+    pub targets: Vec<CliIdArg>,
 }

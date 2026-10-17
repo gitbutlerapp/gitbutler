@@ -56,7 +56,7 @@ pub async fn handle(
 
     // If dry-run, show what would be pushed
     if args.dry_run {
-        return Ok(handle_dry_run(ctx, &args.branch_id, out)?);
+        return Ok(handle_dry_run(ctx, &args.branch_ids, out)?);
     }
 
     let id_map = {
@@ -65,12 +65,10 @@ pub async fn handle(
     };
 
     // If no branch_id is provided, show all branches and prompt or push all
-    let branch_selection = if let Some(ref branch_id) = args.branch_id {
-        // Resolve branch_id to actual branch name
-        let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
-        BranchSelection::Selected(vec![branch_name])
-    } else {
+    let branch_selection = if args.branch_ids.is_empty() {
         handle_no_branch_specified(ctx, out)?
+    } else {
+        BranchSelection::Selected(resolve_branch_names(ctx, &id_map, &args.branch_ids)?)
     };
 
     // Everything between here and the actual push (merged-upstream check,
@@ -164,7 +162,7 @@ struct DryRunResult {
 
 fn handle_dry_run(
     ctx: &mut Context,
-    branch_id: &Option<String>,
+    branch_ids: &[String],
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let t = theme::get();
@@ -178,15 +176,14 @@ fn handle_dry_run(
     // Get all branches with info
     let branches_with_info = get_branches_with_unpushed_info(ctx)?;
 
-    // Filter based on branch_id if provided
-    let branches_to_show: Vec<_> = if let Some(branch_id) = branch_id {
-        // Resolve branch name
+    // Filter based on branch_ids if provided
+    let branches_to_show: Vec<_> = if !branch_ids.is_empty() {
         let id_map = IdMap::legacy_new_from_context(ctx)?;
-        let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
+        let branch_names = resolve_branch_names(ctx, &id_map, branch_ids)?;
 
         branches_with_info
             .into_iter()
-            .filter(|(name, count, _)| name == &branch_name && *count > 0)
+            .filter(|(name, count, _)| branch_names.contains(name) && *count > 0)
             .collect()
     } else {
         // Show all branches with unpushed commits
@@ -1077,6 +1074,21 @@ pub fn get_gerrit_flags(
     }
 
     Ok(flags)
+}
+
+fn resolve_branch_names(
+    ctx: &mut Context,
+    id_map: &IdMap,
+    branch_ids: &[String],
+) -> anyhow::Result<Vec<String>> {
+    let mut names = Vec::new();
+    for branch_id in branch_ids {
+        let name = resolve_branch_name(ctx, id_map, branch_id)?;
+        if !names.contains(&name) {
+            names.push(name);
+        }
+    }
+    Ok(names)
 }
 
 fn resolve_branch_name(
