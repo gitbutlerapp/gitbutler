@@ -280,6 +280,30 @@ git init modified-in-index-and-worktree-add-rename
   mv file file-renamed-in-wt
 )
 
+git init modified-in-index-and-worktree-add-rename-onto-deleted
+(cd modified-in-index-and-worktree-add-rename-onto-deleted
+  echo replaced-content >replaced
+  git add . && git commit -m "init"
+  git rm replaced
+  echo initial >file && git add file
+  mv file replaced
+)
+
+git init modified-in-index-and-worktree-rename-rename-roundtrip
+(cd modified-in-index-and-worktree-rename-rename-roundtrip
+  echo initial >file && git add . && git commit -m "init"
+  git mv file file-renamed-in-index
+  mv file-renamed-in-index file
+)
+
+git init modified-in-index-and-worktree-rename-rename-roundtrip-modified
+(cd modified-in-index-and-worktree-rename-rename-roundtrip-modified
+  printf 'one\ntwo\nthree\nfour\n' >file && git add . && git commit -m "init"
+  git mv file file-renamed-in-index
+  mv file-renamed-in-index file
+  echo wt-change >>file
+)
+
 git init submodule-added-unborn
 (cd submodule-added-unborn
   git submodule add ../modified-in-index submodule
