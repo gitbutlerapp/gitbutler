@@ -543,7 +543,9 @@ const TransferKeyboardOperationControls: FC<{
 
 	const target = getTransferTarget(keyboardTransfer(transfer), selection, activeList);
 
-	const operations = target ? getOperations(transfer.sources, target, transfer.kind) : null;
+	const operations = target
+		? getOperations(transfer.sources, target, transfer.kind, { headInfoIndex })
+		: null;
 	const operation = operations?.[transfer.placement];
 	// Three disabled placements and a confirm that cannot be taken say only that something is
 	// wrong. When no placement resolves, the toolbox states the reason instead.

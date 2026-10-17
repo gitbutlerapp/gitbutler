@@ -99,6 +99,11 @@
 	// Compute stack-wide derived values once per render so the per-iteration
 	// segmentContext() call below stays O(1) instead of O(n) per index.
 	const stackPrecomputed = $derived(precomputeStack(segments));
+
+	// The zone under the lane's last branch anchors on that branch's last commit,
+	// so an empty bottom branch has none.
+	const lastSegment = $derived(segments.at(-1));
+	const lastCommit = $derived(lastSegment?.commits.at(-1));
 </script>
 
 <div class="branches-wrapper">
@@ -381,6 +386,21 @@
 			{/snippet}
 		</BranchCard>
 	{/each}
+	{#if lastSegment?.refName && lastCommit && !controller.isReadOnly}
+		<BranchReorderDropzone
+			{projectId}
+			{stackId}
+			worktree={controller.worktree?.name}
+			branchName={lastSegment.refName.displayName}
+			belowCommitId={lastCommit.id}
+			lineColor={getColorFromCommitState(
+				lastCommit.state.type,
+				lastCommit.state.type === "LocalAndRemote" && lastCommit.id !== lastCommit.state.subject,
+			)}
+			isCommitting={controller.isCommitting}
+			isLast
+		/>
+	{/if}
 </div>
 
 {#if addDependentBranchModalContext}
