@@ -27,7 +27,9 @@
 		"writeCommitEvolution": false,
 		"tuiFileBrowser": false,
 		/// Enable experimental worktree manipulation support.
-		"worktreeManipulation": false
+		"worktreeManipulation": false,
+		/// Boot the desktop app into the Lite frontend. Requires app restart.
+		"liteFrontend": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {
