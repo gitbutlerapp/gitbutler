@@ -434,6 +434,8 @@ pub struct Conflict {
     /// Each side as the file has it, to keep both or edit from.
     pub new_base_text: String,
     pub commit_text: String,
+    /// What a merge's markers call the two sides, for conflicts it left in a file.
+    pub labels: [String; 2],
 }
 
 #[derive(Debug, Clone)]

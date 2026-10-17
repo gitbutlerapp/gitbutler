@@ -81,6 +81,10 @@ impl Detail {
                     )
                     .child(faint(worktree.path.display().to_string(), theme).truncate()),
             )
+            .children(
+                (self.conflict_banner(cx.entity().downgrade(), cx))
+                    .map(|banner| side_header(theme).child(banner)),
+            )
             .child(files)
             .into_any_element()
     }
