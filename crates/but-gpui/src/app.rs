@@ -63,6 +63,7 @@ actions!(
         ToggleNavigator,
         ToggleZoom,
         CommandPalette,
+        ToggleAppearance,
     ]
 );
 
@@ -260,6 +261,25 @@ impl AppView {
             recent_commands: Vec::new(),
             _subscriptions: subscriptions,
         }
+    }
+
+    /// Switch to light from dark, or to dark from light, whichever is showing.
+    fn toggle_appearance(
+        &mut self,
+        _: &ToggleAppearance,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::theme::Appearance;
+        let next = if Theme::get(cx).dark {
+            Appearance::Light
+        } else {
+            Appearance::Dark
+        };
+        self.store.update(cx, |store, cx| {
+            store.set_prefs(|prefs| prefs.appearance = next, cx)
+        });
+        self.apply_appearance(window, cx);
     }
 
     /// Use the theme the appearance setting and the system call for.
@@ -1410,6 +1430,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::clone_repository))
             .on_action(cx.listener(Self::create_pull_request))
             .on_action(cx.listener(Self::edit_pull_request))
+            .on_action(cx.listener(Self::toggle_appearance))
             .on_action(cx.listener(Self::toggle_draft))
             .on_action(cx.listener(Self::toggle_auto_merge))
             .on_action(cx.listener(Self::merge_pull_request))
