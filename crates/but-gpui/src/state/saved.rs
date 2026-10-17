@@ -96,11 +96,26 @@ impl Store {
         cx.notify();
     }
 
+    /// `pane`'s width in a window `window` wide, beside the navigator and the file list as
+    /// they're shown: as set, unless that leaves the diff too narrow to read. Then the file
+    /// list gives way first, down to its limit, then the navigator, down to what its header
+    /// needs.
+    pub fn fitted_width(&self, pane: Pane, window: f32, navigator: bool, files: bool) -> f32 {
+        const MIN_DIFF: f32 = 400.;
+        const MIN_NAVIGATOR: f32 = 300.;
+        let shown = |pane: Pane, on: bool| if on { self.width(pane) } else { 0. };
+        let (nav, list) = (shown(Pane::Navigator, navigator), shown(Pane::Files, files));
+        let over = (nav + list + MIN_DIFF - window).max(0.);
+        let list_fit = (list - over).max(Pane::Files.limits().0.min(list));
+        match pane {
+            Pane::Files => list_fit,
+            Pane::Navigator => (nav - (over - (list - list_fit))).max(MIN_NAVIGATOR.min(nav)),
+        }
+    }
+
     pub fn width(&self, pane: Pane) -> f32 {
-        self.widths
-            .get(&pane)
-            .copied()
-            .unwrap_or(pane.default_width())
+        let (min, max) = pane.limits();
+        (self.widths.get(&pane)).map_or(pane.default_width(), |width| width.clamp(min, max))
     }
 
     /// Remember where `window` is, for the next launch.
@@ -167,7 +182,8 @@ impl Pane {
     fn limits(self) -> (f32, f32) {
         match self {
             Pane::Navigator => (220., 640.),
-            Pane::Files => (200., 560.),
+            // Wide enough for the composer's Cancel, Amend and Commit.
+            Pane::Files => (240., 560.),
         }
     }
 }

@@ -1405,6 +1405,8 @@ impl Render for Navigator {
             .gap(px(6.))
             .child(
                 div()
+                    .min_w(px(0.))
+                    .truncate()
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_size(px(14.))
                     .child("Projects"),
