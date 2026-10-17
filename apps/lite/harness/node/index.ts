@@ -41,7 +41,12 @@ export const createButIpcHandler = ({
 	hostOverrides: HandlerOverrides & {
 		[K in Exclude<
 			HostOnlyKey,
-			"watcherStopAll" | "getUpdateStatus" | "checkForUpdates" | "downloadUpdate" | "installUpdate"
+			| "watcherStopAll"
+			| "getUpdateStatus"
+			| "checkForUpdates"
+			| "downloadUpdate"
+			| "installUpdate"
+			| "relaunch"
 		>]: Handler<K>;
 	};
 }): ButIpcHandle => {
@@ -53,6 +58,9 @@ export const createButIpcHandler = ({
 			checkForUpdates: () => ({ _tag: "Unavailable" }),
 			downloadUpdate: () => undefined,
 			installUpdate: () => undefined,
+			relaunch: () => {
+				throw new Error("The harness cannot relaunch its host");
+			},
 			...hostOverrides,
 		}),
 	);
