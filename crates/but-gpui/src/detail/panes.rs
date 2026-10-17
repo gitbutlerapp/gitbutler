@@ -13,7 +13,7 @@ use super::{Detail, FilterFiles, checkbox_box, keeps_path};
 use crate::app::StartCommit;
 use crate::app::{AppView, MenuItem};
 use crate::backend::{self, CommitState, DiffSource, FileChange, FileDiff, PushState, Selected};
-use crate::state::{Cut, ProjectId, Review, Selection};
+use crate::state::{Cut, Overlay, ProjectId, Review, Selection};
 use crate::theme::Theme;
 use crate::transfer::short_ref;
 use crate::ui::diff;
@@ -364,7 +364,10 @@ impl Detail {
                     .map(FileDiff::stats);
                 let extras = FileRow {
                     stats,
-                    checkbox: self.composing.then(|| self.file_check(&file.path)),
+                    checkbox: self.composing.then(|| match file.conflicted {
+                        true => Toggled::False,
+                        false => self.file_check(&file.path),
+                    }),
                     review: Some(store.review(project, file)),
                     drag_from: Some((project.clone(), None)),
                     depth,
@@ -569,26 +572,37 @@ impl Detail {
             .aria_description(file.kind.word())
             .pl(px(10. + indent))
             .when_some(extras.checkbox, |el, check| {
-                let path = path.clone();
+                let (path, conflicted) = (path.clone(), file.conflicted);
                 el.child(
                     checkbox_box(("check", ix), check, theme)
                         // Checking a file doesn't scroll to it.
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                             cx.stop_propagation();
-                            this.toggle_checked(&path, cx)
+                            if conflicted {
+                                let message = "Mark it resolved from its menu to commit it";
+                                this.store.update(cx, |store, cx| store.snack(message, cx));
+                            } else {
+                                this.toggle_checked(&path, cx)
+                            }
                         })),
                 )
             })
-            .child(
+            .child(if file.conflicted {
+                small_icon(Icon::Warning)
+                    .size(px(10.))
+                    .text_color(theme.danger)
+                    .into_any_element()
+            } else {
                 div()
                     .flex_none()
                     .w(px(10.))
                     .text_size(px(11.))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_color(diff::change_color(file.kind, theme))
-                    .child(file.kind.letter()),
-            )
+                    .child(file.kind.letter())
+                    .into_any_element()
+            })
             .child(
                 h_flex()
                     .flex_1()
@@ -616,15 +630,21 @@ impl Detail {
             .when_some(extras.stats, |el, (added, removed)| {
                 el.child(diff::stats(added, removed, theme))
             })
-            .when_some(file.modified, |el, ms| {
-                el.child(
+            // A conflicted file says so where the others say when they changed.
+            .children(
+                match (file.conflicted, file.modified) {
+                    (true, _) => Some((theme.danger, "conflicted".to_owned())),
+                    (false, Some(ms)) => Some((theme.text_3, relative_time(ms / 1000))),
+                    (false, None) => None,
+                }
+                .map(|(color, text)| {
                     div()
                         .flex_none()
                         .text_size(px(11.))
-                        .text_color(theme.text_3)
-                        .child(relative_time(ms / 1000)),
-                )
-            })
+                        .text_color(color)
+                        .child(text)
+                }),
+            )
             .when_some(extras.review, |el, review| {
                 el.child(match review {
                     Review::Reviewed => small_icon(Icon::Tick)
@@ -699,6 +719,29 @@ impl Detail {
         })];
         match from {
             None => {
+                let conflicted: Vec<String> = (files.iter())
+                    .filter(|f| f.file.conflicted)
+                    .map(|f| f.file.path.clone())
+                    .collect();
+                if !conflicted.is_empty() {
+                    let project = project.clone();
+                    items.insert(
+                        0,
+                        MenuItem::new("Mark resolved", move |this, _, cx| {
+                            let files = conflicted.clone();
+                            this.store.update(cx, |store, cx| {
+                                store.run(
+                                    &project,
+                                    "Mark resolved",
+                                    Overlay::default(),
+                                    move |path, _| backend::mark_resolved(path, files),
+                                    |store, (), cx| store.snack_undoable("Marked resolved", cx),
+                                    cx,
+                                )
+                            })
+                        }),
+                    );
+                }
                 let (review_project, review_files) = (project.clone(), files.clone());
                 let (project, files) = (project.clone(), files.clone());
                 items.extend([

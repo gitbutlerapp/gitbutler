@@ -722,10 +722,13 @@ impl Navigator {
                                 .style(ButtonStyle::Gray)
                                 .inverted(style.solid)
                                 .tooltip("Rebase branches onto the latest target")
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.store.update(cx, |store, cx| {
-                                        store.update_from_target(&project, None, cx)
-                                    })
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    let project = project.clone();
+                                    this.app
+                                        .update(cx, |app, cx| {
+                                            app.update_from_target(project, None, window, cx)
+                                        })
+                                        .ok();
                                 })),
                         )
                     },

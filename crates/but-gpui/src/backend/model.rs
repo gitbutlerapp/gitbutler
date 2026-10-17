@@ -213,6 +213,9 @@ pub struct FileChange {
     /// When the file was last written, in milliseconds since the Unix epoch. Only known
     /// for uncommitted changes, and not for deletions.
     pub modified: Option<i64>,
+    /// An uncommitted file a merge left conflicted, markers and all, as an update can when
+    /// the target changed the same lines. It's kept out of commits until marked resolved.
+    pub conflicted: bool,
     /// What the backend needs to diff or move this change again.
     pub(crate) change: but_core::TreeChange,
 }

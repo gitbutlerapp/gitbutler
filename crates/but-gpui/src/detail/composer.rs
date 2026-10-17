@@ -38,7 +38,7 @@ impl Detail {
         workspace
             .uncommitted
             .iter()
-            .filter(|file| !self.unchecked.contains(&file.path))
+            .filter(|file| !file.conflicted && !self.unchecked.contains(&file.path))
             .cloned()
             .collect()
     }
