@@ -1,6 +1,5 @@
 use anyhow::Context as _;
 use but_api::json::Error;
-use notify_rust::{Notification, NotificationResponse};
 use tauri::{Emitter, EventTarget, WebviewWindow};
 use tracing::instrument;
 
@@ -15,13 +14,32 @@ pub fn show_notification(
     if window.is_focused().context("failed to read window focus")? {
         return Ok(());
     }
-    #[cfg(target_os = "macos")]
-    if !notify_rust::request_auth_blocking().context("failed to request notification permission")? {
+    show(window, id, &title, &body)?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn show(window: WebviewWindow, id: String, title: &str, body: &str) -> anyhow::Result<()> {
+    use mac_usernotifications::{Notification, block_on, request_auth};
+    if !block_on(request_auth()).context("failed to request notification permission")? {
         return Ok(());
     }
+    let handle = block_on(Notification::new().title(title).message(body).send())
+        .context("failed to show notification")?;
+    std::thread::spawn(move || match block_on(handle.response()) {
+        Ok(response) if response.is_default_action() => focus_and_report_click(&window, id),
+        Ok(_) => {}
+        Err(err) => tracing::error!(error = ?err, "desktop notification failed"),
+    });
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn show(window: WebviewWindow, id: String, title: &str, body: &str) -> anyhow::Result<()> {
+    use notify_rust::{Notification, NotificationResponse};
     let mut notification = Notification::new();
-    notification.summary(&title).body(&body);
-    #[cfg(all(unix, not(target_os = "macos")))]
+    notification.summary(title).body(body);
+    #[cfg(unix)]
     notification.action("default", "Open");
     #[cfg(windows)]
     if !tauri::is_dev() {
