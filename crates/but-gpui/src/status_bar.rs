@@ -1,7 +1,7 @@
 //! The strip along the bottom of the window: what's running, what's cut, and the keys
 //! that matter right now.
 
-use gpui::{Action, AnyElement, Context, Window, div, prelude::*, px};
+use gpui::{Action, AnyElement, Context, Focusable as _, Window, div, prelude::*, px};
 
 use crate::app::{
     AppView, CommandPalette, CutSelection, PasteHere, StartCommit, ToggleNavigator, Undo,
@@ -70,10 +70,14 @@ impl AppView {
 
         let detail = self.detail.read(cx);
         let detail_focused = detail.is_focused(window, cx);
+        // A text field has focus, where keys type rather than act.
+        let typing = window.focused(cx).is_some_and(|focused| {
+            focused != detail.focus_handle(cx) && focused != self.focus_handle(cx)
+        });
         let uncommitted = matches!(store.selection, Some(Selection::Uncommitted(_)));
         let hints: Vec<(&dyn Action, &str)> = if uncommitted && detail.composing() {
             vec![(&StartCommit, "commit"), (&AmendTop, "amend")]
-        } else if (detail_focused && !detail.has_files()) || store.selection.is_none() {
+        } else if typing || (detail_focused && !detail.has_files()) || store.selection.is_none() {
             Vec::new()
         } else if detail_focused && uncommitted {
             vec![
