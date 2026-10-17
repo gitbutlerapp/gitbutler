@@ -8,7 +8,7 @@ use crate::app::{
     OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection, UpdateFromTarget,
 };
 use crate::edits::{
-    AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage,
+    AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CopyChangeId, CopyMessage,
     MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage, SquashAll,
     SquashPicked, TakeRemote, UnapplyStack, Unstack,
 };
@@ -26,7 +26,7 @@ impl Navigator {
             && let Some(first) = items.first_mut()
             && (self.store.read(cx).branch_for(target)).is_some_and(|b| !b.commits.is_empty())
         {
-            *first = first.clone().separated();
+            first.separated = true;
             let key = (project.clone(), ref_name.clone());
             items.insert(
                 0,
@@ -174,25 +174,20 @@ impl Navigator {
                     }
                     return items;
                 }
+                let edits = BranchEdits::of(workspace, ref_name);
                 items.push(action("New branch on top…", &NewBranchOnTop).separated());
-                if !branch.commits.is_empty() {
+                if edits.new_below {
                     items.push(action("New branch below…", &NewBranchBelow));
                 }
                 items.push(action("Add empty commit", &AddEmptyCommitAbove));
-                if branch.commits.len() > 1 {
+                if edits.squash_all {
                     items.push(action("Squash all commits", &SquashAll));
                 }
-                let stacked = workspace
-                    .stack_of(ref_name)
-                    .is_some_and(|(stack, _)| stack.branches.len() > 1);
                 items.push(action("Cut", &CutSelection).separated());
-                if stacked {
+                if edits.stacked {
                     items.push(action("Unstack", &Unstack));
                 }
-                if let (Some(target), Some(whole)) = (
-                    workspace.target.as_ref(),
-                    crate::edits::land_scope(workspace, ref_name),
-                ) {
+                if let (Some(target), Some(whole)) = (workspace.target.as_ref(), edits.land) {
                     let label = if whole {
                         format!("Land the stack on {}…", target.name)
                     } else {
@@ -203,7 +198,7 @@ impl Navigator {
                 // Only the workspace has stacks to take out of it.
                 if workspace.managed {
                     items.push(action(
-                        if stacked {
+                        if edits.stacked {
                             "Unapply stack"
                         } else {
                             "Unapply branch"

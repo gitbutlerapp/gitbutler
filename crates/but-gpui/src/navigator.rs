@@ -2,6 +2,7 @@
 //! stacks, branches and commits as one tree of rows.
 
 use std::collections::HashSet;
+use std::hash::Hash;
 use std::time::{Duration, UNIX_EPOCH};
 
 use gpui::{
@@ -21,7 +22,7 @@ use crate::theme::Theme;
 use crate::transfer::{Transfer, drag_preview};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, faint, h_flex, icon,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, dot, faint, h_flex, icon,
     icon_button, just_now, list_row, plural, relative_time, resize_handle, review, section_label,
     small_icon, v_flex,
 };
@@ -72,18 +73,20 @@ enum Row {
     /// Where a commit of the project being dragged lands in a new branch of its own.
     NewBranch(ProjectId),
     /// After a stack, while one of the project's branches is dragged: where it lands below
-    /// the stack's last branch, which this selects.
-    LaneEnd(Selection),
+    /// the stack's last branch, by its ref.
+    LaneEnd(ProjectId, String),
     /// After a project's worktrees: how many are inactive, which it shows or hides.
     Inactive(ProjectId, usize),
 }
 
-/// How an item row draws: `solid` is the selection while the navigator has focus.
+/// How an item row draws: `solid` is the selection while the navigator has focus, and
+/// `cut` is the row waiting for ⌘V.
 #[derive(Clone, Copy)]
 struct RowStyle<'a> {
     theme: &'a Theme,
     selected: bool,
     solid: bool,
+    cut: bool,
 }
 
 impl RowStyle<'_> {
@@ -94,6 +97,12 @@ impl RowStyle<'_> {
             .pl(px(8. + indent))
             .when(self.solid, |el| {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
+            })
+            .when(self.cut, |el| {
+                el.opacity(0.5)
+                    .border_1()
+                    .border_dashed()
+                    .border_color(theme.pop)
             })
     }
 
@@ -238,16 +247,12 @@ impl Navigator {
                     );
                     // Commits a pending operation takes away go, unless selected.
                     rows.extend(
-                        branch
-                            .commits
-                            .iter()
-                            .filter(|commit| {
-                                !store.hides_commit(id, &commit.key)
-                                    || matches!(&store.selection, Some(Selection::Commit(p, c))
-                                        if p == id && *c == commit.id)
+                        (branch.commits.iter().enumerate())
+                            .filter(|&(at, commit)| {
+                                !store.hides_commit(id, &commit.key) || selected_at == Some(at)
                             })
                             .take(shown)
-                            .map(|commit| Row::Item(Selection::Commit(id.clone(), commit.id))),
+                            .map(|(_, commit)| Row::Item(Selection::Commit(id.clone(), commit.id))),
                     );
                     if branch.commits.len() > shown {
                         let hidden = branch.commits.len() - shown;
@@ -259,7 +264,7 @@ impl Navigator {
                 {
                     let below = Selection::Branch(id.clone(), last.ref_name.clone());
                     if Transfer::resolve(dragged, &below, Modifiers::shift(), store).is_some() {
-                        rows.push(Row::LaneEnd(below));
+                        rows.push(Row::LaneEnd(id.clone(), last.ref_name.clone()));
                     }
                 }
             }
@@ -382,14 +387,6 @@ impl Navigator {
             } else {
                 self.closed_branches.insert(key.clone());
             }
-        }
-        cx.notify();
-    }
-
-    /// Close a branch to its row or open it again, as double-clicking a folder does.
-    fn toggle_branch(&mut self, key: (ProjectId, String), cx: &mut Context<Self>) {
-        if !self.closed_branches.remove(&key) {
-            self.closed_branches.insert(key);
         }
         cx.notify();
     }
@@ -551,37 +548,18 @@ impl Navigator {
                     .text_color(theme.text_3)
                     .cursor_pointer()
                     .hover(|el| el.text_color(theme.text_2))
-                    .tooltip(|_, cx| {
-                        Tooltip::with_key("Hide or show the stack's commits".into(), None, cx)
-                    })
+                    .tooltip(Tooltip::text("Hide or show the stack's commits"))
                     .child(small_icon(Icon::Stack).text_color(theme.text_3))
                     .child(format!("Stack of {n}"))
                     .on_click(cx.listener(move |this, _, _, cx| this.toggle_stack(&keys, cx)))
                     .into_any_element()
             }
+            // Both drop zones are padded, not margined: a margin collapses through the card's
+            // ground.
             Some(Row::NewBranch(project)) => {
-                let (highlight, project) = (theme.pop, project.clone());
-                h_flex()
-                    .id(("new-branch-drop", ix))
+                let project = project.clone();
+                let zone = drop_zone(("new-branch-drop", ix), "New branch", theme)
                     .h(px(30.))
-                    .mx(px(6.))
-                    .my(px(2.))
-                    .justify_center()
-                    .gap(px(6.))
-                    .rounded(px(4.))
-                    .border_1()
-                    .border_dashed()
-                    .border_color(theme.border_2)
-                    .text_size(px(12.))
-                    .text_color(theme.text_2)
-                    .child(small_icon(Icon::Branch).text_color(theme.text_2))
-                    .child("New branch")
-                    .drag_over::<Cut>(move |style, _, _, _| {
-                        style
-                            .bg(highlight.opacity(0.14))
-                            .border_color(highlight)
-                            .text_color(highlight)
-                    })
                     .on_drop(cx.listener(move |this, payload: &Cut, _, cx| {
                         if let Cut::Commit(from, id) = payload
                             && *from == project
@@ -589,37 +567,16 @@ impl Navigator {
                             this.store
                                 .update(cx, |store, cx| store.move_to_new_branch(from, *id, cx));
                         }
-                    }))
-                    .into_any_element()
+                    }));
+                div().py(px(2.)).child(zone).into_any_element()
             }
-            Some(Row::LaneEnd(below)) => {
-                let (highlight, below) = (theme.pop, below.clone());
-                let name = match &below {
-                    Selection::Branch(_, ref_name) => short_ref(ref_name).to_string(),
-                    _ => String::new(),
-                };
-                // Padded, not margined: a margin collapses through the card's ground.
-                let zone = h_flex()
-                    .id(("lane-end-drop", ix))
+            Some(Row::LaneEnd(project, ref_name)) => {
+                let label = format!("Move below {}", short_ref(ref_name));
+                let (project, ref_name) = (project.clone(), ref_name.clone());
+                let zone = drop_zone(("lane-end-drop", ix), label, theme)
                     .h(px(24.))
-                    .mx(px(6.))
-                    .justify_center()
-                    .gap(px(6.))
-                    .rounded(px(4.))
-                    .border_1()
-                    .border_dashed()
-                    .border_color(theme.border_2)
-                    .text_size(px(12.))
-                    .text_color(theme.text_2)
-                    .child(small_icon(Icon::Branch).text_color(theme.text_2))
-                    .child(format!("Move below {name}"))
-                    .drag_over::<Cut>(move |style, _, _, _| {
-                        style
-                            .bg(highlight.opacity(0.14))
-                            .border_color(highlight)
-                            .text_color(highlight)
-                    })
                     .on_drop(cx.listener(move |this, payload: &Cut, window, cx| {
+                        let below = Selection::Branch(project.clone(), ref_name.clone());
                         this.app
                             .update(cx, |app, cx| {
                                 app.transfer(payload, &below, Modifiers::shift(), window, cx)
@@ -664,17 +621,11 @@ impl Navigator {
                         .text_color(theme.text_3),
                     )
                     .child(plural(*n, "inactive worktree"))
-                    .tooltip(|_, cx| {
-                        Tooltip::with_key(
-                            "Nothing uncommitted, and no commits or checkouts in 12 hours".into(),
-                            None,
-                            cx,
-                        )
-                    })
+                    .tooltip(Tooltip::text(
+                        "Nothing uncommitted, and no commits or checkouts in 12 hours",
+                    ))
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        if !this.shown_inactive.remove(&project) {
-                            this.shown_inactive.insert(project.clone());
-                        }
+                        toggle(&mut this.shown_inactive, project.clone());
                         cx.notify();
                     }))
                     .into_any_element()
@@ -711,32 +662,31 @@ impl Navigator {
         let store = self.store.read(cx);
         let selected = store.selection.as_ref() == Some(item)
             || matches!(item, Selection::Commit(_, id) if store.picked.contains(id));
+        let cut = match (&store.cut, item) {
+            (Some(Cut::Branch(p, r)), Selection::Branch(project, ref_name)) => {
+                p == project && r == ref_name
+            }
+            (
+                Some(Cut::Commit(p, c) | Cut::CherryPick(p, c)),
+                Selection::Commit(project, commit),
+            ) => p == project && c == commit,
+            _ => false,
+        };
         let style = RowStyle {
             theme,
             selected,
             solid: selected && self.focus.contains_focused(window, cx),
+            cut,
         };
         let el = match item {
-            Selection::Project(id) => self.project_row(id, style, cx),
+            Selection::Project(id) => self.project_row(item, id, style, cx),
             Selection::Uncommitted(id) => Some(self.uncommitted_row(item, id, style, cx)),
             Selection::Branch(id, ref_name) => self.branch_row(item, id, ref_name, style, cx),
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
-            Selection::Branches(id) => Some(self.page_row(
-                item,
-                format!("branches-{id}"),
-                Icon::Branch,
-                "Branches",
-                style,
-                cx,
-            )),
-            Selection::History(id) => Some(self.page_row(
-                item,
-                format!("history-{id}"),
-                Icon::Clock,
-                "History",
-                style,
-                cx,
-            )),
+            Selection::Branches(_) => {
+                Some(self.page_row(item, Icon::Branch, "Branches", style, cx))
+            }
+            Selection::History(_) => Some(self.page_row(item, Icon::Clock, "History", style, cx)),
             Selection::Worktree(id, name) => self.worktree_row(item, id, name, style, cx),
         };
         match el {
@@ -779,6 +729,7 @@ impl Navigator {
 
     fn project_row(
         &self,
+        item: &Selection,
         id: &ProjectId,
         style: RowStyle,
         cx: &Context<Self>,
@@ -786,27 +737,26 @@ impl Navigator {
         let store = self.store.read(cx);
         let theme = style.theme;
         let entry = store.project(id)?;
-        let toggle_id = id.clone();
+        let workspace = entry.workspace.as_ref();
+        let (toggle_id, chevron_id) = (id.clone(), id.clone());
         let expanded = entry.expanded;
         // Folded, the row sums up the whole card; open, it leaves out what the rows under it
         // say: their uncommitted files, unpushed commits and worktrees.
-        let summary = (entry.workspace.as_ref())
-            .filter(|ws| ws.editing.is_none())
-            .map(|ws| {
-                let folded = |n: usize| if expanded { 0 } else { n };
-                let in_worktrees = ws.worktrees.iter().map(|w| w.uncommitted.len());
-                (
-                    folded(ws.uncommitted.len() + in_worktrees.sum::<usize>()),
-                    folded(ws.unpushed_commits()),
-                    ws.target.as_ref(),
-                    folded(ws.worktrees.len()),
-                )
-            });
-        let unread = entry
-            .workspace
-            .as_ref()
-            .is_some_and(|ws| ws.commits().any(|commit| store.is_unread(id, commit)));
-        let activity = entry.workspace.as_ref().and_then(|ws| ws.last_activity());
+        let summary = workspace.filter(|ws| ws.editing.is_none()).map(|ws| {
+            let folded = |n: usize| if expanded { 0 } else { n };
+            let in_worktrees = ws.worktrees.iter().map(|w| w.uncommitted.len());
+            (
+                folded(ws.uncommitted.len() + in_worktrees.sum::<usize>()),
+                folded(ws.unpushed_commits()),
+                ws.target.as_ref(),
+                folded(ws.worktrees.len()),
+            )
+        });
+        let unread =
+            workspace.is_some_and(|ws| ws.commits().any(|commit| store.is_unread(id, commit)));
+        let activity = workspace.and_then(|ws| ws.last_activity());
+        let needs_update =
+            (workspace.and_then(|ws| ws.target.as_ref())).is_some_and(|t| t.needs_update);
         Some(
             style
                 .row(format!("project-{id}"), 0.)
@@ -837,7 +787,7 @@ impl Navigator {
                         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                             cx.stop_propagation();
                             this.store.update(cx, |store, cx| {
-                                store.set_expanded(&toggle_id, !expanded, cx)
+                                store.set_expanded(&chevron_id, !expanded, cx)
                             });
                         })),
                 )
@@ -890,13 +840,7 @@ impl Navigator {
                                 .text_color(style.meta(theme.safe))
                                 .child(dot(style.meta(theme.safe)))
                                 .child("active")
-                                .tooltip(|_, cx| {
-                                    Tooltip::with_key(
-                                        "Changed in the last 2 minutes".into(),
-                                        None,
-                                        cx,
-                                    )
-                                }),
+                                .tooltip(Tooltip::text("Changed in the last 2 minutes")),
                         )
                     } else {
                         el.child(
@@ -907,43 +851,30 @@ impl Navigator {
                         )
                     }
                 })
-                .when(
-                    expanded
-                        && entry
-                            .workspace
-                            .as_ref()
-                            .and_then(|ws| ws.target.as_ref())
-                            .is_some_and(|t| t.needs_update),
-                    |el| {
-                        let project = id.clone();
-                        el.child(
-                            button(ElementId::Name(format!("update-{id}").into()), "Update")
-                                .small()
-                                .style(ButtonStyle::Gray)
-                                .inverted(style.solid)
-                                .tooltip("Rebase branches onto the latest target")
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    let project = project.clone();
-                                    this.app
-                                        .update(cx, |app, cx| app.update_from_target(project, cx))
-                                        .ok();
-                                })),
-                        )
-                    },
-                )
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener({
-                        let id = id.clone();
-                        move |this, event: &MouseDownEvent, window, cx| {
-                            if event.click_count == 2 {
-                                this.store
-                                    .update(cx, |store, cx| store.set_expanded(&id, !expanded, cx));
-                            }
-                            this.select(Selection::Project(id.clone()), window, cx);
-                        }
-                    }),
-                )
+                .when(expanded && needs_update, |el| {
+                    let project = id.clone();
+                    el.child(
+                        button(ElementId::Name(format!("update-{id}").into()), "Update")
+                            .small()
+                            .style(ButtonStyle::Gray)
+                            .inverted(style.solid)
+                            .tooltip("Rebase branches onto the latest target")
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                let project = project.clone();
+                                this.app
+                                    .update(cx, |app, cx| app.update_from_target(project, cx))
+                                    .ok();
+                            })),
+                    )
+                })
+                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                    if event.click_count() == 2 {
+                        this.store.update(cx, |store, cx| {
+                            store.set_expanded(&toggle_id, !expanded, cx)
+                        });
+                    }
+                }))
                 .into_any_element(),
         )
     }
@@ -952,14 +883,13 @@ impl Navigator {
     fn page_row(
         &self,
         item: &Selection,
-        id: String,
         glyph: Icon,
         label: &'static str,
         style: RowStyle,
         cx: &Context<Self>,
     ) -> AnyElement {
         style
-            .row(id, 6.)
+            .row(format!("{label}-{}", item.project()), 6.)
             .text_color(style.muted())
             .child(icon(glyph).text_color(style.muted()))
             .child(div().flex_1().child(label))
@@ -1013,9 +943,7 @@ impl Navigator {
                         div()
                             .id(ElementId::Name(format!("active-{id}-{name}").into()))
                             .child(dot(style.meta(theme.safe)))
-                            .tooltip(|_, cx| {
-                                Tooltip::with_key("Changed in the last 2 minutes".into(), None, cx)
-                            }),
+                            .tooltip(Tooltip::text("Changed in the last 2 minutes")),
                     )
                 })
                 .children(review_count(
@@ -1099,7 +1027,6 @@ impl Navigator {
         let store = self.store.read(cx);
         let theme = style.theme;
         let branch = store.branch_for(item)?;
-        let is_cut = matches!(&store.cut, Some(Cut::Branch(_, cut)) if cut == ref_name);
         let unpushed = branch
             .commits
             .iter()
@@ -1144,9 +1071,7 @@ impl Navigator {
                             div()
                                 .id(ElementId::Name(format!("checks-{ref_name}").into()))
                                 .child(small_icon(glyph).text_color(style.meta(color)))
-                                .tooltip(move |_, cx| {
-                                    Tooltip::with_key(tip.clone().into(), None, cx)
-                                })
+                                .tooltip(Tooltip::text(tip))
                                 .on_click(move |_, _, cx| {
                                     store.update(cx, |store, cx| {
                                         store.refresh_forge(&project);
@@ -1201,16 +1126,13 @@ impl Navigator {
                         .any(|commit| store.is_unread(id, commit)),
                     |el| el.child(dot(style.meta(theme.pop))),
                 )
-                .when(is_cut, |el| {
-                    el.opacity(0.5)
-                        .border_1()
-                        .border_dashed()
-                        .border_color(theme.pop)
-                })
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                // Double-clicking closes the branch to its row or opens it again, as with a
+                // folder.
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     if event.click_count() == 2 {
-                        this.toggle_branch(key.clone(), cx)
+                        toggle(&mut this.closed_branches, key.clone());
+                        cx.notify();
                     }
                 }))
                 .when(!ref_name.is_empty(), |el| {
@@ -1235,9 +1157,6 @@ impl Navigator {
         let store = self.store.read(cx);
         let theme = style.theme;
         let (_, commit) = store.find_commit(id, *commit_id)?;
-        let cut = store.cut.as_ref();
-        let is_cut =
-            matches!(cut, Some(Cut::Commit(_, cut) | Cut::CherryPick(_, cut)) if cut == commit_id);
         let (glyph, color) = if commit.conflicted {
             (Icon::Warning, theme.danger)
         } else {
@@ -1278,12 +1197,6 @@ impl Navigator {
                         .text_color(style.muted())
                         .child(relative_time(commit.time)),
                 )
-                .when(is_cut, |el| {
-                    el.opacity(0.5)
-                        .border_1()
-                        .border_dashed()
-                        .border_color(theme.pop)
-                })
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
@@ -1425,14 +1338,52 @@ fn review_count(to_review: usize, n: usize, style: RowStyle) -> Option<Stateful<
     }
 }
 
-/// A count in a row's meta, saying on hover what it counts; nothing at zero.
+/// A small count in a row's meta, coloured by meaning (amber waits on you, blue is
+/// unpushed), saying on hover what it counts; nothing at zero.
 fn meta_count(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Stateful<Div>> {
     let tip = SharedString::from(tip);
     (n > 0).then(|| {
-        count(Some(glyph), n, color)
+        h_flex()
             .id(ElementId::Name(tip.clone()))
-            .tooltip(move |_, cx| Tooltip::with_key(tip.clone(), None, cx))
+            .flex_none()
+            .gap(px(3.))
+            .text_size(px(11.))
+            .text_color(color)
+            .child(small_icon(glyph).text_color(color))
+            .child(n.to_string())
+            .tooltip(Tooltip::text(tip))
     })
+}
+
+/// A dashed box to drop a dragged row on, lit while one is over it.
+fn drop_zone(id: impl Into<ElementId>, label: impl IntoElement, theme: &Theme) -> Stateful<Div> {
+    let highlight = theme.pop;
+    h_flex()
+        .id(id)
+        .mx(px(6.))
+        .justify_center()
+        .gap(px(6.))
+        .rounded(px(4.))
+        .border_1()
+        .border_dashed()
+        .border_color(theme.border_2)
+        .text_size(px(12.))
+        .text_color(theme.text_2)
+        .child(small_icon(Icon::Branch).text_color(theme.text_2))
+        .child(label)
+        .drag_over::<Cut>(move |style, _, _, _| {
+            style
+                .bg(highlight.opacity(0.14))
+                .border_color(highlight)
+                .text_color(highlight)
+        })
+}
+
+/// Take `key` out of `set`, or put it in when it isn't there.
+fn toggle<T: Eq + Hash>(set: &mut HashSet<T>, key: T) {
+    if !set.remove(&key) {
+        set.insert(key);
+    }
 }
 
 impl Focusable for Navigator {

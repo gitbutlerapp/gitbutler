@@ -267,23 +267,9 @@ impl AppView {
         }) else {
             return;
         };
-        // With the composer open, it's what the next commit goes to.
-        let (selected, detail) = (project.clone(), self.detail.downgrade());
-        self.prompt_branch(
-            project,
-            "New branch",
-            "",
-            window,
-            cx,
-            |path, _, name| backend::create_branch(path, Some(name)),
-            move |store, ref_name, cx| {
-                (detail.update(cx, |detail, cx| {
-                    detail.branch_created(&selected, ref_name.clone(), cx)
-                }))
-                .ok();
-                store.select(Some(Selection::Branch(selected, ref_name)), cx)
-            },
-        );
+        self.prompt_new_branch(project, "New branch", window, cx, |path, _, name| {
+            backend::create_branch(path, Some(name))
+        });
     }
 
     /// Ask with a native dialog before doing something destructive.
@@ -501,7 +487,6 @@ impl AppView {
         }
     }
 
-    /// Put `text` on the clipboard and say so.
     /// What right-clicking `target`'s row in the navigator offers, opened at `position`.
     pub fn open_row_menu(
         &mut self,
@@ -513,6 +498,7 @@ impl AppView {
         self.open_menu(position, items, cx);
     }
 
+    /// Put `text` on the clipboard and say so.
     pub fn copy_text(&mut self, text: String, cx: &mut Context<Self>) {
         let message = copied(&text);
         cx.write_to_clipboard(ClipboardItem::new_string(text));

@@ -63,6 +63,35 @@ pub fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
     }
 }
 
+/// Which edits of a named branch have something to do, so its menu and the palette offer
+/// the same ones.
+#[derive(Default)]
+pub struct BranchEdits {
+    /// It has commits for a new branch below to keep.
+    pub new_below: bool,
+    /// It has more than one commit to squash into one.
+    pub squash_all: bool,
+    /// Other branches share its stack, so it can be unstacked.
+    pub stacked: bool,
+    /// It can land on the target, and whether with the branches below it.
+    pub land: Option<bool>,
+}
+
+impl BranchEdits {
+    pub fn of(workspace: &Workspace, ref_name: &str) -> Self {
+        let Some((stack, at)) = workspace.stack_of(ref_name) else {
+            return Self::default();
+        };
+        let commits = stack.branches[at].commits.len();
+        Self {
+            new_below: commits > 0,
+            squash_all: commits > 1,
+            stacked: stack.branches.len() > 1,
+            land: land_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
+        }
+    }
+}
+
 impl AppView {
     /// Register the edits on the element around the navigator and the detail. Delete, rename, new branch
     /// on top and uncommit are always there; the rest only where the selection lets them do
@@ -75,12 +104,7 @@ impl AppView {
             .on_action(cx.listener(Self::uncommit_selection));
         let store = self.store.read(cx);
         let picked = store.picked.len() > 1;
-        let (pullable, managed) = match &store.selection {
-            Some(Selection::Branch(project, ref_name)) => (store.workspace(project))
-                .map_or((false, false), |ws| (ws.can_pull(ref_name), ws.managed)),
-            _ => (false, false),
-        };
-        match store.selection {
+        match &store.selection {
             Some(Selection::Commit(..)) => el
                 .on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
                     this.add_empty_commit(true, cx)
@@ -112,24 +136,41 @@ impl AppView {
                 .on_action(cx.listener(Self::rewrap_message))
                 .on_action(cx.listener(|this, _: &CopyChangeId, _, cx| this.copy_commit(true, cx)))
                 .on_action(cx.listener(|this, _: &CopyMessage, _, cx| this.copy_commit(false, cx))),
-            Some(Selection::Branch(..)) => el
-                .on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
-                    this.add_empty_commit(true, cx)
-                }))
-                .on_action(cx.listener(Self::squash_all))
-                .on_action(cx.listener(Self::new_branch_below))
-                .on_action(cx.listener(Self::unstack))
-                // Outside the workspace there are no stacks to take out of it.
-                .when(managed, |el| el.on_action(cx.listener(Self::unapply_stack)))
-                .on_action(cx.listener(Self::land_branch))
-                .when(pullable, |el| {
+            Some(Selection::Branch(project, ref_name)) => {
+                let Some(workspace) = store.workspace(project) else {
+                    return el;
+                };
+                let el = el.when(workspace.can_pull(ref_name), |el| {
                     el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
                         this.pull_remote(false, window, cx)
                     }))
                     .on_action(cx.listener(
                         |this, _: &TakeRemote, window, cx| this.pull_remote(true, window, cx),
                     ))
-                }),
+                });
+                // The rest work on a named branch only, as its menu says.
+                if ref_name.is_empty() {
+                    return el;
+                }
+                let edits = BranchEdits::of(workspace, ref_name);
+                el.on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
+                    this.add_empty_commit(true, cx)
+                }))
+                .when(edits.squash_all, |el| {
+                    el.on_action(cx.listener(Self::squash_all))
+                })
+                .when(edits.new_below, |el| {
+                    el.on_action(cx.listener(Self::new_branch_below))
+                })
+                .when(edits.stacked, |el| el.on_action(cx.listener(Self::unstack)))
+                // Outside the workspace there are no stacks to take out of it.
+                .when(workspace.managed, |el| {
+                    el.on_action(cx.listener(Self::unapply_stack))
+                })
+                .when(edits.land.is_some(), |el| {
+                    el.on_action(cx.listener(Self::land_branch))
+                })
+            }
             _ => el,
         }
     }
@@ -320,7 +361,7 @@ impl AppView {
 
     /// Ask for a branch name and make the branch with `op`, then select it. With the composer
     /// open, it's what the next commit goes to.
-    fn prompt_new_branch(
+    pub(crate) fn prompt_new_branch(
         &mut self,
         project: ProjectId,
         title: &str,
