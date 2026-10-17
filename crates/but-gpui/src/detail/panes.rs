@@ -1205,9 +1205,12 @@ impl Detail {
                 let feedback = (self.feedback.as_ref())
                     .filter(|(p, number, _)| p == project && *number == review.number)
                     .map(|(.., feedback)| feedback);
+                let github =
+                    store.workspace(project).and_then(|ws| ws.forge.as_deref()) == Some("GitHub");
                 el.child(render_review(
                     review,
                     feedback.map(|f| &f.verdicts),
+                    github,
                     theme,
                     cx,
                 ))
@@ -1356,6 +1359,7 @@ impl Detail {
             return;
         };
         let project = project.clone();
+        self.feedback_asked = Some(std::time::Instant::now());
         self._feedback_load = cx.spawn(async move |this, cx| {
             let feedback = backend::run(move || backend::reviews::feedback(&path, number)).await;
             // A forge that can't say, or no account for it, leaves the card as it was.
@@ -1519,13 +1523,17 @@ impl Detail {
 fn review_line(
     review: &backend::Review,
     verdicts: Option<&backend::reviews::Verdicts>,
+    github: bool,
     theme: &Theme,
 ) -> Option<AnyElement> {
-    // Asked, and not decided yet as far as the forge has said.
+    // GitHub lists a reviewer who decided only once asked again, which means they're
+    // awaited; the other forges keep listing everyone asked, decided or not.
     let waiting: Vec<String> = (review.reviewers.iter())
         .filter(|login| {
-            verdicts
-                .is_none_or(|v| !v.approved.contains(login) && !v.changes_requested.contains(login))
+            github
+                || verdicts.is_none_or(|v| {
+                    !v.approved.contains(login) && !v.changes_requested.contains(login)
+                })
         })
         .cloned()
         .collect();
@@ -1590,6 +1598,7 @@ fn conflict_bar(
 fn render_review(
     review: &backend::Review,
     verdicts: Option<&backend::reviews::Verdicts>,
+    github: bool,
     theme: &Theme,
     cx: &Context<Detail>,
 ) -> AnyElement {
@@ -1651,7 +1660,7 @@ fn render_review(
                     el.child("·").child("merges when checks pass")
                 }),
         )
-        .children(review_line(review, verdicts, theme))
+        .children(review_line(review, verdicts, github, theme))
         .into_any_element()
 }
 

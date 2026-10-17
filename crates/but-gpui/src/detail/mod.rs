@@ -100,6 +100,8 @@ struct DiffKey {
 
 /// How long a diff loads before the pane says it's loading.
 const SHOW_LOADING: Duration = Duration::from_millis(150);
+/// How long a pull request's reviews and conversations go before a reload asks again.
+const FEEDBACK_STALE: Duration = Duration::from_secs(60);
 
 struct LoadedDiff {
     key: DiffKey,
@@ -187,6 +189,8 @@ pub struct Detail {
     /// Where the review of the selected branch's pull request stands, once the forge said:
     /// the project and pull request number it's for.
     feedback: Option<(ProjectId, u64, backend::reviews::Feedback)>,
+    /// When it was last asked for, to ask again as the workspace reloads, but not often.
+    feedback_asked: Option<Instant>,
     _feedback_load: Task<()>,
     /// The Branches page's branches, for the project it shows, and its filter.
     branches: Option<branches::Branches>,
@@ -257,6 +261,15 @@ impl Detail {
                 }
                 StoreEvent::Loaded(project) => {
                     this.refresh_conflicted(cx);
+                    // A push can dismiss approvals; a reviewer can weigh in any time.
+                    if let Some(Selection::Branch(shown, ref_name)) = this.selection(cx)
+                        && shown == *project
+                        && this
+                            .feedback_asked
+                            .is_none_or(|at| at.elapsed() >= FEEDBACK_STALE)
+                    {
+                        this.load_feedback(&shown, &ref_name, cx)
+                    }
                     // Calling a file resolved lasts as long as that edit does.
                     if this.editing(project, cx).is_none() {
                         this.marked_resolved.retain(|(p, ..)| p != project);
@@ -359,6 +372,7 @@ impl Detail {
             upstream_scroll: UniformListScrollHandle::new(),
             _upstream_load: Task::ready(()),
             feedback: None,
+            feedback_asked: None,
             _feedback_load: Task::ready(()),
             branches: None,
             branch_filter,

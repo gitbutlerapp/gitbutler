@@ -146,6 +146,7 @@ fn describe_reviews(ctx: &Context, stacks: &mut [Stack]) {
             review.url = Some(cached.html_url.clone());
             review.state = review_state(cached);
             review.auto_merge = cached.auto_merge_enabled;
+            review.author = cached.author.as_ref().map(|author| author.login.clone());
             review.reviewers = (cached.reviewers.iter())
                 .filter(|user| !user.is_bot)
                 .map(|user| user.login.clone())
@@ -281,6 +282,7 @@ fn branch_from(segment: &but_workspace::ref_info::Segment) -> Branch {
                 url: None,
                 checks: None,
                 auto_merge: false,
+                author: None,
                 reviewers: Vec::new(),
             }),
     }

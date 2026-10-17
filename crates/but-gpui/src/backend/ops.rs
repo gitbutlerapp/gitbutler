@@ -562,10 +562,19 @@ pub fn push(path: &Path, ref_name: &str, force: bool, protect: bool) -> Result<O
         .map(|(_, _, remote)| remote))
 }
 
-/// Whether `err` is force push protection stopping a push: the remote has commits it would
-/// drop, as when someone else pushed since the last fetch.
-pub fn push_blocked(err: &anyhow::Error) -> bool {
-    err.downcast_ref::<but_error::Code>() == Some(&but_error::Code::GitForcePushProtection)
+/// When `err` is force push protection stopping a push, what the remote itself said, if
+/// anything: Git counts any refused force push as that, a protected branch's too.
+pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
+    if err.downcast_ref::<but_error::Code>() != Some(&but_error::Code::GitForcePushProtection) {
+        return None;
+    }
+    tracing::warn!(?err, "push refused");
+    let text = format!("{err:#}");
+    let said: Vec<&str> = (text.lines().map(str::trim))
+        .filter_map(|line| line.strip_prefix("remote:").map(str::trim))
+        .filter(|line| !line.is_empty())
+        .collect();
+    Some(said.join("\n"))
 }
 
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of

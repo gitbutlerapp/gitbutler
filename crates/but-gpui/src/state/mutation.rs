@@ -210,13 +210,18 @@ impl Store {
             {
                 let ref_name = ref_name.clone();
                 move |path, _| match backend::push(path, &ref_name, force, protect) {
-                    Ok(_) => Ok(true),
-                    Err(err) if backend::push_blocked(&err) => Ok(false),
-                    Err(err) => Err(err),
+                    Ok(_) => Ok(None),
+                    Err(err) => match backend::push_refusal(&err) {
+                        Some(said) => Ok(Some(said)),
+                        None => Err(err),
+                    },
                 }
             },
-            move |store, done: bool, cx| {
-                if !done {
+            move |store, refused: Option<String>, cx| {
+                // A push can open or move a pull request's checks, and the branches below
+                // may have gone up before the one refused.
+                store.refresh_forge(&pushed);
+                if let Some(reason) = refused {
                     let again = pushed.clone();
                     let retry: super::Retry = (
                         "Push anyway".into(),
@@ -227,18 +232,20 @@ impl Store {
                     return store.notify_user(
                         super::Notice::Error {
                             title: format!("{name} wasn't pushed").into(),
-                            detail: "The remote has commits this push would drop: someone \
-                                     pushed there since the last fetch. Fetch to see them, or \
-                                     push anyway to replace them."
-                                .into(),
-                            retry: Some(retry),
+                            detail: match reason.as_str() {
+                                "" => "The remote has commits it would drop: someone pushed \
+                                       since the last fetch. Fetch to see them, or force-push \
+                                       the stack anyway."
+                                    .into(),
+                                said => format!("The remote refused it: {said}").into(),
+                            },
+                            // Forcing past a protected branch or a push rule won't help.
+                            retry: reason.is_empty().then_some(retry),
                         },
                         cx,
                     );
                 }
                 store.snack(format!("Pushed {name}"), cx);
-                // A push can open or move a pull request's checks.
-                store.refresh_forge(&pushed);
             },
             cx,
         );

@@ -355,7 +355,8 @@ impl AppView {
         }
         let overlay = Overlay::commits(rest.iter().map(|c| c.key.clone()));
         let label = format!("Squash {} commits", rest.len() + 1);
-        let rest = rest.iter().map(|c| c.id).collect();
+        // Oldest first, so their messages follow `into`'s in the order they were written.
+        let rest = rest.iter().rev().map(|c| c.id).collect();
         self.squash(project, rest, into, overlay, label, cx);
     }
 

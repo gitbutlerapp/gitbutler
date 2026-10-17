@@ -567,12 +567,19 @@ impl AppView {
                         Overlay::default(),
                         move |path, _| branches::apply_review(path, number),
                         move |store, (applied, branch), cx| match applied {
-                            ApplyOutcome::Applied | ApplyOutcome::AlreadyApplied => {
+                            ApplyOutcome::Applied => {
                                 if let Some(branch) = branch {
                                     store.select(Some(Selection::Branch(selected, branch)), cx);
                                 }
                                 store.snack_undoable(format!("Applied #{number}"), cx)
                             }
+                            ApplyOutcome::AlreadyApplied => store.snack(
+                                format!(
+                                    "#{number} is in the workspace already: pull its branch \
+                                     for any new commits"
+                                ),
+                                cx,
+                            ),
                             ApplyOutcome::Conflicts(stacks) => store.error(
                                 format!("#{number} wasn't applied"),
                                 format!("It conflicts with {}", stacks.join(", ")),
@@ -652,9 +659,17 @@ impl AppView {
         let Some(path) = store.path(&project) else {
             return;
         };
+        // Whoever was asked already, and its author, whom the forge won't ask.
         let asked: Vec<String> = (store.workspace(&project))
             .and_then(|ws| ws.find_branch(&branch)?.review.as_ref())
-            .map(|review| review.reviewers.clone())
+            .map(|review| {
+                review
+                    .reviewers
+                    .iter()
+                    .chain(&review.author)
+                    .cloned()
+                    .collect()
+            })
             .unwrap_or_default();
         cx.spawn_in(window, async move |this, cx| {
             let candidates = backend::run(move || reviews::reviewer_candidates(&path)).await;
