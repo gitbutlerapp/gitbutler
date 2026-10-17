@@ -32,6 +32,7 @@ export const createFakeTransport = (handlers: FakeHandlers) => {
 			};
 		},
 		platform: "darwin",
+		host: "harness",
 	};
 
 	return {

@@ -53,6 +53,7 @@ const hostOnly = {
 	},
 	writeGUISettings: (settings) => localStorage.setItem(guiSettingsKey, JSON.stringify(settings)),
 	updateFeatureFlags: (update) => backend("update_feature_flags", { update }) as Promise<void>,
+	relaunch: () => backend("plugin:process|restart") as Promise<void>,
 	...updater.handlers,
 	...notifications.handlers,
 	watcherStopAll: watcher.handlers.watcherStopAll,
@@ -97,4 +98,5 @@ export const tauriTransport: LiteApiTransport = {
 		return subscribe === undefined ? () => undefined : subscribe(listener);
 	},
 	platform: platformFromUserAgent(navigator.userAgent),
+	host: "tauri",
 };

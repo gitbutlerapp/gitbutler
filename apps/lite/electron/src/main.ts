@@ -309,6 +309,10 @@ const electronHandlerOverrides = {
 	getVersion: () => app.getVersion(),
 	isPackaged: () => app.isPackaged,
 	installCli,
+	relaunch: () => {
+		app.relaunch();
+		app.exit();
+	},
 	openInWebBrowser: (url) => {
 		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
 		// program with shell.openExternal("file:///Applications/Numbers.app"). Similarly bad
