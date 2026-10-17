@@ -18,6 +18,8 @@ mod navigator;
 #[cfg(target_os = "macos")]
 mod open_in;
 #[cfg(target_os = "macos")]
+mod overlays;
+#[cfg(target_os = "macos")]
 mod palette;
 #[cfg(target_os = "macos")]
 mod pr;
@@ -84,7 +86,6 @@ fn main() {
             settings::bind_keys(cx);
             open_in::bind_keys(cx);
             help::register(cx);
-            cx.on_action(|_: &app::Quit, cx| cx.quit());
             cx.on_action(|_: &app::Hide, cx| cx.hide());
             cx.on_action(|_: &app::HideOthers, cx| cx.hide_other_apps());
             cx.on_action(|_: &app::ShowAll, cx| cx.unhide_other_apps());
@@ -143,10 +144,15 @@ fn main() {
                     |window, cx| cx.new(|cx| AppView::new(window, cx)),
                 )
                 .expect("the main window opens");
+            // With the window minimized no window is active, so the menu's Quit comes here.
+            // It asks the window first, as ⌘Q does.
+            cx.on_action(move |_: &app::Quit, cx| {
+                window
+                    .update(cx, |app, window, cx| app.quit(&app::Quit, window, cx))
+                    .unwrap_or_else(|_| cx.quit())
+            });
             #[cfg(feature = "dev-script")]
             dev::run_from_env(window.into(), cx);
-            #[cfg(not(feature = "dev-script"))]
-            let _ = window;
             cx.activate(true);
         });
 }

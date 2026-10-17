@@ -26,8 +26,8 @@ use std::time::{Duration, Instant};
 use anyhow::{Context as _, Result, bail};
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Keystroke, Modifiers, ModifiersChangedEvent,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PlatformInput, Point, ScrollDelta,
-    ScrollWheelEvent, TouchPhase, Window, point, px,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point,
+    ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point, px,
 };
 
 use crate::app::AppView;
@@ -143,20 +143,21 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             .map(|part| part.parse::<f32>().context("expected a number"))
             .collect()
     };
+    let held = |name| rest.split_whitespace().any(|part| part == name);
     match command {
         "key" => {
             // Hold the modifiers around the key, as a keyboard does, so code that reads
             // `window.modifiers()` sees them.
             let keystroke = Keystroke::parse(rest)?;
-            let held = |modifiers| {
+            let hold = |modifiers| {
                 PlatformInput::ModifiersChanged(ModifiersChangedEvent {
                     modifiers,
                     capslock: Default::default(),
                 })
             };
-            window.dispatch_event(held(keystroke.modifiers), cx);
+            window.dispatch_event(hold(keystroke.modifiers), cx);
             window.dispatch_keystroke(keystroke, cx);
-            window.dispatch_event(held(Modifiers::default()), cx);
+            window.dispatch_event(hold(Modifiers::default()), cx);
         }
         "type" => {
             for ch in rest.chars() {
@@ -174,14 +175,8 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             let [x, y] = numbers()?[..] else {
                 bail!("move takes x y");
             };
-            window.dispatch_event(
-                PlatformInput::MouseMove(MouseMoveEvent {
-                    position: point(px(x), px(y)),
-                    pressed_button: None,
-                    modifiers: Modifiers::default(),
-                }),
-                cx,
-            );
+            let at = point(px(x), px(y));
+            window.dispatch_event(mouse_move(at, None, Modifiers::default()), cx);
         }
         "scroll" => {
             let [x, y, dy] = numbers()?[..] else {
@@ -212,7 +207,6 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 "tclick" => 3,
                 _ => 1,
             };
-            let held = |name| rest.split_whitespace().any(|part| part == name);
             let modifiers = Modifiers {
                 platform: held("cmd"),
                 shift: held("shift"),
@@ -227,47 +221,25 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 bail!("drag takes x1 y1 x2 y2");
             };
             let release_modifiers = Modifiers {
-                alt: rest.split_whitespace().any(|part| part == "alt"),
-                shift: rest.split_whitespace().any(|part| part == "shift"),
+                alt: held("alt"),
+                shift: held("shift"),
                 ..Default::default()
             };
             let (from, to) = (point(px(x1), px(y1)), point(px(x2), px(y2)));
-            window.dispatch_event(
-                PlatformInput::MouseDown(MouseDownEvent {
-                    button: MouseButton::Left,
-                    position: from,
-                    modifiers: Modifiers::default(),
-                    click_count: 1,
-                    first_mouse: false,
-                }),
-                cx,
-            );
+            let left = MouseButton::Left;
+            window.dispatch_event(mouse_down(left, from, Modifiers::default(), 1), cx);
             for step in 1..=8 {
                 let t = step as f32 / 8.;
                 let at = point(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
-                window.dispatch_event(
-                    PlatformInput::MouseMove(MouseMoveEvent {
-                        position: at,
-                        pressed_button: Some(MouseButton::Left),
-                        modifiers: if step == 8 {
-                            release_modifiers
-                        } else {
-                            Modifiers::default()
-                        },
-                    }),
-                    cx,
-                );
+                let modifiers = if step == 8 {
+                    release_modifiers
+                } else {
+                    Modifiers::default()
+                };
+                window.dispatch_event(mouse_move(at, Some(left), modifiers), cx);
             }
-            if !rest.split_whitespace().any(|part| part == "hold") {
-                window.dispatch_event(
-                    PlatformInput::MouseUp(MouseUpEvent {
-                        button: MouseButton::Left,
-                        position: to,
-                        modifiers: release_modifiers,
-                        click_count: 1,
-                    }),
-                    cx,
-                );
+            if !held("hold") {
+                window.dispatch_event(mouse_up(left, to, release_modifiers, 1), cx);
             }
         }
         "drop" => {
@@ -275,24 +247,9 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             let [x, y] = numbers()?[..] else {
                 bail!("drop takes x y");
             };
-            let at = point(px(x), px(y));
-            window.dispatch_event(
-                PlatformInput::MouseMove(MouseMoveEvent {
-                    position: at,
-                    pressed_button: Some(MouseButton::Left),
-                    modifiers: Modifiers::default(),
-                }),
-                cx,
-            );
-            window.dispatch_event(
-                PlatformInput::MouseUp(MouseUpEvent {
-                    button: MouseButton::Left,
-                    position: at,
-                    modifiers: Modifiers::default(),
-                    click_count: 1,
-                }),
-                cx,
-            );
+            let (at, left) = (point(px(x), px(y)), MouseButton::Left);
+            window.dispatch_event(mouse_move(at, Some(left), Modifiers::default()), cx);
+            window.dispatch_event(mouse_up(left, at, Modifiers::default(), 1), cx);
         }
         "shot" => {
             let image = window.render_to_image()?;
@@ -306,36 +263,53 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
 fn press(
     window: &mut Window,
     cx: &mut App,
-    position: Point<gpui::Pixels>,
+    position: Point<Pixels>,
     button: MouseButton,
     modifiers: Modifiers,
     click_count: usize,
 ) {
-    window.dispatch_event(
-        PlatformInput::MouseMove(MouseMoveEvent {
-            position,
-            pressed_button: None,
-            modifiers,
-        }),
-        cx,
-    );
-    window.dispatch_event(
-        PlatformInput::MouseDown(MouseDownEvent {
-            button,
-            position,
-            modifiers,
-            click_count,
-            first_mouse: false,
-        }),
-        cx,
-    );
-    window.dispatch_event(
-        PlatformInput::MouseUp(MouseUpEvent {
-            button,
-            position,
-            modifiers,
-            click_count,
-        }),
-        cx,
-    );
+    window.dispatch_event(mouse_move(position, None, modifiers), cx);
+    window.dispatch_event(mouse_down(button, position, modifiers, click_count), cx);
+    window.dispatch_event(mouse_up(button, position, modifiers, click_count), cx);
+}
+
+fn mouse_move(
+    position: Point<Pixels>,
+    pressed_button: Option<MouseButton>,
+    modifiers: Modifiers,
+) -> PlatformInput {
+    PlatformInput::MouseMove(MouseMoveEvent {
+        position,
+        pressed_button,
+        modifiers,
+    })
+}
+
+fn mouse_down(
+    button: MouseButton,
+    position: Point<Pixels>,
+    modifiers: Modifiers,
+    click_count: usize,
+) -> PlatformInput {
+    PlatformInput::MouseDown(MouseDownEvent {
+        button,
+        position,
+        modifiers,
+        click_count,
+        first_mouse: false,
+    })
+}
+
+fn mouse_up(
+    button: MouseButton,
+    position: Point<Pixels>,
+    modifiers: Modifiers,
+    click_count: usize,
+) -> PlatformInput {
+    PlatformInput::MouseUp(MouseUpEvent {
+        button,
+        position,
+        modifiers,
+        click_count,
+    })
 }

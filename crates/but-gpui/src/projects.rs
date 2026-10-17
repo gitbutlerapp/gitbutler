@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use gpui::{Context, PathPromptOptions, Window, actions, prelude::*};
+use gpui::{App, Context, PathPromptOptions, Window, actions, prelude::*};
 
 use crate::app::AppView;
 use crate::backend::{self, settings};
@@ -12,6 +12,20 @@ use crate::state::ProjectId;
 use crate::ui::text_input::TextInput;
 
 actions!(projects, [CloneRepository]);
+
+/// Ask for one folder with the system's picker, `prompt` on its button.
+pub fn pick_folder(
+    prompt: &'static str,
+    cx: &App,
+) -> impl Future<Output = Option<PathBuf>> + use<> {
+    let paths = cx.prompt_for_paths(PathPromptOptions {
+        files: false,
+        directories: true,
+        multiple: false,
+        prompt: Some(prompt.into()),
+    });
+    async move { paths.await.ok()?.ok()??.into_iter().next() }
+}
 
 /// The folder a clone of `url` goes in: the repository's name.
 fn clone_name(url: &str) -> Option<String> {
@@ -41,18 +55,10 @@ impl AppView {
                 let Some(name) = clone_name(&url) else {
                     return;
                 };
-                let folders = cx.prompt_for_paths(PathPromptOptions {
-                    files: false,
-                    directories: true,
-                    multiple: false,
-                    prompt: Some("Clone here".into()),
-                });
+                let folder = pick_folder("Clone here", cx);
                 let store = this.store.clone();
                 cx.spawn(async move |_, cx| {
-                    let Ok(Ok(Some(folders))) = folders.await else {
-                        return;
-                    };
-                    let Some(into) = folders.into_iter().next().map(|dir| dir.join(&name)) else {
+                    let Some(into) = folder.await.map(|dir| dir.join(&name)) else {
                         return;
                     };
                     store.update(cx, |store, cx| store.snack(format!("Cloning {name}…"), cx));
@@ -72,18 +78,10 @@ impl AppView {
 
     /// Point a project whose folder moved at where it is now.
     pub fn locate_project(&mut self, project: ProjectId, cx: &mut Context<Self>) {
-        let folders = cx.prompt_for_paths(PathPromptOptions {
-            files: false,
-            directories: true,
-            multiple: false,
-            prompt: Some("This is the project".into()),
-        });
+        let folder = pick_folder("This is the project", cx);
         let store = self.store.clone();
         cx.spawn(async move |_, cx| {
-            let Ok(Ok(Some(folders))) = folders.await else {
-                return;
-            };
-            let Some(path): Option<PathBuf> = folders.into_iter().next() else {
+            let Some(path) = folder.await else {
                 return;
             };
             let id = project.to_string();

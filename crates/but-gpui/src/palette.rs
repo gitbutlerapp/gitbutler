@@ -39,107 +39,81 @@ pub fn bind_keys(cx: &mut gpui::App) {
 }
 
 /// Every command, in the order they're listed before anything is typed.
-fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
-    vec![
-        ("Mark file reviewed", Box::new(ToggleReviewed)),
-        ("Next hunk", Box::new(NextHunk)),
-        ("Previous hunk", Box::new(PreviousHunk)),
-        ("Next file", Box::new(NextFile)),
-        ("Previous file", Box::new(PreviousFile)),
-        ("Fold file", Box::new(ToggleFold)),
-        ("Show files as a tree or a list", Box::new(ToggleFileTree)),
-        ("Discard hunk", Box::new(DiscardHunk)),
-        ("Discard file", Box::new(DiscardFile)),
-        ("Commit…", Box::new(StartCommit)),
-        ("Undo", Box::new(Undo)),
-        ("Redo", Box::new(Redo)),
-        ("Push branch", Box::new(Push)),
-        ("Open pull request", Box::new(OpenPullRequest)),
-        ("Fetch", Box::new(Fetch)),
-        ("Update from target", Box::new(UpdateFromTarget)),
-        ("New branch", Box::new(NewBranch)),
-        ("New branch on top", Box::new(NewBranchOnTop)),
-        ("Rename", Box::new(RenameSelection)),
-        ("Uncommit", Box::new(UncommitSelection)),
-        ("Move commit up", Box::new(MoveUp)),
-        ("Move commit down", Box::new(MoveDown)),
-        ("Cherry-pick commit", Box::new(CherryPick)),
-        ("Add empty commit above", Box::new(AddEmptyCommitAbove)),
-        ("Add empty commit below", Box::new(AddEmptyCommitBelow)),
-        ("Squash all commits", Box::new(SquashAll)),
-        (
-            "Squash the picked commits",
-            Box::new(crate::edits::SquashPicked),
-        ),
-        (
-            "Move commit to a new branch",
-            Box::new(crate::edits::MoveToNewBranch),
-        ),
-        ("Pull from the remote", Box::new(crate::edits::PullRemote)),
-        (
-            "Take the remote's version",
-            Box::new(crate::edits::TakeRemote),
-        ),
-        ("New branch below", Box::new(NewBranchBelow)),
-        ("New branch ending here", Box::new(NewBranchHere)),
-        ("Unstack branch", Box::new(Unstack)),
-        ("Unapply stack", Box::new(UnapplyStack)),
-        ("Land branch on target", Box::new(crate::edits::LandBranch)),
-        ("Update stack from target", Box::new(UpdateStack)),
-        ("Rewrap commit message", Box::new(RewrapMessage)),
-        ("Copy change ID", Box::new(CopyChangeId)),
-        ("Copy commit message", Box::new(CopyMessage)),
-        ("Discard or delete selection", Box::new(DeleteSelection)),
-        ("Copy", Box::new(CopySelection)),
-        ("Cut", Box::new(CutSelection)),
-        ("Paste here", Box::new(PasteHere)),
-        ("Toggle navigator", Box::new(ToggleNavigator)),
-        ("Zoom diff", Box::new(ToggleZoom)),
-        ("Go to navigator", Box::new(FocusNavigator)),
-        ("Go to changes", Box::new(FocusChanges)),
-        ("Add project…", Box::new(AddProject)),
-        (
-            "Clone a repository…",
-            Box::new(crate::projects::CloneRepository),
-        ),
-        ("Settings", Box::new(crate::settings::OpenSettings)),
-        (
-            "Switch between light and dark",
-            Box::new(crate::app::ToggleAppearance),
-        ),
-        ("Go to branch", Box::new(GoToBranch)),
-        ("Find in diff", Box::new(crate::detail::FindInDiff)),
-        ("Filter files", Box::new(crate::detail::FilterFiles)),
-        ("Wrap long lines", Box::new(crate::detail::ToggleWrap)),
-        ("Side-by-side diff", Box::new(crate::detail::ToggleSplit)),
-        (
-            "Show or hide the files",
-            Box::new(crate::detail::ToggleFiles),
-        ),
-        (
-            "Create pull request",
-            Box::new(crate::pr::CreatePullRequest),
-        ),
-        ("Edit pull request", Box::new(crate::pr::EditPullRequest)),
-        ("Merge pull request", Box::new(crate::pr::MergePullRequest)),
-        (
-            "Apply a pull request",
-            Box::new(crate::pr::ApplyPullRequest),
-        ),
-        (
-            "Resolve conflicts",
-            Box::new(crate::resolve::ResolveConflicts),
-        ),
-        (
-            "Resolve conflicts by hand",
-            Box::new(crate::resolve::EditByHand),
-        ),
-        ("Open in editor", Box::new(crate::open_in::OpenInEditor)),
-        ("Open in terminal", Box::new(crate::open_in::OpenInTerminal)),
-        ("Reload", Box::new(Refresh)),
-        ("Quit", Box::new(Quit)),
-    ]
-}
+const COMMANDS: &[(&str, &dyn Action)] = &[
+    ("Mark file reviewed", &ToggleReviewed),
+    ("Next hunk", &NextHunk),
+    ("Previous hunk", &PreviousHunk),
+    ("Next file", &NextFile),
+    ("Previous file", &PreviousFile),
+    ("Fold file", &ToggleFold),
+    ("Show files as a tree or a list", &ToggleFileTree),
+    ("Discard hunk", &DiscardHunk),
+    ("Discard file", &DiscardFile),
+    ("Commit…", &StartCommit),
+    ("Undo", &Undo),
+    ("Redo", &Redo),
+    ("Push branch", &Push),
+    ("Open pull request", &OpenPullRequest),
+    ("Fetch", &Fetch),
+    ("Update from target", &UpdateFromTarget),
+    ("New branch", &NewBranch),
+    ("New branch on top", &NewBranchOnTop),
+    ("Rename", &RenameSelection),
+    ("Uncommit", &UncommitSelection),
+    ("Move commit up", &MoveUp),
+    ("Move commit down", &MoveDown),
+    ("Cherry-pick commit", &CherryPick),
+    ("Add empty commit above", &AddEmptyCommitAbove),
+    ("Add empty commit below", &AddEmptyCommitBelow),
+    ("Squash all commits", &SquashAll),
+    ("Squash the picked commits", &crate::edits::SquashPicked),
+    (
+        "Move commit to a new branch",
+        &crate::edits::MoveToNewBranch,
+    ),
+    ("Pull from the remote", &crate::edits::PullRemote),
+    ("Take the remote's version", &crate::edits::TakeRemote),
+    ("New branch below", &NewBranchBelow),
+    ("New branch ending here", &NewBranchHere),
+    ("Unstack branch", &Unstack),
+    ("Unapply stack", &UnapplyStack),
+    ("Land branch on target", &crate::edits::LandBranch),
+    ("Update stack from target", &UpdateStack),
+    ("Rewrap commit message", &RewrapMessage),
+    ("Copy change ID", &CopyChangeId),
+    ("Copy commit message", &CopyMessage),
+    ("Discard or delete selection", &DeleteSelection),
+    ("Copy", &CopySelection),
+    ("Cut", &CutSelection),
+    ("Paste here", &PasteHere),
+    ("Toggle navigator", &ToggleNavigator),
+    ("Zoom diff", &ToggleZoom),
+    ("Go to navigator", &FocusNavigator),
+    ("Go to changes", &FocusChanges),
+    ("Add project…", &AddProject),
+    ("Clone a repository…", &crate::projects::CloneRepository),
+    ("Settings", &crate::settings::OpenSettings),
+    (
+        "Switch between light and dark",
+        &crate::app::ToggleAppearance,
+    ),
+    ("Go to branch", &GoToBranch),
+    ("Find in diff", &crate::detail::FindInDiff),
+    ("Filter files", &crate::detail::FilterFiles),
+    ("Wrap long lines", &crate::detail::ToggleWrap),
+    ("Side-by-side diff", &crate::detail::ToggleSplit),
+    ("Show or hide the files", &crate::detail::ToggleFiles),
+    ("Create pull request", &crate::pr::CreatePullRequest),
+    ("Edit pull request", &crate::pr::EditPullRequest),
+    ("Merge pull request", &crate::pr::MergePullRequest),
+    ("Apply a pull request", &crate::pr::ApplyPullRequest),
+    ("Resolve conflicts", &crate::resolve::ResolveConflicts),
+    ("Resolve conflicts by hand", &crate::resolve::EditByHand),
+    ("Open in editor", &crate::open_in::OpenInEditor),
+    ("Open in terminal", &crate::open_in::OpenInTerminal),
+    ("Reload", &Refresh),
+    ("Quit", &Quit),
+];
 
 const RISKY: &[&str] = &[
     "Discard hunk",
@@ -220,9 +194,8 @@ fn score(label: &str, query: &str) -> Option<i32> {
 
 impl AppView {
     pub fn open_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let mut commands: Vec<(&'static str, Box<dyn Action>)> = commands()
-            .into_iter()
-            .filter(|(_, action)| window.is_action_available(action.as_ref(), cx))
+        let mut commands: Vec<(&'static str, &dyn Action)> = (COMMANDS.iter().copied())
+            .filter(|(_, action)| window.is_action_available(*action, cx))
             .collect();
         // Recently run commands first, as in Zed.
         commands.sort_by_key(|(label, _)| {
@@ -234,7 +207,8 @@ impl AppView {
         let choices = commands
             .into_iter()
             .map(|(label, action)| {
-                let key = shortcut(action.as_ref(), cx);
+                let key = shortcut(action, cx);
+                let action = action.boxed_clone();
                 Choice {
                     key,
                     ..Choice::new(label, move |this, window, cx| {
