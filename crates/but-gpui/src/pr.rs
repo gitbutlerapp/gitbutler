@@ -25,6 +25,7 @@ actions!(
         EditPullRequest,
         ToggleDraft,
         ToggleAutoMerge,
+        RequestReview,
         MergePullRequest,
         ClosePullRequest,
     ]
@@ -525,6 +526,61 @@ impl AppView {
             },
             cx,
         );
+    }
+
+    /// Pick someone to ask for a review of the pull request, from the repository's
+    /// collaborators not asked yet.
+    pub fn request_review(
+        &mut self,
+        _: &RequestReview,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((project, branch, Some((number, ReviewState::Open | ReviewState::Draft)))) =
+            self.review_target(cx)
+        else {
+            return;
+        };
+        let store = self.store.read(cx);
+        let Some(path) = store.path(&project) else {
+            return;
+        };
+        let asked: Vec<String> = (store.workspace(&project))
+            .and_then(|ws| ws.find_branch(&branch)?.review.as_ref())
+            .map(|review| review.reviewers.clone())
+            .unwrap_or_default();
+        cx.spawn_in(window, async move |this, cx| {
+            let candidates = backend::run(move || reviews::reviewer_candidates(&path)).await;
+            this.update_in(cx, |this, window, cx| {
+                let logins = match candidates {
+                    Ok(logins) => logins,
+                    Err(err) => {
+                        let message = format!("{err:#}");
+                        return this.store.update(cx, |store, cx| {
+                            store.error("Couldn't list who can review", message, cx)
+                        });
+                    }
+                };
+                let choices = (logins.into_iter())
+                    .filter(|login| !asked.contains(login))
+                    .map(|login| {
+                        let project = project.clone();
+                        crate::palette::Choice::new(login.clone(), move |this, _, cx| {
+                            this.run_on_review(
+                                project,
+                                "Request review",
+                                move |path| reviews::request_review(path, number, login),
+                                "Review requested",
+                                cx,
+                            )
+                        })
+                    })
+                    .collect();
+                this.open_picker("Ask someone to review", "Ask", choices, window, cx);
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Merge the pull request, asking how.

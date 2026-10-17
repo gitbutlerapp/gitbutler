@@ -1472,6 +1472,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::toggle_appearance))
             .on_action(cx.listener(Self::toggle_draft))
             .on_action(cx.listener(Self::toggle_auto_merge))
+            .on_action(cx.listener(Self::request_review))
             .on_action(cx.listener(Self::merge_pull_request))
             .on_action(cx.listener(Self::close_pull_request))
             .on_action(cx.listener(Self::go_to_branch))

@@ -137,6 +137,29 @@ pub fn set_draft(path: &Path, number: u64, draft: bool) -> Result<()> {
         .block_on(forge::set_review_draftiness(ctx, number as usize, draft))
 }
 
+/// Who can be asked to review: the logins of the repository's collaborators, bots left
+/// out, in alphabetical order.
+pub fn reviewer_candidates(path: &Path) -> Result<Vec<String>> {
+    let ctx = open(path)?.into_sync();
+    let users = runtime()
+        .handle()
+        .block_on(forge::list_reviewer_candidates(ctx))?;
+    let mut logins: Vec<String> = (users.into_iter())
+        .filter(|user| !user.is_bot)
+        .map(|user| user.login)
+        .collect();
+    logins.sort_by_key(|login| login.to_lowercase());
+    Ok(logins)
+}
+
+/// Ask `login` to review pull request `number`.
+pub fn request_review(path: &Path, number: u64, login: String) -> Result<()> {
+    let ctx = open(path)?.into_sync();
+    runtime()
+        .handle()
+        .block_on(forge::request_review(ctx, number as usize, vec![login]))
+}
+
 /// Have the forge merge a pull request once its checks pass, or stop it from doing so.
 pub fn set_auto_merge(path: &Path, number: u64, enable: bool) -> Result<()> {
     let ctx = open(path)?.into_sync();

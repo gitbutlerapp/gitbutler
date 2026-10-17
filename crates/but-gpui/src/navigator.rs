@@ -1272,6 +1272,9 @@ impl Navigator {
                                 ),
                                 action("Merge pull request…", &MergePullRequest),
                             ]);
+                            if workspace.forge.as_deref() == Some("GitHub") {
+                                items.push(action("Request review…", &RequestReview));
+                            }
                             // The forges GitButler can ask to merge on their own.
                             let auto_merges =
                                 matches!(workspace.forge.as_deref(), Some("GitHub" | "GitLab"));
