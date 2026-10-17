@@ -33,7 +33,8 @@ const isWebUrl = (url: string): boolean => ["https:", "http:"].includes(new URL(
 const hostOnly = {
 	askpassSubmitPromptResponse: ({ id, response }) =>
 		backend("submit_prompt_response", { id, response }) as Promise<void>,
-	clipboardWriteText: (text) => navigator.clipboard.writeText(text),
+	clipboardWriteText: (text) =>
+		backend("plugin:clipboard-manager|write_text", { text }) as Promise<void>,
 	getAppSettings: () => backend("get_app_settings") as ReturnType<Handler<"getAppSettings">>,
 	getVersion: () => getVersion(),
 	isPackaged: () => !import.meta.env.DEV,
