@@ -24,7 +24,7 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dot, faint,
     h_flex, icon, icon_button, just_now, list_row, plural, relative_time, resize_handle, review,
-    section_label, small_icon, v_flex,
+    section_label, shortcut, small_icon, v_flex,
 };
 
 mod account;
@@ -858,7 +858,7 @@ impl Navigator {
                             .small()
                             .style(ButtonStyle::Gray)
                             .inverted(style.solid)
-                            .tooltip("Rebase branches onto the latest target")
+                            .tooltip("Rebase your branches onto the target's new commits")
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 let project = project.clone();
                                 this.app
@@ -1423,12 +1423,12 @@ impl Render for Navigator {
             .child(div().flex_1())
             .child(
                 icon_button("refresh", Icon::Refresh)
-                    .tooltip("Reload  ⌘R")
+                    .tooltip_with_key("Reload", shortcut(&Refresh, cx))
                     .dispatch(&Refresh),
             )
             .child(
                 icon_button("add-project", Icon::Plus)
-                    .tooltip("Add project  ⌘O")
+                    .tooltip_with_key("Add project", shortcut(&AddProject, cx))
                     .dispatch(&AddProject),
             )
             .child(self.account(&theme, cx));

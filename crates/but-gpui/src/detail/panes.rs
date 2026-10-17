@@ -65,7 +65,7 @@ impl Detail {
                                 .icon(Icon::ArrowDown)
                                 .style(ButtonStyle::Pop)
                                 .tooltip_with_key(
-                                    "Rebase every stack onto the target's new commits",
+                                    "Rebase your branches onto the target's new commits",
                                     shortcut(&crate::app::UpdateFromTarget, cx),
                                 )
                                 .dispatch(&crate::app::UpdateFromTarget)
@@ -379,7 +379,7 @@ impl Detail {
                                 .tooltip(if open {
                                     "Hide full message"
                                 } else {
-                                    "Full message"
+                                    "Show full message"
                                 })
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.message_open = !this.message_open;
