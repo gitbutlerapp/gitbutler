@@ -175,7 +175,11 @@ const Row: FC<
 							{actions !== undefined && <span className={styles.actions}>{actions}</span>}
 						</>
 					)}
-					{menu !== undefined && <span className={styles.menu}>{menu}</span>}
+					{menu !== undefined && (
+						<span className={styles.menu} data-menu>
+							{menu}
+						</span>
+					)}
 				</>
 			),
 		}),
@@ -499,11 +503,11 @@ export const UncommittedItem: FC<
 );
 
 /**
- * The label over a stack of two or more branches, "Stack of 2". It doesn't open; with `folded` its
- * chevron hides the stack's branches, and `meta` then says what they hold. Its `menu` (push the
- * stack, open its pull requests) shows under the pointer. `first` is for a stack that opens right
- * under its repository or worktree; otherwise it follows a {@link WorktreeDivider} and sits tucked
- * under it.
+ * The label over a stack of two or more branches, "Stack of 2". It doesn't open; with `folded` a
+ * click anywhere on it, as on its chevron, hides the stack's branches, and `meta` then says what
+ * they hold. Its `menu` (push the stack, open its pull requests) shows under the pointer. `first`
+ * is for a stack that opens right under its repository or worktree; otherwise it follows a
+ * {@link WorktreeDivider} and sits tucked under it.
  *
  * @import import { StackCaption } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
@@ -523,25 +527,46 @@ export const StackCaption: FC<
 	menu,
 	tooltip,
 	...props
-}) => (
-	<Row
-		{...props}
-		name={label}
-		layout="compact"
-		depth={depth}
-		folded={folded}
-		onToggleFolded={onToggleFolded}
-		meta={meta}
-		menu={menu}
-		rowClassName={classes(styles.caption, !first && styles.captionTucked)}
-		icon={<Icon name="stack" />}
-		label={
-			<Name tooltip={tooltip} className={classes("text-13", styles.name)}>
-				{label}
-			</Name>
-		}
-	/>
-);
+}) => {
+	const folds = typeof folded === "boolean" && onToggleFolded !== undefined;
+	return (
+		<Row
+			{...props}
+			name={label}
+			layout="compact"
+			depth={depth}
+			folded={folded}
+			onToggleFolded={onToggleFolded}
+			meta={meta}
+			menu={menu}
+			onClick={(event) => {
+				props.onClick?.(event);
+				const target = event.target as Element;
+				// Not from the menu: its button sits in the row, and its items bubble here through their
+				// portal while being no part of the row on the page.
+				if (
+					!folds ||
+					event.defaultPrevented ||
+					!event.currentTarget.contains(target) ||
+					target.closest("[data-menu]")
+				)
+					return;
+				onToggleFolded();
+			}}
+			rowClassName={classes(
+				styles.caption,
+				folds && styles.captionFolds,
+				!first && styles.captionTucked,
+			)}
+			icon={<Icon name="stack" />}
+			label={
+				<Name tooltip={tooltip} className={classes("text-13", styles.name)}>
+					{label}
+				</Name>
+			}
+		/>
+	);
+};
 
 /**
  * The last row of a long list, which shows twelve at a time: "12 more" opens the next page, and
