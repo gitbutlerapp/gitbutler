@@ -3,7 +3,7 @@
 
 use gpui::{
     AnyElement, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels, Point,
-    SharedString, Toggled, div, prelude::*, px,
+    SharedString, Stateful, Toggled, div, prelude::*, px,
 };
 
 use super::file_tree::{self, TreeRow};
@@ -15,9 +15,10 @@ use crate::overlays::MenuItem;
 use crate::state::{Cut, Overlay, ProjectId, Review, Selection};
 use crate::theme::Theme;
 use crate::ui::diff;
+use crate::ui::file_icons::file_icon;
 use crate::ui::{
-    Icon, checkbox, dot, faint, h_flex, icon_button, list_row, muted, plural, relative_time,
-    shortcut, small_icon, v_flex,
+    Icon, checkbox, dot, faint, h_flex, icon_button, list_row, muted, relative_time, shortcut,
+    small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -46,7 +47,67 @@ struct FileRow {
 }
 
 /// How far each level of a file tree steps in.
-const TREE_INDENT: f32 = 14.;
+const STEP: f32 = 12.;
+
+/// The group a file row's hover reaches its checkbox through.
+const ROW_GROUP: &str = "file-row";
+
+/// A row of a file list, inset in the panel as GitButler's other file lists are.
+fn file_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stateful<Div> {
+    list_row(id, selected, theme)
+        .mx(px(12.))
+        .pl(px(8.))
+        .pr(px(4.))
+        .text_size(px(13.))
+}
+
+/// A tree row's indent: a step per level, each with a guide that joins the rows above and
+/// below into one line down its directory.
+fn steps(depth: usize, theme: &Theme) -> Div {
+    h_flex().flex_none().h_full().children((0..depth).map(|_| {
+        div()
+            .w(px(STEP))
+            .h_full()
+            .flex_none()
+            .flex()
+            .justify_center()
+            .child(div().w(px(1.)).h_full().bg(theme.text_2.opacity(0.2)))
+    }))
+}
+
+/// The panel's heading: Files, how many, and their lines added and removed.
+fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> Div {
+    h_flex()
+        .gap(px(8.))
+        .child(
+            div()
+                .text_size(px(14.))
+                .font_weight(gpui::FontWeight::BOLD)
+                .child("Files"),
+        )
+        .child(
+            div()
+                .px(px(6.))
+                .rounded_full()
+                .bg(theme.fill_gray.opacity(0.1))
+                .text_size(px(11.))
+                .text_color(theme.text_2)
+                .child(count.to_string()),
+        )
+        .child(diff::stats(added, removed, theme))
+}
+
+/// A file list's header row, as GitButler's other file lists lay it out.
+fn header_row() -> Div {
+    h_flex()
+        .flex_none()
+        .pt(px(12.))
+        .pb(px(10.))
+        .pl(px(16.))
+        .pr(px(12.))
+        .gap(px(8.))
+        .text_size(px(12.))
+}
 
 impl Detail {
     /// The uncommitted `files` of `project`, under how many there are, their line counts
@@ -73,38 +134,18 @@ impl Detail {
                     .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr))
             });
             let to_review = self.store.read(cx).unreviewed(project, files);
-            h_flex()
-                .h(px(36.))
-                .px(px(16.))
-                .gap(px(8.))
-                .flex_none()
-                .text_size(px(12.))
-                .child(
-                    div()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .child(match files.len() {
-                            0 => "No changes".to_owned(),
-                            n => plural(n, "file"),
-                        }),
-                )
-                .child(diff::stats(added, removed, theme))
+            header_row()
+                .child(files_heading(files.len(), (added, removed), theme))
+                .when(to_review > 0, |el| {
+                    el.child(
+                        div()
+                            .text_color(theme.warn)
+                            .child(format!("{to_review} to review")),
+                    )
+                })
                 .child(div().flex_1())
                 .child(self.filter_button(cx))
                 .child(self.tree_toggle(cx))
-                .when(!files.is_empty(), |el| {
-                    el.child(
-                        div()
-                            .text_color(if to_review > 0 {
-                                theme.warn
-                            } else {
-                                theme.text_3
-                            })
-                            .child(match to_review {
-                                0 => "All reviewed".to_owned(),
-                                n => format!("{n} to review"),
-                            }),
-                    )
-                })
         };
         v_flex()
             .flex_1()
@@ -151,18 +192,11 @@ impl Detail {
             let paths = diff.files.iter().map(|f| f.file.path.as_str());
             self.filter_header(paths, theme, cx)
         } else {
-            h_flex()
-                .h(px(36.))
-                .px(px(16.))
-                .gap(px(4.))
-                .flex_none()
-                .text_size(px(12.))
-                .child(
-                    div()
-                        .flex_1()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .child(format!("{} changed", plural(diff.files.len(), "file"))),
-                )
+            let stats = (diff.files.iter().map(FileDiff::stats))
+                .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
+            header_row()
+                .child(files_heading(diff.files.len(), stats, theme))
+                .child(div().flex_1())
                 .child(self.filter_button(cx))
                 .child(self.tree_toggle(cx))
         };
@@ -339,19 +373,23 @@ impl Detail {
         else {
             return None;
         };
-        let row = list_row(ElementId::Name(format!("dir-{path}").into()), false, theme)
-            .pl(px(10. + TREE_INDENT * depth as f32))
-            .gap(px(6.))
-            .text_color(theme.text_2)
+        let row = file_row(ElementId::Name(format!("dir-{path}").into()), false, theme)
+            .when(depth > 0, |el| el.child(steps(depth, theme)))
             .child(
-                small_icon(if collapsed {
-                    Icon::ChevronRight
-                } else {
-                    Icon::ChevronDown
-                })
-                .text_color(theme.text_3),
+                div().w(px(STEP)).flex_none().flex().justify_center().child(
+                    small_icon(if collapsed {
+                        Icon::ChevronRight
+                    } else {
+                        Icon::ChevronDown
+                    })
+                    .text_color(theme.text_3),
+                ),
             )
-            .child(small_icon(Icon::Folder).text_color(theme.text_3))
+            .child(
+                small_icon(Icon::FolderFill)
+                    .size(px(14.))
+                    .text_color(theme.pop.opacity(0.6)),
+            )
             .child(div().flex_1().min_w(px(0.)).truncate().child(name))
             .when(collapsed, |el| el.child(faint(files.to_string(), theme)))
             .on_mouse_down(
@@ -387,13 +425,7 @@ impl Detail {
         let (kept, total) = paths.fold((0, 0), |(kept, total), path| {
             (kept + usize::from(keeps_path(&terms, path)), total + 1)
         });
-        h_flex()
-            .h(px(36.))
-            .pl(px(16.))
-            .pr(px(8.))
-            .gap(px(8.))
-            .flex_none()
-            .text_size(px(12.))
+        header_row()
             .child(small_icon(Icon::Search).text_color(theme.text_3))
             .child(
                 div()
@@ -450,93 +482,113 @@ impl Detail {
         let diff_ix = extras.diff_ix;
         let current = diff_ix == Some(self.cursor.file);
         let reviewed = extras.review == Some(Review::Reviewed);
-        // In a tree a file lines up with its directory's name, and the path is the tree.
-        let indent = extras
-            .depth
-            .map_or(0., |depth| TREE_INDENT * depth as f32 + 18.);
+        // In a tree a file sits under its directory, which names its path.
         let dir = if extras.depth.is_some() { "" } else { dir };
-        let mut row = list_row(("file", ix), current, theme)
-            .aria_label(file.path.clone())
-            .aria_description(file.kind.word())
-            .pl(px(10. + indent))
-            .when_some(extras.checkbox, |el, check| {
+        // A reviewed file is done with, so what the row says about it recedes.
+        let fade = |el: Div| el.when(reviewed, |el| el.opacity(0.5));
+        let icon = div().flex().child(file_icon(&file.path));
+        // While composing, the checkbox takes the icon's place once it's checked, or while
+        // the pointer is on the row.
+        let lead = match extras.checkbox {
+            None => fade(icon),
+            Some(check) => {
+                let on = check != Toggled::False;
                 let path = path.clone();
-                el.child(
-                    checkbox(("check", ix), check, theme)
-                        // Checking a file doesn't scroll to it.
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            cx.stop_propagation();
-                            this.toggle_checked(&path, cx)
-                        })),
-                )
-            })
+                let check = checkbox(("check", ix), check, theme)
+                    // Checking a file doesn't scroll to it.
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        cx.stop_propagation();
+                        this.toggle_checked(&path, cx)
+                    }));
+                div()
+                    .relative()
+                    .flex_none()
+                    .size(px(14.))
+                    .child(icon.absolute().map(|el| match on {
+                        true => el.opacity(0.),
+                        false => el.group_hover(ROW_GROUP, |s| s.opacity(0.)),
+                    }))
+                    .child(
+                        div()
+                            .absolute()
+                            .map(|el| match on {
+                                true => el,
+                                false => el.opacity(0.).group_hover(ROW_GROUP, |s| s.opacity(1.)),
+                            })
+                            .child(check),
+                    )
+            }
+        };
+        let end = div()
+            .flex_none()
+            .w(px(22.))
+            .flex()
+            .justify_center()
             .child(if file.conflicted {
                 small_icon(Icon::Warning)
-                    .size(px(10.))
                     .text_color(theme.danger)
+                    .into_any_element()
+            } else if reviewed {
+                small_icon(Icon::Tick)
+                    .text_color(theme.pop)
                     .into_any_element()
             } else {
                 div()
-                    .flex_none()
-                    .w(px(10.))
                     .text_size(px(11.))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_color(diff::change_color(file.kind, theme))
                     .child(file.kind.letter())
                     .into_any_element()
-            })
-            .child(
+            });
+        let mut row = file_row(("file", ix), current, theme)
+            .aria_label(file.path.clone())
+            .aria_description(file.kind.word())
+            .group(ROW_GROUP)
+            .children(
+                extras
+                    .depth
+                    .filter(|&d| d > 0)
+                    .map(|depth| steps(depth, theme)),
+            )
+            .child(lead)
+            .child(fade(
                 h_flex()
                     .flex_1()
                     .min_w(px(0.))
                     .gap(px(6.))
                     .overflow_hidden()
-                    // Reviewed files step back, as in Lite's file list.
-                    .when(reviewed, |el| el.opacity(0.5))
                     .child(
                         div()
                             .flex_none()
-                            .max_w(px(160.))
+                            .max_w(px(220.))
                             .truncate()
                             .child(name.to_owned()),
                     )
-                    .child(
-                        div()
-                            .min_w(px(0.))
-                            .truncate()
-                            .text_size(px(12.))
-                            .text_color(theme.text_3)
-                            .child(dir.to_owned()),
-                    ),
-            )
+                    .when(!dir.is_empty(), |el| {
+                        el.child(
+                            div()
+                                .min_w(px(0.))
+                                .truncate()
+                                .text_color(theme.text_2)
+                                .child(dir.to_owned()),
+                        )
+                    }),
+            ))
             .when_some(extras.stats, |el, (added, removed)| {
-                el.child(diff::stats(added, removed, theme))
+                el.child(fade(div().child(diff::stats(added, removed, theme))))
             })
-            // A conflicted file says so where the others say when they changed.
+            // When it last changed, faint, for watching what an agent touches.
             .children(
-                match (file.conflicted, file.modified) {
-                    (true, _) => Some((theme.danger, "conflicted".to_owned())),
-                    (false, Some(ms)) => Some((theme.text_3, relative_time(ms / 1000))),
-                    (false, None) => None,
-                }
-                .map(|(color, text)| {
-                    div()
-                        .flex_none()
-                        .text_size(px(11.))
-                        .text_color(color)
-                        .child(text)
-                }),
+                (!file.conflicted)
+                    .then_some(file.modified)
+                    .flatten()
+                    .map(|ms| faint(relative_time(ms / 1000), theme).text_size(px(11.))),
             )
-            .when_some(extras.review, |el, review| {
-                el.child(match review {
-                    Review::Reviewed => small_icon(Icon::Tick)
-                        .text_color(theme.pop)
-                        .into_any_element(),
-                    Review::Changed => dot(theme.warn).mx(px(3.)).into_any_element(),
-                    Review::NotReviewed => div().flex_none().w(px(12.)).into_any_element(),
-                })
+            .when(extras.review == Some(Review::Changed), |el| {
+                el.child(dot(theme.warn))
             })
+            .child(end)
             .when_some(diff_ix, |el, diff_ix| {
                 el.on_mouse_down(
                     MouseButton::Left,
