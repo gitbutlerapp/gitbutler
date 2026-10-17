@@ -8,6 +8,8 @@ use crate::backend::Token;
 
 #[derive(Clone)]
 pub struct Theme {
+    /// Which of the two themes this is.
+    pub dark: bool,
     /// Surfaces: content and recessed (navigator, diff ground).
     pub bg_1: Hsla,
     pub bg_2: Hsla,
@@ -84,6 +86,7 @@ impl Theme {
         let safe = pick(0x259466, 0x2eb87f);
         let danger = pick(0xd64029, 0xe28576);
         Theme {
+            dark,
             bg_1: pick(0xffffff, 0x292929),
             bg_2: pick(0xf2f2f2, 0x1e1e1e),
             text_1: pick(0x1e1e1e, 0xf8f8f8),

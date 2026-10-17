@@ -103,6 +103,10 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
             Box::new(crate::projects::CloneRepository),
         ),
         ("Settings", Box::new(crate::settings::OpenSettings)),
+        (
+            "Switch between light and dark",
+            Box::new(crate::app::ToggleAppearance),
+        ),
         ("Go to branch", Box::new(GoToBranch)),
         ("Find in diff", Box::new(crate::detail::FindInDiff)),
         ("Filter files", Box::new(crate::detail::FilterFiles)),
