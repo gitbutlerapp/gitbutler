@@ -374,6 +374,7 @@ export const Section: FC<{
 	return (
 		<>
 			{header()}
+			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Names the docked copy of the row; it is not a form. */}
 			<div className={styles.dock} role="group" aria-label="Docked upstream">
 				{header(true)}
 			</div>
