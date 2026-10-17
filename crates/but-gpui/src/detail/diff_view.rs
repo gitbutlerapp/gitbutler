@@ -131,6 +131,33 @@ impl Detail {
         }
     }
 
+    /// The digits in the widest line number `file` shows: its last hunk's, or with the file
+    /// shown whole, its length on either side.
+    fn number_digits(&self, file: &FileDiff) -> usize {
+        let DiffBody::Hunks {
+            hunks,
+            added,
+            removed,
+        } = &file.body
+        else {
+            return 0;
+        };
+        let last = hunks.last().map_or(0, |hunk| {
+            let side = |number: fn(&DiffLine) -> Option<u32>| {
+                hunk.lines.iter().rev().find_map(number).unwrap_or(0)
+            };
+            side(|line| line.old).max(side(|line| line.new))
+        });
+        let whole = match self.whole.get(&file.file.path) {
+            Some(Some((_, lines))) => {
+                let new = lines.len() as u32;
+                new.max((new + removed).saturating_sub(*added))
+            }
+            _ => 0,
+        };
+        last.max(whole).to_string().len()
+    }
+
     /// The selection in order, unless it's empty.
     fn text_range(&self) -> Option<(TextPoint, TextPoint)> {
         let (anchor, head) = self.text_selection?;
@@ -677,6 +704,7 @@ impl Detail {
                     selected: self.selected_in_row(ix),
                     found: self.found_on(place),
                     wrap: store.prefs.wrap,
+                    digits: self.number_digits(&diff.files[file]),
                 };
                 let number = match text.kind {
                     LineKind::Removed => text.old,
@@ -715,7 +743,9 @@ impl Detail {
                 // none, tells rows apart.
                 let place = (file, hunk, right.or(left).unwrap_or_default());
                 let halves = [half(left), half(right)];
-                let pair = diff::pair_row(sides, halves, place, last, theme, store.prefs.wrap);
+                let digits = self.number_digits(&diff.files[file]);
+                let pair =
+                    diff::pair_row(sides, halves, place, last, theme, store.prefs.wrap, digits);
                 // A click puts the cursor on the hunk, so its keys act on what was clicked.
                 let entity = entity.clone();
                 padded
@@ -746,6 +776,7 @@ impl Detail {
                     select: Some(line_select(ix, entity)),
                     selected: self.selected_in_row(ix),
                     wrap: store.prefs.wrap,
+                    digits: self.number_digits(&diff.files[file]),
                     ..Default::default()
                 };
                 let split = store.prefs.split;
