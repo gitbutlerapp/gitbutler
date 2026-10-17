@@ -91,6 +91,8 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
         ),
     );
     watch_stalls(cx);
+    // In the window, where a script sees and clicks them, not in a native alert.
+    cx.set_prompt_builder(gpui::fallback_prompt_renderer);
     cx.spawn(async move |cx| {
         for (line_no, line) in script.lines().enumerate() {
             let line = line.split('#').next().unwrap_or_default().trim();
