@@ -194,16 +194,27 @@ pub struct Thread {
     pub url: String,
 }
 
-/// Where a pull request's review stands: the reviewers' verdicts and the conversations
-/// still open on its diff.
+/// A comment on a pull request as a whole, rather than on a line of its diff.
+#[derive(Debug, Clone)]
+pub struct Comment {
+    pub author: String,
+    /// Its first line.
+    pub opening: String,
+    pub url: String,
+}
+
+/// Where a pull request's review stands: the reviewers' verdicts, the conversations
+/// still open on its diff, and the latest comments people left on it.
 #[derive(Debug, Default)]
 pub struct Feedback {
     pub verdicts: Verdicts,
     pub threads: Vec<Thread>,
+    pub comments: Vec<Comment>,
 }
 
-/// What [`verdicts`] and the open threads of pull request `number` come to. Either can
-/// fail on its own, as a forge may not offer one: only both failing is an error.
+/// What [`verdicts`], the open threads and the latest comments of pull request `number`
+/// come to. Each can fail on its own, as a forge may not offer it: only all of them
+/// failing is an error.
 pub fn feedback(path: &Path, number: u64) -> Result<Feedback> {
     use but_forge::ForgeReviewThreadSide as Side;
     let verdicts = verdicts(path, number);
@@ -231,11 +242,32 @@ pub fn feedback(path: &Path, number: u64) -> Result<Feedback> {
             })
             .collect())
     })();
-    match (verdicts, threads) {
-        (Err(err), Err(_)) => Err(err),
-        (verdicts, threads) => Ok(Feedback {
+    /// More than this many are better read on the forge.
+    const LATEST: usize = 3;
+    let comments = (|| -> Result<Vec<Comment>> {
+        let ctx = open(path)?.into_sync();
+        let comments = runtime()
+            .handle()
+            .block_on(forge::list_review_comments(ctx, number as usize))?;
+        // Oldest first; bots, like coverage reports, left out.
+        let mut people: Vec<Comment> = (comments.into_iter())
+            .filter_map(|comment| {
+                let author = comment.author.filter(|author| !author.is_bot)?;
+                Some(Comment {
+                    author: author.login,
+                    opening: comment.body.lines().next().unwrap_or_default().to_owned(),
+                    url: comment.html_url,
+                })
+            })
+            .collect();
+        Ok(people.split_off(people.len().saturating_sub(LATEST)))
+    })();
+    match (verdicts, threads, comments) {
+        (Err(err), Err(_), Err(_)) => Err(err),
+        (verdicts, threads, comments) => Ok(Feedback {
             verdicts: verdicts.unwrap_or_default(),
             threads: threads.unwrap_or_default(),
+            comments: comments.unwrap_or_default(),
         }),
     }
 }
@@ -246,6 +278,15 @@ pub fn resolve_thread(path: &Path, id: String) -> Result<()> {
     runtime()
         .handle()
         .block_on(forge::set_review_thread_resolved(ctx, id, true))
+}
+
+/// Comment on pull request `number` as a whole.
+pub fn comment(path: &Path, number: u64, body: String) -> Result<()> {
+    let ctx = open(path)?.into_sync();
+    runtime()
+        .handle()
+        .block_on(forge::create_review_comment(ctx, number as usize, body))?;
+    Ok(())
 }
 
 /// Answer a conversation on a pull request's diff.
