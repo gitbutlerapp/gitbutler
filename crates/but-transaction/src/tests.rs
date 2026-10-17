@@ -187,6 +187,47 @@ fn create_reference_without_creating_commits() {
 }
 
 #[test]
+fn name_segment_attaches_head_to_a_commit_rewritten_earlier_in_the_transaction() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    env.invoke_git("checkout --detach branch");
+    let [top] = find_commits(&env, ["HEAD"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let refname = FullName::try_from("refs/heads/named").unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateBranch),
+        DryRun::No,
+        |mut tx| {
+            tx.reword_commit(top, "reworded".into())?;
+            tx.name_segment(&but_graph::WorktreeKind::Main, top, refname.as_ref())?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    let repo = env.open_repo();
+    assert_eq!(
+        repo.head_name().unwrap(),
+        Some(refname.clone()),
+        "the detached HEAD is attached to the new branch"
+    );
+    assert_eq!(
+        repo.head_commit().unwrap().message_raw_sloppy(),
+        "reworded",
+        "the branch names the reworded commit, not the one passed in"
+    );
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
 fn create_reference_at_commit_then_commit_and_checkout() {
     for (dry_run, rollback) in [
         (DryRun::No, false),

@@ -5,6 +5,7 @@ mod branch_create;
 mod branch_land;
 mod branch_list;
 mod branch_move;
+mod branch_name_segment;
 mod branch_remove;
 mod branch_rename;
 mod changes_in_worktree;

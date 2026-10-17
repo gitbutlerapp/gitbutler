@@ -20,6 +20,7 @@ export const apiParamNames = {
 	branchDiff: ["projectId", "branch"],
 	branchLand: ["projectId", "branch", "noFf", "wholeStack"],
 	branchList: ["projectId"],
+	branchNameSegment: ["projectId", "checkout", "commitId", "newRef"],
 	branchRemove: ["projectId", "refName"],
 	branchRename: ["projectId", "refName", "newName"],
 	changesInWorktree: ["projectId", "changesSource", "computeDepsAndAssignments"],

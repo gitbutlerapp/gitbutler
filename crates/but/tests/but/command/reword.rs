@@ -1,7 +1,9 @@
 use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use snapbox::str;
 
+use super::util::{add_worktree_with_commit, enable_worktree_manipulation};
 use crate::utils::Sandbox;
+use but_testsupport::CommandExt as _;
 
 #[test]
 fn names_an_anonymous_segment() {
@@ -31,6 +33,59 @@ Named anonymous branch 'g0' as 'recovered'
 ┊●   sxu anonymous (no changes)
 ┊│
 ┊├┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn names_the_anonymous_segment_of_a_detached_worktree() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+    env.setup_metadata(&["A"]);
+    enable_worktree_manipulation(&env);
+    env.but("worktree list").assert().success();
+    let worktree = add_worktree_with_commit(&env, "W", "A");
+    but_testsupport::git_at_dir(&worktree)
+        .args(["checkout", "-q", "--detach"])
+        .run();
+    env.invoke_git("branch -D W");
+
+    env.but("reword i0 -m named")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Named anonymous branch 'i0' as 'named'
+
+"#]]);
+
+    assert_eq!(
+        gix::open(&worktree)
+            .expect("worktree opens")
+            .head_name()
+            .expect("HEAD is readable")
+            .map(|name| name.shorten().to_string()),
+        Some("named".to_owned()),
+        "the worktree is attached to the branch naming its segment"
+    );
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0
+┊●   sxu anonymous (no changes)
+┊│
+┊├┄ h0 [A]
+┊┊
+┊┊╭┄ na:@ [uncommitted] {W} (no changes)
+┊┊├┄ na [named]
+┊┊●   nsn add W
+┊├╯
 ┊●   tpm add A
 ├╯
 ┊

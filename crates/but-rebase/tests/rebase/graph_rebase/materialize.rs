@@ -786,6 +786,30 @@ fn a_worktree_checks_out_what_its_checkout_is_set_to() -> Result<()> {
 }
 
 #[test]
+fn a_worktree_head_follows_its_checkout() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let base = repo.rev_parse_single("middle~1")?.detach();
+    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let wt = gix::bstr::BStr::new("wt");
+
+    editor.set_worktree_checkout(wt, base)?;
+
+    assert_eq!(
+        editor.worktree_head(wt),
+        Some(editor.select_commit(base)?),
+        "the worktree's head is what its checkout was set to"
+    );
+    assert_eq!(
+        editor.worktree_head(gix::bstr::BStr::new("nope")),
+        None,
+        "an unknown worktree has no head"
+    );
+    Ok(())
+}
+
+#[test]
 fn a_merge_base_override_for_an_unknown_worktree_is_rejected() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-partial-amend")?;
     let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;

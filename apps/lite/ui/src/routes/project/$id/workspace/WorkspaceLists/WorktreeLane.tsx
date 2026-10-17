@@ -286,6 +286,8 @@ const worktreeLane: BranchLane = { type: "worktree" };
 const WorktreeSegment: FC<{
 	projectId: string;
 	worktree: string;
+	/** The commit the worktree's `HEAD` is detached at, if it is. */
+	detachedHead: string | null;
 	segment: Segment;
 	worktrees: WorktreePlacement;
 	downstackPushStatus: DownstackPushStatus;
@@ -295,6 +297,7 @@ const WorktreeSegment: FC<{
 }> = ({
 	projectId,
 	worktree,
+	detachedHead,
 	segment,
 	worktrees,
 	downstackPushStatus,
@@ -390,6 +393,7 @@ const WorktreeSegment: FC<{
 												below={below.get(commit.id) ?? "LocalOnly"}
 												behind={behind}
 												worktree={worktree}
+												isDetachedHead={commit.id === detachedHead}
 												scrollSelectedIntoView={false}
 											/>
 										}
@@ -456,6 +460,7 @@ const WorktreeRows: FC<{
 					}
 					projectId={projectId}
 					worktree={worktree.name}
+					detachedHead={worktree.refName === null ? worktree.head : null}
 					segment={segment}
 					worktrees={worktrees}
 					downstackPushStatus={assert(downstackPushStatuses[index])}

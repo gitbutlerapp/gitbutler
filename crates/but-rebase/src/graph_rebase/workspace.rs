@@ -260,6 +260,19 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         })
     }
 
+    /// The step the linked worktree named `worktree_name` checks out, or `None` if the editor
+    /// recorded no checkout for it.
+    pub fn worktree_head(&self, worktree_name: &gix::bstr::BStr) -> Option<Selector> {
+        self.checkouts.iter().find_map(|checkout| match checkout {
+            Checkout::Worktree {
+                worktree_name: name,
+                selector,
+                ..
+            } if name == worktree_name => self.history.normalize_selector(*selector).ok(),
+            Checkout::Head { .. } | Checkout::Worktree { .. } => None,
+        })
+    }
+
     /// The workspace reference, if `HEAD` is on it.
     pub fn workspace_reference(&self) -> Option<Selector> {
         let head = self.head()?;

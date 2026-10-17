@@ -20,6 +20,7 @@ export declare const apiParamNames: {
 	readonly branchDiff: readonly ["projectId", "branch"];
 	readonly branchLand: readonly ["projectId", "branch", "noFf", "wholeStack"];
 	readonly branchList: readonly ["projectId"];
+	readonly branchNameSegment: readonly ["projectId", "checkout", "commitId", "newRef"];
 	readonly branchRemove: readonly ["projectId", "refName"];
 	readonly branchRename: readonly ["projectId", "refName", "newName"];
 	readonly changesInWorktree: readonly ["projectId", "changesSource", "computeDepsAndAssignments"];

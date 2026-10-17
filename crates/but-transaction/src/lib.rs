@@ -577,6 +577,27 @@ where
         })
     }
 
+    /// Name the anonymous segment whose top commit is `top` as `ref_name`, as seen from
+    /// `checkout`, attaching `checkout` to it if it is detached at `top`.
+    ///
+    /// See [`but_workspace::branch::name_segment()`].
+    pub fn name_segment(
+        &mut self,
+        checkout: &but_graph::WorktreeKind,
+        top: ObjectId,
+        ref_name: &FullNameRef,
+    ) -> anyhow::Result<()> {
+        self.rebase(|editor, commit_mappings| {
+            let rebase = but_workspace::branch::name_segment(
+                editor,
+                checkout,
+                commit_mappings.map(top),
+                ref_name,
+            )?;
+            Ok(((), MaterializeWithoutCheckout::No, rebase))
+        })
+    }
+
     /// `source` selects the checkout `changes` were read from, and hence the one whose
     /// merge base is overridden so it doesn't reintroduce them as uncommitted changes.
     /// A [`ChangeSource::Worktree`] source reads `HEAD^{tree}` from that checkout on disk,

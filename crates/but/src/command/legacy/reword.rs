@@ -3,7 +3,6 @@ use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_ctx::Context;
-use but_workspace::branch::create_reference::{Anchor, Position};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 
 use super::{
@@ -126,23 +125,19 @@ fn create_branch_for_anonymous_segment(
             "Cannot name anonymous branch '{cli_id}' because it has no anchor commit"
         ))
     })?;
-    let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
+    let checkout = match segment.lane {
+        crate::id::LaneId::Stack(_) => but_graph::WorktreeKind::Main,
+        crate::id::LaneId::Worktree(name) => but_graph::WorktreeKind::LinkedId(name),
+    };
     let mut meta = ctx.meta()?;
     let (new_ref, _ws) = but_transaction::with_transaction_with_perm(
         ctx,
         &mut meta,
         perm,
-        snapshot_details,
+        SnapshotDetails::new(OperationKind::CreateBranch),
         DryRun::No,
         |mut tx| {
-            tx.create_reference(
-                new_ref.as_ref(),
-                Anchor::AtCommit {
-                    commit_id: anchor_commit_id,
-                    position: Position::Above,
-                },
-                Some(0),
-            )?;
+            tx.name_segment(&checkout, anchor_commit_id, new_ref.as_ref())?;
             Ok(but_transaction::Commit(new_ref))
         },
     )?;

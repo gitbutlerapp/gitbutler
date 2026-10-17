@@ -1043,6 +1043,79 @@ pub fn branch_create_with_perm(
     Ok(BranchCreateResult { workspace, new_ref })
 }
 
+/// Names the anonymous segment whose top commit is `commit_id` as `new_ref`, as
+/// seen from `checkout`, or with a canned name if `new_ref` is omitted.
+///
+/// A checkout detached at `commit_id` is attached to the new branch; anywhere
+/// else the branch is created right above `commit_id`. This acquires exclusive
+/// worktree access from `ctx` and records an oplog snapshot on success. For
+/// lower-level implementation details, see
+/// [`but_workspace::branch::name_segment()`].
+#[but_api(
+    napi,
+    try_from = json::BranchCreateResult,
+    invalidates = [Branches, Workspace]
+)]
+#[instrument(err(Debug))]
+pub fn branch_name_segment(
+    ctx: &mut but_ctx::Context,
+    checkout: crate::commit::json::ChangesSource,
+    commit_id: gix::ObjectId,
+    #[but_api(crate::json::MaybeLossyFullNameRef)] new_ref: Option<gix::refs::FullName>,
+) -> anyhow::Result<BranchCreateResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    branch_name_segment_with_perm(ctx, checkout, commit_id, new_ref, guard.write_permission())
+}
+
+/// Name the anonymous segment whose top commit is `commit_id` under caller-held
+/// exclusive repository access and record an oplog snapshot on success.
+///
+/// See [`branch_name_segment()`] for the higher-level behaviour.
+pub fn branch_name_segment_with_perm(
+    ctx: &mut but_ctx::Context,
+    checkout: crate::commit::json::ChangesSource,
+    commit_id: gix::ObjectId,
+    new_ref: Option<gix::refs::FullName>,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<BranchCreateResult> {
+    let checkout = crate::worktrees::worktree_kind(ctx, &checkout)?;
+    let new_ref = match new_ref {
+        Some(new_ref) => new_ref,
+        None => unique_canned_refname(&*ctx.repo.get()?)?,
+    };
+
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::CreateBranch)
+            .with_trailers([Trailer::Name(new_ref.to_string())]),
+        perm.read_permission(),
+        DryRun::No,
+    );
+    {
+        let mut meta = ctx.meta()?;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+        but_workspace::branch::name_segment(editor, &checkout, commit_id, new_ref.as_ref())?
+            .materialize(Default::default())?;
+    }
+
+    ctx.reload_repo_and_invalidate_workspace(perm)?;
+    if let Some(snapshot) = maybe_oplog_entry {
+        snapshot.commit(ctx, perm).ok();
+    }
+    let mut meta = ctx.meta()?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        BTreeMap::new(),
+        Vec::new(),
+        &mut db,
+    )?;
+    Ok(BranchCreateResult { workspace, new_ref })
+}
+
 /// Removes the local branch `ref_name` from the workspace, deleting its git
 /// reference along with its metadata (including its `branch_order` entry).
 ///
