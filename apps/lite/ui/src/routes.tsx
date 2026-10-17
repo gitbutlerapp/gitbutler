@@ -33,7 +33,7 @@ interface RouteContext {
 // oxlint-disable-next-line react/only-export-components -- Route file hosts its layout by design.
 const RootLayout: FC = () => (
 	<HotkeysProvider>
-		<div className={styles.dragRegion} />
+		<div className={styles.dragRegion} data-window-drag-region />
 		<main className={styles.content}>
 			<Outlet />
 		</main>
