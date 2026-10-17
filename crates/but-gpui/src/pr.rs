@@ -378,7 +378,7 @@ impl Render for ReviewView {
                     .py(px(12.))
                     .border_t_1()
                     .border_color(theme.border_3)
-                    .child(faint("⌘↩ to submit", &theme).flex_1())
+                    .child(faint("⌘↩ to create", &theme).flex_1())
                     .child(
                         button("pr-cancel", "Cancel")
                             .style(ButtonStyle::Ghost)

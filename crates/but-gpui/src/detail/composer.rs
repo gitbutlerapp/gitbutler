@@ -18,7 +18,8 @@ use crate::state::{Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, faint, h_flex, icon_button, shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, button, faint, h_flex, icon_button, plural, shortcut, small_icon,
+    v_flex,
 };
 
 actions!(composer, [PickCommitTarget]);
@@ -831,7 +832,10 @@ impl Detail {
                     .gap(px(6.))
                     .child(
                         faint(
-                            format!("{checked} of {} files", workspace.uncommitted.len()),
+                            format!(
+                                "{checked} of {}",
+                                plural(workspace.uncommitted.len(), "file")
+                            ),
                             theme,
                         )
                         .flex_1()
