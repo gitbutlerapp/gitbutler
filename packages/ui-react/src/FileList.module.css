@@ -135,6 +135,12 @@
 	padding-block-end: var(--padding-panel);
 }
 
+/* The panel's own header leaves room under itself; one passed in, such as a popup's search, ends
+   on a hairline, so the rows keep the inset they have at the other three edges. */
+.listOwnTop {
+	padding-block-start: var(--padding-panel);
+}
+
 .item {
 	display: flex;
 	column-gap: var(--gap-icon-text);

@@ -10,6 +10,8 @@ import { AlertDialog, Dialog, mergeProps, Popover, useRender } from "@base-ui/re
 import type { HotkeySequence } from "@tanstack/react-hotkeys";
 import {
 	useEffect,
+	useId,
+	useRef,
 	useState,
 	type ComponentProps,
 	type FC,
@@ -268,6 +270,16 @@ export type DropdownProps = {
 	onOpenChange?: (open: boolean) => void;
 	/** Rendered as the dropdown's trigger, and what it anchors to. */
 	trigger: ReactElement;
+	/**
+	 * Also opens while the pointer rests on the trigger, and stays while it moves into the panel:
+	 * for a panel that shows at a glance what the trigger keeps hidden. Opened by hover, it leaves
+	 * focus where it was. While a field in it has focus and something typed, as a search in use,
+	 * the pointer leaving no longer shuts it, and Escape or a click outside does; a click on a row
+	 * doesn't hold it, so it still goes when the pointer leaves. The pointer moving onto a tooltip or menu opened
+	 * from inside it doesn't shut it either: those float outside the panel but belong to it, and it
+	 * goes once they do with the pointer still outside.
+	 */
+	openOnHover?: boolean;
 	/** @default "bottom" */
 	side?: "top" | "bottom" | "left" | "right";
 	/** @default "start" */
@@ -293,29 +305,82 @@ export const Dropdown: FC<DropdownProps> = ({
 	open,
 	onOpenChange,
 	trigger,
+	openOnHover = false,
 	side = "bottom",
 	align = "start",
 	sideOffset = 4,
 	children,
 	className,
 	...props
-}) => (
-	<Popover.Root open={open} onOpenChange={onOpenChange}>
-		<Popover.Trigger render={trigger} />
-		<Popover.Portal>
-			<Popover.Positioner side={side} align={align} sideOffset={sideOffset}>
-				<Popup
-					anchored
-					{...props}
-					className={classes(className, styles.dropdownPanel)}
-					render={<Popover.Popup />}
-				>
-					{children}
-				</Popup>
-			</Popover.Positioner>
-		</Popover.Portal>
-	</Popover.Root>
-);
+}) => {
+	const id = useId();
+	const actions = useRef<Popover.Root.Actions>(null);
+	const stopWatching = useRef<() => void>(undefined);
+	useEffect(() => () => stopWatching.current?.(), []);
+	const panel = `[data-dropdown="${id}"]`;
+	// Only a field with something in it: an empty one has nothing to lose, and clearing a search
+	// leaves the caret in its field, which would otherwise hold the panel open for good.
+	const typing = () => {
+		const field = document.querySelector(`${panel} :is(input, textarea, [contenteditable]):focus`);
+		if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)
+			return field.value !== "";
+		return Boolean(field?.textContent);
+	};
+	// A tooltip or menu a control in it opened floats outside the panel; the control stays marked
+	// open while it shows. Only a control that opens a popup: an expanded folder in a file tree is
+	// `aria-expanded` too, and would hold the panel open for as long as the folder is.
+	const layered = () =>
+		document.querySelector(
+			`${panel} :is([data-popup-open], [aria-haspopup][aria-expanded="true"])`,
+		);
+	return (
+		<Popover.Root
+			actionsRef={actions}
+			open={open}
+			onOpenChange={(next, details) => {
+				stopWatching.current?.();
+				if (!next && details.reason === "trigger-hover") {
+					// The reader is typing in it: the pointer wandering off is no reason to take that away.
+					if (typing()) return details.cancel();
+					// The pointer went onto something layered over it. Back in the panel, the hover
+					// carries on as before; once that layer is gone with the pointer still out, it's over.
+					if (layered()) {
+						details.cancel();
+						const stop = () => {
+							document.removeEventListener("pointermove", watch);
+							stopWatching.current = undefined;
+						};
+						const watch = (event: PointerEvent) => {
+							if (event.target instanceof Element && event.target.closest(panel)) return stop();
+							if (layered()) return;
+							stop();
+							actions.current?.close();
+						};
+						document.addEventListener("pointermove", watch);
+						stopWatching.current = stop;
+						return;
+					}
+				}
+				onOpenChange?.(next);
+			}}
+		>
+			<Popover.Trigger render={trigger} openOnHover={openOnHover} />
+			<Popover.Portal>
+				<Popover.Positioner side={side} align={align} sideOffset={sideOffset}>
+					<Popup
+						anchored
+						{...props}
+						data-dropdown={id}
+						className={classes(className, styles.dropdownPanel)}
+						render={<Popover.Popup />}
+					>
+						{children}
+					</Popup>
+				</Popover.Positioner>
+			</Popover.Portal>
+		</Popover.Root>
+	);
+};
 
 /**
  * The filter row a popup leads with. Full-bleed against the container's top edge, divided from the

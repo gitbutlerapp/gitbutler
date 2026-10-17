@@ -1,7 +1,10 @@
 import preview from "#storybook/preview";
+import { Badge } from "./Badge.tsx";
 import { Button } from "./Button.tsx";
+import { FileList, FileListItem } from "./FileList.tsx";
 import { FolderIcon } from "./FolderIcon.tsx";
-import { Popup, PopupEmpty, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
+import { Icon } from "./Icon.tsx";
+import { Dropdown, Popup, PopupEmpty, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
 import { ProgramIcon } from "./ProgramIcon.tsx";
 import { Combobox } from "@base-ui/react";
 import { useDeferredValue, useState } from "react";
@@ -195,5 +198,53 @@ export const NothingToList = meta.story({
 				nothingToList="Nothing left to apply"
 			/>
 		</Popup>
+	),
+});
+
+/**
+ * A dropdown that opens on hover too: the button stands for a list it keeps hidden, so resting on
+ * it shows the list without a click, and the pointer can move in to pick from it. A click is still
+ * the button's own. Opened by hover, the panel leaves focus on the page. The button already names
+ * and counts the files, so the list leads with a search instead of its own header.
+ */
+export const OpenOnHover = meta.story({
+	render: () => (
+		<Dropdown
+			openOnHover
+			style={{ width: 280 }}
+			trigger={
+				<Button variant="ghost" aria-label="Files, 3 files, +12, -3">
+					<Icon name="sidebar-narrow" />
+					<Badge variant="lightGray">3</Badge>
+				</Button>
+			}
+		>
+			<FileList
+				title="Files"
+				count={3}
+				header={<PopupSearch placeholder="Filter files" aria-label="Filter files" />}
+			>
+				<FileListItem
+					name="activity.rs"
+					directory="crates/mesh-server/src"
+					status="Modification"
+					added={8}
+					removed={2}
+				/>
+				<FileListItem
+					name="feed.rs"
+					directory="crates/mesh-server/src"
+					status="Modification"
+					added={3}
+					removed={1}
+				/>
+				<FileListItem
+					name="rebased.rs"
+					directory="crates/mesh-server/tests"
+					status="Addition"
+					added={1}
+				/>
+			</FileList>
+		</Dropdown>
 	),
 });
