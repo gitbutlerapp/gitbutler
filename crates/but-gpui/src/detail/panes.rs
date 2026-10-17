@@ -1024,29 +1024,15 @@ impl Detail {
                     .border_color(theme.border_3)
                     .child(message)
                     .when(commit.conflicted, |el| {
-                        el.child(
-                            h_flex()
-                                .gap(px(8.))
-                                .px(px(10.))
-                                .py(px(8.))
-                                .rounded(px(6.))
-                                .bg(theme.danger.opacity(0.08))
-                                .text_size(px(12.))
-                                .text_color(theme.danger)
-                                .child(small_icon(Icon::Warning))
-                                .child(div().flex_1().child("This commit has conflicts"))
-                                .child(
-                                    button("resolve", "Resolve…")
-                                        .small()
-                                        .style(ButtonStyle::Gray)
-                                        .on_click(|_, window, cx| {
-                                            window.dispatch_action(
-                                                Box::new(crate::resolve::ResolveConflicts),
-                                                cx,
-                                            )
-                                        }),
-                                ),
-                        )
+                        el.child(conflict_bar(
+                            "This commit has conflicts".into(),
+                            "Resolve…",
+                            theme,
+                            |_, window, cx| {
+                                window
+                                    .dispatch_action(Box::new(crate::resolve::ResolveConflicts), cx)
+                            },
+                        ))
                     })
                     .child(
                         h_flex()
@@ -1114,6 +1100,31 @@ impl Detail {
             PushState::Integrated => "Integrated",
         };
         let files = self.render_diff_file_list(project, None, theme, cx);
+        // Commits list newest first; resolving the oldest first rebases the rest onto it.
+        let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
+        let oldest = branch.commits.iter().rev().find(|c| c.conflicted);
+        let resolve_oldest = oldest.map(|commit| {
+            let (store, oldest) = (
+                self.store.clone(),
+                Selection::Commit(project.clone(), commit.id),
+            );
+            conflict_bar(
+                match conflicted {
+                    1 => "A commit has conflicts".to_owned(),
+                    n => format!("{n} commits have conflicts"),
+                },
+                if conflicted == 1 {
+                    "Resolve…"
+                } else {
+                    "Resolve the oldest…"
+                },
+                theme,
+                move |_, window, cx| {
+                    store.update(cx, |store, cx| store.select(Some(oldest.clone()), cx));
+                    window.dispatch_action(Box::new(crate::resolve::ResolveConflicts), cx)
+                },
+            )
+        });
         v_flex()
             .size_full()
             .child(
@@ -1144,7 +1155,8 @@ impl Detail {
                                 "{} · {push}",
                                 plural(branch.commits.len(), "commit")
                             )),
-                    ),
+                    )
+                    .children(resolve_oldest),
             )
             .when_some(branch.review.as_ref(), |el, review| {
                 el.child(render_review(review, theme, cx))
@@ -1269,6 +1281,31 @@ fn render_incoming(
                 )
         }))
         .into_any_element()
+}
+
+/// What's conflicted, on a red tint, with a button that starts resolving it.
+fn conflict_bar(
+    text: String,
+    action: &'static str,
+    theme: &Theme,
+    resolve: impl Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static,
+) -> impl IntoElement {
+    h_flex()
+        .gap(px(8.))
+        .px(px(10.))
+        .py(px(8.))
+        .rounded(px(6.))
+        .bg(theme.danger.opacity(0.08))
+        .text_size(px(12.))
+        .text_color(theme.danger)
+        .child(small_icon(Icon::Warning).text_color(theme.danger))
+        .child(div().flex_1().child(text))
+        .child(
+            button("resolve", action)
+                .small()
+                .style(ButtonStyle::Gray)
+                .on_click(resolve),
+        )
 }
 
 /// A branch's pull request in two lines, as t3code shows one: what it is, then its number,

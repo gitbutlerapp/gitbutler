@@ -383,10 +383,19 @@ impl Render for ResolveView {
                     .border_color(theme.border_3)
                     .when(picked < total, |el| {
                         el.child(
-                            button("resolve-ai", "Rest with AI")
-                                .style(ButtonStyle::Ghost)
-                                .tooltip("Let the AI set up in Settings merge the conflicts not picked yet")
-                                .on_click(cx.listener(|this, _, _, cx| this.rest_with_ai(cx))),
+                            button(
+                                "resolve-ai",
+                                if picked == 0 {
+                                    "Resolve with AI"
+                                } else {
+                                    "Resolve the rest with AI"
+                                },
+                            )
+                            .style(ButtonStyle::Ghost)
+                            .tooltip(
+                                "Let the AI set up in Settings merge the conflicts not picked yet",
+                            )
+                            .on_click(cx.listener(|this, _, _, cx| this.rest_with_ai(cx))),
                         )
                     })
                     .child(
@@ -398,8 +407,9 @@ impl Render for ResolveView {
                             )
                             .on_click(cx.listener(|this, _, _, cx| {
                                 let (project, commit) = (this.project.clone(), this.commit);
-                                this.store
-                                    .update(cx, |store, cx| store.edit_commit(&project, commit, cx));
+                                this.store.update(cx, |store, cx| {
+                                    store.edit_commit(&project, commit, cx)
+                                });
                                 cx.emit(DismissEvent);
                             })),
                     )
