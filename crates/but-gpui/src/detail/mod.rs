@@ -5,7 +5,6 @@
 mod branches;
 mod composer;
 mod diff_view;
-mod editing;
 mod file_list;
 mod file_tree;
 mod find;
@@ -30,6 +29,7 @@ use gpui::{
 };
 
 use crate::app::{AddProject, AppView};
+use crate::backend::edit::Editing;
 use crate::backend::{
     self, DiffBody, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected,
 };
@@ -119,7 +119,7 @@ impl DiffKey {
     fn uncommitted<'a>(&self, store: &'a Store) -> Option<&'a [FileChange]> {
         let workspace = store.workspace(&self.project)?;
         match &self.source {
-            DiffSource::Worktree | DiffSource::Edit => Some(&workspace.uncommitted),
+            DiffSource::Worktree => Some(&workspace.uncommitted),
             DiffSource::Linked(name) => (workspace.worktrees.iter())
                 .find(|worktree| worktree.name == *name)
                 .map(|worktree| &worktree.uncommitted[..]),
@@ -189,8 +189,6 @@ pub struct Detail {
     whole: HashMap<String, Option<FileLines>>,
     /// Files whose lines are being read, one read each at a time.
     whole_reading: HashSet<String>,
-    /// Conflicted files of an edited commit the user called resolved, markers and all.
-    marked_resolved: HashSet<(ProjectId, backend::CommitId, String)>,
     /// The commit message being edited, with the subscription that saves it.
     rewording: Option<(Entity<TextInput>, Subscription)>,
     /// The project the checks and commit target above belong to.
@@ -270,10 +268,6 @@ impl Detail {
                     this.refresh_diff(true, cx);
                 }
                 StoreEvent::Loaded(project) => {
-                    // Calling a file resolved lasts as long as that edit does.
-                    if this.editing(project, cx).is_none() {
-                        this.marked_resolved.retain(|(p, ..)| p != project);
-                    }
                     if this.selected_project(cx).as_ref() == Some(project) {
                         this.reload_page(false, cx);
                         // A reload that didn't touch the files shown, like the forge poll's,
@@ -345,7 +339,6 @@ impl Detail {
             filtering: false,
             whole: HashMap::new(),
             whole_reading: HashSet::new(),
-            marked_resolved: HashSet::new(),
             rewording: None,
             checks_project: None,
             composing: false,
@@ -386,11 +379,16 @@ impl Detail {
         self.selection(cx).map(|s| s.project().clone())
     }
 
+    /// The commit `project` is editing, if `but resolve` has one checked out.
+    fn editing<'a>(&self, project: &ProjectId, cx: &'a App) -> Option<&'a Editing> {
+        self.store.read(cx).workspace(project)?.editing.as_ref()
+    }
+
     fn key_for_selection(&self, cx: &App) -> Option<DiffKey> {
         let selection = self.selection(cx)?;
         let store = self.store.read(cx);
         let source = match &selection {
-            Selection::Project(project) if self.editing(project, cx).is_some() => DiffSource::Edit,
+            Selection::Project(project) if self.editing(project, cx).is_some() => return None,
             Selection::Project(project) => self.upstream_source(project)?,
             Selection::History(project) => self.history_source(project)?,
             Selection::Branches(project) => self.branches_source(project)?,
@@ -1145,7 +1143,18 @@ impl Render for Detail {
                         self.render_branches_side(project, &theme, window, cx)
                     }
                     Selection::Project(project) => match self.editing(project, cx) {
-                        Some(editing) => self.render_edit_side(project, editing, &theme, cx),
+                        Some(editing) => empty_state(
+                            match editing.title.as_str() {
+                                "" => "No message".to_owned(),
+                                title => title.to_owned(),
+                            },
+                            format!(
+                                "Commit {} is checked out for editing. Finish it with \
+                                 `but resolve finish`, or cancel with `but resolve cancel`.",
+                                editing.commit.short()
+                            ),
+                            &theme,
+                        ),
                         None => self.render_upstream_side(project, &theme, cx),
                     },
                 };

@@ -354,8 +354,6 @@ impl Store {
         let settles = self.settling.as_ref() == Some(&id);
         cx.notify();
         cx.spawn(async move |this, cx| {
-            // While editing, what's resolved changes with the files, so it's read again too.
-            let shown = shown.filter(|shown| shown.editing.is_none());
             let result = backend::run(move || match shown {
                 Some(shown) => {
                     backend::reload_uncommitted(&path, shown, reload.main, &reload.linked)

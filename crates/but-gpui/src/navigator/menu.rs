@@ -244,10 +244,10 @@ impl Navigator {
                 };
                 let mut items = Vec::new();
                 if commit.conflicted {
-                    items.extend([
-                        action("Resolve conflicts…", &crate::resolve::ResolveConflicts),
-                        action("Resolve by hand", &crate::resolve::EditByHand),
-                    ]);
+                    items.push(action(
+                        "Resolve conflicts…",
+                        &crate::resolve::ResolveConflicts,
+                    ));
                 }
                 items.extend([
                     action("Cut", &CutSelection).separated(),

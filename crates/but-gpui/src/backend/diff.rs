@@ -19,8 +19,6 @@ pub enum DiffSource {
     Worktree,
     /// The uncommitted changes of the linked worktree with this name, like an agent's.
     Linked(std::sync::Arc<str>),
-    /// The worktree of a commit being edited: its changes as they are on disk now.
-    Edit,
     Commit(CommitId),
     /// Everything from `oldest` (inclusive) up to `newest`, like a whole branch.
     Range {
@@ -45,10 +43,7 @@ pub enum DiffSource {
 impl DiffSource {
     /// Whether the diff follows a worktree, so it's loaded again as files change.
     pub fn live(&self) -> bool {
-        matches!(
-            self,
-            DiffSource::Worktree | DiffSource::Edit | DiffSource::Linked(_)
-        )
+        matches!(self, DiffSource::Worktree | DiffSource::Linked(_))
     }
 }
 
@@ -80,7 +75,7 @@ pub fn load_diff(
     };
     let changes: Vec<FileChange> = match &source {
         // With modification times, so review marks match the workspace's file list.
-        DiffSource::Worktree | DiffSource::Edit | DiffSource::Linked(_) => match worktree {
+        DiffSource::Worktree | DiffSource::Linked(_) => match worktree {
             Some(files) => files,
             None => worktree_files(repo)?,
         },

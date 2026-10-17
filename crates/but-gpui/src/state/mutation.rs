@@ -49,12 +49,7 @@ impl Overlay {
     }
 }
 
-pub const SAVE_EDIT: &str = "Save the commit";
-pub const STOP_EDITING: &str = "Stop editing";
 const FETCH: &str = "Fetch";
-/// While a commit is checked out to edit, the only operations that run: saving it,
-/// stopping, and fetching, which leaves the worktree alone.
-const WHILE_EDITING: [&str; 3] = [SAVE_EDIT, STOP_EDITING, FETCH];
 
 /// The commits an operation captured, found again by key when it runs, as operations queued
 /// before it may have rewritten them.
@@ -304,19 +299,6 @@ impl Store {
         );
     }
 
-    /// Check commit `id` out in the worktree to resolve it by hand, and show its page.
-    pub fn edit_commit(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
-        let shown = project.clone();
-        self.run(
-            project,
-            "Check the commit out",
-            Overlay::default(),
-            move |path, remap| backend::edit::enter(path, remap.get(id)?),
-            move |store, (), cx| store.select(Some(Selection::Project(shown)), cx),
-            cx,
-        );
-    }
-
     pub fn uncommit(&mut self, project: &ProjectId, ids: Vec<CommitId>, cx: &mut Context<Self>) {
         let keys: Vec<String> = ids
             .iter()
@@ -432,16 +414,16 @@ impl Store {
         remap: Remap,
         cx: &mut Context<Self>,
     ) {
-        // Checked as it starts, not when asked for: an operation queued behind checking a
-        // commit out runs while editing, one queued behind saving runs after.
+        // While `but resolve` has a commit checked out, only fetching runs: it leaves the
+        // worktree alone.
         let editing = self
             .workspace(project)
             .is_some_and(|ws| ws.editing.is_some());
-        let refused = editing && !WHILE_EDITING.contains(&label.as_ref());
+        let refused = editing && label.as_ref() != FETCH;
         let path = self.path(project).filter(|_| !refused);
         let Some(path) = path else {
             if refused {
-                self.snack("Save the edited commit, or stop editing it, first", cx);
+                self.snack("Run `but resolve finish` or `but resolve cancel` first", cx);
             }
             self.running = None;
             cx.emit(StoreEvent::Pending(project.clone()));
