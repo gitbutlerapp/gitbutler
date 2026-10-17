@@ -297,8 +297,10 @@ impl Detail {
             self.render_composer(project, theme, window, cx)
         };
 
+        let banner = self.conflict_banner(cx.entity().downgrade(), cx);
         v_flex()
             .size_full()
+            .children(banner.map(|banner| side_header(theme).child(banner)))
             .child(self.render_uncommitted_files(project, &workspace.uncommitted, theme, cx))
             .when(!workspace.uncommitted.is_empty(), |el| el.child(footer))
             .into_any_element()
@@ -318,7 +320,7 @@ impl Detail {
         let files = self.render_diff_file_list(theme, cx);
         let banner = commit
             .conflicted
-            .then(|| self.conflict_banner(cx))
+            .then(|| self.conflict_banner(cx.entity().downgrade(), cx))
             .flatten();
         v_flex()
             .size_full()

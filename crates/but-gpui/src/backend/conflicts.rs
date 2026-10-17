@@ -1,13 +1,15 @@
-//! Resolving a conflicted commit's conflicts without leaving the workspace: each one keeps
-//! what its new base has there, what the commit has, or text written for it.
+//! Resolving conflicts without leaving the workspace, a conflicted commit's or those a merge
+//! left in uncommitted files: each keeps one side, the other, or text written for it.
 
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use but_api::resolve::{self, HunkResolution, ResolutionSpec};
+use but_core::DryRun;
 
 use super::ops::rewritten;
-use super::{CommitId, Rewritten, open};
+use super::{CommitId, Rewritten, checkout, markers, open};
 
 /// What a conflict keeps.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,4 +61,69 @@ pub fn resolve(
             emptied: outcome.commit_emptied,
         },
     ))
+}
+
+/// Resolve conflicts a merge left in uncommitted files of the checkout `worktree` names, or
+/// the main one, each by its file and id: what's kept replaces the conflict's markers, and a
+/// file with none left is marked resolved. Returns how many files were. Recorded for undo
+/// first in the main checkout, as discarding is; the oplog can't restore a linked worktree.
+pub fn resolve_markers(
+    path: &Path,
+    worktree: Option<&str>,
+    keep: Vec<(String, String, Keep)>,
+) -> Result<usize> {
+    use but_oplog::legacy::{OperationKind, SnapshotDetails};
+    let mut ctx = open(path)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let repo = checkout(&ctx, worktree)?;
+    let workdir = repo
+        .workdir()
+        .context("The checkout has no files")?
+        .to_owned();
+    if worktree.is_none() {
+        let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+            &ctx,
+            SnapshotDetails::new(OperationKind::ResolveConflicts),
+            perm.read_permission(),
+            DryRun::No,
+        );
+        if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
+            tracing::warn!(?err, "couldn't record the resolution for undo");
+        }
+    }
+    let mut by_file: BTreeMap<String, Vec<(String, Keep)>> = BTreeMap::new();
+    for (file, id, keep) in keep {
+        by_file.entry(file).or_default().push((id, keep));
+    }
+    let mut resolved = Vec::new();
+    for (file, picks) in by_file {
+        let on_disk = workdir.join(&file);
+        let text = std::fs::read_to_string(&on_disk)?;
+        let lines = markers::lines(&text);
+        let blocks = markers::blocks(&lines);
+        let ids = markers::ids(&lines, &blocks);
+        let mut kept = HashMap::new();
+        for (id, keep) in picks {
+            let ix = (ids.iter().position(|shown| *shown == id)).with_context(|| {
+                format!("{file} changed since its conflicts were shown. Pick again.")
+            })?;
+            let block = &blocks[ix];
+            let text = match keep {
+                Keep::NewBase => markers::text(&lines, block.ours.clone()),
+                Keep::Commit => markers::text(&lines, block.theirs.clone()),
+                Keep::Text(text) => text,
+            };
+            kept.insert(ix, text);
+        }
+        std::fs::write(&on_disk, markers::replace(&lines, &blocks, &kept))?;
+        if kept.len() == blocks.len() {
+            resolved.push(file.into());
+        }
+    }
+    let count = resolved.len();
+    if count > 0 {
+        but_workspace::resolve_worktree_conflicts(&repo, resolved)?;
+    }
+    Ok(count)
 }

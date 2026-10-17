@@ -81,14 +81,23 @@ pub struct Actions {
     pub cancel: OnToggle,
 }
 
+/// A side's name, as a button says it and as a sentence does, like "This commit" and "this
+/// commit".
+#[derive(Clone, Copy)]
+pub struct Name<'a> {
+    pub label: &'a str,
+    pub phrase: &'a str,
+}
+
 /// What a conflict's rows draw from.
 pub struct Row<'a> {
     pub conflict: &'a Conflict,
-    /// Its place among the commit's conflicts, from 1, and how many there are.
+    /// Its place among the conflicts shown, from 1, and how many there are.
     pub number: usize,
     pub total: usize,
-    /// What the new base is called, like the target branch.
-    pub new_base: &'a str,
+    /// What the two sides are called, alone and in a sentence: what the commit or the
+    /// changes now sit on, like the target, and the commit or the changes themselves.
+    pub sides: [Name<'a>; 2],
     pub kept: Option<Kept<'a>>,
     /// The keyboard's picks go to it.
     pub current: bool,
@@ -272,20 +281,20 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
             toggle_group(theme)
                 .child(choice(
                     "keep-new-base",
-                    row.new_base.to_owned().into(),
-                    format!("Keep {}'s lines", row.new_base),
+                    row.sides[0].label.to_owned().into(),
+                    format!("Keep the lines from {}", row.sides[0].phrase),
                     Pick::NewBase,
                 ))
                 .child(choice(
                     "keep-commit",
-                    "This commit".into(),
-                    "Keep this commit's lines".into(),
+                    row.sides[1].label.to_owned().into(),
+                    format!("Keep the lines from {}", row.sides[1].phrase),
                     Pick::Commit,
                 ))
                 .child(choice(
                     "keep-both",
                     "Both".into(),
-                    format!("Keep both, {}'s first", row.new_base),
+                    format!("Keep both, {} first", row.sides[0].phrase),
                     Pick::Both,
                 )),
         )
@@ -316,14 +325,21 @@ fn pick_key(pick: Pick) -> &'static str {
 /// A side's name over its lines, or what it says when it has none.
 fn label(side: Side, row: &Row, theme: &Theme) -> AnyElement {
     let (glyph, name, color) = match side {
-        Side::NewBase => (Icon::Branch, row.new_base.to_owned(), theme.diff_added),
-        Side::Commit => (Icon::Commit, "This commit".to_owned(), theme.blue),
-        Side::Ancestor => (Icon::Clock, "Before both".to_owned(), theme.text_2),
+        Side::NewBase => (Icon::Branch, row.sides[0], theme.diff_added),
+        Side::Commit => (Icon::Commit, row.sides[1], theme.blue),
+        Side::Ancestor => (
+            Icon::Clock,
+            Name {
+                label: "Before both",
+                phrase: "before both",
+            },
+            theme.text_2,
+        ),
     };
     let empty = side_lines(row.conflict, side).is_empty();
     let text = match empty {
-        true => format!("{name} removes these lines"),
-        false => name,
+        true => format!("Nothing from {}", name.phrase),
+        false => name.label.to_owned(),
     };
     strip(row.layout, row.last && empty, theme)
         .h(px(24.))
@@ -394,15 +410,15 @@ fn result(row: &Row, theme: &Theme) -> AnyElement {
     let conflict = row.conflict;
     let (says, lines): (String, Vec<DiffLine>) = match &row.kept {
         Some(Kept::Pick(Pick::NewBase)) => (
-            format!("Keeping {}'s lines", row.new_base),
+            format!("Keeping the lines from {}", row.sides[0].phrase),
             conflict.new_base.clone(),
         ),
         Some(Kept::Pick(Pick::Commit)) => (
-            "Keeping this commit's lines".into(),
+            format!("Keeping the lines from {}", row.sides[1].phrase),
             conflict.commit.clone(),
         ),
         Some(Kept::Pick(Pick::Both)) => (
-            format!("Keeping both, {}'s first", row.new_base),
+            format!("Keeping both, {} first", row.sides[0].phrase),
             renumbered(
                 conflict.new_base.iter().chain(&conflict.commit).cloned(),
                 conflict.at,
@@ -581,6 +597,7 @@ mod tests {
             after: vec![line(at + 1)],
             new_base_text: "x\n".into(),
             commit_text: "y\n".into(),
+            labels: Default::default(),
         }
     }
 

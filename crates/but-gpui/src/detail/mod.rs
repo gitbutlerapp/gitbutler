@@ -1327,15 +1327,11 @@ impl Render for Detail {
                     .into_any_element()
             }
         };
-        let conflicts = self.conflicted_commit().is_some();
+        let context = self.key_context();
         v_flex()
             .id("detail")
-            .key_context(if conflicts {
-                "Detail Conflicts"
-            } else {
-                "Detail"
-            })
-            .when(conflicts, |el| resolve::conflict_keys(el, cx))
+            .key_context(context)
+            .when(context != "Detail", |el| resolve::conflict_keys(el, cx))
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &NextFile, _, cx| this.move_file(1, cx)))
             .on_action(cx.listener(|this, _: &PreviousFile, _, cx| this.move_file(-1, cx)))

@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, Context, Entity, Focusable, KeyBinding, Subscription, Task, WeakEntity,
@@ -16,7 +17,7 @@ use crate::backend::conflicts::{self, Keep};
 use crate::backend::{self, CommitId, Conflict, Workspace, ai};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
-use crate::ui::conflict::{self, Actions, Kept, Part, Pick};
+use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, Icon, button, h_flex, plural, small_icon, v_flex};
@@ -43,8 +44,18 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("3", KeepBoth, c),
         KeyBinding::new("enter", EditConflict, c),
         KeyBinding::new("a", SuggestMerge, c),
-        KeyBinding::new("cmd-enter", ApplyResolutions, c),
+        // Only with something to apply, so it still starts a commit otherwise.
+        KeyBinding::new("cmd-enter", ApplyResolutions, Some("Picked && !TextInput")),
     ]);
+}
+
+/// What the conflicts shown belong to.
+#[derive(Clone, PartialEq)]
+pub(super) enum Conflicted {
+    Commit(CommitId),
+    /// Uncommitted files a merge left conflict markers in, of the main checkout or the
+    /// linked worktree named.
+    Files(Option<Arc<str>>),
 }
 
 /// What's kept of a conflict until the picks are applied.
@@ -68,15 +79,35 @@ pub(super) struct Resolving {
 }
 
 impl Detail {
-    /// The commit shown, and its project, while its diff has conflicts to resolve.
-    pub(super) fn conflicted_commit(&self) -> Option<(ProjectId, CommitId)> {
+    /// What the diff shown has conflicted, and its project: a commit, or uncommitted files.
+    pub(super) fn conflicted(&self) -> Option<(ProjectId, Conflicted)> {
         let diff = self.diff.as_ref()?;
-        let DiffSource::Commit(id) = diff.key.source else {
-            return None;
+        let conflicted = match &diff.key.source {
+            DiffSource::Commit(id) => Conflicted::Commit(*id),
+            DiffSource::Worktree => Conflicted::Files(None),
+            DiffSource::Linked(name) => Conflicted::Files(Some(name.clone())),
+            _ => return None,
         };
         (diff.files.iter())
             .any(|file| file.file.conflicted)
-            .then(|| (diff.key.project.clone(), id))
+            .then(|| (diff.key.project.clone(), conflicted))
+    }
+
+    /// The conflicted commit shown, and its project.
+    pub(super) fn conflicted_commit(&self) -> Option<(ProjectId, CommitId)> {
+        match self.conflicted()? {
+            (project, Conflicted::Commit(id)) => Some((project, id)),
+            _ => None,
+        }
+    }
+
+    /// The key context of the detail: with conflicts to pick, and with picks to apply.
+    pub(super) fn key_context(&self) -> &'static str {
+        match (self.conflicts().next(), self.resolving.keeping.is_empty()) {
+            (None, _) => "Detail",
+            (Some(_), true) => "Detail Conflicts",
+            (Some(_), false) => "Detail Conflicts Picked",
+        }
     }
 
     /// The shown diff's conflicts in file order, each with its file's place in the diff.
@@ -99,24 +130,38 @@ impl Detail {
         }
     }
 
-    /// What the new base is called: the target for a stack's oldest commit, otherwise the
-    /// commit below.
-    fn new_base_name(&self, cx: &App) -> String {
-        let Some((project, id)) = self.conflicted_commit() else {
-            return String::new();
+    /// What `conflict`'s sides are called, alone and in a sentence. A commit sits on the
+    /// target when it's its stack's oldest, else on the commit below. Uncommitted changes an
+    /// update merged sit on what the update brought; any other merge's markers name the
+    /// sides themselves.
+    fn side_names(&self, conflict: &Conflict, cx: &App) -> [(String, String); 2] {
+        let Some((project, conflicted)) = self.conflicted() else {
+            return Default::default();
         };
         let store = self.store.read(cx);
-        let Some(workspace) = store.workspace(&project) else {
-            return String::new();
-        };
-        let oldest = oldest_first(workspace, id).first() == Some(&id);
-        match (&workspace.target, oldest) {
-            (Some(target), true) => backend::short_ref(&target.name)
-                .rsplit('/')
-                .next()
-                .unwrap_or(&target.name)
-                .to_owned(),
-            _ => "Commit below".into(),
+        let workspace = store.workspace(&project);
+        let target = (workspace.and_then(|ws| ws.target.as_ref())).map(|target| {
+            let name = target.name.rsplit('/').next().unwrap_or(&target.name);
+            (name.to_owned(), name.to_owned())
+        });
+        let named = |label: &str, phrase: &str| (label.to_owned(), phrase.to_owned());
+        match conflicted {
+            Conflicted::Commit(id) => {
+                let oldest = workspace.is_some_and(|ws| oldest_first(ws, id).first() == Some(&id));
+                [
+                    target
+                        .filter(|_| oldest)
+                        .unwrap_or_else(|| named("Commit below", "the commit below")),
+                    named("This commit", "this commit"),
+                ]
+            }
+            Conflicted::Files(_) => match &conflict.labels {
+                [ours, theirs] if ours.is_empty() || (ours == "ours" && theirs == "theirs") => [
+                    target.unwrap_or_else(|| named("Upstream", "upstream")),
+                    named("Your changes", "your changes"),
+                ],
+                [ours, theirs] => [named(ours, ours), named(theirs, theirs)],
+            },
         }
     }
 
@@ -292,12 +337,15 @@ impl Detail {
             return;
         };
         let found = found.clone();
-        let Some((project, commit)) = self.conflicted_commit() else {
+        let Some((project, conflicted)) = self.conflicted() else {
             return;
         };
-        let title = (self.store.read(cx).find_commit(&project, commit))
-            .map(|(_, c)| c.title.clone())
-            .unwrap_or_default();
+        let [base_name, own_name] = self.side_names(&found, cx);
+        let own = match conflicted {
+            Conflicted::Commit(commit) => (self.store.read(cx).find_commit(&project, commit))
+                .map_or(own_name.1, |(_, c)| format!("the commit \"{}\"", c.title)),
+            Conflicted::Files(_) => own_name.1,
+        };
         let path = (self.diff.as_ref())
             .map(|diff| diff.files[file].file.path.clone())
             .unwrap_or_default();
@@ -308,8 +356,7 @@ impl Detail {
         };
         let prompt = ai::resolve_prompt(
             &path,
-            &title,
-            &self.new_base_name(cx),
+            [&base_name.1, &own],
             [&found.new_base_text, &found.commit_text],
             found.ancestor.as_deref().map(lines).as_deref(),
             [&lines(&found.before), &lines(&found.after)],
@@ -378,13 +425,13 @@ impl Detail {
 
     /// Resolve every conflict something is kept for, as one step. The rest stay.
     pub(super) fn apply_resolutions(&mut self, cx: &mut Context<Self>) {
-        let Some((project, commit)) = self.conflicted_commit() else {
+        let Some((project, conflicted)) = self.conflicted() else {
             return;
         };
         let Some(diff) = &self.diff else {
             return;
         };
-        let keep: Vec<(String, usize, Keep)> = (diff.files.iter())
+        let keep: Vec<(String, &Conflict, Keep)> = (diff.files.iter())
             .flat_map(|file| file.conflicts().iter().map(move |c| (file, c)))
             .filter_map(|(file, c)| {
                 let keep = match self.resolving.keeping.get(&c.id)? {
@@ -393,12 +440,56 @@ impl Detail {
                     Keeping::Pick(Pick::Both) => Keep::Text(kept_text(c, Pick::Both)),
                     Keeping::Text { text, .. } => Keep::Text(text.clone()),
                 };
-                Some((file.file.path.clone(), c.index, keep))
+                Some((file.file.path.clone(), c, keep))
             })
             .collect();
         if keep.is_empty() {
             return;
         }
+        let commit = match conflicted {
+            Conflicted::Commit(commit) => commit,
+            Conflicted::Files(worktree) => {
+                let decided = keep.len();
+                let keep: Vec<(String, String, Keep)> = (keep.into_iter())
+                    .map(|(path, c, keep)| (path, c.id.clone(), keep))
+                    .collect();
+                return self.store.update(cx, |store, cx| {
+                    store.run(
+                        &project,
+                        "Resolve",
+                        Overlay {
+                            files_only: true,
+                            ..Overlay::default()
+                        },
+                        {
+                            let worktree = worktree.clone();
+                            move |path, _| {
+                                conflicts::resolve_markers(path, worktree.as_deref(), keep)
+                            }
+                        },
+                        move |store, files, cx| {
+                            let resolved = plural(decided, "conflict");
+                            let message = match files {
+                                0 => format!("Resolved {resolved}"),
+                                n => format!(
+                                    "Resolved {resolved}, {} ready to commit",
+                                    plural(n, "file")
+                                ),
+                            };
+                            // The oplog can't bring a linked worktree back.
+                            match worktree {
+                                None => store.snack_undoable(message, cx),
+                                Some(_) => store.snack(message, cx),
+                            }
+                        },
+                        cx,
+                    )
+                });
+            }
+        };
+        let keep: Vec<(String, usize, Keep)> = (keep.into_iter())
+            .map(|(path, c, keep)| (path, c.index, keep))
+            .collect();
         let next =
             (self.store.read(cx).workspace(&project)).and_then(|ws| next_conflicted(ws, commit));
         let shown = project.clone();
@@ -482,7 +573,7 @@ impl Detail {
             }),
             _ => None,
         };
-        let new_base = self.new_base_name(cx);
+        let names = self.side_names(found, cx);
         let act = |f: fn(&mut Detail, String, &mut Window, &mut Context<Detail>)| -> OnToggle {
             let (entity, id) = (entity.clone(), id.clone());
             Rc::new(move |window: &mut Window, cx: &mut App| {
@@ -503,7 +594,9 @@ impl Detail {
             conflict: found,
             number,
             total,
-            new_base: &new_base,
+            sides: names
+                .each_ref()
+                .map(|(label, phrase)| Name { label, phrase }),
             kept,
             current: self.current_conflict().as_deref() == Some(id.as_str()),
             ancestor: r.ancestors.contains(&id),
@@ -522,31 +615,61 @@ impl Detail {
         conflict::row(part, row, theme)
     }
 
-    /// The commit's conflicts as a condition of the page, with what helps: how many are
-    /// left and why, the older conflicted commit to start from, or a suggestion for each.
-    pub(super) fn conflict_banner(&self, cx: &App) -> Option<AnyElement> {
+    /// The conflicts shown as a condition of the page, with what helps: how many are left
+    /// and between what, the older conflicted commit to start from, and for uncommitted files,
+    /// Apply, which a commit has in its header.
+    pub(super) fn conflict_banner(
+        &self,
+        entity: WeakEntity<Detail>,
+        cx: &App,
+    ) -> Option<AnyElement> {
         let theme = Theme::get(cx);
-        let (project, commit) = self.conflicted_commit()?;
+        let (project, conflicted) = self.conflicted()?;
         let store = self.store.read(cx);
         let workspace = store.workspace(&project)?;
-        let order = oldest_first(workspace, commit);
-        let older = (order.iter()).take_while(|id| **id != commit).find(|id| {
-            workspace
-                .find_commit(**id)
-                .is_some_and(|(_, c)| c.conflicted)
-        });
         let total = self.conflicts().count();
         let decided = (self.conflicts())
             .filter(|(_, c)| self.resolving.keeping.contains_key(&c.id))
             .count();
-        let unresolvable = (self.diff.iter())
-            .flat_map(|diff| diff.files.iter())
-            .filter(|file| matches!(file.body, backend::DiffBody::Unresolvable(_)))
-            .count();
-        let new_base = self.new_base_name(cx);
+        let files = || self.diff.iter().flat_map(|diff| diff.files.iter());
+        // Conflicted files with nothing to pick between, which another way resolves.
+        let other = match conflicted {
+            Conflicted::Commit(_) => files()
+                .filter(|file| matches!(file.body, backend::DiffBody::Unresolvable(_)))
+                .count(),
+            Conflicted::Files(_) => files()
+                .filter(|file| file.file.conflicted && file.conflicts().is_empty())
+                .count(),
+        };
+        let older = match conflicted {
+            Conflicted::Commit(commit) => (oldest_first(workspace, commit).into_iter())
+                .take_while(|id| *id != commit)
+                .find(|id| {
+                    workspace
+                        .find_commit(*id)
+                        .is_some_and(|(_, c)| c.conflicted)
+                }),
+            Conflicted::Files(_) => None,
+        };
+        let [base, own] = (self.conflicts().next())
+            .map(|(_, c)| self.side_names(c, cx))
+            .unwrap_or_default();
+        let apply = (matches!(conflicted, Conflicted::Files(_)) && decided > 0).then(|| {
+            banner_action("apply-resolutions", "Apply", theme)
+                .tooltip_with_key(
+                    format!("Resolve {}", plural(decided, "conflict")),
+                    crate::ui::shortcut(&ApplyResolutions, cx),
+                )
+                .on_click(move |_, _, cx| {
+                    entity
+                        .update(cx, |this, cx| this.apply_resolutions(cx))
+                        .ok();
+                })
+                .into_any_element()
+        });
         let (title, detail, action): (String, String, Option<AnyElement>) = match older {
             Some(older) => {
-                let (store_entity, project, older) = (self.store.clone(), project.clone(), *older);
+                let store_entity = self.store.clone();
                 (
                     "An older commit conflicts too".into(),
                     "Resolve it first: this one is rebuilt on top of it, which can settle some \
@@ -564,30 +687,37 @@ impl Detail {
                     ),
                 )
             }
+            None if total == 0 => (
+                format!("{} left conflicted", plural(other, "file")),
+                "Its menu marks a file resolved, taking it as it is.".into(),
+                None,
+            ),
             None if decided == total => (
                 format!("{} ready to apply", plural(total, "conflict")),
                 match total {
                     1 => "Apply resolves it in one step you can undo.".into(),
                     _ => "Apply resolves them in one step you can undo.".into(),
                 },
-                None,
+                apply,
             ),
             None => (
                 format!("{} to resolve", plural(total - decided, "conflict")),
                 format!(
-                    "This commit and {} both changed these lines. Pick what each keeps.",
-                    match new_base.as_str() {
-                        "Commit below" => "the commit below",
-                        name => name,
-                    }
+                    "{} and {} both changed these lines. Pick what each keeps.",
+                    own.0, base.1
                 ),
-                None,
+                apply,
             ),
         };
-        let detail = match unresolvable {
-            0 => detail,
-            n => format!(
+        let detail = match (other, conflicted) {
+            (0, _) => detail,
+            (_, _) if total == 0 => detail,
+            (n, Conflicted::Commit(_)) => format!(
                 "{detail} {} can only be resolved in a terminal, with `but resolve`.",
+                plural(n, "file")
+            ),
+            (n, Conflicted::Files(_)) => format!(
+                "{detail} {} has no lines to pick: its menu marks it resolved as it is.",
                 plural(n, "file")
             ),
         };

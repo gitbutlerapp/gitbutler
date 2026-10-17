@@ -70,13 +70,12 @@ pub fn pr_prompt(title: &str, body: &str, messages: &[String]) -> String {
     sections.join("\n\n")
 }
 
-/// What to ask for a merge of one conflict in `path`, between what the commit `title` sits on,
-/// called `new_base`, and the commit itself, with the lines around them and, when known, the
-/// lines before either changed them.
+/// What to ask for a merge of one conflict in `path` between two sides, each with its name
+/// in a sentence, like "main" and "the commit \"Round totals\"", given the lines around them
+/// and, when known, the lines before either changed them.
 pub fn resolve_prompt(
     path: &str,
-    title: &str,
-    new_base: &str,
+    names: [&str; 2],
     sides: [&str; 2],
     ancestor: Option<&str>,
     around: [&str; 2],
@@ -84,12 +83,13 @@ pub fn resolve_prompt(
     let block = |label: String, text: &str| format!("{label}\n```\n{}\n```", clipped(text));
     let mut sections = vec![
         format!(
-            "Merge two versions of the same lines in {path}. The commit \"{title}\" changed \
-             them, and so did {new_base}, which it now sits on. Keep what each meant to do."
+            "In {path}, {} and {} both changed the same lines. Merge them, keeping what each \
+             meant to do.",
+            names[1], names[0]
         ),
         block("The lines before:".into(), around[0]),
-        block(format!("{new_base} has:"), sides[0]),
-        block("The commit has:".into(), sides[1]),
+        block(format!("{} has:", names[0]), sides[0]),
+        block(format!("{} has:", names[1]), sides[1]),
     ];
     if let Some(ancestor) = ancestor {
         sections.push(block("Before either changed them:".into(), ancestor));

@@ -10,7 +10,7 @@ use bstr::ByteSlice;
 
 use super::{
     CommitId, Conflict, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind,
-    SnapshotId, annotate, checkout, columns, file_change, highlight, open, worktree_files,
+    SnapshotId, annotate, checkout, columns, file_change, highlight, markers, open, worktree_files,
 };
 
 /// What a diff is about.
@@ -65,6 +65,7 @@ pub fn load_diff(
         _ => None,
     };
     let repo = checkout(&ctx, linked)?;
+    let workdir = repo.workdir().map(Path::to_path_buf);
     let tree_changes = |base, tip| -> Result<Vec<FileChange>> {
         let changes = but_core::diff::tree_changes(&repo, base, tip)?;
         Ok(changes.into_iter().map(file_change).collect())
@@ -132,8 +133,12 @@ pub fn load_diff(
     .into_iter()
     .collect::<Result<Vec<_>>>()?;
     let mut diffs = diffs;
-    if let DiffSource::Commit(id) = source {
-        add_conflicts(&ctx, id, &mut diffs);
+    match (&source, workdir) {
+        (DiffSource::Commit(id), _) => add_conflicts(&ctx, *id, &mut diffs),
+        (DiffSource::Worktree | DiffSource::Linked(_), Some(workdir)) => {
+            add_marker_conflicts(&workdir, &mut diffs)
+        }
+        _ => {}
     }
     tracing::debug!(elapsed = ?started.elapsed(), ?source, "loaded diff");
     Ok(diffs)
@@ -161,34 +166,7 @@ fn add_conflicts(ctx: &but_ctx::Context, commit: CommitId, diffs: &mut Vec<FileD
                 diffs.len() - 1
             }
         };
-        let diff = &mut diffs[ix];
-        diff.file.conflicted = true;
-        let lines = conflicts
-            .iter()
-            .flat_map(|c| [&c.new_base, &c.commit, &c.before, &c.after]);
-        let conflict_columns = (lines.flatten())
-            .map(|line| columns(&line.text))
-            .max()
-            .unwrap_or(0);
-        match &mut diff.body {
-            DiffBody::Hunks {
-                widest,
-                conflicts: slot,
-                ..
-            } => {
-                *widest = widest.map(|side| side.max(conflict_columns));
-                *slot = conflicts;
-            }
-            body => {
-                *body = DiffBody::Hunks {
-                    hunks: Vec::new(),
-                    added: 0,
-                    removed: 0,
-                    widest: [conflict_columns; 2],
-                    conflicts,
-                }
-            }
-        }
+        set_conflicts(&mut diffs[ix], conflicts);
     }
     for manual in found.manual {
         if let Some(diff) = diffs.iter_mut().find(|diff| diff.file.path == manual.path) {
@@ -197,6 +175,95 @@ fn add_conflicts(ctx: &but_ctx::Context, commit: CommitId, diffs: &mut Vec<FileD
         }
     }
     diffs.sort_by_key(|diff| !diff.file.conflicted);
+}
+
+/// Give the conflicted files among the uncommitted `diffs` their conflicts, read from the
+/// markers in each file under `workdir`. The conflicts stand in for the file's diff, which
+/// would only show the markers as added lines.
+fn add_marker_conflicts(workdir: &Path, diffs: &mut [FileDiff]) {
+    for diff in diffs.iter_mut().filter(|diff| diff.file.conflicted) {
+        let Ok(text) = std::fs::read_to_string(workdir.join(&diff.file.path)) else {
+            continue;
+        };
+        let conflicts = marker_conflicts(&diff.file.path, &text);
+        if !conflicts.is_empty() {
+            diff.body = DiffBody::Empty;
+            set_conflicts(diff, conflicts);
+        }
+    }
+}
+
+/// Mark `diff` conflicted with `conflicts`, among its hunks if it has any.
+fn set_conflicts(diff: &mut FileDiff, conflicts: Vec<Conflict>) {
+    diff.file.conflicted = true;
+    let lines = (conflicts.iter()).flat_map(|c| [&c.new_base, &c.commit, &c.before, &c.after]);
+    let conflict_columns = (lines.flatten())
+        .map(|line| columns(&line.text))
+        .max()
+        .unwrap_or(0);
+    match &mut diff.body {
+        DiffBody::Hunks {
+            widest,
+            conflicts: slot,
+            ..
+        } => {
+            *widest = widest.map(|side| side.max(conflict_columns));
+            *slot = conflicts;
+        }
+        body => {
+            *body = DiffBody::Hunks {
+                hunks: Vec::new(),
+                added: 0,
+                removed: 0,
+                widest: [conflict_columns; 2],
+                conflicts,
+            }
+        }
+    }
+}
+
+/// The conflicts a merge left in `text`, the file at `path`, numbered by its lines: each
+/// side from the line its markers start at, with up to three lines around it.
+fn marker_conflicts(path: &str, text: &str) -> Vec<Conflict> {
+    let lines = markers::lines(text);
+    let blocks = markers::blocks(&lines);
+    let ids = markers::ids(&lines, &blocks);
+    let numbered = |range: std::ops::Range<usize>, from: usize| -> Vec<DiffLine> {
+        (lines[range].iter().zip(from as u32..))
+            .map(|(raw, new)| DiffLine {
+                kind: LineKind::Context,
+                old: None,
+                new: Some(new),
+                text: display_text(raw.trim_end_matches('\n')).into(),
+                spans: Vec::new(),
+                emph: Vec::new(),
+            })
+            .collect()
+    };
+    (blocks.iter().enumerate().zip(ids))
+        .map(|((index, block), id)| {
+            let (start, end) = (block.lines.start, block.lines.end);
+            let previous = index.checked_sub(1).map_or(0, |ix| blocks[ix].lines.end);
+            let next = blocks.get(index + 1).map_or(lines.len(), |b| b.lines.start);
+            let before = start.saturating_sub(3).max(previous)..start;
+            let after = end..(end + 3).min(next);
+            let mut conflict = Conflict {
+                id,
+                index,
+                at: start as u32 + 1,
+                before: numbered(before.clone(), before.start + 1),
+                new_base: numbered(block.ours.clone(), start + 1),
+                commit: numbered(block.theirs.clone(), start + 1),
+                ancestor: (block.ancestor.clone()).map(|range| numbered(range, start + 1)),
+                after: numbered(after.clone(), after.start + 1),
+                new_base_text: markers::text(&lines, block.ours.clone()),
+                commit_text: markers::text(&lines, block.theirs.clone()),
+                labels: block.labels.clone(),
+            };
+            annotate_conflict(path, &mut conflict);
+            conflict
+        })
+        .collect()
 }
 
 /// A file's conflicts, numbered as its diff numbers the new side. The diff is of the commit
@@ -237,6 +304,7 @@ fn conflicts_of(file: &but_api::resolve::ConflictedFile) -> Vec<Conflict> {
                 after: lines(&hunk.context_after, at + count(&hunk.ours)),
                 new_base_text: hunk.ours.clone(),
                 commit_text: hunk.theirs.clone(),
+                labels: Default::default(),
             };
             annotate_conflict(&file.path, &mut conflict);
             conflict
@@ -319,6 +387,8 @@ fn load_file(
             && old.file.previous_path == file.previous_path
             && old.file.base() == file.base()
             && (old.annotated || !annotate)
+            // Conflicts replace the diff, which a file resolved since needs back.
+            && old.conflicts().is_empty()
     }) {
         return Ok(FileDiff {
             file,
@@ -336,7 +406,9 @@ fn load_file(
         .change
         .unified_patch_with_filter(repo, context_lines, &mut filter)?;
     let fingerprint = fingerprint(&patch);
-    if let Some(old) = previous.filter(|old| old.fingerprint == fingerprint && old.annotated) {
+    if let Some(old) = (previous.filter(|old| old.fingerprint == fingerprint && old.annotated))
+        .filter(|old| old.conflicts().is_empty())
+    {
         return Ok(FileDiff {
             file,
             body: old.body.clone(),
