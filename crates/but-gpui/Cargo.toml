@@ -23,7 +23,7 @@ ignored = ["image"]
 
 [features]
 ## Scripted input and frame screenshots for development, see `src/dev.rs`.
-dev-script = ["gpui/test-support", "gpui_platform/test-support", "dep:image"]
+dev-script = ["gpui/test-support", "gpui_platform/test-support", "dep:image", "dep:objc2-foundation"]
 
 # Only macOS builds the client for now: elsewhere GPUI needs system libraries the
 # workspace's Linux and Windows CI don't install, so those get a stub `main`.
@@ -32,6 +32,8 @@ gpui = { git = "https://github.com/zed-industries/zed", rev = "28d0a3547f16b9609
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "28d0a3547f16b9609b301b48ab363bfca649c864", features = ["font-kit"] }
 syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
 image = { version = "0.25.1", default-features = false, features = ["png"], optional = true }
+# Keeps a scripted run out of App Nap, see `src/dev.rs`.
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSProcessInfo", "NSString"], optional = true }
 # Word-level emphasis and tree-sitter scope breadcrumbs for diffs.
 deltoids = { git = "https://github.com/juanibiapina/deltoids", rev = "617f331ef13e80ddc476239cb392763fa6567e41" }
 
