@@ -16,6 +16,7 @@
 //! drop 120 500            # let go of a held drag there
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! scroll 900 400 0 200    # and by 200 to the right
+//! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! shot /tmp/view.png      # render the current frame to a PNG
 //! perf next key down      # time an input until loads settle, plus one frame, and the
 //!                         # longest the UI thread was busy meanwhile (`stall`)
@@ -324,6 +325,14 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             let (at, left) = (point(px(x), px(y)), MouseButton::Left);
             window.dispatch_event(mouse_move(at, Some(left), Modifiers::default()), cx);
             window.dispatch_event(mouse_up(left, at, Modifiers::default(), 1), cx);
+        }
+        // What the system's folder picker would hand Add a repository.
+        "add" => {
+            let app = window.root::<AppView>().flatten().context("no app view")?;
+            app.update(cx, |app, cx| {
+                app.store
+                    .update(cx, |store, cx| store.add_project(PathBuf::from(rest), cx))
+            });
         }
         "shot" => {
             let image = window.render_to_image()?;
