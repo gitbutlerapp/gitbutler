@@ -355,8 +355,9 @@ fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
         i64::try_from(since_epoch.as_millis()).ok()
     };
     let changes = changes.changes.into_iter().map(|change| (change, false));
-    Ok(changes
-        .chain(conflicted.into_iter().map(|change| (change, true)))
+    // Conflicted first, as a conflicted commit lists them: they're what needs doing.
+    Ok((conflicted.into_iter().map(|change| (change, true)))
+        .chain(changes)
         .map(|(change, conflicted)| FileChange {
             modified: modified(change.path.as_bstr()),
             conflicted,
