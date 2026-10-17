@@ -220,7 +220,10 @@ impl Detail {
                     .text_color(theme.text_2)
                     .child(small_icon(Icon::Refresh).text_color(theme.text_2))
                     .child(match fetched {
-                        Some(at) => format!("Fetched {} ago", relative_time(at)),
+                        Some(at) => match relative_time(at).as_str() {
+                            "now" => "Fetched just now".into(),
+                            ago => format!("Fetched {ago} ago"),
+                        },
                         None => "Not fetched yet".into(),
                     }),
             )
