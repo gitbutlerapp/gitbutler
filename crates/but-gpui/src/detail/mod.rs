@@ -854,7 +854,7 @@ impl Detail {
     /// Show diffs side by side, or one above the other.
     pub fn toggle_split(&mut self, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
-            store.set_prefs(|prefs| prefs.split = !prefs.split, cx)
+            store.set_diff_prefs(|prefs| prefs.split = !prefs.split, cx)
         });
         self.rebuild_rows(cx);
     }
@@ -862,7 +862,7 @@ impl Detail {
     /// Wrap long lines, or stop. Rows change height, so the list measures them again.
     pub fn toggle_wrap(&mut self, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
-            store.set_prefs(|prefs| prefs.wrap = !prefs.wrap, cx)
+            store.set_diff_prefs(|prefs| prefs.wrap = !prefs.wrap, cx)
         });
         self.remeasure(cx);
     }
@@ -870,7 +870,7 @@ impl Detail {
     /// Draw changed lines with their green and red ground, or without.
     pub fn toggle_plain_lines(&mut self, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
-            store.set_prefs(|prefs| prefs.plain_lines = !prefs.plain_lines, cx)
+            store.set_diff_prefs(|prefs| prefs.plain_lines = !prefs.plain_lines, cx)
         });
         cx.notify();
     }

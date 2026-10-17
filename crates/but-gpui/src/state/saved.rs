@@ -83,6 +83,13 @@ impl Store {
         cx.notify();
     }
 
+    /// Change what only the diff shows. The detail redraws its diff itself, and telling the
+    /// whole window would redraw the navigator and the rest with it, past a frame's budget.
+    pub fn set_diff_prefs(&mut self, update: impl FnOnce(&mut Prefs), cx: &mut Context<Self>) {
+        update(&mut self.prefs);
+        self.save_soon(cx);
+    }
+
     pub fn set_file_tree(&mut self, tree: bool, cx: &mut Context<Self>) {
         self.file_tree = tree;
         self.save_soon(cx);
