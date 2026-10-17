@@ -141,6 +141,13 @@ impl Workspace {
             .is_some_and(|(stack, at)| (stack.branches[at..].iter()).any(Branch::can_push))
     }
 
+    /// Whether pushing `ref_name` would push a conflicted commit, its own or a branch's below.
+    pub fn pushes_conflicts(&self, ref_name: &str) -> bool {
+        self.stack_of(ref_name).is_some_and(|(stack, at)| {
+            (stack.branches[at..].iter()).any(|b| b.commits.iter().any(|c| c.conflicted))
+        })
+    }
+
     /// Whether pushing `ref_name`, which pushes the branches below it too, has to force:
     /// it or one of those was rewritten since it was pushed.
     pub fn needs_force(&self, ref_name: &str) -> bool {
