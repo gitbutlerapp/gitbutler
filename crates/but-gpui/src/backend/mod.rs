@@ -121,7 +121,16 @@ pub fn clone(url: &str, into: &Path) -> Result<()> {
 /// metadata, like which branch is the target.
 pub fn activate(path: &Path) -> Result<()> {
     let mut ctx = open(path)?;
-    but_api::legacy::projects::prepare_project_for_activation(&mut ctx)
+    but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
+    // As the CLI does: without a target, pushing and recording undo fail, so a new project
+    // takes the one its remote suggests.
+    if ctx.project_meta()?.target_ref.is_none() {
+        let inferred = but_workspace::init::infer_default_target_ref(&*ctx.repo.get()?)?;
+        if let Some(target) = inferred {
+            but_api::workspace::set_target_ref_and_init_project(&mut ctx, target.as_ref(), None)?;
+        }
+    }
+    Ok(())
 }
 
 /// Check GitButler's workspace out again, after a plain `git checkout` of one branch left it.
@@ -182,10 +191,12 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let stacks_behind = info.has_lanes_behind_target
         && (info.stacks.iter())
             .any(|stack| stack.base.is_some_and(|base| Some(base) != target_commit));
+    // Not `is_target_current`: a project added since its target last moved has no stored
+    // target commit, and nothing to bring in.
     let target = info.target_ref.as_ref().map(|target| Target {
         name: target.ref_name.shorten().to_string(),
         behind: target.commits_ahead,
-        needs_update: !info.is_target_current || stacks_behind,
+        needs_update: target.commits_ahead > 0 || stacks_behind,
     });
     let listed = worktrees::linked(&ctx).unwrap_or_else(|err| {
         tracing::warn!("couldn't list the linked worktrees: {err:#}");

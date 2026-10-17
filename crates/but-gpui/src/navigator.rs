@@ -1104,7 +1104,7 @@ impl Navigator {
                     plural(unpushed, "unpushed commit"),
                 ))
                 .when(branch.commits.is_empty(), |el| {
-                    el.child(faint("empty", theme))
+                    el.child(faint("no commits yet", theme))
                 })
                 .when(store.pushing(id, ref_name), |el| {
                     el.child(faint("pushing", theme))
