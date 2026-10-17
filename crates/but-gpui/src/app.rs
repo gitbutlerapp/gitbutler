@@ -126,13 +126,14 @@ pub struct AppView {
 
 impl AppView {
     /// Where the diff starts beside the detail's file list, when the selection has a diff.
-    fn diff_left(&self, cx: &App) -> Option<f32> {
+    fn diff_left(&self, window: &Window, cx: &App) -> Option<f32> {
         let store = self.store.read(cx);
         let has_diff = store.selection.is_some();
         let detail = self.detail.read(cx);
+        let width = window.viewport_size().width.into();
         has_diff.then(|| match detail.files_hidden {
             true => 0.,
-            false => store.width(Pane::Files),
+            false => store.fitted_width(Pane::Files, width, self.navigator_open, true),
         })
     }
 
@@ -642,7 +643,13 @@ impl Render for AppView {
                     .map(|el| self.edit_actions(el, cx))
                     .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
                     .when(self.navigator_open, |el| {
-                        let width = self.store.read(cx).width(Pane::Navigator);
+                        let files = !self.detail.read(cx).files_hidden;
+                        let width = self.store.read(cx).fitted_width(
+                            Pane::Navigator,
+                            window.viewport_size().width.into(),
+                            true,
+                            files,
+                        );
                         el.child(
                             div()
                                 .w(px(width))
@@ -667,7 +674,7 @@ impl Render for AppView {
                                     .clone()
                                     .cached(StyleRefinement::default().size_full()),
                             )
-                            .when_some(self.diff_left(cx), |el, left| {
+                            .when_some(self.diff_left(window, cx), |el, left| {
                                 el.child(
                                     div()
                                         .absolute()

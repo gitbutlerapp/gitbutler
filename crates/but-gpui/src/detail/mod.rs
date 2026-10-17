@@ -1306,7 +1306,12 @@ impl Render for Detail {
                         None => self.render_upstream_side(project, &theme, cx),
                     },
                 };
-                let width = self.store.read(cx).width(Pane::Files);
+                let width = self.store.read(cx).fitted_width(
+                    Pane::Files,
+                    window.viewport_size().width.into(),
+                    !self.beside_traffic_lights,
+                    true,
+                );
                 // A commit's header runs across the page, over its files and its diff.
                 let header = match selection {
                     Selection::Commit(project, id) => {
