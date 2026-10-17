@@ -805,6 +805,9 @@ impl Navigator {
         let store = self.store.read(cx);
         let theme = style.theme;
         let n = store.workspace(id).map_or(0, |ws| ws.uncommitted.len());
+        let conflicted = (store.workspace(id)).map_or(0, |ws| {
+            ws.uncommitted.iter().filter(|f| f.conflicted).count()
+        });
         style
             .row(format!("uncommitted-{id}"), 6.)
             .aria_label("Uncommitted changes")
@@ -825,6 +828,14 @@ impl Navigator {
                         "No uncommitted changes"
                     }),
             )
+            // What a merge left conflicted, as an update can, before anything else.
+            .when(conflicted > 0, |el| {
+                el.child(count(
+                    Some(Icon::Warning),
+                    conflicted,
+                    style.meta(theme.danger),
+                ))
+            })
             .when(n > 0, |el| {
                 let to_review = store.to_review(id);
                 if to_review > 0 {
