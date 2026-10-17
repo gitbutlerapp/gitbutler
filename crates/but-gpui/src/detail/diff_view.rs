@@ -16,7 +16,7 @@ use crate::app::AppView;
 use crate::backend::{self, ChangeKind, DiffBody, DiffLine, DiffSource, LineKind, Selected};
 use crate::state::{Cut, ProjectId, Review};
 use crate::theme::Theme;
-use crate::ui::diff::{self, Decor, DiffRow, LineSelect};
+use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{ButtonStyle, Icon, button, empty_state, h_flex, icon_button, shortcut};
 
@@ -307,35 +307,25 @@ impl Detail {
         let row = diff.rows[ix];
         let worktree = diff.key.source == DiffSource::Worktree;
         let store = self.store.read(cx);
-        let hunk_key = |file: usize, hunk: usize| match &diff.files[file].body {
-            DiffBody::Hunks { hunks, .. } => {
-                Some((diff.files[file].file.path.clone(), hunks[hunk].key))
-            }
-            _ => None,
-        };
-        // What dragging or right-clicking a file or one of its hunks carries: changes of the
+        // What dragging or right-clicking a file or some of its hunks carries: changes of the
         // worktree or of one commit. A branch's diff spans commits, so it carries nothing.
-        let from = match diff.key.source {
-            DiffSource::Worktree => Some(None),
-            // Not a commit of the target's history, on the project page: it isn't the
-            // workspace's to change.
-            DiffSource::Commit(id)
-                if store
-                    .workspace(&diff.key.project)
-                    .is_some_and(|ws| ws.find_commit(id).is_some()) =>
-            {
-                Some(Some(id))
-            }
-            _ => None,
-        };
-        let payload = |file: usize, hunk: Option<usize>| {
-            let hunks = match hunk {
-                Some(hunk) => Some(vec![hunk_key(file, hunk)?.1]),
-                None => None,
+        let payload = |file: usize, hunks| {
+            let from = match diff.key.source {
+                DiffSource::Worktree => None,
+                // Not a commit of the target's history, on the project page: it isn't the
+                // workspace's to change.
+                DiffSource::Commit(id)
+                    if store
+                        .workspace(&diff.key.project)
+                        .is_some_and(|ws| ws.find_commit(id).is_some()) =>
+                {
+                    Some(id)
+                }
+                _ => return None,
             };
             Some(Cut::Files {
                 project: diff.key.project.clone(),
-                from: from?,
+                from,
                 files: vec![Selected {
                     file: diff.files[file].file.clone(),
                     hunks,
@@ -354,6 +344,8 @@ impl Detail {
                 }
             }
         };
+        // The margin between the cards and the sides of the pane.
+        let padded = div().w_full().px(px(16.));
         match row {
             DiffRow::File(file) => {
                 let folded = matches!(diff.rows.get(ix + 1), Some(DiffRow::Gap));
@@ -366,18 +358,18 @@ impl Detail {
                     .gap(px(4.))
                     .children(whole)
                     .children(review.map(|review| review_button(ix, file, review, entity, cx)));
-                let header = diff::render_row(
-                    row,
-                    &diff.files,
+                let header = diff::file_header(
+                    file,
+                    &diff.files[file],
                     theme,
-                    Decor {
+                    HeaderDecor {
                         trailing: Some(trailing.into_any_element()),
                         current: self.cursor == Cursor { file, hunk: None },
                         folded,
                         ..Default::default()
                     },
                 );
-                div()
+                padded
                     .id(("file-header", ix))
                     .child(header)
                     .on_mouse_down(
@@ -392,71 +384,61 @@ impl Detail {
                     .into_any_element()
             }
             DiffRow::Hunk { file, hunk } => {
+                let DiffBody::Hunks { hunks, .. } = &diff.files[file].body else {
+                    return padded.into_any_element();
+                };
+                let (path, key) = (&diff.files[file].file.path, hunks[hunk].key);
                 let current = self.cursor
                     == Cursor {
                         file,
                         hunk: Some(hunk),
                     };
-                let keyed = hunk_key(file, hunk);
-                let excluded = (self.composing && worktree)
-                    && keyed
-                        .as_ref()
-                        .is_some_and(|(path, key)| !self.hunk_checked(path, *key));
-                let leading =
-                    keyed
-                        .clone()
-                        .filter(|_| self.composing && worktree)
-                        .map(|(path, key)| {
-                            let check = self.hunk_check(&path, key);
-                            let entity = entity.clone();
-                            checkbox_box(("hunk-check", ix), check, theme)
-                                .on_click(move |_, _, cx| {
-                                    entity
-                                        .update(cx, |detail, cx| detail.toggle_hunk(&path, key, cx))
-                                        .ok();
-                                })
-                                .into_any_element()
-                        });
+                let composing = self.composing && worktree;
+                let leading = composing.then(|| {
+                    let check = self.hunk_check(path, key);
+                    let (path, entity) = (path.clone(), entity.clone());
+                    checkbox_box(("hunk-check", ix), check, theme)
+                        .on_click(move |_, _, cx| {
+                            entity
+                                .update(cx, |detail, cx| detail.toggle_hunk(&path, key, cx))
+                                .ok();
+                        })
+                        .into_any_element()
+                });
                 // What discarding this hunk means, fixed now: by the time a click lands, a
                 // reload may have moved other hunks into this row's indices.
                 // A conflicted file goes whole or not at all; see `backend::discard`.
-                let whole_only = diff.files[file].file.conflicted;
-                let discard =
-                    (keyed.as_ref())
-                        .filter(|_| worktree && !whole_only)
-                        .map(|(_, key)| {
-                            let change = Selected {
-                                file: diff.files[file].file.clone(),
-                                hunks: Some(vec![*key]),
-                            };
-                            let project = diff.key.project.clone();
-                            discard_button(ix, project, change, current, self.app.clone(), cx)
-                        });
-                let element = diff::render_row(
-                    row,
-                    &diff.files,
+                let discard = (worktree && !diff.files[file].file.conflicted).then(|| {
+                    let change = Selected {
+                        file: diff.files[file].file.clone(),
+                        hunks: Some(vec![key]),
+                    };
+                    let project = diff.key.project.clone();
+                    discard_button(ix, project, change, current, self.app.clone(), cx)
+                });
+                let header = diff::hunk_header(
+                    &hunks[hunk],
                     theme,
-                    Decor {
+                    HeaderDecor {
                         leading,
                         trailing: discard,
-                        excluded,
+                        excluded: composing && !self.hunk_checked(path, key),
                         current,
                         ..Default::default()
                     },
                 );
-                let line = keyed.map(|(_, key)| key.0.new_start);
-                let carried = payload(file, Some(hunk));
-                div()
+                let line = key.0.new_start;
+                let carried = payload(file, Some(vec![key]));
+                padded
                     .id(("hunk", ix))
                     .group("hunk-row")
-                    .child(element)
-                    .on_mouse_down(MouseButton::Right, menu(carried.clone(), line, entity))
+                    .child(header)
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        menu(carried.clone(), Some(line), entity),
+                    )
                     .when_some(carried, |el, carried| {
-                        let label = format!(
-                            "{} · line {}",
-                            diff.files[file].file.path,
-                            line.unwrap_or_default()
-                        );
+                        let label = format!("{path} · line {line}");
                         el.on_drag(
                             carried,
                             crate::navigator::drag_preview(self.store.clone(), label.into()),
@@ -465,24 +447,27 @@ impl Detail {
                     .into_any_element()
             }
             DiffRow::Line {
-                file, hunk, line, ..
+                file,
+                hunk,
+                line,
+                last,
             } => {
-                let (excluded, toggle) = self.line_check(diff, (file, hunk, line), &entity);
-                let select = line_select(ix, entity);
-                diff::render_row(
-                    row,
-                    &diff.files,
-                    theme,
-                    Decor {
-                        excluded,
-                        toggle,
-                        select: Some(select),
-                        selected: self.selected_in_row(ix),
-                        found: self.found_on((file, hunk, line)),
-                        wrap: store.prefs.wrap,
-                        ..Default::default()
-                    },
-                )
+                let Some(text) = self.line_at(ix) else {
+                    return padded.into_any_element();
+                };
+                let place = (file, hunk, line);
+                let (excluded, toggle) = self.line_check(diff, place, &entity);
+                let decor = LineDecor {
+                    excluded,
+                    toggle,
+                    select: Some(line_select(ix, entity)),
+                    selected: self.selected_in_row(ix),
+                    found: self.found_on(place),
+                    wrap: store.prefs.wrap,
+                };
+                let numbers = (text.old, text.new);
+                let element = diff::line_row(text, numbers, place, last, theme, decor);
+                padded.child(element).into_any_element()
             }
             DiffRow::Pair {
                 file,
@@ -492,7 +477,7 @@ impl Detail {
                 last,
             } => {
                 let DiffBody::Hunks { hunks, .. } = &diff.files[file].body else {
-                    return div().into_any_element();
+                    return padded.into_any_element();
                 };
                 let lines = &hunks[hunk].lines;
                 let half = |line: Option<usize>| {
@@ -506,20 +491,18 @@ impl Detail {
                         found: self.found_on((file, hunk, line)),
                     }
                 };
+                let sides = [
+                    left.map(|l| (&lines[l], lines[l].old)),
+                    right.map(|r| (&lines[r], lines[r].new)),
+                ];
                 // Each line is on one row only, so the right one, or the left where there's
                 // none, tells rows apart.
-                let row_id = (file << 40) | (hunk << 20) | right.or(left).unwrap_or_default();
-                let pair = diff::render_pair_row(
-                    (left.map(|l| &lines[l]), right.map(|r| &lines[r])),
-                    [half(left), half(right)],
-                    row_id,
-                    last,
-                    theme,
-                    store.prefs.wrap,
-                );
+                let place = (file, hunk, right.or(left).unwrap_or_default());
+                let halves = [half(left), half(right)];
+                let pair = diff::pair_row(sides, halves, place, last, theme, store.prefs.wrap);
                 // A click puts the cursor on the hunk, so its keys act on what was clicked.
                 let entity = entity.clone();
-                div()
+                padded
                     .child(pair)
                     .on_mouse_down(MouseButton::Left, move |_, _, cx| {
                         entity
@@ -539,26 +522,24 @@ impl Detail {
                 old,
                 new,
                 last,
-            } => match self.line_at(ix) {
-                Some(line) => diff::render_context_row(
-                    line,
-                    file,
-                    (old, new),
-                    last,
-                    theme,
-                    Decor {
-                        select: Some(line_select(ix, entity)),
-                        selected: self.selected_in_row(ix),
-                        wrap: store.prefs.wrap,
-                        ..Default::default()
-                    },
-                    store.prefs.split,
-                ),
-                None => div().into_any_element(),
-            },
-            DiffRow::Note(_) | DiffRow::Gap => {
-                diff::render_row(row, &diff.files, theme, Decor::default())
+            } => {
+                let Some(line) = self.line_at(ix) else {
+                    return padded.into_any_element();
+                };
+                let decor = LineDecor {
+                    select: Some(line_select(ix, entity)),
+                    selected: self.selected_in_row(ix),
+                    wrap: store.prefs.wrap,
+                    ..Default::default()
+                };
+                let split = store.prefs.split;
+                let element = diff::context_row(line, file, (old, new), last, theme, decor, split);
+                padded.child(element).into_any_element()
             }
+            DiffRow::Note(file) => padded
+                .child(diff::note(&diff.files[file], theme))
+                .into_any_element(),
+            DiffRow::Gap => padded.h(px(12.)).into_any_element(),
         }
     }
 }

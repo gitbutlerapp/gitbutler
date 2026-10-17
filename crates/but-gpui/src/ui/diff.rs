@@ -12,7 +12,6 @@ use super::{Icon, h_flex, small_icon, v_flex};
 use crate::backend::{ChangeKind, DiffBody, DiffLine, FileDiff, Hunk, LineKind};
 use crate::theme::Theme;
 
-/// The height of a file's header row.
 pub const FILE_HEADER_HEIGHT: f32 = 38.;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -54,35 +53,8 @@ impl DiffRow {
     /// Whether `self` shows what `other` showed, as after rows were built again: the same
     /// row whether or not it ends its card now, or the same line in the other layout.
     pub fn same_place(self, other: DiffRow) -> bool {
-        use DiffRow::{Context, Line, Pair};
-        match (self, other) {
-            (
-                Line {
-                    file, hunk, line, ..
-                },
-                Line {
-                    file: f,
-                    hunk: h,
-                    line: l,
-                    ..
-                },
-            ) => (file, hunk, line) == (f, h, l),
-            (
-                Pair {
-                    file,
-                    hunk,
-                    left,
-                    right,
-                    ..
-                },
-                Pair {
-                    file: f,
-                    hunk: h,
-                    left: l,
-                    right: r,
-                    ..
-                },
-            ) => (file, hunk, left, right) == (f, h, l, r),
+        use DiffRow::{Line, Pair};
+        match (self.settled(), other.settled()) {
             (
                 Line {
                     file, hunk, line, ..
@@ -107,14 +79,19 @@ impl DiffRow {
                     file, hunk, line, ..
                 },
             ) => (file, hunk) == (f, h) && (left == Some(line) || right == Some(line)),
-            (
-                Context { file, new, .. },
-                Context {
-                    file: f, new: n, ..
-                },
-            ) => (file, new) == (f, n),
-            _ => self == other,
+            (row, other) => row == other,
         }
+    }
+
+    /// The row without what a rebuild can change around it: whether it ends its card, and
+    /// an unchanged line's old-side number, which moves with the hunks above it.
+    fn settled(mut self) -> DiffRow {
+        match &mut self {
+            DiffRow::Line { last, .. } | DiffRow::Pair { last, .. } => *last = false,
+            DiffRow::Context { old, last, .. } => (*old, *last) = (0, false),
+            DiffRow::File(_) | DiffRow::Hunk { .. } | DiffRow::Note(_) | DiffRow::Gap => {}
+        }
+        self
     }
 
     /// The same row in file `to`, as when the file list changed around it.
@@ -292,26 +269,33 @@ pub fn stats(added: u32, removed: u32, theme: &Theme) -> impl IntoElement {
         })
 }
 
-/// What the diff's owner adds to a row.
+/// What the diff's owner adds to a file or hunk header.
 #[derive(Default)]
-pub struct Decor {
+pub struct HeaderDecor {
     /// Before a hunk header, like a checkbox.
     pub leading: Option<AnyElement>,
-    /// At the end of a file or hunk header, like its controls.
+    /// At the end of the header, like its controls.
     pub trailing: Option<AnyElement>,
-    /// Dims a hunk left out of the next commit.
+    /// Marks a hunk left out of the next commit.
     pub excluded: bool,
     /// The hunk or file the keyboard is on.
     pub current: bool,
     /// The file shows only its header.
     pub folded: bool,
-    /// Clicking a line's numbers puts it in the next commit or takes it out.
+}
+
+/// What the diff's owner adds to a line.
+#[derive(Default)]
+pub struct LineDecor {
+    /// Dims a line left out of the next commit.
+    pub excluded: bool,
+    /// Clicking the line's numbers puts it in the next commit or takes it out.
     pub toggle: Option<OnToggle>,
-    /// Lets the pointer select a line's text.
+    /// Lets the pointer select the line's text.
     pub select: Option<LineSelect>,
-    /// The part of a line's text that's selected.
+    /// The part of the line's text that's selected.
     pub selected: Option<Range<usize>>,
-    /// What Find matched in a line's text, each with whether it's the current match.
+    /// What Find matched in the line's text, each with whether it's the current match.
     pub found: Vec<(Range<usize>, bool)>,
     /// A long line wraps onto more rows instead of running off the edge.
     pub wrap: bool,
@@ -328,200 +312,135 @@ pub type OnLineDown = Rc<dyn Fn(usize, &MouseDownEvent, &mut Window, &mut App)>;
 pub type OnLineDrag = Rc<dyn Fn(usize, &mut Window, &mut App)>;
 pub type OnToggle = Rc<dyn Fn(&mut Window, &mut App)>;
 
-pub fn render_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor) -> AnyElement {
-    div()
-        .w_full()
-        .px(px(16.))
-        .child(render_card_row(row, files, theme, decor))
-        .into_any_element()
+/// A line's row by its file, hunk and index in the hunk, as a number unique to each row
+/// for its element ids.
+fn row_id((file, hunk, line): (usize, usize, usize)) -> usize {
+    (file << 40) | (hunk << 20) | line
 }
 
-/// An unchanged line of a file shown whole, from the file's new side, at `old` and `new`;
-/// on both sides with `split`, where its text can't be selected.
-pub fn render_context_row(
-    line: &DiffLine,
-    file: usize,
-    (old, new): (u32, u32),
-    last: bool,
-    theme: &Theme,
-    decor: Decor,
-    split: bool,
-) -> AnyElement {
-    let line = DiffLine {
-        old: Some(old),
-        new: Some(new),
-        ..line.clone()
-    };
-    // Apart from the hunks' lines, which number their hunk below 2^20.
-    let row_id = (file << 40) | (0xfffff << 20) | new as usize;
-    if split {
-        let halves = [Half::default(), Half::default()];
-        return render_pair_row(
-            (Some(&line), Some(&line)),
-            halves,
-            row_id,
-            last,
-            theme,
-            decor.wrap,
-        );
-    }
-    div()
-        .w_full()
-        .px(px(16.))
-        .child(line_row(&line, row_id, last, theme, decor))
-        .into_any_element()
+/// The sides and ground of a file's card, of which each of its rows draws a slice.
+fn card(el: gpui::Div, theme: &Theme) -> gpui::Div {
+    el.w_full()
+        .border_l_1()
+        .border_r_1()
+        .border_color(theme.border_3)
+        .bg(theme.bg_1)
 }
 
-fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor) -> AnyElement {
-    if let DiffRow::Line {
-        file,
-        hunk,
-        line,
-        last,
-    } = row
-    {
-        let DiffBody::Hunks { hunks, .. } = &files[file].body else {
-            return div().into_any_element();
-        };
-        // Unique per line, for the line's accessibility node.
-        let row_id = (file << 40) | (hunk << 20) | line;
-        return line_row(&hunks[hunk].lines[line], row_id, last, theme, decor);
-    }
-    let Decor {
-        leading,
-        trailing,
-        excluded,
-        current,
-        folded,
-        ..
-    } = decor;
-    let card = |el: gpui::Div| {
-        el.w_full()
-            .border_l_1()
-            .border_r_1()
-            .border_color(theme.border_3)
-            .bg(theme.bg_1)
-    };
-    match row {
-        DiffRow::Gap => div().h(px(12.)).into_any_element(),
-        DiffRow::File(ix) => {
-            let file = &files[ix];
-            let (name, dir) = split_path(&file.file.path);
-            let (added, removed) = file.stats();
-            card(h_flex())
-                .id(("diff-file", ix))
-                .role(Role::Heading)
-                .aria_label(SharedString::from(file.file.path.clone()))
-                .h(px(FILE_HEADER_HEIGHT))
-                .pl(px(12.))
-                .pr(px(8.))
-                .gap(px(8.))
-                .border_t_1()
-                .border_b_1()
-                .rounded_t(px(6.))
-                .when(folded, |el| el.rounded_b(px(6.)))
-                .bg(theme.bg_1)
-                .when(current, |el| el.border_color(theme.border_2))
+/// The header at the top of the card of file `ix`.
+pub fn file_header(ix: usize, file: &FileDiff, theme: &Theme, decor: HeaderDecor) -> AnyElement {
+    let (name, dir) = split_path(&file.file.path);
+    let (added, removed) = file.stats();
+    card(h_flex(), theme)
+        .id(("diff-file", ix))
+        .role(Role::Heading)
+        .aria_label(SharedString::from(file.file.path.clone()))
+        .h(px(FILE_HEADER_HEIGHT))
+        .pl(px(12.))
+        .pr(px(8.))
+        .gap(px(8.))
+        .border_t_1()
+        .border_b_1()
+        .rounded_t(px(6.))
+        .when(decor.folded, |el| el.rounded_b(px(6.)))
+        .when(decor.current, |el| el.border_color(theme.border_2))
+        .child(
+            div()
+                .flex_none()
+                .w(px(12.))
+                .text_size(px(11.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(change_color(file.file.kind, theme))
+                .child(file.file.kind.letter()),
+        )
+        .child(
+            h_flex()
+                .flex_1()
+                .min_w(px(0.))
+                .gap(px(6.))
+                .overflow_hidden()
                 .child(
                     div()
                         .flex_none()
-                        .w(px(12.))
-                        .text_size(px(11.))
                         .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .text_color(change_color(file.file.kind, theme))
-                        .child(file.file.kind.letter()),
+                        .text_color(theme.text_1)
+                        .child(name.to_owned()),
                 )
                 .child(
-                    h_flex()
-                        .flex_1()
+                    div()
                         .min_w(px(0.))
-                        .gap(px(6.))
-                        .overflow_hidden()
-                        .child(
-                            div()
-                                .flex_none()
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
-                                .text_color(theme.text_1)
-                                .child(name.to_owned()),
-                        )
-                        .child(
-                            div()
-                                .min_w(px(0.))
-                                .truncate()
-                                .text_color(theme.text_2)
-                                .child(match &file.file.previous_path {
-                                    Some(previous) => format!("{dir}  ← {previous}"),
-                                    None => dir.to_owned(),
-                                }),
-                        ),
-                )
-                .child(stats(added, removed, theme))
-                .children(trailing)
-                .into_any_element()
+                        .truncate()
+                        .text_color(theme.text_2)
+                        .child(match &file.file.previous_path {
+                            Some(previous) => format!("{dir}  ← {previous}"),
+                            None => dir.to_owned(),
+                        }),
+                ),
+        )
+        .child(stats(added, removed, theme))
+        .children(decor.trailing)
+        .into_any_element()
+}
+
+/// The header above a hunk's lines.
+pub fn hunk_header(hunk: &Hunk, theme: &Theme, decor: HeaderDecor) -> AnyElement {
+    card(h_flex(), theme)
+        .h(px(theme.code_line + 6.))
+        .pl(px(12.))
+        .pr(px(4.))
+        .gap(px(8.))
+        .bg(if decor.current {
+            theme.pop.opacity(0.1)
+        } else {
+            theme.bg_2
+        })
+        .font_family(theme.mono_font.clone())
+        .text_size(px(11.5))
+        .text_color(theme.text_2)
+        .overflow_hidden()
+        .whitespace_nowrap()
+        .children(decor.leading)
+        .child(hunk_title(hunk, theme))
+        .when(decor.excluded, |el| {
+            el.child(
+                div()
+                    .flex_none()
+                    .text_color(theme.text_3)
+                    .child("not included"),
+            )
+        })
+        .children(decor.trailing)
+        .into_any_element()
+}
+
+/// In place of the lines of a file without any to show: an image's two sides, or why
+/// there's nothing.
+pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
+    let text = match &file.body {
+        DiffBody::Image { before, after } => {
+            let images = image_row(before.clone(), after.clone(), theme);
+            return card(images, theme).into_any_element();
         }
-        DiffRow::Hunk { file, hunk } => {
-            let DiffBody::Hunks { hunks, .. } = &files[file].body else {
-                return div().into_any_element();
-            };
-            card(h_flex())
-                .h(px(theme.code_line + 6.))
-                .pl(px(12.))
-                .pr(px(4.))
-                .gap(px(8.))
-                .bg(if current {
-                    theme.pop.opacity(0.1)
-                } else {
-                    theme.bg_2
-                })
-                .font_family(theme.mono_font.clone())
-                .text_size(px(11.5))
-                .text_color(theme.text_2)
-                .overflow_hidden()
-                .whitespace_nowrap()
-                .children(leading)
-                .child(hunk_title(&hunks[hunk], theme))
-                .when(excluded, |el| {
-                    el.child(
-                        div()
-                            .flex_none()
-                            .text_color(theme.text_3)
-                            .child("not included"),
-                    )
-                })
-                .children(trailing)
-                .into_any_element()
+        DiffBody::Binary => "Binary file".to_owned(),
+        DiffBody::TooLarge { bytes } => {
+            format!("Too large to show ({:.1} MB)", *bytes as f64 / 1_000_000.)
         }
-        DiffRow::Note(file) => {
-            if let DiffBody::Image { before, after } = &files[file].body {
-                return card(image_row(before.clone(), after.clone(), theme)).into_any_element();
-            }
-            let text = match &files[file].body {
-                DiffBody::Binary | DiffBody::Image { .. } => "Binary file".to_owned(),
-                DiffBody::TooLarge { bytes } => {
-                    format!("Too large to show ({:.1} MB)", *bytes as f64 / 1_000_000.)
-                }
-                DiffBody::Empty | DiffBody::Hunks { .. } => match files[file].file.kind {
-                    ChangeKind::Renamed => "Renamed without changes".to_owned(),
-                    _ => "No content changes".to_owned(),
-                },
-            };
-            card(h_flex())
-                .h(px(36.))
-                .px(px(12.))
-                .gap(px(6.))
-                .border_b_1()
-                .rounded_b(px(6.))
-                .text_size(px(12.))
-                .text_color(theme.text_2)
-                .child(small_icon(Icon::File).text_color(theme.text_3))
-                .child(text)
-                .into_any_element()
-        }
-        // Drawn by `line_row`, which these need their line for.
-        DiffRow::Line { .. } | DiffRow::Pair { .. } | DiffRow::Context { .. } => {
-            div().into_any_element()
-        }
-    }
+        DiffBody::Empty | DiffBody::Hunks { .. } => match file.file.kind {
+            ChangeKind::Renamed => "Renamed without changes".to_owned(),
+            _ => "No content changes".to_owned(),
+        },
+    };
+    card(h_flex(), theme)
+        .h(px(36.))
+        .px(px(12.))
+        .gap(px(6.))
+        .border_b_1()
+        .rounded_b(px(6.))
+        .text_size(px(12.))
+        .text_color(theme.text_2)
+        .child(small_icon(Icon::File).text_color(theme.text_3))
+        .child(text)
+        .into_any_element()
 }
 
 /// How a line of `kind` looks: its ground, its gutter's, its changed words', and its sign.
@@ -625,13 +544,8 @@ fn sign_and_text(look: &Look, text: StyledText, wrap: bool, theme: &Theme) -> [g
 
 /// A row of a file's card, a line tall or taller when wrapping.
 fn line_card(id: ElementId, last: bool, wrap: bool, theme: &Theme) -> gpui::Stateful<gpui::Div> {
-    h_flex()
+    card(h_flex(), theme)
         .id(id)
-        .w_full()
-        .border_l_1()
-        .border_r_1()
-        .border_color(theme.border_3)
-        .bg(theme.bg_1)
         .map(|el| {
             if wrap {
                 el.items_stretch().min_h(px(theme.code_line))
@@ -664,17 +578,25 @@ fn numbers(id: ElementId, cells: Vec<gpui::Div>, toggle: Option<OnToggle>) -> An
         .into_any_element()
 }
 
-/// A line of the diff, inside its file's card.
-fn line_row(line: &DiffLine, row_id: usize, last: bool, theme: &Theme, decor: Decor) -> AnyElement {
-    let Decor {
+/// A line of the diff inside its file's card, numbered `old` and `new`. `place` is the
+/// line's file, hunk and index in the hunk, which tell rows apart.
+pub fn line_row(
+    line: &DiffLine,
+    (old, new): (Option<u32>, Option<u32>),
+    place: (usize, usize, usize),
+    last: bool,
+    theme: &Theme,
+    decor: LineDecor,
+) -> AnyElement {
+    let LineDecor {
         excluded,
         toggle,
         select,
         selected,
         found,
         wrap,
-        ..
     } = decor;
+    let id = row_id(place);
     let look = look(line.kind, theme);
     let text = line_text(line, look.emph, found, selected, theme);
     // Where in the text the pointer is, once the text has been laid out: the edge of
@@ -697,10 +619,10 @@ fn line_row(line: &DiffLine, row_id: usize, last: bool, theme: &Theme, decor: De
         }
     };
     let cells = vec![
-        number_cell(line.old, look.gutter, theme),
-        number_cell(line.new, look.gutter, theme),
+        number_cell(old, look.gutter, theme),
+        number_cell(new, look.gutter, theme),
     ];
-    line_card(("diff-line", row_id).into(), last, wrap, theme)
+    line_card(("diff-line", id).into(), last, wrap, theme)
         .role(Role::Label)
         .aria_label(SharedString::from(line.text.clone()))
         .aria_description(match line.kind {
@@ -709,7 +631,7 @@ fn line_row(line: &DiffLine, row_id: usize, last: bool, theme: &Theme, decor: De
             LineKind::Context => "unchanged",
         })
         .when_some(look.bg, |el, bg| el.bg(bg))
-        .child(numbers(("line-numbers", row_id).into(), cells, toggle))
+        .child(numbers(("line-numbers", id).into(), cells, toggle))
         .children(sign_and_text(&look, text, wrap, theme))
         .when_some(select, |el, select| {
             let at_down = at.clone();
@@ -727,6 +649,26 @@ fn line_row(line: &DiffLine, row_id: usize, last: bool, theme: &Theme, decor: De
         .into_any_element()
 }
 
+/// An unchanged line of a file shown whole, from the file's new side, at `old` and `new`;
+/// on both sides with `split`, where its text can't be selected.
+pub fn context_row(
+    line: &DiffLine,
+    file: usize,
+    (old, new): (u32, u32),
+    last: bool,
+    theme: &Theme,
+    decor: LineDecor,
+    split: bool,
+) -> AnyElement {
+    // Apart from the hunks' lines, which number their hunk below 2^20.
+    let place = (file, 0xfffff, new as usize);
+    if split {
+        let sides = [Some((line, Some(old))), Some((line, Some(new)))];
+        return pair_row(sides, Default::default(), place, last, theme, decor.wrap);
+    }
+    line_row(line, (Some(old), Some(new)), place, last, theme, decor)
+}
+
 /// What one side of a side-by-side row adds to its line.
 #[derive(Default)]
 pub struct Half {
@@ -735,17 +677,19 @@ pub struct Half {
     pub found: Vec<(Range<usize>, bool)>,
 }
 
-/// A side-by-side row: `left` from the old side, numbered there, and `right` from the new.
-pub fn render_pair_row(
-    (left, right): (Option<&DiffLine>, Option<&DiffLine>),
+/// A side-by-side row: a line from the old side on the left and one from the new on the
+/// right, each with its number on that side. `place` tells rows apart, as for [`line_row`].
+pub fn pair_row(
+    [left, right]: [Option<(&DiffLine, Option<u32>)>; 2],
     [left_half, right_half]: [Half; 2],
-    row_id: usize,
+    place: (usize, usize, usize),
     last: bool,
     theme: &Theme,
     wrap: bool,
 ) -> AnyElement {
-    let side = |line: Option<&DiffLine>, number: Option<u32>, half: Half, id: &'static str| {
-        let Some(line) = line else {
+    let id = row_id(place);
+    let side = |line: Option<(&DiffLine, Option<u32>)>, half: Half, name: &'static str| {
+        let Some((line, number)) = line else {
             // Nothing on this side: a quiet gap the other side's lines line up against.
             return div().flex_1().min_w(px(0.)).bg(theme.bg_2);
         };
@@ -757,24 +701,14 @@ pub fn render_pair_row(
             .min_w(px(0.))
             .when(wrap, |el| el.items_stretch())
             .when_some(look.bg, |el, bg| el.bg(bg))
-            .child(numbers((id, row_id).into(), cells, half.toggle))
+            .child(numbers((name, id).into(), cells, half.toggle))
             .children(sign_and_text(&look, text, wrap, theme))
             .when(half.excluded, |el| el.opacity(0.45))
     };
-    div()
-        .w_full()
-        .px(px(16.))
-        .child(
-            line_card(("diff-pair", row_id).into(), last, wrap, theme)
-                .child(side(left, left.and_then(|l| l.old), left_half, "pair-left"))
-                .child(div().flex_none().w(px(1.)).h_full().bg(theme.border_3))
-                .child(side(
-                    right,
-                    right.and_then(|l| l.new),
-                    right_half,
-                    "pair-right",
-                )),
-        )
+    line_card(("diff-pair", id).into(), last, wrap, theme)
+        .child(side(left, left_half, "pair-left"))
+        .child(div().flex_none().w(px(1.)).h_full().bg(theme.border_3))
+        .child(side(right, right_half, "pair-right"))
         .into_any_element()
 }
 
@@ -826,60 +760,124 @@ fn image_row(
     after: Option<std::sync::Arc<gpui::Image>>,
     theme: &Theme,
 ) -> gpui::Div {
-    let side =
-        |label: &'static str, image: Option<std::sync::Arc<gpui::Image>>, tint: gpui::Hsla| {
-            v_flex()
-                .flex_1()
-                .min_w(px(0.))
-                .gap(px(6.))
-                .items_center()
-                .child(
-                    div()
-                        .text_size(px(11.))
-                        .text_color(theme.text_2)
-                        .child(label),
-                )
-                .child(match image {
-                    Some(image) => div()
-                        .p(px(6.))
-                        .rounded(px(4.))
-                        .border_1()
-                        .border_color(tint)
-                        .child(
-                            gpui::img(image)
-                                .max_w_full()
-                                .max_h(px(220.))
-                                .object_fit(gpui::ObjectFit::Contain),
-                        )
-                        .into_any_element(),
-                    None => div()
-                        .h(px(60.))
-                        .flex()
-                        .items_center()
-                        .text_size(px(12.))
-                        .text_color(theme.text_3)
-                        .child(if label == "Before" {
-                            "New file"
-                        } else {
-                            "Deleted"
-                        })
-                        .into_any_element(),
-                })
-        };
+    let side = |label: &'static str,
+                missing: &'static str,
+                image: Option<std::sync::Arc<gpui::Image>>,
+                tint: gpui::Hsla| {
+        v_flex()
+            .flex_1()
+            .min_w(px(0.))
+            .gap(px(6.))
+            .items_center()
+            .child(
+                div()
+                    .text_size(px(11.))
+                    .text_color(theme.text_2)
+                    .child(label),
+            )
+            .child(match image {
+                Some(image) => div()
+                    .p(px(6.))
+                    .rounded(px(4.))
+                    .border_1()
+                    .border_color(tint)
+                    .child(
+                        gpui::img(image)
+                            .max_w_full()
+                            .max_h(px(220.))
+                            .object_fit(gpui::ObjectFit::Contain),
+                    )
+                    .into_any_element(),
+                None => div()
+                    .h(px(60.))
+                    .flex()
+                    .items_center()
+                    .text_size(px(12.))
+                    .text_color(theme.text_3)
+                    .child(missing)
+                    .into_any_element(),
+            })
+    };
     h_flex()
         .items_start()
         .gap(px(16.))
         .p(px(12.))
         .border_b_1()
         .rounded_b(px(6.))
-        .child(side("Before", before, theme.danger.opacity(0.5)))
-        .child(side("After", after, theme.safe.opacity(0.6)))
+        .child(side(
+            "Before",
+            "New file",
+            before,
+            theme.danger.opacity(0.5),
+        ))
+        .child(side("After", "Deleted", after, theme.safe.opacity(0.6)))
 }
 
 #[cfg(test)]
 mod tests {
+    use super::DiffRow::{Context, File, Gap, Line, Note, Pair};
     use super::pair_lines;
     use crate::backend::{DiffLine, LineKind};
+
+    #[test]
+    fn same_place_finds_a_row_again_after_a_rebuild_or_in_the_other_layout() {
+        let line = |line, last| Line {
+            file: 1,
+            hunk: 2,
+            line,
+            last,
+        };
+        let pair = |left, right, last| Pair {
+            file: 1,
+            hunk: 2,
+            left,
+            right,
+            last,
+        };
+        let context = |old, new, last| Context {
+            file: 1,
+            old,
+            new,
+            last,
+        };
+        let same = [
+            // Whether or not they end their card.
+            (line(4, false), line(4, true)),
+            (pair(Some(4), None, true), pair(Some(4), None, false)),
+            // A removed line on the left of its pair, an added one on the right, either way round.
+            (line(4, false), pair(Some(4), Some(6), true)),
+            (line(6, true), pair(Some(4), Some(6), false)),
+            (pair(Some(4), Some(6), false), line(6, false)),
+            // An unchanged line by its new-side number, as the hunks above move its old one.
+            (context(9, 12, false), context(7, 12, true)),
+            (File(1), File(1)),
+            (Note(1), Note(1)),
+        ];
+        for (a, b) in same {
+            assert!(a.same_place(b), "{a:?} shows what {b:?} showed");
+        }
+        let in_other_hunk = Pair {
+            file: 1,
+            hunk: 3,
+            left: Some(4),
+            right: None,
+            last: false,
+        };
+        let different = [
+            (line(4, false), line(5, false)),
+            (pair(Some(4), Some(6), false), pair(Some(4), None, false)),
+            (pair(Some(4), Some(6), false), line(5, false)),
+            (line(4, false), in_other_hunk),
+            (context(9, 12, false), context(9, 13, false)),
+            // An unchanged line of a file shown whole is no hunk's line.
+            (context(4, 4, false), line(4, false)),
+            (File(1), File(2)),
+            (Gap, File(1)),
+        ];
+        for (a, b) in different {
+            assert!(!a.same_place(b), "{a:?} shows something other than {b:?}");
+        }
+    }
 
     #[test]
     fn pairs_removals_with_the_additions_after_them() {
