@@ -17,29 +17,28 @@ impl AppView {
     ) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
-        let state: AnyElement = if let Some(busy) = &store.busy {
-            // How long it's taking once that's noticeable, and what waits behind it.
-            let elapsed = store
-                .busy_for()
-                .filter(|t| *t >= SLOW)
-                .map(|t| format!(" {:.1}s", t.as_secs_f32()))
-                .unwrap_or_default();
-            let queued = match store.queued() {
-                0 => String::new(),
-                n => format!(" · {n} more queued"),
-            };
+        let working = match &store.busy {
+            Some(busy) => {
+                // How long it's taking once that's noticeable, and what waits behind it.
+                let elapsed = store
+                    .busy_for()
+                    .filter(|t| *t >= SLOW)
+                    .map(|t| format!(" {:.1}s", t.as_secs_f32()))
+                    .unwrap_or_default();
+                let queued = match store.queued() {
+                    0 => String::new(),
+                    n => format!(" · {n} more queued"),
+                };
+                Some(format!("{busy}…{elapsed}{queued}"))
+            }
+            None => (!self.checking.is_empty()).then(|| "Checking for conflicts…".to_owned()),
+        };
+        let state: AnyElement = if let Some(working) = working {
             h_flex()
                 .gap(px(6.))
                 .text_color(theme.pop)
                 .child(small_icon(Icon::Clock).text_color(theme.pop))
-                .child(format!("{busy}…{elapsed}{queued}"))
-                .into_any_element()
-        } else if !self.checking.is_empty() {
-            h_flex()
-                .gap(px(6.))
-                .text_color(theme.pop)
-                .child(small_icon(Icon::Clock).text_color(theme.pop))
-                .child("Checking for conflicts…")
+                .child(working)
                 .into_any_element()
         } else if let Some(cut) = &store.cut {
             h_flex()

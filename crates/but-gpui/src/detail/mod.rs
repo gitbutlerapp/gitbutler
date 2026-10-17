@@ -264,18 +264,6 @@ impl Detail {
                 }
                 StoreEvent::Loaded(project) => {
                     this.refresh_conflicted(cx);
-                    // A push can dismiss approvals; a reviewer can weigh in any time.
-                    if let Some(Selection::Branch(shown, ref_name)) = this.selection(cx)
-                        && shown == *project
-                    {
-                        let mark = this.branch_mark(&shown, &ref_name, cx);
-                        let stale = this.feedback_asked.as_ref().is_none_or(|(at, asked)| {
-                            at.elapsed() >= FEEDBACK_STALE || *asked != mark
-                        });
-                        if stale {
-                            this.load_feedback(&shown, &ref_name, cx)
-                        }
-                    }
                     // Calling a file resolved lasts as long as that edit does.
                     if this.editing(project, cx).is_none() {
                         this.marked_resolved.retain(|(p, ..)| p != project);
@@ -289,6 +277,16 @@ impl Detail {
                         }
                         Some(Selection::Project(shown)) if shown == *project => {
                             this.load_upstream(project, false, false, cx)
+                        }
+                        // A push can dismiss approvals; a reviewer can weigh in any time.
+                        Some(Selection::Branch(shown, ref_name)) if shown == *project => {
+                            let mark = this.branch_mark(&shown, &ref_name, cx);
+                            let stale = (this.feedback_asked.as_ref()).is_none_or(|(at, asked)| {
+                                at.elapsed() >= FEEDBACK_STALE || *asked != mark
+                            });
+                            if stale {
+                                this.load_feedback(&shown, &ref_name, cx)
+                            }
                         }
                         _ => {}
                     }
@@ -584,8 +582,7 @@ impl Detail {
         let top = same.then(|| self.keep_place(&rows, &files));
         // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
         // is about the right size before they are.
-        let line = Theme::get(cx).code_line;
-        self.list.reset_with_uniform_height(rows.len(), px(line));
+        (self.list).reset_with_uniform_height(rows.len(), px(Theme::get(cx).code_line));
         if let Some(top) = top {
             self.list.scroll_to(top);
             self.cursor = self.cursor_in(&files);
@@ -824,8 +821,7 @@ impl Detail {
         if rows != diff.rows {
             self.text_selection = None;
             let scroll_to = self.keep_place(&rows, &diff.files);
-            let line = Theme::get(cx).code_line;
-            self.list.reset_with_uniform_height(rows.len(), px(line));
+            (self.list).reset_with_uniform_height(rows.len(), px(Theme::get(cx).code_line));
             self.list.scroll_to(scroll_to);
             if let Some(diff) = &mut self.diff {
                 diff.rows = rows;
@@ -869,7 +865,7 @@ impl Detail {
         self.remeasure(cx);
     }
 
-    /// Show code in diffs at `size`, in this window and any other.
+    /// Show code in diffs at `size`.
     pub fn set_code_size(&mut self, size: crate::theme::CodeSize, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
             store.set_prefs(|prefs| prefs.code_size = size, cx)
@@ -883,8 +879,7 @@ impl Detail {
     fn remeasure(&mut self, cx: &mut Context<Self>) {
         let top = self.list.logical_scroll_top();
         let count = self.diff.as_ref().map_or(0, |diff| diff.rows.len());
-        let line = Theme::get(cx).code_line;
-        self.list.reset_with_uniform_height(count, px(line));
+        (self.list).reset_with_uniform_height(count, px(Theme::get(cx).code_line));
         self.list.scroll_to(top);
         cx.notify();
     }
@@ -1160,29 +1155,21 @@ impl Detail {
                 _ => false,
             })
         });
-        // The file filter can leave the file out entirely.
-        let shown = row.is_some()
-            || self
-                .row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix))
-                .is_some();
-        if !shown {
+        // A few lines above it, for what leads up to it; or the file, when the line isn't
+        // in the diff. The file filter can leave the file out entirely.
+        let file_row = || self.row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix));
+        let Some(item_ix) = row.map(|row| row.saturating_sub(3)).or_else(file_row) else {
             return false;
-        }
-        match row {
-            Some(row) => {
-                self.cursor = Cursor {
-                    file: file_ix,
-                    hunk: None,
-                };
-                // A few lines above it, for what leads up to it.
-                self.list.scroll_to(ListOffset {
-                    item_ix: row.saturating_sub(3),
-                    offset_in_item: px(0.),
-                });
-                cx.notify();
-            }
-            None => self.scroll_to_file(file_ix, cx),
-        }
+        };
+        self.cursor = Cursor {
+            file: file_ix,
+            hunk: None,
+        };
+        self.list.scroll_to(ListOffset {
+            item_ix,
+            offset_in_item: px(0.),
+        });
+        cx.notify();
         true
     }
 

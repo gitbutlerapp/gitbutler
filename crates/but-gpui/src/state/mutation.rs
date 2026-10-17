@@ -184,13 +184,9 @@ impl Store {
         );
     }
 
-    pub fn push(&mut self, project: &ProjectId, ref_name: String, cx: &mut Context<Self>) {
-        self.push_branch(project, ref_name, true, cx)
-    }
-
     /// Push `ref_name`, and with `protect` refuse to drop commits only the remote has: the
     /// card that says so offers to push anyway.
-    fn push_branch(
+    pub fn push(
         &mut self,
         project: &ProjectId,
         ref_name: String,
@@ -211,10 +207,7 @@ impl Store {
                 let ref_name = ref_name.clone();
                 move |path, _| match backend::push(path, &ref_name, force, protect) {
                     Ok(_) => Ok(None),
-                    Err(err) => match backend::push_refusal(&err) {
-                        Some(said) => Ok(Some(said)),
-                        None => Err(err),
-                    },
+                    Err(err) => backend::push_refusal(&err).map(Some).ok_or(err),
                 }
             },
             move |store, refused: Option<String>, cx| {
@@ -226,7 +219,7 @@ impl Store {
                     let retry: super::Retry = (
                         "Push anyway".into(),
                         std::rc::Rc::new(move |store, cx| {
-                            store.push_branch(&again, ref_name.clone(), false, cx)
+                            store.push(&again, ref_name.clone(), false, cx)
                         }),
                     );
                     return store.notify_user(

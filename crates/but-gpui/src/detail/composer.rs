@@ -1,6 +1,6 @@
 //! The commit composer: which changes go in, the message, and the branch they land on.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 
 use gpui::{AnyElement, App, Context, Focusable as _, Toggled, Window, div, prelude::*, px};
 
@@ -100,14 +100,15 @@ impl Detail {
     /// See [`Detail::conflicted`].
     pub(super) fn refresh_conflicted(&mut self, cx: &App) {
         let store = self.store.read(cx);
-        let conflicted = match (self.checks_project.as_ref()).and_then(|p| store.workspace(p)) {
-            Some(ws) => (ws.uncommitted.iter())
-                .filter(|f| f.conflicted)
-                .map(|f| f.path.clone())
-                .collect(),
-            None => HashSet::new(),
-        };
-        self.conflicted = conflicted;
+        self.conflicted = (self.checks_project.as_ref())
+            .and_then(|p| store.workspace(p))
+            .map(|ws| {
+                (ws.uncommitted.iter())
+                    .filter(|f| f.conflicted)
+                    .map(|f| f.path.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
     }
 
     pub(super) fn file_check(&self, path: &str) -> Toggled {

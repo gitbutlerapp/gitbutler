@@ -245,31 +245,22 @@ impl SettingsView {
     fn general_rows(&self, cx: &Context<Self>) -> Vec<Row> {
         let theme = Theme::get(cx);
         let prefs = &self.store.read(cx).prefs;
-        let appearance = h_flex().gap(px(2.)).children(
+        let (store, app) = (self.store.clone(), self.app.clone());
+        let appearance = segmented(
+            "appearance",
             [
                 (Appearance::System, "System"),
                 (Appearance::Light, "Light"),
                 (Appearance::Dark, "Dark"),
-            ]
-            .into_iter()
-            .map(|(choice, label)| {
-                let store = self.store.clone();
-                let app = self.app.clone();
-                button(SharedString::from(format!("appearance-{label}")), label)
-                    .small()
-                    .style(if prefs.appearance == choice {
-                        ButtonStyle::Gray
-                    } else {
-                        ButtonStyle::Ghost
-                    })
-                    .on_click(move |_, window, cx| {
-                        store.update(cx, |store, cx| {
-                            store.set_prefs(|prefs| prefs.appearance = choice, cx)
-                        });
-                        app.update(cx, |app, cx| app.apply_appearance(window, cx))
-                            .ok();
-                    })
-            }),
+            ],
+            prefs.appearance,
+            move |choice, window, cx| {
+                store.update(cx, |store, cx| {
+                    store.set_prefs(|prefs| prefs.appearance = choice, cx)
+                });
+                app.update(cx, |app, cx| app.apply_appearance(window, cx))
+                    .ok();
+            },
         );
         let name_of = |programs: &[Program], id: Option<&String>, unset: &str| {
             id.and_then(|id| programs.iter().find(|(p, _)| p == id))
@@ -298,30 +289,22 @@ impl SettingsView {
             },
             cx,
         );
-        let code = h_flex().gap(px(2.)).children(
+        let app = self.app.clone();
+        let code = segmented(
+            "code",
             [
                 (CodeSize::Small, "Small"),
                 (CodeSize::Medium, "Medium"),
                 (CodeSize::Large, "Large"),
-            ]
-            .into_iter()
-            .map(|(size, label)| {
-                let app = self.app.clone();
-                button(SharedString::from(format!("code-{label}")), label)
-                    .small()
-                    .style(if prefs.code_size == size {
-                        ButtonStyle::Gray
-                    } else {
-                        ButtonStyle::Ghost
-                    })
-                    .on_click(move |_, _, cx| {
-                        app.update(cx, |app, cx| {
-                            app.detail
-                                .update(cx, |detail, cx| detail.set_code_size(size, cx))
-                        })
-                        .ok();
-                    })
-            }),
+            ],
+            prefs.code_size,
+            move |size, _, cx| {
+                app.update(cx, |app, cx| {
+                    app.detail
+                        .update(cx, |detail, cx| detail.set_code_size(size, cx))
+                })
+                .ok();
+            },
         );
         vec![
             Row {
@@ -623,4 +606,28 @@ impl AppView {
         let view = cx.new(|cx| SettingsView::new(store, app, project, window, cx));
         self.open_modal(view, window, cx);
     }
+}
+
+/// Buttons for a setting with a few values, the current one `current` filled in. Unlike a
+/// dropdown's menu, a button's click doesn't run inside the app's own update, so `pick`
+/// can update the app.
+fn segmented<T: Copy + PartialEq + 'static>(
+    id: &str,
+    choices: [(T, &'static str); 3],
+    current: T,
+    pick: impl Fn(T, &mut Window, &mut App) + Clone + 'static,
+) -> gpui::Div {
+    h_flex()
+        .gap(px(2.))
+        .children(choices.into_iter().map(|(choice, label)| {
+            let pick = pick.clone();
+            button(SharedString::from(format!("{id}-{label}")), label)
+                .small()
+                .style(if current == choice {
+                    ButtonStyle::Gray
+                } else {
+                    ButtonStyle::Ghost
+                })
+                .on_click(move |_, window, cx| pick(choice, window, cx))
+        }))
 }

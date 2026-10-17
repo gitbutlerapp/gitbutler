@@ -127,8 +127,9 @@ impl Detail {
         Some((branch.commits.first()?.id, branch.push))
     }
 
-    /// Ask the forge where the review of `ref_name`'s open pull request stands, for its card.
-    /// Once per visit to the branch, rather than on every reload.
+    /// Ask the forge where the review of `ref_name`'s open pull request stands, for its card:
+    /// on visiting the branch, then on a reload once the answer is a minute old or the
+    /// branch has moved or been pushed.
     pub(crate) fn load_feedback(
         &mut self,
         project: &ProjectId,
@@ -223,7 +224,7 @@ impl Detail {
             };
             let (path, line, url) = (thread.path.clone(), thread.line, thread.url.clone());
             let menu_url = url.clone();
-            let (project, ref_name, id) = (project.clone(), ref_name.to_owned(), thread.id.clone());
+            let shown = (project.clone(), ref_name.to_owned(), thread.id.clone());
             list_row(("thread", ix), false, theme)
                 .text_size(px(12.))
                 .gap(px(6.))
@@ -258,20 +259,15 @@ impl Detail {
                     MouseButton::Right,
                     cx.listener(move |this, event: &MouseDownEvent, _, cx| {
                         let url = menu_url.clone();
-                        let (project, ref_name, id) =
-                            (project.clone(), ref_name.clone(), id.clone());
-                        let (reply_project, reply_ref, reply_id) =
-                            (project.clone(), ref_name.clone(), id.clone());
+                        let (reply, resolve) = (shown.clone(), shown.clone());
                         let items = vec![
                             MenuItem::new("Reply…", move |app, window, cx| {
-                                let (project, ref_name, id) =
-                                    (reply_project.clone(), reply_ref.clone(), reply_id.clone());
+                                let (project, ref_name, id) = reply.clone();
                                 app.reply_to_thread(project, ref_name, id, window, cx)
                             }),
                             MenuItem::new("Open on the forge", move |_, _, cx| cx.open_url(&url)),
                             MenuItem::new("Mark resolved", move |app, _, cx| {
-                                let (project, ref_name, id) =
-                                    (project.clone(), ref_name.clone(), id.clone());
+                                let (project, ref_name, id) = resolve.clone();
                                 app.detail.update(cx, |detail, cx| {
                                     detail.resolve_thread(project, ref_name, id, cx)
                                 })
@@ -285,40 +281,42 @@ impl Detail {
         });
         let more = threads.len().saturating_sub(SHOWN);
         Some(
-            v_flex()
-                .flex_none()
-                .pb(px(8.))
-                .border_b_1()
-                .border_color(theme.border_3)
-                .child(feedback_heading(
-                    format!("{} open", plural(threads.len(), "conversation")),
-                    theme,
-                ))
-                .children(rows)
-                .when(more > 0, |el| {
-                    el.child(
-                        div()
-                            .px(px(16.))
-                            .text_size(px(12.))
-                            .text_color(theme.text_3)
-                            .child(format!("And {more} more on the forge")),
-                    )
-                })
-                .into_any_element(),
+            feedback_section(
+                format!("{} open", plural(threads.len(), "conversation")),
+                theme,
+            )
+            .children(rows)
+            .when(more > 0, |el| {
+                el.child(
+                    div()
+                        .px(px(16.))
+                        .text_size(px(12.))
+                        .text_color(theme.text_3)
+                        .child(format!("And {more} more on the forge")),
+                )
+            })
+            .into_any_element(),
         )
     }
 }
 
-/// Above a part of what the forge said about a pull request.
-fn feedback_heading(text: String, theme: &Theme) -> Div {
-    div()
-        .px(px(16.))
-        .pt(px(10.))
-        .pb(px(4.))
-        .text_size(px(11.))
-        .font_weight(gpui::FontWeight::SEMIBOLD)
-        .text_color(theme.text_3)
-        .child(text)
+/// A part of what the forge said about a pull request, under its heading.
+fn feedback_section(heading: String, theme: &Theme) -> Div {
+    v_flex()
+        .flex_none()
+        .pb(px(8.))
+        .border_b_1()
+        .border_color(theme.border_3)
+        .child(
+            div()
+                .px(px(16.))
+                .pt(px(10.))
+                .pb(px(4.))
+                .text_size(px(11.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(theme.text_3)
+                .child(heading),
+        )
 }
 
 /// The latest comments people left on a pull request, each opening on the forge.
@@ -343,12 +341,7 @@ pub(super) fn render_comments(
             .on_click(move |_, _, cx| cx.open_url(&url))
     });
     Some(
-        v_flex()
-            .flex_none()
-            .pb(px(8.))
-            .border_b_1()
-            .border_color(theme.border_3)
-            .child(feedback_heading("Latest comments".into(), theme))
+        feedback_section("Latest comments".into(), theme)
             .children(rows)
             .into_any_element(),
     )
@@ -392,25 +385,21 @@ fn review_line(
     github: bool,
     theme: &Theme,
 ) -> Option<AnyElement> {
+    let none = backend::reviews::Verdicts::default();
+    let verdicts = verdicts.unwrap_or(&none);
     // GitHub lists a reviewer who decided only once asked again, which means they're
     // awaited; the other forges keep listing everyone asked, decided or not.
     let waiting: Vec<String> = (review.reviewers.iter())
         .filter(|login| {
             github
-                || verdicts.is_none_or(|v| {
-                    !v.approved.contains(login) && !v.changes_requested.contains(login)
-                })
+                || !verdicts.approved.contains(login) && !verdicts.changes_requested.contains(login)
         })
         .cloned()
         .collect();
     let parts = [
+        (&verdicts.approved[..], "Approved by", theme.safe),
         (
-            verdicts.map_or(&[][..], |v| &v.approved),
-            "Approved by",
-            theme.safe,
-        ),
-        (
-            verdicts.map_or(&[][..], |v| &v.changes_requested),
+            &verdicts.changes_requested[..],
             "Changes requested by",
             theme.danger,
         ),

@@ -60,7 +60,6 @@ pub(super) fn rewritten(workspace: &but_api::WorkspaceState) -> Rewritten {
         .collect()
 }
 
-/// Whole files, or just some of their hunks.
 /// The `selected` files a merge left conflicted, as the index has them now: what the UI
 /// asks for may predate the merge.
 fn unmerged<'a>(ctx: &but_ctx::Context, selected: &'a [Selected]) -> Result<Vec<&'a str>> {
@@ -83,6 +82,7 @@ fn refuse_conflicted(ctx: &but_ctx::Context, selected: &[Selected]) -> Result<()
     Ok(())
 }
 
+/// Whole files, or just some of their hunks.
 fn selected_specs(selected: &[Selected]) -> Vec<DiffSpec> {
     selected
         .iter()
@@ -647,7 +647,7 @@ pub fn update_from_target(path: &Path, branch: Option<&str>) -> Result<()> {
 }
 
 /// What [`update_from_target()`] would leave conflicted that isn't now.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct UpdateConflicts {
     /// Branches, each with how many of its commits.
     pub branches: Vec<(String, usize)>,

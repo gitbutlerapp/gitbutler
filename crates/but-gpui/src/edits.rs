@@ -172,7 +172,7 @@ impl AppView {
         }
         let name = short_ref(&ref_name).to_owned();
         let question = format!("Make {name} the remote's version?");
-        let (check_branch, path) = (ref_name.clone(), self.store.read(cx).path(&project));
+        let check_branch = ref_name.clone();
         let checked = project.clone();
         let run = move |this: &mut AppView, cx: &mut Context<AppView>| {
             let (label, done) = if theirs {
@@ -195,11 +195,8 @@ impl AppView {
             });
         };
         if !theirs {
-            let check = move || {
-                let Some(path) = path else {
-                    return Ok(None);
-                };
-                let found = backend::pull_conflicts(&path, &check_branch)?;
+            let check = move |path: &std::path::Path| {
+                let found = backend::pull_conflicts(path, &check_branch)?;
                 Ok((!found.is_empty()).then(|| {
                     format!(
                         "Rebasing your commits onto the remote's leaves conflicted commits in \

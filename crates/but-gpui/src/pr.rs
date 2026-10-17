@@ -611,39 +611,22 @@ impl AppView {
         let Some(path) = store.path(&project) else {
             return;
         };
-        let applied: Vec<String> = (store.workspace(&project))
+        let applied = (store.workspace(&project))
             .and_then(|ws| ws.find_branch(&branch)?.review.as_ref())
-            .map(|review| review.labels.clone())
-            .unwrap_or_default();
-        let load = move || reviews::repo_labels(&path);
-        self.pick_from_forge(
-            load,
-            "Couldn't list the labels",
+            .map_or_else(Vec::new, |review| review.labels.clone());
+        self.toggle_on_review(
+            project,
+            move || reviews::repo_labels(&path),
+            applied,
+            (
+                "Couldn't list the labels",
+                "Put on or take off a label",
+                "Label",
+                "Labels changed",
+            ),
+            move |path, label, on| reviews::set_label(path, number, label, on),
             window,
             cx,
-            move |this, labels, window, cx| {
-                let choices = (labels.into_iter())
-                    .map(|label| {
-                        let on = !applied.contains(&label);
-                        let shown = if on {
-                            label.clone()
-                        } else {
-                            format!("✓ {label}")
-                        };
-                        let project = project.clone();
-                        crate::palette::Choice::new(shown, move |this, _, cx| {
-                            this.run_on_review(
-                                project,
-                                "Label",
-                                move |path| reviews::set_label(path, number, label, on),
-                                "Labels changed",
-                                cx,
-                            )
-                        })
-                    })
-                    .collect();
-                this.open_picker("Put on or take off a label", "Toggle", choices, window, cx);
-            },
         );
     }
 
@@ -739,20 +722,41 @@ impl AppView {
         );
     }
 
-    /// `load` a list from the forge off the UI thread, then `open` a picker of it, or say
-    /// what went wrong under `failed`.
-    fn pick_from_forge<T: Send + 'static>(
+    /// `load` names from the forge off the UI thread, then offer them in a picker titled
+    /// `title`, the ones `on` ticked. Picking one runs `set` with it and whether to turn it
+    /// on, as `label`, saying `done` after. A failed load says so under `failed`.
+    #[allow(clippy::too_many_arguments)]
+    fn toggle_on_review(
         &mut self,
-        load: impl FnOnce() -> anyhow::Result<T> + Send + 'static,
-        failed: &'static str,
+        project: ProjectId,
+        load: impl FnOnce() -> anyhow::Result<Vec<String>> + Send + 'static,
+        on: Vec<String>,
+        (failed, title, label, done): (&'static str, &'static str, &'static str, &'static str),
+        set: impl Fn(&std::path::Path, String, bool) -> anyhow::Result<()> + Clone + Send + 'static,
         window: &mut Window,
         cx: &mut Context<Self>,
-        open: impl FnOnce(&mut AppView, T, &mut Window, &mut Context<AppView>) + 'static,
     ) {
         cx.spawn_in(window, async move |this, cx| {
             let loaded = backend::run(load).await;
             this.update_in(cx, |this, window, cx| match loaded {
-                Ok(list) => open(this, list, window, cx),
+                Ok(names) => {
+                    let choices = (names.into_iter())
+                        .map(|name| {
+                            let turn_on = !on.contains(&name);
+                            let shown = if turn_on {
+                                name.clone()
+                            } else {
+                                format!("✓ {name}")
+                            };
+                            let (project, set) = (project.clone(), set.clone());
+                            crate::palette::Choice::new(shown, move |this, _, cx| {
+                                let op = move |path: &std::path::Path| set(path, name, turn_on);
+                                this.run_on_review(project, label, op, done, cx)
+                            })
+                        })
+                        .collect();
+                    this.open_picker(title, "Toggle", choices, window, cx);
+                }
                 Err(err) => {
                     let message = format!("{err:#}");
                     this.store
@@ -785,42 +789,25 @@ impl AppView {
             (store.workspace(&project)).and_then(|ws| ws.find_branch(&branch)?.review.as_ref());
         let asked = review.map_or_else(Vec::new, |review| review.reviewers.clone());
         let author = review.and_then(|review| review.author.clone());
-        let load = move || reviews::reviewer_candidates(&path);
-        self.pick_from_forge(
+        let load = move || {
+            let logins = reviews::reviewer_candidates(&path)?;
+            Ok((logins.into_iter())
+                .filter(|login| author.as_ref() != Some(login))
+                .collect())
+        };
+        self.toggle_on_review(
+            project,
             load,
-            "Couldn't list who can review",
+            asked,
+            (
+                "Couldn't list who can review",
+                "Ask someone to review, or no longer",
+                "Request review",
+                "Reviewers changed",
+            ),
+            move |path, login, ask| reviews::request_review(path, number, login, ask),
             window,
             cx,
-            move |this, logins, window, cx| {
-                let choices = (logins.into_iter())
-                    .filter(|login| author.as_ref() != Some(login))
-                    .map(|login| {
-                        let ask = !asked.contains(&login);
-                        let shown = if ask {
-                            login.clone()
-                        } else {
-                            format!("✓ {login}")
-                        };
-                        let project = project.clone();
-                        crate::palette::Choice::new(shown, move |this, _, cx| {
-                            this.run_on_review(
-                                project,
-                                "Request review",
-                                move |path| reviews::request_review(path, number, login, ask),
-                                "Reviewers changed",
-                                cx,
-                            )
-                        })
-                    })
-                    .collect();
-                this.open_picker(
-                    "Ask someone to review, or no longer",
-                    "Toggle",
-                    choices,
-                    window,
-                    cx,
-                );
-            },
         );
     }
 

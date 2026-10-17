@@ -1282,12 +1282,14 @@ impl Navigator {
                                     &ToggleDraft,
                                 ),
                                 action("Merge pull request…", &MergePullRequest),
+                                action("Labels…", &LabelPullRequest),
                             ]);
-                            items.push(action("Labels…", &LabelPullRequest));
                             // What only GitButler's GitHub support does so far.
                             if workspace.forge.as_deref() == Some("GitHub") {
-                                items.push(action("Comment…", &CommentOnPullRequest));
-                                items.push(action("Request review…", &RequestReview));
+                                items.extend([
+                                    action("Comment…", &CommentOnPullRequest),
+                                    action("Request review…", &RequestReview),
+                                ]);
                             }
                             // The forges GitButler can ask to merge on their own.
                             let auto_merges =

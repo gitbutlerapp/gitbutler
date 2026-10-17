@@ -8,6 +8,14 @@ use but_api::legacy::forge;
 
 use super::{open, push, runtime};
 
+/// Make a call to the forge, which goes over the network, and wait for its answer.
+fn forge_call<T, F: Future<Output = Result<T>>>(
+    path: &Path,
+    call: impl FnOnce(but_ctx::ThreadSafeContext) -> F,
+) -> Result<T> {
+    runtime().handle().block_on(call(open(path)?.into_sync()))
+}
+
 /// Which forge hosts the project, like "GitHub", when its target's remote says so.
 pub fn forge_name(ctx: &but_ctx::Context) -> Option<String> {
     let meta = ctx.project_meta().ok()?;
@@ -124,17 +132,15 @@ pub fn merge(path: &Path, number: u64, method: MergeMethod) -> Result<()> {
         MergeMethod::Squash => but_forge::ReviewMergeMethod::Squash,
         MergeMethod::Rebase => but_forge::ReviewMergeMethod::Rebase,
     };
-    let ctx = open(path)?.into_sync();
-    runtime()
-        .handle()
-        .block_on(forge::merge_review(ctx, number as usize, Some(method)))
+    forge_call(path, |ctx| {
+        forge::merge_review(ctx, number as usize, Some(method))
+    })
 }
 
 pub fn set_draft(path: &Path, number: u64, draft: bool) -> Result<()> {
-    let ctx = open(path)?.into_sync();
-    runtime()
-        .handle()
-        .block_on(forge::set_review_draftiness(ctx, number as usize, draft))
+    forge_call(path, |ctx| {
+        forge::set_review_draftiness(ctx, number as usize, draft)
+    })
 }
 
 /// How a pull request's reviewers last decided, by login.
@@ -144,19 +150,8 @@ pub struct Verdicts {
     pub changes_requested: Vec<String>,
 }
 
-/// What each reviewer of pull request `number` decided last: a comment doesn't change it,
-/// and a dismissal takes it back.
-pub fn verdicts(path: &Path, number: u64) -> Result<Verdicts> {
-    let ctx = open(path)?.into_sync();
-    let submissions = runtime()
-        .handle()
-        .block_on(forge::list_review_submissions(ctx, number as usize))?;
-    Ok(fold_verdicts(submissions.into_iter().filter_map(
-        |submission| Some((submission.author?.login, submission.state)),
-    )))
-}
-
-/// Each reviewer's last decision, from their submissions oldest first.
+/// Each reviewer's last decision, from their submissions oldest first: a comment doesn't
+/// change it, and a dismissal takes it back.
 fn fold_verdicts(
     submissions: impl IntoIterator<Item = (String, but_forge::ForgeReviewSubmissionState)>,
 ) -> Verdicts {
@@ -186,7 +181,7 @@ fn fold_verdicts(
 }
 
 /// A conversation left on a pull request's diff and not resolved yet.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Thread {
     /// The forge's own identifier, to resolve it by.
     pub id: String,
@@ -201,7 +196,7 @@ pub struct Thread {
 }
 
 /// A comment on a pull request as a whole, rather than on a line of its diff.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Comment {
     pub author: String,
     /// Its first line.
@@ -211,25 +206,29 @@ pub struct Comment {
 
 /// Where a pull request's review stands: the reviewers' verdicts, the conversations
 /// still open on its diff, and the latest comments people left on it.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Feedback {
     pub verdicts: Verdicts,
     pub threads: Vec<Thread>,
     pub comments: Vec<Comment>,
 }
 
-/// What [`verdicts`], the open threads and the latest comments of pull request `number`
-/// come to. Each can fail on its own, as a forge may not offer it: only all of them
-/// failing is an error.
+/// What the reviewers of pull request `number` last decided, its open threads and its
+/// latest comments. Each can fail on its own, as a forge may not offer it: only all of
+/// them failing is an error.
 pub fn feedback(path: &Path, number: u64) -> Result<Feedback> {
     use but_forge::ForgeReviewThreadSide as Side;
-    let verdicts = verdicts(path, number);
-    let threads = (|| -> Result<Vec<Thread>> {
-        let ctx = open(path)?.into_sync();
-        let threads = runtime()
-            .handle()
-            .block_on(forge::list_review_threads(ctx, number as usize))?;
-        Ok((threads.into_iter())
+    let number = number as usize;
+    let verdicts =
+        forge_call(path, |ctx| forge::list_review_submissions(ctx, number)).map(|submissions| {
+            fold_verdicts(
+                submissions
+                    .into_iter()
+                    .filter_map(|submission| Some((submission.author?.login, submission.state))),
+            )
+        });
+    let threads = forge_call(path, |ctx| forge::list_review_threads(ctx, number)).map(|threads| {
+        (threads.into_iter())
             .filter(|thread| !thread.is_resolved)
             .filter_map(|thread| {
                 let first = thread.comments.first()?;
@@ -246,28 +245,25 @@ pub fn feedback(path: &Path, number: u64) -> Result<Feedback> {
                     path: thread.path,
                 })
             })
-            .collect())
-    })();
+            .collect::<Vec<_>>()
+    });
     /// More than this many are better read on the forge.
     const LATEST: usize = 3;
-    let comments = (|| -> Result<Vec<Comment>> {
-        let ctx = open(path)?.into_sync();
-        let comments = runtime()
-            .handle()
-            .block_on(forge::list_review_comments(ctx, number as usize))?;
-        // Oldest first; bots, like coverage reports, left out.
-        let mut people: Vec<Comment> = (comments.into_iter())
-            .filter_map(|comment| {
-                let author = comment.author.filter(|author| !author.is_bot)?;
-                Some(Comment {
-                    author: author.login,
-                    opening: comment.body.lines().next().unwrap_or_default().to_owned(),
-                    url: comment.html_url,
+    let comments =
+        forge_call(path, |ctx| forge::list_review_comments(ctx, number)).map(|comments| {
+            // Oldest first; bots, like coverage reports, left out.
+            let mut people: Vec<Comment> = (comments.into_iter())
+                .filter_map(|comment| {
+                    let author = comment.author.filter(|author| !author.is_bot)?;
+                    Some(Comment {
+                        author: author.login,
+                        opening: comment.body.lines().next().unwrap_or_default().to_owned(),
+                        url: comment.html_url,
+                    })
                 })
-            })
-            .collect();
-        Ok(people.split_off(people.len().saturating_sub(LATEST)))
-    })();
+                .collect();
+            people.split_off(people.len().saturating_sub(LATEST))
+        });
     match (verdicts, threads, comments) {
         (Err(err), Err(_), Err(_)) => Err(err),
         (verdicts, threads, comments) => Ok(Feedback {
@@ -280,56 +276,45 @@ pub fn feedback(path: &Path, number: u64) -> Result<Feedback> {
 
 /// Mark a conversation on a pull request's diff resolved.
 pub fn resolve_thread(path: &Path, id: String) -> Result<()> {
-    let ctx = open(path)?.into_sync();
-    runtime()
-        .handle()
-        .block_on(forge::set_review_thread_resolved(ctx, id, true))
+    forge_call(path, |ctx| forge::set_review_thread_resolved(ctx, id, true))
 }
 
 /// Comment on pull request `number` as a whole.
 pub fn comment(path: &Path, number: u64, body: String) -> Result<()> {
-    let ctx = open(path)?.into_sync();
-    runtime()
-        .handle()
-        .block_on(forge::create_review_comment(ctx, number as usize, body))?;
-    Ok(())
+    forge_call(path, |ctx| {
+        forge::create_review_comment(ctx, number as usize, body)
+    })
+    .map(drop)
 }
 
 /// Answer a conversation on a pull request's diff.
 pub fn reply_to_thread(path: &Path, id: String, body: String) -> Result<()> {
-    let ctx = open(path)?.into_sync();
-    runtime()
-        .handle()
-        .block_on(forge::create_review_thread_reply(ctx, id, body))?;
-    Ok(())
+    forge_call(path, |ctx| forge::create_review_thread_reply(ctx, id, body)).map(drop)
 }
 
 /// The labels the repository has, by name.
 pub fn repo_labels(path: &Path) -> Result<Vec<String>> {
-    let ctx = open(path)?.into_sync();
-    let labels = runtime().handle().block_on(forge::list_repo_labels(ctx))?;
+    let labels = forge_call(path, forge::list_repo_labels)?;
     Ok(labels.into_iter().map(|label| label.name).collect())
 }
 
 /// Put `label` on pull request `number`, or with `on` false take it off.
 pub fn set_label(path: &Path, number: u64, label: String, on: bool) -> Result<()> {
-    let ctx = open(path)?.into_sync();
-    let runtime = runtime().handle();
+    let number = number as usize;
     if on {
-        runtime.block_on(forge::add_review_labels(ctx, number as usize, vec![label]))?;
+        forge_call(path, |ctx| {
+            forge::add_review_labels(ctx, number, vec![label])
+        })
+        .map(drop)
     } else {
-        runtime.block_on(forge::remove_review_label(ctx, number as usize, label))?;
+        forge_call(path, |ctx| forge::remove_review_label(ctx, number, label))
     }
-    Ok(())
 }
 
 /// Who can be asked to review: the logins of the repository's collaborators, bots left
 /// out, in alphabetical order.
 pub fn reviewer_candidates(path: &Path) -> Result<Vec<String>> {
-    let ctx = open(path)?.into_sync();
-    let users = runtime()
-        .handle()
-        .block_on(forge::list_reviewer_candidates(ctx))?;
+    let users = forge_call(path, forge::list_reviewer_candidates)?;
     let mut logins: Vec<String> = (users.into_iter())
         .filter(|user| !user.is_bot)
         .map(|user| user.login)
@@ -340,25 +325,21 @@ pub fn reviewer_candidates(path: &Path) -> Result<Vec<String>> {
 
 /// Ask `login` to review pull request `number`, or with `ask` false, no longer.
 pub fn request_review(path: &Path, number: u64, login: String, ask: bool) -> Result<()> {
-    let ctx = open(path)?.into_sync();
-    let runtime = runtime().handle();
+    let (number, logins) = (number as usize, vec![login]);
     if ask {
-        runtime.block_on(forge::request_review(ctx, number as usize, vec![login]))
+        forge_call(path, |ctx| forge::request_review(ctx, number, logins))
     } else {
-        runtime.block_on(forge::withdraw_review_request(
-            ctx,
-            number as usize,
-            vec![login],
-        ))
+        forge_call(path, |ctx| {
+            forge::withdraw_review_request(ctx, number, logins)
+        })
     }
 }
 
 /// Have the forge merge a pull request once its checks pass, or stop it from doing so.
 pub fn set_auto_merge(path: &Path, number: u64, enable: bool) -> Result<()> {
-    let ctx = open(path)?.into_sync();
-    runtime()
-        .handle()
-        .block_on(forge::set_review_auto_merge(ctx, number as usize, enable))
+    forge_call(path, |ctx| {
+        forge::set_review_auto_merge(ctx, number as usize, enable)
+    })
 }
 
 /// Change a pull request's title and description, or close or reopen it.
@@ -376,18 +357,10 @@ pub fn update(
             but_forge::ReviewState::Closed
         }
     });
-    let ctx = open(path)?.into_sync();
-    runtime()
-        .handle()
-        .block_on(forge::update_review(
-            ctx,
-            number as usize,
-            title,
-            body,
-            state,
-            None,
-        ))
-        .context("The forge didn't take the change")
+    forge_call(path, |ctx| {
+        forge::update_review(ctx, number as usize, title, body, state, None)
+    })
+    .context("The forge didn't take the change")
 }
 
 #[cfg(test)]
