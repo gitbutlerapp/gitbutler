@@ -184,10 +184,10 @@ impl SettingsView {
             Row::new(
                 "Target branch",
                 if locked {
-                    "What the workspace integrates into and pull requests aim at. To change it, \
+                    "The branch your work goes into, and pull requests aim at. To change it, \
                      unapply every branch first."
                 } else {
-                    "What the workspace integrates into and pull requests aim at."
+                    "The branch your work goes into, and pull requests aim at."
                 },
                 h_flex()
                     .gap(px(8.))
