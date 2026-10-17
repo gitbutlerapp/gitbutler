@@ -37,6 +37,8 @@ pub(super) struct Upstream {
     unconnected_forge: Option<Forge>,
     /// What the list was loaded for, and when.
     seen: (u64, Instant),
+    /// Why reading the history failed, shown in place of the list.
+    failed: Option<String>,
 }
 
 enum Row {
@@ -65,7 +67,9 @@ impl Detail {
         let current = self.upstream.as_ref().filter(|u| u.project == *project);
         if !force
             && !more
-            && current.is_some_and(|u| u.seen.0 == seen && u.seen.1.elapsed() < STALE_AFTER)
+            && current.is_some_and(|u| {
+                u.failed.is_none() && u.seen.0 == seen && u.seen.1.elapsed() < STALE_AFTER
+            })
         {
             return;
         }
@@ -96,15 +100,27 @@ impl Detail {
                 let ((commits, has_more), (fetched, fetch_error), unconnected_forge) = match result
                 {
                     Ok(loaded) => loaded,
-                    Err(err) => {
+                    // Paging further back keeps what's listed.
+                    Err(err) if after.is_some() => {
                         this.store.update(cx, |store, cx| {
-                            store.error(
-                                "Couldn't read the target's history",
-                                format!("{err:#}"),
-                                cx,
-                            )
+                            store.error("Couldn't read more of the history", format!("{err:#}"), cx)
                         });
                         return;
+                    }
+                    Err(err) => {
+                        this.upstream = Some(Upstream {
+                            project,
+                            commits: Vec::new(),
+                            more: false,
+                            selected: None,
+                            fetched: None,
+                            fetch_error: None,
+                            unconnected_forge: None,
+                            seen: (seen, Instant::now()),
+                            failed: Some(format!("{err:#}")),
+                        });
+                        this.refresh_diff(false, cx);
+                        return cx.notify();
                     }
                 };
                 let previous = this.upstream.take().filter(|u| u.project == project);
@@ -128,6 +144,7 @@ impl Detail {
                     fetch_error,
                     unconnected_forge,
                     seen: (seen, Instant::now()),
+                    failed: None,
                 });
                 this.refresh_diff(false, cx);
                 cx.notify();
@@ -338,6 +355,13 @@ impl Detail {
             );
         let list = match upstream {
             None => crate::ui::empty_state("Loading…", "", theme),
+            Some(Upstream {
+                failed: Some(err), ..
+            }) => crate::ui::empty_state(
+                "Couldn't read the target's history",
+                error_summary(err),
+                theme,
+            ),
             // The page lists what it read, whether or not the project is expanded and loaded.
             Some(upstream) if upstream.commits.is_empty() => {
                 let project = project.clone();
