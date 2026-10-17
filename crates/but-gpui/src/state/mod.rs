@@ -100,6 +100,12 @@ pub enum StoreEvent {
     Pending(ProjectId),
 }
 
+/// An error card's button: its label, and what it runs.
+pub type Retry = (
+    SharedString,
+    std::rc::Rc<dyn Fn(&mut Store, &mut Context<Store>)>,
+);
+
 /// Something to tell the user, shown the way GitButler's other apps do.
 pub enum Notice {
     /// A one-line result at the bottom centre. `undo` is the oplog entry the operation
@@ -108,10 +114,12 @@ pub enum Notice {
         message: SharedString,
         undo: Option<(ProjectId, SnapshotId)>,
     },
-    /// A failure: a card at the bottom right with the error kept for copying.
+    /// A failure: a card at the bottom right with the error kept for copying, and what
+    /// to try instead, if anything.
     Error {
         title: SharedString,
         detail: SharedString,
+        retry: Option<Retry>,
     },
 }
 
@@ -1035,6 +1043,7 @@ impl Store {
             Notice::Error {
                 title: title.into(),
                 detail: detail.into(),
+                retry: None,
             },
             cx,
         );

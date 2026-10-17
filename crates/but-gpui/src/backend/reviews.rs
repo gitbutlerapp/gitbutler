@@ -62,7 +62,7 @@ pub fn publish(
     // The pull request's head is the branch as the remote names it: what a push reports,
     // or for a branch pushed before, the remote branch it tracks.
     let pushed = match push_first {
-        Some(force) => push(path, branch, force)?,
+        Some(force) => push(path, branch, force, true)?,
         None => None,
     };
     let short = branch
