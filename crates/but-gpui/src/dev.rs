@@ -111,10 +111,13 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             if let Err(err) = result {
                 eprintln!("script line {}: {line}: {err:#}", line_no + 1);
             }
-            // Let the frame settle before the next step.
+            // Let the frame settle before the next step, and draw what it asked to draw again
+            // (a measured height), as macOS would for a window on screen.
             cx.background_executor()
                 .timer(Duration::from_millis(120))
                 .await;
+            cx.update_window(window, |_, window, cx| window.draw(cx).clear(cx))
+                .ok();
         }
         anyhow::Ok(())
     })
