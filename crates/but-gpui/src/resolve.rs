@@ -437,9 +437,18 @@ impl Render for ResolveView {
 }
 
 impl crate::app::AppView {
+    /// The selected commit, when it's conflicted: what both actions here act on. The
+    /// palette offers them anywhere, and a clean commit has nothing to resolve.
+    fn selected_conflicted(&self, cx: &gpui::App) -> Option<(ProjectId, CommitId)> {
+        let (project, commit) = self.selected_commit(cx)?;
+        let workspace = self.store.read(cx).workspace(&project)?;
+        let (_, found) = workspace.find_commit(commit)?;
+        found.conflicted.then_some((project, commit))
+    }
+
     /// Check the selected commit out to resolve its conflicts by hand.
     pub fn edit_by_hand(&mut self, _: &EditByHand, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some((project, commit)) = self.selected_commit(cx) {
+        if let Some((project, commit)) = self.selected_conflicted(cx) {
             self.store
                 .update(cx, |store, cx| store.edit_commit(&project, commit, cx));
         }
@@ -452,7 +461,7 @@ impl crate::app::AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((project, commit)) = self.selected_commit(cx) else {
+        let Some((project, commit)) = self.selected_conflicted(cx) else {
             return;
         };
         let store = self.store.clone();

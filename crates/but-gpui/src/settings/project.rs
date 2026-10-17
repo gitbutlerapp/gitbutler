@@ -112,12 +112,13 @@ impl SettingsView {
             })
             .detach();
         });
-        let target = self
-            .store
-            .read(cx)
-            .workspace(project)
+        let workspace = self.store.read(cx).workspace(project);
+        let target = workspace
             .and_then(|ws| ws.target.as_ref())
             .map(|t| t.name.clone());
+        // With stacks applied, their commits would be read against the new target from
+        // where the old one forked; GitButler's other apps don't allow it either.
+        let has_stacks = workspace.is_some_and(|ws| !ws.stacks.is_empty());
         let target_project = project.clone();
         let change_target = cx.listener(move |this, _: &ClickEvent, window, cx| {
             let project = target_project.clone();
@@ -220,9 +221,13 @@ impl SettingsView {
             Row {
                 section: Section::Project,
                 title: "Target branch".into(),
-                description: "What the workspace integrates into and pull requests aim at. \
-                              Branches move onto a new one at the next update."
-                    .into(),
+                description: if has_stacks {
+                    "What the workspace integrates into and pull requests aim at. To change it, \
+                     unapply every branch first."
+                } else {
+                    "What the workspace integrates into and pull requests aim at."
+                }
+                .into(),
                 control: h_flex()
                     .gap(px(8.))
                     .child(
@@ -235,6 +240,7 @@ impl SettingsView {
                     .child(
                         button("change-target", "Change…")
                             .small()
+                            .disabled(has_stacks)
                             .on_click(change_target),
                     )
                     .into_any_element(),

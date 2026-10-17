@@ -1,6 +1,6 @@
 //! The commit composer: which changes go in, the message, and the branch they land on.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use gpui::{AnyElement, App, Context, Focusable as _, Toggled, Window, div, prelude::*, px};
 
@@ -261,12 +261,46 @@ impl Detail {
                 .filter(|f| !keep.contains_key(f.path.as_str()))
                 .map(|f| f.path.clone())
                 .collect();
-            // Hunks stay out only where the staged change left them out.
-            self.line_picks.clear();
-            self.unchecked_hunks.retain(|(path, key)| {
-                keep.get(path.as_str())
-                    .is_some_and(|hunks| hunks.is_some_and(|picked| !picked.contains(key)))
+            // Of a file staged in part, just its picked hunks go in, and of a hunk it has
+            // picked lines of, just those lines; the rest stay out. Every other hunk and line
+            // choice goes.
+            let diff_shown = self.diff.as_ref().is_some_and(|diff| {
+                diff.key.source == DiffSource::Worktree && diff.key.project == project
             });
+            if !diff_shown {
+                // Hunks unknown until the diff loads: keep the choices the drop left out,
+                // and committing waits for the diff to tell them apart.
+                let left_out = |path: &str, key: &HunkKey| {
+                    keep.get(path)
+                        .is_some_and(|picked| picked.is_some_and(|picked| !picked.contains(key)))
+                };
+                self.unchecked_hunks
+                    .retain(|(path, key)| left_out(path, key));
+                self.line_picks.retain(|(path, key), _| left_out(path, key));
+                cx.emit(ChecksChanged);
+                self.focus_message(window, cx);
+                return;
+            }
+            let mut out = HashSet::new();
+            let mut lines = HashMap::new();
+            for (path, picked) in keep.iter().filter_map(|(p, picked)| Some((*p, (*picked)?))) {
+                for hunk in self.worktree_file_hunks(path) {
+                    let key = (path.to_owned(), hunk.key);
+                    let picks = (self.line_picks.get(&key))
+                        .filter(|picks| hunk.picked(picks).iter().all(|k| picked.contains(k)));
+                    match picks {
+                        _ if picked.contains(&hunk.key) => {}
+                        Some(picks) => {
+                            lines.insert(key, picks.clone());
+                        }
+                        None => {
+                            out.insert(key);
+                        }
+                    }
+                }
+            }
+            self.unchecked_hunks = out;
+            self.line_picks = lines;
         }
         cx.emit(ChecksChanged);
         self.focus_message(window, cx);
@@ -359,14 +393,7 @@ impl Detail {
             self.focus_message(window, cx);
             return;
         }
-        let diff_shown = self.diff.as_ref().is_some_and(|diff| {
-            diff.key.source == DiffSource::Worktree && diff.key.project == project
-        });
-        if !self.unchecked_hunks.is_empty() && !diff_shown {
-            // Hunk choices are only known against a loaded diff.
-            self.store.update(cx, |store, cx| {
-                store.snack("Still loading the diff, try again in a moment", cx)
-            });
+        if self.choices_loading(&project, cx) {
             return;
         }
         // Files a pending commit or discard already takes, as after a quick second click.
@@ -436,6 +463,22 @@ impl Detail {
 
     /// Add the checked changes to the newest commit of the target branch, keeping its
     /// message.
+    /// Whether hunk or line choices can't be told apart yet, as `project`'s diff is still
+    /// loading; says so when they can't.
+    fn choices_loading(&self, project: &ProjectId, cx: &mut Context<Self>) -> bool {
+        let diff_shown = self.diff.as_ref().is_some_and(|diff| {
+            diff.key.source == DiffSource::Worktree && diff.key.project == *project
+        });
+        let loading =
+            (!self.unchecked_hunks.is_empty() || !self.line_picks.is_empty()) && !diff_shown;
+        if loading {
+            self.store.update(cx, |store, cx| {
+                store.snack("Still loading the diff, try again in a moment", cx)
+            });
+        }
+        loading
+    }
+
     pub(super) fn amend_top(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
             return;
@@ -443,6 +486,9 @@ impl Detail {
         let Some((into, _)) = self.amend_target(&project, cx) else {
             return;
         };
+        if self.choices_loading(&project, cx) {
+            return;
+        }
         let files = self.selected_changes(cx);
         if files.is_empty() {
             self.store

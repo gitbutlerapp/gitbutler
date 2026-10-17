@@ -652,8 +652,30 @@ impl Store {
             .map(|entry| entry.id.clone())
             .collect();
         for id in expanded {
-            self.open_project(&id, cx);
+            self.rewatch(&id, cx);
+            self.reload(&id, cx);
         }
+    }
+
+    /// Start watching `id` over, as when the worktrees it should watch changed.
+    fn rewatch(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        let Some(entry) = self.project(id) else {
+            return;
+        };
+        let project = entry.project.clone();
+        let changes = self.changes.clone();
+        let id = id.clone();
+        cx.spawn(async move |this, cx| {
+            let watch_id = id.clone();
+            let watcher = backend::run(move || watch(&project, watch_id, changes)).await;
+            this.update(cx, |store, _| match (store.project_mut(&id), watcher) {
+                (Some(entry), Ok(watcher)) if entry.expanded => entry.watcher = Some(watcher),
+                (_, Err(err)) => tracing::warn!("couldn't watch {id} again: {err:#}"),
+                _ => {}
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Prepare `id` for display and start watching it, then load it.
@@ -670,9 +692,7 @@ impl Store {
             let watch_id = id.clone();
             let watcher = backend::run(move || {
                 backend::activate(&project.path)?;
-                backend::watch::watch(&project, move |git, linked| {
-                    changes.unbounded_send((watch_id.clone(), git, linked)).ok();
-                })
+                watch(&project, watch_id, changes)
             })
             .await;
             this.update(cx, |store, cx| {
@@ -748,7 +768,7 @@ impl Store {
                 let queued = std::mem::take(&mut entry.queued);
                 match result {
                     Ok(workspace) => {
-                        if full {
+                        if full && workspace.worktrees_listed {
                             store.forget_gone_worktrees(&id, &workspace);
                         }
                         store.workspace_loaded(&id, workspace, !again, cx)
@@ -758,7 +778,7 @@ impl Store {
                 // A queued reload has newer data; checking against this one could drop a
                 // selection a mutation just made.
                 if !again {
-                    store.validate_selection(cx);
+                    store.validate_selection(&id, cx);
                 }
                 if settles {
                     store.settled(&id, cx);
@@ -774,12 +794,10 @@ impl Store {
         .detach();
     }
 
-    /// Forget the review marks of `id`'s worktrees that a full load found gone, neither
-    /// listed nor archived. Not while editing, which lists no worktrees.
+    /// Forget the review marks of `id`'s worktrees that a full load listed as gone, neither
+    /// active nor archived, as when an agent removes one: one recreated under its name
+    /// starts over.
     fn forget_gone_worktrees(&mut self, id: &ProjectId, workspace: &Workspace) {
-        if workspace.editing.is_some() {
-            return;
-        }
         let prefix = format!("{id}#");
         let names: HashSet<&str> = (workspace.worktrees.iter())
             .map(|worktree| &*worktree.name)
@@ -868,8 +886,11 @@ impl Store {
     }
 
     /// Keep the selection pointing at something that still exists after a reload.
-    fn validate_selection(&mut self, cx: &mut Context<Self>) {
-        let Some(selection) = self.selection.clone() else {
+    /// Keep the selection pointing at something that still exists after `id` reloaded.
+    /// Another project's selection waits for its own reload: it may be what an operation
+    /// there just made.
+    fn validate_selection(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        let Some(selection) = self.selection.clone().filter(|s| s.project() == id) else {
             return;
         };
         let Some(workspace) = self.workspace(selection.project()) else {
@@ -979,20 +1000,45 @@ impl Store {
                 .collect();
             self.picked = if picked.len() > 1 { picked } else { Vec::new() };
         }
+        // A cut commit follows the same way, and the cut goes with the commit; a commit
+        // picked from outside the workspace stays as it is.
+        if let Some(mut cut) = self.cut.take_if(|cut| cut.project() == id) {
+            let old = self.workspace(id);
+            let follow = |commit: CommitId| -> Option<CommitId> {
+                let Some((_, old)) = old.and_then(|old| old.find_commit(commit)) else {
+                    return Some(commit);
+                };
+                if workspace.find_commit(commit).is_some() {
+                    return Some(commit);
+                }
+                let mut commits = workspace.commits();
+                commits.find(|new| new.key == old.key).map(|new| new.id)
+            };
+            let kept = match &mut cut {
+                Cut::Commit(_, commit)
+                | Cut::Pick(_, commit)
+                | Cut::Files {
+                    from: Some(commit), ..
+                } => follow(*commit).map(|new| *commit = new).is_some(),
+                Cut::Branch(..) | Cut::Files { from: None, .. } => true,
+            };
+            self.cut = kept.then_some(cut);
+        }
         // The file watcher learns which worktrees to watch when it starts, so one added,
-        // shown again or archived starts it over.
+        // shown again or archived starts it over. Edit mode lists none, so going in and out
+        // of it doesn't count.
         let unwatched = self.workspace(id).is_some_and(|old| {
             let names = |ws: &backend::Workspace| -> HashSet<Arc<str>> {
                 ws.worktrees.iter().map(|w| w.name.clone()).collect()
             };
-            names(old) != names(&workspace)
+            old.editing.is_none() && names(old) != names(&workspace)
         });
         if let Some(entry) = self.project_mut(id) {
             entry.workspace = Some(workspace);
             entry.error = None;
         }
         if unwatched {
-            self.open_project(id, cx);
+            self.rewatch(id, cx);
         }
         if let Some(commit) = rewritten {
             let picked = std::mem::take(&mut self.picked);
@@ -1214,4 +1260,15 @@ fn load_error(project: &backend::Project, err: &anyhow::Error) -> SharedString {
     } else {
         "The project's folder isn't there any more.".into()
     }
+}
+
+/// Watch `project` for changes, sending them as `id`'s to `changes`.
+fn watch(
+    project: &Project,
+    id: ProjectId,
+    changes: mpsc::UnboundedSender<(ProjectId, bool, Option<Arc<str>>)>,
+) -> anyhow::Result<Watcher> {
+    backend::watch::watch(project, move |git, linked| {
+        changes.unbounded_send((id.clone(), git, linked)).ok();
+    })
 }

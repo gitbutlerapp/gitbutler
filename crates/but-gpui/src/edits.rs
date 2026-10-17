@@ -241,8 +241,20 @@ impl AppView {
         }
     }
 
+    /// The selected commit, for an action on one commit; with several picked, which looks
+    /// like several selected, it says so instead.
+    pub(crate) fn single_commit(&self, cx: &mut Context<Self>) -> Option<(ProjectId, CommitId)> {
+        if self.store.read(cx).picked.len() > 1 {
+            self.store.update(cx, |store, cx| {
+                store.snack("That works on one commit: click one to pick just it", cx)
+            });
+            return None;
+        }
+        self.selected_commit(cx)
+    }
+
     fn move_step(&mut self, up: bool, cx: &mut Context<Self>) {
-        let Some((project, id)) = self.selected_commit(cx) else {
+        let Some((project, id)) = self.single_commit(cx) else {
             return;
         };
         let to = self
@@ -294,7 +306,7 @@ impl AppView {
 
     /// Pick up the selected commit to put a copy of it where ⌘V lands.
     fn cherry_pick(&mut self, _: &CherryPick, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some((project, id)) = self.selected_commit(cx) {
+        if let Some((project, id)) = self.single_commit(cx) {
             self.cut(Cut::Pick(project, id), cx);
         }
     }

@@ -140,8 +140,11 @@ impl Detail {
         if let Some(id) = self.selected_branch_commit(project) {
             return Some(DiffSource::Commit(id));
         }
-        let tip = self.selected_other_branch(project)?.tip;
-        Some(DiffSource::Branch { tip })
+        let branch = self.selected_other_branch(project)?;
+        Some(DiffSource::Branch {
+            tip: branch.tip,
+            ahead: branch.ahead,
+        })
     }
 
     /// The commit of the selected branch the page shows, if one is selected.
@@ -248,6 +251,7 @@ impl Detail {
             branches.selected = Some(ref_name);
             branches.commit = None;
         }
+        self.reset_view();
         self.load_branch_commits(cx);
         self.refresh_diff(true, cx);
         cx.notify();
@@ -286,6 +290,7 @@ impl Detail {
         if let Some(branches) = &mut self.branches {
             branches.commit = Some(id);
         }
+        self.reset_view();
         self.refresh_diff(true, cx);
         cx.notify();
     }
@@ -367,7 +372,8 @@ impl Detail {
             .update(cx, |app, cx| {
                 app.confirm_then(
                     format!("Delete branch {name}?"),
-                    "Its commits go too, unless a remote has them. You can undo this with ⌘Z.",
+                    "Its commits go too, unless a remote has them. Undo can't bring back a branch \
+                     outside the workspace.",
                     "Delete",
                     window,
                     cx,
@@ -378,7 +384,7 @@ impl Detail {
                                 "Delete branch",
                                 Overlay::default(),
                                 move |path, _| backend::remove_branch(path, &ref_name),
-                                |store, (), cx| store.snack_undoable("Branch deleted", cx),
+                                |store, (), cx| store.snack("Branch deleted", cx),
                                 cx,
                             )
                         })

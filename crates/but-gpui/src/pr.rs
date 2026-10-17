@@ -458,8 +458,9 @@ impl AppView {
         };
         let push = ws.find_branch(&branch).and_then(|b| match b.push {
             PushState::NothingToPush | PushState::Integrated => None,
-            PushState::NeedsForce => Some(true),
-            PushState::Unpushed | PushState::NeverPushed => Some(false),
+            PushState::NeedsForce | PushState::Unpushed | PushState::NeverPushed => {
+                Some(ws.needs_force(&branch))
+            }
         });
         let store = self.store.clone();
         let view =

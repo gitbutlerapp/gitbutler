@@ -194,10 +194,18 @@ impl Navigator {
                 }
                 for branch in &stack.branches {
                     let key = (id.clone(), branch.ref_name.clone());
+                    // Past the fold, but never past the selected commit, as after moving it
+                    // down a step.
+                    let selected_at = match &store.selection {
+                        Some(Selection::Commit(p, c)) if p == id => {
+                            branch.commits.iter().position(|commit| commit.id == *c)
+                        }
+                        _ => None,
+                    };
                     let shown = if self.unfolded_branches.contains(&key) {
                         branch.commits.len()
                     } else {
-                        FOLD_AFTER
+                        FOLD_AFTER.max(selected_at.map_or(0, |at| at + 1))
                     };
                     let closed = self.closed_branches.contains(&key)
                         && !matches!(&store.selection, Some(Selection::Commit(p, c))
@@ -1209,7 +1217,10 @@ impl Navigator {
                     let picked = matches!(&menu_target,
                         Selection::Commit(_, id) if this.store.read(cx).picked.contains(id));
                     if !items.is_empty() {
-                        if !picked {
+                        if picked {
+                            // The picks' actions are the navigator's, dispatched from focus.
+                            window.focus(&this.focus, cx);
+                        } else {
                             this.select(menu_target.clone(), window, cx);
                         }
                         this.app
