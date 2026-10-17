@@ -179,6 +179,75 @@ pub fn verdicts(path: &Path, number: u64) -> Result<Verdicts> {
     })
 }
 
+/// A conversation left on a pull request's diff and not resolved yet.
+#[derive(Debug, Clone)]
+pub struct Thread {
+    /// The forge's own identifier, to resolve it by.
+    pub id: String,
+    pub path: String,
+    /// Its line on the new side of the diff as it is now, when it still has one.
+    pub line: Option<u32>,
+    /// Who opened it, and the first line of what they wrote.
+    pub author: String,
+    pub opening: String,
+    pub replies: usize,
+    pub url: String,
+}
+
+/// Where a pull request's review stands: the reviewers' verdicts and the conversations
+/// still open on its diff.
+#[derive(Debug, Default)]
+pub struct Feedback {
+    pub verdicts: Verdicts,
+    pub threads: Vec<Thread>,
+}
+
+/// What [`verdicts`] and the open threads of pull request `number` come to. Either can
+/// fail on its own, as a forge may not offer one: only both failing is an error.
+pub fn feedback(path: &Path, number: u64) -> Result<Feedback> {
+    use but_forge::ForgeReviewThreadSide as Side;
+    let verdicts = verdicts(path, number);
+    let threads = (|| -> Result<Vec<Thread>> {
+        let ctx = open(path)?.into_sync();
+        let threads = runtime()
+            .handle()
+            .block_on(forge::list_review_threads(ctx, number as usize))?;
+        Ok((threads.into_iter())
+            .filter(|thread| !thread.is_resolved)
+            .filter_map(|thread| {
+                let first = thread.comments.first()?;
+                Some(Thread {
+                    line: (thread.line)
+                        .filter(|_| matches!(thread.side, Side::New))
+                        .and_then(|line| u32::try_from(line).ok()),
+                    author: (first.author.as_ref())
+                        .map_or_else(String::new, |author| author.login.clone()),
+                    opening: first.body.lines().next().unwrap_or_default().to_owned(),
+                    replies: thread.comments.len() - 1,
+                    url: first.html_url.clone(),
+                    id: thread.id,
+                    path: thread.path,
+                })
+            })
+            .collect())
+    })();
+    match (verdicts, threads) {
+        (Err(err), Err(_)) => Err(err),
+        (verdicts, threads) => Ok(Feedback {
+            verdicts: verdicts.unwrap_or_default(),
+            threads: threads.unwrap_or_default(),
+        }),
+    }
+}
+
+/// Mark a conversation on a pull request's diff resolved.
+pub fn resolve_thread(path: &Path, id: String) -> Result<()> {
+    let ctx = open(path)?.into_sync();
+    runtime()
+        .handle()
+        .block_on(forge::set_review_thread_resolved(ctx, id, true))
+}
+
 /// Who can be asked to review: the logins of the repository's collaborators, bots left
 /// out, in alphabetical order.
 pub fn reviewer_candidates(path: &Path) -> Result<Vec<String>> {
