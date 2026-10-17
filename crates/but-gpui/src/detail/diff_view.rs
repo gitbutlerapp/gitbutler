@@ -966,11 +966,11 @@ fn review_button(
         .child(checkbox(("review-check", ix), check, theme))
         .child(label)
         .tooltip(move |_, cx| {
-            crate::ui::Tooltip::with_key(
-                "Mark reviewed and go to the next file".into(),
-                key.clone(),
-                cx,
-            )
+            let text = match review {
+                Review::Reviewed => "Mark not reviewed",
+                _ => "Mark reviewed and go to the next file",
+            };
+            crate::ui::Tooltip::with_key(text.into(), key.clone(), cx)
         })
         .on_click(move |_, _, cx| {
             cx.stop_propagation();

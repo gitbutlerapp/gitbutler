@@ -42,7 +42,7 @@ pub fn bind_keys(cx: &mut gpui::App) {
 
 /// Every command, in the order they're listed before anything is typed.
 const COMMANDS: &[(&str, &dyn Action)] = &[
-    ("Mark file reviewed", &ToggleReviewed),
+    ("Mark file reviewed or not", &ToggleReviewed),
     ("Next hunk", &NextHunk),
     ("Previous hunk", &PreviousHunk),
     ("Next file", &NextFile),

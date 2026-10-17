@@ -74,7 +74,7 @@ impl Detail {
                             .child(if branch.is_some() {
                                 "On"
                             } else {
-                                "Detached HEAD"
+                                "No branch checked out"
                             })
                             .children(branch)
                             .child(format!("· {files_count} uncommitted")),

@@ -114,9 +114,14 @@ impl Navigator {
                 {
                     return Vec::new();
                 }
+                // Only the composer checks files; without it, discarding takes them all.
+                let discard = match self.detail.read(cx).composing() {
+                    true => "Discard checked changes…",
+                    false => "Discard all changes…",
+                };
                 vec![
                     action("Commit…", &StartCommit),
-                    action("Discard checked changes…", &DeleteSelection).danger(),
+                    action(discard, &DeleteSelection).danger(),
                 ]
             }
             Selection::Branch(project, ref_name) => {
