@@ -224,7 +224,7 @@ impl Transfer {
             Transfer::Squash { .. } => "Squash into",
             Transfer::Amend { .. } => "Amend",
             Transfer::MoveFiles { .. } => "Move into",
-            Transfer::StageOnBranch { .. } => "Commit here",
+            Transfer::StageOnBranch { .. } => "Start a commit here",
         }
     }
 
@@ -240,7 +240,7 @@ impl Transfer {
             Transfer::Amend { into, .. } => format!("Amend {}", into.short()).into(),
             Transfer::MoveFiles { to, .. } => format!("Move into {}", to.short()).into(),
             Transfer::StageOnBranch { branch, .. } => {
-                format!("Commit to {}", short_ref(branch)).into()
+                format!("Start a commit on {}", short_ref(branch)).into()
             }
         }
     }

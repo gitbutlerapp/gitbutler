@@ -242,7 +242,7 @@ impl SettingsView {
                  Pick a provider here to use that instead."
             )
         } else if config.is_configured {
-            "Writes commit messages and pull request descriptions when you ask.".into()
+            "Writes commit messages and pull request descriptions, and suggests conflict merges, when you ask.".into()
         } else {
             format!("{provider_name} needs a key before it can write anything.")
         };

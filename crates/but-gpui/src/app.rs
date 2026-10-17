@@ -223,7 +223,7 @@ impl AppView {
             ),
             n => (
                 format!("Quit before {n} operations finish?"),
-                "The running one may stop partway, and the rest won't run.",
+                "Those running may stop partway, and the rest won't run.",
             ),
         };
         self.confirm_then(message, detail, "Quit", window, cx, |_, cx| cx.quit());

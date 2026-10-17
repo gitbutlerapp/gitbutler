@@ -696,14 +696,17 @@ impl Detail {
             }
             None if total == 0 => (
                 format!("{} left conflicted", plural(other, "file")),
-                "Its menu marks a file resolved, taking it as it is.".into(),
+                "Right-click a file to mark it resolved as it is.".into(),
                 None,
             ),
             None if decided == total => (
                 format!("{} ready to apply", plural(total, "conflict")),
-                match total {
-                    1 => "Apply resolves it in one step you can undo.".into(),
-                    _ => "Apply resolves them in one step you can undo.".into(),
+                // The oplog only records the main checkout.
+                match (total, matches!(conflicted, Conflicted::Files(Some(_)))) {
+                    (1, false) => "Apply resolves it in one step you can undo.".into(),
+                    (_, false) => "Apply resolves them in one step you can undo.".into(),
+                    (1, true) => "Apply resolves it. A linked worktree can't undo it.".into(),
+                    (_, true) => "Apply resolves them. A linked worktree can't undo it.".into(),
                 },
                 apply,
             ),

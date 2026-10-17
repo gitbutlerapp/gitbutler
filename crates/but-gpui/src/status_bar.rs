@@ -62,7 +62,12 @@ impl AppView {
                         )
                     }
                     0 => format!("{} · up to date with {}", entry.project.name, target.name),
-                    n => format!("{} · {n} behind {}", entry.project.name, target.name),
+                    n => format!(
+                        "{} · {} behind {}",
+                        entry.project.name,
+                        crate::ui::plural(n, "commit"),
+                        target.name
+                    ),
                 })
             });
             div().children(summary).into_any_element()
