@@ -23,6 +23,7 @@ but_schemars::register_sdk_type!(TelemetryUpdate);
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
     pub worktree_manipulation: Option<bool>,
+    pub lite_frontend: Option<bool>,
 }
 but_schemars::register_sdk_type!(FeatureFlagsUpdate);
 
@@ -90,11 +91,15 @@ impl AppSettingsWithDiskSync {
         &self,
         FeatureFlagsUpdate {
             worktree_manipulation,
+            lite_frontend,
         }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
         if let Some(worktree_manipulation) = worktree_manipulation {
             settings.feature_flags.worktree_manipulation = worktree_manipulation;
+        }
+        if let Some(lite_frontend) = lite_frontend {
+            settings.feature_flags.lite_frontend = lite_frontend;
         }
         settings.save()
     }
@@ -150,6 +155,7 @@ mod tests {
         settings
             .update_feature_flags(FeatureFlagsUpdate {
                 worktree_manipulation: Some(enabled),
+                ..Default::default()
             })
             .unwrap();
 
@@ -174,6 +180,7 @@ mod tests {
         settings
             .update_feature_flags(FeatureFlagsUpdate {
                 worktree_manipulation: Some(true),
+                ..Default::default()
             })
             .unwrap();
         settings

@@ -2964,6 +2964,7 @@ export type FeatureFlags = {
 /** Update request for [`crate::app_settings::FeatureFlags`]. */
 export type FeatureFlagsUpdate = {
   worktreeManipulation?: boolean | null;
+  liteFrontend?: boolean | null;
 };
 
 export type Fetch = {
