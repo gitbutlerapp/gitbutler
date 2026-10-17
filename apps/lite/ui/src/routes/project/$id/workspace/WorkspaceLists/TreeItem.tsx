@@ -2,6 +2,8 @@ import { addressEquals, addressIdentityKey, type Address } from "#ui/addresses.t
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getOperation, type Placement } from "#ui/operations/operation.ts";
+import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getTransferKind, getTransferTarget } from "#ui/operations/pending-operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -14,6 +16,7 @@ import { useAppSelector } from "#ui/store.ts";
 import { useActiveList, useIsCursorAt, useSelection } from "#ui/use-cursor.ts";
 import { addressSpaceIncludes } from "#ui/workspace/address-space.ts";
 import { mergeProps, useRender } from "@base-ui/react";
+import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import type { FC } from "react";
 import { treeItemId } from "../Row-utils.ts";
@@ -53,6 +56,10 @@ export const OperationTarget: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ enabled, address, projectId, outline, render, ...props }) => {
 	const dropRef = useOperationDropTarget({ enabled, target: address, projectId });
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	// The row's own ref, when one is passed down, and the drop target's.
 	const ref = useMergedRefs(props.ref, dropRef);
 
@@ -95,6 +102,7 @@ export const OperationTarget: FC<
 							target: address,
 							placement: mode.placement,
 							kind: getTransferKind(mode),
+							context: { headInfoIndex },
 						})?.label,
 					};
 				},

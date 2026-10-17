@@ -13,6 +13,7 @@ import type { ChangesSource, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { type Address, addressEquals, addressFileParent, changesSourceOf } from "#ui/addresses.ts";
 import { fileParentFromSources, resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { addErrorToast } from "#ui/errors.ts";
 import { syncCoreCaches } from "#ui/api/mutations.ts";
@@ -385,10 +386,12 @@ const moveOperation = ({
 	sources,
 	target,
 	side,
+	context,
 }: {
 	sources: Array<Address>;
 	target: Address;
 	side: InsertSide;
+	context: OperationContext;
 }): LabelledOperation | null => {
 	const relativeTo: RelativeTo | null = Match.value({ target, side }).pipe(
 		Match.when({ target: { _tag: "Commit" } }, ({ target }): RelativeTo | null => ({
@@ -480,6 +483,36 @@ const moveOperation = ({
 				label: "Move above",
 			}),
 		),
+		Match.when(
+			{
+				source: { _tag: "Branch" },
+				target: { _tag: "Commit" },
+				side: "below",
+			},
+			({ source, target }): LabelledOperation | null => {
+				// Under a branch's last commit is under the branch, where the moved
+				// branch slots in whole; under any other commit it would split the
+				// branch's commits. A branch can't go under its own last commit.
+				const branch = context.headInfoIndex?.laneBranchByCommitId(target.commitId);
+				const refName = branch?.segment.refName;
+				if (
+					!branch ||
+					!refName ||
+					branch.segment.commits.at(-1)?.id !== target.commitId ||
+					decodeBytes(refName.fullNameBytes) === decodeBytes(source.branchRef)
+				)
+					return null;
+				return {
+					operation: {
+						_tag: "MoveBranch",
+						subjectBranch: decodeBytes(source.branchRef),
+						relativeTo: { type: "commit", subject: target.commitId },
+						side: "below",
+					},
+					label: "Move below",
+				};
+			},
+		),
 		Match.orElse(() => null),
 	);
 
@@ -547,10 +580,14 @@ const cherryPickOperation = ({
 	};
 };
 
+/** What the lists know beyond the addresses, for the placements that need it. */
+type OperationContext = { headInfoIndex?: HeadInfoIndex | undefined };
+
 export const getOperations = (
 	sources: Array<Address>,
 	target: Address,
 	kind: TransferKind,
+	context: OperationContext = {},
 ): OperationsByPlacement => {
 	if (sources.length === 0 || !sources.every(isOperationSourceEnabled)) {
 		return {
@@ -573,8 +610,8 @@ export const getOperations = (
 
 			return {
 				into: intoOperation({ sources, target }),
-				above: moveOperation({ sources, target, side: "above" }),
-				below: moveOperation({ sources, target, side: "below" }),
+				above: moveOperation({ sources, target, side: "above", context }),
+				below: moveOperation({ sources, target, side: "below", context }),
 			};
 	}
 };
@@ -584,4 +621,5 @@ export const getOperation = (x: {
 	target: Address;
 	placement: Placement;
 	kind: TransferKind;
-}): LabelledOperation | null => getOperations(x.sources, x.target, x.kind)[x.placement];
+	context?: OperationContext;
+}): LabelledOperation | null => getOperations(x.sources, x.target, x.kind, x.context)[x.placement];

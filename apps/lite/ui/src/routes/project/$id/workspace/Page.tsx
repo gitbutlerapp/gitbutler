@@ -13,7 +13,9 @@ import {
 	listProjectsQueryOptions,
 	operatingModeQueryOptions,
 	worktreeChangesQueryOptions,
+	headInfoQueryOptions,
 } from "#ui/api/queries.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { compareFilePaths } from "#ui/file-order.ts";
 import type { WorktreeChanges } from "@gitbutler/but-sdk";
 import { EditModePage } from "./EditModePage.tsx";
@@ -437,6 +439,10 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
 	);
 
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	const appliedAddressSpace = buildAppliedAddressSpace({
 		stacks: graph.stacks,
 		plan: graph.plan,
@@ -444,6 +450,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		pendingOperation,
 		absorptionTargetCommitIds,
 		foldedSegments,
+		headInfoIndex,
 	});
 
 	const page = usePage();

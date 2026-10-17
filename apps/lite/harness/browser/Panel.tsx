@@ -3,7 +3,12 @@ import { useParams } from "@tanstack/react-router";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Match } from "effect";
 import type { FC } from "react";
-import { absorptionPlanQueryOptions, changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
+import {
+	absorptionPlanQueryOptions,
+	changesInWorktreeQueryOptions,
+	headInfoQueryOptions,
+} from "#ui/api/queries.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { focusScope } from "#ui/focus-scopes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { buildAppliedAddressSpace } from "#ui/routes/project/$id/workspace/applied-address-space.ts";
@@ -48,6 +53,10 @@ export const Panel: FC = () => {
 		projectSlice.selectors.selectFoldedSegments(state, projectId),
 	);
 	const graph = usePlan(projectId);
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	const appliedAddressSpace = buildAppliedAddressSpace({
 		stacks: graph.stacks,
 		plan: graph.plan,
@@ -55,6 +64,7 @@ export const Panel: FC = () => {
 		pendingOperation,
 		absorptionTargetCommitIds,
 		foldedSegments,
+		headInfoIndex,
 	});
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));

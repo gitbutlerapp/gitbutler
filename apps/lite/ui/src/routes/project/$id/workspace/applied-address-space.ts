@@ -9,6 +9,7 @@ import {
 	type Address,
 } from "#ui/addresses.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getOperations, type TransferKind } from "#ui/operations/operation.ts";
 import { getTransferKind, type PendingOperation } from "#ui/operations/pending-operation.ts";
 import { buildIndexByKey, type AddressSpace } from "#ui/workspace/address-space.ts";
@@ -19,8 +20,13 @@ import { sectionAddresses, worktreesOnTip, type Plan } from "./Graph/layout.ts";
 /** A row of the list, and whether operations may take it as a source or target. */
 type Row = { address: Address; owned: boolean };
 
-const hasAnyOperation = (sources: Array<Address>, target: Address, kind: TransferKind) => {
-	const operations = getOperations(sources, target, kind);
+const hasAnyOperation = (
+	sources: Array<Address>,
+	target: Address,
+	kind: TransferKind,
+	headInfoIndex: HeadInfoIndex | undefined,
+) => {
+	const operations = getOperations(sources, target, kind, { headInfoIndex });
 	return !!operations.into || !!operations.above || !!operations.below;
 };
 
@@ -36,6 +42,7 @@ export const buildAppliedAddressSpace = ({
 	pendingOperation,
 	absorptionTargetCommitIds,
 	foldedSegments,
+	headInfoIndex,
 }: {
 	/** The cards in the graph's order, as `usePlan` gives them. */
 	stacks: ReadonlyArray<Stack>;
@@ -45,6 +52,8 @@ export const buildAppliedAddressSpace = ({
 	pendingOperation: PendingOperation;
 	absorptionTargetCommitIds: ReadonlySet<string>;
 	foldedSegments: Record<string, true>;
+	/** For the placements that need a commit's branch; undefined while head info loads. */
+	headInfoIndex: HeadInfoIndex | undefined;
 }): AddressSpace<Address> => {
 	// Operations take a card's rows, a worktree's uncommitted files, and a
 	// worktree's branches; not the section's rows or a worktree's own commits.
@@ -139,7 +148,7 @@ export const buildAppliedAddressSpace = ({
 				compatibleItems({
 					sources: operation.sources,
 					isCompatibleTarget: (address) =>
-						hasAnyOperation(operation.sources, address, getTransferKind(operation)),
+						hasAnyOperation(operation.sources, address, getTransferKind(operation), headInfoIndex),
 				}),
 			InlineEdit: (x) => [x.address],
 		}),
