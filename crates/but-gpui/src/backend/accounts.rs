@@ -7,24 +7,7 @@ use but_github::GithubAccountIdentifier as GitHub;
 use but_gitlab::GitlabAccountIdentifier as GitLab;
 use but_secret::Sensitive;
 
-use super::runtime;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Forge {
-    GitHub,
-    GitLab,
-    Bitbucket,
-}
-
-impl Forge {
-    pub fn name(self) -> &'static str {
-        match self {
-            Forge::GitHub => "GitHub",
-            Forge::GitLab => "GitLab",
-            Forge::Bitbucket => "Bitbucket",
-        }
-    }
-}
+use super::{Forge, runtime};
 
 #[derive(Debug, Clone)]
 pub enum AccountId {
@@ -114,6 +97,7 @@ pub fn add_token(forge: Forge, token: String, email: Option<String>) -> Result<S
             ))?;
             email
         }
+        Forge::Azure => bail!("GitButler can't sign in to Azure yet"),
     })
 }
 

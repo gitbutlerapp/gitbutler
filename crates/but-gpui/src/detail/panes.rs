@@ -11,15 +11,14 @@ use gpui::{
 use super::Detail;
 use super::pull_request::{render_comments, render_review};
 use crate::app::StartCommit;
-use crate::backend::{self, CommitState, FileChange, PushState};
+use crate::backend::{self, CommitState, FileChange, Forge, PushState, short_ref};
 use crate::state::{ProjectId, Review, Selection};
 use crate::theme::Theme;
-use crate::transfer::short_ref;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, button, empty_state, h_flex, icon, icon_button,
-    plural, relative_time, shortcut, small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, button, empty_state, faint, h_flex, icon,
+    icon_button, muted, plural, relative_time, section_label, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -55,9 +54,7 @@ impl Detail {
                                 "Fetch from the project's remotes",
                                 shortcut(&crate::app::Fetch, cx),
                             )
-                            .on_click(|_, window, cx| {
-                                window.dispatch_action(Box::new(crate::app::Fetch), cx)
-                            })
+                            .dispatch(&crate::app::Fetch)
                             .into_any_element(),
                     );
                     if let Some(target) = needs_update {
@@ -69,10 +66,7 @@ impl Detail {
                                     "Rebase every stack onto the target's new commits",
                                     shortcut(&crate::app::UpdateFromTarget, cx),
                                 )
-                                .on_click(|_, window, cx| {
-                                    window
-                                        .dispatch_action(Box::new(crate::app::UpdateFromTarget), cx)
-                                })
+                                .dispatch(&crate::app::UpdateFromTarget)
                                 .into_any_element(),
                         );
                     }
@@ -83,19 +77,18 @@ impl Detail {
                 }
                 Selection::Branch(_, ref_name) => {
                     crumbs.push((short_ref(ref_name).to_owned().into(), None));
-                    let can_create = workspace
-                        .and_then(|ws| ws.find_branch(ref_name))
-                        .is_some_and(|b| b.review.is_none() && !b.commits.is_empty())
+                    // An unnamed branch has no ref to open a pull request from.
+                    let can_create = !ref_name.is_empty()
+                        && workspace
+                            .and_then(|ws| ws.find_branch(ref_name))
+                            .is_some_and(|b| b.review.is_none() && !b.commits.is_empty())
                         && crate::pr::on_forge(store, selection);
                     if can_create {
                         actions.push(
                             button("create-pr", "Create pull request")
                                 .icon(Icon::Pr)
                                 .style(ButtonStyle::Ghost)
-                                .on_click(|_, window, cx| {
-                                    window
-                                        .dispatch_action(Box::new(crate::pr::CreatePullRequest), cx)
-                                })
+                                .dispatch(&crate::pr::CreatePullRequest)
                                 .into_any_element(),
                         );
                     }
@@ -115,9 +108,7 @@ impl Detail {
                                     "Push this branch and the ones below it",
                                     shortcut(&crate::app::Push, cx),
                                 )
-                                .on_click(|_, window, cx| {
-                                    window.dispatch_action(Box::new(crate::app::Push), cx)
-                                })
+                                .dispatch(&crate::app::Push)
                                 .into_any_element(),
                         );
                     }
@@ -202,7 +193,7 @@ impl Detail {
         let scope = key.review_scope()?;
         let store = self.store.read(cx);
         let files = key.uncommitted(store)?;
-        if (files.iter()).all(|f| store.review(&scope, f) == Review::Reviewed) {
+        if store.unreviewed(&scope, files) == 0 {
             return None;
         }
         let store = self.store.clone();
@@ -286,8 +277,7 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
-        let Some((branch, commit)) = store.workspace(project).and_then(|ws| ws.find_commit(id))
-        else {
+        let Some((branch, commit)) = store.find_commit(project, id) else {
             return empty_state("Commit not found", "", theme);
         };
         let body = commit
@@ -318,13 +308,7 @@ impl Detail {
                     h_flex()
                         .gap(px(8.))
                         .justify_end()
-                        .child(
-                            div()
-                                .flex_1()
-                                .text_size(px(11.))
-                                .text_color(theme.text_3)
-                                .child("⌘↩ to save, esc to cancel"),
-                        )
+                        .child(faint("⌘↩ to save, esc to cancel", theme).flex_1())
                         .child(
                             button("cancel-reword", "Cancel")
                                 .small()
@@ -493,10 +477,8 @@ impl Detail {
                 })
             });
         let resolve_oldest = oldest.map(|(holder, commit)| {
-            let (store, oldest) = (
-                self.store.clone(),
-                Selection::Commit(project.clone(), commit.id),
-            );
+            let (store, app) = (self.store.clone(), self.app.clone());
+            let (project, id) = (project.clone(), commit.id);
             conflict_bar(
                 match conflicted {
                     1 => "A commit has conflicts".to_owned(),
@@ -509,8 +491,12 @@ impl Detail {
                 },
                 theme,
                 move |_, window, cx| {
-                    store.update(cx, |store, cx| store.select(Some(oldest.clone()), cx));
-                    window.dispatch_action(Box::new(crate::resolve::ResolveConflicts), cx)
+                    let oldest = Selection::Commit(project.clone(), id);
+                    store.update(cx, |store, cx| store.select(Some(oldest), cx));
+                    app.update(cx, |app, cx| {
+                        app.resolve_commit(project.clone(), id, window, cx)
+                    })
+                    .ok();
                 },
             )
         });
@@ -531,22 +517,17 @@ impl Detail {
                                     .child(branch.name.clone()),
                             ),
                     )
-                    .child(
-                        div()
-                            .text_size(px(12.))
-                            .text_color(theme.text_2)
-                            .child(format!(
-                                "{} · {push}",
-                                plural(branch.commits.len(), "commit")
-                            )),
-                    )
+                    .child(muted(
+                        format!("{} · {push}", plural(branch.commits.len(), "commit")),
+                        theme,
+                    ))
                     .children(resolve_oldest),
             )
             .when_some(branch.review.as_ref(), |el, review| {
                 let feedback = (self.feedback.as_ref())
                     .filter(|(p, number, _)| p == project && *number == review.number)
                     .map(|(.., feedback)| feedback);
-                let github = ws.forge.as_deref() == Some("GitHub");
+                let github = ws.forge == Some(Forge::GitHub);
                 // At most half the pane, scrolling on its own, so the files stay in view.
                 el.child(
                     v_flex()
@@ -571,8 +552,12 @@ impl Detail {
                 )
             })
             .when(!branch.incoming.is_empty(), |el| {
-                let stacked = ws.has_branches_above(ref_name);
-                el.child(render_incoming(&branch.incoming, !stacked, theme, cx))
+                el.child(render_incoming(
+                    &branch.incoming,
+                    ws.can_pull(ref_name),
+                    theme,
+                    cx,
+                ))
             })
             .child(files)
             .into_any_element()
@@ -708,16 +693,13 @@ pub(super) fn side_list(
 }
 
 /// A group's heading in a side list, sitting on the rows under it.
-pub(super) fn list_heading(text: impl Into<SharedString>, theme: &Theme) -> AnyElement {
-    div()
+pub(super) fn list_heading(text: impl IntoElement, theme: &Theme) -> AnyElement {
+    section_label(text, theme)
         .w_full()
         .h(px(ROW_HEIGHT))
         .flex()
         .items_end()
         .px(px(14.))
         .pb(px(4.))
-        .text_size(px(11.))
-        .text_color(theme.text_3)
-        .child(text.into())
         .into_any_element()
 }

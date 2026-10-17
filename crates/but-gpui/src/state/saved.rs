@@ -204,7 +204,11 @@ pub(super) struct WindowPlace {
 
 impl Saved {
     fn path() -> Option<PathBuf> {
-        Some(but_path::app_config_dir().ok()?.join("gpui-state.json"))
+        Some(
+            crate::backend::settings::config_dir()
+                .ok()?
+                .join("gpui-state.json"),
+        )
     }
 
     pub(super) fn load() -> Self {

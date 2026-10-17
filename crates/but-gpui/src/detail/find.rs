@@ -5,8 +5,7 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, Context, Entity, Focusable as _, KeyBinding, Window, actions, div, prelude::*,
-    px,
+    AnyElement, App, Context, Entity, Focusable as _, KeyBinding, Window, actions, prelude::*, px,
 };
 
 use super::Detail;
@@ -14,7 +13,7 @@ use crate::backend::{DiffBody, FileDiff};
 use crate::theme::Theme;
 use crate::ui::diff::DiffRow;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{Icon, field, h_flex, icon_button, popover};
+use crate::ui::{Icon, field, h_flex, icon_button, muted, popover};
 
 actions!(find, [FindInDiff, FindNext, FindPrevious]);
 
@@ -203,13 +202,7 @@ impl Detail {
                 .gap(px(4.))
                 .p(px(6.))
                 .child(field(&find.input, focused, theme).w(px(220.)))
-                .child(
-                    div()
-                        .min_w(px(64.))
-                        .text_size(px(12.))
-                        .text_color(theme.text_2)
-                        .child(count),
-                )
+                .child(muted(count, theme).min_w(px(64.)))
                 .child(
                     h_flex()
                         .child(

@@ -119,11 +119,11 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 
 ## How it's built
 
-- `src/backend` is the only code that touches GitButler crates, and `src/backend/annotate.rs` the only code that touches deltoids. It turns `but-api` results into plain structs (`model.rs`) and runs every call on a tokio pool with large stacks, since GitButler's graph walks and push futures overflow the small stacks of GPUI's worker threads in debug builds.
-- `src/state` holds the projects, selection, what's been cut and what you've reviewed or opened. `mutation.rs` runs one mutation at a time and queues the rest; `saved.rs` keeps review and read state in `gpui-state.json` in the app config directory.
-- `src/navigator.rs` and `src/detail/` are the two halves of the window; `src/transfer.rs` decides what a drop or paste does, so both input methods agree.
+- `src/backend` is the only code that touches GitButler crates, and `src/backend/annotate.rs` the only code that touches deltoids. It turns `but-api` results into plain structs (`model.rs`) and diffs into hunks of lines (`diff.rs`), and runs every call on a tokio pool with large stacks, since GitButler's graph walks and push futures overflow the small stacks of GPUI's worker threads in debug builds.
+- `src/state` holds the projects, selection, what's been cut and what you've reviewed or opened. `load.rs` loads and watches workspaces, `background.rs` fetches and asks the forge on its own, and `seen.rs` tracks what you've looked at; `mutation.rs` runs one mutation at a time and queues the rest; `saved.rs` keeps review and read state in `gpui-state.json` in the app config directory.
+- `src/navigator.rs` (its menus in `navigator/menu.rs`) and `src/detail/` (its file lists in `file_list.rs`) are the two halves of the window; `src/transfer.rs` decides what a drop or paste does, so both input methods agree.
 - `src/edits.rs`, `src/pr.rs`, `src/resolve.rs` and `src/projects.rs` hold the actions on commits and branches, pull requests, conflicts and projects; `src/settings/` is the Settings window.
-- `src/palette.rs` is the command palette and `src/status_bar.rs` the strip along the bottom.
+- `src/palette.rs` is the command palette, `src/overlays.rs` the menus, prompts, modals and snackbars above the window, and `src/status_bar.rs` the strip along the bottom.
 - `src/ui` has the small components GPUI doesn't ship: buttons, a text field, a scrollbar and diff rows.
 
 It is a member of the main workspace, so `cargo check --workspace` catches `but-api` changes that break it. GPUI is a git dependency on Zed that brings around 900 crates and needs Rust 1.98. Only macOS builds the client. Elsewhere GPUI needs system libraries the workspace's Linux and Windows CI don't install, so `main` is a stub there and GPUI isn't compiled. Nothing else in the workspace depends on this crate.

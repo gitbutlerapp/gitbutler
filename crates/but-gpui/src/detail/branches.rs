@@ -8,14 +8,15 @@ use gpui::{
 
 use super::Detail;
 use super::panes::{Crumb, list_heading, side_list};
-use crate::app::MenuItem;
 use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
 use crate::backend::{self, CommitId, DiffSource};
-use crate::navigator::drag_preview;
+use crate::overlays::MenuItem;
 use crate::state::{Cut, Overlay, ProjectId, Selection};
 use crate::theme::Theme;
+use crate::transfer::drag_preview;
 use crate::ui::{
-    ButtonStyle, Icon, button, empty_state, field, list_row, relative_time, small_icon, v_flex,
+    ButtonStyle, Icon, button, empty_state, faint, field, list_row, muted, relative_time,
+    small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -300,7 +301,7 @@ impl Detail {
         let project = project.clone();
         let items = vec![
             MenuItem::new("Cherry-pick", move |app, _, cx| {
-                app.cut(Cut::Pick(project.clone(), id), cx)
+                app.cut(Cut::CherryPick(project.clone(), id), cx)
             }),
             MenuItem::new("Copy commit ID", move |app, _, cx| {
                 app.copy_text(id.0.to_string(), cx)
@@ -316,7 +317,7 @@ impl Detail {
         let Some(id) = self.selected_branch_commit(project) else {
             return;
         };
-        let cut = Cut::Pick(project.clone(), id);
+        let cut = Cut::CherryPick(project.clone(), id);
         self.app.update(cx, |app, cx| app.cut(cut, cx)).ok();
     }
 
@@ -431,7 +432,7 @@ impl Detail {
                             let id = commit.id;
                             let label: SharedString = commit.title.clone().into();
                             let project = branches.project.clone();
-                            let payload = Cut::Pick(project.clone(), id);
+                            let payload = Cut::CherryPick(project.clone(), id);
                             list_row(("other-commit", ix), branches.commit == Some(id), theme)
                                 .pl(px(30.))
                                 .aria_label(label.clone())
@@ -444,13 +445,7 @@ impl Detail {
                                         .text_size(px(12.))
                                         .child(label.clone()),
                                 )
-                                .child(
-                                    div()
-                                        .flex_none()
-                                        .text_size(px(11.))
-                                        .text_color(theme.text_3)
-                                        .child(relative_time(commit.time)),
-                                )
+                                .child(faint(relative_time(commit.time), theme).flex_none())
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.select_branch_commit(id, cx)
                                 }))
@@ -489,22 +484,9 @@ impl Detail {
                                             .child(format!("#{number}")),
                                     )
                                 })
-                                .when(merged, |el| {
-                                    el.child(
-                                        div()
-                                            .text_size(px(11.))
-                                            .text_color(theme.text_3)
-                                            .child("in target"),
-                                    )
-                                })
+                                .when(merged, |el| el.child(faint("in target", theme)))
                                 .when_some(branch.time, |el, time| {
-                                    el.child(
-                                        div()
-                                            .flex_none()
-                                            .text_size(px(11.))
-                                            .text_color(theme.text_3)
-                                            .child(relative_time(time)),
-                                    )
+                                    el.child(faint(relative_time(time), theme).flex_none())
                                 })
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.select_other_branch(ref_name.clone(), cx)
@@ -538,13 +520,7 @@ impl Detail {
         crumbs.push((branch.name.clone().into(), None));
         let local = branch.local;
         if let Some(summary) = self.other_branch_summary(project) {
-            actions.push(
-                div()
-                    .text_size(px(12.))
-                    .text_color(theme.text_2)
-                    .child(summary)
-                    .into_any_element(),
-            );
+            actions.push(muted(summary, theme).into_any_element());
         }
         if let Some(title) = self.selected_branch_commit_title(project) {
             crumbs.push((title.into(), None));

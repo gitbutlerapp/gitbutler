@@ -61,12 +61,6 @@ impl Store {
             .count()
     }
 
-    /// Uncommitted files of `project` that still want a look.
-    pub fn to_review(&self, project: &str) -> usize {
-        self.workspace(project)
-            .map_or(0, |ws| self.unreviewed(project, &ws.uncommitted))
-    }
-
     pub fn set_reviewed(
         &mut self,
         project: &ProjectId,

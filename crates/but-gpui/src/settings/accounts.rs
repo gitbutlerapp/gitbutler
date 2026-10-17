@@ -9,9 +9,10 @@ use gpui::{
 };
 
 use super::{Row, SettingsView};
-use crate::app::MenuItem;
-use crate::backend::accounts::{self, Account, Forge};
+use crate::backend::Forge;
+use crate::backend::accounts::{self, Account};
 use crate::backend::run;
+use crate::overlays::MenuItem;
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, button, field, h_flex};
@@ -47,6 +48,8 @@ fn token_help(forge: Forge) -> &'static str {
             "Make an API token with scopes at id.atlassian.com/manage-profile/security/api-tokens, \
              and give the account's email."
         }
+        // Nothing offers to add an Azure token.
+        Forge::Azure => "",
     }
 }
 

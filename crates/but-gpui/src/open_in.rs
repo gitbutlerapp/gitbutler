@@ -5,9 +5,10 @@ use std::path::PathBuf;
 
 use gpui::{App, Context, KeyBinding, Pixels, Point, Window, actions};
 
-use crate::app::{AppView, MenuItem};
+use crate::app::AppView;
 use crate::backend::{self, settings};
-use crate::state::ProjectId;
+use crate::overlays::MenuItem;
+use crate::state::{ProjectId, Store};
 
 actions!(open_in, [OpenInEditor, OpenInTerminal]);
 
@@ -22,18 +23,17 @@ pub fn bind_keys(cx: &mut App) {
 /// The macOS terminal everyone has, until another is chosen.
 const DEFAULT_TERMINAL: &str = "terminal";
 
-impl AppView {
-    /// What "Open in …" says for the chosen editor, or that it will ask.
-    pub fn open_in_editor_label(&self, cx: &App) -> String {
-        let chosen = self.store.read(cx).prefs.editor.clone();
-        chosen
-            .and_then(|id| settings::editors().into_iter().find(|(e, _)| *e == id))
-            .map_or_else(
-                || "Open in editor…".to_owned(),
-                |(_, name)| format!("Open in {name}"),
-            )
-    }
+/// What "Open in …" says for the chosen editor, or that it will ask.
+pub fn editor_label(store: &Store) -> String {
+    (store.prefs.editor.as_ref())
+        .and_then(|id| settings::editors().into_iter().find(|(e, _)| e == id))
+        .map_or_else(
+            || "Open in editor…".to_owned(),
+            |(_, name)| format!("Open in {name}"),
+        )
+}
 
+impl AppView {
     /// Open `file` (relative to the project, or to its linked `worktree`; the project itself
     /// with `None`) in the chosen editor at `line`. With none chosen yet, offer the editors
     /// as a menu at `position`.

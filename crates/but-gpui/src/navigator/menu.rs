@@ -4,15 +4,16 @@ use gpui::App;
 
 use super::Navigator;
 use crate::app::{
-    Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, MenuItem,
-    NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection,
-    UpdateFromTarget,
+    Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, NewBranchOnTop,
+    OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection, UpdateFromTarget,
 };
+use crate::backend::Forge;
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage, MoveDown,
     MoveToNewBranch, MoveUp, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage, SquashAll,
     SquashPicked, TakeRemote, UnapplyStack, Unstack, UpdateStack,
 };
+use crate::overlays::MenuItem;
 use crate::state::Selection;
 use crate::ui::plural;
 
@@ -95,11 +96,7 @@ impl Navigator {
                     ));
                 }
                 if let Some(path) = store.path(project) {
-                    let label = self
-                        .app
-                        .upgrade()
-                        .map(|app| app.read(cx).open_in_editor_label(cx))
-                        .unwrap_or_default();
+                    let label = crate::open_in::editor_label(store);
                     let (editor_project, terminal_project) = (project.clone(), project.clone());
                     items.extend([
                         MenuItem::new(label, move |this, window, cx| {
@@ -137,7 +134,7 @@ impl Navigator {
                 if branch.push.can_push() {
                     items.push(action("Push", &Push));
                 }
-                if !branch.incoming.is_empty() && !workspace.has_branches_above(ref_name) {
+                if workspace.can_pull(ref_name) {
                     items.extend([
                         MenuItem::action(
                             format!(
@@ -180,7 +177,7 @@ impl Navigator {
                                 action("Labels…", &LabelPullRequest),
                             ]);
                             // What only GitButler's GitHub support does so far.
-                            if workspace.forge.as_deref() == Some("GitHub") {
+                            if workspace.forge == Some(Forge::GitHub) {
                                 items.extend([
                                     action("Comment…", &CommentOnPullRequest),
                                     action("Request review…", &RequestReview),
@@ -188,7 +185,7 @@ impl Navigator {
                             }
                             // The forges GitButler can ask to merge on their own.
                             let auto_merges =
-                                matches!(workspace.forge.as_deref(), Some("GitHub" | "GitLab"));
+                                matches!(workspace.forge, Some(Forge::GitHub | Forge::GitLab));
                             if state == S::Open && auto_merges {
                                 let on = branch.review.as_ref().is_some_and(|r| r.auto_merge);
                                 items.push(action(

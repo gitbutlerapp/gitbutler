@@ -5,15 +5,18 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use gpui::{AnyElement, App, Context, Focusable as _, Toggled, Window, div, prelude::*, px};
 
 use super::{ChecksChanged, Detail, hunk_keys};
-use crate::app::MenuItem;
 use crate::backend::{
     self, CommitId, Destination, DiffBody, FileDiff, Hunk, HunkKey, LineKind, Selected, ai,
+    short_ref,
 };
+use crate::overlays::MenuItem;
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
-use crate::transfer::{Transfer, short_ref};
+use crate::transfer::Transfer;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, button, h_flex, icon_button, shortcut, small_icon, v_flex};
+use crate::ui::{
+    ButtonStyle, Icon, button, faint, h_flex, icon_button, shortcut, small_icon, v_flex,
+};
 
 /// What the next commit leaves out of the uncommitted changes; the rest goes in.
 #[derive(Default)]
@@ -43,7 +46,7 @@ impl Checks {
         }
     }
 
-    fn hunk_check(&self, path: &str, key: HunkKey) -> Toggled {
+    pub(super) fn hunk_check(&self, path: &str, key: HunkKey) -> Toggled {
         let entry = (path.to_owned(), key);
         if self.unchecked.contains(path)
             || self.conflicted.contains(path)
@@ -57,8 +60,13 @@ impl Checks {
         }
     }
 
+    /// Whether any of a hunk goes in the next commit.
+    pub(super) fn hunk_checked(&self, path: &str, key: HunkKey) -> bool {
+        self.hunk_check(path, key) != Toggled::False
+    }
+
     /// Whether the changed line at `line` of a hunk goes in the next commit.
-    fn line_checked(&self, path: &str, key: HunkKey, line: usize) -> bool {
+    pub(super) fn line_checked(&self, path: &str, key: HunkKey, line: usize) -> bool {
         match self.hunk_check(path, key) {
             Toggled::Mixed => self.line_picks[&(path.to_owned(), key)].contains(&line),
             check => check == Toggled::True,
@@ -219,18 +227,6 @@ impl Detail {
                     .collect()
             })
             .unwrap_or_default();
-    }
-
-    pub(super) fn hunk_check(&self, path: &str, key: HunkKey) -> Toggled {
-        self.checks.hunk_check(path, key)
-    }
-
-    pub(super) fn hunk_checked(&self, path: &str, key: HunkKey) -> bool {
-        self.checks.hunk_check(path, key) != Toggled::False
-    }
-
-    pub(super) fn line_checked(&self, path: &str, key: HunkKey, line: usize) -> bool {
-        self.checks.line_checked(path, key, line)
     }
 
     pub(super) fn toggle_hunk(&mut self, path: &str, key: HunkKey, cx: &mut Context<Self>) {
@@ -395,11 +391,7 @@ impl Detail {
         let Some(Selection::Commit(project, id)) = self.selection(cx) else {
             return;
         };
-        let Some(message) = self
-            .store
-            .read(cx)
-            .workspace(&project)
-            .and_then(|ws| ws.find_commit(id))
+        let Some(message) = (self.store.read(cx).find_commit(&project, id))
             .map(|(_, commit)| commit.message.clone())
         else {
             return;
@@ -606,12 +598,15 @@ impl Detail {
                 text.push_str("Binary or too large to show.\n");
                 continue;
             };
-            for hunk in hunks.iter().filter(|h| self.hunk_checked(path, h.key)) {
+            for hunk in hunks
+                .iter()
+                .filter(|h| self.checks.hunk_checked(path, h.key))
+            {
                 text.push_str(&hunk.header);
                 text.push('\n');
                 for (ix, line) in hunk.lines.iter().enumerate() {
                     // A line left out reads as it stays: a removal kept, an addition absent.
-                    let picked = self.line_checked(path, hunk.key, ix);
+                    let picked = self.checks.line_checked(path, hunk.key, ix);
                     text.push(match line.kind {
                         LineKind::Added if picked => '+',
                         LineKind::Added => continue,
@@ -778,15 +773,15 @@ impl Detail {
                 h_flex()
                     .gap(px(6.))
                     .child(
-                        div()
-                            .flex_1()
-                            .text_size(px(11.))
-                            .text_color(theme.text_3)
-                            .child(if checked == 0 {
+                        faint(
+                            if checked == 0 {
                                 "Check files to commit".to_owned()
                             } else {
                                 format!("{checked} of {} files", workspace.uncommitted.len())
-                            }),
+                            },
+                            theme,
+                        )
+                        .flex_1(),
                     )
                     .child(
                         button("close-composer", "Cancel")

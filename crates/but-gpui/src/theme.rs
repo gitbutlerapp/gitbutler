@@ -88,8 +88,9 @@ impl Theme {
         cx.global::<Theme>()
     }
 
-    /// The theme for `choice`, or for `system` when the choice is to follow it.
-    pub fn for_appearance(choice: Appearance, system: WindowAppearance) -> Self {
+    /// The theme for `choice`, or for `system` when the choice is to follow it, with code
+    /// in diffs at `code`.
+    pub fn for_appearance(choice: Appearance, system: WindowAppearance, code: CodeSize) -> Self {
         // `GITBUTLER_GPUI_APPEARANCE=dark|light` overrides both, handy for screenshots.
         let dark = match (
             std::env::var("GITBUTLER_GPUI_APPEARANCE").as_deref(),
@@ -113,7 +114,7 @@ impl Theme {
 
         let safe = pick(0x259466, 0x2eb87f);
         let danger = pick(0xd64029, 0xe28576);
-        let (code_text, code_line) = CodeSize::default().metrics();
+        let (code_text, code_line) = code.metrics();
         Theme {
             dark,
             code_text,

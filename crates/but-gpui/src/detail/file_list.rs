@@ -8,14 +8,16 @@ use gpui::{
 
 use super::file_tree::{self, TreeRow};
 use super::panes::side_list;
-use super::{Detail, FilterFiles, checkbox_box, keeps_path};
-use crate::app::{AppView, MenuItem};
+use super::{Detail, FilterFiles, keeps_path};
+use crate::app::AppView;
 use crate::backend::{self, FileChange, FileDiff, Selected};
+use crate::overlays::MenuItem;
 use crate::state::{Cut, Overlay, ProjectId, Review, Selection};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::{
-    Icon, dot, h_flex, icon_button, list_row, plural, relative_time, shortcut, small_icon, v_flex,
+    Icon, checkbox, dot, faint, h_flex, icon_button, list_row, muted, plural, relative_time,
+    shortcut, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -70,7 +72,7 @@ impl Detail {
                     .map(FileDiff::stats)
                     .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr))
             });
-            let to_review = self.store.read(cx).to_review(project);
+            let to_review = self.store.read(cx).unreviewed(project, files);
             h_flex()
                 .h(px(36.))
                 .px(px(16.))
@@ -115,12 +117,9 @@ impl Detail {
                     .child(rows)
                     .when(files.is_empty(), |el| {
                         el.child(
-                            div()
+                            muted("Your working directory matches the last commit", theme)
                                 .px(px(16.))
-                                .py(px(8.))
-                                .text_size(px(12.))
-                                .text_color(theme.text_2)
-                                .child("Your working directory matches the last commit"),
+                                .py(px(8.)),
                         )
                     }),
             )
@@ -137,16 +136,14 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let Some(diff) = self.shown_diff() else {
-            return div()
+            let note = if self.loading.is_some() {
+                "Loading…"
+            } else {
+                ""
+            };
+            return muted(note, theme)
                 .px(px(16.))
                 .py(px(10.))
-                .text_size(px(12.))
-                .text_color(theme.text_2)
-                .child(if self.loading.is_some() {
-                    "Loading…"
-                } else {
-                    ""
-                })
                 .into_any_element();
         };
         let rows = self.file_list("diff-files", FileSource::Diff(project.clone(), commit), cx);
@@ -356,14 +353,7 @@ impl Detail {
             )
             .child(small_icon(Icon::Folder).text_color(theme.text_3))
             .child(div().flex_1().min_w(px(0.)).truncate().child(name))
-            .when(collapsed, |el| {
-                el.child(
-                    div()
-                        .text_size(px(11.))
-                        .text_color(theme.text_3)
-                        .child(files.to_string()),
-                )
-            })
+            .when(collapsed, |el| el.child(faint(files.to_string(), theme)))
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener({
@@ -472,7 +462,7 @@ impl Detail {
             .when_some(extras.checkbox, |el, check| {
                 let path = path.clone();
                 el.child(
-                    checkbox_box(("check", ix), check, theme)
+                    checkbox(("check", ix), check, theme)
                         // Checking a file doesn't scroll to it.
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
@@ -570,7 +560,7 @@ impl Detail {
             row = row
                 .on_drag(
                     payload,
-                    crate::navigator::drag_preview(self.store.clone(), label),
+                    crate::transfer::drag_preview(self.store.clone(), label),
                 )
                 .on_mouse_down(
                     MouseButton::Right,
@@ -686,11 +676,7 @@ impl Detail {
             let absolute = root.join(&relative);
             let full = absolute.display().to_string();
             let (open_project, open_file) = (project.clone(), relative.clone());
-            let label = self
-                .app
-                .upgrade()
-                .map(|app| app.read(cx).open_in_editor_label(cx))
-                .unwrap_or_default();
+            let label = crate::open_in::editor_label(self.store.read(cx));
             items.extend([
                 MenuItem::new(label, move |this, _, cx| {
                     let file = Some(open_file.clone());

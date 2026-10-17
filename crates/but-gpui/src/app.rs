@@ -9,16 +9,15 @@ use gpui::{
     PromptLevel, Role, StyleRefinement, Subscription, Window, actions, div, prelude::*, px,
 };
 
-use crate::backend;
+use crate::backend::{self, short_ref};
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
-pub use crate::overlays::MenuItem;
 use crate::overlays::{ContextMenu, Prompt};
 use crate::palette::Palette;
 use crate::projects::pick_folder;
 use crate::state::{Cut, Pane, ProjectId, Selection, Store};
 use crate::theme::Theme;
-use crate::transfer::{Transfer, short_ref};
+use crate::transfer::{Transfer, conflicted_file};
 use crate::ui::{HEADER_HEIGHT, plural, resize_pane};
 
 actions!(
@@ -150,9 +149,9 @@ impl AppView {
 
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = cx.new(Store::new);
-        let appearance = store.read(cx).prefs.appearance;
-        let code = store.read(cx).prefs.code_size;
-        cx.set_global(Theme::for_appearance(appearance, window.appearance()).with_code(code));
+        let prefs = &store.read(cx).prefs;
+        let theme = Theme::for_appearance(prefs.appearance, window.appearance(), prefs.code_size);
+        cx.set_global(theme);
         let app = cx.entity().downgrade();
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
         let diff = cx.new(|cx| DiffPane::new(&detail, cx));
@@ -214,8 +213,8 @@ impl AppView {
     /// Use the theme the appearance setting and the system call for.
     pub fn apply_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let prefs = &self.store.read(cx).prefs;
-        let theme = Theme::for_appearance(prefs.appearance, window.appearance());
-        cx.set_global(theme.with_code(prefs.code_size));
+        let theme = Theme::for_appearance(prefs.appearance, window.appearance(), prefs.code_size);
+        cx.set_global(theme);
         cx.refresh_windows();
     }
 
@@ -382,18 +381,8 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // As the files are now: a cut may predate the merge that conflicted them, or the
-        // marking that resolved them.
-        if let Cut::Files {
-            project,
-            from: None,
-            files,
-        } = payload
-            && let Some(workspace) = self.store.read(cx).workspace(project)
-            && let Some(file) = (workspace.uncommitted.iter())
-                .find(|u| u.conflicted && files.iter().any(|f| f.file.path == u.path))
-        {
-            let message = format!("Mark {} resolved first", file.path);
+        if let Some(path) = conflicted_file(payload, self.store.read(cx)) {
+            let message = format!("Mark {path} resolved first");
             self.store.update(cx, |store, cx| store.snack(message, cx));
             return;
         }

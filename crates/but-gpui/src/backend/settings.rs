@@ -1,7 +1,7 @@
 //! Settings the app shares with GitButler's other clients, a project's own settings, and
 //! the editors and terminals files can open in.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result};
 use but_api::legacy::{config, projects};
@@ -10,7 +10,6 @@ use but_settings::AppSettingsWithDiskSync;
 
 use super::open;
 use super::ops::full_name;
-pub use super::{clone, relocate_project, remove_project};
 
 /// A program to open files or the project in, by id and name.
 pub type Program = (String, String);
@@ -198,10 +197,24 @@ pub fn update_ai(update: AiConfigurationUpdate) -> Result<AiConfiguration> {
     but_api::ai::update_ai_configuration(update)
 }
 
+/// Where GitButler keeps its settings, for the build's channel.
+pub fn config_dir() -> Result<PathBuf> {
+    but_path::app_config_dir()
+}
+
+/// The build's channel, as About names it.
+pub fn channel() -> &'static str {
+    match but_path::AppChannel::new() {
+        but_path::AppChannel::Release => "release",
+        but_path::AppChannel::Nightly => "nightly",
+        but_path::AppChannel::Dev => "development",
+    }
+}
+
 /// GitButler's app settings as they are on disk now. Read afresh each time: the other apps
 /// change them too, and saving a copy read earlier would put their changes back.
 pub(super) fn app_settings() -> Result<AppSettingsWithDiskSync> {
-    let config_dir = but_path::app_config_dir()?;
+    let config_dir = config_dir()?;
     std::fs::create_dir_all(&config_dir)?;
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }

@@ -10,8 +10,7 @@ use anyhow::{Context as _, Result};
 use gpui::{Context, SharedString, Task};
 
 use super::{ProjectId, Selection, Store, StoreEvent};
-use crate::backend::{self, CommitId, SnapshotId};
-use crate::transfer::short_ref;
+use crate::backend::{self, CommitId, Destination, SnapshotId, short_ref};
 
 /// How long a mutation runs before the status bar says how long it's taking.
 pub const SLOW: Duration = Duration::from_millis(800);
@@ -80,6 +79,15 @@ impl Remap {
             .get(&id)
             .copied()
             .context("A commit it needed changed while it waited")
+    }
+
+    /// `to`, with the commit it's relative to as it is after the operations queued before.
+    pub fn destination(&self, to: Destination) -> Result<Destination> {
+        Ok(match to {
+            Destination::AboveCommit(id) => Destination::AboveCommit(self.get(id)?),
+            Destination::BelowCommit(id) => Destination::BelowCommit(self.get(id)?),
+            branch => branch,
+        })
     }
 }
 
