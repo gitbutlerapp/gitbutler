@@ -4,8 +4,8 @@
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, Hsla, SharedString, Stateful,
-    UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
+    AnyElement, App, ClickEvent, Context, Div, Entity, SharedString, UniformListScrollHandle,
+    Window, div, prelude::*, px, uniform_list,
 };
 
 use super::Detail;
@@ -87,6 +87,7 @@ impl Detail {
                     let pushable = workspace
                         .filter(|ws| ws.find_branch(ref_name).is_some_and(|b| b.push.can_push()));
                     let pushing = store.pushing(selection.project(), ref_name);
+                    let busy = pushing.then_some("Wait for the push to finish");
                     // Landing directly takes the place of a pull request, forge or not.
                     let land = (store.lands_directly(selection.project()))
                         .then_some(workspace)
@@ -95,41 +96,38 @@ impl Detail {
                             let whole = crate::edits::land_scope(ws, ref_name)?;
                             Some((whole, &ws.target.as_ref()?.name))
                         });
-                    if let Some((whole, target)) = land {
-                        let label = match whole {
-                            true => format!("Land the stack on {target}"),
-                            false => format!("Land on {target}"),
-                        };
-                        let style = match pushable {
-                            Some(_) => ButtonStyle::Ghost,
-                            None => ButtonStyle::Pop,
-                        };
-                        actions.push(
-                            button("land", label)
-                                .icon(Icon::BranchMerge)
-                                .style(style)
-                                .disabled_because(pushing.then_some("Wait for the push to finish"))
-                                .dispatch(&crate::edits::LandBranch)
-                                .into_any_element(),
-                        );
-                    } else if can_create {
+                    let next = match land {
+                        Some((whole, target)) => Some(
+                            button(
+                                "land",
+                                match whole {
+                                    true => format!("Land the stack on {target}"),
+                                    false => format!("Land on {target}"),
+                                },
+                            )
+                            .icon(Icon::BranchMerge)
+                            .dispatch(&crate::edits::LandBranch),
+                        ),
+                        None if can_create => Some(
+                            button(
+                                "create-pr",
+                                match store.publishing(selection.project(), ref_name) {
+                                    true => "Creating…",
+                                    false => "Create pull request",
+                                },
+                            )
+                            .icon(Icon::Pr)
+                            .dispatch(&crate::pr::CreatePullRequest),
+                        ),
+                        None => None,
+                    };
+                    if let Some(next) = next {
                         // The next step once nothing's left to push.
                         let style = match pushable {
                             Some(_) => ButtonStyle::Ghost,
                             None => ButtonStyle::Pop,
                         };
-                        let label = match store.publishing(selection.project(), ref_name) {
-                            true => "Creating…",
-                            false => "Create pull request",
-                        };
-                        actions.push(
-                            button("create-pr", label)
-                                .icon(Icon::Pr)
-                                .style(style)
-                                .disabled_because(pushing.then_some("Wait for the push to finish"))
-                                .dispatch(&crate::pr::CreatePullRequest)
-                                .into_any_element(),
-                        );
+                        actions.push(next.style(style).disabled_because(busy).into_any_element());
                     }
                     if let Some(ws) = pushable {
                         // Pushing takes the branches below along, so they count too.
@@ -144,7 +142,7 @@ impl Detail {
                             button("push", label)
                                 .icon(Icon::ArrowUp)
                                 .style(ButtonStyle::Pop)
-                                .disabled_because(pushing.then_some("Wait for the push to finish"))
+                                .disabled_because(busy)
                                 .tooltip_with_key(
                                     "Push this branch and the ones below it",
                                     shortcut(&crate::app::Push, cx),
@@ -193,12 +191,23 @@ impl Detail {
                         let sep = (ix > 0)
                             .then(|| div().text_color(theme.text_3).child("/").into_any_element());
                         let el = match target.filter(|_| ix != last) {
-                            Some(target) => self
-                                .link(("crumb", ix), target, theme.text_1)
-                                .text_color(theme.text_2)
-                                .truncate()
-                                .child(crumb)
-                                .into_any_element(),
+                            Some(target) => {
+                                let app = self.app.clone();
+                                div()
+                                    .id(("crumb", ix))
+                                    .cursor_pointer()
+                                    .hover(|el| el.underline().text_color(theme.text_1))
+                                    .text_color(theme.text_2)
+                                    .truncate()
+                                    .child(crumb)
+                                    .on_click(move |_, window, cx| {
+                                        (app.update(cx, |app, cx| {
+                                            app.select(target.clone(), window, cx)
+                                        }))
+                                        .ok();
+                                    })
+                                    .into_any_element()
+                            }
                             None => div()
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .text_color(theme.text_1)
@@ -211,20 +220,6 @@ impl Detail {
             )
             .child(div().flex_1())
             .children(actions)
-    }
-
-    /// Something that selects `target` when clicked, underlined and in `hover` under the
-    /// pointer.
-    fn link(&self, id: impl Into<ElementId>, target: Selection, hover: Hsla) -> Stateful<Div> {
-        let app = self.app.clone();
-        div()
-            .id(id)
-            .cursor_pointer()
-            .hover(move |el| el.underline().text_color(hover))
-            .on_click(move |_, window, cx| {
-                app.update(cx, |app, cx| app.select(target.clone(), window, cx))
-                    .ok();
-            })
     }
 
     /// "Mark all reviewed" for the selected checkout's uncommitted files, while any still
@@ -270,10 +265,8 @@ impl Detail {
             return empty_state("Loading…", "", theme);
         };
         let footer = if !self.composing {
-            let target = self
-                .effective_target(project, cx)
-                .map(|target| short_ref(&target).to_owned())
-                .unwrap_or_else(|| "a new branch".to_owned());
+            let target = self.effective_target(project, cx);
+            let target = target.as_deref().map_or("a new branch", short_ref);
             h_flex()
                 .flex_none()
                 .h(px(44.))
@@ -321,11 +314,11 @@ impl Detail {
         let Some((_, commit)) = store.find_commit(project, id) else {
             return empty_state("Commit not found", "", theme);
         };
-        let files = self.render_diff_file_list(project, Some(id), theme, cx);
+        let files = self.render_diff_file_list(theme, cx);
         v_flex()
             .size_full()
             .when(commit.conflicted, |el| {
-                el.child(side_header(theme).gap(px(12.)).child(conflict_bar(
+                el.child(side_header(theme).child(conflict_bar(
                     "This commit has conflicts".into(),
                     "Resolve…".into(),
                     theme,
@@ -440,29 +433,27 @@ impl Detail {
             .when(commit.conflicted, |el| {
                 el.child(div().text_color(theme.danger).child("conflicted"))
             });
-        let main = match &self.rewording {
-            Some((input, _)) => v_flex()
-                .gap(px(10.))
-                .child(self.reword_editor(input, theme, cx))
-                .child(meta),
-            None => v_flex()
-                .gap(px(10.))
-                .child(title)
-                // Further off the lines around it than they stand from each other.
-                .when(self.message_open && !body.is_empty(), |el| {
-                    el.child(
-                        div()
-                            .mt(px(2.))
-                            .mb(px(6.))
-                            .max_w(px(580.))
-                            .font_family(theme.mono_font.clone())
-                            .text_size(px(12.))
-                            .line_height(px(19.))
-                            .child(body),
-                    )
-                })
-                .child(meta),
-        };
+        let main = v_flex()
+            .gap(px(10.))
+            .map(|el| match &self.rewording {
+                Some((input, _)) => el.child(self.reword_editor(input, theme, cx)),
+                None => el
+                    .child(title)
+                    // Further off the lines around it than they stand from each other.
+                    .when(self.message_open && !body.is_empty(), |el| {
+                        el.child(
+                            div()
+                                .mt(px(2.))
+                                .mb(px(6.))
+                                .max_w(px(580.))
+                                .font_family(theme.mono_font.clone())
+                                .text_size(px(12.))
+                                .line_height(px(19.))
+                                .child(body),
+                        )
+                    }),
+            })
+            .child(meta);
         // What right-clicking the commit's row offers, for when the navigator is out of reach.
         let target = Selection::Commit(project.clone(), id);
         let menu = h_flex()
@@ -573,7 +564,7 @@ impl Detail {
             PushState::NeverPushed => "Not pushed yet",
             PushState::Integrated => "Integrated",
         };
-        let files = self.render_diff_file_list(project, None, theme, cx);
+        let files = self.render_diff_file_list(theme, cx);
         // Resolving the oldest conflict first, even in a branch below, rebases the rest onto
         // its result. Commits list newest first, and a stack's branches top first.
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();

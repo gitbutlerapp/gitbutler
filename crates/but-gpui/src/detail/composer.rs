@@ -8,10 +8,10 @@ use gpui::{
     actions, div, prelude::*, px,
 };
 
-use super::{ChecksChanged, Detail, DiffKey, hunk_keys};
+use super::{ChecksChanged, Detail, DiffKey};
 use crate::backend::{
-    self, CommitId, Destination, DiffBody, DiffSource, FileDiff, Hunk, HunkKey, LineKind, Selected,
-    ai, short_ref,
+    self, CommitId, Destination, DiffBody, DiffSource, FileChange, FileDiff, Hunk, HunkKey,
+    LineKind, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
 use crate::state::{Overlay, ProjectId, Selection, Store};
@@ -84,25 +84,19 @@ impl Checks {
         let present: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
         self.unchecked
             .retain(|path| present.contains(path.as_str()));
-        let hunks: HashSet<(&str, HunkKey)> = files
-            .iter()
-            .flat_map(|f| {
-                hunk_keys(f)
-                    .into_iter()
-                    .map(|key| (f.file.path.as_str(), key))
-            })
-            .collect();
+        let find_hunk =
+            |path: &str, key: HunkKey| file_hunks(files, path).iter().find(|h| h.key == key);
         // A hunk left out stays out when an edit renumbers it: what's out now is every
         // hunk over the same committed lines.
         let renumbered = |path: &str, key: HunkKey| {
-            let file = files.iter().find(|f| f.file.path == path);
-            (file.map(hunk_keys).unwrap_or_default().into_iter())
+            (file_hunks(files, path).iter())
+                .map(|hunk| hunk.key)
                 .filter(move |now| covers_same_lines(*now, key))
         };
         self.unchecked_hunks = (self.unchecked_hunks.iter())
-            .flat_map(|(path, key)| match hunks.contains(&(path.as_str(), *key)) {
-                true => vec![(path.clone(), *key)],
-                false => renumbered(path, *key)
+            .flat_map(|(path, key)| match find_hunk(path, *key) {
+                Some(_) => vec![(path.clone(), *key)],
+                None => renumbered(path, *key)
                     .map(|now| (path.clone(), now))
                     .collect(),
             })
@@ -110,13 +104,7 @@ impl Checks {
         // Picked lines hold only while their hunk's lines stay the same. A hunk whose lines
         // changed is left out rather than taken whole: committing lines that weren't
         // picked is the worse mistake.
-        let current = |path: &str, key: HunkKey| {
-            let file = files.iter().find(|f| f.file.path == path)?;
-            let DiffBody::Hunks { hunks, .. } = &file.body else {
-                return None;
-            };
-            hunks.iter().find(|h| h.key == key).map(fingerprint)
-        };
+        let current = |path: &str, key: HunkKey| find_hunk(path, key).map(fingerprint);
         let stale: Vec<(String, HunkKey)> = (self.line_picks.iter())
             .filter(|((path, key), (_, print))| current(path, *key) != Some(*print))
             .map(|(entry, _)| entry.clone())
@@ -201,33 +189,39 @@ impl Detail {
             return Vec::new();
         };
         (workspace.uncommitted.iter())
-            .filter(|file| !self.checks.unchecked.contains(&file.path))
-            .filter_map(|file| {
-                let hunks = self.worktree_file_hunks(&file.path);
-                let partial = self.checks.file_check(&file.path) == Toggled::Mixed;
-                // Hunks left out but not loaded to tell which: leave the file alone rather
-                // than take all of it.
-                if hunks.is_empty() && partial {
-                    return None;
-                }
-                let picked: Vec<HunkKey> = (hunks.iter())
-                    .flat_map(|hunk| match self.checks.hunk_check(&file.path, hunk.key) {
-                        Toggled::True => vec![hunk.key],
-                        Toggled::Mixed => {
-                            hunk.picked(&self.checks.line_picks[&(file.path.clone(), hunk.key)].0)
-                        }
-                        Toggled::False => Vec::new(),
-                    })
-                    .collect();
-                if picked.is_empty() && !hunks.is_empty() {
-                    return None;
-                }
-                Some(Selected {
-                    file: file.clone(),
-                    hunks: partial.then_some(picked),
-                })
-            })
+            .filter_map(|file| self.selected_change(file))
             .collect()
+    }
+
+    /// What of uncommitted `file` is checked: the file narrowed to its checked hunks and
+    /// lines, unless none of it is.
+    pub(super) fn selected_change(&self, file: &FileChange) -> Option<Selected> {
+        if self.checks.unchecked.contains(&file.path) {
+            return None;
+        }
+        let hunks = self.worktree_file_hunks(&file.path);
+        let partial = self.checks.file_check(&file.path) == Toggled::Mixed;
+        // Hunks left out but not loaded to tell which: leave the file alone rather than take
+        // all of it.
+        if hunks.is_empty() && partial {
+            return None;
+        }
+        let picked: Vec<HunkKey> = (hunks.iter())
+            .flat_map(|hunk| match self.checks.hunk_check(&file.path, hunk.key) {
+                Toggled::True => vec![hunk.key],
+                Toggled::Mixed => {
+                    hunk.picked(&self.checks.line_picks[&(file.path.clone(), hunk.key)].0)
+                }
+                Toggled::False => Vec::new(),
+            })
+            .collect();
+        if picked.is_empty() && !hunks.is_empty() {
+            return None;
+        }
+        Some(Selected {
+            file: file.clone(),
+            hunks: partial.then_some(picked),
+        })
     }
 
     /// The checked changes, less the files and hunks a pending operation already takes, as
@@ -786,7 +780,7 @@ impl Detail {
                     .text_size(px(12.))
                     .text_color(theme.text_2)
                     .child("Commit to")
-                    .child(self.render_target_picker(target, theme, cx)),
+                    .child(self.render_target_picker(target.as_deref(), theme, cx)),
             )
             .child(
                 div()
@@ -890,15 +884,11 @@ impl Detail {
 
     fn render_target_picker(
         &self,
-        target: Option<String>,
+        target: Option<&str>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> impl IntoElement {
-        let label = target
-            .as_deref()
-            .map(short_ref)
-            .map(str::to_owned)
-            .unwrap_or_else(|| "a new branch".to_owned());
+        let label = target.map_or("a new branch", short_ref).to_owned();
         let key = shortcut(&PickCommitTarget, cx);
         h_flex()
             .id("commit-target")

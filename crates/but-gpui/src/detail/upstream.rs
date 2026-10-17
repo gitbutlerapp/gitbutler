@@ -160,9 +160,8 @@ impl Detail {
     }
 
     fn upstream_rows(&self, upstream: &Upstream, target: &str) -> Vec<Row> {
-        let incoming: Vec<usize> = (0..upstream.commits.len())
-            .filter(|ix| upstream.commits[*ix].incoming)
-            .collect();
+        let (incoming, rest): (Vec<usize>, Vec<usize>) =
+            (0..upstream.commits.len()).partition(|ix| upstream.commits[*ix].incoming);
         let mut rows = Vec::new();
         if !incoming.is_empty() {
             rows.push(Row::Heading(format!(
@@ -171,9 +170,6 @@ impl Detail {
             )));
             rows.extend(incoming.into_iter().map(Row::Commit));
         }
-        let rest: Vec<usize> = (0..upstream.commits.len())
-            .filter(|ix| !upstream.commits[*ix].incoming)
-            .collect();
         if !rest.is_empty() {
             rows.push(Row::Heading("In your workspace".into()));
             rows.extend(rest.into_iter().map(Row::Commit));
@@ -335,112 +331,109 @@ impl Detail {
                             .child(div().flex_1().child(err))
                     }),
             );
-        let Some(upstream) = upstream else {
-            return v_flex()
-                .size_full()
-                .child(about)
-                .child(crate::ui::empty_state("Loading…", "", theme))
-                .into_any_element();
-        };
-        // The page lists what it read, whether or not the project is expanded and loaded.
-        if upstream.commits.is_empty() {
-            let project = project.clone();
-            return v_flex()
-                .size_full()
-                .child(about)
-                .child(
-                    v_flex()
-                        .flex_1()
-                        .items_center()
-                        .justify_center()
-                        .gap(px(4.))
-                        .child(
-                            div()
-                                .text_size(px(14.))
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
-                                .child("No target branch"),
+        let list = match upstream {
+            None => crate::ui::empty_state("Loading…", "", theme),
+            // The page lists what it read, whether or not the project is expanded and loaded.
+            Some(upstream) if upstream.commits.is_empty() => {
+                let project = project.clone();
+                v_flex()
+                    .flex_1()
+                    .items_center()
+                    .justify_center()
+                    .gap(px(4.))
+                    .child(
+                        div()
+                            .text_size(px(14.))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .child("No target branch"),
+                    )
+                    .child(
+                        muted(
+                            "Pick the branch your work goes into, like origin/main",
+                            theme,
                         )
-                        .child(
-                            muted(
-                                "Pick the branch your work goes into, like origin/main",
-                                theme,
-                            )
-                            .mb(px(8.)),
-                        )
-                        .child(
-                            crate::ui::button("pick-target", "Choose a target branch…").on_click(
-                                cx.listener(move |this, _, window, cx| {
-                                    let project = project.clone();
-                                    this.app
-                                        .update(cx, |app, cx| app.pick_target(project, window, cx))
-                                        .ok();
-                                }),
-                            ),
+                        .mb(px(8.)),
+                    )
+                    .child(
+                        crate::ui::button("pick-target", "Choose a target branch…").on_click(
+                            cx.listener(move |this, _, window, cx| {
+                                let project = project.clone();
+                                this.app
+                                    .update(cx, |app, cx| app.pick_target(project, window, cx))
+                                    .ok();
+                            }),
                         ),
+                    )
+                    .into_any_element()
+            }
+            Some(upstream) => {
+                let target = target.unwrap_or_else(|| "the target".into());
+                let rows = self.upstream_rows(upstream, &target);
+                side_list(
+                    "target-commits",
+                    rows.len(),
+                    &self.upstream_scroll,
+                    "target-scrollbar",
+                    cx,
+                    move |this, ix, theme, cx| {
+                        let upstream = this.upstream.as_ref()?;
+                        Some(match rows.get(ix)? {
+                            Row::Heading(heading) => list_heading(heading.clone(), theme),
+                            Row::Commit(commit_ix) => {
+                                let commit = &upstream.commits[*commit_ix];
+                                let id = commit.id;
+                                let selected = upstream.selected == Some(id);
+                                let glyph = if commit.incoming {
+                                    theme.warn
+                                } else {
+                                    theme.text_3
+                                };
+                                list_row(("target-commit", ix), selected, theme)
+                                    .child(small_icon(Icon::Commit).text_color(glyph))
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w(px(0.))
+                                            .truncate()
+                                            .when(!commit.incoming, |el| {
+                                                el.text_color(theme.text_2)
+                                            })
+                                            .child(SharedString::from(commit.title.clone())),
+                                    )
+                                    .when_some(commit.review.as_ref(), |el, (number, _)| {
+                                        el.child(
+                                            div()
+                                                .text_size(px(11.))
+                                                .text_color(theme.text_2)
+                                                .child(SharedString::from(number.clone())),
+                                        )
+                                    })
+                                    .child(faint(relative_time(commit.time), theme).flex_none())
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.select_target_commit(id, cx)
+                                    }))
+                                    .into_any_element()
+                            }
+                            Row::More => {
+                                let project = upstream.project.clone();
+                                list_row("target-more", false, theme)
+                                    .text_color(theme.text_2)
+                                    .child("Show older")
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.load_upstream(&project, true, false, cx)
+                                    }))
+                                    .into_any_element()
+                            }
+                        })
+                    },
                 )
-                .into_any_element();
-        }
-        let target = target.unwrap_or_else(|| "the target".into());
-        let rows = self.upstream_rows(upstream, &target);
+                .into_any_element()
+            }
+        };
         v_flex()
             .size_full()
             .child(about)
-            .child(side_list(
-                "target-commits",
-                rows.len(),
-                &self.upstream_scroll,
-                "target-scrollbar",
-                cx,
-                move |this, ix, theme, cx| {
-                    let upstream = this.upstream.as_ref()?;
-                    Some(match rows.get(ix)? {
-                        Row::Heading(heading) => list_heading(heading.clone(), theme),
-                        Row::Commit(commit_ix) => {
-                            let commit = &upstream.commits[*commit_ix];
-                            let id = commit.id;
-                            let selected = upstream.selected == Some(id);
-                            let glyph = if commit.incoming {
-                                theme.warn
-                            } else {
-                                theme.text_3
-                            };
-                            list_row(("target-commit", ix), selected, theme)
-                                .child(small_icon(Icon::Commit).text_color(glyph))
-                                .child(
-                                    div()
-                                        .flex_1()
-                                        .min_w(px(0.))
-                                        .truncate()
-                                        .when(!commit.incoming, |el| el.text_color(theme.text_2))
-                                        .child(SharedString::from(commit.title.clone())),
-                                )
-                                .when_some(commit.review.as_ref(), |el, (number, _)| {
-                                    el.child(
-                                        div()
-                                            .text_size(px(11.))
-                                            .text_color(theme.text_2)
-                                            .child(SharedString::from(number.clone())),
-                                    )
-                                })
-                                .child(faint(relative_time(commit.time), theme).flex_none())
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.select_target_commit(id, cx)
-                                }))
-                                .into_any_element()
-                        }
-                        Row::More => {
-                            let project = upstream.project.clone();
-                            list_row("target-more", false, theme)
-                                .text_color(theme.text_2)
-                                .child("Show older")
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.load_upstream(&project, true, false, cx)
-                                }))
-                                .into_any_element()
-                        }
-                    })
-                },
-            ))
+            .child(list)
             .into_any_element()
     }
 }

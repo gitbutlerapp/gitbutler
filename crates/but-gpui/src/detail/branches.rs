@@ -15,7 +15,7 @@ use crate::state::{Cut, Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::{
-    ButtonStyle, Icon, button, empty_state, faint, field, list_row, muted, relative_time,
+    ButtonStyle, Icon, button, empty_state, faint, field, list_row, muted, plural, relative_time,
     small_icon, v_flex,
 };
 
@@ -439,10 +439,8 @@ impl Detail {
                     Some(match rows.get(ix)? {
                         Row::Heading(heading) => list_heading(*heading, theme),
                         Row::Commit(commit_ix) => {
-                            let Some((_, commits)) = &branches.commits else {
-                                return Some(div().into_any_element());
-                            };
-                            let commit = &commits[*commit_ix];
+                            let (_, commits) = branches.commits.as_ref()?;
+                            let commit = commits.get(*commit_ix)?;
                             let id = commit.id;
                             let label: SharedString = commit.title.clone().into();
                             let project = branches.project.clone();
@@ -533,9 +531,15 @@ impl Detail {
         };
         crumbs.push((branch.name.clone().into(), None));
         let local = branch.local;
-        if let Some(summary) = self.other_branch_summary(project) {
-            actions.push(muted(summary, theme).into_any_element());
-        }
+        // Who made it and how far ahead it is.
+        let ahead = match branch.ahead {
+            Some(0) => "already in the target".to_owned(),
+            Some(n) => plural(n, "commit"),
+            None => String::new(),
+        };
+        let summary = [branch.author.clone().unwrap_or_default(), ahead];
+        let summary: Vec<String> = summary.into_iter().filter(|p| !p.is_empty()).collect();
+        actions.push(muted(summary.join(" · "), theme).into_any_element());
         if let Some(title) = self.selected_branch_commit_title(project) {
             crumbs.push((title.into(), None));
             let project = project.clone();
@@ -594,24 +598,5 @@ impl Detail {
                     .into_any_element(),
             );
         }
-    }
-
-    /// What the page's header says about the selected branch: who and how far ahead.
-    fn other_branch_summary(&self, project: &ProjectId) -> Option<String> {
-        let branch = self.selected_other_branch(project)?;
-        let ahead = match branch.ahead {
-            Some(0) => "already in the target".to_owned(),
-            Some(1) => "1 commit".to_owned(),
-            Some(n) => format!("{n} commits"),
-            None => String::new(),
-        };
-        let parts = [branch.author.clone().unwrap_or_default(), ahead];
-        Some(
-            parts
-                .into_iter()
-                .filter(|p| !p.is_empty())
-                .collect::<Vec<_>>()
-                .join(" · "),
-        )
     }
 }
