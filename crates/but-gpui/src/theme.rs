@@ -41,10 +41,22 @@ pub struct Theme {
     pub diff_removed_emph: Hsla,
     pub ui_font: SharedString,
     pub mono_font: SharedString,
+    /// Code in diffs: its size and the height of a line of it.
+    pub code_text: f32,
+    pub code_line: f32,
     syntax: [Hsla; 7],
 }
 
 impl Global for Theme {}
+
+/// How large code shows in diffs.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CodeSize {
+    Small,
+    #[default]
+    Medium,
+    Large,
+}
 
 /// Light, dark, or whichever macOS is set to.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,6 +68,16 @@ pub enum Appearance {
 }
 
 impl Theme {
+    /// This theme with code in diffs at `size`.
+    pub fn with_code(mut self, size: CodeSize) -> Self {
+        (self.code_text, self.code_line) = match size {
+            CodeSize::Small => (11., 18.),
+            CodeSize::Medium => (12., 20.),
+            CodeSize::Large => (14., 23.),
+        };
+        self
+    }
+
     pub fn get(cx: &App) -> &Theme {
         cx.global::<Theme>()
     }
@@ -87,6 +109,8 @@ impl Theme {
         let danger = pick(0xd64029, 0xe28576);
         Theme {
             dark,
+            code_text: 12.,
+            code_line: 20.,
             bg_1: pick(0xffffff, 0x292929),
             bg_2: pick(0xf2f2f2, 0x1e1e1e),
             text_1: pick(0x1e1e1e, 0xf8f8f8),

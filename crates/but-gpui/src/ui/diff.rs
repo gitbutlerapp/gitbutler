@@ -12,8 +12,6 @@ use super::{Icon, h_flex, small_icon, v_flex};
 use crate::backend::{ChangeKind, DiffBody, DiffLine, FileDiff, Hunk, LineKind};
 use crate::theme::Theme;
 
-pub const LINE_HEIGHT: f32 = 20.;
-
 /// The height of a file's header row.
 pub const FILE_HEADER_HEIGHT: f32 = 38.;
 
@@ -466,7 +464,7 @@ fn render_card_row(row: DiffRow, files: &[FileDiff], theme: &Theme, decor: Decor
                 return div().into_any_element();
             };
             card(h_flex())
-                .h(px(LINE_HEIGHT + 6.))
+                .h(px(theme.code_line + 6.))
                 .pl(px(12.))
                 .pr(px(4.))
                 .gap(px(8.))
@@ -635,14 +633,14 @@ fn line_card(id: ElementId, last: bool, wrap: bool, theme: &Theme) -> gpui::Stat
         .bg(theme.bg_1)
         .map(|el| {
             if wrap {
-                el.items_stretch().min_h(px(LINE_HEIGHT))
+                el.items_stretch().min_h(px(theme.code_line))
             } else {
-                el.h(px(LINE_HEIGHT))
+                el.h(px(theme.code_line))
             }
         })
-        .line_height(px(LINE_HEIGHT))
+        .line_height(px(theme.code_line))
         .font_family(theme.mono_font.clone())
-        .text_size(px(12.))
+        .text_size(px(theme.code_text))
         .when(last, |el| el.border_b_1().rounded_b(px(6.)))
         .overflow_hidden()
 }
