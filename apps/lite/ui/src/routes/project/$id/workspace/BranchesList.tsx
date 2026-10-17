@@ -5,6 +5,7 @@ import { decodeBytes, encodeBytes } from "#ui/api/bytes.ts";
 import { assert } from "#ui/assert.ts";
 import { activeBranchFilterCount, branchIsEmpty, type BranchFilters } from "#ui/branch.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { commitCopyMenuItem } from "./commitMenuItems.ts";
 import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { BranchRowHeadline } from "./BranchRowHeadline.tsx";
@@ -134,6 +135,8 @@ const CommitItem: FC<{
 			accelerator: toElectronAccelerator(branchesHotkeys.copy.hotkey),
 			onSelect: copyCommit,
 		}),
+		nativeMenuSeparator,
+		commitCopyMenuItem(commit),
 	];
 
 	return (
@@ -351,16 +354,28 @@ const BranchItem: FC<{
 
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
+			label: unfolded ? "Fold Commits" : "Unfold Commits",
+			enabled: canUnfold,
+			accelerator: toElectronAccelerator(branchesHotkeys.toggleFoldBranch.hotkey),
+			onSelect: toggleUnfolded,
+		}),
+		nativeMenuSeparator,
+		nativeMenuItem({
 			// Branches run from the tip down, so applying the top branch of a stack
 			// brings the whole stack with it — the label says so.
 			label: isTopBranch && isStacked ? "Apply Stack to Workspace" : "Apply to Workspace",
 			enabled: !isApplyPending,
 			onSelect: () => apply(branchRef),
 		}),
+		nativeMenuItem({
+			label: "Copy Branch Name",
+			onSelect: () => window.lite.clipboardWriteText(branch.displayName),
+		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Open Pull Request In Browser",
 			enabled: review !== null,
+			accelerator: toElectronAccelerator(branchesHotkeys.openPRInBrowser.hotkey),
 			onSelect: openReviewInBrowser,
 		}),
 		nativeMenuSeparator,
@@ -701,6 +716,53 @@ export const BranchesList: FC<
 			enabled: noOperationPending && selection?._tag === "Commit",
 			ignoreInputs: true,
 			meta: branchesHotkeys.copy.meta,
+			target: treeRef,
+		},
+	);
+
+	const selectedStackBranches =
+		selectedStackIndex === undefined ? [] : (stacks[selectedStackIndex]?.branches ?? []);
+	const selectedBranch =
+		selection?._tag === "Branch"
+			? selectedStackBranches.find(
+					({ branch }) => branch.refName.full === decodeBytes(selection.branchRef),
+				)?.branch
+			: undefined;
+	const selectedBranchReviewUrl = selectedBranch?.review?.htmlUrl ?? null;
+	const selectedBranchCanUnfold = selectedBranch !== undefined && !branchIsEmpty(selectedBranch);
+
+	useHotkey(
+		branchesHotkeys.openPRInBrowser.hotkey,
+		() => {
+			if (selectedBranchReviewUrl !== null)
+				void window.lite.openInWebBrowser(selectedBranchReviewUrl);
+		},
+		{
+			conflictBehavior: "allow",
+			enabled: noOperationPending && selectedBranchReviewUrl !== null,
+			ignoreInputs: true,
+			meta: branchesHotkeys.openPRInBrowser.meta,
+			target: treeRef,
+		},
+	);
+
+	useHotkey(
+		branchesHotkeys.toggleFoldBranch.hotkey,
+		() => {
+			if (!selectedBranch) return;
+
+			dispatch(
+				projectSlice.actions.toggleBranchUnfolded({
+					projectId,
+					branchRef: selectedBranch.refName.full,
+				}),
+			);
+		},
+		{
+			conflictBehavior: "allow",
+			enabled: selectedBranchCanUnfold,
+			ignoreInputs: true,
+			meta: branchesHotkeys.toggleFoldBranch.meta,
 			target: treeRef,
 		},
 	);
