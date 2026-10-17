@@ -7,18 +7,26 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Context, Entity, MouseButton, Pixels, Subscription, Toggled, WeakEntity,
-    Window, div, list, prelude::*, px,
+    Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, Pixels, Subscription,
+    Toggled, WeakEntity, Window, div, list, prelude::*, px,
 };
 
-use super::{Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleReviewed};
+use super::{
+    Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleFiles, ToggleReviewed, ToggleSplit,
+    ToggleWrap,
+};
 use crate::app::AppView;
-use crate::backend::{self, ChangeKind, DiffBody, DiffLine, DiffSource, LineKind, Selected};
+use crate::backend::{
+    self, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, Selected,
+};
 use crate::state::{Cut, ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::scrollbar::{Scroll, scrollbar};
-use crate::ui::{ButtonStyle, Icon, button, checkbox, empty_state, h_flex, icon_button, shortcut};
+use crate::ui::{
+    ButtonStyle, Icon, Tooltip, button, checkbox, empty_state, h_flex, icon, icon_button, shortcut,
+    v_flex,
+};
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
 /// list notifies the view that drew it, and GPUI draws everything inside a notified view again,
@@ -44,22 +52,29 @@ impl Render for DiffPane {
         let drawn = self.detail.update(cx, |detail, cx| {
             (
                 detail.focus.clone(),
+                detail.render_diff_tools(&theme, cx),
                 detail.render_diff(&theme, cx),
                 detail.render_find(window, &theme, cx),
             )
         });
-        let Ok((focus, diff, find)) = drawn else {
-            return h_flex();
+        let Ok((focus, tools, diff, find)) = drawn else {
+            return v_flex();
         };
-        h_flex()
+        v_flex()
             .size_full()
-            .relative()
             // Keys go to the detail, as when the diff was drawn inside it.
             .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                 window.focus(&focus, cx)
             })
-            .child(diff)
-            .children(find)
+            .children(tools)
+            .child(
+                h_flex()
+                    .flex_1()
+                    .min_h(px(0.))
+                    .relative()
+                    .child(diff)
+                    .children(find),
+            )
     }
 }
 
@@ -244,7 +259,7 @@ impl Detail {
             .min_w(px(0.))
             .h_full()
             .bg(theme.bg_2)
-            .pt(px(12.))
+            .pt(px(4.))
             // A press anywhere ends the last drag; one on a line starts a new one after this.
             .capture_any_mouse_down(cx.listener(|this, _, _, _| this.selecting = false))
             .on_mouse_up(
@@ -272,6 +287,113 @@ impl Detail {
                     .children(scrollbar),
             )
             .into_any_element()
+    }
+
+    /// The bar over the diff, as but.dev's: the file list's toggle, which counts the files and
+    /// their lines while the list is hidden, then how long lines show and where the sides go.
+    pub(super) fn render_diff_tools(&self, theme: &Theme, cx: &App) -> Option<AnyElement> {
+        let diff = self.shown_diff()?;
+        let prefs = &self.store.read(cx).prefs;
+        let (added, removed) = (diff.files.iter().map(FileDiff::stats))
+            .fold((0, 0), |(a, r), (added, removed)| (a + added, r + removed));
+        // To the detail's own handlers, wherever focus is.
+        let act = |action: &'static dyn Action| {
+            let focus = self.focus.clone();
+            move |_: &ClickEvent, window: &mut Window, cx: &mut App| {
+                focus.dispatch_action(action, window, cx)
+            }
+        };
+        let hidden = self.files_hidden;
+        let files_key = shortcut(&ToggleFiles, cx);
+        let files = h_flex()
+            .id("diff-files")
+            .flex_none()
+            .h(px(28.))
+            .px(px(6.))
+            .gap(px(6.))
+            .rounded(px(4.))
+            .hover(|el| el.bg(theme.hover()))
+            .child(icon(Icon::Sidebar).text_color(theme.text_2))
+            .when(hidden, |el| {
+                el.child(
+                    div()
+                        .px(px(6.))
+                        .rounded_full()
+                        .bg(theme.fill_gray.opacity(0.1))
+                        .text_size(px(11.))
+                        .text_color(theme.text_2)
+                        .child(diff.files.len().to_string()),
+                )
+                .child(diff::stats(added, removed, theme))
+            })
+            .tooltip(move |_, cx| {
+                let tip = if hidden {
+                    "Show the files"
+                } else {
+                    "Hide the files"
+                };
+                Tooltip::with_key(tip.into(), files_key.clone(), cx)
+            })
+            .on_click(act(&ToggleFiles));
+        let group = || {
+            h_flex()
+                .flex_none()
+                .p(px(2.))
+                .gap(px(2.))
+                .rounded(px(6.))
+                .border_1()
+                .border_color(theme.border_3)
+        };
+        // A choice of the group, which `action` makes when `on` isn't already.
+        let choice = |id: &'static str,
+                      label: &'static str,
+                      tip: &'static str,
+                      on: bool,
+                      action: &'static dyn Action| {
+            let button = (button(id, label).small().selected(on))
+                .tooltip_with_key(tip, shortcut(action, cx));
+            if on {
+                button
+            } else {
+                button.on_click(act(action))
+            }
+        };
+        let (wrap, split) = (prefs.wrap, prefs.split);
+        Some(
+            h_flex()
+                .flex_none()
+                .h(px(40.))
+                .px(px(16.))
+                .gap(px(8.))
+                .bg(theme.bg_2)
+                .child(files)
+                .child(div().flex_1())
+                .child(
+                    group().child(
+                        (button("diff-wrap", "Wrap").small().selected(wrap))
+                            .tooltip_with_key("Wrap long lines", shortcut(&ToggleWrap, cx))
+                            .on_click(act(&ToggleWrap)),
+                    ),
+                )
+                .child(
+                    group()
+                        .child(choice(
+                            "diff-split",
+                            "Split",
+                            "Side by side",
+                            split,
+                            &ToggleSplit,
+                        ))
+                        .child(choice(
+                            "diff-unified",
+                            "Unified",
+                            "One above the other",
+                            !split,
+                            &ToggleSplit,
+                        )),
+                )
+                .into_any_element(),
+        )
     }
 
     /// The header to keep at the top of the diff while its file scrolls under it, by row, and
@@ -360,7 +482,7 @@ impl Detail {
                     theme,
                     HeaderDecor {
                         trailing: Some(trailing.into_any_element()),
-                        current: self.cursor == Cursor { file, hunk: None },
+                        current: self.cursor.file == file,
                         folded,
                         ..Default::default()
                     },
@@ -395,6 +517,8 @@ impl Detail {
                     let (path, entity) = (path.clone(), entity.clone());
                     checkbox(("hunk-check", ix), check, theme)
                         .on_click(move |_, _, cx| {
+                            // Not a click on the hunk, which shows its file whole.
+                            cx.stop_propagation();
                             entity
                                 .update(cx, |detail, cx| detail.toggle_hunk(&path, key, cx))
                                 .ok();
@@ -412,8 +536,19 @@ impl Detail {
                     let project = diff.key.project.clone();
                     discard_button(ix, project, change, current, self.app.clone(), cx)
                 });
+                // The lines before the hunk, unless the file shown whole has them above.
+                let shown = matches!(
+                    ix.checked_sub(1).map(|row| diff.rows[row]),
+                    Some(DiffRow::Context { .. })
+                );
+                let unmodified = if shown {
+                    0
+                } else {
+                    diff::unmodified_before(hunks, hunk)
+                };
                 let header = diff::hunk_header(
                     &hunks[hunk],
+                    unmodified,
                     theme,
                     HeaderDecor {
                         leading,
@@ -425,6 +560,7 @@ impl Detail {
                 );
                 let line = key.0.new_start;
                 let carried = payload(file, Some(vec![key]));
+                let whole = entity.clone();
                 padded
                     .id(("hunk", ix))
                     .group("hunk-row")
@@ -433,6 +569,16 @@ impl Detail {
                         MouseButton::Right,
                         menu(carried.clone(), Some(line), entity),
                     )
+                    .when(unmodified > 0, |el| {
+                        el.tooltip(|_, cx| {
+                            Tooltip::with_key("Show the whole file".into(), None, cx)
+                        })
+                        .on_click(move |_, _, cx| {
+                            whole
+                                .update(cx, |detail, cx| detail.toggle_whole(file, cx))
+                                .ok();
+                        })
+                    })
                     .when_some(carried, |el, carried| {
                         let label = format!("{path} · line {line}");
                         el.on_drag(
@@ -461,8 +607,11 @@ impl Detail {
                     found: self.found_on(place),
                     wrap: store.prefs.wrap,
                 };
-                let numbers = (text.old, text.new);
-                let element = diff::line_row(text, numbers, place, last, theme, decor);
+                let number = match text.kind {
+                    LineKind::Removed => text.old,
+                    LineKind::Added | LineKind::Context => text.new,
+                };
+                let element = diff::line_row(text, number, place, last, theme, decor);
                 padded.child(element).into_any_element()
             }
             DiffRow::Pair {

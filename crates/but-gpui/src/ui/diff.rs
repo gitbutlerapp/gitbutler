@@ -4,11 +4,13 @@ use std::ops::Range;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, CursorStyle, ElementId, HighlightStyle, Hsla, MouseButton, MouseDownEvent,
-    Pixels, Point, Role, SharedString, StyledText, Window, combine_highlights, div, prelude::*, px,
+    AnyElement, App, Background, CursorStyle, ElementId, HighlightStyle, Hsla, MouseButton,
+    MouseDownEvent, Pixels, Point, Role, SharedString, StyledText, Window, combine_highlights, div,
+    pattern_slash, prelude::*, px,
 };
 
-use super::{Icon, h_flex, small_icon, v_flex};
+use super::file_icons::file_icon;
+use super::{Icon, h_flex, plural, small_icon, v_flex};
 use crate::backend::{ChangeKind, DiffBody, DiffLine, FileDiff, Hunk, LineKind};
 use crate::theme::Theme;
 
@@ -330,38 +332,65 @@ fn card(el: gpui::Div, theme: &Theme) -> gpui::Div {
         .bg(theme.bg_1)
 }
 
-/// The header at the top of the card of file `ix`.
+/// Five squares split between green and red as a file's changed lines are, as ui-react's
+/// ChangeScale does: a side that changed anything keeps a square.
+fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div> {
+    let total = added + removed;
+    if total == 0 {
+        return None;
+    }
+    let green = ((added as f32 / total as f32 * 5.).round() as usize)
+        .clamp(usize::from(added > 0), 5 - usize::from(removed > 0));
+    Some(h_flex().flex_none().gap(px(1.)).children((0..5).map(|ix| {
+        div()
+            .size(px(5.))
+            .bg(if ix < green { theme.safe } else { theme.danger })
+    })))
+}
+
+/// The header at the top of the card of file `ix`, as Lite and but.dev draw it: the fold
+/// chevron, the file's mark, name and folder, and the lines it changed.
 pub fn file_header(ix: usize, file: &FileDiff, theme: &Theme, decor: HeaderDecor) -> AnyElement {
     let (name, dir) = split_path(&file.file.path);
     let (added, removed) = file.stats();
+    let chevron = if decor.folded {
+        Icon::ChevronRight
+    } else {
+        Icon::ChevronDown
+    };
     card(h_flex(), theme)
         .id(("diff-file", ix))
         .role(Role::Heading)
         .aria_label(SharedString::from(file.file.path.clone()))
         .h(px(FILE_HEADER_HEIGHT))
-        .pl(px(12.))
+        .pl(px(10.))
         .pr(px(8.))
         .gap(px(8.))
         .border_t_1()
         .border_b_1()
         .rounded_t(px(6.))
         .when(decor.folded, |el| el.rounded_b(px(6.)))
-        .when(decor.current, |el| el.border_color(theme.border_2))
-        .child(
-            div()
-                .flex_none()
-                .w(px(12.))
-                .text_size(px(11.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(change_color(file.file.kind, theme))
-                .child(file.file.kind.letter()),
-        )
+        // The file the cursor is in: a tab on the card's edge.
+        .when(decor.current, |el| {
+            el.child(
+                div()
+                    .absolute()
+                    .left_0()
+                    .top(px(5.))
+                    .bottom(px(5.))
+                    .w(px(4.))
+                    .rounded_r(px(6.))
+                    .bg(theme.fill_gray),
+            )
+        })
+        .child(small_icon(chevron).text_color(theme.text_2))
         .child(
             h_flex()
                 .flex_1()
                 .min_w(px(0.))
                 .gap(px(6.))
                 .overflow_hidden()
+                .child(file_icon(&file.file.path))
                 .child(
                     div()
                         .flex_none()
@@ -381,38 +410,88 @@ pub fn file_header(ix: usize, file: &FileDiff, theme: &Theme, decor: HeaderDecor
                 ),
         )
         .child(stats(added, removed, theme))
+        .children(change_scale(added, removed, theme))
         .children(decor.trailing)
         .into_any_element()
 }
 
-/// The header above a hunk's lines.
-pub fn hunk_header(hunk: &Hunk, theme: &Theme, decor: HeaderDecor) -> AnyElement {
+/// How many unchanged lines come between hunk `ix` of `hunks` and the hunk before it, or the
+/// file's start: the ones a file shown whole fills in there.
+pub fn unmodified_before(hunks: &[Hunk], ix: usize) -> u32 {
+    let from = ix.checked_sub(1).map_or(1, |previous| {
+        let previous = hunks[previous].key.0;
+        previous.new_start + previous.new_lines
+    });
+    hunks[ix].key.0.new_start.saturating_sub(from)
+}
+
+/// Above a hunk's lines, as @pierre/diffs parts hunks: a grey box saying how many
+/// `unmodified` lines before it aren't shown, with the scopes the hunk changes.
+pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDecor) -> AnyElement {
+    let title = match (unmodified, scopes(&hunk.scope, theme)) {
+        // Nothing hidden and no scope to name: the `@@` header says where the hunk is.
+        (0, None) => Some(SharedString::from(hunk.header.clone()).into_any_element()),
+        (0, scopes) => scopes,
+        (n, scopes) => Some(
+            h_flex()
+                .min_w(px(0.))
+                .gap(px(6.))
+                .child(
+                    div()
+                        .flex_none()
+                        .child(plural(n as usize, "unmodified line")),
+                )
+                .when_some(scopes, |el, scopes| {
+                    el.child(div().flex_none().text_color(theme.text_3).child("·"))
+                        .child(scopes)
+                })
+                .into_any_element(),
+        ),
+    };
     card(h_flex(), theme)
-        .h(px(theme.code_line + 6.))
-        .pl(px(12.))
-        .pr(px(4.))
-        .gap(px(8.))
-        .bg(if decor.current {
-            theme.pop.opacity(0.1)
-        } else {
-            theme.bg_2
-        })
-        .font_family(theme.mono_font.clone())
-        .text_size(px(11.5))
-        .text_color(theme.text_2)
-        .overflow_hidden()
-        .whitespace_nowrap()
-        .children(decor.leading)
-        .child(hunk_title(hunk, theme))
-        .when(decor.excluded, |el| {
-            el.child(
-                div()
-                    .flex_none()
-                    .text_color(theme.text_3)
-                    .child("not included"),
-            )
-        })
-        .children(decor.trailing)
+        .px(px(8.))
+        .py(px(6.))
+        .child(
+            h_flex()
+                .flex_1()
+                .min_w(px(0.))
+                .h(px(28.))
+                .pl(px(10.))
+                .pr(px(3.))
+                .gap(px(8.))
+                .rounded(px(6.))
+                .bg(if decor.current {
+                    theme.pop.opacity(0.1)
+                } else {
+                    theme.diff_separator
+                })
+                .font_family(theme.mono_font.clone())
+                .text_size(px(11.5))
+                .text_color(theme.text_2)
+                .overflow_hidden()
+                .whitespace_nowrap()
+                // The owner shows the hidden lines on a click.
+                .when(unmodified > 0, |el| {
+                    el.cursor_pointer().hover(|el| el.text_color(theme.text_1))
+                })
+                .children(decor.leading)
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .overflow_hidden()
+                        .children(title),
+                )
+                .when(decor.excluded, |el| {
+                    el.child(
+                        div()
+                            .flex_none()
+                            .text_color(theme.text_3)
+                            .child("not included"),
+                    )
+                })
+                .children(decor.trailing),
+        )
         .into_any_element()
 }
 
@@ -446,13 +525,14 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
         .into_any_element()
 }
 
-/// How a line of `kind` looks: its ground, its gutter's, its changed words', and its sign.
+/// How a line of `kind` looks: its ground, its numbers' ground and colour, its changed words'
+/// ground, and the bar down its edge, which tells an addition from a removal without colour.
 struct Look {
     bg: Option<Hsla>,
     gutter: Option<Hsla>,
+    number: Hsla,
     emph: Hsla,
-    sign: &'static str,
-    sign_color: Hsla,
+    bar: Option<Background>,
 }
 
 fn look(kind: LineKind, theme: &Theme) -> Look {
@@ -460,28 +540,29 @@ fn look(kind: LineKind, theme: &Theme) -> Look {
         LineKind::Context => Look {
             bg: None,
             gutter: None,
+            number: theme.text_3,
             emph: theme.bg_1,
-            sign: " ",
-            sign_color: theme.text_3,
+            bar: None,
         },
         LineKind::Added => Look {
             bg: Some(theme.diff_added_bg),
             gutter: Some(theme.diff_added_gutter),
+            number: theme.diff_added,
             emph: theme.diff_added_emph,
-            sign: "+",
-            sign_color: theme.safe,
+            bar: Some(theme.diff_added.into()),
         },
         LineKind::Removed => Look {
             bg: Some(theme.diff_removed_bg),
             gutter: Some(theme.diff_removed_gutter),
+            number: theme.diff_removed,
             emph: theme.diff_removed_emph,
-            sign: "-",
-            sign_color: theme.danger,
+            // Hatched: stripes two device pixels wide and apart.
+            bar: Some(pattern_slash(theme.diff_removed, 2., 2.)),
         },
     }
 }
 
-fn number_cell(n: Option<u32>, gutter: Option<Hsla>, theme: &Theme) -> gpui::Div {
+fn number_cell(n: Option<u32>, look: &Look, theme: &Theme) -> gpui::Div {
     div()
         .flex_none()
         // Five digits and the padding, at the size code shows.
@@ -490,8 +571,19 @@ fn number_cell(n: Option<u32>, gutter: Option<Hsla>, theme: &Theme) -> gpui::Div
         .flex()
         .items_start()
         .justify_end()
-        .text_color(theme.text_3)
-        .when_some(gutter, |el, bg| el.bg(bg))
+        .text_color(look.number)
+        .when_some(look.gutter, |el, bg| el.bg(bg))
+        .when_some(look.bar, |el, bar| {
+            el.child(
+                div()
+                    .absolute()
+                    .left_0()
+                    .top_0()
+                    .bottom_0()
+                    .w(px(4.))
+                    .bg(bar),
+            )
+        })
         .child(n.map(|n| n.to_string()).unwrap_or_default())
 }
 
@@ -526,23 +618,16 @@ fn line_text(
     ))
 }
 
-/// The sign and the text of a line, after its numbers.
-fn sign_and_text(look: &Look, text: StyledText, wrap: bool, theme: &Theme) -> [gpui::Div; 2] {
-    [
-        div()
-            .flex_none()
-            .w(px(18.))
-            .pl(px(6.))
-            .text_color(look.sign_color)
-            .child(look.sign),
-        div()
-            .flex_1()
-            .min_w(px(0.))
-            .when(!wrap, |el| el.whitespace_nowrap())
-            .overflow_hidden()
-            .text_color(theme.text_1)
-            .child(text),
-    ]
+/// The text of a line, after its numbers.
+fn text_cell(text: StyledText, wrap: bool, theme: &Theme) -> gpui::Div {
+    div()
+        .flex_1()
+        .min_w(px(0.))
+        .pl(px(8.))
+        .when(!wrap, |el| el.whitespace_nowrap())
+        .overflow_hidden()
+        .text_color(theme.text_1)
+        .child(text)
 }
 
 /// A row of a file's card, a line tall or taller when wrapping.
@@ -563,12 +648,14 @@ fn line_card(id: ElementId, last: bool, wrap: bool, theme: &Theme) -> gpui::Stat
         .overflow_hidden()
 }
 
-/// Line numbers that put the line in the next commit or take it out when clicked.
-fn numbers(id: ElementId, cells: Vec<gpui::Div>, toggle: Option<OnToggle>) -> AnyElement {
+/// A line's number, which puts the line in the next commit or takes it out when clicked.
+fn numbers(id: ElementId, cell: gpui::Div, toggle: Option<OnToggle>) -> AnyElement {
     h_flex()
         .id(id)
         .flex_none()
-        .children(cells)
+        // As tall as a wrapped line, with its ground and bar.
+        .items_stretch()
+        .child(cell)
         .when_some(toggle, |el, toggle| {
             el.cursor(CursorStyle::PointingHand).on_mouse_down(
                 MouseButton::Left,
@@ -581,11 +668,12 @@ fn numbers(id: ElementId, cells: Vec<gpui::Div>, toggle: Option<OnToggle>) -> An
         .into_any_element()
 }
 
-/// A line of the diff inside its file's card, numbered `old` and `new`. `place` is the
-/// line's file, hunk and index in the hunk, which tell rows apart.
+/// A line of the diff inside its file's card, numbered `number`: on the old side for a
+/// removal, the new for the rest. `place` is the line's file, hunk and index in the hunk,
+/// which tell rows apart.
 pub fn line_row(
     line: &DiffLine,
-    (old, new): (Option<u32>, Option<u32>),
+    number: Option<u32>,
     place: (usize, usize, usize),
     last: bool,
     theme: &Theme,
@@ -632,13 +720,10 @@ pub fn line_row(
         .when_some(look.bg, |el, bg| el.bg(bg))
         .child(numbers(
             ("line-numbers", id).into(),
-            vec![
-                number_cell(old, look.gutter, theme),
-                number_cell(new, look.gutter, theme),
-            ],
+            number_cell(number, &look, theme),
             toggle,
         ))
-        .children(sign_and_text(&look, text, wrap, theme))
+        .child(text_cell(text, wrap, theme))
         .when_some(select, |el, select| {
             let at_down = at.clone();
             el.cursor(CursorStyle::IBeam)
@@ -655,8 +740,8 @@ pub fn line_row(
         .into_any_element()
 }
 
-/// An unchanged line of a file shown whole, from the file's new side, at `old` and `new`;
-/// on both sides with `split`, where its text can't be selected.
+/// An unchanged line of a file shown whole, from the file's new side, at `new`; with `split`
+/// on both sides, at `old` and `new`, where its text can't be selected.
 pub fn context_row(
     line: &DiffLine,
     file: usize,
@@ -672,7 +757,7 @@ pub fn context_row(
         let sides = [Some((line, Some(old))), Some((line, Some(new)))];
         return pair_row(sides, Default::default(), place, last, theme, decor.wrap);
     }
-    line_row(line, (Some(old), Some(new)), place, last, theme, decor)
+    line_row(line, Some(new), place, last, theme, decor)
 }
 
 /// What one side of a side-by-side row adds to its line.
@@ -708,10 +793,10 @@ pub fn pair_row(
             .when_some(look.bg, |el, bg| el.bg(bg))
             .child(numbers(
                 (name, id).into(),
-                vec![number_cell(number, look.gutter, theme)],
+                number_cell(number, &look, theme),
                 half.toggle,
             ))
-            .children(sign_and_text(&look, text, wrap, theme))
+            .child(text_cell(text, wrap, theme))
             .when(half.excluded, |el| el.opacity(0.45))
     };
     line_card(("diff-pair", id).into(), last, wrap, theme)
@@ -721,18 +806,11 @@ pub fn pair_row(
         .into_any_element()
 }
 
-/// The scopes a hunk changes, as a breadcrumb that keeps the innermost one readable, or
-/// its `@@` header when the language isn't one deltoids parses.
-fn hunk_title(hunk: &Hunk, theme: &Theme) -> AnyElement {
-    let Some((inner, outer)) = hunk.scope.split_last() else {
-        return div()
-            .flex_1()
-            .min_w(px(0.))
-            .overflow_hidden()
-            .child(SharedString::from(hunk.header.clone()))
-            .into_any_element();
-    };
-    h_flex()
+/// The scopes a hunk changes, as a breadcrumb that keeps the innermost one readable. None
+/// when the language isn't one deltoids parses.
+fn scopes(scope: &[String], theme: &Theme) -> Option<AnyElement> {
+    let (inner, outer) = scope.split_last()?;
+    let breadcrumb = h_flex()
         .flex_1()
         .min_w(px(0.))
         .gap(px(6.))
@@ -751,8 +829,8 @@ fn hunk_title(hunk: &Hunk, theme: &Theme) -> AnyElement {
                 .flex_none()
                 .text_color(theme.text_1)
                 .child(inner.clone()),
-        )
-        .into_any_element()
+        );
+    Some(breadcrumb.into_any_element())
 }
 
 /// A highlight that only colours the ground behind the text.

@@ -667,7 +667,8 @@ impl Render for AppView {
                                 el.child(
                                     div()
                                         .absolute()
-                                        .top(px(HEADER_HEIGHT))
+                                        .top(px(HEADER_HEIGHT
+                                            + self.detail.read(cx).view_header_height(cx)))
                                         .bottom_0()
                                         .right_0()
                                         .left(px(left))

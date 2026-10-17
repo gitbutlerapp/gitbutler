@@ -30,13 +30,19 @@ pub struct Theme {
     /// The dark ground of a snackbar, in both themes.
     pub snackbar_bg: Hsla,
     pub snackbar_text: Hsla,
+    /// A diff's changed lines as @pierre/diffs colours them in but.dev: from a base, for the
+    /// line numbers and the bar beside them, the ground of the line and of its numbers, and
+    /// behind the words that changed within it.
+    pub diff_added: Hsla,
+    pub diff_removed: Hsla,
     pub diff_added_bg: Hsla,
     pub diff_removed_bg: Hsla,
     pub diff_added_gutter: Hsla,
     pub diff_removed_gutter: Hsla,
-    /// Behind the words that changed within a line.
     pub diff_added_emph: Hsla,
     pub diff_removed_emph: Hsla,
+    /// The box that stands for the unchanged lines between hunks.
+    pub diff_separator: Hsla,
     pub ui_font: SharedString,
     pub mono_font: SharedString,
     /// Code in diffs: its size and the height of a line of it.
@@ -114,10 +120,18 @@ impl Theme {
         let safe = pick(0x259466, 0x2eb87f);
         let danger = pick(0xd64029, 0xe28576);
         let (code_text, code_line) = code.metrics();
+        let bg_1 = pick(0xffffff, 0x292929);
+        let added = pick(0x0dbe4e, 0x5ecc71);
+        let removed = pick(0xff2e3f, 0xff6762);
+        // How much of the base each ground takes, in light and dark: pierre mixes in lab,
+        // this in sRGB, which comes out close.
+        let tint = |base: Hsla, light: f32, dark_amount: f32| {
+            bg_1.blend(base.opacity(if dark { dark_amount } else { light }))
+        };
         Theme {
             code_text,
             code_line,
-            bg_1: pick(0xffffff, 0x292929),
+            bg_1,
             bg_2: pick(0xf2f2f2, 0x1e1e1e),
             text_1: pick(0x1e1e1e, 0xf8f8f8),
             // Secondary text meets WCAG AA (4.5:1), faint text the 3:1 for de-emphasised
@@ -137,23 +151,27 @@ impl Theme {
             purple: pick(0x6e2cb1, 0xb287de),
             snackbar_bg: pick(0x1e1e1e, 0x434343),
             snackbar_text: rgb(0xf8f8f8).into(),
-            diff_added_bg: safe.opacity(if dark { 0.13 } else { 0.10 }),
-            diff_removed_bg: danger.opacity(if dark { 0.13 } else { 0.10 }),
-            diff_added_gutter: safe.opacity(if dark { 0.22 } else { 0.20 }),
-            diff_removed_gutter: danger.opacity(if dark { 0.22 } else { 0.20 }),
-            diff_added_emph: safe.opacity(if dark { 0.34 } else { 0.30 }),
-            diff_removed_emph: danger.opacity(if dark { 0.34 } else { 0.28 }),
+            diff_added: added,
+            diff_removed: removed,
+            diff_added_bg: tint(added, 0.12, 0.2),
+            diff_removed_bg: tint(removed, 0.12, 0.2),
+            diff_added_gutter: tint(added, 0.09, 0.15),
+            diff_removed_gutter: tint(removed, 0.09, 0.15),
+            diff_added_emph: added.opacity(if dark { 0.2 } else { 0.15 }),
+            diff_removed_emph: removed.opacity(if dark { 0.2 } else { 0.15 }),
+            diff_separator: tint(pick(0x000000, 0xffffff), 0.04, 0.1),
             ui_font: ui_font.into(),
             mono_font: mono_font.into(),
-            // In `Token` order: comment, string, constant, keyword, function, type, tag.
+            // Shiki's GitHub light and dark, as but.dev highlights diffs. In `Token` order:
+            // comment, string, constant, keyword, function, type, tag.
             syntax: [
-                pick(0x6e7781, 0x8b949e),
-                pick(0x0a3069, 0xa5d6ff),
-                pick(0x0550ae, 0x79c0ff),
-                pick(0xcf222e, 0xff7b72),
-                pick(0x8250df, 0xd2a8ff),
-                pick(0x953800, 0xffa657),
-                pick(0x116329, 0x7ee787),
+                pick(0x6a737d, 0x6a737d),
+                pick(0x032f62, 0x9ecbff),
+                pick(0x005cc5, 0x79b8ff),
+                pick(0xd73a49, 0xf97583),
+                pick(0x6f42c1, 0xb392f0),
+                pick(0x6f42c1, 0xb392f0),
+                pick(0x22863a, 0x85e89d),
             ],
         }
     }
