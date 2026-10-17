@@ -15,7 +15,7 @@ mod project;
 use crate::app::{AppView, MenuItem};
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::state::{ProjectId, Store};
-use crate::theme::{Appearance, Theme};
+use crate::theme::{Appearance, CodeSize, Theme};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -298,12 +298,43 @@ impl SettingsView {
             },
             cx,
         );
+        let code = h_flex().gap(px(2.)).children(
+            [
+                (CodeSize::Small, "Small"),
+                (CodeSize::Medium, "Medium"),
+                (CodeSize::Large, "Large"),
+            ]
+            .into_iter()
+            .map(|(size, label)| {
+                let app = self.app.clone();
+                button(SharedString::from(format!("code-{label}")), label)
+                    .small()
+                    .style(if prefs.code_size == size {
+                        ButtonStyle::Gray
+                    } else {
+                        ButtonStyle::Ghost
+                    })
+                    .on_click(move |_, _, cx| {
+                        app.update(cx, |app, cx| {
+                            app.detail
+                                .update(cx, |detail, cx| detail.set_code_size(size, cx))
+                        })
+                        .ok();
+                    })
+            }),
+        );
         vec![
             Row {
                 section: Section::General,
                 title: "Appearance".into(),
                 description: "Light, dark, or whichever macOS is set to.".into(),
                 control: appearance.into_any_element(),
+            },
+            Row {
+                section: Section::General,
+                title: "Code size".into(),
+                description: "How large code shows in diffs.".into(),
+                control: code.into_any_element(),
             },
             Row {
                 section: Section::General,

@@ -191,6 +191,7 @@ pub struct Prefs {
     pub wrap: bool,
     /// Diffs show the old side beside the new rather than one above the other.
     pub split: bool,
+    pub code_size: crate::theme::CodeSize,
 }
 
 /// Where the window was: the display it was on, and its left, top, width and height on that

@@ -577,8 +577,8 @@ impl Detail {
         let top = same.then(|| self.keep_place(&rows, &files));
         // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
         // is about the right size before they are.
-        self.list
-            .reset_with_uniform_height(rows.len(), px(diff::LINE_HEIGHT));
+        let line = Theme::get(cx).code_line;
+        self.list.reset_with_uniform_height(rows.len(), px(line));
         if let Some(top) = top {
             self.list.scroll_to(top);
             self.cursor = self.cursor_in(&files);
@@ -817,8 +817,8 @@ impl Detail {
         if rows != diff.rows {
             self.text_selection = None;
             let scroll_to = self.keep_place(&rows, &diff.files);
-            self.list
-                .reset_with_uniform_height(rows.len(), px(diff::LINE_HEIGHT));
+            let line = Theme::get(cx).code_line;
+            self.list.reset_with_uniform_height(rows.len(), px(line));
             self.list.scroll_to(scroll_to);
             if let Some(diff) = &mut self.diff {
                 diff.rows = rows;
@@ -859,10 +859,25 @@ impl Detail {
         self.store.update(cx, |store, cx| {
             store.set_prefs(|prefs| prefs.wrap = !prefs.wrap, cx)
         });
+        self.remeasure(cx);
+    }
+
+    /// Show code in diffs at `size`, in this window and any other.
+    pub fn set_code_size(&mut self, size: crate::theme::CodeSize, cx: &mut Context<Self>) {
+        self.store.update(cx, |store, cx| {
+            store.set_prefs(|prefs| prefs.code_size = size, cx)
+        });
+        cx.set_global(Theme::get(cx).clone().with_code(size));
+        self.remeasure(cx);
+        cx.refresh_windows();
+    }
+
+    /// Have the diff's rows measured again, as their heights changed, keeping its place.
+    fn remeasure(&mut self, cx: &mut Context<Self>) {
         let top = self.list.logical_scroll_top();
         let count = self.diff.as_ref().map_or(0, |diff| diff.rows.len());
-        self.list
-            .reset_with_uniform_height(count, px(diff::LINE_HEIGHT));
+        let line = Theme::get(cx).code_line;
+        self.list.reset_with_uniform_height(count, px(line));
         self.list.scroll_to(top);
         cx.notify();
     }

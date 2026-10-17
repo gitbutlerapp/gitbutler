@@ -228,7 +228,8 @@ impl AppView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = cx.new(Store::new);
         let appearance = store.read(cx).prefs.appearance;
-        cx.set_global(Theme::for_appearance(appearance, window.appearance()));
+        let code = store.read(cx).prefs.code_size;
+        cx.set_global(Theme::for_appearance(appearance, window.appearance()).with_code(code));
         let app = cx.entity().downgrade();
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
         let diff = cx.new(|cx| DiffPane::new(&detail, cx));
@@ -289,8 +290,9 @@ impl AppView {
 
     /// Use the theme the appearance setting and the system call for.
     pub fn apply_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let choice = self.store.read(cx).prefs.appearance;
-        cx.set_global(Theme::for_appearance(choice, window.appearance()));
+        let prefs = &self.store.read(cx).prefs;
+        let theme = Theme::for_appearance(prefs.appearance, window.appearance());
+        cx.set_global(theme.with_code(prefs.code_size));
         cx.refresh_windows();
     }
 
