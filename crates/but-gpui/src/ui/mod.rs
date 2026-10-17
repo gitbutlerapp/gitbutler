@@ -127,6 +127,31 @@ pub fn v_flex() -> Div {
     div().flex().flex_col()
 }
 
+/// Secondary text, like a setting's description.
+pub fn muted(text: impl IntoElement, theme: &Theme) -> Div {
+    div()
+        .text_size(px(12.))
+        .text_color(theme.text_2)
+        .child(text)
+}
+
+/// Faint small text, for details that can be skipped.
+pub fn faint(text: impl IntoElement, theme: &Theme) -> Div {
+    div()
+        .text_size(px(11.))
+        .text_color(theme.text_3)
+        .child(text)
+}
+
+/// The heading over a group of rows.
+#[expect(
+    dead_code,
+    reason = "the navigator, editing and pull request headings move to it next"
+)]
+pub fn section_label(text: impl IntoElement, theme: &Theme) -> Div {
+    faint(text, theme).font_weight(gpui::FontWeight::SEMIBOLD)
+}
+
 /// A row of a list or menu, shaded when `selected` and otherwise under the pointer.
 pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stateful<Div> {
     h_flex()
@@ -274,6 +299,15 @@ impl Button {
     pub fn style(mut self, style: ButtonStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Filled in while it's the chosen one of a few.
+    pub fn selected(self, selected: bool) -> Self {
+        self.style(if selected {
+            ButtonStyle::Gray
+        } else {
+            ButtonStyle::Ghost
+        })
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
@@ -566,12 +600,7 @@ pub fn empty_state(
                 .text_color(theme.text_1)
                 .child(title.into()),
         )
-        .child(
-            div()
-                .text_size(px(12.))
-                .text_color(theme.text_2)
-                .child(detail.into()),
-        )
+        .child(muted(detail.into(), theme))
         .into_any_element()
 }
 

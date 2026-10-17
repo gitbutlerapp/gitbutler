@@ -8,7 +8,7 @@ use gpui::{
     prelude::*, px,
 };
 
-use super::{Row, Section, SettingsView};
+use super::{Row, SettingsView};
 use crate::app::MenuItem;
 use crate::backend::accounts::{self, Account, Forge};
 use crate::backend::run;
@@ -223,25 +223,6 @@ impl SettingsView {
         .detach();
     }
 
-    fn run_and_reload(
-        &mut self,
-        failed: &'static str,
-        op: impl FnOnce() -> anyhow::Result<()> + Send + 'static,
-        cx: &mut Context<Self>,
-    ) {
-        cx.spawn(async move |this, cx| {
-            let result = run(op).await;
-            this.update(cx, |this, cx| {
-                if let Err(err) = result {
-                    this.error(failed, err, cx);
-                }
-                this.load_accounts(cx);
-            })
-            .ok();
-        })
-        .detach();
-    }
-
     pub(super) fn account_rows(&self, window: &Window, cx: &Context<Self>) -> Vec<Row> {
         let theme = Theme::get(cx);
         let mut rows = Vec::new();
@@ -251,7 +232,12 @@ impl SettingsView {
                 .small()
                 .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                    this.run_and_reload("Couldn't log out", accounts::gitbutler_log_out, cx)
+                    this.apply(
+                        "Couldn't log out",
+                        accounts::gitbutler_log_out,
+                        Self::load_accounts,
+                        cx,
+                    )
                 }))
                 .into_any_element(),
             (None, None) => button("log-in", "Log in…")
@@ -261,55 +247,45 @@ impl SettingsView {
                 }))
                 .into_any_element(),
         };
-        rows.push(Row {
-            section: Section::Accounts,
-            title: "GitButler".into(),
-            description: match (&self.accounts.user, &self.accounts.login) {
-                (_, Some(_)) => {
-                    "Sign in on the page that opened, then paste the token it shows.".into()
-                }
-                (Some(user), None) => {
-                    format!("Signed in as {user}. AI can use GitButler's key.").into()
-                }
-                (None, None) => {
-                    "Sign in to use GitButler's AI key, with no key of your own.".into()
-                }
-            },
-            control: gitbutler,
-        });
+        let description: SharedString = match (&self.accounts.user, &self.accounts.login) {
+            (_, Some(_)) => {
+                "Sign in on the page that opened, then paste the token it shows.".into()
+            }
+            (Some(user), None) => {
+                format!("Signed in as {user}. AI can use GitButler's key.").into()
+            }
+            (None, None) => "Sign in to use GitButler's AI key, with no key of your own.".into(),
+        };
+        rows.push(Row::new("GitButler", description, gitbutler));
         for account in &self.accounts.list {
             let id = account.id.clone();
-            rows.push(Row {
-                section: Section::Accounts,
-                title: account.forge.name().into(),
-                description: account.label.clone().into(),
-                control: button(
-                    SharedString::from(format!("forget-{}", account.label)),
-                    "Forget",
+            let forget = button(
+                SharedString::from(format!("forget-{}", account.label)),
+                "Forget",
+            )
+            .small()
+            .style(ButtonStyle::Ghost)
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                let id = id.clone();
+                this.apply(
+                    "Couldn't forget the account",
+                    move || accounts::forget(id),
+                    Self::load_accounts,
+                    cx,
                 )
-                .small()
-                .style(ButtonStyle::Ghost)
-                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                    let id = id.clone();
-                    this.run_and_reload(
-                        "Couldn't forget the account",
-                        move || accounts::forget(id),
-                        cx,
-                    )
-                }))
-                .into_any_element(),
-            });
+            }));
+            rows.push(Row::new(
+                account.forge.name(),
+                account.label.clone(),
+                forget,
+            ));
         }
         if let Some(code) = &self.accounts.github_code {
             let copied = code.clone();
-            rows.push(Row {
-                section: Section::Accounts,
-                title: "Signing in to GitHub".into(),
-                description: format!(
-                    "Enter {code} on the page that opened. It's on your clipboard."
-                )
-                .into(),
-                control: h_flex()
+            rows.push(Row::new(
+                "Signing in to GitHub",
+                format!("Enter {code} on the page that opened. It's on your clipboard."),
+                h_flex()
                     .gap(px(6.))
                     .child(
                         button("copy-code", "Copy code")
@@ -327,33 +303,29 @@ impl SettingsView {
                                 this.accounts.github_code = None;
                                 cx.notify();
                             })),
-                    )
-                    .into_any_element(),
-            });
+                    ),
+            ));
         }
         match &self.accounts.adding {
-            Some((forge, token, email)) => rows.push(Row {
-                section: Section::Accounts,
-                title: format!("New {} token", forge.name()).into(),
-                description: token_help(*forge).into(),
-                control: token_field(
+            Some((forge, token, email)) => rows.push(Row::new(
+                format!("New {} token", forge.name()),
+                token_help(*forge),
+                token_field(
                     token,
                     (*forge == Forge::Bitbucket).then_some(email),
                     window,
                     theme,
                     cx,
                 ),
-            }),
+            )),
             None => {
                 let this = cx.entity().downgrade();
                 let menu = cx.entity().downgrade();
-                rows.push(Row {
-                    section: Section::Accounts,
-                    title: "Add an account".into(),
-                    description: "For pull requests and CI on GitHub, GitLab or Bitbucket. \
-                                  GitButler's other apps share them."
-                        .into(),
-                    control: button("add-account", "Add…")
+                rows.push(Row::new(
+                    "Add an account",
+                    "For pull requests and CI on GitHub, GitLab or Bitbucket. GitButler's other \
+                     apps share them.",
+                    button("add-account", "Add…")
                         .small()
                         .on_click(move |event, _, cx| {
                             let item = |label: &'static str, forge: Option<Forge>| {
@@ -374,9 +346,8 @@ impl SettingsView {
                             ];
                             menu.update(cx, |this, cx| this.open_menu(event, items, cx))
                                 .ok();
-                        })
-                        .into_any_element(),
-                });
+                        }),
+                ));
             }
         }
         rows
