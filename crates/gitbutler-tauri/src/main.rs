@@ -18,7 +18,8 @@ use but_api::{
 };
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
-    Frontend, WindowState, askpass, csp::csp_with_extras, env, logs, menu, projects, settings, zip,
+    Frontend, WindowState, askpass, csp::csp_with_extras, env, logs, menu, notifications, projects,
+    settings, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -41,14 +42,6 @@ fn main() -> anyhow::Result<()> {
 
     let mut tauri_context = generate_context!();
     but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
-
-    // Set the macOS notification bundle ID so notifications appear as GitButler.
-    #[cfg(target_os = "macos")]
-    {
-        if let Err(e) = notify_rust::set_application(&tauri_context.config().identifier) {
-            tracing::warn!(error = %e, "Failed to set notification application");
-        }
-    }
 
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
@@ -368,6 +361,7 @@ fn main() -> anyhow::Result<()> {
                 zip::get_project_archive_path,
                 zip::get_anonymous_graph_path,
                 settings::get_app_settings,
+                notifications::show_notification,
                 settings::update_onboarding_complete,
                 settings::update_telemetry,
                 settings::update_feature_flags,
