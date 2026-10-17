@@ -27,6 +27,7 @@ actions!(
         ToggleDraft,
         ToggleAutoMerge,
         RequestReview,
+        CommentOnPullRequest,
         ApplyPullRequest,
         MergePullRequest,
         ClosePullRequest,
@@ -589,6 +590,55 @@ impl AppView {
                         cx,
                     )
                 })
+            },
+        );
+    }
+
+    /// Ask for a comment on the pull request as a whole, post it, then have the branch
+    /// page ask again where the review stands.
+    pub fn comment_on_pull_request(
+        &mut self,
+        _: &CommentOnPullRequest,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((project, branch, Some((number, _)))) = self.review_target(cx) else {
+            return;
+        };
+        let Some(path) = self.store.read(cx).path(&project) else {
+            return;
+        };
+        let input = cx.new(|cx| TextInput::new("Comment", false, cx));
+        self.open_prompt(
+            &format!("Comment on #{number}"),
+            None,
+            "Comment",
+            input,
+            None,
+            window,
+            cx,
+            move |_, body, _, cx| {
+                let body = body.trim().to_owned();
+                if body.is_empty() {
+                    return;
+                }
+                cx.spawn(async move |this, cx| {
+                    let posted = backend::run(move || reviews::comment(&path, number, body)).await;
+                    this.update(cx, |this, cx| match posted {
+                        Ok(()) => {
+                            this.store
+                                .update(cx, |store, cx| store.snack("Commented", cx));
+                            this.detail.update(cx, |detail, cx| {
+                                detail.load_feedback(&project, &branch, cx)
+                            })
+                        }
+                        Err(err) => this.store.update(cx, |store, cx| {
+                            store.error("Couldn't comment", format!("{err:#}"), cx)
+                        }),
+                    })
+                    .ok();
+                })
+                .detach();
             },
         );
     }

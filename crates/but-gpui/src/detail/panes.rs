@@ -1217,6 +1217,7 @@ impl Detail {
                 .children(feedback.and_then(|feedback| {
                     self.render_threads(project, ref_name, &feedback.threads, theme, cx)
                 }))
+                .children(feedback.and_then(|feedback| render_comments(&feedback.comments, theme)))
             })
             .when(!branch.incoming.is_empty(), |el| {
                 let stacked =
@@ -1493,16 +1494,10 @@ impl Detail {
                 .pb(px(8.))
                 .border_b_1()
                 .border_color(theme.border_3)
-                .child(
-                    div()
-                        .px(px(16.))
-                        .pt(px(10.))
-                        .pb(px(4.))
-                        .text_size(px(11.))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .text_color(theme.text_3)
-                        .child(format!("{} open", plural(threads.len(), "conversation"))),
-                )
+                .child(feedback_heading(
+                    format!("{} open", plural(threads.len(), "conversation")),
+                    theme,
+                ))
                 .children(rows)
                 .when(more > 0, |el| {
                     el.child(
@@ -1516,6 +1511,48 @@ impl Detail {
                 .into_any_element(),
         )
     }
+}
+
+/// Above a part of what the forge said about a pull request.
+fn feedback_heading(text: String, theme: &Theme) -> Div {
+    div()
+        .px(px(16.))
+        .pt(px(10.))
+        .pb(px(4.))
+        .text_size(px(11.))
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .text_color(theme.text_3)
+        .child(text)
+}
+
+/// The latest comments people left on a pull request, each opening on the forge.
+fn render_comments(comments: &[backend::reviews::Comment], theme: &Theme) -> Option<AnyElement> {
+    if comments.is_empty() {
+        return None;
+    }
+    let rows = comments.iter().enumerate().map(|(ix, comment)| {
+        let url = comment.url.clone();
+        list_row(("comment", ix), false, theme)
+            .text_size(px(12.))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w(px(0.))
+                    .truncate()
+                    .child(format!("{}: {}", comment.author, comment.opening)),
+            )
+            .on_click(move |_, _, cx| cx.open_url(&url))
+    });
+    Some(
+        v_flex()
+            .flex_none()
+            .pb(px(8.))
+            .border_b_1()
+            .border_color(theme.border_3)
+            .child(feedback_heading("Latest comments".into(), theme))
+            .children(rows)
+            .into_any_element(),
+    )
 }
 
 /// The checks that failed, a line each, opening its log when clicked.
