@@ -2,8 +2,8 @@
 
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
-use but_settings::AppSettingsWithDiskSync;
 
+use super::settings::app_settings;
 use super::{Project, open, runtime};
 
 /// Keeps a project's watcher alive; dropping it stops watching.
@@ -23,7 +23,7 @@ pub fn watch(
     project: &Project,
     on_change: impl Fn(bool, Option<std::sync::Arc<str>>) + Send + Sync + 'static,
 ) -> Result<Watcher> {
-    let settings = settings()?;
+    let settings = app_settings()?;
     let watch_mode = gitbutler_filemonitor::WatchMode::from_env_or_settings(
         &settings.get()?.feature_flags.watch_mode,
         |key| std::env::var(key).ok(),
@@ -66,12 +66,4 @@ fn linked_worktrees(path: &std::path::Path) -> Result<Vec<gitbutler_filemonitor:
             workdir: worktree.path,
         })
         .collect())
-}
-
-/// GitButler's app settings as they are on disk now. Read afresh each time: the other apps
-/// change them too, and saving a copy read earlier would put their changes back.
-pub(super) fn settings() -> Result<AppSettingsWithDiskSync> {
-    let config_dir = but_path::app_config_dir()?;
-    std::fs::create_dir_all(&config_dir)?;
-    AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }

@@ -11,7 +11,7 @@ use but_core::{
 use but_ctx::Context;
 use gitbutler_operating_modes::OperatingMode;
 
-use super::{CommitId, open};
+use super::{CommitId, open, title};
 
 /// The commit being edited, and how far along its conflicts are.
 #[derive(Debug, Clone)]
@@ -39,9 +39,7 @@ pub(super) fn editing(ctx: &Context) -> Result<Option<Editing>> {
     let repo = ctx.repo.get()?;
     let workdir = repo.workdir().context("the repository has no worktree")?;
     let message = repo.find_commit(meta.commit_oid)?.message_raw()?.to_owned();
-    let message = but_core::commit::strip_conflict_markers(message.as_ref());
-    let title = message.lines().next().unwrap_or_default();
-    let title = title.to_str_lossy().trim().to_owned();
+    let title = title(&but_core::commit::strip_conflict_markers(message.as_ref()));
     let files: Vec<EditedFile> = but_api::legacy::modes::edit_initial_index_state(ctx)?
         .into_iter()
         .map(|(change, presence)| {

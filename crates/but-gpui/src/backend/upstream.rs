@@ -1,12 +1,16 @@
-//! The target branch's history: what came in that the workspace doesn't have yet, the pull
-//! request each commit landed, and when the project last fetched.
+//! The remotes and the target branch: pushing and pulling branches, updating the workspace
+//! from the target, fetching and landing; and the target's history, with what came in that
+//! the workspace doesn't have yet, the pull request each commit landed, and when the
+//! project last fetched.
 
 use std::path::Path;
 
 use anyhow::Result;
 use bstr::ByteSlice;
+use but_core::DryRun;
 
-use super::{CommitId, open};
+use super::ops::{full_name, holds};
+use super::{CommitId, open, runtime, title};
 
 #[derive(Debug, Clone)]
 pub struct TargetCommit {
@@ -40,12 +44,7 @@ pub fn target_commits(
             let commit = target.commit;
             TargetCommit {
                 id: CommitId(commit.id),
-                title: commit
-                    .message
-                    .lines()
-                    .next()
-                    .map(|line| line.to_str_lossy().into_owned())
-                    .unwrap_or_default(),
+                title: title(&commit.message),
                 time: (commit.committed_at / 1000) as i64,
                 review: target.review.map(|review| {
                     (
@@ -68,4 +67,213 @@ pub fn fetch_status(path: &Path) -> Result<(Option<i64>, Option<String>)> {
         status.last_successful_ms.map(|ms| (ms / 1000) as i64),
         status.last_error,
     ))
+}
+
+/// Push `ref_name` and the branches below it. Returns the name it has on its remote, which
+/// needn't be its local one.
+pub fn push(path: &Path, ref_name: &str, force: bool, protect: bool) -> Result<Option<String>> {
+    let ctx = open(path)?.into_sync();
+    let outcome = runtime().handle().block_on(
+        but_api::legacy::workspace::workspace_branch_and_ancestors_push(
+            ctx,
+            force,
+            !protect,
+            ref_name.to_owned(),
+            true,
+            Vec::new(),
+        ),
+    )?;
+    let short = ref_name.strip_prefix("refs/heads/").unwrap_or(ref_name);
+    Ok((outcome.push.branch_to_remote.into_iter())
+        .find(|(branch, _, _)| branch == short || branch == ref_name)
+        .map(|(_, _, remote)| remote))
+}
+
+/// When `err` is force push protection stopping a push, what the remote itself said, if
+/// anything: Git counts any refused force push as that, a protected branch's too.
+pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
+    if err.downcast_ref::<but_error::Code>() != Some(&but_error::Code::GitForcePushProtection) {
+        return None;
+    }
+    tracing::warn!(?err, "push refused");
+    let text = format!("{err:#}");
+    let said: Vec<&str> = (text.lines().map(str::trim))
+        .filter_map(|line| line.strip_prefix("remote:").map(str::trim))
+        .filter(|line| !line.is_empty())
+        .collect();
+    Some(said.join("\n"))
+}
+
+/// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
+/// them, or with `theirs` the remote's version of the branch instead of the local one.
+pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
+    integrate_remote(&mut open(path)?, branch, theirs, DryRun::No)?;
+    Ok(())
+}
+
+/// A dry run of pulling into `branch`: the branches it would leave with conflicted commits
+/// they don't have now, each with how many.
+pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(String, usize)>> {
+    let mut ctx = open(path)?;
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    let preview = integrate_remote(&mut ctx, branch, false, DryRun::Yes)?;
+    Ok(newly_conflicted(
+        &info,
+        &preview.workspace.conflicted_commits,
+    ))
+}
+
+fn integrate_remote(
+    ctx: &mut but_ctx::Context,
+    branch: &str,
+    theirs: bool,
+    dry_run: DryRun,
+) -> Result<but_api::branch::IntegrateBranchResult> {
+    use but_api::branch::json::BranchIntegrationStrategy as Strategy;
+    let name = full_name(branch)?;
+    let strategy = if theirs {
+        Strategy::PickRemote
+    } else {
+        Strategy::PullRebase
+    };
+    let plan = but_api::branch::get_initial_branch_integration(ctx, name.as_ref(), Some(strategy))?;
+    // Rebasing would bring back the remote's versions of commits rewritten here, beside
+    // their new ones: the same change ID on both sides, or with neither having one, as
+    // after plain git, the same subject. A change ID on one side only tells them apart.
+    let divergence = &plan.divergence;
+    let rewritten_here = divergence.upstream_only.iter().any(|remote| {
+        (divergence.local_only.iter()).any(|local| match (&remote.change_id, &local.change_id) {
+            (Some(a), Some(b)) => a == b,
+            (None, None) => remote.subject == local.subject,
+            _ => false,
+        })
+    });
+    anyhow::ensure!(
+        theirs || !rewritten_here,
+        "The remote has older versions of commits rewritten here, which pulling would bring \
+         back. Take the remote's version, or push this branch's to replace them."
+    );
+    let mut guard = ctx.exclusive_worktree_access();
+    but_api::branch::apply_branch_integration_with_perm(
+        ctx,
+        name.as_ref(),
+        plan.integration,
+        dry_run,
+        guard.write_permission(),
+    )
+}
+
+/// Rebase every stack onto the target as it is now, or with `branch` only the stack
+/// holding it. Doesn't fetch first; see [`fetch()`].
+pub fn update_from_target(path: &Path, branch: Option<&str>) -> Result<()> {
+    let mut ctx = open(path)?;
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    integrate_upstream(&mut ctx, &info, branch, DryRun::No)?;
+    Ok(())
+}
+
+/// What [`update_from_target()`] would leave conflicted that isn't now.
+#[derive(Debug)]
+pub struct UpdateConflicts {
+    /// Branches, each with how many of its commits.
+    pub branches: Vec<(String, usize)>,
+    /// Uncommitted files the target changed too, which get conflict markers.
+    pub files: Vec<String>,
+}
+
+/// A dry run of [`update_from_target()`], for what it would leave conflicted.
+pub fn update_conflicts(path: &Path, branch: Option<&str>) -> Result<UpdateConflicts> {
+    let mut ctx = open(path)?;
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    let preview = integrate_upstream(&mut ctx, &info, branch, DryRun::Yes)?;
+    let branches = newly_conflicted(&info, &preview.workspace_state.conflicted_commits);
+    let files = (preview.worktree_conflicts.iter())
+        .map(|path| path.to_str_lossy().into_owned())
+        .collect();
+    Ok(UpdateConflicts { branches, files })
+}
+
+/// The branches in `info` with commits among `conflicted` that aren't conflicted yet, each
+/// with how many.
+fn newly_conflicted(
+    info: &but_workspace::RefInfo,
+    conflicted: &[(gix::ObjectId, but_core::ChangeId)],
+) -> Vec<(String, usize)> {
+    // A commit made without a change ID gets one from its commit ID, as the rebase does.
+    let newly = |commit: &&but_workspace::ref_info::LocalCommit| {
+        let id = commit.inner.change_id();
+        !commit.inner.has_conflicts && conflicted.iter().any(|(_, change)| *change == *id)
+    };
+    (info.stacks.iter())
+        .flat_map(|stack| &stack.segments)
+        .filter_map(|segment| {
+            let count = segment.commits.iter().filter(newly).count();
+            let name = segment.ref_info.as_ref()?.ref_name.shorten().to_string();
+            (count > 0).then_some((name, count))
+        })
+        .collect()
+}
+
+fn integrate_upstream(
+    ctx: &mut but_ctx::Context,
+    info: &but_workspace::RefInfo,
+    branch: Option<&str>,
+    dry_run: DryRun,
+) -> Result<but_api::workspace::WorkspaceIntegrateUpstreamOutcome> {
+    let stacks = info.stacks.iter().filter(|stack| {
+        branch.is_none_or(|branch| stack.segments.iter().any(|s| holds(s, branch)))
+    });
+    let updates = but_api::workspace::rebase_lane_bottoms(stacks.map(|stack| stack.lane()));
+    let mut guard = ctx.exclusive_worktree_access();
+    but_api::workspace::workspace_integrate_upstream_with_perm(
+        ctx,
+        updates,
+        dry_run,
+        guard.write_permission(),
+    )
+}
+
+pub fn fetch(path: &Path) -> Result<()> {
+    let mut ctx = open(path)?;
+    but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))
+}
+
+/// Put `branch` (a short name), or with `whole_stack` it and every branch below it,
+/// straight onto the target and push the target. Returns whether the other branches still
+/// need an update to sit on the moved target.
+pub fn land(path: &Path, branch: &str, whole_stack: bool) -> Result<bool> {
+    let mut ctx = open(path)?;
+    let landed = but_api::land::branch_land(&mut ctx, branch.to_owned(), false, whole_stack)?;
+    Ok(landed.reconcile_skipped)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::push_refusal;
+
+    #[test]
+    fn a_refused_push_keeps_only_what_the_remote_said() {
+        use but_error::Code;
+        let refused = |stderr: &str| {
+            anyhow::anyhow!("git command exited with non-zero exit code 1:\n\nSTDERR:\n{stderr}")
+                .context(Code::GitForcePushProtection)
+        };
+        let protected = refused(
+            "remote: error: GH006: Protected branch update failed for refs/heads/main.\n\
+             remote: \n ! [remote rejected] main -> main (protected branch hook declined)",
+        );
+        assert_eq!(
+            push_refusal(&protected).as_deref(),
+            Some("error: GH006: Protected branch update failed for refs/heads/main."),
+            "the remote's own words, blank lines dropped"
+        );
+        let stale = refused(" ! [rejected] main -> main (stale info)");
+        assert_eq!(
+            push_refusal(&stale).as_deref(),
+            Some(""),
+            "nothing from the remote: someone pushed since the last fetch"
+        );
+        let other = anyhow::anyhow!("failed to connect");
+        assert_eq!(push_refusal(&other), None, "not protection at all");
+    }
 }

@@ -6,8 +6,11 @@ use std::path::Path;
 use anyhow::{Context as _, Result};
 use but_api::legacy::{config, projects};
 use but_core::settings::git::ui::GitConfigSettings;
+use but_settings::AppSettingsWithDiskSync;
 
 use super::open;
+use super::ops::full_name;
+pub use super::{clone, relocate_project, remove_project};
 
 /// A program to open files or the project in, by id and name.
 pub type Program = (String, String);
@@ -28,7 +31,6 @@ pub fn terminals() -> Vec<Program> {
         .collect()
 }
 
-/// Open `file` (relative to the project) in the editor `editor`, at `line` if given.
 /// Open `file` of the project at `path`, or of its linked `worktree`, in `editor` at `line`.
 pub fn open_in_editor(
     path: &Path,
@@ -51,21 +53,21 @@ pub fn open_in_terminal(path: &Path, terminal: &str) -> Result<()> {
 
 /// How often to fetch in the background, in minutes; `None` when it's off.
 pub fn fetch_interval() -> Option<u64> {
-    let settings = super::watch::settings().ok()?;
+    let settings = app_settings().ok()?;
     let minutes = settings.get().ok()?.fetch.auto_fetch_interval_minutes;
     u64::try_from(minutes).ok().filter(|minutes| *minutes > 0)
 }
 
 pub fn set_fetch_interval(minutes: Option<u64>) -> Result<()> {
     let minutes = minutes.map_or(-1, |minutes| minutes as isize);
-    super::watch::settings()?.update_fetch(but_settings::api::FetchUpdate {
+    app_settings()?.update_fetch(but_settings::api::FetchUpdate {
         auto_fetch_interval_minutes: Some(minutes),
     })
 }
 
 /// Whether GitButler's experimental support for linked worktrees is on.
 pub fn worktrees_enabled() -> bool {
-    (super::watch::settings().ok()).is_some_and(|settings| {
+    (app_settings().ok()).is_some_and(|settings| {
         settings
             .get()
             .is_ok_and(|settings| settings.feature_flags.worktree_manipulation)
@@ -73,7 +75,7 @@ pub fn worktrees_enabled() -> bool {
 }
 
 pub fn set_worktrees_enabled(on: bool) -> Result<()> {
-    super::watch::settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
         worktree_manipulation: Some(on),
     })
 }
@@ -163,11 +165,6 @@ pub fn test_signing(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Take the project out of GitButler. The repository stays as it is on disk.
-pub fn remove_project(id: &str) -> Result<()> {
-    projects::delete_project(id.parse().context("Invalid project id")?)
-}
-
 /// The project's remote branches, like `refs/remotes/origin/main`, to pick a target from.
 pub fn remote_branches(path: &Path) -> Result<Vec<String>> {
     let ctx = open(path)?;
@@ -187,7 +184,7 @@ pub fn remote_branches(path: &Path) -> Result<Vec<String>> {
 /// project's settings change; branches rebase onto it at the next update.
 pub fn set_target(path: &Path, target: &str) -> Result<()> {
     let mut ctx = open(path)?;
-    let name = gix::refs::FullName::try_from(target)?;
+    let name = full_name(target)?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, name.as_ref(), None)
 }
 
@@ -201,24 +198,10 @@ pub fn update_ai(update: AiConfigurationUpdate) -> Result<AiConfiguration> {
     but_api::ai::update_ai_configuration(update)
 }
 
-/// Clone `url` into the folder `into`, which shouldn't exist yet.
-pub fn clone(url: &str, into: &Path) -> Result<()> {
-    super::runtime()
-        .handle()
-        .block_on(but_api::legacy::repo::git_clone_repository(
-            url.to_owned(),
-            into.to_owned(),
-        ))
-}
-
-/// Tell GitButler the project `id` now lives at `path`.
-pub fn relocate_project(id: &str, path: &Path) -> Result<()> {
-    gitbutler_project::update(gitbutler_project::UpdateRequest {
-        path: Some(path.to_owned()),
-        git_dir: Some(path.join(".git")),
-        ..gitbutler_project::UpdateRequest::default_with_id(
-            id.parse().context("Invalid project id")?,
-        )
-    })?;
-    Ok(())
+/// GitButler's app settings as they are on disk now. Read afresh each time: the other apps
+/// change them too, and saving a copy read earlier would put their changes back.
+pub(super) fn app_settings() -> Result<AppSettingsWithDiskSync> {
+    let config_dir = but_path::app_config_dir()?;
+    std::fs::create_dir_all(&config_dir)?;
+    AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }

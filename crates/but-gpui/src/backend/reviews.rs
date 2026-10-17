@@ -1,12 +1,16 @@
-//! Pull requests: what a new one would say, publishing it, and changing one that exists.
-//! Calls to the forge go over the network, so these run off the UI thread like the rest.
+//! Pull requests: what the forge cache knows about each branch's, what a new one would
+//! say, publishing it, and changing one that exists. Calls to the forge go over the
+//! network, so these run off the UI thread like the rest.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context as _, Result};
 use but_api::legacy::forge;
+use but_ctx::Context;
 
-use super::{open, push, runtime};
+use super::ops::holds;
+use super::{Checks, PushState, Review, ReviewState, open, push, runtime, title};
 
 /// Make a call to the forge, which goes over the network, and wait for its answer.
 fn forge_call<T, F: Future<Output = Result<T>>>(
@@ -17,7 +21,7 @@ fn forge_call<T, F: Future<Output = Result<T>>>(
 }
 
 /// Which forge hosts the project, like "GitHub", when its target's remote says so.
-pub fn forge_name(ctx: &but_ctx::Context) -> Option<String> {
+pub fn forge_name(ctx: &Context) -> Option<String> {
     let meta = ctx.project_meta().ok()?;
     meta.target_ref.as_ref()?;
     let url = forge::remote_url(&meta, &*ctx.repo.get().ok()?).ok()?;
@@ -28,6 +32,118 @@ pub fn forge_name(ctx: &but_ctx::Context) -> Option<String> {
         .and_then(but_forge::ForgeName::from_override_str);
     let info = but_forge::derive_forge_repo_info(&url, overridden)?;
     Some(format!("{:?}", info.forge))
+}
+
+/// The pull requests the forge cache knows about, by number. Reads only the cache;
+/// [`refresh_reviews`] is what asks the forge.
+pub(super) fn cached_reviews(ctx: &Context) -> HashMap<u64, but_forge::ForgeReview> {
+    ctx.db
+        .get_cache()
+        .ok()
+        .and_then(|db| but_forge::list_cached_forge_reviews(&db).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|review| (review.number as u64, review))
+        .collect()
+}
+
+/// Pull request `number` of the branch `name`, with what `cached` says about it and the CI
+/// the cache has for the branch.
+pub(super) fn review(
+    ctx: &Context,
+    cached: &HashMap<u64, but_forge::ForgeReview>,
+    number: u64,
+    name: &str,
+    push: PushState,
+) -> Review {
+    let found = cached.get(&number);
+    let cache_only = Some(but_forge::CacheConfig::CacheOnly);
+    let checks = forge::list_ci_checks_for_ref(ctx, name, cache_only).unwrap_or_default();
+    Review {
+        number,
+        title: found.map(|review| review.title.clone()).unwrap_or_default(),
+        state: match found {
+            // A merged pull request drops out of the open ones the forge lists.
+            _ if push == PushState::Integrated => ReviewState::Merged,
+            Some(review) => review_state(review),
+            None => ReviewState::Open,
+        },
+        url: found.map(|review| review.html_url.clone()),
+        checks: (!checks.is_empty()).then(|| summarize_checks(&checks)),
+        failed_checks: (checks.iter())
+            .filter(|check| check_failed(check) == Some(true))
+            .map(|check| {
+                let url = match check.html_url.as_str() {
+                    "" => check.details_url.clone(),
+                    url => url.to_owned(),
+                };
+                (check.name.clone(), url)
+            })
+            .collect(),
+        auto_merge: found.is_some_and(|review| review.auto_merge_enabled),
+        author: (found.and_then(|review| review.author.as_ref()))
+            .map(|author| author.login.clone()),
+        labels: (found.iter().flat_map(|review| &review.labels))
+            .map(|label| label.name.clone())
+            .collect(),
+        reviewers: (found.iter().flat_map(|review| &review.reviewers))
+            .filter(|user| !user.is_bot)
+            .map(|user| user.login.clone())
+            .collect(),
+    }
+}
+
+pub(super) fn review_state(review: &but_forge::ForgeReview) -> ReviewState {
+    match (&review.merged_at, &review.closed_at, review.draft) {
+        (Some(_), _, _) => ReviewState::Merged,
+        (None, Some(_), _) => ReviewState::Closed,
+        (None, None, true) => ReviewState::Draft,
+        (None, None, false) => ReviewState::Open,
+    }
+}
+
+fn summarize_checks(checks: &[but_forge::CiCheck]) -> Checks {
+    checks.iter().fold(Checks::default(), |mut sum, check| {
+        match check_failed(check) {
+            Some(false) => sum.passed += 1,
+            Some(true) => sum.failed += 1,
+            None => sum.running += 1,
+        }
+        sum
+    })
+}
+
+/// Whether a check that finished failed; `None` while it hasn't.
+fn check_failed(check: &but_forge::CiCheck) -> Option<bool> {
+    use but_forge::{CiConclusion as C, CiStatus as S};
+    match &check.status {
+        S::Complete { conclusion, .. } => Some(match conclusion {
+            C::Success | C::Neutral | C::Skipped => false,
+            C::Failure | C::TimedOut | C::Cancelled | C::ActionRequired | C::Unknown => true,
+        }),
+        S::InProgress | S::Queued | S::Unknown => None,
+    }
+}
+
+/// Ask the forge about the project's pull requests, refreshing the cache that
+/// [`load_workspace`](super::load_workspace) reads. Fails when the project has no forge or
+/// no account for it.
+pub fn refresh_reviews(path: &Path) -> Result<()> {
+    let started = std::time::Instant::now();
+    tracing::debug!(path = %path.display(), "refreshing reviews");
+    let ctx = open(path)?;
+    forge::list_reviews(&ctx, Some(but_forge::CacheConfig::NoCache))?;
+    tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed reviews");
+    Ok(())
+}
+
+/// Ask the forge about the CI of each branch with a pull request, a request per branch.
+pub fn refresh_checks(path: &Path) -> Result<()> {
+    let started = std::time::Instant::now();
+    let ctx = open(path)?;
+    forge::warm_ci_checks_cache(&ctx)?;
+    tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed checks");
+    Ok(())
 }
 
 /// What a new pull request for `branch` starts with: the branch it would merge into, and a
@@ -96,11 +212,11 @@ pub fn publish(
 }
 
 /// The name of the remote branch `branch` (a full ref) tracks, without its remote.
-fn tracked_name(ctx: &but_ctx::Context, branch: &str) -> Result<Option<String>> {
+fn tracked_name(ctx: &Context, branch: &str) -> Result<Option<String>> {
     let info = but_api::legacy::workspace::head_info(ctx)?;
     let tracked = (info.stacks.iter())
         .flat_map(|stack| &stack.segments)
-        .find(|segment| (segment.ref_info.as_ref()).is_some_and(|r| r.ref_name.as_bstr() == branch))
+        .find(|segment| holds(segment, branch))
         .and_then(|segment| segment.remote_tracking_ref_name.as_ref())
         .and_then(|name| {
             // The longest remote name that fits, as remote names can hold slashes too.
@@ -119,19 +235,9 @@ pub fn review_text(path: &Path, number: u64) -> Result<(String, String)> {
 }
 
 /// Ways to merge a pull request, as the forge offers them.
-#[derive(Debug, Clone, Copy)]
-pub enum MergeMethod {
-    Merge,
-    Squash,
-    Rebase,
-}
+pub use but_forge::ReviewMergeMethod as MergeMethod;
 
 pub fn merge(path: &Path, number: u64, method: MergeMethod) -> Result<()> {
-    let method = match method {
-        MergeMethod::Merge => but_forge::ReviewMergeMethod::Merge,
-        MergeMethod::Squash => but_forge::ReviewMergeMethod::Squash,
-        MergeMethod::Rebase => but_forge::ReviewMergeMethod::Rebase,
-    };
     forge_call(path, |ctx| {
         forge::merge_review(ctx, number as usize, Some(method))
     })
@@ -219,15 +325,20 @@ pub struct Feedback {
 pub fn feedback(path: &Path, number: u64) -> Result<Feedback> {
     use but_forge::ForgeReviewThreadSide as Side;
     let number = number as usize;
-    let verdicts =
-        forge_call(path, |ctx| forge::list_review_submissions(ctx, number)).map(|submissions| {
-            fold_verdicts(
-                submissions
-                    .into_iter()
-                    .filter_map(|submission| Some((submission.author?.login, submission.state))),
-            )
-        });
-    let threads = forge_call(path, |ctx| forge::list_review_threads(ctx, number)).map(|threads| {
+    let ctx = open(path)?.into_sync();
+    let (submissions, threads, comments) = runtime().handle().block_on(futures::future::join3(
+        forge::list_review_submissions(ctx.clone(), number),
+        forge::list_review_threads(ctx.clone(), number),
+        forge::list_review_comments(ctx, number),
+    ));
+    let verdicts = submissions.map(|submissions| {
+        fold_verdicts(
+            submissions
+                .into_iter()
+                .filter_map(|submission| Some((submission.author?.login, submission.state))),
+        )
+    });
+    let threads = threads.map(|threads| {
         (threads.into_iter())
             .filter(|thread| !thread.is_resolved)
             .filter_map(|thread| {
@@ -238,7 +349,7 @@ pub fn feedback(path: &Path, number: u64) -> Result<Feedback> {
                         .and_then(|line| u32::try_from(line).ok()),
                     author: (first.author.as_ref())
                         .map_or_else(String::new, |author| author.login.clone()),
-                    opening: first.body.lines().next().unwrap_or_default().to_owned(),
+                    opening: title(first.body.as_bytes()),
                     replies: thread.comments.len() - 1,
                     url: first.html_url.clone(),
                     id: thread.id,
@@ -249,21 +360,20 @@ pub fn feedback(path: &Path, number: u64) -> Result<Feedback> {
     });
     /// More than this many are better read on the forge.
     const LATEST: usize = 3;
-    let comments =
-        forge_call(path, |ctx| forge::list_review_comments(ctx, number)).map(|comments| {
-            // Oldest first; bots, like coverage reports, left out.
-            let mut people: Vec<Comment> = (comments.into_iter())
-                .filter_map(|comment| {
-                    let author = comment.author.filter(|author| !author.is_bot)?;
-                    Some(Comment {
-                        author: author.login,
-                        opening: comment.body.lines().next().unwrap_or_default().to_owned(),
-                        url: comment.html_url,
-                    })
+    let comments = comments.map(|comments| {
+        // Oldest first; bots, like coverage reports, left out.
+        let mut people: Vec<Comment> = (comments.into_iter())
+            .filter_map(|comment| {
+                let author = comment.author.filter(|author| !author.is_bot)?;
+                Some(Comment {
+                    author: author.login,
+                    opening: title(comment.body.as_bytes()),
+                    url: comment.html_url,
                 })
-                .collect();
-            people.split_off(people.len().saturating_sub(LATEST))
-        });
+            })
+            .collect();
+        people.split_off(people.len().saturating_sub(LATEST))
+    });
     match (verdicts, threads, comments) {
         (Err(err), Err(_), Err(_)) => Err(err),
         (verdicts, threads, comments) => Ok(Feedback {
