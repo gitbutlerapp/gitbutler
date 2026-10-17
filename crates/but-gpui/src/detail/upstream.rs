@@ -255,7 +255,7 @@ impl Detail {
                     )
             }))
             .when(!entry.project.path.exists(), |el| {
-                let (locate, remove) = (project.clone(), project.clone());
+                let remove = project.clone();
                 el.child(
                     v_flex()
                         .mt(px(4.))
@@ -269,27 +269,13 @@ impl Detail {
                                 .child("The project's folder isn't there any more."),
                         )
                         .child(
-                            h_flex()
-                                .gap(px(6.))
-                                .child(crate::ui::button("locate", "Locate…").small().on_click(
-                                    cx.listener(move |this, _, _, cx| {
-                                        let project = locate.clone();
-                                        this.app
-                                            .update(cx, |app, cx| app.locate_project(project, cx))
-                                            .ok();
-                                    }),
-                                ))
-                                .child(
-                                    crate::ui::button("forget", "Remove")
-                                        .small()
-                                        .style(crate::ui::ButtonStyle::Ghost)
-                                        .on_click(cx.listener(move |this, _, _, cx| {
-                                            let project = remove.clone();
-                                            this.store.update(cx, |store, cx| {
-                                                store.remove_project(&project, cx)
-                                            });
-                                        })),
-                                ),
+                            h_flex().child(crate::ui::button("forget", "Remove").small().on_click(
+                                cx.listener(move |this, _, _, cx| {
+                                    let project = remove.clone();
+                                    this.store
+                                        .update(cx, |store, cx| store.remove_project(&project, cx));
+                                }),
+                            )),
                         ),
                 )
             })

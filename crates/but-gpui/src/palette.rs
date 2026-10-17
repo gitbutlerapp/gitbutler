@@ -9,17 +9,16 @@ use gpui::{
 use crate::app::{
     AddProject, AppView, CopySelection, CutSelection, DeleteSelection, Fetch, FocusChanges,
     FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, PasteHere, Push, Quit, Redo,
-    Refresh, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator, ToggleZoom,
-    UncommitSelection, Undo, UpdateFromTarget,
+    Refresh, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator, UncommitSelection,
+    Undo, UpdateFromTarget,
 };
 use crate::detail::{
     DiscardFile, DiscardHunk, NextFile, NextHunk, PreviousFile, PreviousHunk, ToggleFold,
     ToggleReviewed,
 };
 use crate::edits::{
-    AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage, MoveDown,
-    MoveUp, NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
-    UpdateStack,
+    AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage,
+    NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
 };
 use crate::state::Selection;
 use crate::theme::Theme;
@@ -60,8 +59,6 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("New branch on top", &NewBranchOnTop),
     ("Rename", &RenameSelection),
     ("Uncommit", &UncommitSelection),
-    ("Move commit up", &MoveUp),
-    ("Move commit down", &MoveDown),
     ("Cherry-pick commit", &CherryPick),
     ("Add empty commit above", &AddEmptyCommitAbove),
     ("Add empty commit below", &AddEmptyCommitBelow),
@@ -78,7 +75,6 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Unstack branch", &Unstack),
     ("Unapply stack", &UnapplyStack),
     ("Land branch on target", &crate::edits::LandBranch),
-    ("Update stack from target", &UpdateStack),
     ("Rewrap commit message", &RewrapMessage),
     ("Copy change ID", &CopyChangeId),
     ("Copy commit message", &CopyMessage),
@@ -87,16 +83,11 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Cut", &CutSelection),
     ("Paste here", &PasteHere),
     ("Toggle navigator", &ToggleNavigator),
-    ("Zoom diff", &ToggleZoom),
     ("Go to navigator", &FocusNavigator),
     ("Go to changes", &FocusChanges),
     ("Add project…", &AddProject),
     ("Clone a repository…", &crate::projects::CloneRepository),
     ("Settings", &crate::settings::OpenSettings),
-    (
-        "Switch between light and dark",
-        &crate::app::ToggleAppearance,
-    ),
     ("Go to branch", &GoToBranch),
     ("Find in diff", &crate::detail::FindInDiff),
     ("Filter files", &crate::detail::FilterFiles),

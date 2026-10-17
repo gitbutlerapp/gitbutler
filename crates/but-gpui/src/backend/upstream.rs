@@ -9,7 +9,7 @@ use anyhow::Result;
 use bstr::ByteSlice;
 use but_core::DryRun;
 
-use super::ops::{full_name, holds};
+use super::ops::full_name;
 use super::{CommitId, open, runtime, title};
 
 #[derive(Debug, Clone)]
@@ -163,12 +163,11 @@ fn integrate_remote(
     )
 }
 
-/// Rebase every stack onto the target as it is now, or with `branch` only the stack
-/// holding it. Doesn't fetch first; see [`fetch()`].
-pub fn update_from_target(path: &Path, branch: Option<&str>) -> Result<()> {
+/// Rebase every stack onto the target as it is now. Doesn't fetch first; see [`fetch()`].
+pub fn update_from_target(path: &Path) -> Result<()> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
-    integrate_upstream(&mut ctx, &info, branch, DryRun::No)?;
+    integrate_upstream(&mut ctx, &info, DryRun::No)?;
     Ok(())
 }
 
@@ -182,10 +181,10 @@ pub struct UpdateConflicts {
 }
 
 /// A dry run of [`update_from_target()`], for what it would leave conflicted.
-pub fn update_conflicts(path: &Path, branch: Option<&str>) -> Result<UpdateConflicts> {
+pub fn update_conflicts(path: &Path) -> Result<UpdateConflicts> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let preview = integrate_upstream(&mut ctx, &info, branch, DryRun::Yes)?;
+    let preview = integrate_upstream(&mut ctx, &info, DryRun::Yes)?;
     let branches = newly_conflicted(&info, &preview.workspace_state.conflicted_commits);
     let files = (preview.worktree_conflicts.iter())
         .map(|path| path.to_str_lossy().into_owned())
@@ -217,13 +216,9 @@ fn newly_conflicted(
 fn integrate_upstream(
     ctx: &mut but_ctx::Context,
     info: &but_workspace::RefInfo,
-    branch: Option<&str>,
     dry_run: DryRun,
 ) -> Result<but_api::workspace::WorkspaceIntegrateUpstreamOutcome> {
-    let stacks = info.stacks.iter().filter(|stack| {
-        branch.is_none_or(|branch| stack.segments.iter().any(|s| holds(s, branch)))
-    });
-    let updates = but_api::workspace::rebase_lane_bottoms(stacks.map(|stack| stack.lane()));
+    let updates = but_api::workspace::rebase_lane_bottoms(info.stacks.iter().map(|s| s.lane()));
     let mut guard = ctx.exclusive_worktree_access();
     but_api::workspace::workspace_integrate_upstream_with_perm(
         ctx,

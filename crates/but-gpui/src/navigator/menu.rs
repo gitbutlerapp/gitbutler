@@ -8,9 +8,9 @@ use crate::app::{
     OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection, UpdateFromTarget,
 };
 use crate::edits::{
-    AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage, MoveDown,
-    MoveToNewBranch, MoveUp, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage, SquashAll,
-    SquashPicked, TakeRemote, UnapplyStack, Unstack, UpdateStack,
+    AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage,
+    MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage, SquashAll,
+    SquashPicked, TakeRemote, UnapplyStack, Unstack,
 };
 use crate::overlays::MenuItem;
 use crate::state::Selection;
@@ -179,13 +179,6 @@ impl Navigator {
                 if stacked {
                     items.push(action("Unstack", &Unstack));
                 }
-                if let Some(target) = workspace.target.as_ref().filter(|t| t.needs_update) {
-                    items.push(MenuItem::action(
-                        format!("Update stack from {}", target.name),
-                        &UpdateStack,
-                        cx,
-                    ));
-                }
                 if let (Some(target), Some(whole)) = (
                     workspace.target.as_ref(),
                     crate::edits::land_scope(workspace, ref_name),
@@ -266,9 +259,7 @@ impl Navigator {
                     items.push(action("New branch ending here…", &NewBranchHere));
                 }
                 items.extend([
-                    action("Move up", &MoveUp).separated(),
-                    action("Move down", &MoveDown),
-                    action("Move to a new branch", &MoveToNewBranch),
+                    action("Move to a new branch", &MoveToNewBranch).separated(),
                     action("Copy commit ID", &CopySelection).separated(),
                 ]);
                 if commit.has_change_id() {

@@ -20,8 +20,6 @@ use super::{CommitId, Selected, open};
 pub enum Destination {
     /// The top of this branch (a full ref name).
     Branch(String),
-    /// The bottom of the branch stacked on this one.
-    AboveBranch(String),
     /// Right above this commit, in its branch.
     AboveCommit(CommitId),
     /// Right below this commit, in its branch.
@@ -34,10 +32,6 @@ impl Destination {
             Destination::Branch(ref_name) => (
                 RelativeTo::Reference(full_name(ref_name)?),
                 InsertSide::Below,
-            ),
-            Destination::AboveBranch(ref_name) => (
-                RelativeTo::Reference(full_name(ref_name)?),
-                InsertSide::Above,
             ),
             Destination::AboveCommit(id) => (RelativeTo::Commit(id.0), InsertSide::Above),
             Destination::BelowCommit(id) => (RelativeTo::Commit(id.0), InsertSide::Below),

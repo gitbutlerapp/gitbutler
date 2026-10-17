@@ -79,7 +79,6 @@ fn main() {
             ));
             ui::text_input::bind_keys(cx);
             app::bind_keys(cx);
-            edits::bind_keys(cx);
             navigator::bind_keys(cx);
             detail::bind_keys(cx);
             detail::bind_find_keys(cx);
