@@ -1,6 +1,7 @@
 //! Shared building blocks so every surface draws rows, buttons and counts the same way.
 
 pub mod diff;
+pub mod file_icons;
 pub mod modal;
 pub mod review;
 pub mod scrollbar;
@@ -64,6 +65,7 @@ icons! {
     File => "file",
     FileDiff => "file-diff",
     Folder => "folder",
+    FolderFill => "folder-fill",
     FolderTree => "folder-tree",
     Link => "link",
     List => "list",
@@ -103,7 +105,7 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
-        Ok(icon_bytes(path).map(Cow::Borrowed))
+        Ok((icon_bytes(path).or_else(|| file_icons::load(path))).map(Cow::Borrowed))
     }
 
     fn list(&self, _path: &str) -> anyhow::Result<Vec<SharedString>> {
