@@ -75,16 +75,20 @@ pub(super) fn conflicted_changes(
     repo: &gix::Repository,
     ignored: &[IgnoredWorktreeChange],
 ) -> Result<Vec<TreeChange>> {
+    let conflicted = |change: &&IgnoredWorktreeChange| {
+        change.status == IgnoredWorktreeTreeChangeStatus::Conflict
+    };
+    // Status runs on every change to the worktree; most of the time nothing's conflicted.
+    if !ignored.iter().any(|change| conflicted(&change)) {
+        return Ok(Vec::new());
+    }
     let head = repo.head_tree()?;
     let on_disk = |kind| ChangeState {
         id: gix::ObjectId::null(repo.object_hash()),
         kind,
     };
     let mut changes = Vec::new();
-    for change in ignored
-        .iter()
-        .filter(|change| change.status == IgnoredWorktreeTreeChangeStatus::Conflict)
-    {
+    for change in ignored.iter().filter(conflicted) {
         let path = gix::path::from_bstr(change.path.as_bstr())?;
         let status = match head.lookup_entry_by_path(path)? {
             Some(entry) => {

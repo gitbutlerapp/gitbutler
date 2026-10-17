@@ -22,7 +22,7 @@ use crate::transfer::{Transfer, short_ref};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, STATUS_BAR_HEIGHT, button, h_flex, icon, keycap, list_row,
-    popover, resize_pane, shortcut, v_flex,
+    plural, popover, resize_pane, shortcut, v_flex,
 };
 
 actions!(
@@ -786,6 +786,15 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if let Cut::Files {
+            from: None, files, ..
+        } = payload
+            && let Some(selected) = files.iter().find(|f| f.file.conflicted)
+        {
+            let message = format!("Mark {} resolved first", selected.file.path);
+            self.store.update(cx, |store, cx| store.snack(message, cx));
+            return;
+        }
         let Some(transfer) = Transfer::resolve(payload, target, held, self.store.read(cx)) else {
             self.store
                 .update(cx, |store, cx| store.snack("That can't go there", cx));
@@ -983,13 +992,72 @@ impl AppView {
     fn update_selected_project(
         &mut self,
         _: &UpdateFromTarget,
-        _: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if let Some(project) = self.selected_project(cx) {
-            self.store
-                .update(cx, |store, cx| store.update_from_target(&project, None, cx));
+            self.update_from_target(project, None, window, cx);
         }
+    }
+
+    /// Rebase onto the target, or with `branch` just its stack, after asking when a dry run
+    /// says that would leave commits conflicted that aren't now.
+    pub fn update_from_target(
+        &mut self,
+        project: ProjectId,
+        branch: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(path) = self.store.read(cx).path(&project) else {
+            return;
+        };
+        let checked = branch.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            // A failed check leaves it to the update to report what's wrong.
+            let conflicts =
+                backend::run(move || backend::update_conflicts(&path, checked.as_deref()))
+                    .await
+                    .unwrap_or_default();
+            this.update_in(cx, |this, window, cx| {
+                let update = move |this: &mut AppView, cx: &mut Context<AppView>| {
+                    this.store.update(cx, |store, cx| {
+                        store.update_from_target(&project, branch, cx)
+                    })
+                };
+                let mut detail = Vec::new();
+                if !conflicts.branches.is_empty() {
+                    let branches: Vec<String> = (conflicts.branches.iter())
+                        .map(|(name, count)| format!("{name} ({})", plural(*count, "commit")))
+                        .collect();
+                    detail.push(format!(
+                        "Rebasing leaves conflicted commits in {}.",
+                        branches.join(", ")
+                    ));
+                }
+                if !conflicts.files.is_empty() {
+                    detail.push(format!(
+                        "The target changed the same lines as your uncommitted changes to {}, \
+                         which get conflict markers.",
+                        conflicts.files.join(", ")
+                    ));
+                }
+                if detail.is_empty() {
+                    return update(this, cx);
+                }
+                detail.push("You can resolve them afterwards, or undo the update.".into());
+                this.confirm_then(
+                    "Update with conflicts?".into(),
+                    &detail.join(" "),
+                    "Update anyway",
+                    window,
+                    cx,
+                    update,
+                )
+            })
+            .ok();
+        })
+        .detach();
     }
 
     pub fn toggle_navigator(

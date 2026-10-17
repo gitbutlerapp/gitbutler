@@ -445,11 +445,9 @@ impl AppView {
         });
     }
 
-    fn update_stack(&mut self, _: &UpdateStack, _: &mut Window, cx: &mut Context<Self>) {
+    fn update_stack(&mut self, _: &UpdateStack, window: &mut Window, cx: &mut Context<Self>) {
         if let Some((project, ref_name)) = self.selected_branch_ref(cx) {
-            self.store.update(cx, |store, cx| {
-                store.update_from_target(&project, Some(ref_name), cx)
-            });
+            self.update_from_target(project, Some(ref_name), window, cx);
         }
     }
 

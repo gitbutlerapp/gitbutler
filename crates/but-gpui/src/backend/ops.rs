@@ -7,6 +7,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use anyhow::{Context as _, Result, bail};
+use bstr::ByteSlice as _;
 use but_api::commit::json::ChangesSource;
 use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
@@ -547,18 +548,70 @@ pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
 pub fn update_from_target(path: &Path, branch: Option<&str>) -> Result<()> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
+    integrate_upstream(&mut ctx, &info, branch, DryRun::No)?;
+    Ok(())
+}
+
+/// What [`update_from_target()`] would leave conflicted that isn't now.
+#[derive(Debug, Default)]
+pub struct UpdateConflicts {
+    /// Branches, each with how many of its commits.
+    pub branches: Vec<(String, usize)>,
+    /// Uncommitted files the target changed too, which get conflict markers.
+    pub files: Vec<String>,
+}
+
+/// A dry run of [`update_from_target()`], for what it would leave conflicted.
+pub fn update_conflicts(path: &Path, branch: Option<&str>) -> Result<UpdateConflicts> {
+    let mut ctx = open(path)?;
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    let preview = integrate_upstream(&mut ctx, &info, branch, DryRun::Yes)?;
+    let conflicted: Vec<String> = (preview.workspace_state.conflicted_commits.iter())
+        .map(|(_, change_id)| change_id.to_string())
+        .collect();
+    let newly = |commit: &&but_workspace::ref_info::LocalCommit| {
+        !commit.inner.has_conflicts
+            && (commit.inner.change_id.as_ref())
+                .is_some_and(|id| conflicted.contains(&id.to_string()))
+    };
+    let branches = (info.stacks.iter())
+        .flat_map(|stack| &stack.segments)
+        .filter_map(|segment| {
+            let count = segment.commits.iter().filter(newly).count();
+            let name = segment.ref_info.as_ref()?.ref_name.shorten().to_string();
+            (count > 0).then_some((name, count))
+        })
+        .collect();
+    let files = (preview.worktree_conflicts.iter())
+        .map(|path| path.to_str_lossy().into_owned())
+        .collect();
+    Ok(UpdateConflicts { branches, files })
+}
+
+/// Take the conflicted uncommitted `files` as they are on disk, markers or not.
+pub fn mark_resolved(path: &Path, files: Vec<String>) -> Result<()> {
+    let mut ctx = open(path)?;
+    let paths = files.into_iter().map(Into::into).collect();
+    but_api::workspace::resolve_worktree_conflicts(&mut ctx, paths)
+}
+
+fn integrate_upstream(
+    ctx: &mut but_ctx::Context,
+    info: &but_workspace::RefInfo,
+    branch: Option<&str>,
+    dry_run: DryRun,
+) -> Result<but_api::workspace::WorkspaceIntegrateUpstreamOutcome> {
     let stacks = info.stacks.iter().filter(|stack| {
         branch.is_none_or(|branch| stack.segments.iter().any(|s| holds(s, branch)))
     });
     let updates = but_api::workspace::rebase_lane_bottoms(stacks.map(|stack| stack.lane()));
     let mut guard = ctx.exclusive_worktree_access();
     but_api::workspace::workspace_integrate_upstream_with_perm(
-        &mut ctx,
+        ctx,
         updates,
-        DryRun::No,
+        dry_run,
         guard.write_permission(),
-    )?;
-    Ok(())
+    )
 }
 
 pub fn fetch(path: &Path) -> Result<()> {

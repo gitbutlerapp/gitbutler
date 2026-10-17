@@ -82,12 +82,12 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let ctx = open(path)?;
     if let Some(editing) = edit::editing(&ctx)? {
         return Ok(Workspace {
-            uncommitted: worktree_files(&*ctx.repo.get()?, true)?,
+            uncommitted: worktree_files(&*ctx.repo.get()?)?,
             editing: Some(editing),
             ..Default::default()
         });
     }
-    let uncommitted = worktree_files(&*ctx.repo.get()?, false)?;
+    let uncommitted = worktree_files(&*ctx.repo.get()?)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
 
     let mut stacks: Vec<Stack> = info
@@ -121,7 +121,7 @@ pub fn wrapped_message(message: &str) -> String {
 /// Just the uncommitted files, for when only the worktree changed.
 pub fn load_uncommitted(path: &Path) -> Result<Vec<FileChange>> {
     let ctx = open(path)?;
-    worktree_files(&*ctx.repo.get()?, false)
+    worktree_files(&*ctx.repo.get()?)
 }
 
 /// Fill in what the forge cache knows about each branch's pull request: its title, state,
@@ -320,6 +320,7 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
         previous_path,
         kind,
         modified: None,
+        conflicted: false,
         change,
     }
 }
@@ -358,20 +359,19 @@ impl DiffSource {
 
 /// Uncommitted files, each with when it was last written. With `conflicts`, the files the
 /// index has conflicted too.
-fn worktree_files(repo: &gix::Repository, conflicts: bool) -> Result<Vec<FileChange>> {
-    let mut changes = but_core::diff::worktree_changes(repo)?;
+fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
+    let changes = but_core::diff::worktree_changes(repo)?;
     let ui_changes: but_core::ui::WorktreeChanges = changes.clone().into();
     let modified = but_core::diff::ui::modification_times(repo, &ui_changes);
-    if conflicts {
-        let conflicted = edit::conflicted_changes(repo, &changes.ignored_changes)?;
-        changes.changes.extend(conflicted);
-    }
+    // Status leaves out files with unresolved index conflicts; they're changes too.
+    let conflicted = edit::conflicted_changes(repo, &changes.ignored_changes)?;
+    let changes = changes.changes.into_iter().map(|change| (change, false));
     Ok(changes
-        .changes
-        .into_iter()
-        .map(|change| {
+        .chain(conflicted.into_iter().map(|change| (change, true)))
+        .map(|(change, conflicted)| {
             let mut file = file_change(change);
             file.modified = modified.get(&file.path).map(|ms| *ms as i64);
+            file.conflicted = conflicted;
             file
         })
         .collect())
@@ -398,7 +398,7 @@ pub fn load_diff(
         // With modification times, so review marks match the workspace's file list.
         DiffSource::Worktree | DiffSource::Edit => match worktree {
             Some(files) => files,
-            None => worktree_files(&repo, source == DiffSource::Edit)?,
+            None => worktree_files(&repo)?,
         },
         DiffSource::Commit(id) => {
             let details =
