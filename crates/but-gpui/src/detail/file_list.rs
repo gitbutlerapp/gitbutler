@@ -4,15 +4,15 @@
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels, Point,
-    SharedString, Stateful, StyledText, Toggled, div, img, prelude::*, px,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
+    Point, SharedString, Stateful, StyledText, Toggled, div, img, prelude::*, px,
 };
 
 use super::file_tree::{self, TreeRow};
 use super::panes::side_list;
 use super::{Detail, FilterFiles, keeps_path};
 use crate::app::AppView;
-use crate::backend::{self, FileChange, FileDiff, Selected};
+use crate::backend::{self, CommitId, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Overlay, ProjectId, Review, Selection};
 use crate::theme::Theme;
@@ -27,8 +27,8 @@ use crate::ui::{
 #[derive(Clone)]
 enum FileSource {
     Uncommitted(ProjectId),
-    /// The loaded diff's files: a commit's, or a branch's with no commit.
-    Diff(ProjectId, Option<backend::CommitId>),
+    /// The loaded diff's files: a commit's, a branch's or a linked worktree's.
+    Diff,
 }
 
 /// What right-clicking a file or hunk offers, and for which changes.
@@ -47,15 +47,12 @@ struct FileRow {
     /// Where the file is in the loaded diff: a click scrolls there, and the diff's cursor
     /// there marks the row.
     diff_ix: Option<usize>,
-    stats: Option<(u32, u32)>,
     /// Shown while composing a commit.
     checkbox: Option<Toggled>,
     /// Shown for uncommitted files.
     review: Option<Review>,
-    /// Lets the row be dragged and right-clicked as these changes.
-    drag_from: Option<(ProjectId, Option<backend::CommitId>)>,
-    /// The linked worktree the file is of, which right-clicking it can throw away.
-    linked: Option<(ProjectId, Arc<str>)>,
+    /// What right-clicking the row offers. Changes it can cut, it drags as well.
+    menu: Option<FileMenu>,
     /// How deep the file sits in a tree; it then shows only its name.
     depth: Option<usize>,
 }
@@ -138,29 +135,14 @@ impl Detail {
             FileSource::Uncommitted(project.clone()),
             cx,
         );
-        let header = if self.filtering {
-            self.filter_header(files.iter().map(|f| f.path.as_str()), theme, cx)
-        } else {
-            let (added, removed) = self.worktree_diff().map_or((0, 0), |d| {
-                d.files
-                    .iter()
-                    .map(FileDiff::stats)
-                    .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr))
-            });
-            let to_review = self.store.read(cx).unreviewed(project, files);
-            header_row()
-                .child(files_heading(files.len(), (added, removed), theme))
-                .when(to_review > 0, |el| {
-                    el.child(
-                        div()
-                            .text_color(theme.warn)
-                            .child(format!("{to_review} to review")),
-                    )
-                })
-                .child(div().flex_1())
-                .child(self.filter_button(cx))
-                .child(self.tree_toggle(cx))
-        };
+        let diffs = self.worktree_diff().map_or(&[][..], |diff| &diff.files[..]);
+        let header = self.list_header(
+            files.iter().map(|f| f.path.as_str()),
+            diffs,
+            self.store.read(cx).unreviewed(project, files),
+            theme,
+            cx,
+        );
         v_flex()
             .flex_1()
             .min_h(px(0.))
@@ -181,15 +163,9 @@ impl Detail {
             .into_any_element()
     }
 
-    /// The files of the loaded commit or branch diff, each a jump target and draggable
-    /// when it belongs to a single commit.
-    pub(super) fn render_diff_file_list(
-        &self,
-        project: &ProjectId,
-        commit: Option<backend::CommitId>,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
+    /// The files of the loaded diff, each a jump target, and draggable when the diff has an
+    /// owner ([`Self::diff_owner`]).
+    pub(super) fn render_diff_file_list(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let Some(diff) = self.shown_diff() else {
             let note = if self.loading.is_some() {
                 "Loading…"
@@ -201,19 +177,9 @@ impl Detail {
                 .py(px(10.))
                 .into_any_element();
         };
-        let rows = self.file_list("diff-files", FileSource::Diff(project.clone(), commit), cx);
-        let header = if self.filtering {
-            let paths = diff.files.iter().map(|f| f.file.path.as_str());
-            self.filter_header(paths, theme, cx)
-        } else {
-            let stats = (diff.files.iter().map(FileDiff::stats))
-                .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
-            header_row()
-                .child(files_heading(diff.files.len(), stats, theme))
-                .child(div().flex_1())
-                .child(self.filter_button(cx))
-                .child(self.tree_toggle(cx))
-        };
+        let rows = self.file_list("diff-files", FileSource::Diff, cx);
+        let paths = diff.files.iter().map(|f| f.file.path.as_str());
+        let header = self.list_header(paths, &diff.files, 0, theme, cx);
         v_flex()
             .flex_1()
             .min_h(px(0.))
@@ -244,7 +210,7 @@ impl Detail {
                         .unzip()
                 })
                 .unwrap_or_default(),
-            FileSource::Diff(..) => self
+            FileSource::Diff => self
                 .diff
                 .as_ref()
                 .map(|diff| {
@@ -266,7 +232,7 @@ impl Detail {
         };
         let scroll = match &source {
             FileSource::Uncommitted(_) => &self.uncommitted_files,
-            FileSource::Diff(..) => &self.diff_files,
+            FileSource::Diff => &self.diff_files,
         };
         side_list(
             id,
@@ -297,22 +263,25 @@ impl Detail {
             FileSource::Uncommitted(project) => {
                 let store = self.store.read(cx);
                 let file = store.workspace(project)?.uncommitted.get(pos)?;
-                let in_diff = self.worktree_diff().and_then(|diff| {
-                    let ix = diff.files.iter().position(|f| f.file.path == file.path)?;
-                    Some((ix, diff.files[ix].stats()))
-                });
+                let whole = Selected {
+                    file: file.clone(),
+                    hunks: None,
+                };
                 let extras = FileRow {
-                    diff_ix: in_diff.map(|(ix, _)| ix),
-                    stats: in_diff.map(|(_, stats)| stats),
+                    diff_ix: (self.worktree_diff())
+                        .and_then(|diff| diff.files.iter().position(|f| f.file.path == file.path)),
                     checkbox: self.composing.then(|| self.checks.file_check(&file.path)),
                     review: Some(store.review(project, file)),
-                    drag_from: Some((project.clone(), None)),
-                    linked: None,
+                    menu: Some(FileMenu::Cut(Cut::Files {
+                        project: project.clone(),
+                        from: None,
+                        files: vec![whole].into(),
+                    })),
                     depth,
                 };
                 Some(self.render_file_row(pos, file, extras, theme, cx))
             }
-            FileSource::Diff(project, commit) => {
+            FileSource::Diff => {
                 let diff = self.diff.as_ref()?;
                 let file = diff.files.get(pos)?;
                 // A linked worktree's files are reviewed too.
@@ -320,10 +289,8 @@ impl Detail {
                     .map(|scope| self.store.read(cx).review(&scope, &file.file));
                 let extras = FileRow {
                     diff_ix: Some(pos),
-                    stats: Some(file.stats()),
                     review,
-                    drag_from: commit.map(|id| (project.clone(), Some(id))),
-                    linked: (diff.key.linked()).map(|worktree| (project.clone(), worktree)),
+                    menu: self.diff_file_menu(pos, None, cx),
                     depth,
                     ..Default::default()
                 };
@@ -332,8 +299,62 @@ impl Detail {
         }
     }
 
+    /// The project the loaded diff's changes can be moved or taken out of, with the commit
+    /// they're in, or `None` when they're uncommitted. A branch's diff spans commits, a
+    /// linked worktree's changes don't move into the workspace, and a commit of the target's
+    /// history, on the project page, isn't the workspace's to change: those have no owner.
+    pub(super) fn diff_owner(&self, cx: &App) -> Option<(ProjectId, Option<CommitId>)> {
+        let key = &self.diff.as_ref()?.key;
+        let from = match key.source {
+            DiffSource::Worktree => None,
+            DiffSource::Commit(id)
+                if self.store.read(cx).find_commit(&key.project, id).is_some() =>
+            {
+                Some(id)
+            }
+            _ => return None,
+        };
+        Some((key.project.clone(), from))
+    }
+
+    /// The loaded diff's file at `file`, or `hunks` of it, to drag or cut.
+    pub(super) fn diff_cut(
+        &self,
+        file: usize,
+        hunks: Option<Vec<HunkKey>>,
+        cx: &App,
+    ) -> Option<Cut> {
+        let (project, from) = self.diff_owner(cx)?;
+        let file = self.diff.as_ref()?.files.get(file)?.file.clone();
+        Some(Cut::Files {
+            project,
+            from,
+            files: vec![Selected { file, hunks }].into(),
+        })
+    }
+
+    /// What right-clicking the loaded diff's file at `file`, or `hunks` of it, offers. A
+    /// linked worktree's changes don't move into the workspace, so they can only be thrown
+    /// away.
+    pub(super) fn diff_file_menu(
+        &self,
+        file: usize,
+        hunks: Option<Vec<HunkKey>>,
+        cx: &App,
+    ) -> Option<FileMenu> {
+        let diff = self.diff.as_ref()?;
+        match diff.key.linked() {
+            Some(worktree) => {
+                let file = diff.files.get(file)?.file.clone();
+                let change = Selected { file, hunks };
+                Some(FileMenu::Linked(diff.key.project.clone(), worktree, change))
+            }
+            None => self.diff_cut(file, hunks, cx).map(FileMenu::Cut),
+        }
+    }
+
     /// The files under the folder `dir` in `source`, to act on together.
-    fn folder_payload(&self, source: &FileSource, dir: &str, cx: &gpui::App) -> Option<Cut> {
+    fn folder_payload(&self, source: &FileSource, dir: &str, cx: &App) -> Option<Cut> {
         let prefix = format!("{dir}/");
         // Only what the folder shows: not files the filter or a pending operation hides.
         let terms = self.filter_terms(cx);
@@ -348,18 +369,15 @@ impl Detail {
                     .cloned()
                     .collect(),
             ),
-            FileSource::Diff(project, Some(commit)) => (
-                project.clone(),
-                Some(*commit),
-                self.diff
-                    .as_ref()?
-                    .files
-                    .iter()
-                    .map(|f| f.file.clone())
+            FileSource::Diff => {
+                let (project, from) = self.diff_owner(cx)?;
+                let files = (self.diff.as_ref()?.files.iter())
+                    .map(|f| &f.file)
                     .filter(|f| under(&f.path))
-                    .collect(),
-            ),
-            FileSource::Diff(_, None) => return None,
+                    .cloned()
+                    .collect();
+                (project, from, files)
+            }
         };
         let files: Vec<Selected> = files
             .into_iter()
@@ -431,60 +449,75 @@ impl Detail {
         Some(row.into_any_element())
     }
 
-    /// A file list's header while the file filter is open: the filter, how many of the
-    /// list's `paths` it keeps, and a way to close it.
-    fn filter_header<'a>(
+    /// A file list's header: how many `paths` it has, the lines `diffs` add and remove, how
+    /// many files are still `to_review`, and ways to filter it or show it as a tree. While
+    /// the filter is open: the filter, how many of `paths` it keeps, and a way to close it.
+    fn list_header<'a>(
         &self,
         paths: impl Iterator<Item = &'a str>,
+        diffs: &[FileDiff],
+        to_review: usize,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
-        let terms = self.filter_terms(cx);
-        let (kept, total) = paths.fold((0, 0), |(kept, total), path| {
-            (kept + usize::from(keeps_path(&terms, path)), total + 1)
-        });
-        header_row()
-            .child(small_icon(Icon::Search).text_color(theme.text_3))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w(px(0.))
-                    .text_size(px(13.))
-                    .child(self.file_filter.clone()),
-            )
-            .child(
-                div()
-                    .flex_none()
-                    .text_color(theme.text_3)
-                    .child(format!("{kept} of {total}")),
-            )
-            .child(
-                icon_button("close-filter", Icon::Cross)
-                    .small()
-                    .tooltip("Close the filter")
-                    .on_click(cx.listener(|this, _, window, cx| this.close_filter(window, cx))),
-            )
-    }
-
-    fn filter_button(&self, cx: &Context<Self>) -> impl IntoElement {
-        icon_button("filter-files", Icon::Search)
-            .small()
-            .tooltip_with_key("Filter files", shortcut(&FilterFiles, cx))
-            .on_click(cx.listener(|this, _, window, cx| this.open_filter(window, cx)))
-    }
-
-    fn tree_toggle(&self, cx: &Context<Self>) -> impl IntoElement {
+        if self.filtering {
+            let terms = self.filter_terms(cx);
+            let (kept, total) = paths.fold((0, 0), |(kept, total), path| {
+                (kept + usize::from(keeps_path(&terms, path)), total + 1)
+            });
+            return header_row()
+                .child(small_icon(Icon::Search).text_color(theme.text_3))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .text_size(px(13.))
+                        .child(self.file_filter.clone()),
+                )
+                .child(
+                    div()
+                        .flex_none()
+                        .text_color(theme.text_3)
+                        .child(format!("{kept} of {total}")),
+                )
+                .child(
+                    icon_button("close-filter", Icon::Cross)
+                        .small()
+                        .tooltip("Close the filter")
+                        .on_click(cx.listener(|this, _, window, cx| this.close_filter(window, cx))),
+                );
+        }
+        let stats =
+            (diffs.iter().map(FileDiff::stats)).fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
         let tree = self.store.read(cx).file_tree;
         let store = self.store.clone();
-        icon_button(
-            "file-tree",
-            if tree { Icon::List } else { Icon::FolderTree },
-        )
-        .small()
-        .tooltip(if tree { "Show as list" } else { "Show as tree" })
-        .on_click(move |_, _, cx| {
-            store.update(cx, |store, cx| store.set_file_tree(!tree, cx));
-        })
+        header_row()
+            .child(files_heading(paths.count(), stats, theme))
+            .when(to_review > 0, |el| {
+                el.child(
+                    div()
+                        .text_color(theme.warn)
+                        .child(format!("{to_review} to review")),
+                )
+            })
+            .child(div().flex_1())
+            .child(
+                icon_button("filter-files", Icon::Search)
+                    .small()
+                    .tooltip_with_key("Filter files", shortcut(&FilterFiles, cx))
+                    .on_click(cx.listener(|this, _, window, cx| this.open_filter(window, cx))),
+            )
+            .child(
+                icon_button(
+                    "file-tree",
+                    if tree { Icon::List } else { Icon::FolderTree },
+                )
+                .small()
+                .tooltip(if tree { "Show as list" } else { "Show as tree" })
+                .on_click(move |_, _, cx| {
+                    store.update(cx, |store, cx| store.set_file_tree(!tree, cx));
+                }),
+            )
     }
 
     fn render_file_row(
@@ -498,6 +531,7 @@ impl Detail {
         let (name, dir) = diff::split_path(&file.path);
         let path = file.path.clone();
         let diff_ix = extras.diff_ix;
+        let stats = (diff_ix.and_then(|ix| self.diff.as_ref()?.files.get(ix))).map(FileDiff::stats);
         let current = diff_ix == Some(self.cursor.file);
         let reviewed = extras.review == Some(Review::Reviewed);
         // In a tree a file sits under its directory, which names its path.
@@ -540,23 +574,9 @@ impl Detail {
                     .into_any_element()
             }
         };
-        // What right-clicking the row, or its ⋯, offers for the file.
-        let whole = Selected {
-            file: file.clone(),
-            hunks: None,
-        };
-        let menu = match (extras.drag_from.clone(), extras.linked) {
-            (Some((project, from)), _) => Some(FileMenu::Cut(Cut::Files {
-                project,
-                from,
-                files: vec![whole].into(),
-            })),
-            (None, Some((project, worktree))) => Some(FileMenu::Linked(project, worktree, whole)),
-            (None, None) => None,
-        };
         // The ⋯ takes the mark's place while the pointer is on the row or the row is current.
         // A plain glyph rather than a button: a list draws it on every row.
-        let more = menu.clone().map(|menu| {
+        let more = extras.menu.clone().map(|menu| {
             div()
                 .id(("file-menu", ix))
                 .absolute()
@@ -624,7 +644,7 @@ impl Detail {
                 };
                 StyledText::new(text).with_highlights(folder)
             })))
-            .when_some(extras.stats, |el, (added, removed)| {
+            .when_some(stats, |el, (added, removed)| {
                 el.child(fade(diff::stats(added, removed, theme)))
             })
             // When it last changed, faint, for watching what an agent touches.
@@ -646,33 +666,29 @@ impl Detail {
                     }),
                 )
             });
-        if let Some((project, from)) = extras.drag_from {
-            let payload = |files: Vec<Selected>| Cut::Files {
-                project: project.clone(),
-                from,
-                files: files.into(),
-            };
-            let whole = vec![Selected {
-                file: file.clone(),
-                hunks: None,
-            }];
-            // A file partly checked drags as its checked hunks and lines. Not at all while
-            // they're unknown, rather than as all of it.
-            let dragged = match extras.checkbox {
-                Some(Toggled::Mixed) => (self.selected_changes(cx).into_iter())
-                    .filter(|s| s.file.path == file.path)
-                    .collect(),
-                _ => whole.clone(),
-            };
-            if !dragged.is_empty() {
-                let label: SharedString = file.path.clone().into();
-                row = row.on_drag(
-                    payload(dragged),
-                    crate::transfer::drag_preview(self.store.clone(), label),
-                );
+        // A file partly checked drags as its checked hunks and lines. Not at all while
+        // they're unknown, rather than as all of it.
+        let dragged = match &extras.menu {
+            Some(FileMenu::Cut(Cut::Files { project, from, .. }))
+                if extras.checkbox == Some(Toggled::Mixed) =>
+            {
+                (self.selected_change(file)).map(|change| Cut::Files {
+                    project: project.clone(),
+                    from: *from,
+                    files: vec![change].into(),
+                })
             }
+            Some(FileMenu::Cut(cut)) => Some(cut.clone()),
+            _ => None,
+        };
+        if let Some(dragged) = dragged {
+            let label: SharedString = file.path.clone().into();
+            row = row.on_drag(
+                dragged,
+                crate::transfer::drag_preview(self.store.clone(), label),
+            );
         }
-        if let Some(menu) = menu {
+        if let Some(menu) = extras.menu {
             row = row.on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, _, cx| {

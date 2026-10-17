@@ -207,7 +207,7 @@ pub struct Detail {
     /// Whether the selected commit's message shows its body, not just its title.
     message_open: bool,
     /// How tall a commit's header across the page was drawn, which the diff starts below.
-    pub(super) header_height: Rc<Cell<f32>>,
+    header_height: Rc<Cell<f32>>,
     /// Directories folded shut in tree-shaped file lists, by path.
     collapsed_dirs: HashSet<String>,
     /// Text selected in the diff, from where the drag started to where it is now.
@@ -453,8 +453,9 @@ impl Detail {
         cx.notify();
     }
 
-    /// Load the diff for the current selection. `selection_changed` resets the scroll;
-    /// otherwise only a worktree diff, which can change under us, is reloaded.
+    /// Load the diff for the current selection, unless it's the one shown and can't have
+    /// changed, as only a worktree diff can. `selection_changed` loads it even then, replaces
+    /// a load in flight rather than queuing a reload behind it, and waits out a held arrow key.
     fn refresh_diff(&mut self, selection_changed: bool, cx: &mut Context<Self>) {
         let key = self.key_for_selection(cx);
         let current = self.diff.as_ref().map(|diff| &diff.key);
@@ -765,7 +766,7 @@ impl Detail {
         open
     }
 
-    pub(super) fn close_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn close_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.filtering = false;
         self.file_filter
             .update(cx, |input, cx| input.set_text("", cx));
@@ -1096,17 +1097,6 @@ impl Detail {
         Some(diff.files.get(self.cursor.file)?.file.path.clone())
     }
 
-    /// The uncommitted file under the cursor, with the project it's in and the linked
-    /// worktree it's of, if any. Never a file the diff doesn't show, as one the filter hides.
-    fn cursor_file(&self) -> Option<(ProjectId, Option<Arc<str>>, FileDiff)> {
-        let diff = (self.diff.as_ref()).filter(|diff| diff.key.source.live())?;
-        if !self.shown_files().contains(&self.cursor.file) {
-            return None;
-        }
-        let file = diff.files.get(self.cursor.file)?;
-        Some((diff.key.project.clone(), diff.key.linked(), file.clone()))
-    }
-
     /// The indexes of the files the diff shows, in ascending order for the binary searches
     /// over them (Find's among them): not those a filter or a pending operation hides.
     fn shown_files(&self) -> Vec<usize> {
@@ -1183,7 +1173,8 @@ impl Detail {
         self.rebuild_rows(cx);
     }
 
-    /// Throw away one hunk, or the whole file when `hunk` is `None`.
+    /// Throw away one hunk of the uncommitted file at `file_ix`, or the whole file when `hunk`
+    /// is `None`. Never a file the diff doesn't show, as one the filter hides.
     pub fn discard(
         &mut self,
         file_ix: usize,
@@ -1195,9 +1186,15 @@ impl Detail {
             file: file_ix,
             hunk,
         };
-        let Some((project, worktree, file)) = self.cursor_file() else {
+        let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
             return;
         };
+        let Some(file) = diff.files.get(file_ix) else {
+            return;
+        };
+        if !self.shown_files().contains(&file_ix) {
+            return;
+        }
         let hunks = match (hunk, &file.body) {
             (None, _) => None,
             (Some(hunk), DiffBody::Hunks { hunks, .. }) if hunk < hunks.len() => {
@@ -1206,8 +1203,9 @@ impl Detail {
             // Never widen a hunk discard to the whole file.
             (Some(_), _) => return,
         };
+        let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
         let change = Selected {
-            file: file.file,
+            file: file.file.clone(),
             hunks,
         };
         self.app
@@ -1230,9 +1228,7 @@ impl Detail {
             cx.notify();
         }
     }
-}
 
-impl Detail {
     /// How far below the breadcrumbs the diff starts: under a commit's header, when there's one.
     pub fn view_header_height(&self, cx: &App) -> f32 {
         match self.selection(cx) {
