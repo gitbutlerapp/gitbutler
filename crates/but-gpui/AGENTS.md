@@ -12,6 +12,10 @@ These apply to `crates/but-gpui`, on top of `crates/AGENTS.md`.
   70-120ms, only on that machine.
 - GPUI picks a weight by choosing between font files and doesn't vary a variable font, so add
   static instances, never a variable file. `assets/fonts/README.md` has the recipe.
+- The files are cut 60 lighter than the design-core weights they stand in for, because GPUI
+  draws thicker stems than Chrome. Compare against but.dev before changing a weight: render both
+  at the same scale (headless Chrome with `--force-device-scale-factor=2` and a harness `shot`)
+  and compare stem thickness, not screenshots taken at different scales.
 
 ## Measuring performance
 
