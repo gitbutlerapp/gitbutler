@@ -169,6 +169,9 @@ impl Navigator {
                     }
                 }
                 if ref_name.is_empty() {
+                    if !branch.commits.is_empty() {
+                        items.push(action("Name branch…", &RenameSelection).separated());
+                    }
                     return items;
                 }
                 items.push(action("New branch on top…", &NewBranchOnTop).separated());
