@@ -391,22 +391,24 @@ impl AppView {
         });
         Some(
             deferred(
-                anchored()
-                    .position(menu.position)
-                    .snap_to_window_with_margin(px(8.))
-                    .child(
-                        popover(theme)
-                            .id("context-menu")
-                            // Clicks on an item stop here, not on the row under it.
-                            .occlude()
-                            .min_w(px(180.))
-                            .py(px(4.))
-                            .children(items)
-                            .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                                this.menu = None;
-                                cx.notify();
-                            })),
-                    ),
+                // Over the window, so what's under the menu neither hovers nor shows a
+                // tooltip, and a click outside only closes it, as a native menu does.
+                div().absolute().inset_0().occlude().child(
+                    anchored()
+                        .position(menu.position)
+                        .snap_to_window_with_margin(px(8.))
+                        .child(
+                            popover(theme)
+                                .id("context-menu")
+                                .min_w(px(180.))
+                                .py(px(4.))
+                                .children(items)
+                                .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                                    this.menu = None;
+                                    cx.notify();
+                                })),
+                        ),
+                ),
             )
             .with_priority(2)
             .into_any_element(),
