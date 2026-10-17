@@ -154,6 +154,8 @@
 		"@tanstack/react-virtual": "^3.14.10",
 		"@tauri-apps/api": "^2.11.0",
 		"@tauri-apps/plugin-dialog": "^2.7.1",
+		"@tauri-apps/plugin-process": "^2.3.1",
+		"@tauri-apps/plugin-updater": "^2.10.1",
 		"arktype": "^2.2.2",
 		"atomically": "^2.1.1",
 		"effect": "^3.20.0",
