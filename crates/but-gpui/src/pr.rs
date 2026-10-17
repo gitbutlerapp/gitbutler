@@ -586,6 +586,55 @@ impl AppView {
         );
     }
 
+    /// Ask for an answer to a conversation on `ref_name`'s pull request, post it, then have
+    /// the branch page ask again where the review stands.
+    pub fn reply_to_thread(
+        &mut self,
+        project: ProjectId,
+        ref_name: String,
+        id: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(path) = self.store.read(cx).path(&project) else {
+            return;
+        };
+        let input = cx.new(|cx| TextInput::new("Reply", false, cx));
+        self.open_prompt(
+            "Reply to the conversation",
+            None,
+            "Reply",
+            input,
+            None,
+            window,
+            cx,
+            move |_, body, _, cx| {
+                let body = body.trim().to_owned();
+                if body.is_empty() {
+                    return;
+                }
+                cx.spawn(async move |this, cx| {
+                    let posted =
+                        backend::run(move || reviews::reply_to_thread(&path, id, body)).await;
+                    this.update(cx, |this, cx| match posted {
+                        Ok(()) => {
+                            this.store
+                                .update(cx, |store, cx| store.snack("Replied", cx));
+                            this.detail.update(cx, |detail, cx| {
+                                detail.load_feedback(&project, &ref_name, cx)
+                            })
+                        }
+                        Err(err) => this.store.update(cx, |store, cx| {
+                            store.error("Couldn't reply", format!("{err:#}"), cx)
+                        }),
+                    })
+                    .ok();
+                })
+                .detach();
+            },
+        );
+    }
+
     /// Pick someone to ask for a review of the pull request, from the repository's
     /// collaborators not asked yet.
     pub fn request_review(

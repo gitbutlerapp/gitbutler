@@ -248,6 +248,15 @@ pub fn resolve_thread(path: &Path, id: String) -> Result<()> {
         .block_on(forge::set_review_thread_resolved(ctx, id, true))
 }
 
+/// Answer a conversation on a pull request's diff.
+pub fn reply_to_thread(path: &Path, id: String, body: String) -> Result<()> {
+    let ctx = open(path)?.into_sync();
+    runtime()
+        .handle()
+        .block_on(forge::create_review_thread_reply(ctx, id, body))?;
+    Ok(())
+}
+
 /// Who can be asked to review: the logins of the repository's collaborators, bots left
 /// out, in alphabetical order.
 pub fn reviewer_candidates(path: &Path) -> Result<Vec<String>> {
