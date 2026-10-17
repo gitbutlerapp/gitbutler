@@ -39,10 +39,8 @@ but-askpass.workspace = true
 but-api.workspace = true
 but-core.workspace = true
 but-ctx.workspace = true
-but-llm.workspace = true
 but-path.workspace = true
 but-settings.workspace = true
-gix.workspace = true
 gitbutler-watcher.workspace = true
 napi = { version = "3", features = ["serde-json", "tokio_rt"] }
 napi-derive = "3"

@@ -1,18 +1,19 @@
 //! App-level AI configuration.
 //!
 //! These are app-scoped rather than project-scoped, so they take no `Context`.
-//! They live here, and not in `but-napi` beside the streaming call, so the
-//! `#[but_api]` macro generates their wrappers: clients then reach them
-//! through the same generated endpoint table as every other call.
+//! The configuration calls use the `#[but_api]` macro, so clients reach them
+//! through the same generated endpoint table as every other call. Streaming
+//! takes a callback, which that macro does not carry across the boundary, so
+//! each host wraps [`stream_ai_response`](crate::ai::stream_ai_response) itself.
 
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
 use but_core::git_config::edit_config;
 use but_llm::{
     AI_ANTHROPIC_SECRET_HANDLE, AI_OPENAI_SECRET_HANDLE, AI_OPENROUTER_SECRET_HANDLE,
-    AiConfiguration as DomainConfiguration, AnthropicConfiguration, CredentialsKeyOption,
-    GITBUTLER_ACCESS_TOKEN_HANDLE, LLMProviderKind, LmStudioConfiguration, OllamaConfiguration,
-    OpenAiConfiguration, clear_ai_configuration,
+    AiConfiguration as DomainConfiguration, AnthropicConfiguration, ChatMessage,
+    CredentialsKeyOption, GITBUTLER_ACCESS_TOKEN_HANDLE, LLMProvider, LLMProviderKind,
+    LmStudioConfiguration, OllamaConfiguration, OpenAiConfiguration, clear_ai_configuration,
 };
 use but_secret::{Sensitive, secret};
 use serde::{Deserialize, Serialize};
@@ -266,6 +267,42 @@ pub fn reset_ai_configuration() -> Result<AiConfiguration> {
         secret::delete(handle, secret::Namespace::Global)?;
     }
     get_configuration()
+}
+
+/// Stream a text response from the configured provider, calling `on_token`
+/// with each token as it arrives, and return the whole response.
+///
+/// This blocks until the response is complete. It fails if the provider is
+/// not completely configured, if either message is blank, or if the provider
+/// returns nothing.
+pub fn stream_ai_response(
+    system_message: &str,
+    prompt: &str,
+    on_token: impl Fn(&str) + Send + Sync + 'static,
+) -> Result<String> {
+    let config = gix::config(None, &gix::open::Options::default())?;
+    let provider = LLMProvider::from_git_config(&config)
+        .context("AI provider is not completely configured")?;
+    let model = provider.model_or_default();
+    let response = provider.stream_response(
+        required_message(system_message, "System message")?,
+        vec![ChatMessage::User(
+            required_message(prompt, "Prompt")?.into(),
+        )],
+        &model,
+        on_token,
+    )?;
+    response
+        .filter(|response| !response.trim().is_empty())
+        .context("AI provider returned an empty response")
+}
+
+fn required_message<'a>(value: &'a str, field: &str) -> Result<&'a str> {
+    let value = value.trim();
+    if value.is_empty() {
+        bail!("{field} is required")
+    }
+    Ok(value)
 }
 
 #[cfg(test)]
