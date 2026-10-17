@@ -32,7 +32,7 @@ macro_rules! icons {
         }
 
         impl Icon {
-            fn path(self) -> &'static str {
+            pub fn path(self) -> &'static str {
                 match self {
                     $(Icon::$variant => concat!("icons/", $name, ".svg")),*
                 }

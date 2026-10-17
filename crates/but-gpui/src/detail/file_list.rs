@@ -3,7 +3,7 @@
 
 use gpui::{
     AnyElement, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels, Point,
-    SharedString, Stateful, Toggled, div, prelude::*, px,
+    SharedString, Stateful, Toggled, div, img, prelude::*, px,
 };
 
 use super::file_tree::{self, TreeRow};
@@ -385,10 +385,12 @@ impl Detail {
                     .text_color(theme.text_3),
                 ),
             )
+            // In colour, as ui-react's FolderIcon draws it.
             .child(
-                small_icon(Icon::FolderFill)
-                    .size(px(14.))
-                    .text_color(theme.pop.opacity(0.6)),
+                img(Icon::FolderFill.path())
+                    .flex_none()
+                    .w(px(16.))
+                    .h(px(13.)),
             )
             .child(div().flex_1().min_w(px(0.)).truncate().child(name))
             .when(collapsed, |el| el.child(faint(files.to_string(), theme)))

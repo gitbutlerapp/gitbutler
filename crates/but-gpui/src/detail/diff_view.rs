@@ -203,7 +203,7 @@ impl Detail {
                 .flex_1()
                 .min_w(px(0.))
                 .h_full()
-                .bg(theme.bg_2)
+                .bg(theme.bg_1)
                 .child(child)
                 .into_any_element()
         };
@@ -248,7 +248,7 @@ impl Detail {
                         .right_0()
                         // The pane's ground, so the lines under it don't show past the header's
                         // rounded corners.
-                        .bg(theme.bg_2)
+                        .bg(theme.bg_1)
                         .block_mouse_except_scroll()
                         .child(self.render_diff_row(ix, entity.clone(), cx)),
                 )
@@ -258,8 +258,9 @@ impl Detail {
             .flex_1()
             .min_w(px(0.))
             .h_full()
-            .bg(theme.bg_2)
-            .pt(px(4.))
+            .bg(theme.bg_1)
+            // With the bar above it, as far down as but.dev starts its first card.
+            .pt(px(7.))
             // A press anywhere ends the last drag; one on a line starts a new one after this.
             .capture_any_mouse_down(cx.listener(|this, _, _, _| this.selecting = false))
             .on_mouse_up(
@@ -370,9 +371,9 @@ impl Detail {
             h_flex()
                 .flex_none()
                 .h(px(40.))
-                .px(px(16.))
+                .px(px(12.))
                 .gap(px(8.))
-                .bg(theme.bg_2)
+                .bg(theme.bg_1)
                 .child(files)
                 .child(div().flex_1())
                 .child(
@@ -486,7 +487,7 @@ impl Detail {
             }
         };
         // The margin between the cards and the sides of the pane.
-        let padded = div().w_full().px(px(16.));
+        let padded = div().w_full().px(px(12.));
         match row {
             DiffRow::File(file) => {
                 let folded = matches!(diff.rows.get(ix + 1), Some(DiffRow::Gap));
@@ -707,7 +708,7 @@ impl Detail {
             DiffRow::Note(file) => padded
                 .child(diff::note(&diff.files[file], theme))
                 .into_any_element(),
-            DiffRow::Gap => padded.h(px(12.)).into_any_element(),
+            DiffRow::Gap => padded.h(px(10.)).into_any_element(),
         }
     }
 }

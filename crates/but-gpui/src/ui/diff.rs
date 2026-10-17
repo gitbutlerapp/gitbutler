@@ -244,11 +244,12 @@ fn context_rows(rows: &mut Vec<DiffRow>, file: usize, lines: Range<u32>, ahead: 
 }
 
 pub fn change_color(kind: ChangeKind, theme: &Theme) -> Hsla {
+    let [added, modified, deleted, renamed] = theme.change_status;
     match kind {
-        ChangeKind::Added => theme.safe,
-        ChangeKind::Modified => theme.blue,
-        ChangeKind::Deleted => theme.danger,
-        ChangeKind::Renamed => theme.purple,
+        ChangeKind::Added => added,
+        ChangeKind::Modified => modified,
+        ChangeKind::Deleted => deleted,
+        ChangeKind::Renamed => renamed,
     }
 }
 
@@ -328,7 +329,7 @@ fn card(el: gpui::Div, theme: &Theme) -> gpui::Div {
     el.w_full()
         .border_l_1()
         .border_r_1()
-        .border_color(theme.border_3)
+        .border_color(theme.border_2)
         .bg(theme.bg_1)
 }
 
@@ -394,7 +395,6 @@ pub fn file_header(ix: usize, file: &FileDiff, theme: &Theme, decor: HeaderDecor
                 .child(
                     div()
                         .flex_none()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
                         .text_color(theme.text_1)
                         .child(name.to_owned()),
                 )
@@ -402,7 +402,7 @@ pub fn file_header(ix: usize, file: &FileDiff, theme: &Theme, decor: HeaderDecor
                     div()
                         .min_w(px(0.))
                         .truncate()
-                        .text_color(theme.text_2)
+                        .text_color(theme.text_3)
                         .child(match &file.file.previous_path {
                             Some(previous) => format!("{dir}  ← {previous}"),
                             None => dir.to_owned(),
@@ -411,6 +411,17 @@ pub fn file_header(ix: usize, file: &FileDiff, theme: &Theme, decor: HeaderDecor
         )
         .child(stats(added, removed, theme))
         .children(change_scale(added, removed, theme))
+        // Parts what the file changed from what can be done to it.
+        .when(decor.trailing.is_some(), |el| {
+            el.child(
+                div()
+                    .flex_none()
+                    .w(px(1.))
+                    .h(px(20.))
+                    .mx(px(2.))
+                    .bg(theme.border_3),
+            )
+        })
         .children(decor.trailing)
         .into_any_element()
 }
@@ -430,7 +441,12 @@ pub fn unmodified_before(hunks: &[Hunk], ix: usize) -> u32 {
 pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDecor) -> AnyElement {
     let title = match (unmodified, scopes(&hunk.scope, theme)) {
         // Nothing hidden and no scope to name: the `@@` header says where the hunk is.
-        (0, None) => Some(SharedString::from(hunk.header.clone()).into_any_element()),
+        (0, None) => Some(
+            div()
+                .font_family(theme.mono_font.clone())
+                .child(hunk.header.clone())
+                .into_any_element(),
+        ),
         (0, scopes) => scopes,
         (n, scopes) => Some(
             h_flex()
@@ -465,9 +481,8 @@ pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDec
                 } else {
                     theme.diff_separator
                 })
-                .font_family(theme.mono_font.clone())
-                .text_size(px(11.5))
-                .text_color(theme.text_2)
+                .text_size(px(12.))
+                .text_color(theme.diff_muted)
                 .overflow_hidden()
                 .whitespace_nowrap()
                 // The owner shows the hidden lines on a click.
@@ -529,7 +544,6 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
 /// ground, and the bar down its edge, which tells an addition from a removal without colour.
 struct Look {
     bg: Option<Hsla>,
-    gutter: Option<Hsla>,
     number: Hsla,
     emph: Hsla,
     bar: Option<Background>,
@@ -539,21 +553,18 @@ fn look(kind: LineKind, theme: &Theme) -> Look {
     match kind {
         LineKind::Context => Look {
             bg: None,
-            gutter: None,
-            number: theme.text_3,
+            number: theme.diff_muted,
             emph: theme.bg_1,
             bar: None,
         },
         LineKind::Added => Look {
             bg: Some(theme.diff_added_bg),
-            gutter: Some(theme.diff_added_gutter),
             number: theme.diff_added,
             emph: theme.diff_added_emph,
             bar: Some(theme.diff_added.into()),
         },
         LineKind::Removed => Look {
             bg: Some(theme.diff_removed_bg),
-            gutter: Some(theme.diff_removed_gutter),
             number: theme.diff_removed,
             emph: theme.diff_removed_emph,
             // Hatched: stripes two device pixels wide and apart.
@@ -572,7 +583,6 @@ fn number_cell(n: Option<u32>, look: &Look, theme: &Theme) -> gpui::Div {
         .items_start()
         .justify_end()
         .text_color(look.number)
-        .when_some(look.gutter, |el, bg| el.bg(bg))
         .when_some(look.bar, |el, bar| {
             el.child(
                 div()
@@ -781,8 +791,12 @@ pub fn pair_row(
     let id = row_id(place);
     let side = |line: Option<(&DiffLine, Option<u32>)>, half: Half, name: &'static str| {
         let Some((line, number)) = line else {
-            // Nothing on this side: a quiet gap the other side's lines line up against.
-            return div().flex_1().min_w(px(0.)).bg(theme.bg_2);
+            // Nothing on this side: a hatched gap the other side's lines line up against.
+            return (div().flex_1().min_w(px(0.)).h_full()).bg(pattern_slash(
+                theme.border_3,
+                1.,
+                6.,
+            ));
         };
         let look = look(line.kind, theme);
         let text = line_text(line, look.emph, half.found, None, theme);
@@ -815,6 +829,7 @@ fn scopes(scope: &[String], theme: &Theme) -> Option<AnyElement> {
         .min_w(px(0.))
         .gap(px(6.))
         .overflow_hidden()
+        .font_family(theme.mono_font.clone())
         .children(outer.iter().map(|scope| {
             h_flex()
                 .flex_shrink(1.)
