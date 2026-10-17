@@ -618,10 +618,6 @@ pub fn line_row(
             _ => ix,
         }
     };
-    let cells = vec![
-        number_cell(old, look.gutter, theme),
-        number_cell(new, look.gutter, theme),
-    ];
     line_card(("diff-line", id).into(), last, wrap, theme)
         .role(Role::Label)
         .aria_label(SharedString::from(line.text.clone()))
@@ -631,7 +627,14 @@ pub fn line_row(
             LineKind::Context => "unchanged",
         })
         .when_some(look.bg, |el, bg| el.bg(bg))
-        .child(numbers(("line-numbers", id).into(), cells, toggle))
+        .child(numbers(
+            ("line-numbers", id).into(),
+            vec![
+                number_cell(old, look.gutter, theme),
+                number_cell(new, look.gutter, theme),
+            ],
+            toggle,
+        ))
         .children(sign_and_text(&look, text, wrap, theme))
         .when_some(select, |el, select| {
             let at_down = at.clone();
@@ -695,13 +698,16 @@ pub fn pair_row(
         };
         let look = look(line.kind, theme);
         let text = line_text(line, look.emph, half.found, None, theme);
-        let cells = vec![number_cell(number, look.gutter, theme)];
         h_flex()
             .flex_1()
             .min_w(px(0.))
             .when(wrap, |el| el.items_stretch())
             .when_some(look.bg, |el, bg| el.bg(bg))
-            .child(numbers((name, id).into(), cells, half.toggle))
+            .child(numbers(
+                (name, id).into(),
+                vec![number_cell(number, look.gutter, theme)],
+                half.toggle,
+            ))
             .children(sign_and_text(&look, text, wrap, theme))
             .when(half.excluded, |el| el.opacity(0.45))
     };

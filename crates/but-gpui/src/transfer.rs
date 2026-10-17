@@ -317,24 +317,6 @@ fn place(to: &Destination) -> String {
     }
 }
 
-/// The first of `payload`'s uncommitted files that a merge left conflicted. Those stay out
-/// of commits until marked resolved, so the payload lands nowhere. It goes by the files as
-/// they are now: a cut may predate the merge that conflicted them, or the marking that
-/// resolved them.
-pub fn conflicted_file<'a>(payload: &Cut, store: &'a Store) -> Option<&'a str> {
-    let Cut::Files {
-        project,
-        from: None,
-        files,
-    } = payload
-    else {
-        return None;
-    };
-    (store.workspace(project)?.uncommitted.iter())
-        .find(|u| u.conflicted && files.iter().any(|f| f.file.path == u.path))
-        .map(|u| u.path.as_str())
-}
-
 /// Start a drag of a `Cut` labelled `label`, letting the store know what's in flight so
 /// the rows can say what a drop would do.
 pub fn drag_preview(

@@ -16,7 +16,7 @@ use crate::backend::{CommitId, CommitState, PushState};
 use crate::detail::{ChecksChanged, Detail};
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
-use crate::transfer::{Transfer, conflicted_file, drag_preview};
+use crate::transfer::{Transfer, drag_preview};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, faint, h_flex, icon,
@@ -1128,12 +1128,8 @@ impl Navigator {
             store.cut.as_ref()
         };
         let held = window.modifiers();
-        // Conflicted files land nowhere, but the drop still says why.
-        let verdict = pending.map(|payload| {
-            Transfer::resolve(payload, &target, held, store)
-                .filter(|_| conflicted_file(payload, store).is_none())
-                .map(|t| t.verb())
-        });
+        let verdict = pending
+            .map(|payload| Transfer::resolve(payload, &target, held, store).map(|t| t.verb()));
         let store = self.store.clone();
         let can_drop_target = target.clone();
         let menu_target = target.clone();

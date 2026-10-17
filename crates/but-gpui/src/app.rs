@@ -17,7 +17,7 @@ use crate::palette::Palette;
 use crate::projects::pick_folder;
 use crate::state::{Cut, Pane, ProjectId, Selection, Store};
 use crate::theme::Theme;
-use crate::transfer::{Transfer, conflicted_file};
+use crate::transfer::Transfer;
 use crate::ui::{HEADER_HEIGHT, plural, resize_pane};
 
 actions!(
@@ -381,11 +381,6 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(path) = conflicted_file(payload, self.store.read(cx)) {
-            let message = format!("Mark {path} resolved first");
-            self.store.update(cx, |store, cx| store.snack(message, cx));
-            return;
-        }
         let Some(transfer) = Transfer::resolve(payload, target, held, self.store.read(cx)) else {
             self.store
                 .update(cx, |store, cx| store.snack("That can't go there", cx));

@@ -266,12 +266,10 @@ impl Detail {
                         this.close_composer(cx);
                         this.commit_target = None;
                     }
-                    this.refresh_conflicted(cx);
                     this.reload_page(true, cx);
                     this.refresh_diff(true, cx);
                 }
                 StoreEvent::Loaded(project) => {
-                    this.refresh_conflicted(cx);
                     // Calling a file resolved lasts as long as that edit does.
                     if this.editing(project, cx).is_none() {
                         this.marked_resolved.retain(|(p, ..)| p != project);
@@ -599,7 +597,6 @@ impl Detail {
         if self.diff.as_ref().is_none_or(|diff| diff.key != key) {
             self.whole.clear();
         }
-        let before = self.recent_files(&key);
         const RECENT: usize = 16;
         self.recent.retain(|(recent, _)| *recent != key);
         if self.recent.len() == RECENT {
@@ -617,8 +614,7 @@ impl Detail {
             self.cursor = self.cursor_in(&files);
         }
         if key.source == DiffSource::Worktree {
-            self.checks
-                .reconcile(&files, before.as_deref().map(Vec::as_slice));
+            self.checks.reconcile(&files);
         }
         if self.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
             self.text_selection = None;
