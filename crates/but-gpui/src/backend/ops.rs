@@ -514,6 +514,23 @@ pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
     };
     let plan =
         but_api::branch::get_initial_branch_integration(&ctx, name.as_ref(), Some(strategy))?;
+    // Rebasing would bring back the remote's versions of commits rewritten here, beside
+    // their new ones: the same change, or failing a change ID, the same subject.
+    let divergence = &plan.divergence;
+    let rewritten_here = divergence.upstream_only.iter().any(|remote| {
+        divergence
+            .local_only
+            .iter()
+            .any(|local| match (&remote.change_id, &local.change_id) {
+                (Some(a), Some(b)) => a == b,
+                _ => remote.subject == local.subject,
+            })
+    });
+    anyhow::ensure!(
+        theirs || !rewritten_here,
+        "The remote has older versions of commits rewritten here, which pulling would bring \
+         back. Take the remote's version, or push this branch's to replace them."
+    );
     let mut guard = ctx.exclusive_worktree_access();
     but_api::branch::apply_branch_integration_with_perm(
         &mut ctx,

@@ -59,7 +59,8 @@ pub fn publish(
     body: String,
     draft: bool,
 ) -> Result<u64> {
-    // The pull request's head is the branch as the remote names it, which a push reports.
+    // The pull request's head is the branch as the remote names it: what a push reports,
+    // or for a branch pushed before, the remote branch it tracks.
     let pushed = match push_first {
         Some(force) => push(path, branch, force)?,
         None => None,
@@ -69,6 +70,10 @@ pub fn publish(
         .unwrap_or(branch)
         .to_owned();
     let ctx = open(path)?;
+    let pushed = match pushed {
+        Some(name) => Some(name),
+        None => tracked_name(&ctx, branch)?,
+    };
     let outcome = runtime().handle().block_on(forge::publish_review(
         ctx.into_sync(),
         forge::PublishReviewInput {
@@ -80,6 +85,21 @@ pub fn publish(
         },
     ))?;
     Ok(outcome.review.number as u64)
+}
+
+/// The name of the remote branch `branch` (a full ref) tracks, without its remote.
+fn tracked_name(ctx: &but_ctx::Context, branch: &str) -> Result<Option<String>> {
+    let info = but_api::legacy::workspace::head_info(ctx)?;
+    let tracked = (info.stacks.iter())
+        .flat_map(|stack| &stack.segments)
+        .find(|segment| (segment.ref_info.as_ref()).is_some_and(|r| r.ref_name.as_bstr() == branch))
+        .and_then(|segment| segment.remote_tracking_ref_name.as_ref())
+        .and_then(|name| {
+            let name = std::str::from_utf8(name.as_bstr()).ok()?;
+            let (_remote, branch) = name.strip_prefix("refs/remotes/")?.split_once('/')?;
+            Some(branch.to_owned())
+        });
+    Ok(tracked)
 }
 
 /// The title and description pull request `number` has now, from the forge.

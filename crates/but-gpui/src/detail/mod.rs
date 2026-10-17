@@ -154,7 +154,7 @@ pub struct Detail {
     /// Files whose lines are being read, one read each at a time.
     whole_reading: HashSet<String>,
     /// Conflicted files of an edited commit the user called resolved, markers and all.
-    marked_resolved: HashSet<(backend::CommitId, String)>,
+    marked_resolved: HashSet<(ProjectId, backend::CommitId, String)>,
     /// The commit message being edited, with the subscription that saves it.
     rewording: Option<(Entity<TextInput>, Subscription)>,
     /// The project the checkboxes and commit target above belong to.
@@ -246,6 +246,10 @@ impl Detail {
                     this.refresh_diff(true, cx);
                 }
                 StoreEvent::Loaded(project) => {
+                    // Calling a file resolved lasts as long as that edit does.
+                    if this.editing(project, cx).is_none() {
+                        this.marked_resolved.retain(|(p, ..)| p != project);
+                    }
                     match this.selection(cx) {
                         Some(Selection::History(shown)) if shown == *project => {
                             this.load_history(project, false, cx)
@@ -563,8 +567,21 @@ impl Detail {
                         .map(|key| (f.file.path.as_str(), key))
                 })
                 .collect();
-            self.unchecked_hunks
-                .retain(|(path, key)| hunks.contains(&(path.as_str(), *key)));
+            // A hunk left out stays out when an edit renumbers it: what's out now is every
+            // hunk over the same committed lines.
+            let renumbered = |path: &str, key: HunkKey| {
+                let file = files.iter().find(|f| f.file.path == path);
+                (file.map(hunk_keys).unwrap_or_default().into_iter())
+                    .filter(move |now| covers_same_lines(*now, key))
+            };
+            self.unchecked_hunks = (self.unchecked_hunks.iter())
+                .flat_map(|(path, key)| match hunks.contains(&(path.as_str(), *key)) {
+                    true => vec![(path.clone(), *key)],
+                    false => renumbered(path, *key)
+                        .map(|now| (path.clone(), now))
+                        .collect(),
+                })
+                .collect();
             // Picked lines are by their place in the hunk, which holds only while the
             // hunk's lines stay the same; an edit can change them under the same header.
             let lines = |files: &[FileDiff], path: &str, key: HunkKey| {
@@ -588,10 +605,15 @@ impl Detail {
                 })
                 .cloned()
                 .collect();
-            for entry in stale {
-                self.line_picks.remove(&entry);
-                if hunks.contains(&(entry.0.as_str(), entry.1)) {
-                    self.unchecked_hunks.insert(entry);
+            for (path, key) in stale {
+                self.line_picks.remove(&(path.clone(), key));
+                // An edit can renumber the hunk, but the lines it covers on the committed
+                // side stay put: every hunk over them now is left out.
+                let file = files.iter().find(|f| f.file.path == path);
+                for now in file.map(hunk_keys).unwrap_or_default() {
+                    if now == key || covers_same_lines(now, key) {
+                        self.unchecked_hunks.insert((path.clone(), now));
+                    }
                 }
             }
         }
@@ -1185,6 +1207,17 @@ impl Render for Detail {
     }
 }
 
+/// Whether two hunks touch any of the same lines of the committed side, or lines next to
+/// them: leaning toward yes keeps what was left out of a commit out of it.
+fn covers_same_lines(a: HunkKey, b: HunkKey) -> bool {
+    let lines = |key: HunkKey| {
+        let start = key.0.old_start;
+        start.saturating_sub(1)..start + key.0.old_lines.max(1) + 1
+    };
+    let (a, b) = (lines(a), lines(b));
+    a.start < b.end && b.start < a.end
+}
+
 /// Whether `path` has every one of `terms` in it.
 fn keeps_path(terms: &[String], path: &str) -> bool {
     if terms.is_empty() {
@@ -1280,3 +1313,34 @@ pub(super) fn checkbox_box(
 
 /// A spot in the diff's text: a row of the diff and a byte offset in that row's line.
 type TextPoint = (usize, usize);
+
+#[cfg(test)]
+mod tests {
+    use super::covers_same_lines;
+    use crate::backend::HunkKey;
+
+    fn key(old_start: u32, old_lines: u32) -> HunkKey {
+        HunkKey(but_core::HunkHeader {
+            old_start,
+            old_lines,
+            new_start: old_start,
+            new_lines: old_lines,
+        })
+    }
+
+    #[test]
+    fn renumbered_hunks_cover_the_same_committed_lines() {
+        assert!(
+            covers_same_lines(key(10, 7), key(12, 3)),
+            "a hunk grown around the old one covers its lines"
+        );
+        assert!(
+            covers_same_lines(key(5, 0), key(6, 1)),
+            "an insertion after line 5 touches line 6 next to it"
+        );
+        assert!(
+            !covers_same_lines(key(1, 7), key(40, 7)),
+            "hunks far apart don't"
+        );
+    }
+}
