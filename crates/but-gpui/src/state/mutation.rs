@@ -1,5 +1,5 @@
-//! Operations that change a project. They run one at a time, and the ones asked for
-//! meanwhile wait in a queue, their overlays hiding what they take away.
+//! Operations that change a project. A project's operations run one at a time, and the ones
+//! asked for meanwhile wait in a queue, their overlays hiding what they take away.
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context as _, Result};
 use gpui::{Context, SharedString, Task};
 
-use super::{ProjectId, Selection, Store, StoreEvent};
+use super::{ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{self, CommitId, Destination, HunkKey, Selected, SnapshotId, short_ref};
 
@@ -27,8 +27,8 @@ pub struct Overlay {
     pub files: HashSet<String>,
     /// Hunks leaving uncommitted files that otherwise stay, by path.
     pub hunks: HashMap<String, Vec<HunkKey>>,
-    /// Files leaving a commit whole, by the commit's key and the path.
-    pub commit_files: HashSet<(String, String)>,
+    /// Files leaving a commit whole, by path, under the commit's key.
+    pub commit_files: HashMap<String, HashSet<String>>,
     /// The branch (full ref) a new commit goes on top of, and its title.
     pub new_commit: Option<(String, SharedString)>,
     /// It changes only uncommitted files, so the reload after it reads just those.
@@ -90,11 +90,12 @@ impl Overlay {
         let Some(commit) = commit else {
             return Self::default();
         };
+        let files = (selected.into_iter())
+            .filter(|s| s.hunks.is_none())
+            .map(|s| s.file.path.clone())
+            .collect();
         Self {
-            commit_files: (selected.into_iter())
-                .filter(|s| s.hunks.is_none())
-                .map(|s| (commit.clone(), s.file.path.clone()))
-                .collect(),
+            commit_files: HashMap::from([(commit, files)]),
             ..Self::default()
         }
     }
@@ -156,6 +157,10 @@ pub(super) struct Running {
     label: SharedString,
     overlay: Overlay,
     started: Instant,
+    /// It finished and waits for its reload. The next load to start ends it when it lands.
+    settling: bool,
+    /// Reloads asked for while it ran, which the reload after it reads too.
+    deferred: Reload,
 }
 
 impl Store {
@@ -250,7 +255,7 @@ impl Store {
                 match outcome {
                     UpdateOutcome::WouldConflict(found) => {
                         let again = updated.clone();
-                        store.would_conflict(
+                        store.error_with_retry(
                             "Updating leaves conflicts",
                             update_conflicts_detail(&target, &found),
                             "Update anyway",
@@ -309,33 +314,13 @@ impl Store {
                      You can resolve them afterwards, or undo the pull.",
                     crate::app::commit_counts(&found)
                 );
-                store.would_conflict(
+                store.error_with_retry(
                     "Pulling leaves conflicts",
                     detail,
                     "Pull anyway",
                     move |store, cx| store.pull_remote(&pulled, ref_name.clone(), true, cx),
                     cx,
                 )
-            },
-            cx,
-        );
-    }
-
-    /// Say an update or pull stopped short of leaving conflicts, with a button that goes
-    /// ahead anyway.
-    fn would_conflict(
-        &mut self,
-        title: &'static str,
-        detail: String,
-        anyway: &'static str,
-        again: impl Fn(&mut Store, &mut Context<Store>) + 'static,
-        cx: &mut Context<Self>,
-    ) {
-        self.notify_user(
-            super::Notice::Error {
-                title: title.into(),
-                detail: detail.into(),
-                retry: Some((anyway.into(), std::rc::Rc::new(again))),
             },
             cx,
         );
@@ -368,31 +353,22 @@ impl Store {
                 // A push can open or move a pull request's checks, and the branches below
                 // may have gone up before the one refused.
                 store.refresh_forge(&pushed);
-                if let Some(reason) = refused {
-                    let again = pushed.clone();
-                    let retry: super::Retry = (
-                        "Push anyway".into(),
-                        std::rc::Rc::new(move |store, cx| {
-                            store.push(&again, ref_name.clone(), false, cx)
-                        }),
-                    );
-                    return store.notify_user(
-                        super::Notice::Error {
-                            title: format!("{name} wasn't pushed").into(),
-                            detail: match reason.as_str() {
-                                "" => "The remote has commits it would drop: someone pushed \
-                                       since the last fetch. Fetch to see them, or force-push \
-                                       the stack anyway."
-                                    .into(),
-                                said => format!("The remote refused it: {said}").into(),
-                            },
-                            // Forcing past a protected branch or a push rule won't help.
-                            retry: reason.is_empty().then_some(retry),
-                        },
-                        cx,
-                    );
+                let Some(reason) = refused else {
+                    return store.snack(format!("Pushed {name}"), cx);
+                };
+                let title = format!("{name} wasn't pushed");
+                if !reason.is_empty() {
+                    // Forcing past a protected branch or a push rule won't help.
+                    return store.error(title, format!("The remote refused it: {reason}"), cx);
                 }
-                store.snack(format!("Pushed {name}"), cx);
+                store.error_with_retry(
+                    title,
+                    "The remote has commits it would drop: someone pushed since the last \
+                     fetch. Fetch to see them, or force-push the stack anyway.",
+                    "Push anyway",
+                    move |store, cx| store.push(&pushed, ref_name.clone(), false, cx),
+                    cx,
+                );
             },
             cx,
         );
@@ -553,6 +529,8 @@ impl Store {
                     label: next.label,
                     overlay: next.overlay,
                     started: Instant::now(),
+                    settling: false,
+                    deferred: Reload::default(),
                 },
             );
             (next.start)(self, remap, cx);
@@ -608,9 +586,6 @@ impl Store {
             cx.emit(StoreEvent::Pending(project.clone()));
             return;
         };
-        if !(self.running.get(project)).is_some_and(|r| r.overlay.remote_only) {
-            self.mutating.insert(project.clone());
-        }
         // While editing there are no commits to compare with afterwards; every commit would
         // count as the operation's own and lose its unread mark.
         let before: Option<HashSet<String>> = (!editing).then(|| {
@@ -631,8 +606,16 @@ impl Store {
             })
             .await;
             this.update(cx, |store, cx| {
-                store.mutating.remove(&project);
-                store.settling.insert(project.clone());
+                // The reload after it reads just the uncommitted files if that's all it
+                // changed, and what was asked for while it ran.
+                let mut reload = Reload::full();
+                if let Some(running) = store.running.get_mut(&project) {
+                    running.settling = true;
+                    if running.overlay.files_only {
+                        reload = Reload::files();
+                    }
+                    reload.merge(std::mem::take(&mut running.deferred));
+                }
                 // Set here rather than at the start, so a load the watcher started
                 // mid-operation can't use it up.
                 if let Some(before) = before {
@@ -645,11 +628,7 @@ impl Store {
                     }
                     Err(err) => store.error(format!("{label} failed"), format!("{err:#}"), cx),
                 }
-                if (store.running.get(&project)).is_some_and(|r| r.overlay.files_only) {
-                    store.reload_files(&project, cx);
-                } else {
-                    store.reload(&project, cx);
-                }
+                store.load(&project, reload, cx);
             })
             .ok();
         })
@@ -672,16 +651,30 @@ impl Store {
     /// End `id`'s running mutation once it has loaded what it did, or can't load at all,
     /// and start what waits on it.
     pub(super) fn settled(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        if self.settling.remove(id) {
+        if self.settles(id) {
             self.running.remove(id);
             cx.emit(StoreEvent::Pending(id.clone()));
             self.start_next(cx);
         }
     }
 
+    /// Whether the next load of `id` to start ends its running mutation.
+    pub(super) fn settles(&self, id: &ProjectId) -> bool {
+        self.running.get(id).is_some_and(|r| r.settling)
+    }
+
+    /// Load `reload` of `id` now, unless an operation is changing `id`. Then the reload after
+    /// it reads this too, and loading now would only queue in front of that one.
+    pub(super) fn load_or_defer(&mut self, id: &ProjectId, reload: Reload, cx: &mut Context<Self>) {
+        match (self.running.get_mut(id)).filter(|r| !r.settling && !r.overlay.remote_only) {
+            Some(running) => running.deferred.merge(reload),
+            None => self.load(id, reload, cx),
+        }
+    }
+
     /// Operations quitting now would cut off: the ones running, and the ones waiting.
     pub fn unfinished(&self) -> usize {
-        let running = (self.running.keys()).filter(|id| !self.settling.contains(*id));
+        let running = self.running.values().filter(|r| !r.settling);
         running.count() + self.queue.len()
     }
 
@@ -691,7 +684,7 @@ impl Store {
     }
 
     /// Whether an update from the target waits or runs on `project`.
-    pub fn updating(&self, project: &ProjectId) -> bool {
+    fn updating(&self, project: &ProjectId) -> bool {
         let running = self.running.get(project).map(|r| &r.label);
         let queued = (self.queue.iter()).filter(|q| q.project == *project);
         running
@@ -723,7 +716,7 @@ impl Store {
     /// Whether the file at `path` is leaving the commit with key `commit`.
     pub fn hides_commit_file(&self, project: &ProjectId, commit: &str, path: &str) -> bool {
         self.overlays(project)
-            .any(|o| (o.commit_files.iter()).any(|(key, file)| key == commit && file == path))
+            .any(|o| (o.commit_files.get(commit)).is_some_and(|files| files.contains(path)))
     }
 
     /// The titles of commits pending mutations will make on top of `ref_name`.

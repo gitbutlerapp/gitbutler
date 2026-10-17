@@ -1,5 +1,5 @@
 //! App state shared by every view: the projects with their loaded workspaces, the
-//! selection, what's been cut, and the operation in flight.
+//! selection, what's been cut, and each project's operation in flight.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
@@ -199,11 +199,6 @@ pub struct Store {
     busy_ticker: Task<()>,
     /// Mutations waiting for their project's running one, in order.
     queue: VecDeque<Queued>,
-    /// Projects whose finished mutation waits on a reload. The next load to start ends it.
-    settling: HashSet<ProjectId>,
-    /// Projects an operation is changing right now. Their own reload follows and sees all
-    /// of it, so the watcher's reloads for them would only queue in front.
-    mutating: HashSet<ProjectId>,
     /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
     last_snapshot: Option<(ProjectId, SnapshotId)>,
     next_toast: usize,
@@ -237,15 +232,11 @@ impl EventEmitter<StoreEvent> for Store {}
 
 impl Store {
     /// Projects listed and nothing loading or mutating, for the dev script's timings.
+    /// Nothing waits without something running: queued mutations wait on a running one,
+    /// and queued loads on a load in flight.
     #[cfg(feature = "dev-script")]
     pub fn is_settled(&self) -> bool {
-        self.projects_loaded
-            && self.running.is_empty()
-            && self.queue.is_empty()
-            && self
-                .projects
-                .iter()
-                .all(|p| !p.loading && p.queued.is_none())
+        self.projects_loaded && self.running.is_empty() && self.projects.iter().all(|p| !p.loading)
     }
 
     pub fn new(cx: &mut Context<Self>) -> Self {
@@ -263,8 +254,6 @@ impl Store {
             dragging: None,
             toasts: Vec::new(),
             account: account::Account::default(),
-            settling: HashSet::new(),
-            mutating: HashSet::new(),
             running: HashMap::new(),
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
@@ -292,8 +281,7 @@ impl Store {
             forge_requests,
             forge_queued: HashSet::new(),
             forge_failed: HashSet::new(),
-            _forge_worker: cx
-                .spawn(async move |this, cx| Self::forge_worker(this, requested, cx).await),
+            _forge_worker: Self::forge_worker(requested, cx),
             _forge_poll: Self::poll_forge(cx),
             fetched: HashMap::new(),
             fetch_failed: HashMap::new(),
@@ -422,7 +410,10 @@ impl Store {
                 order.iter().position(|c| *c == at),
                 order.iter().position(|c| *c == id),
             ) else {
-                self.picked = picked;
+                // `at` alone, pushed above, isn't a pick.
+                if picked.len() > 1 {
+                    self.picked = picked;
+                }
                 return;
             };
             for commit in &order[from.min(to)..=from.max(to)] {
@@ -479,6 +470,25 @@ impl Store {
                 title: title.into(),
                 detail: detail.into(),
                 retry: None,
+            },
+            cx,
+        );
+    }
+
+    /// An error card whose button runs `retry`, as to try again or go ahead anyway.
+    pub fn error_with_retry(
+        &mut self,
+        title: impl Into<SharedString>,
+        detail: impl Into<SharedString>,
+        retry_label: impl Into<SharedString>,
+        retry: impl Fn(&mut Store, &mut Context<Store>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.notify_user(
+            Notice::Error {
+                title: title.into(),
+                detail: detail.into(),
+                retry: Some((retry_label.into(), std::rc::Rc::new(retry))),
             },
             cx,
         );
