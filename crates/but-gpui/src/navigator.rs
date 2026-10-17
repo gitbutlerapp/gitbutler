@@ -1249,8 +1249,13 @@ impl Navigator {
                         action("Take the remote's version…", &TakeRemote),
                     ]);
                 }
-                if branch.review.as_ref().is_some_and(|r| r.url.is_some()) {
-                    items.push(action("Open pull request", &OpenPullRequest));
+                if let Some(url) = branch.review.as_ref().and_then(|r| r.url.clone()) {
+                    items.extend([
+                        action("Open pull request", &OpenPullRequest),
+                        MenuItem::new("Copy pull request link", move |this, _, cx| {
+                            this.copy_text(url.clone(), cx)
+                        }),
+                    ]);
                 }
                 if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
                     use crate::backend::ReviewState as S;
