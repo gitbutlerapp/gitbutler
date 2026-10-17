@@ -185,6 +185,18 @@ impl Store {
     }
 
     pub fn push(&mut self, project: &ProjectId, ref_name: String, cx: &mut Context<Self>) {
+        self.push_branch(project, ref_name, true, cx)
+    }
+
+    /// Push `ref_name`, and with `protect` refuse to drop commits only the remote has: the
+    /// card that says so offers to push anyway.
+    fn push_branch(
+        &mut self,
+        project: &ProjectId,
+        ref_name: String,
+        protect: bool,
+        cx: &mut Context<Self>,
+    ) {
         let force = self
             .workspace(project)
             .and_then(|ws| ws.find_branch(&ref_name))
@@ -195,8 +207,35 @@ impl Store {
             project,
             format!("Push {name}"),
             Overlay::default(),
-            move |path, _| backend::push(path, &ref_name, force).map(drop),
-            move |store, (), cx| {
+            {
+                let ref_name = ref_name.clone();
+                move |path, _| match backend::push(path, &ref_name, force, protect) {
+                    Ok(_) => Ok(true),
+                    Err(err) if backend::push_blocked(&err) => Ok(false),
+                    Err(err) => Err(err),
+                }
+            },
+            move |store, done: bool, cx| {
+                if !done {
+                    let again = pushed.clone();
+                    let retry: super::Retry = (
+                        "Push anyway".into(),
+                        std::rc::Rc::new(move |store, cx| {
+                            store.push_branch(&again, ref_name.clone(), false, cx)
+                        }),
+                    );
+                    return store.notify_user(
+                        super::Notice::Error {
+                            title: format!("{name} wasn't pushed").into(),
+                            detail: "The remote has commits this push would drop: someone \
+                                     pushed there since the last fetch. Fetch to see them, or \
+                                     push anyway to replace them."
+                                .into(),
+                            retry: Some(retry),
+                        },
+                        cx,
+                    );
+                }
                 store.snack(format!("Pushed {name}"), cx);
                 // A push can open or move a pull request's checks.
                 store.refresh_forge(&pushed);

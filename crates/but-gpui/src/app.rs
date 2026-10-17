@@ -1365,8 +1365,22 @@ impl AppView {
                             .on_click(dismiss),
                     );
                 }
-                Notice::Error { title, detail } => {
+                Notice::Error {
+                    title,
+                    detail,
+                    retry,
+                } => {
                     let copied = detail.to_string();
+                    let retry = retry.clone().map(|(label, run)| {
+                        button(("retry", id), label).small().on_click(cx.listener(
+                            move |this, _: &ClickEvent, _, cx| {
+                                this.store.update(cx, |store, cx| {
+                                    store.dismiss_toast(id, cx);
+                                    run(store, cx)
+                                })
+                            },
+                        ))
+                    });
                     errors.push(
                         popover(theme)
                             .id(("error", id))
@@ -1412,7 +1426,8 @@ impl AppView {
                                         button(("dismiss", id), "Dismiss")
                                             .small()
                                             .on_click(dismiss),
-                                    ),
+                                    )
+                                    .children(retry),
                             ),
                     );
                 }

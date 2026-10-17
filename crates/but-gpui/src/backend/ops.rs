@@ -544,13 +544,13 @@ pub fn discard(path: &Path, selected: &[Selected]) -> Result<()> {
 /// Push `ref_name` and the branches below it in its stack.
 /// Push `ref_name` and the branches below it. Returns the name it has on its remote, which
 /// needn't be its local one.
-pub fn push(path: &Path, ref_name: &str, force: bool) -> Result<Option<String>> {
+pub fn push(path: &Path, ref_name: &str, force: bool, protect: bool) -> Result<Option<String>> {
     let ctx = open(path)?.into_sync();
     let outcome = runtime().handle().block_on(
         but_api::legacy::workspace::workspace_branch_and_ancestors_push(
             ctx,
             force,
-            false,
+            !protect,
             ref_name.to_owned(),
             true,
             Vec::new(),
@@ -560,6 +560,12 @@ pub fn push(path: &Path, ref_name: &str, force: bool) -> Result<Option<String>> 
     Ok((outcome.push.branch_to_remote.into_iter())
         .find(|(branch, _, _)| branch == short || branch == ref_name)
         .map(|(_, _, remote)| remote))
+}
+
+/// Whether `err` is force push protection stopping a push: the remote has commits it would
+/// drop, as when someone else pushed since the last fetch.
+pub fn push_blocked(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<but_error::Code>() == Some(&but_error::Code::GitForcePushProtection)
 }
 
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
