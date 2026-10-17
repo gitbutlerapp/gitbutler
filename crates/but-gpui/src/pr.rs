@@ -50,9 +50,8 @@ pub struct ReviewView {
     /// The branch it would merge into, once known.
     target: Option<String>,
     draft: bool,
-    /// The title and description being written with AI: the task streaming them into
-    /// the fields, and the one asking for them.
-    writing: Option<(Task<()>, Task<()>)>,
+    /// The title and description being written with AI, streaming into the fields.
+    writing: Option<Task<()>>,
     /// The fields hold the pull request's text. Editing waits for it, so saving can't
     /// replace the description with an empty one.
     loaded: bool,
@@ -191,22 +190,12 @@ impl ReviewView {
             self.body.read(cx).text().to_owned(),
         );
         let prompt = ai::pr_prompt(&title, &body, &messages);
-        let (sender, mut tokens) = futures::channel::mpsc::unbounded::<String>();
         let fields = (self.title.clone(), self.body.clone());
-        let pump = cx.spawn(async move |_, cx| {
-            let mut text = String::new();
-            while let Some(token) = futures::StreamExt::next(&mut tokens).await {
-                text.push_str(&token);
-                let (title, body) = ai::split_title_body(&text);
+        let task = cx.spawn(async move |this, cx| {
+            let written = ai::write(ai::PR_SYSTEM, prompt, |text| {
+                let (title, body) = ai::split_title_body(text);
                 fields.0.update(cx, |input, cx| input.set_text(title, cx));
                 fields.1.update(cx, |input, cx| input.set_text(body, cx));
-            }
-        });
-        let write = cx.spawn(async move |this, cx| {
-            let written = backend::run(move || {
-                ai::stream(ai::PR_SYSTEM, prompt, move |token| {
-                    sender.unbounded_send(token.to_owned()).ok();
-                })
             })
             .await;
             this.update(cx, |this, cx| {
@@ -231,7 +220,7 @@ impl ReviewView {
             })
             .ok();
         });
-        self.writing = Some((pump, write));
+        self.writing = Some(task);
         cx.notify();
     }
 
@@ -454,28 +443,18 @@ impl AppView {
         let Some((project, branch, None)) = self.review_target(cx) else {
             return;
         };
-        if !self
-            .store
-            .read(cx)
-            .workspace(&project)
-            .is_some_and(|ws| ws.forge.is_some())
-        {
+        let Some(ws) = (self.store.read(cx).workspace(&project)).filter(|ws| ws.forge.is_some())
+        else {
             self.store.update(cx, |store, cx| {
                 store.snack("This project's remote isn't on a forge GitButler knows", cx)
             });
             return;
-        }
-        let push = self
-            .store
-            .read(cx)
-            .workspace(&project)
-            .and_then(|ws| ws.find_branch(&branch))
-            .map(|b| b.push)
-            .and_then(|push| match push {
-                PushState::NothingToPush | PushState::Integrated => None,
-                PushState::NeedsForce => Some(true),
-                PushState::Unpushed | PushState::NeverPushed => Some(false),
-            });
+        };
+        let push = ws.find_branch(&branch).and_then(|b| match b.push {
+            PushState::NothingToPush | PushState::Integrated => None,
+            PushState::NeedsForce => Some(true),
+            PushState::Unpushed | PushState::NeverPushed => Some(false),
+        });
         let store = self.store.clone();
         let view =
             cx.new(|cx| ReviewView::new(store, project, branch, Mode::Create { push }, window, cx));

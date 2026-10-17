@@ -205,7 +205,7 @@ impl AppView {
         );
     }
 
-    fn selected_commit(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
+    pub(crate) fn selected_commit(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
         match self.store.read(cx).selection.clone()? {
             Selection::Commit(project, id) => Some((project, id)),
             _ => None,

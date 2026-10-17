@@ -82,11 +82,9 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let ctx = open(path)?;
     if let Some(editing) = edit::editing(&ctx)? {
         return Ok(Workspace {
-            target: None,
-            forge: None,
-            stacks: Vec::new(),
             uncommitted: worktree_files(&*ctx.repo.get()?, true)?,
             editing: Some(editing),
+            ..Default::default()
         });
     }
     let uncommitted = worktree_files(&*ctx.repo.get()?, false)?;
@@ -390,6 +388,10 @@ pub fn load_diff(
     let started = std::time::Instant::now();
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
+    let tree_changes = |base, tip| -> Result<Vec<FileChange>> {
+        let changes = but_core::diff::tree_changes(&repo, base, tip)?;
+        Ok(changes.into_iter().map(file_change).collect())
+    };
     let changes: Vec<FileChange> = match source {
         // With modification times, so review marks match the workspace's file list.
         DiffSource::Worktree | DiffSource::Edit => match worktree {
@@ -411,10 +413,7 @@ pub fn load_diff(
                 .parent_ids()
                 .next()
                 .map(|id| id.detach());
-            but_core::diff::tree_changes(&repo, base, newest.0)?
-                .into_iter()
-                .map(file_change)
-                .collect()
+            tree_changes(base, newest.0)?
         }
         DiffSource::Branch { tip } => {
             let target = ctx
@@ -426,10 +425,7 @@ pub fn load_diff(
             let base = target
                 .and_then(|target| repo.merge_base(tip.0, target).ok().flatten())
                 .map(|id| id.detach());
-            but_core::diff::tree_changes(&repo, base, tip.0)?
-                .into_iter()
-                .map(file_change)
-                .collect()
+            tree_changes(base, tip.0)?
         }
         DiffSource::Snapshot { id, newer } => {
             but_api::legacy::oplog::snapshot_diff(&ctx, id.0, newer.map(|newer| newer.0))?

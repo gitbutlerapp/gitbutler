@@ -137,13 +137,8 @@ impl Detail {
         let entry = (path.to_owned(), key);
         if self.line_picks.remove(&entry).is_some() {
             // Partly in: all of it now.
-        } else if self.unchecked.remove(path) {
-            // The whole file was out; bring back only this hunk.
-            for other in self.worktree_hunks(path) {
-                if other != key {
-                    self.unchecked_hunks.insert((path.to_owned(), other));
-                }
-            }
+        } else if self.unchecked.contains(path) {
+            self.bring_back_only(path, key);
         } else if !self.unchecked_hunks.remove(&entry) {
             self.unchecked_hunks.insert(entry);
         }
@@ -178,12 +173,8 @@ impl Detail {
         if !picks.remove(&line) {
             picks.insert(line);
         }
-        if self.unchecked.remove(path) {
-            for other in self.worktree_hunks(path) {
-                if other != key {
-                    self.unchecked_hunks.insert((path.to_owned(), other));
-                }
-            }
+        if self.unchecked.contains(path) {
+            self.bring_back_only(path, key);
         }
         self.unchecked_hunks.remove(&entry);
         if picks.is_empty() {
@@ -192,6 +183,16 @@ impl Detail {
             self.line_picks.insert(entry, picks);
         }
         self.settle_checks(path, cx);
+    }
+
+    /// Put back a file that was out as a whole, with only hunk `key` of it in.
+    fn bring_back_only(&mut self, path: &str, key: HunkKey) {
+        self.unchecked.remove(path);
+        for other in self.worktree_hunks(path) {
+            if other != key {
+                self.unchecked_hunks.insert((path.to_owned(), other));
+            }
+        }
     }
 
     /// A file none of whose hunks are in is out as a whole.
@@ -486,21 +487,11 @@ impl Detail {
         }
         let notes = self.message.read(cx).text().to_owned();
         let prompt = ai::commit_prompt(&notes, &diff);
-        let (sender, mut tokens) = futures::channel::mpsc::unbounded::<String>();
         let input = self.message.clone();
-        let pump = cx.spawn(async move |_, cx| {
-            let mut text = String::new();
-            while let Some(token) = futures::StreamExt::next(&mut tokens).await {
-                text.push_str(&token);
+        let task = cx.spawn(async move |this, cx| {
+            let written = ai::write(ai::COMMIT_SYSTEM, prompt, |text| {
                 let shown = text.trim_start().to_owned();
                 input.update(cx, |input, cx| input.set_text(shown, cx));
-            }
-        });
-        let write = cx.spawn(async move |this, cx| {
-            let written = backend::run(move || {
-                ai::stream(ai::COMMIT_SYSTEM, prompt, move |token| {
-                    sender.unbounded_send(token.to_owned()).ok();
-                })
             })
             .await;
             this.update(cx, |this, cx| {
@@ -523,7 +514,7 @@ impl Detail {
             })
             .ok();
         });
-        self.writing = Some((pump, write));
+        self.writing = Some(task);
         cx.notify();
     }
 

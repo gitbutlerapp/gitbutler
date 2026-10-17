@@ -110,14 +110,10 @@ impl ResolveView {
         let Some(Ok(found)) = self.conflicts.clone() else {
             return;
         };
-        let picks: Vec<(String, usize, Pick)> = self
-            .picks
-            .iter()
-            .map(|((path, ix), pick)| (path.clone(), *ix, *pick))
-            .collect();
-        if picks.is_empty() {
+        if self.picks.is_empty() {
             return;
         }
+        let picks = self.picks.clone();
         let commit = self.commit;
         self.store.update(cx, |store, cx| {
             store.run(
@@ -433,9 +429,7 @@ impl Render for ResolveView {
 impl crate::app::AppView {
     /// Check the selected commit out to resolve its conflicts by hand.
     pub fn edit_by_hand(&mut self, _: &EditByHand, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some(crate::state::Selection::Commit(project, commit)) =
-            self.store.read(cx).selection.clone()
-        {
+        if let Some((project, commit)) = self.selected_commit(cx) {
             self.store
                 .update(cx, |store, cx| store.edit_commit(&project, commit, cx));
         }
@@ -448,9 +442,7 @@ impl crate::app::AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(crate::state::Selection::Commit(project, commit)) =
-            self.store.read(cx).selection.clone()
-        else {
+        let Some((project, commit)) = self.selected_commit(cx) else {
             return;
         };
         let store = self.store.clone();

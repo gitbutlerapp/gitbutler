@@ -24,7 +24,7 @@ use crate::edits::{
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::Transfer;
-use crate::ui::scrollbar::{Scroll, scrollbar};
+use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, h_flex, icon,
     icon_button, just_now, list_row, plural, popover, relative_time, resize_handle, review,
@@ -259,15 +259,18 @@ impl Navigator {
         window.focus(&self.focus, cx);
     }
 
-    fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        let items: Vec<&Selection> = self
-            .rows
-            .iter()
+    /// The rows that can be selected, in order.
+    fn items(&self) -> Vec<&Selection> {
+        (self.rows.iter())
             .filter_map(|row| match row {
                 Row::Item(item) => Some(item),
                 _ => None,
             })
-            .collect();
+            .collect()
+    }
+
+    fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
+        let items = self.items();
         if items.is_empty() {
             return;
         }
@@ -283,14 +286,7 @@ impl Navigator {
     /// Select the first item before (`forward` false) or after the selection that starts a
     /// section: a project or a branch.
     fn jump_section(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let items: Vec<&Selection> = self
-            .rows
-            .iter()
-            .filter_map(|row| match row {
-                Row::Item(item) => Some(item),
-                _ => None,
-            })
-            .collect();
+        let items = self.items();
         let current = self.store.read(cx).selection.as_ref();
         let at = current.and_then(|s| items.iter().position(|item| *item == s));
         let heads =
@@ -864,11 +860,10 @@ impl Navigator {
                 )
                 // As in t3code: the number in the state's colour, then one glyph for CI.
                 .when_some(branch.review.as_ref(), |el, review| {
-                    let (_, color) = review::state_glyph(review.state, theme);
                     el.child(
                         div()
                             .text_size(px(11.))
-                            .text_color(style.meta(color))
+                            .text_color(style.meta(glyph_color))
                             .child(format!("#{}", review.number)),
                     )
                     .when_some(review.checks, |el, checks| {
@@ -1240,13 +1235,7 @@ impl Navigator {
                 if ref_name.is_empty() {
                     return items;
                 }
-                let separated = |item: MenuItem, first: bool| {
-                    if first { item.separated() } else { item }
-                };
-                items.push(separated(
-                    action("New branch on top…", &NewBranchOnTop),
-                    true,
-                ));
+                items.push(action("New branch on top…", &NewBranchOnTop).separated());
                 if !branch.commits.is_empty() {
                     items.push(action("New branch below…", &NewBranchBelow));
                 }
@@ -1444,25 +1433,15 @@ impl Render for Navigator {
                             .child("Add a Git repository with ⌘O."),
                     )
                 } else {
-                    let scroll = Scroll::List(self.list.clone());
-                    el.child(
-                        div()
-                            .relative()
-                            .flex_1()
-                            .min_h(px(0.))
-                            .child(
-                                list(
-                                    self.list.clone(),
-                                    cx.processor(|this, ix: usize, window, cx| {
-                                        this.render_row(ix, window, cx)
-                                    }),
-                                )
-                                .size_full()
-                                .pt(px(2.))
-                                .pb(px(12.)),
-                            )
-                            .children(scrollbar("navigator-scrollbar", scroll, &theme)),
+                    let rows = list(
+                        self.list.clone(),
+                        cx.processor(|this, ix: usize, window, cx| this.render_row(ix, window, cx)),
                     )
+                    .size_full()
+                    .pt(px(2.))
+                    .pb(px(12.));
+                    let scroll = Scroll::List(self.list.clone());
+                    el.child(scrolled(rows, "navigator-scrollbar", scroll, &theme))
                 }
             })
             .child(resize_handle(Pane::Navigator, self.store.clone(), &theme))

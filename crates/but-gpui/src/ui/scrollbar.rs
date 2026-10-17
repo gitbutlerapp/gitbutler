@@ -6,9 +6,9 @@
 //! keeps the rows beneath from reacting, and a drag keeps going wherever the pointer goes.
 
 use gpui::{
-    Bounds, CursorStyle, DispatchPhase, ElementId, HitboxBehavior, ListState, MouseButton,
-    MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, UniformListScrollHandle, canvas, fill,
-    point, prelude::*, px, size,
+    Bounds, CursorStyle, DispatchPhase, Div, ElementId, HitboxBehavior, ListState, MouseButton,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, UniformListScrollHandle, canvas, div,
+    fill, point, prelude::*, px, size,
 };
 
 use crate::theme::Theme;
@@ -68,6 +68,16 @@ struct BarState {
 
 /// The scrollbar for `scroll`, to place over a positioned element exactly the list's size.
 /// Nothing when the list fits.
+/// `list` filling the height left for it, with its scrollbar over its right edge.
+pub fn scrolled(list: impl IntoElement, id: &'static str, scroll: Scroll, theme: &Theme) -> Div {
+    div()
+        .relative()
+        .flex_1()
+        .min_h(px(0.))
+        .child(list)
+        .children(scrollbar(id, scroll, theme))
+}
+
 pub fn scrollbar(
     id: &'static str,
     scroll: Scroll,

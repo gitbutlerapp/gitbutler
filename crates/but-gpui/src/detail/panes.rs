@@ -18,11 +18,11 @@ use crate::theme::Theme;
 use crate::transfer::short_ref;
 use crate::ui::diff;
 use crate::ui::review as ui_review;
-use crate::ui::scrollbar::{Scroll, scrollbar};
+use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, button, empty_state, h_flex, icon, icon_button, list_row,
-    plural, relative_time, shortcut, small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, button, dot, empty_state, h_flex, icon, icon_button,
+    list_row, plural, relative_time, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -340,13 +340,7 @@ impl Detail {
         .track_scroll(&handle)
         .size_full();
         let theme = Theme::get(cx);
-        div()
-            .relative()
-            .flex_1()
-            .min_h(px(0.))
-            .child(list)
-            .children(scrollbar("files-scrollbar", Scroll::Uniform(handle), theme))
-            .into_any_element()
+        scrolled(list, "files-scrollbar", Scroll::Uniform(handle), theme).into_any_element()
     }
 
     /// The `pos`th file of `source`, with what its list shows beside it.
@@ -636,13 +630,7 @@ impl Detail {
                     Review::Reviewed => small_icon(Icon::Tick)
                         .text_color(theme.pop)
                         .into_any_element(),
-                    Review::Changed => div()
-                        .flex_none()
-                        .size(px(6.))
-                        .mx(px(3.))
-                        .rounded_full()
-                        .bg(theme.warn)
-                        .into_any_element(),
+                    Review::Changed => dot(theme.warn).mx(px(3.)).into_any_element(),
                     Review::NotReviewed => div().flex_none().w(px(12.)).into_any_element(),
                 })
             })
@@ -656,7 +644,7 @@ impl Detail {
             });
         if let Some((project, from)) = extras.drag_from {
             let payload = Cut::Files {
-                project: project.clone(),
+                project,
                 from,
                 files: vec![Selected {
                     file: file.clone(),
@@ -728,13 +716,12 @@ impl Detail {
                 ]);
             }
             Some(commit) => {
-                let uncommit = payload.clone();
                 let uncommitted = Selection::Uncommitted(project.clone());
                 let (split_project, split_files) = (project.clone(), files.clone());
                 let (drop_project, drop_files) = (project.clone(), files.clone());
                 items.extend([
                     MenuItem::new(format!("Uncommit {what}"), move |this, window, cx| {
-                        this.transfer(&uncommit, &uncommitted, Default::default(), window, cx);
+                        this.transfer(&payload, &uncommitted, Default::default(), window, cx);
                     }),
                     MenuItem::new("Split into a new commit", move |this, _, cx| {
                         this.split_off(split_project.clone(), commit, split_files.clone(), cx)
@@ -828,8 +815,7 @@ impl Detail {
                 .child(div().font_weight(gpui::FontWeight::SEMIBOLD).child(
                     match workspace.uncommitted.len() {
                         0 => "No changes".to_owned(),
-                        1 => "1 file".to_owned(),
-                        n => format!("{n} files"),
+                        n => plural(n, "file"),
                     },
                 ))
                 .child(diff::stats(added, removed, theme))
@@ -1209,10 +1195,7 @@ impl Detail {
                     div()
                         .flex_1()
                         .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .child(match diff.files.len() {
-                            1 => "1 file changed".to_owned(),
-                            n => format!("{n} files changed"),
-                        }),
+                        .child(format!("{} changed", plural(diff.files.len(), "file"))),
                 )
                 .child(self.filter_button(cx))
                 .child(self.tree_toggle(cx))

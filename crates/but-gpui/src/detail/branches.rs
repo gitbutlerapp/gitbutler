@@ -12,8 +12,8 @@ use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
 use crate::backend::{self, DiffSource};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
-use crate::ui::scrollbar::{Scroll, scrollbar};
-use crate::ui::{Icon, empty_state, list_row, relative_time, small_icon};
+use crate::ui::scrollbar::{Scroll, scrolled};
+use crate::ui::{Icon, empty_state, field, list_row, relative_time, small_icon};
 
 pub(super) struct Branches {
     pub project: ProjectId,
@@ -223,20 +223,9 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let filter_focused = self.branch_filter.focus_handle(cx).is_focused(window);
-        let filter = div()
+        let filter = field(&self.branch_filter, filter_focused, theme)
             .flex_none()
-            .m(px(10.))
-            .px(px(8.))
-            .py(px(5.))
-            .rounded(px(4.))
-            .border_1()
-            .border_color(if filter_focused {
-                theme.pop
-            } else {
-                theme.border_2
-            })
-            .text_size(px(13.))
-            .child(self.branch_filter.clone());
+            .m(px(10.));
         let Some(branches) = self.branches_for(project) else {
             return empty_state("Loading branches…", "", theme);
         };
@@ -260,7 +249,6 @@ impl Detail {
                     let Some(branches) = this.branches.as_ref() else {
                         return Vec::new();
                     };
-                    let rows = this.branch_rows(branches, cx);
                     range
                         .filter_map(|ix| rows.get(ix).map(|row| (ix, row)))
                         .map(|(ix, row)| match row {
@@ -345,18 +333,12 @@ impl Detail {
             .flex_col()
             .size_full()
             .child(filter)
-            .child(
-                div()
-                    .relative()
-                    .flex_1()
-                    .min_h(px(0.))
-                    .child(list)
-                    .children(scrollbar(
-                        "branches-scrollbar",
-                        Scroll::Uniform(self.branches_scroll.clone()),
-                        theme,
-                    )),
-            )
+            .child(scrolled(
+                list,
+                "branches-scrollbar",
+                Scroll::Uniform(self.branches_scroll.clone()),
+                theme,
+            ))
             .into_any_element()
     }
 

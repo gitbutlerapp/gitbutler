@@ -120,46 +120,24 @@ impl DiffRow {
     }
 
     /// The same row in file `to`, as when the file list changed around it.
-    pub fn in_file(self, to: usize) -> DiffRow {
-        match self {
-            DiffRow::File(_) => DiffRow::File(to),
-            DiffRow::Note(_) => DiffRow::Note(to),
-            DiffRow::Hunk { hunk, .. } => DiffRow::Hunk { file: to, hunk },
-            DiffRow::Line {
-                hunk, line, last, ..
-            } => DiffRow::Line {
-                file: to,
-                hunk,
-                line,
-                last,
-            },
-            DiffRow::Pair {
-                hunk,
-                left,
-                right,
-                last,
-                ..
-            } => DiffRow::Pair {
-                file: to,
-                hunk,
-                left,
-                right,
-                last,
-            },
-            DiffRow::Context { old, new, last, .. } => DiffRow::Context {
-                file: to,
-                old,
-                new,
-                last,
-            },
-            DiffRow::Gap => DiffRow::Gap,
+    pub fn in_file(mut self, to: usize) -> DiffRow {
+        match &mut self {
+            DiffRow::File(file)
+            | DiffRow::Note(file)
+            | DiffRow::Hunk { file, .. }
+            | DiffRow::Line { file, .. }
+            | DiffRow::Pair { file, .. }
+            | DiffRow::Context { file, .. } => *file = to,
+            DiffRow::Gap => {}
         }
+        self
     }
 
     pub fn file(self) -> Option<usize> {
         match self {
-            DiffRow::File(file) | DiffRow::Note(file) => Some(file),
-            DiffRow::Hunk { file, .. }
+            DiffRow::File(file)
+            | DiffRow::Note(file)
+            | DiffRow::Hunk { file, .. }
             | DiffRow::Line { file, .. }
             | DiffRow::Pair { file, .. }
             | DiffRow::Context { file, .. } => Some(file),

@@ -9,7 +9,7 @@ use crate::backend::run;
 use crate::backend::settings::{self as backend, AiConfiguration, AiConfigurationUpdate};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, button, dropdown, field, h_flex};
+use crate::ui::{ButtonStyle, button, field, h_flex};
 
 const PROVIDERS: [(&str, &str); 4] = [
     ("openai", "OpenAI"),
@@ -244,14 +244,15 @@ impl SettingsView {
             .find(|(id, _)| *id == config.provider)
             .map_or("OpenAI", |(_, name)| *name);
         let (model, endpoint, key) = provider_parts(config);
-        let items = self.choices(
+        let control = self.choice(
+            "ai-provider",
+            provider_name,
             PROVIDERS.map(|(id, name)| (id.to_owned(), name.to_owned())),
             |this, provider: String, cx| {
                 this.update_ai(move |update| update.provider = provider, cx)
             },
             cx,
         );
-        let this = cx.entity().downgrade();
         let mut rows = vec![Row {
             section: Section::Ai,
             title: "Provider".into(),
@@ -260,12 +261,7 @@ impl SettingsView {
             } else {
                 format!("{provider_name} needs a key before it can write anything.").into()
             },
-            control: dropdown("ai-provider", provider_name, theme)
-                .on_click(move |event, _, cx| {
-                    this.update(cx, |this, cx| this.open_menu(event, items.clone(), cx))
-                        .ok();
-                })
-                .into_any_element(),
+            control,
         }];
         if let Some((option, has_key)) = key {
             let option = if self.ai.own_pending { OWN_KEY } else { option };

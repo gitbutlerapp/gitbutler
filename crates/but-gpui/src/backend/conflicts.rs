@@ -2,6 +2,7 @@
 //! workspace. "Current" is what the commit now sits on, "incoming" the commit's own
 //! change, as in a rebase.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::Result;
@@ -83,12 +84,12 @@ pub struct Resolved {
 pub fn resolve(
     path: &Path,
     commit: CommitId,
-    picks: &[(String, usize, Pick)],
+    picks: &HashMap<(String, usize), Pick>,
     hunks: &Conflicts,
 ) -> Result<(Rewritten, Resolved)> {
     let specs = picks
         .iter()
-        .map(|(file, ix, pick)| {
+        .map(|((file, ix), pick)| {
             let resolution = match pick {
                 Pick::Ai => HunkResolution::Ai,
                 Pick::Current => HunkResolution::Ours,

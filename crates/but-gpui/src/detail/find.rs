@@ -151,35 +151,7 @@ impl Detail {
             line,
             last: false,
         };
-        let same_line = |r: &DiffRow| match (r, row) {
-            (
-                DiffRow::Line {
-                    file, hunk, line, ..
-                },
-                DiffRow::Line {
-                    file: f,
-                    hunk: h,
-                    line: l,
-                    ..
-                },
-            ) => (*file, *hunk, *line) == (f, h, l),
-            (
-                DiffRow::Pair {
-                    file,
-                    hunk,
-                    left,
-                    right,
-                    ..
-                },
-                DiffRow::Line {
-                    file: f,
-                    hunk: h,
-                    line: l,
-                    ..
-                },
-            ) => (*file, *hunk) == (f, h) && (*left == Some(l) || *right == Some(l)),
-            _ => false,
-        };
+        let same_line = |r: &DiffRow| r.same_place(row);
         if self.row_of(same_line).is_none() && self.is_folded(file) {
             self.toggle_fold(file, cx);
         }

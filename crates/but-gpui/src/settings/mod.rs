@@ -19,7 +19,7 @@ use crate::theme::{Appearance, Theme};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, button, dropdown, h_flex, icon_button, list_row, switch, v_flex,
+    ButtonStyle, Icon, button, dropdown, field, h_flex, icon_button, list_row, switch, v_flex,
 };
 
 actions!(settings, [OpenSettings]);
@@ -214,15 +214,17 @@ impl SettingsView {
             .ok();
     }
 
-    /// Menu items that each set a choice through `set` on this view.
-    fn choices<T: Clone + 'static>(
+    /// A dropdown showing `label`, whose menu sets one of `options` through `set`.
+    fn choice<T: Clone + 'static>(
         &self,
+        id: &'static str,
+        label: impl Into<SharedString>,
         options: impl IntoIterator<Item = (T, String)>,
         set: impl Fn(&mut Self, T, &mut Context<Self>) + Clone + 'static,
         cx: &Context<Self>,
-    ) -> Vec<MenuItem> {
+    ) -> AnyElement {
         let this = cx.entity().downgrade();
-        options
+        let items: Vec<MenuItem> = options
             .into_iter()
             .map(|(value, label)| {
                 let (this, set) = (this.clone(), set.clone());
@@ -231,7 +233,13 @@ impl SettingsView {
                         .ok();
                 })
             })
-            .collect()
+            .collect();
+        dropdown(id, label, Theme::get(cx))
+            .on_click(move |event, _, cx| {
+                this.update(cx, |this, cx| this.open_menu(event, items.clone(), cx))
+                    .ok();
+            })
+            .into_any_element()
     }
 
     fn general_rows(&self, cx: &Context<Self>) -> Vec<Row> {
@@ -269,20 +277,20 @@ impl SettingsView {
         };
         let editor = name_of(&self.editors, prefs.editor.as_ref(), "Ask the first time");
         let terminal = name_of(&self.terminals, prefs.terminal.as_ref(), "Terminal");
-        let editor_items = self.choices(
-            self.editors
-                .iter()
-                .map(|(id, name)| (id.clone(), name.clone())),
+        let editor = self.choice(
+            "editor",
+            editor,
+            (self.editors.iter()).map(|(id, name)| (id.clone(), name.clone())),
             |this, id: String, cx| {
                 this.store
                     .update(cx, |store, cx| store.set_prefs(|p| p.editor = Some(id), cx));
             },
             cx,
         );
-        let terminal_items = self.choices(
-            self.terminals
-                .iter()
-                .map(|(id, name)| (id.clone(), name.clone())),
+        let terminal = self.choice(
+            "terminal",
+            terminal,
+            (self.terminals.iter()).map(|(id, name)| (id.clone(), name.clone())),
             |this, id: String, cx| {
                 this.store.update(cx, |store, cx| {
                     store.set_prefs(|p| p.terminal = Some(id), cx)
@@ -290,8 +298,6 @@ impl SettingsView {
             },
             cx,
         );
-        let this = cx.entity().downgrade();
-        let this2 = this.clone();
         vec![
             Row {
                 section: Section::General,
@@ -335,35 +341,21 @@ impl SettingsView {
                 section: Section::General,
                 title: "Editor".into(),
                 description: "Where \"Open in editor\" opens files, at the line you're on.".into(),
-                control: dropdown("editor", editor, theme)
-                    .on_click(move |event, _, cx| {
-                        this.update(cx, |this, cx| {
-                            this.open_menu(event, editor_items.clone(), cx)
-                        })
-                        .ok();
-                    })
-                    .into_any_element(),
+                control: editor,
             },
             Row {
                 section: Section::General,
                 title: "Terminal".into(),
                 description: "Where \"Open in terminal\" opens the project.".into(),
-                control: dropdown("terminal", terminal, theme)
-                    .on_click(move |event, _, cx| {
-                        this2
-                            .update(cx, |this, cx| {
-                                this.open_menu(event, terminal_items.clone(), cx)
-                            })
-                            .ok();
-                    })
-                    .into_any_element(),
+                control: terminal,
             },
         ]
     }
 
     fn git_rows(&self, cx: &Context<Self>) -> Vec<Row> {
-        let theme = Theme::get(cx);
-        let items = self.choices(
+        let control = self.choice(
+            "fetch",
+            interval_label(self.fetch_interval),
             FETCH_INTERVALS.map(|minutes| (minutes, interval_label(minutes))),
             |this, minutes: Option<u64>, cx| {
                 this.fetch_interval = minutes;
@@ -380,19 +372,13 @@ impl SettingsView {
             },
             cx,
         );
-        let this = cx.entity().downgrade();
         vec![Row {
             section: Section::Git,
             title: "Fetch automatically".into(),
             description: "Keeps the target and each branch's remote current, for every \
                           expanded project. GitButler's other apps share this."
                 .into(),
-            control: dropdown("fetch", interval_label(self.fetch_interval), theme)
-                .on_click(move |event, _, cx| {
-                    this.update(cx, |this, cx| this.open_menu(event, items.clone(), cx))
-                        .ok();
-                })
-                .into_any_element(),
+            control,
         }]
     }
 
@@ -500,16 +486,13 @@ impl Render for SettingsView {
             .collect();
         let pick_project = (!searching && self.section == Section::Project && projects.len() > 1)
             .then(|| {
-                let items = self.choices(
+                self.choice(
+                    "pick-project",
+                    "Other project",
                     projects,
                     |this, id: ProjectId, cx| this.show_project(Some(id), cx),
                     cx,
-                );
-                let this = cx.entity().downgrade();
-                dropdown("pick-project", "Other project", &theme).on_click(move |event, _, cx| {
-                    this.update(cx, |this, cx| this.open_menu(event, items.clone(), cx))
-                        .ok();
-                })
+                )
             });
         let empty = rows.is_empty();
         modal(ModalSize::Large, &theme)
@@ -526,22 +509,7 @@ impl Render for SettingsView {
                     .bg(theme.bg_2)
                     .border_r_1()
                     .border_color(theme.border_3)
-                    .child(
-                        div()
-                            .mb(px(8.))
-                            .px(px(8.))
-                            .py(px(5.))
-                            .rounded(px(4.))
-                            .border_1()
-                            .border_color(if search_focused {
-                                theme.pop
-                            } else {
-                                theme.border_2
-                            })
-                            .bg(theme.bg_1)
-                            .text_size(px(13.))
-                            .child(self.search.clone()),
-                    )
+                    .child(field(&self.search, search_focused, &theme).mb(px(8.)))
                     .children(sections),
             )
             .child(

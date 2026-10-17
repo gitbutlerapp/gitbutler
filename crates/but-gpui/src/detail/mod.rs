@@ -173,9 +173,8 @@ pub struct Detail {
     /// Files folded or unfolded by hand; otherwise reviewed files fold.
     folded: HashSet<String>,
     unfolded: HashSet<String>,
-    /// The commit message being written with AI: the task streaming it into the box, and
-    /// the one asking for it.
-    writing: Option<(Task<()>, Task<()>)>,
+    /// The commit message being written with AI, streaming into the box.
+    writing: Option<Task<()>>,
     /// The find bar over the diff, while it's open.
     find: Option<find::Find>,
     /// The project page's target history, for the project it shows.
@@ -609,11 +608,8 @@ impl Detail {
                 self.line_picks.remove(&(path.clone(), key));
                 // An edit can renumber the hunk, but the lines it covers on the committed
                 // side stay put: every hunk over them now is left out.
-                let file = files.iter().find(|f| f.file.path == path);
-                for now in file.map(hunk_keys).unwrap_or_default() {
-                    if now == key || covers_same_lines(now, key) {
-                        self.unchecked_hunks.insert((path.clone(), now));
-                    }
+                for now in renumbered(&path, key) {
+                    self.unchecked_hunks.insert((path.clone(), now));
                 }
             }
         }

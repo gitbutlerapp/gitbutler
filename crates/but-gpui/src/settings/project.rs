@@ -7,7 +7,7 @@ use super::{Row, Section, SettingsView};
 use crate::backend::settings::{self as backend, GitHubStacks, StackInfo};
 use crate::state::ProjectId;
 use crate::theme::Theme;
-use crate::ui::{ButtonStyle, button, dropdown, h_flex, switch};
+use crate::ui::{ButtonStyle, button, field, h_flex, switch};
 
 impl SettingsView {
     /// Show `project`'s settings in the Project section, loading them.
@@ -125,7 +125,19 @@ impl SettingsView {
                 .update(cx, |app, cx| app.pick_target(project, window, cx))
                 .ok();
         });
-        let info_items = self.choices(
+        let info_label = match settings.stack_info {
+            StackInfo::Bottom => "At the bottom",
+            StackInfo::Top => "At the top",
+            StackInfo::Disabled => "Off",
+        };
+        let github_label = match settings.github_stacks {
+            GitHubStacks::Auto => "When GitHub offers them",
+            GitHubStacks::Native => "Always",
+            GitHubStacks::Disabled => "Never",
+        };
+        let stack_info = self.choice(
+            "stack-info",
+            info_label,
             [
                 (StackInfo::Bottom, "At the bottom".to_owned()),
                 (StackInfo::Top, "At the top".to_owned()),
@@ -146,54 +158,26 @@ impl SettingsView {
             },
             cx,
         );
-        let github_items = self.choices(
+        let github_stacks = self.choice(
+            "github-stacks",
+            github_label,
             [
                 (GitHubStacks::Auto, "When GitHub offers them".to_owned()),
                 (GitHubStacks::Native, "Always".to_owned()),
                 (GitHubStacks::Disabled, "Never".to_owned()),
             ],
-            {
-                let path = path.clone();
-                move |this, github: GitHubStacks, cx| {
-                    let Some(path) = path.clone() else {
-                        return;
-                    };
-                    this.apply(
-                        "Couldn't change how stacks show",
-                        move || backend::set_stacking(&path, None, Some(github)),
-                        cx,
-                    )
-                }
+            move |this, github: GitHubStacks, cx| {
+                let Some(path) = path.clone() else {
+                    return;
+                };
+                this.apply(
+                    "Couldn't change how stacks show",
+                    move || backend::set_stacking(&path, None, Some(github)),
+                    cx,
+                )
             },
             cx,
         );
-        let info_label = match settings.stack_info {
-            StackInfo::Bottom => "At the bottom",
-            StackInfo::Top => "At the top",
-            StackInfo::Disabled => "Off",
-        };
-        let github_label = match settings.github_stacks {
-            GitHubStacks::Auto => "When GitHub offers them",
-            GitHubStacks::Native => "Always",
-            GitHubStacks::Disabled => "Never",
-        };
-        let (menu_a, menu_b) = (cx.entity().downgrade(), cx.entity().downgrade());
-        let stack_info = dropdown("stack-info", info_label, theme)
-            .on_click(move |event, _, cx| {
-                menu_a
-                    .update(cx, |this, cx| this.open_menu(event, info_items.clone(), cx))
-                    .ok();
-            })
-            .into_any_element();
-        let github_stacks = dropdown("github-stacks", github_label, theme)
-            .on_click(move |event, _, cx| {
-                menu_b
-                    .update(cx, |this, cx| {
-                        this.open_menu(event, github_items.clone(), cx)
-                    })
-                    .ok();
-            })
-            .into_any_element();
         let on_github = self
             .store
             .read(cx)
@@ -230,21 +214,7 @@ impl SettingsView {
                                 .on_click(cx.listener(|this, _, _, cx| this.save_name(cx))),
                         )
                     })
-                    .child(
-                        div()
-                            .w(px(220.))
-                            .px(px(8.))
-                            .py(px(5.))
-                            .rounded(px(4.))
-                            .border_1()
-                            .border_color(if name_focused {
-                                theme.pop
-                            } else {
-                                theme.border_2
-                            })
-                            .text_size(px(13.))
-                            .child(self.name.clone()),
-                    )
+                    .child(field(&self.name, name_focused, theme).w(px(220.)))
                     .into_any_element(),
             },
             Row {
@@ -260,7 +230,7 @@ impl SettingsView {
                             .font_family(theme.mono_font.clone())
                             .text_size(px(12.))
                             .text_color(theme.text_2)
-                            .child(target.clone().unwrap_or_else(|| "None".into())),
+                            .child(target.unwrap_or_else(|| "None".into())),
                     )
                     .child(
                         button("change-target", "Change…")
