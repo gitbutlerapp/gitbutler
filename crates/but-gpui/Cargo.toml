@@ -45,6 +45,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 unicode-segmentation.workspace = true
 bstr.workspace = true
 gix = { workspace = true, features = ["sha1"] }
+reqwest.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 # GitButler, consumed only from `src/backend`.

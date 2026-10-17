@@ -24,6 +24,7 @@ use crate::ui::{
     small_icon, v_flex,
 };
 
+mod account;
 mod menu;
 
 /// Commits shown per branch before folding the rest into "N more".
@@ -1266,7 +1267,8 @@ impl Render for Navigator {
                 icon_button("add-project", Icon::Plus)
                     .tooltip("Add project  ⌘O")
                     .dispatch(&AddProject),
-            );
+            )
+            .child(self.account(&theme, cx));
 
         v_flex()
             .id("navigator")

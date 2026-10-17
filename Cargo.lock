@@ -1685,6 +1685,7 @@ dependencies = [
  "gpui",
  "gpui_platform",
  "image",
+ "reqwest",
  "serde",
  "serde_json",
  "syntect",

@@ -14,6 +14,7 @@ use crate::backend::{
     Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace, short_ref,
 };
 
+mod account;
 mod background;
 mod load;
 mod mutation;
@@ -189,6 +190,8 @@ pub struct Store {
     pub file_tree: bool,
     pub prefs: Prefs,
     pub toasts: Vec<Toast>,
+    /// Who is signed in to GitButler.
+    pub account: account::Account,
     /// Each project's mutation in flight. A project's mutations run one at a time, each
     /// until the reload after it lands, so the next one sees what it did; projects don't
     /// wait on each other.
@@ -259,6 +262,7 @@ impl Store {
             added: None,
             dragging: None,
             toasts: Vec::new(),
+            account: account::Account::default(),
             settling: HashSet::new(),
             mutating: HashSet::new(),
             running: HashMap::new(),
@@ -296,6 +300,7 @@ impl Store {
             _auto_fetch: Self::fetch_in_background(cx),
         };
         store.load_projects(cx);
+        store.load_account(cx);
         store
     }
 

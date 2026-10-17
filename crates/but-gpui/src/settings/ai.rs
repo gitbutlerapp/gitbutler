@@ -96,6 +96,11 @@ fn provider_parts(config: &AiConfiguration) -> (&str, Option<&str>, Option<(&str
 }
 
 impl SettingsView {
+    /// Read the AI settings again next time they're shown, as after signing in or out.
+    pub(super) fn forget_ai(&mut self) {
+        self.ai.config = None;
+    }
+
     /// Read the AI settings the first time they're needed.
     pub(super) fn ensure_ai(&mut self, cx: &mut Context<Self>) {
         if self.ai.config.is_some() || self.ai.loading {

@@ -74,8 +74,16 @@ pub fn stream(
     on_text: impl Fn(&str) + Send + Sync + 'static,
 ) -> Result<String> {
     let config = gix::config(None, &gix::open::Options::default())?;
-    let provider = LLMProvider::from_git_config(&config)
-        .context("AI isn't set up. Choose a provider in Settings → AI.")?;
+    let provider =
+        LLMProvider::from_git_config(&config).with_context(
+            || match super::accounts::gitbutler_user() {
+                Some(_) => "AI isn't set up. Choose a provider in Settings → AI.",
+                None => {
+                    "AI isn't set up. Sign in to GitButler to use its key, or choose a provider \
+                 and key in Settings → AI."
+                }
+            },
+        )?;
     let model = provider.model_or_default();
     provider
         .stream_response(system, vec![ChatMessage::User(prompt)], &model, on_text)?
