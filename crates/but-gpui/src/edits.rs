@@ -321,7 +321,8 @@ impl AppView {
             return;
         }
         let overlay = Overlay::commits(rest.iter().map(|c| c.key.clone()));
-        let rest = rest.iter().map(|c| c.id).collect();
+        // Oldest first, so their messages follow in the order they were written.
+        let rest = rest.iter().rev().map(|c| c.id).collect();
         self.squash(project, rest, oldest.id, overlay, "Squash all".into(), cx);
     }
 

@@ -2,14 +2,16 @@
 //! reviews, then what the forge says about its review, its open conversations and the
 //! latest comments.
 
+use std::time::Duration;
+
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, MouseButton, MouseDownEvent, div, prelude::*, px,
+    AnyElement, App, ClickEvent, Context, Div, MouseButton, MouseDownEvent, div, prelude::*, px,
 };
 
 use super::Detail;
 use crate::app::MenuItem;
 use crate::backend;
-use crate::state::ProjectId;
+use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::review as ui_review;
@@ -111,7 +113,20 @@ pub(super) fn render_review(
         .into_any_element()
 }
 
+/// Where a branch stood when the forge was last asked about its pull request: its tip
+/// and whether it was pushed.
+pub(super) type BranchMark = Option<(backend::CommitId, backend::PushState)>;
+
 impl Detail {
+    pub(super) fn branch_mark(&self, project: &ProjectId, ref_name: &str, cx: &App) -> BranchMark {
+        let branch = self
+            .store
+            .read(cx)
+            .workspace(project)?
+            .find_branch(ref_name)?;
+        Some((branch.commits.first()?.id, branch.push))
+    }
+
     /// Ask the forge where the review of `ref_name`'s open pull request stands, for its card.
     /// Once per visit to the branch, rather than on every reload.
     pub(crate) fn load_feedback(
@@ -121,6 +136,13 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         use backend::ReviewState as S;
+        // Only for the branch on screen: one an action finished on may have been left.
+        let shown = matches!(self.selection(cx),
+            Some(Selection::Branch(p, r)) if p == *project && r == ref_name);
+        if !shown {
+            return;
+        }
+        let mark = self.branch_mark(project, ref_name, cx);
         let store = self.store.read(cx);
         let number = (store.workspace(project))
             .and_then(|ws| ws.find_branch(ref_name)?.review.as_ref())
@@ -130,8 +152,12 @@ impl Detail {
             return;
         };
         let project = project.clone();
-        self.feedback_asked = Some(std::time::Instant::now());
+        self.feedback_asked = Some((std::time::Instant::now(), mark));
         self._feedback_load = cx.spawn(async move |this, cx| {
+            // Arrowing past branches shouldn't ask the forge about each.
+            cx.background_executor()
+                .timer(Duration::from_millis(250))
+                .await;
             let feedback = backend::run(move || backend::reviews::feedback(&path, number)).await;
             // A forge that can't say, or no account for it, leaves the card as it was.
             let Ok(feedback) = feedback else {

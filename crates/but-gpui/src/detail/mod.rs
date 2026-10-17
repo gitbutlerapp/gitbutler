@@ -190,8 +190,9 @@ pub struct Detail {
     /// Where the review of the selected branch's pull request stands, once the forge said:
     /// the project and pull request number it's for.
     feedback: Option<(ProjectId, u64, backend::reviews::Feedback)>,
-    /// When it was last asked for, to ask again as the workspace reloads, but not often.
-    feedback_asked: Option<Instant>,
+    /// When it was last asked for and how the branch stood then, to ask again as the
+    /// workspace reloads: once a while has passed, or the branch moved or was pushed.
+    feedback_asked: Option<(Instant, pull_request::BranchMark)>,
     _feedback_load: Task<()>,
     /// The Branches page's branches, for the project it shows, and its filter.
     branches: Option<branches::Branches>,
@@ -265,11 +266,14 @@ impl Detail {
                     // A push can dismiss approvals; a reviewer can weigh in any time.
                     if let Some(Selection::Branch(shown, ref_name)) = this.selection(cx)
                         && shown == *project
-                        && this
-                            .feedback_asked
-                            .is_none_or(|at| at.elapsed() >= FEEDBACK_STALE)
                     {
-                        this.load_feedback(&shown, &ref_name, cx)
+                        let mark = this.branch_mark(&shown, &ref_name, cx);
+                        let stale = this.feedback_asked.as_ref().is_none_or(|(at, asked)| {
+                            at.elapsed() >= FEEDBACK_STALE || *asked != mark
+                        });
+                        if stale {
+                            this.load_feedback(&shown, &ref_name, cx)
+                        }
                     }
                     // Calling a file resolved lasts as long as that edit does.
                     if this.editing(project, cx).is_none() {
@@ -1154,6 +1158,14 @@ impl Detail {
                 _ => false,
             })
         });
+        // The file filter can leave the file out entirely.
+        let shown = row.is_some()
+            || self
+                .row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix))
+                .is_some();
+        if !shown {
+            return false;
+        }
         match row {
             Some(row) => {
                 self.cursor = Cursor {
