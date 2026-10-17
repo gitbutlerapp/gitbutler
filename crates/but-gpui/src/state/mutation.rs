@@ -126,7 +126,7 @@ impl Remap {
         self.0
             .get(&id)
             .copied()
-            .context("A commit it needed changed while it waited")
+            .context("A commit changed before this could run. Try again.")
     }
 
     /// `to`, with the commit it's relative to as it is after the operations queued before.
@@ -363,8 +363,8 @@ impl Store {
                 }
                 store.error_with_retry(
                     title,
-                    "The remote has commits it would drop: someone pushed since the last \
-                     fetch. Fetch to see them, or force-push the stack anyway.",
+                    "Someone pushed since the last fetch, and pushing would drop their commits. \
+                     Fetch to see them, or push anyway.",
                     "Push anyway",
                     move |store, cx| store.push(&pushed, ref_name.clone(), false, cx),
                     cx,
