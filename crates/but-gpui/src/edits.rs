@@ -172,6 +172,7 @@ impl AppView {
         }
         let name = short_ref(&ref_name).to_owned();
         let question = format!("Make {name} the remote's version?");
+        let (check_branch, path) = (ref_name.clone(), self.store.read(cx).path(&project));
         let run = move |this: &mut AppView, cx: &mut Context<AppView>| {
             let (label, done) = if theirs {
                 (
@@ -193,7 +194,27 @@ impl AppView {
             });
         };
         if !theirs {
-            return run(self, cx);
+            let check = move || {
+                let Some(path) = path else {
+                    return Ok(None);
+                };
+                let found = backend::pull_conflicts(&path, &check_branch)?;
+                Ok((!found.is_empty()).then(|| {
+                    format!(
+                        "Rebasing your commits onto the remote's leaves conflicted commits in \
+                         {}. You can resolve them afterwards, or undo the pull.",
+                        crate::app::commit_counts(&found)
+                    )
+                }))
+            };
+            return self.check_then(
+                check,
+                "Pull with conflicts?",
+                "Pull anyway",
+                window,
+                cx,
+                run,
+            );
         }
         self.confirm_then(
             question,
