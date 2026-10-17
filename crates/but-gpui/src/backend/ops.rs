@@ -505,16 +505,36 @@ pub fn push(path: &Path, ref_name: &str, force: bool) -> Result<Option<String>> 
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
 /// them, or with `theirs` the remote's version of the branch instead of the local one.
 pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
-    use but_api::branch::json::BranchIntegrationStrategy as Strategy;
+    integrate_remote(&mut open(path)?, branch, theirs, DryRun::No)?;
+    Ok(())
+}
+
+/// A dry run of pulling into `branch`: the branches it would leave with conflicted commits
+/// they don't have now, each with how many.
+pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(String, usize)>> {
     let mut ctx = open(path)?;
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    let preview = integrate_remote(&mut ctx, branch, false, DryRun::Yes)?;
+    Ok(newly_conflicted(
+        &info,
+        &preview.workspace.conflicted_commits,
+    ))
+}
+
+fn integrate_remote(
+    ctx: &mut but_ctx::Context,
+    branch: &str,
+    theirs: bool,
+    dry_run: DryRun,
+) -> Result<but_api::branch::IntegrateBranchResult> {
+    use but_api::branch::json::BranchIntegrationStrategy as Strategy;
     let name = full_name(branch)?;
     let strategy = if theirs {
         Strategy::PickRemote
     } else {
         Strategy::PullRebase
     };
-    let plan =
-        but_api::branch::get_initial_branch_integration(&ctx, name.as_ref(), Some(strategy))?;
+    let plan = but_api::branch::get_initial_branch_integration(ctx, name.as_ref(), Some(strategy))?;
     // Rebasing would bring back the remote's versions of commits rewritten here, beside
     // their new ones: the same change, or failing a change ID, the same subject.
     let divergence = &plan.divergence;
@@ -534,13 +554,12 @@ pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
     );
     let mut guard = ctx.exclusive_worktree_access();
     but_api::branch::apply_branch_integration_with_perm(
-        &mut ctx,
+        ctx,
         name.as_ref(),
         plan.integration,
-        DryRun::No,
+        dry_run,
         guard.write_permission(),
-    )?;
-    Ok(())
+    )
 }
 
 /// Rebase every stack onto the target as it is now, or with `branch` only the stack
@@ -566,22 +585,7 @@ pub fn update_conflicts(path: &Path, branch: Option<&str>) -> Result<UpdateConfl
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
     let preview = integrate_upstream(&mut ctx, &info, branch, DryRun::Yes)?;
-    let conflicted: Vec<String> = (preview.workspace_state.conflicted_commits.iter())
-        .map(|(_, change_id)| change_id.to_string())
-        .collect();
-    let newly = |commit: &&but_workspace::ref_info::LocalCommit| {
-        !commit.inner.has_conflicts
-            && (commit.inner.change_id.as_ref())
-                .is_some_and(|id| conflicted.contains(&id.to_string()))
-    };
-    let branches = (info.stacks.iter())
-        .flat_map(|stack| &stack.segments)
-        .filter_map(|segment| {
-            let count = segment.commits.iter().filter(newly).count();
-            let name = segment.ref_info.as_ref()?.ref_name.shorten().to_string();
-            (count > 0).then_some((name, count))
-        })
-        .collect();
+    let branches = newly_conflicted(&info, &preview.workspace_state.conflicted_commits);
     let files = (preview.worktree_conflicts.iter())
         .map(|path| path.to_str_lossy().into_owned())
         .collect();
@@ -593,6 +597,27 @@ pub fn mark_resolved(path: &Path, files: Vec<String>) -> Result<()> {
     let mut ctx = open(path)?;
     let paths = files.into_iter().map(Into::into).collect();
     but_api::workspace::resolve_worktree_conflicts(&mut ctx, paths)
+}
+
+/// The branches in `info` with commits among `conflicted` that aren't conflicted yet, each
+/// with how many.
+fn newly_conflicted(
+    info: &but_workspace::RefInfo,
+    conflicted: &[(gix::ObjectId, but_core::ChangeId)],
+) -> Vec<(String, usize)> {
+    let newly = |commit: &&but_workspace::ref_info::LocalCommit| {
+        !commit.inner.has_conflicts
+            && (commit.inner.change_id.as_ref())
+                .is_some_and(|id| conflicted.iter().any(|(_, change)| change == id))
+    };
+    (info.stacks.iter())
+        .flat_map(|stack| &stack.segments)
+        .filter_map(|segment| {
+            let count = segment.commits.iter().filter(newly).count();
+            let name = segment.ref_info.as_ref()?.ref_name.shorten().to_string();
+            (count > 0).then_some((name, count))
+        })
+        .collect()
 }
 
 fn integrate_upstream(

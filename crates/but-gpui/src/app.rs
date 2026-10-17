@@ -1033,47 +1033,59 @@ impl AppView {
             return;
         };
         let checked = branch.clone();
-        cx.spawn_in(window, async move |this, cx| {
-            // A failed check leaves it to the update to report what's wrong.
-            let conflicts =
-                backend::run(move || backend::update_conflicts(&path, checked.as_deref()))
-                    .await
-                    .unwrap_or_default();
-            this.update_in(cx, |this, window, cx| {
-                let update = move |this: &mut AppView, cx: &mut Context<AppView>| {
-                    this.store.update(cx, |store, cx| {
-                        store.update_from_target(&project, branch, cx)
-                    })
-                };
-                let mut detail = Vec::new();
-                if !conflicts.branches.is_empty() {
-                    let branches: Vec<String> = (conflicts.branches.iter())
-                        .map(|(name, count)| format!("{name} ({})", plural(*count, "commit")))
-                        .collect();
-                    detail.push(format!(
-                        "Rebasing leaves conflicted commits in {}.",
-                        branches.join(", ")
-                    ));
-                }
-                if !conflicts.files.is_empty() {
-                    detail.push(format!(
-                        "The target changed the same lines as your uncommitted changes to {}, \
-                         which get conflict markers.",
-                        conflicts.files.join(", ")
-                    ));
-                }
-                if detail.is_empty() {
-                    return update(this, cx);
-                }
+        let check = move || {
+            let found = backend::update_conflicts(&path, checked.as_deref())?;
+            let mut detail = Vec::new();
+            if !found.branches.is_empty() {
+                detail.push(format!(
+                    "Rebasing leaves conflicted commits in {}.",
+                    commit_counts(&found.branches)
+                ));
+            }
+            if !found.files.is_empty() {
+                detail.push(format!(
+                    "The target changed the same lines as your uncommitted changes to {}, \
+                     which get conflict markers.",
+                    found.files.join(", ")
+                ));
+            }
+            Ok((!detail.is_empty()).then(|| {
                 detail.push("You can resolve them afterwards, or undo the update.".into());
-                this.confirm_then(
-                    "Update with conflicts?".into(),
-                    &detail.join(" "),
-                    "Update anyway",
-                    window,
-                    cx,
-                    update,
-                )
+                detail.join(" ")
+            }))
+        };
+        let update = move |this: &mut AppView, cx: &mut Context<AppView>| {
+            this.store.update(cx, |store, cx| {
+                store.update_from_target(&project, branch, cx)
+            })
+        };
+        self.check_then(
+            check,
+            "Update with conflicts?",
+            "Update anyway",
+            window,
+            cx,
+            update,
+        );
+    }
+
+    /// Run `check` off the UI thread, then `then` straight away when it has nothing to warn
+    /// about, or after asking with what it says. A failed check leaves it to `then` to
+    /// report what's wrong.
+    pub fn check_then(
+        &mut self,
+        check: impl FnOnce() -> anyhow::Result<Option<String>> + Send + 'static,
+        title: &'static str,
+        confirm: &'static str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        then: impl FnOnce(&mut AppView, &mut Context<AppView>) + 'static,
+    ) {
+        cx.spawn_in(window, async move |this, cx| {
+            let warning = backend::run(check).await.ok().flatten();
+            this.update_in(cx, |this, window, cx| match warning {
+                None => then(this, cx),
+                Some(detail) => this.confirm_then(title.into(), &detail, confirm, window, cx, then),
             })
             .ok();
         })
@@ -1542,4 +1554,12 @@ fn copied(text: &str) -> String {
         0 | 1 => "Copied the selection".to_owned(),
         lines => format!("Copied {lines} lines"),
     }
+}
+
+/// Branches with how many of their commits: "feature/a (2 commits), feature/b (1 commit)".
+pub fn commit_counts(branches: &[(String, usize)]) -> String {
+    let counts: Vec<String> = (branches.iter())
+        .map(|(name, count)| format!("{name} ({})", plural(*count, "commit")))
+        .collect();
+    counts.join(", ")
 }
