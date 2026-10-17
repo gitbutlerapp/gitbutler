@@ -14,11 +14,12 @@ use crate::app::StartCommit;
 use crate::backend::{self, CommitState, FileChange, PushState, short_ref};
 use crate::state::{ProjectId, Review, Selection};
 use crate::theme::Theme;
+use crate::ui::person::person_avatar;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, button, empty_state, faint, h_flex, icon,
-    icon_button, muted, plural, relative_time, section_label, shortcut, small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, empty_state, faint, h_flex,
+    icon, icon_button, local_time, muted, plural, section_label, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -356,143 +357,153 @@ impl Detail {
             .unwrap_or_default();
         let (state, color) = match commit.state {
             CommitState::Local => ("not pushed", theme.blue),
-            CommitState::Pushed => ("pushed", theme.text_2),
-            CommitState::Integrated => ("integrated", theme.safe),
+            CommitState::Pushed => ("on the remote", theme.safe),
+            CommitState::Integrated => ("integrated", theme.text_2),
         };
-        let initial = (commit.author.chars().next())
-            .map(|c| c.to_uppercase().to_string())
-            .unwrap_or_default();
         let sha = commit.id.0.to_string();
         let title = h_flex()
             .id("commit-title")
-            .h(px(24.))
+            .h(px(22.))
             .gap(px(8.))
-            .child(icon(Icon::Commit).text_color(theme.text_2))
+            .child(icon(Icon::Commit).text_color(theme.text_1))
             .child(
-                div()
+                h_flex()
                     .min_w(px(0.))
-                    .truncate()
-                    .text_size(px(16.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(if commit.title.is_empty() {
-                        "No message".to_owned()
-                    } else {
-                        commit.title.clone()
+                    .gap(px(6.))
+                    .child(
+                        div()
+                            .min_w(px(0.))
+                            .truncate()
+                            .text_size(px(16.))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .child(if commit.title.is_empty() {
+                                "No message".to_owned()
+                            } else {
+                                commit.title.clone()
+                            }),
+                    )
+                    .when(!body.is_empty(), |el| {
+                        let open = self.message_open;
+                        el.child(
+                            icon_button("full-message", Icon::TextBlock)
+                                .small()
+                                .selected(open)
+                                .tooltip(if open {
+                                    "Hide full message"
+                                } else {
+                                    "Full message"
+                                })
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.message_open = !this.message_open;
+                                    cx.notify();
+                                })),
+                        )
                     }),
             )
-            .when(!body.is_empty(), |el| {
-                let open = self.message_open;
-                el.child(
-                    icon_button("full-message", Icon::TextBlock)
-                        .small()
-                        .selected(open)
-                        .tooltip(if open {
-                            "Hide full message"
-                        } else {
-                            "Full message"
-                        })
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.message_open = !this.message_open;
-                            cx.notify();
-                        })),
-                )
-            })
             .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
                 if event.click_count() == 2 {
                     this.start_reword(window, cx)
                 }
             }));
-        let message: AnyElement = match &self.rewording {
-            Some((input, _)) => self.reword_editor(input, theme, cx),
+        let meta = h_flex()
+            .h(px(20.))
+            .gap(px(12.))
+            .text_size(px(13.))
+            .text_color(theme.text_2)
+            .child(
+                h_flex()
+                    .gap(px(6.))
+                    .child(person_avatar(&commit.author, 16., theme))
+                    .child(format!("{} at {}", commit.author, local_time(commit.time))),
+            )
+            .child(
+                h_flex()
+                    .id("commit-sha")
+                    .gap(px(4.))
+                    .cursor_pointer()
+                    .group("commit-sha")
+                    .text_color(theme.text_3)
+                    .hover(|el| el.text_color(theme.text_2))
+                    .child(
+                        small_icon(Icon::Hash)
+                            .text_color(theme.text_3)
+                            .group_hover("commit-sha", |el| el.text_color(theme.text_2)),
+                    )
+                    .child(commit.id.short())
+                    .tooltip(|_, cx| Tooltip::with_key("Copy commit ID".into(), None, cx))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        let sha = sha.clone();
+                        this.app.update(cx, |app, cx| app.copy_text(sha, cx)).ok();
+                    })),
+            )
+            .child(div().text_color(color).child(state))
+            .when(commit.conflicted, |el| {
+                el.child(div().text_color(theme.danger).child("conflicted"))
+            });
+        let main = match &self.rewording {
+            Some((input, _)) => v_flex()
+                .gap(px(10.))
+                .child(self.reword_editor(input, theme, cx))
+                .child(meta),
             None => v_flex()
-                .gap(px(8.))
+                .gap(px(10.))
                 .child(title)
-                // The body lines up with the title, past the commit's glyph.
+                // Further off the lines around it than they stand from each other.
                 .when(self.message_open && !body.is_empty(), |el| {
                     el.child(
                         div()
-                            .pl(px(24.))
+                            .mt(px(2.))
+                            .mb(px(6.))
+                            .max_w(px(580.))
                             .font_family(theme.mono_font.clone())
                             .text_size(px(12.))
                             .line_height(px(19.))
-                            .text_color(theme.text_2)
                             .child(body),
                     )
                 })
-                .into_any_element(),
+                .child(meta),
         };
+        // What right-clicking the commit's row offers, for when the navigator is out of reach.
+        let target = Selection::Commit(project.clone(), id);
+        let menu = h_flex()
+            .h(px(22.))
+            .child(
+                icon_button("commit-menu", Icon::Kebab).on_click(cx.listener(
+                    move |this, event: &ClickEvent, _, cx| {
+                        let position = event.position();
+                        (this.app)
+                            .update(cx, |app, cx| app.open_row_menu(&target, position, cx))
+                            .ok();
+                    },
+                )),
+            );
         // The diff beside the files starts below this, however tall it's drawn.
         let (height, app) = (self.header_height.clone(), self.app.clone());
         let measure = gpui::canvas(
             move |bounds, _, cx| {
-                let drawn = f32::from(bounds.size.height);
+                // And the rule along its bottom, which this, inside the header, doesn't cover.
+                let drawn = f32::from(bounds.size.height) + 1.;
+                // After this frame: a view told to draw while one is drawing isn't drawn again.
                 if height.replace(drawn) != drawn {
-                    app.update(cx, |_, cx| cx.notify()).ok();
+                    cx.defer(move |cx| {
+                        app.update(cx, |_, cx| cx.notify()).ok();
+                    });
                 }
             },
             |_, _, _, _| {},
         )
         .absolute()
         .size_full();
-        v_flex()
+        h_flex()
             .relative()
             .flex_none()
-            .gap(px(8.))
-            .px(px(16.))
-            .py(px(12.))
+            .items_start()
+            .gap(px(16.))
+            .p(px(16.))
             .border_b_1()
             .border_color(theme.border_3)
-            .child(message)
-            .child(
-                h_flex()
-                    .h(px(20.))
-                    .gap(px(8.))
-                    .text_size(px(12.))
-                    .text_color(theme.text_2)
-                    .child(
-                        div()
-                            .size(px(16.))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .rounded_full()
-                            .bg(theme.fill_gray.opacity(0.15))
-                            .text_size(px(9.))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(initial),
-                    )
-                    .child(format!(
-                        "{} · {}",
-                        commit.author,
-                        relative_time(commit.time)
-                    ))
-                    .child(
-                        div()
-                            .id("commit-sha")
-                            .flex()
-                            .gap(px(2.))
-                            .cursor_pointer()
-                            .text_color(theme.text_3)
-                            .hover(|el| el.text_color(theme.text_2))
-                            .child("#")
-                            .child(
-                                div()
-                                    .font_family(theme.mono_font.clone())
-                                    .child(commit.id.short()),
-                            )
-                            .tooltip(|_, cx| {
-                                crate::ui::Tooltip::with_key("Copy the commit id".into(), None, cx)
-                            })
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                let sha = sha.clone();
-                                this.app.update(cx, |app, cx| app.copy_text(sha, cx)).ok();
-                            })),
-                    )
-                    .child(div().text_color(color).child(state))
-                    .when(commit.conflicted, |el| {
-                        el.child(div().text_color(theme.danger).child("conflicted"))
-                    }),
-            )
+            .child(main.flex_1().min_w(px(0.)))
+            .child(menu)
             .child(measure)
             .into_any_element()
     }
@@ -727,7 +738,7 @@ fn conflict_bar(
 pub(super) type Crumb = (SharedString, Option<Selection>);
 
 /// How tall a commit's header across the page is with its message closed, until it's drawn.
-pub(super) const COMMIT_HEADER_HEIGHT: f32 = 77.;
+pub(super) const COMMIT_HEADER_HEIGHT: f32 = 85.;
 
 /// The block at the top of a side panel, saying what's selected.
 pub(super) fn side_header(theme: &Theme) -> Div {

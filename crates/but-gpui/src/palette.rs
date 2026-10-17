@@ -92,6 +92,7 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Find in diff", &crate::detail::FindInDiff),
     ("Filter files", &crate::detail::FilterFiles),
     ("Wrap long lines", &crate::detail::ToggleWrap),
+    ("Toggle diff backgrounds", &crate::detail::TogglePlainLines),
     ("Side-by-side diff", &crate::detail::ToggleSplit),
     ("Show or hide the files", &crate::detail::ToggleFiles),
     ("Create pull request", &crate::pr::CreatePullRequest),

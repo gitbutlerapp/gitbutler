@@ -20,7 +20,7 @@ impl Navigator {
     /// What right-clicking `target` offers. Right-clicking selects the row first, so the
     /// items run the same actions as their keys. A branch with commits starts with hiding
     /// or showing them.
-    pub(super) fn menu_items(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
+    pub(crate) fn menu_items(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
         let mut items = self.row_actions(target, cx);
         if let Selection::Branch(project, ref_name) = target
             && let Some(first) = items.first_mut()

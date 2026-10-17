@@ -58,6 +58,7 @@ actions!(
         PageUp,
         AmendTop,
         ToggleWrap,
+        TogglePlainLines,
         ToggleSplit,
         ToggleFiles,
         FilterFiles,
@@ -862,6 +863,14 @@ impl Detail {
         self.remeasure(cx);
     }
 
+    /// Draw changed lines with their green and red ground, or without.
+    pub fn toggle_plain_lines(&mut self, cx: &mut Context<Self>) {
+        self.store.update(cx, |store, cx| {
+            store.set_prefs(|prefs| prefs.plain_lines = !prefs.plain_lines, cx)
+        });
+        cx.notify();
+    }
+
     /// Show code in diffs at `size`.
     pub fn set_code_size(&mut self, size: crate::theme::CodeSize, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
@@ -1330,6 +1339,7 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PageDown, _, cx| this.page(1., cx)))
             .on_action(cx.listener(|this, _: &PageUp, _, cx| this.page(-1., cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
+            .on_action(cx.listener(|this, _: &TogglePlainLines, _, cx| this.toggle_plain_lines(cx)))
             .on_action(cx.listener(|this, _: &ToggleSplit, _, cx| this.toggle_split(cx)))
             .on_action(
                 cx.listener(|this, _: &FilterFiles, window, cx| this.open_filter(window, cx)),

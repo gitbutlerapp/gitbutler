@@ -12,8 +12,8 @@ use gpui::{
 };
 
 use super::{
-    Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleFiles, ToggleReviewed, ToggleSplit,
-    ToggleWrap,
+    Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleFiles, TogglePlainLines,
+    ToggleReviewed, ToggleSplit, ToggleWrap,
 };
 use crate::app::AppView;
 use crate::backend::{
@@ -313,7 +313,14 @@ impl Detail {
             .gap(px(6.))
             .rounded(px(4.))
             .hover(|el| el.bg(theme.hover()))
-            .child(icon(Icon::Sidebar).text_color(theme.text_2))
+            .child(
+                icon(if hidden {
+                    Icon::SidebarNarrow
+                } else {
+                    Icon::FilesSidebar
+                })
+                .text_color(theme.text_2),
+            )
             .when(hidden, |el| {
                 el.child(
                     div()
@@ -358,7 +365,7 @@ impl Detail {
                 button.on_click(act(action))
             }
         };
-        let (wrap, split) = (prefs.wrap, prefs.split);
+        let (wrap, split, plain) = (prefs.wrap, prefs.split, prefs.plain_lines);
         Some(
             h_flex()
                 .flex_none()
@@ -369,11 +376,20 @@ impl Detail {
                 .child(files)
                 .child(div().flex_1())
                 .child(
-                    group().child(
-                        (button("diff-wrap", "Wrap").small().selected(wrap))
+                    group()
+                        .child(
+                            (icon_button("diff-wrap", Icon::TextWrap)
+                                .small()
+                                .selected(wrap))
                             .tooltip_with_key("Wrap long lines", shortcut(&ToggleWrap, cx))
                             .on_click(act(&ToggleWrap)),
-                    ),
+                        )
+                        .child(
+                            (icon_button("diff-backgrounds", Icon::TextBlock).small())
+                                .selected(!plain)
+                                .tooltip("Toggle diff backgrounds")
+                                .on_click(act(&TogglePlainLines)),
+                        ),
                 )
                 .child(
                     group()
@@ -422,7 +438,14 @@ impl Detail {
     }
 
     fn render_diff_row(&self, ix: usize, entity: WeakEntity<Detail>, cx: &App) -> AnyElement {
-        let theme = Theme::get(cx);
+        let plain;
+        let theme = match self.store.read(cx).prefs.plain_lines {
+            true => {
+                plain = Theme::get(cx).plain_lines();
+                &plain
+            }
+            false => Theme::get(cx),
+        };
         let Some(diff) = self.diff.as_ref().filter(|diff| ix < diff.rows.len()) else {
             return div().into_any_element();
         };
