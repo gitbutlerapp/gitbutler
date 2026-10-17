@@ -8,7 +8,7 @@ mod diff_view;
 mod file_list;
 mod file_tree;
 mod find;
-pub use find::{FindInDiff, bind_keys as bind_find_keys};
+pub use find::FindInDiff;
 mod history;
 mod panes;
 mod pull_request;
@@ -32,15 +32,14 @@ use gpui::{
 
 use crate::app::{AddProject, AppView};
 use crate::backend::edit::Editing;
-use crate::backend::{
-    self, DiffBody, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected,
-};
+use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::state::{Pane, ProjectId, Review, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, button, empty_state, h_flex, resize_handle, resize_pane, shortcut, v_flex,
+    ButtonStyle, button, commit_title, empty_state, h_flex, resize_handle, resize_pane, shortcut,
+    v_flex,
 };
 
 actions!(
@@ -90,6 +89,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
         KeyBinding::new("cmd-shift-b", composer::PickCommitTarget, Some("Detail")),
     ]);
+    find::bind_keys(cx);
 }
 
 /// Where the keyboard is in the diff.
@@ -857,7 +857,7 @@ impl Detail {
                 .rows
                 .iter()
                 .position(|row| matches!(row, DiffRow::File(ix) if *ix == file));
-            next.is_some_and(|row| matches!(diff.rows.get(row + 1), Some(DiffRow::Gap)))
+            next.is_some_and(|row| diff::ends_card(&diff.rows, row))
         })
     }
 
@@ -1046,10 +1046,9 @@ impl Detail {
         let Some(file) = diff.files.get(self.cursor.file) else {
             return;
         };
-        let line = match (&file.body, self.cursor.hunk) {
-            (DiffBody::Hunks { hunks, .. }, Some(ix)) => hunks.get(ix).map(|h| h.key.0.new_start),
-            _ => None,
-        };
+        let line = (self.cursor.hunk)
+            .and_then(|ix| file.hunks().get(ix))
+            .map(|h| h.key.0.new_start);
         let (project, path) = (diff.key.project.clone(), file.file.path.clone());
         let worktree = diff.key.linked();
         let position = window.mouse_position();
@@ -1195,13 +1194,11 @@ impl Detail {
         if !self.shown_files().contains(&file_ix) {
             return;
         }
-        let hunks = match (hunk, &file.body) {
-            (None, _) => None,
-            (Some(hunk), DiffBody::Hunks { hunks, .. }) if hunk < hunks.len() => {
-                Some(vec![hunks[hunk].key])
-            }
+        let hunks = match hunk.map(|ix| file.hunks().get(ix)) {
+            None => None,
+            Some(Some(hunk)) => Some(vec![hunk.key]),
             // Never widen a hunk discard to the whole file.
-            (Some(_), _) => return,
+            Some(None) => return,
         };
         let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
         let change = Selected {
@@ -1275,10 +1272,7 @@ impl Render for Detail {
                     }
                     Selection::Project(project) => match self.editing(project, cx) {
                         Some(editing) => empty_state(
-                            match editing.title.as_str() {
-                                "" => "No message".to_owned(),
-                                title => title.to_owned(),
-                            },
+                            commit_title(&editing.title),
                             format!(
                                 "Commit {} is checked out for editing. Finish it with \
                                  `but resolve finish`, or cancel with `but resolve cancel`.",
@@ -1437,10 +1431,7 @@ fn welcome(theme: &Theme, cx: &Context<Detail>) -> AnyElement {
 }
 
 fn hunk_keys(file: &FileDiff) -> Vec<HunkKey> {
-    match &file.body {
-        DiffBody::Hunks { hunks, .. } => hunks.iter().map(|hunk| hunk.key).collect(),
-        _ => Vec::new(),
-    }
+    file.hunks().iter().map(|hunk| hunk.key).collect()
 }
 
 /// Where hunk `ix` of a file's `old` hunks is among its hunks `now`. A hunk keeps its lines

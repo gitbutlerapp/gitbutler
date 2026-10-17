@@ -121,12 +121,7 @@ impl Checks {
 
 /// The hunks of `path` among `files`.
 fn file_hunks<'a>(files: &'a [FileDiff], path: &str) -> &'a [Hunk] {
-    (files.iter().find(|f| f.file.path == path))
-        .and_then(|file| match &file.body {
-            DiffBody::Hunks { hunks, .. } => Some(hunks.as_slice()),
-            _ => None,
-        })
-        .unwrap_or_default()
+    (files.iter().find(|f| f.file.path == path)).map_or(&[], FileDiff::hunks)
 }
 
 /// Once an operation the composer started lands: `f` on the pane in `window`, unless it has

@@ -37,7 +37,7 @@ impl Detail {
                 .text_color(theme.blue)
                 .cursor_pointer()
                 .hover(|el| el.underline())
-                .tooltip(|_, cx| Tooltip::with_key("See its commits".into(), None, cx))
+                .tooltip(Tooltip::text("See its commits"))
                 .child(branch)
                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                     if applied {

@@ -360,6 +360,14 @@ impl FileDiff {
             _ => (0, 0),
         }
     }
+
+    /// Its hunks, or none when its body has no lines, like a binary file's.
+    pub fn hunks(&self) -> &[Hunk] {
+        match &self.body {
+            DiffBody::Hunks { hunks, .. } => hunks,
+            _ => &[],
+        }
+    }
 }
 
 /// The columns `text` takes in a monospace font: one a character, and two for those of three

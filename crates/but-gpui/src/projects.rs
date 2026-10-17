@@ -2,14 +2,13 @@
 //! folder moved, and picking the target branch the workspace integrates into.
 
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use gpui::{App, Context, PathPromptOptions, Window, actions, prelude::*};
 
 use crate::app::AppView;
 use crate::backend::{self, settings};
 use crate::palette::Choice;
-use crate::state::{Notice, ProjectId, Retry};
+use crate::state::ProjectId;
 use crate::ui::text_input::TextInput;
 
 actions!(projects, [CloneRepository]);
@@ -93,18 +92,16 @@ impl AppView {
                 Ok(names) if !names.is_empty() => names,
                 Ok(_) => {
                     let fetched = project.clone();
-                    let fetch: Retry = (
-                        "Fetch".into(),
-                        Rc::new(move |store, cx| store.fetch(&fetched, cx)),
-                    );
-                    let notice = Notice::Error {
-                        title: "No remote branches to pick from".into(),
-                        detail: "Fetch to list the remote's branches, then choose again. A \
-                                 project without a remote needs one added first."
-                            .into(),
-                        retry: Some(fetch),
-                    };
-                    store.update(cx, |store, cx| store.notify_user(notice, cx));
+                    store.update(cx, |store, cx| {
+                        store.error_with_retry(
+                            "No remote branches to pick from",
+                            "Fetch to list the remote's branches, then choose again. A project \
+                             without a remote needs one added first.",
+                            "Fetch",
+                            move |store, cx| store.fetch(&fetched, cx),
+                            cx,
+                        )
+                    });
                     return;
                 }
                 Err(err) => {

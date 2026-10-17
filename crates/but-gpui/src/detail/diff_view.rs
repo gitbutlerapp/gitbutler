@@ -21,7 +21,7 @@ use crate::app::AppView;
 use crate::backend::{
     self, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, Selected,
 };
-use crate::state::{Cut, Prefs, ProjectId, Review};
+use crate::state::{Prefs, ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::scrollbar::{Scroll, scrollbar};
@@ -116,10 +116,7 @@ impl Detail {
         match *diff.rows.get(row)? {
             DiffRow::Line {
                 file, hunk, line, ..
-            } => match &diff.files.get(file)?.body {
-                DiffBody::Hunks { hunks, .. } => hunks.get(hunk)?.lines.get(line),
-                _ => None,
-            },
+            } => diff.files.get(file)?.hunks().get(hunk)?.lines.get(line),
             // An unchanged line of a file shown whole, from its new side.
             DiffRow::Context { file, new, .. } => {
                 let (_, lines, _) = self.whole.get(&diff.files.get(file)?.file.path)?.as_ref()?;
@@ -527,44 +524,12 @@ impl Detail {
         let last = diff::ends_card(&diff.rows, ix);
         let worktree = self.worktree_diff().is_some();
         let store = self.store.read(cx);
-        // What dragging or right-clicking a file or some of its hunks carries: changes of the
-        // worktree or of one commit. A branch's diff spans commits, so it carries nothing.
-        let payload = |file: usize, hunks| {
-            let from = match diff.key.source {
-                DiffSource::Worktree => None,
-                // Not a commit of the target's history, on the project page: it isn't the
-                // workspace's to change.
-                DiffSource::Commit(id) if store.find_commit(&diff.key.project, id).is_some() => {
-                    Some(id)
-                }
-                _ => return None,
-            };
-            Some(Cut::Files {
-                project: diff.key.project.clone(),
-                from,
-                files: vec![Selected {
-                    file: diff.files[file].file.clone(),
-                    hunks,
-                }]
-                .into(),
-            })
-        };
-        // What right-clicking a file or some of its hunks offers. A linked worktree's changes
-        // don't move into the workspace from here, so they can only be thrown away.
-        let file_menu = |file: usize, hunks| match diff.key.linked() {
-            Some(worktree) => {
-                let file = diff.files[file].file.clone();
-                let change = Selected { file, hunks };
-                Some(FileMenu::Linked(diff.key.project.clone(), worktree, change))
-            }
-            None => payload(file, hunks).map(FileMenu::Cut),
-        };
         let menu = |menu: Option<FileMenu>, line: Option<u32>, entity: WeakEntity<Detail>| {
             move |event: &gpui::MouseDownEvent, _: &mut Window, cx: &mut App| {
                 if let Some(menu) = menu.clone() {
                     entity
                         .update(cx, |detail, cx| {
-                            detail.file_menu(menu, Some(line), event.position, cx)
+                            detail.file_menu(menu, line, event.position, cx)
                         })
                         .ok();
                 }
@@ -579,7 +544,7 @@ impl Detail {
                 let whole = self.whole_button(ix, file, &diff.files[file], entity.clone());
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
-                let header_menu = file_menu(file, None);
+                let header_menu = self.diff_file_menu(file, None, cx);
                 let more = header_menu.clone().map(|menu| {
                     let entity = entity.clone();
                     icon_button(("file-more", ix), Icon::Kebab)
@@ -587,7 +552,7 @@ impl Detail {
                         .on_click(move |event, _, cx| {
                             let (menu, position) = (menu.clone(), event.position());
                             (entity.update(cx, |detail, cx| {
-                                detail.file_menu(menu, Some(None), position, cx)
+                                detail.file_menu(menu, None, position, cx)
                             }))
                             .ok();
                         })
@@ -626,10 +591,11 @@ impl Detail {
                     .into_any_element()
             }
             DiffRow::Hunk { file, hunk } => {
-                let DiffBody::Hunks { hunks, .. } = &diff.files[file].body else {
+                let hunks = diff.files[file].hunks();
+                let Some(key) = hunks.get(hunk).map(|h| h.key) else {
                     return padded.into_any_element();
                 };
-                let (path, key) = (&diff.files[file].file.path, hunks[hunk].key);
+                let path = &diff.files[file].file.path;
                 let current = self.cursor
                     == Cursor {
                         file,
@@ -684,7 +650,7 @@ impl Detail {
                     },
                 );
                 let line = key.0.new_start;
-                let carried = payload(file, Some(vec![key]));
+                let carried = self.diff_cut(file, Some(vec![key]), cx);
                 let whole = entity.clone();
                 padded
                     .id(("hunk", ix))
@@ -692,17 +658,20 @@ impl Detail {
                     .child(header)
                     .on_mouse_down(
                         MouseButton::Right,
-                        menu(file_menu(file, Some(vec![key])), Some(line), entity),
+                        menu(
+                            self.diff_file_menu(file, Some(vec![key]), cx),
+                            Some(line),
+                            entity,
+                        ),
                     )
                     .when(unmodified > 0, |el| {
-                        el.tooltip(|_, cx| {
-                            Tooltip::with_key("Show the whole file".into(), None, cx)
-                        })
-                        .on_click(move |_, _, cx| {
-                            whole
-                                .update(cx, |detail, cx| detail.toggle_whole(file, cx))
-                                .ok();
-                        })
+                        el.tooltip(Tooltip::text("Show the whole file")).on_click(
+                            move |_, _, cx| {
+                                whole
+                                    .update(cx, |detail, cx| detail.toggle_whole(file, cx))
+                                    .ok();
+                            },
+                        )
                     })
                     .when_some(carried, |el, carried| {
                         let label = format!("{path} · line {line}");
@@ -736,10 +705,9 @@ impl Detail {
                 left,
                 right,
             } => {
-                let DiffBody::Hunks { hunks, .. } = &diff.files[file].body else {
+                let Some(lines) = diff.files[file].hunks().get(hunk).map(|h| &h.lines) else {
                     return padded.into_any_element();
                 };
-                let lines = &hunks[hunk].lines;
                 let half = |line: Option<usize>| {
                     let Some(line) = line else {
                         return diff::Half::default();
@@ -870,14 +838,9 @@ impl Detail {
             return;
         }
         cx.spawn(async move |this, cx| {
-            let lines = backend::run(move || {
-                let lines = backend::file_lines(&root, worktree.as_deref(), &change)?;
-                Ok(lines.map(|lines| {
-                    let widest = lines.iter().map(|line| backend::columns(&line.text));
-                    (widest.max().unwrap_or(0), lines)
-                }))
-            })
-            .await;
+            let lines =
+                backend::run(move || backend::file_lines(&root, worktree.as_deref(), &change))
+                    .await;
             this.update(cx, |this, cx| {
                 this.whole_reading.remove(&path);
                 if !this.whole.contains_key(&path) {
@@ -895,7 +858,7 @@ impl Detail {
                     None => return,
                 }
                 match lines {
-                    Ok(Some((widest, lines))) => {
+                    Ok(Some((lines, widest))) => {
                         this.whole
                             .insert(path, Some((fingerprint, Arc::new(lines), widest)));
                     }
@@ -926,14 +889,14 @@ impl Detail {
         (file, hunk, line): (usize, usize, usize),
         entity: &WeakEntity<Detail>,
     ) -> (bool, Option<diff::OnToggle>) {
-        let DiffBody::Hunks { hunks, .. } = &diff.files[file].body else {
+        let Some(hunk) = diff.files[file].hunks().get(hunk) else {
             return (false, None);
         };
         if !self.composing || self.worktree_diff().is_none() {
             return (false, None);
         }
-        let (path, key) = (diff.files[file].file.path.clone(), hunks[hunk].key);
-        if hunks[hunk].lines[line].kind == LineKind::Context {
+        let (path, key) = (diff.files[file].file.path.clone(), hunk.key);
+        if hunk.lines[line].kind == LineKind::Context {
             return (!self.checks.hunk_checked(&path, key), None);
         }
         let excluded = !self.checks.line_checked(&path, key, line);

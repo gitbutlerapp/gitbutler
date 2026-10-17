@@ -7,7 +7,9 @@ use super::Detail;
 use crate::backend;
 use crate::theme::Theme;
 use crate::ui::review as ui_review;
-use crate::ui::{ButtonStyle, Icon, button, h_flex, icon, muted, shortcut, small_icon, v_flex};
+use crate::ui::{
+    ButtonStyle, Icon, Tooltip, button, h_flex, icon, muted, shortcut, small_icon, v_flex,
+};
 
 /// A branch's pull request in two lines, as t3code shows one: what it is, then its number,
 /// state and checks, with a way to open it.
@@ -115,9 +117,7 @@ fn failed_checks(failed: &[(String, String)], theme: &Theme) -> impl IntoElement
                         .min_w(px(0.))
                         .text_color(theme.danger)
                         .cursor_pointer()
-                        .tooltip(|_, cx| {
-                            crate::ui::Tooltip::with_key("Open why it failed".into(), None, cx)
-                        })
+                        .tooltip(Tooltip::text("Open why it failed"))
                         .child(small_icon(Icon::Cross).text_color(theme.danger))
                         .child(div().min_w(px(0.)).truncate().child(name.clone()))
                         .on_click(move |_, _, cx| cx.open_url(&url))

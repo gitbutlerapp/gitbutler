@@ -7,8 +7,8 @@
 
 use gpui::{
     Bounds, CursorStyle, DispatchPhase, Div, ElementId, HitboxBehavior, ListState, MouseButton,
-    MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, ScrollHandle, UniformListScrollHandle,
-    canvas, div, fill, point, prelude::*, px, size,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, ScrollHandle, canvas, div, fill, point,
+    prelude::*, px, size,
 };
 
 use crate::theme::Theme;
@@ -20,8 +20,7 @@ const TRACK: Pixels = px(14.);
 #[derive(Clone)]
 pub enum Scroll {
     List(ListState),
-    Uniform(UniformListScrollHandle),
-    /// A scrolling div's, through the handle it tracks.
+    /// A scrolling div's or a `uniform_list`'s, through the handle it tracks.
     Div(ScrollHandle),
 }
 
@@ -33,10 +32,6 @@ impl Scroll {
                 -list.scroll_px_offset_for_scrollbar().y,
                 list.max_offset_for_scrollbar().y,
             ),
-            Scroll::Uniform(handle) => {
-                let handle = &handle.0.borrow().base_handle;
-                (-handle.offset().y, handle.max_offset().y)
-            }
             Scroll::Div(handle) => (-handle.offset().y, handle.max_offset().y),
         }
     }
@@ -45,7 +40,6 @@ impl Scroll {
         let offset = point(px(0.), -offset);
         match self {
             Scroll::List(list) => list.set_offset_from_scrollbar(offset),
-            Scroll::Uniform(handle) => handle.0.borrow().base_handle.set_offset(offset),
             Scroll::Div(handle) => handle.set_offset(offset),
         }
     }

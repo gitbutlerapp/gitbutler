@@ -837,7 +837,9 @@ pub fn pair_row(
                 name: &'static str| {
         let Some((line, number)) = line else {
             // Nothing on this side: a hatched gap the other side's lines line up against.
-            return (div().flex_1().min_w(px(0.)).h_full()).bg(pattern_slash(
+            // It stretches rather than taking `h_full`: a wrapped row sets only a minimum
+            // height, so a share of its height comes to nothing.
+            return (div().flex_1().min_w(px(0.)).self_stretch()).bg(pattern_slash(
                 theme.border_3,
                 1.,
                 6.,
@@ -869,7 +871,13 @@ pub fn pair_row(
     );
     line_card(("diff-pair", id).into(), last, wrap, theme)
         .child(left.when(last, |el| el.rounded_bl(px(5.))))
-        .child(div().flex_none().w(px(1.)).h_full().bg(theme.border_3))
+        .child(
+            div()
+                .flex_none()
+                .w(px(1.))
+                .self_stretch()
+                .bg(theme.border_3),
+        )
         .child(right.when(last, |el| el.rounded_br(px(5.))))
         .into_any_element()
 }

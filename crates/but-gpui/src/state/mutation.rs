@@ -312,7 +312,7 @@ impl Store {
                 let detail = format!(
                     "Rebasing your commits onto the remote's leaves conflicted commits in {}. \
                      You can resolve them afterwards, or undo the pull.",
-                    crate::app::commit_counts(&found)
+                    commit_counts(&found)
                 );
                 store.error_with_retry(
                     "Pulling leaves conflicts",
@@ -775,7 +775,7 @@ fn update_conflicts_detail(target: &str, found: &UpdateConflicts) -> String {
     if !found.branches.is_empty() {
         detail.push(format!(
             "Rebasing onto {target} leaves conflicted commits in {}.",
-            crate::app::commit_counts(&found.branches)
+            commit_counts(&found.branches)
         ));
     }
     if !found.files.is_empty() {
@@ -808,6 +808,21 @@ fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[Strin
         _ => said.push(format!("{} landed and were removed", landed.join(", "))),
     }
     said.join(". ")
+}
+
+/// Branches (full refs, empty for an unnamed one) with how many of their commits:
+/// "feature/a (2 commits), feature/b (1 commit)".
+fn commit_counts(branches: &[(String, usize)]) -> String {
+    let counts: Vec<String> = (branches.iter())
+        .map(|(ref_name, count)| {
+            let name = match short_ref(ref_name) {
+                "" => "an unnamed branch",
+                name => name,
+            };
+            format!("{name} ({})", crate::ui::plural(*count, "commit"))
+        })
+        .collect();
+    counts.join(", ")
 }
 
 #[cfg(test)]

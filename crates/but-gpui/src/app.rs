@@ -15,7 +15,7 @@ use crate::projects::pick_folder;
 use crate::state::{Cut, Pane, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::Transfer;
-use crate::ui::{HEADER_HEIGHT, plural, resize_pane};
+use crate::ui::{HEADER_HEIGHT, resize_pane};
 
 actions!(
     gitbutler,
@@ -696,19 +696,4 @@ fn copied(text: &str) -> String {
         0 | 1 => "Copied the selection".to_owned(),
         lines => format!("Copied {lines} lines"),
     }
-}
-
-/// Branches (full refs, empty for an unnamed one) with how many of their commits:
-/// "feature/a (2 commits), feature/b (1 commit)".
-pub fn commit_counts(branches: &[(String, usize)]) -> String {
-    let counts: Vec<String> = (branches.iter())
-        .map(|(ref_name, count)| {
-            let name = match short_ref(ref_name) {
-                "" => "an unnamed branch",
-                name => name,
-            };
-            format!("{name} ({})", plural(*count, "commit"))
-        })
-        .collect();
-    counts.join(", ")
 }
