@@ -39,3 +39,10 @@ the command palette, a comment or reply composer: the field is the whole
 control, so the placeholder does the talking — "Search for branches…", "Filter
 files", "Write a reply…" — with an `aria-label` for the name. Once such a field
 sits in a form with a save button, it is a form field and gets its label.
+
+**Clearing a search puts the caret back in it.** Whatever clears the query —
+the field's own ×, a "Clear search" under an empty result — leaves focus in the
+field, since the next keystroke is meant for it. A clear by pointer would
+otherwise leave focus on a button that disappears with the query, and so
+nowhere. `PopupSearch` and `PopupEmpty` do this themselves; a field built any
+other way does it by hand.

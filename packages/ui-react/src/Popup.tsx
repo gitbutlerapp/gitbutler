@@ -383,6 +383,18 @@ export const Dropdown: FC<DropdownProps> = ({
 };
 
 /**
+ * Puts the caret back in the search of the popup `from` sits in. A clear by pointer otherwise
+ * leaves focus on a button about to unmount, and so nowhere, when the field is what the next
+ * keystroke is meant to reach. Found in the DOM rather than through a ref so the callers, which
+ * hold the query but not always the input, have nothing to wire.
+ */
+const focusSearch = (from: Element) => {
+	const { popup, searchInput } = styles;
+	if (popup === undefined || searchInput === undefined) return;
+	from.closest(`.${popup}`)?.querySelector<HTMLInputElement>(`.${searchInput}`)?.focus();
+};
+
+/**
  * The filter row a popup leads with. Full-bleed against the container's top edge, divided from the
  * list below by a hairline rather than fenced off in a field of its own — the popup is already the
  * box the query sits in.
@@ -391,8 +403,9 @@ export const Dropdown: FC<DropdownProps> = ({
  * to be that primitive's own — a picker's `Autocomplete.Input`, say.
  *
  * Pass `onClear` while there is a query to clear: the row's trailing glyph becomes a button that
- * empties the field. The row does not hold the query, so whether there is anything to clear is the
- * caller's to say — leave `onClear` out and the row shows the magnifier it searches under.
+ * empties the field and puts the caret back in it. The row does not hold the query, so whether
+ * there is anything to clear is the caller's to say — leave `onClear` out and the row shows the
+ * magnifier it searches under.
  *
  * @public
  */
@@ -414,7 +427,15 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
 			{onClear === undefined ? (
 				<Icon name="search" className={styles.searchIcon} />
 			) : (
-				<button type="button" className={styles.searchClear} onClick={onClear} aria-label="Clear">
+				<button
+					type="button"
+					className={styles.searchClear}
+					onClick={(event) => {
+						onClear();
+						focusSearch(event.currentTarget);
+					}}
+					aria-label="Clear"
+				>
 					<Icon name="cross-circle" />
 				</button>
 			)}
@@ -423,33 +444,52 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
 };
 
 /**
- * What a popup's list shows when it has no rows: one line under a drawing, the "Empty state" block
- * sized for a list rather than a panel — the line sits closer under the illustration and there is
- * no counterweight, since a line under a light drawing has no weight to lift.
+ * What a popup's list shows when it has no rows: the "Empty state" block in its `tidy` variant,
+ * sized for a list rather than a panel.
  *
- * Which drawing and which line follow the branches tab's rule. The `papers` drawing and
- * `nothingFound` are for a search that came up empty; a list with nothing in it before anything
- * was typed gets the cactus and `nothingToList`, since nothing was searched for and "found" would
- * be the wrong word. Pass the `query` the list is filtered on — the deferred one, where the caller defers — so
- * the block and the rows it stands in for agree.
+ * A search that came up empty reports the miss in `nothingFound` with a small "Clear search" under
+ * it, which calls `onClearSearch` — the same clear the search row's own button does, so pass that —
+ * and puts the caret back in the popup's search.
+ * No drawing: the line sits where the rows were, and the way back is right under it. A list with
+ * nothing in it before anything was typed gets the cactus and `nothingToList` instead, since
+ * nothing was searched for and "found" would be the wrong word. Pass the `query` the list is
+ * filtered on — the deferred one, where the caller defers — so the block and the rows it stands in
+ * for agree.
  *
  * Both lines are one short line, no full stop, like every other line of their length in Lite:
  * "No hotkeys found", "Nothing to restore yet".
  *
  * For a popup as wide as a picker. A dropdown no wider than its trigger — the commit target
- * combobox — keeps a plain line, since the illustration would fill it.
+ * combobox — keeps a plain line.
  *
  * @public
  */
-export const PopupEmpty: FC<{ query: string; nothingFound: string; nothingToList: string }> = ({
-	query,
-	nothingFound,
-	nothingToList,
-}) =>
+export const PopupEmpty: FC<{
+	query: string;
+	nothingFound: string;
+	nothingToList: string;
+	onClearSearch: () => void;
+}> = ({ query, nothingFound, nothingToList, onClearSearch }) =>
 	query === "" ? (
-		<EmptyState illustration="cactus" description={nothingToList} className={styles.empty} />
+		<EmptyState
+			variant="tidy"
+			illustration="cactus"
+			description={nothingToList}
+			className={styles.empty}
+		/>
 	) : (
-		<EmptyState illustration="papers" description={nothingFound} className={styles.empty} />
+		<EmptyState variant="tidy" description={nothingFound} className={styles.empty}>
+			<Button
+				variant="outline"
+				size="small"
+				onClick={(event) => {
+					onClearSearch();
+					focusSearch(event.currentTarget);
+				}}
+			>
+				Clear search
+			</Button>
+		</EmptyState>
 	);
 
 /**

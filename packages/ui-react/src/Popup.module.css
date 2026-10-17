@@ -236,15 +236,11 @@
 	}
 }
 
-/* Holds the list's height where the rows would have been, so the popup does not collapse to the
-   search row with a line under it. The block centres in that height on its own geometry: the two
-   measures the block sizes for a panel are its custom properties, set here for a list. */
+/* Holds the list's place where the rows would have been, so the popup does not collapse to the
+   search row with a line under it. How tall comes from the tidy block, which follows the popup's
+   width; this only centres the block on its own geometry. */
 .empty {
-	--empty-state-gap: 18px;
-	--empty-state-counterweight: 0px;
-
 	justify-content: center;
-	min-height: 200px;
 }
 
 .section {

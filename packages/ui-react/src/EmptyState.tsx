@@ -20,8 +20,14 @@ type Props = {
 	 * the live answer — a count, a name, a time — rather than restating the title.
 	 */
 	description?: ReactNode;
-	/** The actions slot: at most two buttons, and never `pop`. */
+	/** The actions slot: at most two buttons, and never `pop`. In `tidy`, the buttons are `small`. */
 	children?: ReactNode;
+	/**
+	 * `tidy` where the block stands in for a popup's rows — a search in a picker
+	 * or the command palette that found nothing: usually just the line and a
+	 * `small` "Clear search", closed up and with no counterweight.
+	 */
+	variant?: "default" | "tidy";
 	/**
 	 * `start` for an empty section in a list that reads from the left edge, as a sidebar's stack of
 	 * cards does: flush with the rows it stands in for rather than centred in the panel.
@@ -45,11 +51,17 @@ export const EmptyState: FC<Props> = ({
 	description,
 	children,
 	align = "center",
+	variant = "default",
 	...props
 }) => (
 	<div
 		{...props}
-		className={classes(props.className, styles.empty, align === "start" && styles.start)}
+		className={classes(
+			props.className,
+			styles.empty,
+			variant === "tidy" && styles.tidy,
+			align === "start" && styles.start,
+		)}
 	>
 		{illustration !== undefined && <Illustration name={illustration} />}
 
