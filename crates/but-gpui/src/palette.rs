@@ -123,6 +123,10 @@ fn commands() -> Vec<(&'static str, Box<dyn Action>)> {
         ("Edit pull request", Box::new(crate::pr::EditPullRequest)),
         ("Merge pull request", Box::new(crate::pr::MergePullRequest)),
         (
+            "Apply a pull request",
+            Box::new(crate::pr::ApplyPullRequest),
+        ),
+        (
             "Resolve conflicts",
             Box::new(crate::resolve::ResolveConflicts),
         ),

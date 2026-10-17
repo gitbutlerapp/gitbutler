@@ -66,11 +66,26 @@ pub enum ApplyOutcome {
 
 /// Apply `ref_name` to the workspace. A remote branch gets a local branch to apply.
 pub fn apply(path: &Path, ref_name: &str) -> Result<ApplyOutcome> {
-    use but_workspace::branch::apply::OutcomeStatus;
     let mut ctx = open(path)?;
     let name = gix::refs::FullName::try_from(ref_name)?;
-    let outcome = but_api::branch::apply(&mut ctx, name.as_ref())?;
-    Ok(match outcome.status {
+    Ok(apply_outcome(&but_api::branch::apply(
+        &mut ctx,
+        name.as_ref(),
+    )?))
+}
+
+/// Fetch pull request `number`'s branch, from a fork too, and apply it. Returns what
+/// happened, and the branch it applied when it applied one.
+pub fn apply_review(path: &Path, number: u64) -> Result<(ApplyOutcome, Option<String>)> {
+    let mut ctx = open(path)?;
+    let outcome = but_api::legacy::forge::review_apply(&mut ctx, number as usize)?;
+    let branch = (outcome.applied_branches.last()).map(|name| name.to_string());
+    Ok((apply_outcome(&outcome), branch))
+}
+
+fn apply_outcome(outcome: &but_workspace::branch::apply::Outcome) -> ApplyOutcome {
+    use but_workspace::branch::apply::OutcomeStatus;
+    match outcome.status {
         OutcomeStatus::Applied => ApplyOutcome::Applied,
         OutcomeStatus::AlreadyApplied => ApplyOutcome::AlreadyApplied,
         OutcomeStatus::ConflictAborted => ApplyOutcome::Conflicts(
@@ -80,5 +95,5 @@ pub fn apply(path: &Path, ref_name: &str) -> Result<ApplyOutcome> {
                 .map(|stack| stack.ref_name.shorten().to_string())
                 .collect(),
         ),
-    })
+    }
 }
