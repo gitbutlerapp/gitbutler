@@ -147,19 +147,25 @@ pub struct Verdicts {
 /// What each reviewer of pull request `number` decided last: a comment doesn't change it,
 /// and a dismissal takes it back.
 pub fn verdicts(path: &Path, number: u64) -> Result<Verdicts> {
-    use but_forge::ForgeReviewSubmissionState as State;
     let ctx = open(path)?.into_sync();
     let submissions = runtime()
         .handle()
         .block_on(forge::list_review_submissions(ctx, number as usize))?;
+    Ok(fold_verdicts(submissions.into_iter().filter_map(
+        |submission| Some((submission.author?.login, submission.state)),
+    )))
+}
+
+/// Each reviewer's last decision, from their submissions oldest first.
+fn fold_verdicts(
+    submissions: impl IntoIterator<Item = (String, but_forge::ForgeReviewSubmissionState)>,
+) -> Verdicts {
+    use but_forge::ForgeReviewSubmissionState as State;
     let mut last = std::collections::BTreeMap::new();
-    for submission in submissions {
-        let Some(login) = submission.author.map(|author| author.login) else {
-            continue;
-        };
-        match submission.state {
+    for (login, state) in submissions {
+        match state {
             State::Approved | State::ChangesRequested => {
-                last.insert(login, submission.state);
+                last.insert(login, state);
             }
             State::Dismissed => {
                 last.remove(&login);
@@ -173,10 +179,10 @@ pub fn verdicts(path: &Path, number: u64) -> Result<Verdicts> {
             .map(|(login, _)| login.clone())
             .collect()
     };
-    Ok(Verdicts {
+    Verdicts {
         approved: with(State::Approved),
         changes_requested: with(State::ChangesRequested),
-    })
+    }
 }
 
 /// A conversation left on a pull request's diff and not resolved yet.
@@ -382,4 +388,35 @@ pub fn update(
             None,
         ))
         .context("The forge didn't take the change")
+}
+
+#[cfg(test)]
+mod tests {
+    use but_forge::ForgeReviewSubmissionState as State;
+
+    use super::fold_verdicts;
+
+    #[test]
+    fn a_reviewers_last_decision_counts() {
+        let verdicts = fold_verdicts([
+            ("alice".into(), State::ChangesRequested),
+            ("alice".into(), State::Commented),
+            ("alice".into(), State::Approved),
+            ("bob".into(), State::Approved),
+            ("bob".into(), State::ChangesRequested),
+            ("carol".into(), State::Approved),
+            ("carol".into(), State::Dismissed),
+            ("dana".into(), State::Commented),
+        ]);
+        assert_eq!(
+            verdicts.approved,
+            ["alice"],
+            "a comment after a decision keeps it"
+        );
+        assert_eq!(
+            verdicts.changes_requested,
+            ["bob"],
+            "a later change request replaces an approval, and a dismissal takes one back"
+        );
+    }
 }
