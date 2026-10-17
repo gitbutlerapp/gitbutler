@@ -230,7 +230,7 @@ impl Detail {
                 h_flex()
                     .gap(px(6.))
                     .text_color(theme.text_2)
-                    .child(small_icon(Icon::Refresh))
+                    .child(small_icon(Icon::Refresh).text_color(theme.text_2))
                     .child(match fetched {
                         Some(at) => format!("Fetched {} ago", relative_time(at)),
                         None => "Not fetched yet".into(),
@@ -313,7 +313,7 @@ impl Detail {
                         h_flex()
                             .gap(px(8.))
                             .text_color(theme.danger)
-                            .child(icon(Icon::Warning))
+                            .child(icon(Icon::Warning).text_color(theme.danger))
                             .child(div().flex_1().child(err))
                     }),
             );
