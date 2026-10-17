@@ -639,6 +639,25 @@ pub fn plural(n: usize, word: &str) -> String {
     }
 }
 
+/// What to show of an error: Git's own complaints when it ran Git, like "fatal: Could not
+/// read from remote repository.", as the rest repeats the command it ran; else its first
+/// lines, without the codes libgit2 appends ("; class=Index (10); code=Locked (-14)").
+pub fn error_summary(text: &str) -> String {
+    let lines: Vec<&str> = (text.lines())
+        .map(|line| line.split("; class=").next().unwrap_or(line))
+        .collect();
+    let mut said: Vec<&str> = Vec::new();
+    for line in lines.iter().map(|line| line.trim()) {
+        if (line.starts_with("fatal:") || line.starts_with("error:")) && !said.contains(&line) {
+            said.push(line);
+        }
+    }
+    match said.is_empty() {
+        true => lines[..lines.len().min(4)].join("\n"),
+        false => said.join("\n"),
+    }
+}
+
 pub fn relative_time(seconds: i64) -> String {
     let delta = (now() - seconds).max(0);
     match delta {
@@ -723,5 +742,34 @@ pub fn resize_pane(
             let width = f32::from(event.event.position.x - event.bounds.left());
             store.update(cx, |store, cx| store.set_width(pane, Some(width), cx));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::error_summary;
+
+    #[test]
+    fn a_git_failure_shows_what_git_said_once() {
+        let failed = "fetching remote `origin` failed: git command exited with code 128:\n\n\
+            ARGS:\n[\"fetch\"]\n\nSTDERR:\nfatal: '/x.git' does not appear to be a git repository\n\
+            fatal: Could not read from remote repository.\n: git command exited with code 128:\n\n\
+            STDERR:\nfatal: '/x.git' does not appear to be a git repository\n";
+        assert_eq!(
+            error_summary(failed),
+            "fatal: '/x.git' does not appear to be a git repository\n\
+             fatal: Could not read from remote repository.",
+            "Git's own lines, each once"
+        );
+        assert_eq!(
+            error_summary("the index is locked; class=Index (10); code=Locked (-14)"),
+            "the index is locked",
+            "without libgit2's codes"
+        );
+        assert_eq!(
+            error_summary("Branch not found\nmore\nand more\nstill\ncut"),
+            "Branch not found\nmore\nand more\nstill",
+            "any other error by its first lines"
+        );
     }
 }
