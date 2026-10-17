@@ -2,17 +2,18 @@
 //! stacks, branches and commits as one tree of rows.
 
 use std::collections::HashSet;
+use std::time::{Duration, UNIX_EPOCH};
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable, Hsla,
-    KeyBinding, ListAlignment, ListState, MouseButton, MouseDownEvent, SharedString, Stateful,
-    Subscription, WeakEntity, Window, actions, div, list, prelude::*, px,
+    KeyBinding, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent, Pixels,
+    SharedString, Stateful, Subscription, WeakEntity, Window, actions, div, list, prelude::*, px,
 };
 
 use crate::app::{
     AddProject, AppView, Collapse, Confirm, Expand, Refresh, SelectNext, SelectPrevious,
 };
-use crate::backend::{CommitId, CommitState, PushState};
+use crate::backend::{CommitId, CommitState, PushState, Worktree};
 use crate::detail::{ChecksChanged, Detail};
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
@@ -20,7 +21,7 @@ use crate::transfer::{Transfer, drag_preview};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, faint, h_flex, icon,
-    icon_button, just_now, list_row, relative_time, resize_handle, review, section_label,
+    icon_button, just_now, list_row, plural, relative_time, resize_handle, review, section_label,
     small_icon, v_flex,
 };
 
@@ -29,6 +30,9 @@ mod menu;
 
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
+
+/// How long a worktree with nothing uncommitted stays listed after it last moved.
+const INACTIVE_AFTER: Duration = Duration::from_secs(12 * 60 * 60);
 
 actions!(
     navigator,
@@ -49,6 +53,7 @@ pub fn bind_keys(cx: &mut App) {
 }
 
 /// Rows in display order. Only [`Row::Item`] can be selected.
+#[derive(PartialEq)]
 enum Row {
     /// The space between two cards.
     Gap,
@@ -65,6 +70,8 @@ enum Row {
     Pending(SharedString),
     /// Where a commit of the project being dragged lands in a new branch of its own.
     NewBranch(ProjectId),
+    /// After a project's worktrees: how many are inactive, which it shows or hides.
+    Inactive(ProjectId, usize),
 }
 
 /// How an item row draws: `solid` is the selection while the navigator has focus.
@@ -118,6 +125,14 @@ pub struct Navigator {
     unfolded_branches: HashSet<(ProjectId, String)>,
     /// Branches showing none of their commits, unless one is selected.
     closed_branches: HashSet<(ProjectId, String)>,
+    /// Projects showing their inactive worktrees too.
+    shown_inactive: HashSet<ProjectId>,
+    /// Whether the pointer is over the navigator.
+    pointer_over: bool,
+    /// A workspace loaded since the rows were last built. What it changed came from
+    /// outside, like an agent's commit, so the row under the pointer holds still; what
+    /// the user folds or does moves the rows as usual.
+    loaded: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -130,10 +145,10 @@ impl Navigator {
     ) -> Self {
         let subscriptions = vec![
             cx.observe(&store, |_, _, cx| cx.notify()),
-            cx.subscribe(&store, |this, _, event, _| {
-                if let StoreEvent::SelectionChanged = event {
-                    this.reveal_selection = true;
-                }
+            cx.subscribe(&store, |this, _, event, _| match event {
+                StoreEvent::SelectionChanged => this.reveal_selection = true,
+                StoreEvent::Loaded(_) => this.loaded = true,
+                _ => {}
             }),
             // Dragging the uncommitted changes carries the checked ones.
             cx.subscribe(&detail, |_, _, _: &ChecksChanged, cx| cx.notify()),
@@ -148,6 +163,9 @@ impl Navigator {
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
             closed_branches: HashSet::new(),
+            shown_inactive: HashSet::new(),
+            pointer_over: false,
+            loaded: false,
             _subscriptions: subscriptions,
         }
     }
@@ -242,11 +260,23 @@ impl Navigator {
             {
                 rows.push(Row::NewBranch(id.clone()));
             }
-            rows.extend(
-                (workspace.worktrees.iter()).map(|worktree| {
-                    Row::Item(Selection::Worktree(id.clone(), worktree.name.clone()))
-                }),
-            );
+            // The inactive worktrees wait behind a row of their own, unless one is selected.
+            let (inactive, active): (Vec<_>, Vec<_>) =
+                workspace.worktrees.iter().partition(|worktree| {
+                    is_inactive(worktree)
+                        && !matches!(&store.selection, Some(Selection::Worktree(p, name))
+                            if p == id && *name == worktree.name)
+                });
+            let worktree_row = |worktree: &Worktree| {
+                Row::Item(Selection::Worktree(id.clone(), worktree.name.clone()))
+            };
+            rows.extend(active.into_iter().map(worktree_row));
+            if !inactive.is_empty() {
+                rows.push(Row::Inactive(id.clone(), inactive.len()));
+                if self.shown_inactive.contains(id) {
+                    rows.extend(inactive.into_iter().map(worktree_row));
+                }
+            }
             rows.push(Row::Item(Selection::Branches(id.clone())));
             rows.push(Row::Item(Selection::History(id.clone())));
         }
@@ -401,13 +431,39 @@ impl Navigator {
     }
 
     /// Bring the list up to date with `rows`, and show the selection if it just changed.
-    fn sync_list(&mut self, cx: &App) {
-        if self.list.item_count() != self.rows.len() {
-            // Keep the row at the top where it is.
-            let top = self.list.logical_scroll_top();
-            self.list
-                .reset_with_uniform_height(self.rows.len(), px(ROW_HEIGHT));
-            self.list.scroll_to(top);
+    /// Rows that didn't change keep their place on screen. When a load changed them while
+    /// the pointer is over the list, so does the row under it: rows added above it, like an
+    /// agent's new commit, push the rows above it up rather than it down.
+    fn sync_list(&mut self, rows: Vec<Row>, window: &Window, cx: &App) {
+        let hovered = std::mem::take(&mut self.loaded)
+            .then(|| self.hovered_row(window))
+            .flatten();
+        // The hovered row's index before and after, and how far below the top it is.
+        let anchor = hovered.and_then(|(old_ix, offset)| {
+            let new_ix = (0..rows.len())
+                .filter(|&ix| rows[ix] == self.rows[old_ix])
+                .min_by_key(|ix| ix.abs_diff(old_ix))?;
+            Some((old_ix, new_ix, offset))
+        });
+        let changed = match anchor {
+            // Below the hovered row first, so the indexes above it still hold.
+            Some((old_ix, new_ix, _)) => {
+                let below = splice(&self.list, &self.rows[old_ix..], &rows[new_ix..], old_ix);
+                splice(&self.list, &self.rows[..old_ix], &rows[..new_ix], 0) || below
+            }
+            None => splice(&self.list, &self.rows, &rows, 0),
+        };
+        self.rows = rows;
+        if changed {
+            // Rows not drawn yet count as one row tall. The clone shares the list's state.
+            self.list.clone().with_uniform_item_height(px(ROW_HEIGHT));
+            if let Some((_, item_ix, offset)) = anchor {
+                self.list.scroll_to(ListOffset {
+                    item_ix,
+                    offset_in_item: px(0.),
+                });
+                self.list.scroll_by(-offset);
+            }
         }
         if std::mem::take(&mut self.reveal_selection)
             && let Some(selection) = &self.store.read(cx).selection
@@ -418,6 +474,19 @@ impl Navigator {
         {
             self.list.scroll_to_reveal_item(ix);
         }
+    }
+
+    /// The row under the pointer, if it's over the list, and how far below the list's top.
+    fn hovered_row(&self, window: &Window) -> Option<(usize, Pixels)> {
+        if !self.pointer_over {
+            return None;
+        }
+        let pointer = window.mouse_position();
+        let top = self.list.viewport_bounds().top();
+        (self.list.logical_scroll_top().item_ix..self.rows.len())
+            .map_while(|ix| Some((ix, self.list.bounds_for_item(ix)?)))
+            .find(|(_, bounds)| bounds.contains(&pointer))
+            .map(|(ix, bounds)| (ix, bounds.top() - top))
     }
 
     /// The row at `ix` of the list, drawn inside its card.
@@ -523,6 +592,41 @@ impl Navigator {
                     .child(format!("{hidden} more"))
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.unfolded_branches.insert(key.clone());
+                        cx.notify();
+                    }))
+                    .into_any_element()
+            }
+            Some(Row::Inactive(project, n)) => {
+                let (project, shown) = (project.clone(), self.shown_inactive.contains(project));
+                h_flex()
+                    .id(("inactive", ix))
+                    .h(px(24.))
+                    // The chevron under the worktrees' folders, the words under their names.
+                    .pl(px(19.))
+                    .gap(px(10.))
+                    .text_size(px(12.))
+                    .text_color(theme.text_2)
+                    .hover(|el| el.text_color(theme.text_1))
+                    .child(
+                        small_icon(if shown {
+                            Icon::ChevronDown
+                        } else {
+                            Icon::ChevronRight
+                        })
+                        .text_color(theme.text_3),
+                    )
+                    .child(plural(*n, "inactive worktree"))
+                    .tooltip(|_, cx| {
+                        Tooltip::with_key(
+                            "Nothing uncommitted, and no commits or checkouts in 12 hours".into(),
+                            None,
+                            cx,
+                        )
+                    })
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        if !this.shown_inactive.remove(&project) {
+                            this.shown_inactive.insert(project.clone());
+                        }
                         cx.notify();
                     }))
                     .into_any_element()
@@ -636,13 +740,18 @@ impl Navigator {
         let entry = store.project(id)?;
         let toggle_id = id.clone();
         let expanded = entry.expanded;
+        // Folded, the row sums up the whole card; open, it leaves out what the rows under it
+        // say: their uncommitted files, unpushed commits and worktrees.
         let summary = (entry.workspace.as_ref())
             .filter(|ws| ws.editing.is_none())
             .map(|ws| {
+                let folded = |n: usize| if expanded { 0 } else { n };
+                let in_worktrees = ws.worktrees.iter().map(|w| w.uncommitted.len());
                 (
-                    ws.uncommitted.len(),
-                    ws.unpushed_commits(),
-                    ws.target.as_ref().map_or(0, |t| t.behind),
+                    folded(ws.uncommitted.len() + in_worktrees.sum::<usize>()),
+                    folded(ws.unpushed_commits()),
+                    ws.target.as_ref(),
+                    folded(ws.worktrees.len()),
                 )
             });
         let unread = entry
@@ -693,16 +802,30 @@ impl Navigator {
                         .child(entry.project.name.clone()),
                 )
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
-                .when_some(summary, |el, (uncommitted, unpushed, behind)| {
-                    el.when(uncommitted > 0, |el| {
-                        el.child(count(Some(Icon::File), uncommitted, style.meta(theme.warn)))
-                    })
-                    .when(unpushed > 0, |el| {
-                        el.child(count(Some(Icon::ArrowUp), unpushed, style.meta(theme.blue)))
-                    })
-                    .when(behind > 0, |el| {
-                        el.child(count(Some(Icon::ArrowDown), behind, style.meta(theme.warn)))
-                    })
+                .when_some(summary, |el, (files, unpushed, target, worktrees)| {
+                    let (warn, blue) = (style.meta(theme.warn), style.meta(theme.blue));
+                    el.children(meta_count(
+                        Icon::File,
+                        files,
+                        warn,
+                        plural(files, "uncommitted file"),
+                    ))
+                    .children(meta_count(
+                        Icon::ArrowUp,
+                        unpushed,
+                        blue,
+                        plural(unpushed, "unpushed commit"),
+                    ))
+                    .children(target.and_then(|t| {
+                        let tip = format!("{} behind {}", plural(t.behind, "commit"), t.name);
+                        meta_count(Icon::ArrowDown, t.behind, warn, tip)
+                    }))
+                    .children(meta_count(
+                        Icon::Folder,
+                        worktrees,
+                        style.muted(),
+                        plural(worktrees, "worktree"),
+                    ))
                 })
                 .when(entry.is_loading(), |el| {
                     el.child(small_icon(Icon::Clock).text_color(theme.text_3))
@@ -847,15 +970,14 @@ impl Navigator {
                             }),
                     )
                 })
-                .when(n > 0, |el| {
-                    let scope = crate::state::worktree_review_scope(id, name);
-                    let to_review = store.unreviewed(&scope, &worktree.uncommitted);
-                    if to_review > 0 {
-                        el.child(count(Some(Icon::Eye), to_review, style.meta(theme.warn)))
-                    } else {
-                        el.child(count(Some(Icon::Tick), n, style.muted()))
-                    }
-                })
+                .children(review_count(
+                    store.unreviewed(
+                        &crate::state::worktree_review_scope(id, name),
+                        &worktree.uncommitted,
+                    ),
+                    n,
+                    style,
+                ))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 .into_any_element(),
         )
@@ -894,21 +1016,13 @@ impl Navigator {
                     }),
             )
             // What a merge left conflicted, as an update can, before anything else.
-            .when(conflicted > 0, |el| {
-                el.child(count(
-                    Some(Icon::Warning),
-                    conflicted,
-                    style.meta(theme.danger),
-                ))
-            })
-            .when(n > 0, |el| {
-                let to_review = store.unreviewed(id, uncommitted);
-                if to_review > 0 {
-                    el.child(count(Some(Icon::Eye), to_review, style.meta(theme.warn)))
-                } else {
-                    el.child(count(Some(Icon::Tick), n, style.muted()))
-                }
-            })
+            .children(meta_count(
+                Icon::Warning,
+                conflicted,
+                style.meta(theme.danger),
+                plural(conflicted, "conflicted file"),
+            ))
+            .children(review_count(store.unreviewed(id, uncommitted), n, style))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
             .when(n > 0, |el| {
                 let files = self.detail.read(cx).files_to_move(id, cx);
@@ -995,34 +1109,41 @@ impl Navigator {
                     })
                 })
                 // So conflicts show while the commits are hidden too.
-                .when(conflicted > 0, |el| {
-                    el.child(count(
-                        Some(Icon::Warning),
-                        conflicted,
-                        style.meta(theme.danger),
-                    ))
-                })
-                .when(!branch.incoming.is_empty(), |el| {
-                    el.child(count(
-                        Some(Icon::ArrowDown),
-                        branch.incoming.len(),
-                        style.meta(theme.warn),
-                    ))
-                })
-                .when(unpushed > 0, |el| {
-                    el.child(count(Some(Icon::ArrowUp), unpushed, style.meta(theme.blue)))
-                })
+                .children(meta_count(
+                    Icon::Warning,
+                    conflicted,
+                    style.meta(theme.danger),
+                    plural(conflicted, "conflicted commit"),
+                ))
+                .children(meta_count(
+                    Icon::ArrowDown,
+                    branch.incoming.len(),
+                    style.meta(theme.warn),
+                    format!(
+                        "{} only on the remote",
+                        plural(branch.incoming.len(), "commit")
+                    ),
+                ))
+                .children(meta_count(
+                    Icon::ArrowUp,
+                    unpushed,
+                    style.meta(theme.blue),
+                    plural(unpushed, "unpushed commit"),
+                ))
                 .when(branch.commits.is_empty(), |el| {
                     el.child(faint("empty", theme))
                 })
                 .when(store.pushing(id, ref_name), |el| {
                     el.child(faint("pushing", theme))
                 })
+                // Folded, how many commits it holds; open, they're listed under it.
                 .when(closed, |el| {
-                    el.child(count(
-                        Some(Icon::Commit),
-                        branch.commits.len(),
+                    let n = branch.commits.len();
+                    el.children(meta_count(
+                        Icon::Commit,
+                        n,
                         style.muted(),
+                        plural(n, "commit"),
                     ))
                 })
                 .when(
@@ -1219,6 +1340,53 @@ impl Navigator {
     }
 }
 
+/// Tell `list` its rows from `at` changed from `old` to `new`: the ones between what both
+/// start and end with, which it measures again. Whether any did.
+fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
+    let head = old.iter().zip(new).take_while(|(a, b)| a == b).count();
+    let (old, new) = (&old[head..], &new[head..]);
+    let tail = (old.iter().rev().zip(new.iter().rev()))
+        .take_while(|(a, b)| a == b)
+        .count();
+    let changed = old.len() > tail || new.len() > tail;
+    if changed {
+        list.splice(at + head..at + head + old.len() - tail, new.len() - tail);
+    }
+    changed
+}
+
+/// A worktree with nothing uncommitted, so not active either, that hasn't moved in
+/// [`INACTIVE_AFTER`]. One with no reflog to date it stays listed.
+fn is_inactive(worktree: &Worktree) -> bool {
+    worktree.uncommitted.is_empty()
+        && worktree.updated_at.is_some_and(|at| {
+            (UNIX_EPOCH + Duration::from_secs(at.max(0) as u64))
+                .elapsed()
+                .is_ok_and(|age| age > INACTIVE_AFTER)
+        })
+}
+
+/// Of `n` uncommitted files, how many are left to review, or that none are.
+fn review_count(to_review: usize, n: usize, style: RowStyle) -> Option<Stateful<Div>> {
+    if to_review > 0 {
+        let tip = format!("{} to review", plural(to_review, "file"));
+        meta_count(Icon::Eye, to_review, style.meta(style.theme.warn), tip)
+    } else {
+        let tip = format!("{} reviewed", plural(n, "file"));
+        meta_count(Icon::Tick, n, style.muted(), tip)
+    }
+}
+
+/// A count in a row's meta, saying on hover what it counts; nothing at zero.
+fn meta_count(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Stateful<Div>> {
+    let tip = SharedString::from(tip);
+    (n > 0).then(|| {
+        count(Some(glyph), n, color)
+            .id(ElementId::Name(tip.clone()))
+            .tooltip(move |_, cx| Tooltip::with_key(tip.clone(), None, cx))
+    })
+}
+
 impl Focusable for Navigator {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus.clone()
@@ -1226,9 +1394,9 @@ impl Focusable for Navigator {
 }
 
 impl Render for Navigator {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.rows = self.build_rows(cx);
-        self.sync_list(cx);
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let rows = self.build_rows(cx);
+        self.sync_list(rows, window, cx);
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
         let project_count = store.projects.len();
@@ -1274,6 +1442,7 @@ impl Render for Navigator {
             .id("navigator")
             .key_context("Navigator")
             .track_focus(&self.focus)
+            .on_hover(cx.listener(|this, hovered: &bool, _, _| this.pointer_over = *hovered))
             .on_action(
                 cx.listener(|this, _: &SelectPrevious, window, cx| this.step(-1, window, cx)),
             )
