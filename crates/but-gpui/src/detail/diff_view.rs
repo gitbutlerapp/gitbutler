@@ -495,11 +495,25 @@ impl Detail {
                     .map(|scope| store.review(&scope, &diff.files[file].file));
                 let whole = self.whole_button(ix, file, entity.clone());
                 let toggle = entity.clone();
+                // What right-clicking the header offers, behind a ⋯ as well.
+                let more = payload(file, None).map(|payload| {
+                    let entity = entity.clone();
+                    icon_button(("file-more", ix), Icon::Kebab)
+                        .small()
+                        .on_click(move |event, _, cx| {
+                            let (payload, position) = (payload.clone(), event.position());
+                            (entity.update(cx, |detail, cx| {
+                                detail.changes_menu(payload, Some(None), position, cx)
+                            }))
+                            .ok();
+                        })
+                });
                 let trailing = h_flex()
                     .flex_none()
                     .gap(px(4.))
                     .children(whole)
-                    .children(review.map(|review| review_button(ix, file, review, entity, cx)));
+                    .children(review.map(|review| review_button(ix, file, review, entity, cx)))
+                    .children(more);
                 let header = diff::file_header(
                     file,
                     &diff.files[file],
