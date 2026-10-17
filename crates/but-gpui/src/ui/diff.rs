@@ -261,18 +261,25 @@ pub fn split_path(path: &str) -> (&str, &str) {
     }
 }
 
-pub fn stats(added: u32, removed: u32, theme: &Theme) -> impl IntoElement {
-    h_flex()
+pub fn stats(added: u32, removed: u32, theme: &Theme) -> gpui::Div {
+    // One run of text, coloured in parts: a list draws this on every row.
+    let mut text = String::new();
+    let mut colors = Vec::new();
+    for (count, sign, color) in [(added, '+', theme.safe), (removed, '-', theme.danger)] {
+        if count > 0 {
+            if !text.is_empty() {
+                text.push(' ');
+            }
+            let start = text.len();
+            text.push_str(&format!("{sign}{count}"));
+            colors.push((start..text.len(), HighlightStyle::from(color)));
+        }
+    }
+    div()
         .flex_none()
-        .gap(px(6.))
         .text_size(px(11.))
         .font_family(theme.mono_font.clone())
-        .when(added > 0, |el| {
-            el.child(div().text_color(theme.safe).child(format!("+{added}")))
-        })
-        .when(removed > 0, |el| {
-            el.child(div().text_color(theme.danger).child(format!("-{removed}")))
-        })
+        .child(StyledText::new(text).with_highlights(colors))
 }
 
 /// What the diff's owner adds to a file or hunk header.

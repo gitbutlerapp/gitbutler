@@ -3,7 +3,7 @@
 
 use gpui::{
     AnyElement, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels, Point,
-    SharedString, Stateful, Toggled, div, img, prelude::*, px,
+    SharedString, Stateful, StyledText, Toggled, div, img, prelude::*, px,
 };
 
 use super::file_tree::{self, TreeRow};
@@ -488,11 +488,12 @@ impl Detail {
         let dir = if extras.depth.is_some() { "" } else { dir };
         // A reviewed file is done with, so what the row says about it recedes.
         let fade = |el: Div| el.when(reviewed, |el| el.opacity(0.5));
-        let icon = div().flex().child(file_icon(&file.path));
         // While composing, the checkbox takes the icon's place once it's checked, or while
         // the pointer is on the row.
         let lead = match extras.checkbox {
-            None => fade(icon),
+            None => (file_icon(&file.path))
+                .when(reviewed, |el| el.opacity(0.5))
+                .into_any_element(),
             Some(check) => {
                 let on = check != Toggled::False;
                 let path = path.clone();
@@ -507,7 +508,7 @@ impl Detail {
                     .relative()
                     .flex_none()
                     .size(px(14.))
-                    .child(icon.absolute().map(|el| match on {
+                    .child(file_icon(&file.path).absolute().map(|el| match on {
                         true => el.opacity(0.),
                         false => el.group_hover(ROW_GROUP, |s| s.opacity(0.)),
                     }))
@@ -520,6 +521,7 @@ impl Detail {
                             })
                             .child(check),
                     )
+                    .into_any_element()
             }
         };
         // What right-clicking the row, or its ⋯, offers for the file.
@@ -533,23 +535,26 @@ impl Detail {
             .into(),
         });
         // The ⋯ takes the mark's place while the pointer is on the row or the row is current.
+        // A plain glyph rather than a button: a list draws it on every row.
         let more = menu_payload.clone().map(|payload| {
             div()
+                .id(("file-menu", ix))
                 .absolute()
                 .inset_0()
                 .flex()
                 .items_center()
                 .justify_center()
+                .rounded(px(4.))
+                .cursor_pointer()
+                .hover(|el| el.bg(theme.hover()))
                 .when(!current, |el| {
                     el.invisible().group_hover(ROW_GROUP, |s| s.visible())
                 })
-                .child(
-                    icon_button(("file-menu", ix), Icon::Kebab)
-                        .small()
-                        .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                            this.changes_menu(payload.clone(), Some(None), event.position(), cx)
-                        })),
-                )
+                .child(small_icon(Icon::Kebab).text_color(theme.text_2))
+                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                    cx.stop_propagation();
+                    this.changes_menu(payload.clone(), Some(None), event.position(), cx)
+                }))
         });
         let has_menu = more.is_some();
         let mark = div()
@@ -557,21 +562,14 @@ impl Detail {
             .when(has_menu && !current, |el| {
                 el.group_hover(ROW_GROUP, |s| s.invisible())
             })
-            .child(if file.conflicted {
-                small_icon(Icon::Warning)
-                    .text_color(theme.danger)
-                    .into_any_element()
-            } else if reviewed {
-                small_icon(Icon::Tick)
-                    .text_color(theme.pop)
-                    .into_any_element()
-            } else {
-                div()
+            .map(|el| match (file.conflicted, reviewed) {
+                (true, _) => el.child(small_icon(Icon::Warning).text_color(theme.danger)),
+                (false, true) => el.child(small_icon(Icon::Tick).text_color(theme.pop)),
+                (false, false) => el
                     .text_size(px(11.))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_color(diff::change_color(file.kind, theme))
-                    .child(file.kind.letter())
-                    .into_any_element()
+                    .child(file.kind.letter()),
             });
         let end = div()
             .relative()
@@ -594,31 +592,20 @@ impl Detail {
                     .map(|depth| steps(depth, theme)),
             )
             .child(lead)
-            .child(fade(
-                h_flex()
-                    .flex_1()
-                    .min_w(px(0.))
-                    .gap(px(6.))
-                    .overflow_hidden()
-                    .child(
-                        div()
-                            .flex_none()
-                            .max_w(px(220.))
-                            .truncate()
-                            .child(name.to_owned()),
-                    )
-                    .when(!dir.is_empty(), |el| {
-                        el.child(
-                            div()
-                                .min_w(px(0.))
-                                .truncate()
-                                .text_color(theme.text_2)
-                                .child(dir.to_owned()),
-                        )
-                    }),
-            ))
+            // The name, then its folder dimmed, as one run of text: a list draws it on every row.
+            .child(fade(div().flex_1().min_w(px(0.)).truncate().child({
+                let (text, folder) = match dir {
+                    "" => (name.to_owned(), None),
+                    dir => {
+                        let start = name.len() + 2;
+                        let folder = (start..start + dir.len(), theme.text_2.into());
+                        (format!("{name}  {dir}"), Some(folder))
+                    }
+                };
+                StyledText::new(text).with_highlights(folder)
+            })))
             .when_some(extras.stats, |el, (added, removed)| {
-                el.child(fade(div().child(diff::stats(added, removed, theme))))
+                el.child(fade(diff::stats(added, removed, theme)))
             })
             // When it last changed, faint, for watching what an agent touches.
             .children(
