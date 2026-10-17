@@ -3,7 +3,7 @@
 
 use gpui::{
     Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, KeyBinding,
-    MouseButton, SharedString, Subscription, Window, actions, div, prelude::*, px,
+    MouseButton, ScrollHandle, SharedString, Subscription, Window, actions, div, prelude::*, px,
 };
 
 use crate::app::{
@@ -22,6 +22,7 @@ use crate::edits::{
 };
 use crate::state::Selection;
 use crate::theme::Theme;
+use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{h_flex, keycap, list_row, muted, popover, shortcut, v_flex};
 
@@ -34,6 +35,8 @@ pub fn bind_keys(cx: &mut gpui::App) {
     cx.bind_keys([
         KeyBinding::new("up", PaletteUp, c),
         KeyBinding::new("down", PaletteDown, c),
+        KeyBinding::new("ctrl-p", PaletteUp, c),
+        KeyBinding::new("ctrl-n", PaletteDown, c),
     ]);
 }
 
@@ -152,8 +155,18 @@ pub struct Palette {
     /// What Enter does, for the hint at the bottom.
     verb: &'static str,
     selected: usize,
+    /// The rows' scroll, which follows the selection.
+    scroll: ScrollHandle,
     restore_focus: Option<FocusHandle>,
     _subscription: Subscription,
+}
+
+impl Palette {
+    /// Select the row at `row`, scrolling it into view.
+    fn select(&mut self, row: usize) {
+        self.selected = row;
+        self.scroll.scroll_to_item(row);
+    }
 }
 
 /// How well `query` matches `label`: the start of a word beats the middle of one, which
@@ -266,7 +279,7 @@ impl AppView {
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
                 InputEvent::Changed => {
                     if let Some(palette) = &mut this.palette {
-                        palette.selected = 0;
+                        palette.select(0);
                     }
                     cx.notify();
                 }
@@ -280,6 +293,7 @@ impl AppView {
             choices,
             verb,
             selected: 0,
+            scroll: ScrollHandle::new(),
             restore_focus,
             _subscription: subscription,
         });
@@ -335,7 +349,7 @@ impl AppView {
 
     fn palette_up(&mut self, _: &PaletteUp, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(palette) = &mut self.palette {
-            palette.selected = palette.selected.saturating_sub(1);
+            palette.select(palette.selected.saturating_sub(1));
             cx.notify();
         }
     }
@@ -343,7 +357,7 @@ impl AppView {
     fn palette_down(&mut self, _: &PaletteDown, _: &mut Window, cx: &mut Context<Self>) {
         let count = self.matches(cx).len();
         if let Some(palette) = &mut self.palette {
-            palette.selected = (palette.selected + 1).min(count.saturating_sub(1));
+            palette.select((palette.selected + 1).min(count.saturating_sub(1)));
             cx.notify();
         }
     }
@@ -411,21 +425,33 @@ impl AppView {
                         )
                         .child(
                             v_flex()
-                                .id("palette-rows")
+                                .relative()
                                 .flex_1()
                                 .min_h(px(0.))
-                                .py(px(4.))
-                                .overflow_y_scroll()
-                                .children(rows)
-                                .when(empty, |el| {
-                                    el.child(
-                                        div()
-                                            .px(px(12.))
-                                            .py(px(6.))
-                                            .text_color(theme.text_2)
-                                            .child("Nothing matches"),
-                                    )
-                                }),
+                                .child(
+                                    v_flex()
+                                        .id("palette-rows")
+                                        .flex_1()
+                                        .min_h(px(0.))
+                                        .py(px(4.))
+                                        .overflow_y_scroll()
+                                        .track_scroll(&palette.scroll)
+                                        .children(rows)
+                                        .when(empty, |el| {
+                                            el.child(
+                                                div()
+                                                    .px(px(12.))
+                                                    .py(px(6.))
+                                                    .text_color(theme.text_2)
+                                                    .child("Nothing matches"),
+                                            )
+                                        }),
+                                )
+                                .children(scrollbar(
+                                    "palette-scrollbar",
+                                    Scroll::Div(palette.scroll.clone()),
+                                    &theme,
+                                )),
                         )
                         .child(
                             h_flex()

@@ -79,7 +79,7 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 
 | Anywhere | |
 |---|---|
-| ⌘K | command palette (⌘⇧P works too) |
+| ⌘K | command palette (⌘⇧P works too); ↑ ↓ or ⌃P ⌃N move through it |
 | ⌘P | go to a branch by name, in any project |
 | ⌘1, ⌘2 | focus the navigator, focus the changes |
 | . | show or hide the navigator |
