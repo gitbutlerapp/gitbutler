@@ -87,6 +87,7 @@ import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { CiStatus, type CiStatusType, MetaCount } from "@gitbutler/ui-react/MetaCount.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
+import { Segment, SegmentedControl } from "@gitbutler/ui-react/SegmentedControl.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { PullRequestComments } from "#ui/routes/project/$id/workspace/PullRequestComments.tsx";
@@ -102,7 +103,7 @@ import {
 import { useAppDispatch, useAppSelector, useAppStore } from "#ui/store.ts";
 import { classes } from "@gitbutler/ui-react/classes.ts";
 import { EmptyState } from "@gitbutler/ui-react/EmptyState.tsx";
-import { Toggle, ToggleGroup, Toolbar } from "@base-ui/react";
+import { Toggle, Toolbar } from "@base-ui/react";
 import type {
 	CommitDetails as CommitDetailsData,
 	ConflictedFile,
@@ -2179,12 +2180,7 @@ const DiffBackgroundsToggle: FC<
 	);
 };
 
-const DiffStyleToggleGroup: FC<
-	Omit<
-		ToggleGroup.Props<NonNullable<GUISettings["diffStyle"]>>,
-		"aria-label" | "value" | "onValueChange"
-	>
-> = (toggleGroupProps) => {
+const DiffStyleControl: FC<{ children: ReactNode }> = ({ children }) => {
 	const { data: diffStyle } = useQuery({
 		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.diffStyle,
@@ -2196,17 +2192,13 @@ const DiffStyleToggleGroup: FC<
 			content={diffHotkeys.toggleDiffStyle.meta.name}
 			kbd={diffHotkeys.toggleDiffStyle.hotkey}
 		>
-			<ToggleGroup
-				{...toggleGroupProps}
+			<SegmentedControl
 				aria-label={diffHotkeys.toggleDiffStyle.meta.name}
-				value={[diffStyle ?? defaultSettings.diffStyle]}
-				onValueChange={(value: Array<NonNullable<GUISettings["diffStyle"]>>) => {
-					const head = value[0];
-					if (head === undefined) return;
-
-					saveGUISettings({ diffStyle: head });
-				}}
-			/>
+				value={diffStyle ?? defaultSettings.diffStyle}
+				onValueChange={(style) => saveGUISettings({ diffStyle: style })}
+			>
+				{children}
+			</SegmentedControl>
 		</Tooltip>
 	);
 };
@@ -2718,20 +2710,20 @@ const Diff: FC<{
 								/>
 							</ToggleGroupStyles>
 							{canUseSplitDiff && (
-								<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
+								<DiffStyleControl>
 									<Toolbar.Button
-										render={<Toggle render={<ToggleStyles />} />}
-										value={"split" satisfies GUISettings["diffStyle"]}
-									>
-										Split
-									</Toolbar.Button>
+										render={
+											<Segment value={"split" satisfies GUISettings["diffStyle"]}>Split</Segment>
+										}
+									/>
 									<Toolbar.Button
-										render={<Toggle render={<ToggleStyles />} />}
-										value={"unified" satisfies GUISettings["diffStyle"]}
-									>
-										Unified
-									</Toolbar.Button>
-								</DiffStyleToggleGroup>
+										render={
+											<Segment value={"unified" satisfies GUISettings["diffStyle"]}>
+												Unified
+											</Segment>
+										}
+									/>
+								</DiffStyleControl>
 							)}
 						</Toolbar.Root>
 

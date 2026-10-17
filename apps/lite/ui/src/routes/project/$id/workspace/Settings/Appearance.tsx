@@ -1,4 +1,3 @@
-import { Toggle, ToggleGroup } from "@base-ui/react";
 import { PatchDiff } from "@pierre/diffs/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import type { FC } from "react";
@@ -13,7 +12,7 @@ import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { NumberField } from "@gitbutler/ui-react/NumberField.tsx";
 import { Select } from "@gitbutler/ui-react/Select.tsx";
 import { Switch } from "@gitbutler/ui-react/Switch.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
+import { Segment, SegmentedControl } from "@gitbutler/ui-react/SegmentedControl.tsx";
 import { displayName } from "#ui/syntax-highlighting.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import styles from "./Appearance.module.css";
@@ -129,27 +128,21 @@ export const Appearance: FC = () => {
 		<>
 			<Section>
 				<Row label="Theme" labelId="theme">
-					<ToggleGroup
+					<SegmentedControl
 						aria-labelledby="theme"
-						value={[settings.theme ?? defaultSettings.theme]}
-						onValueChange={([theme]) => {
-							if (theme !== undefined) saveGUISettings({ theme });
-						}}
-						render={<ToggleGroupStyles />}
+						value={settings.theme ?? defaultSettings.theme}
+						onValueChange={(theme) => saveGUISettings({ theme })}
 					>
-						<Toggle render={<ToggleStyles />} value="system">
-							<Icon name="theme-system" />
+						<Segment value="system" icon={<Icon name="theme-system" />}>
 							System
-						</Toggle>
-						<Toggle render={<ToggleStyles />} value="light">
-							<Icon name="theme-light" />
+						</Segment>
+						<Segment value="light" icon={<Icon name="theme-light" />}>
 							Light
-						</Toggle>
-						<Toggle render={<ToggleStyles />} value="dark">
-							<Icon name="theme-dark" />
+						</Segment>
+						<Segment value="dark" icon={<Icon name="theme-dark" />}>
 							Dark
-						</Toggle>
-					</ToggleGroup>
+						</Segment>
+					</SegmentedControl>
 				</Row>
 
 				<Row
@@ -238,21 +231,14 @@ export const Appearance: FC = () => {
 					labelId="unidiff"
 					hint="All changed files at once, or just the one you picked."
 				>
-					<ToggleGroup
+					<SegmentedControl
 						aria-labelledby="unidiff"
-						value={[String(settings.unidiff ?? defaultSettings.unidiff)]}
-						onValueChange={([unidiff]) => {
-							if (unidiff !== undefined) saveGUISettings({ unidiff: unidiff !== "false" });
-						}}
-						render={<ToggleGroupStyles />}
+						value={String(settings.unidiff ?? defaultSettings.unidiff)}
+						onValueChange={(unidiff) => saveGUISettings({ unidiff: unidiff !== "false" })}
 					>
-						<Toggle render={<ToggleStyles />} value="true">
-							All-in-one
-						</Toggle>
-						<Toggle render={<ToggleStyles />} value="false">
-							Single file
-						</Toggle>
-					</ToggleGroup>
+						<Segment value="true">All-in-one</Segment>
+						<Segment value="false">Single file</Segment>
+					</SegmentedControl>
 				</Row>
 
 				{/* These three are the diff toolbar's own controls: one stored value each, so
@@ -262,22 +248,14 @@ export const Appearance: FC = () => {
 					labelId="diff-style"
 					hint="Split shows old and new side by side; unified stacks them."
 				>
-					<ToggleGroup
+					<SegmentedControl
 						aria-labelledby="diff-style"
-						value={[settings.diffStyle ?? defaultSettings.diffStyle]}
-						onValueChange={([diffStyle]) => {
-							if (diffStyle !== undefined)
-								saveGUISettings({ diffStyle: diffStyle as GUISettings["diffStyle"] });
-						}}
-						render={<ToggleGroupStyles />}
+						value={settings.diffStyle ?? defaultSettings.diffStyle}
+						onValueChange={(diffStyle) => saveGUISettings({ diffStyle })}
 					>
-						<Toggle render={<ToggleStyles />} value="split">
-							Split
-						</Toggle>
-						<Toggle render={<ToggleStyles />} value="unified">
-							Unified
-						</Toggle>
-					</ToggleGroup>
+						<Segment value="split">Split</Segment>
+						<Segment value="unified">Unified</Segment>
+					</SegmentedControl>
 				</Row>
 
 				<Row

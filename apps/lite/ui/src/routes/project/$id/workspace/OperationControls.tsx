@@ -12,7 +12,7 @@ import { Button, type ButtonSize, type ButtonVariant } from "@gitbutler/ui-react
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
+import { Segment, SegmentedControl } from "@gitbutler/ui-react/SegmentedControl.tsx";
 import {
 	Toolbox,
 	ToolboxMeta,
@@ -37,7 +37,6 @@ import { isCommitFormKeyEvent } from "#ui/routes/project/$id/workspace/commitFor
 import { addressLabel, addressesLabel } from "#ui/routes/project/$id/workspace/addressLabel.ts";
 import { useCheckedActions } from "#ui/routes/project/$id/workspace/useCheckedActions.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Toggle, ToggleGroup } from "@base-ui/react";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -377,48 +376,38 @@ const TransferTypeToggleGroup: FC<{
 		},
 	]);
 
-	const onValueChange = (value: Array<string>) => {
-		if (value.length === 0) return;
-		const nextPlacement = value[0] as Placement;
-
-		setPlacement(nextPlacement);
-	};
-
 	return (
-		<ToggleGroup
+		<SegmentedControl
 			aria-label="Placement"
-			value={[placement]}
-			onValueChange={onValueChange}
-			render={<ToggleGroupStyles />}
+			value={placement}
+			onValueChange={setPlacement}
 			onMouseDown={(event) => {
 				// Prevent stealing focus from the tree.
 				if (!event.defaultPrevented) event.preventDefault();
 			}}
 		>
-			<Toggle
-				render={<ToggleStyles />}
+			<Segment
 				value={"above" satisfies Placement}
 				disabled={!operations.above}
+				kbd={operationHotkeys.selectAbove.hotkey}
 			>
-				Above <Kbd hotkey={operationHotkeys.selectAbove.hotkey} variant="button" />
-			</Toggle>
-
-			<Toggle
-				render={<ToggleStyles />}
+				Above
+			</Segment>
+			<Segment
 				value={"into" satisfies Placement}
 				disabled={!operations.into}
+				kbd={operationHotkeys.selectInto.hotkey}
 			>
-				Into <Kbd hotkey={operationHotkeys.selectInto.hotkey} variant="button" />
-			</Toggle>
-
-			<Toggle
-				render={<ToggleStyles />}
+				Into
+			</Segment>
+			<Segment
 				value={"below" satisfies Placement}
 				disabled={!operations.below}
+				kbd={operationHotkeys.selectBelow.hotkey}
 			>
-				Below <Kbd hotkey={operationHotkeys.selectBelow.hotkey} variant="button" />
-			</Toggle>
-		</ToggleGroup>
+				Below
+			</Segment>
+		</SegmentedControl>
 	);
 };
 
@@ -444,30 +433,23 @@ const TransferKindToggleGroup: FC<{
 		},
 	]);
 
-	const onValueChange = (value: Array<string>) => {
-		if (value.length === 0) return;
-		setKind(value[0] as TransferKind);
-	};
-
 	return (
-		<ToggleGroup
+		<SegmentedControl
 			aria-label="Transfer kind"
-			value={[kind]}
-			onValueChange={onValueChange}
-			render={<ToggleGroupStyles />}
+			value={kind}
+			onValueChange={setKind}
 			onMouseDown={(evt) => {
 				// Prevent stealing focus from the tree.
 				if (!evt.defaultPrevented) evt.preventDefault();
 			}}
 		>
-			<Toggle render={<ToggleStyles />} value={"move" satisfies TransferKind}>
-				Move <Kbd hotkey={operationHotkeys.selectMove.hotkey} variant="button" />
-			</Toggle>
-
-			<Toggle render={<ToggleStyles />} value={"copy" satisfies TransferKind}>
-				Copy <Kbd hotkey={operationHotkeys.selectCopy.hotkey} variant="button" />
-			</Toggle>
-		</ToggleGroup>
+			<Segment value={"move" satisfies TransferKind} kbd={operationHotkeys.selectMove.hotkey}>
+				Move
+			</Segment>
+			<Segment value={"copy" satisfies TransferKind} kbd={operationHotkeys.selectCopy.hotkey}>
+				Copy
+			</Segment>
+		</SegmentedControl>
 	);
 };
 
