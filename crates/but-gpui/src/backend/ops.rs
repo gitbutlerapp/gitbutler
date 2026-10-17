@@ -745,6 +745,13 @@ mod tests {
         String::from_utf8(out.stdout).unwrap()
     }
 
+    fn uncommitted(path: &Path) -> Vec<crate::backend::FileChange> {
+        let shown = crate::backend::Workspace::default();
+        crate::backend::reload_uncommitted(path, shown)
+            .unwrap()
+            .uncommitted
+    }
+
     /// A repository mid-merge, with `file` changed on both sides and left conflicted.
     fn conflicted_repo() -> (tempfile::TempDir, CommitId) {
         let dir = tempfile::tempdir().unwrap();
@@ -779,7 +786,7 @@ mod tests {
     fn a_conflicted_file_is_listed_and_kept_out_until_marked_resolved() {
         let (dir, head) = conflicted_repo();
         let path = dir.path();
-        let files = crate::backend::load_uncommitted(path).unwrap();
+        let files = uncommitted(path);
         assert_eq!(
             files.len(),
             1,
@@ -798,7 +805,7 @@ mod tests {
         );
 
         mark_resolved(path, vec!["file".into()]).unwrap();
-        let files = crate::backend::load_uncommitted(path).unwrap();
+        let files = uncommitted(path);
         assert_eq!(files.len(), 1, "the markers are still a change: {files:?}");
         assert!(!files[0].conflicted, "the index takes the file as it is");
     }
@@ -807,7 +814,7 @@ mod tests {
     fn discarding_a_conflicted_file_takes_it_back_to_head() {
         let (dir, _) = conflicted_repo();
         let path = dir.path();
-        let files = crate::backend::load_uncommitted(path).unwrap();
+        let files = uncommitted(path);
         let part = Selected {
             file: files[0].clone(),
             hunks: Some(Vec::new()),
@@ -826,7 +833,7 @@ mod tests {
             std::fs::read_to_string(path.join("file")).unwrap(),
             "ours\n"
         );
-        let files = crate::backend::load_uncommitted(path).unwrap();
+        let files = uncommitted(path);
         assert!(files.is_empty(), "nothing's left to commit: {files:?}");
     }
 

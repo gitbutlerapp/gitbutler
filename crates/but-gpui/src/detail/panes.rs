@@ -178,30 +178,57 @@ impl Detail {
                                     .into_any_element(),
                             );
                         }
-                        if local {
+                        // A linked worktree has it checked out: deleting or applying it
+                        // would pull it out from under that worktree.
+                        let worktree = (workspace.filter(|_| local))
+                            .and_then(|ws| {
+                                (ws.worktrees.iter())
+                                    .find(|w| w.branch.as_deref() == Some(branch.name.as_str()))
+                            })
+                            .map(|worktree| worktree.name.clone());
+                        if let Some(name) = worktree {
+                            let shown = Selection::Worktree(project.clone(), name);
+                            let store = self.store.clone();
+                            actions.push(
+                                button("open-worktree", "Open worktree")
+                                    .style(ButtonStyle::Pop)
+                                    .tooltip("A linked worktree has it checked out")
+                                    .on_click(move |_, _, cx| {
+                                        store.update(cx, |store, cx| {
+                                            store.select(Some(shown.clone()), cx)
+                                        })
+                                    })
+                                    .into_any_element(),
+                            );
+                        } else {
+                            if local {
+                                let project = project.clone();
+                                actions.push(
+                                    button("delete-other", "Delete…")
+                                        .style(ButtonStyle::Ghost)
+                                        .on_click(cx.listener(
+                                            move |this, _: &ClickEvent, window, cx| {
+                                                this.delete_other_branch(&project, window, cx)
+                                            },
+                                        ))
+                                        .into_any_element(),
+                                );
+                            }
                             let project = project.clone();
                             actions.push(
-                                button("delete-other", "Delete…")
-                                    .style(ButtonStyle::Ghost)
-                                    .on_click(cx.listener(
-                                        move |this, _: &ClickEvent, window, cx| {
-                                            this.delete_other_branch(&project, window, cx)
-                                        },
-                                    ))
+                                button("apply-branch", "Apply")
+                                    .style(ButtonStyle::Pop)
+                                    .tooltip("Add it to the workspace, beside your other branches")
+                                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                        this.apply_branch(&project, cx)
+                                    }))
                                     .into_any_element(),
                             );
                         }
-                        let project = project.clone();
-                        actions.push(
-                            button("apply-branch", "Apply")
-                                .style(ButtonStyle::Pop)
-                                .tooltip("Add it to the workspace, beside your other branches")
-                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                                    this.apply_branch(&project, cx)
-                                }))
-                                .into_any_element(),
-                        );
                     }
+                }
+                Selection::Worktree(_, name) => {
+                    crumbs.push((format!("Worktree {name}").into(), None));
                 }
                 Selection::History(project) => {
                     crumbs.push(("History".into(), None));
@@ -808,7 +835,8 @@ impl Detail {
                 .unwrap_or_default();
             items.extend([
                 MenuItem::new(label, move |this, _, cx| {
-                    this.open_in_editor(&open_project, Some(open_file.clone()), line, position, cx)
+                    let file = Some(open_file.clone());
+                    this.open_in_editor(&open_project, None, file, line, position, cx)
                 })
                 .separated(),
                 MenuItem::new("Copy path", move |this, _, cx| {

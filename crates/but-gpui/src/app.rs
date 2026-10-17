@@ -1007,6 +1007,11 @@ impl AppView {
             Selection::Project(project) => {
                 Some(self.store.read(cx).path(&project)?.display().to_string())
             }
+            Selection::Worktree(project, name) => {
+                let workspace = self.store.read(cx).workspace(&project)?;
+                let worktree = workspace.worktrees.iter().find(|w| w.name == name)?;
+                Some(worktree.path.display().to_string())
+            }
             Selection::Uncommitted(_) | Selection::Branches(_) | Selection::History(_) => None,
         });
         if let Some(text) = text {

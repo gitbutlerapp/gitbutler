@@ -29,15 +29,20 @@ pub fn terminals() -> Vec<Program> {
 }
 
 /// Open `file` (relative to the project) in the editor `editor`, at `line` if given.
-pub fn open_in_editor(path: &Path, editor: &str, file: &str, line: Option<u32>) -> Result<()> {
+/// Open `file` of the project at `path`, or of its linked `worktree`, in `editor` at `line`.
+pub fn open_in_editor(
+    path: &Path,
+    worktree: Option<&str>,
+    editor: &str,
+    file: &str,
+    line: Option<u32>,
+) -> Result<()> {
+    use but_api::commit::json::ChangesSource;
     let mut ctx = open(path)?;
-    but_api::open::open_in_program(
-        &mut ctx,
-        editor.to_owned(),
-        but_api::commit::json::ChangesSource::Head,
-        file.to_owned(),
-        line,
-    )
+    let source = worktree.map_or(ChangesSource::Head, |name| {
+        ChangesSource::Worktree(name.to_owned())
+    });
+    but_api::open::open_in_program(&mut ctx, editor.to_owned(), source, file.to_owned(), line)
 }
 
 pub fn open_in_terminal(path: &Path, terminal: &str) -> Result<()> {
@@ -55,6 +60,21 @@ pub fn set_fetch_interval(minutes: Option<u64>) -> Result<()> {
     let minutes = minutes.map_or(-1, |minutes| minutes as isize);
     super::watch::settings()?.update_fetch(but_settings::api::FetchUpdate {
         auto_fetch_interval_minutes: Some(minutes),
+    })
+}
+
+/// Whether GitButler's experimental support for linked worktrees is on.
+pub fn worktrees_enabled() -> bool {
+    (super::watch::settings().ok()).is_some_and(|settings| {
+        settings
+            .get()
+            .is_ok_and(|settings| settings.feature_flags.worktree_manipulation)
+    })
+}
+
+pub fn set_worktrees_enabled(on: bool) -> Result<()> {
+    super::watch::settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+        worktree_manipulation: Some(on),
     })
 }
 

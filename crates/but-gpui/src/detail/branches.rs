@@ -21,8 +21,8 @@ use crate::ui::{Icon, empty_state, field, list_row, relative_time, small_icon};
 pub(super) struct Branches {
     pub project: ProjectId,
     /// The workspace's branches and target when the list loaded; a reload that changes
-    /// neither leaves the list as it is.
-    pub seen: u64,
+    /// neither leaves the list as it is. `None` until it has loaded.
+    pub seen: Option<u64>,
     pub list: Vec<OtherBranch>,
     /// The selected branch, by ref.
     pub selected: Option<String>,
@@ -63,7 +63,11 @@ impl Detail {
             return;
         };
         let seen = self.branches_fingerprint(project, cx);
-        if !force && self.branches_for(project).is_some_and(|b| b.seen == seen) {
+        if !force
+            && self
+                .branches_for(project)
+                .is_some_and(|b| b.seen == Some(seen))
+        {
             return;
         }
         let project = project.clone();
@@ -90,7 +94,7 @@ impl Detail {
                     .map_or((None, None), |b| (b.commits, b.commit));
                 this.branches = Some(Branches {
                     project,
-                    seen,
+                    seen: Some(seen),
                     list,
                     selected,
                     commits,
@@ -249,6 +253,35 @@ impl Detail {
         cx.notify();
     }
 
+    /// Open the Branches page on `ref_name`.
+    pub(super) fn show_other_branch(
+        &mut self,
+        project: &ProjectId,
+        ref_name: String,
+        cx: &mut Context<Self>,
+    ) {
+        match &mut self.branches {
+            Some(branches) if branches.project == *project => {
+                branches.selected = Some(ref_name);
+                branches.commit = None;
+            }
+            // Kept as the selection when the page lists its branches.
+            _ => {
+                self.branches = Some(Branches {
+                    project: project.clone(),
+                    seen: None,
+                    list: Vec::new(),
+                    selected: Some(ref_name),
+                    commits: None,
+                    commit: None,
+                })
+            }
+        }
+        let shown = Selection::Branches(project.clone());
+        self.store
+            .update(cx, |store, cx| store.select(Some(shown), cx));
+    }
+
     fn select_branch_commit(&mut self, id: CommitId, cx: &mut Context<Self>) {
         if let Some(branches) = &mut self.branches {
             branches.commit = Some(id);
@@ -366,7 +399,7 @@ impl Detail {
         let filter = field(&self.branch_filter, filter_focused, theme)
             .flex_none()
             .m(px(10.));
-        let Some(branches) = self.branches_for(project) else {
+        let Some(branches) = self.branches_for(project).filter(|b| b.seen.is_some()) else {
             return empty_state("Loading branches…", "", theme);
         };
         let rows = self.branch_rows(branches, cx);

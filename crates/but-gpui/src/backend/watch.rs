@@ -30,12 +30,13 @@ pub fn watch(
         |key| std::env::var(key).ok(),
     );
     let worktree = open(&project.path)?.workdir_or_fail()?;
+    let path = project.path.clone();
     let (events, mut received) = tokio::sync::mpsc::unbounded_channel();
     let _tokio = runtime().enter();
     let monitor = gitbutler_filemonitor::spawn(
         project.id.parse().context("Invalid project id")?,
         &worktree,
-        || Ok(Vec::new()),
+        move || linked_worktrees(&path),
         events,
         watch_mode,
     )?;
@@ -49,6 +50,17 @@ pub fn watch(
         }
     });
     Ok(Watcher { _monitor: monitor })
+}
+
+/// The linked worktrees to watch too, when GitButler's worktree support is on.
+fn linked_worktrees(path: &std::path::Path) -> Result<Vec<gitbutler_filemonitor::LinkedWorktree>> {
+    Ok((open(path)?.worktrees_with_state()?.into_iter())
+        .filter(|worktree| !worktree.archived)
+        .map(|worktree| gitbutler_filemonitor::LinkedWorktree {
+            name: worktree.name,
+            workdir: worktree.path,
+        })
+        .collect())
 }
 
 pub(super) fn settings() -> Result<AppSettingsWithDiskSync> {

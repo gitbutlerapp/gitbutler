@@ -244,6 +244,30 @@ impl Store {
         );
     }
 
+    /// Hide linked worktree `name` from the workspace, or with `archived` false show it
+    /// again. Like GitButler's other apps, this isn't something undo takes back.
+    pub fn set_worktree_archived(
+        &mut self,
+        project: &ProjectId,
+        name: std::sync::Arc<str>,
+        archived: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let (label, done) = if archived {
+            ("Archive worktree", format!("Archived {name}"))
+        } else {
+            ("Show worktree", format!("{name} is back"))
+        };
+        self.run(
+            project,
+            label,
+            super::Overlay::default(),
+            move |path, _| backend::worktrees::set_archived(path, &name, archived),
+            move |store, (), cx| store.snack(done, cx),
+            cx,
+        );
+    }
+
     /// Move commit `id` into a new branch of its own, and select that branch.
     pub fn move_to_new_branch(
         &mut self,

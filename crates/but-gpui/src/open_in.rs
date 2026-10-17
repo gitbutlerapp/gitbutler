@@ -34,11 +34,13 @@ impl AppView {
             )
     }
 
-    /// Open `file` (relative to the project; the project itself with `None`) in the chosen
-    /// editor at `line`. With none chosen yet, offer the editors as a menu at `position`.
+    /// Open `file` (relative to the project, or to its linked `worktree`; the project itself
+    /// with `None`) in the chosen editor at `line`. With none chosen yet, offer the editors
+    /// as a menu at `position`.
     pub fn open_in_editor(
         &mut self,
         project: &ProjectId,
+        worktree: Option<std::sync::Arc<str>>,
         file: Option<String>,
         line: Option<u32>,
         position: Point<Pixels>,
@@ -49,12 +51,12 @@ impl AppView {
         };
         let file = file.unwrap_or_else(|| ".".to_owned());
         match self.store.read(cx).prefs.editor.clone() {
-            Some(editor) => self.run_editor(path, editor, file, line, cx),
+            Some(editor) => self.run_editor(path, worktree, editor, file, line, cx),
             None => {
                 let items = settings::editors()
                     .into_iter()
                     .map(|(id, name)| {
-                        let (path, file) = (path.clone(), file.clone());
+                        let (path, worktree, file) = (path.clone(), worktree.clone(), file.clone());
                         MenuItem::new(name.clone(), move |this, _, cx| {
                             this.store.update(cx, |store, cx| {
                                 store.set_prefs(|prefs| prefs.editor = Some(id.clone()), cx);
@@ -63,7 +65,15 @@ impl AppView {
                                     cx,
                                 )
                             });
-                            this.run_editor(path.clone(), id.clone(), file.clone(), line, cx);
+                            let worktree = worktree.clone();
+                            this.run_editor(
+                                path.clone(),
+                                worktree,
+                                id.clone(),
+                                file.clone(),
+                                line,
+                                cx,
+                            );
                         })
                     })
                     .collect();
@@ -75,6 +85,7 @@ impl AppView {
     fn run_editor(
         &mut self,
         path: PathBuf,
+        worktree: Option<std::sync::Arc<str>>,
         editor: String,
         file: String,
         line: Option<u32>,
@@ -82,8 +93,10 @@ impl AppView {
     ) {
         let store = self.store.clone();
         cx.spawn(async move |_, cx| {
-            let opened =
-                backend::run(move || settings::open_in_editor(&path, &editor, &file, line)).await;
+            let opened = backend::run(move || {
+                settings::open_in_editor(&path, worktree.as_deref(), &editor, &file, line)
+            })
+            .await;
             if let Err(err) = opened {
                 store.update(cx, |store, cx| {
                     store.error("Couldn't open the editor", format!("{err:#}"), cx)
