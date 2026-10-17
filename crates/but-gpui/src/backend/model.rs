@@ -83,6 +83,9 @@ pub struct Worktree {
     /// The branch it has checked out, or `None` for a detached `HEAD`.
     pub branch: Option<String>,
     pub uncommitted: Vec<FileChange>,
+    /// When it or its branch last moved, as a commit or checkout does, in seconds since the
+    /// epoch, from their reflogs.
+    pub updated_at: Option<i64>,
 }
 
 impl Worktree {

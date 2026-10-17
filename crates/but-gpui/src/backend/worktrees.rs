@@ -34,6 +34,7 @@ pub(super) fn linked(ctx: &Context) -> Result<Option<Listing>> {
                 path: listed.path,
                 branch: listed.ref_name.map(|name| name.shorten().to_string()),
                 uncommitted,
+                updated_at: listed.updated_at_ms.map(|ms| ms / 1000),
             })
         })
         .collect();
