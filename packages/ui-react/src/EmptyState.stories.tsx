@@ -99,3 +99,24 @@ export const WithoutIllustration = meta.story({
 		),
 	},
 });
+
+/** A popup's search that found nothing: the line and a way back to the full list. */
+export const Tidy = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=3454-84770",
+		},
+	},
+	args: {
+		variant: "tidy",
+		illustration: undefined,
+		title: undefined,
+		description: "No matching files found",
+		children: (
+			<Button variant="outline" size="small">
+				Clear search
+			</Button>
+		),
+	},
+});

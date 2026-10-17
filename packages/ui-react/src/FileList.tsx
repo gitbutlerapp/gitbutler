@@ -42,6 +42,9 @@ const plural = (count: number, word: string) =>
  *   quieter one otherwise. Pass `focused`, or set `data-selection-focused="true"` on the element
  *   holding the rows without re-rendering; `data-selection-focus-styles="false"` further out turns
  *   the solid fill off for everything inside, as during a drag.
+ * - `header` takes the header's place, for a list in a popup that hangs from a button already
+ *   naming and counting its files: lead it with `PopupSearch`. The title, stats, filter and
+ *   `actions` then don't show, and neither does the scroll hairline, the header drawing its own.
  *
  * @public
  * @import import { FileList, FileListItem } from "@gitbutler/ui-react/FileList.tsx";
@@ -64,6 +67,7 @@ export const FileList: FC<
 		onHeaderContextMenu?: (event: MouseEvent<HTMLDivElement>) => void;
 		focused?: boolean;
 		viewportRef?: Ref<HTMLDivElement>;
+		header?: ReactNode;
 	} & ComponentProps<"div">
 > = ({
 	title,
@@ -76,6 +80,7 @@ export const FileList: FC<
 	onHeaderContextMenu,
 	focused = false,
 	viewportRef,
+	header,
 	className,
 	children,
 	...props
@@ -92,75 +97,89 @@ export const FileList: FC<
 	if (filter && filter.value !== shownValue) setShownValue(filter.value);
 	return (
 		<div {...props} className={classes(className, styles.panel)}>
-			<div
-				className={classes(styles.header, filtering && styles.filtering)}
-				onContextMenu={filtering ? undefined : onHeaderContextMenu}
-			>
-				<span className={styles.label} inert={filtering}>
-					<span className={classes("text-14", "text-bold", styles.title)}>{title}</span>
-					<Tooltip content={described[0]}>
-						<span className={styles.stats} aria-label={described.join(", ")}>
-							<Badge variant="lightGray">{count}</Badge>
-							<DiffStats added={added} removed={removed} className="text-12" />
-						</span>
-					</Tooltip>
-				</span>
-				<Field.Root render={<FieldRootStyles />} className={styles.filterField} inert={!filtering}>
-					<FieldControlWithIcon
-						// A fresh input on opening, so it takes focus.
-						key={String(filtering)}
-						// oxlint-disable-next-line jsx_a11y/no-autofocus
-						autoFocus={filtering}
-						id={filter?.inputId}
-						className="text-13"
-						icon={<Icon name="search" />}
-						aria-label="Filter files"
-						placeholder="Filter files"
-						value={shownValue}
-						onChange={(event) => filter?.onChange(event.currentTarget.value)}
-						onKeyDown={(event) => {
-							if (!filter) return;
-							if (event.key === "Escape") {
-								event.preventDefault();
-								event.stopPropagation();
-								filter.onClose();
-							} else if (event.key === "ArrowDown" && filter.onEnterList) {
-								event.preventDefault();
-								event.stopPropagation();
-								filter.onEnterList();
-							}
-						}}
-					/>
-				</Field.Root>
-				<span className={styles.headerEnd}>
-					{(filter || (onOpenFilter && count > 0)) && (
-						<Button
-							variant="ghost"
-							iconOnly
-							aria-label={filter ? "Close files filter" : "Filter files"}
-							onClick={filter ? filter.onClose : onOpenFilter}
-						>
-							{/* The magnifier becomes the cross: the icon crossfade from motion.md. */}
-							<span className={styles.toggleIcons}>
-								{/* Wrapped, so the fade isn't overruled by the button's own icon opacity. */}
-								<span className={classes(styles.toggleIcon, filtering && styles.toggleIconGone)}>
-									<Icon name="search" />
-								</span>
-								<span className={classes(styles.toggleIcon, !filtering && styles.toggleIconGone)}>
-									<Icon name="cross" />
-								</span>
+			{header ?? (
+				<div
+					className={classes(styles.header, filtering && styles.filtering)}
+					onContextMenu={filtering ? undefined : onHeaderContextMenu}
+				>
+					<span className={styles.label} inert={filtering}>
+						<span className={classes("text-14", "text-bold", styles.title)}>{title}</span>
+						<Tooltip content={described[0]}>
+							<span className={styles.stats} aria-label={described.join(", ")}>
+								<Badge variant="lightGray">{count}</Badge>
+								<DiffStats added={added} removed={removed} className="text-12" />
 							</span>
-						</Button>
-					)}
-					{actions !== undefined && (
-						<span className={styles.headerActions} inert={filtering}>
-							<span className={styles.headerActionsInner}>{actions}</span>
-						</span>
-					)}
-				</span>
-			</div>
-			<ScrollArea separator className={styles.body} viewportRef={viewportRef}>
-				<div className={styles.list} data-selection-focused={focused ? "true" : undefined}>
+						</Tooltip>
+					</span>
+					<Field.Root
+						render={<FieldRootStyles />}
+						className={styles.filterField}
+						inert={!filtering}
+					>
+						<FieldControlWithIcon
+							// A fresh input on opening, so it takes focus.
+							key={String(filtering)}
+							// oxlint-disable-next-line jsx_a11y/no-autofocus
+							autoFocus={filtering}
+							id={filter?.inputId}
+							className="text-13"
+							icon={<Icon name="search" />}
+							aria-label="Filter files"
+							placeholder="Filter files"
+							value={shownValue}
+							onChange={(event) => filter?.onChange(event.currentTarget.value)}
+							onKeyDown={(event) => {
+								if (!filter) return;
+								if (event.key === "Escape") {
+									event.preventDefault();
+									event.stopPropagation();
+									filter.onClose();
+								} else if (event.key === "ArrowDown" && filter.onEnterList) {
+									event.preventDefault();
+									event.stopPropagation();
+									filter.onEnterList();
+								}
+							}}
+						/>
+					</Field.Root>
+					<span className={styles.headerEnd}>
+						{(filter || (onOpenFilter && count > 0)) && (
+							<Button
+								variant="ghost"
+								iconOnly
+								aria-label={filter ? "Close files filter" : "Filter files"}
+								onClick={filter ? filter.onClose : onOpenFilter}
+							>
+								{/* The magnifier becomes the cross: the icon crossfade from motion.md. */}
+								<span className={styles.toggleIcons}>
+									{/* Wrapped, so the fade isn't overruled by the button's own icon opacity. */}
+									<span className={classes(styles.toggleIcon, filtering && styles.toggleIconGone)}>
+										<Icon name="search" />
+									</span>
+									<span className={classes(styles.toggleIcon, !filtering && styles.toggleIconGone)}>
+										<Icon name="cross" />
+									</span>
+								</span>
+							</Button>
+						)}
+						{actions !== undefined && (
+							<span className={styles.headerActions} inert={filtering}>
+								<span className={styles.headerActionsInner}>{actions}</span>
+							</span>
+						)}
+					</span>
+				</div>
+			)}
+			{/* A header passed in, such as a popup's search, ends on its own hairline. */}
+			<ScrollArea
+				separator={header === undefined}
+				className={styles.body}
+				viewportRef={viewportRef}
+			>
+				<div
+					className={classes(styles.list, header !== undefined && styles.listOwnTop)}
+					data-selection-focused={focused ? "true" : undefined}
+				>
 					{children}
 				</div>
 			</ScrollArea>

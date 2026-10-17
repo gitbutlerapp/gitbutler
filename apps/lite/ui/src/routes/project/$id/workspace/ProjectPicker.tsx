@@ -344,6 +344,7 @@ export const ProjectPicker: FC<{ project: ProjectForFrontend }> = (p) => {
 								query={deferredQuery}
 								nothingFound="No projects found"
 								nothingToList="No projects yet"
+								onClearSearch={() => setQuery("")}
 							/>
 						</Combobox.Empty>
 

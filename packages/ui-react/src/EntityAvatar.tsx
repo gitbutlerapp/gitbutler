@@ -145,7 +145,12 @@ export const EntityAvatarPicker: FC<{
 				/>
 			)}
 			{shown.length === 0 ? (
-				<PopupEmpty query={query} nothingFound="Nothing found" nothingToList="Nothing to pick" />
+				<PopupEmpty
+					query={query}
+					nothingFound="Nothing found"
+					nothingToList="Nothing to pick"
+					onClearSearch={() => setQuery("")}
+				/>
 			) : (
 				shown.map(({ name, options, size: optionSize = "title" }) => (
 					<PopupSection key={name}>
