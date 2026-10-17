@@ -162,6 +162,22 @@ impl Detail {
                                     .into_any_element(),
                             );
                         }
+                        if let Some(title) = self.selected_branch_commit_title(project) {
+                            crumbs.push((title.into(), None));
+                            let project = project.clone();
+                            actions.push(
+                                button("copy-commit", "Cherry-pick")
+                                    .style(ButtonStyle::Ghost)
+                                    .tooltip(
+                                        "Copy this commit, then press ⌘V on a branch or commit \
+                                         to put it there. Dragging it there does the same.",
+                                    )
+                                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                        this.copy_branch_commit(&project, cx)
+                                    }))
+                                    .into_any_element(),
+                            );
+                        }
                         if local {
                             let project = project.clone();
                             actions.push(

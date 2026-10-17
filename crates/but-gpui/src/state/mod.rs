@@ -78,6 +78,15 @@ impl Cut {
         }
     }
 
+    /// "Copied" for a cherry-pick, which leaves the commit where it is; "Cut" otherwise.
+    pub fn verb(&self) -> &'static str {
+        if matches!(self, Cut::Pick(..)) {
+            "Copied"
+        } else {
+            "Cut"
+        }
+    }
+
     pub fn describe(&self) -> String {
         match self {
             Cut::Commit(_, id) | Cut::Pick(_, id) => format!("commit {}", id.short()),

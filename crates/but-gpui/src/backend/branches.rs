@@ -56,6 +56,44 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
         .collect())
 }
 
+/// A commit `ref_name` has that the target doesn't.
+#[derive(Debug, Clone)]
+pub struct BranchCommit {
+    pub id: CommitId,
+    pub title: String,
+    /// Seconds since the epoch.
+    pub time: i64,
+}
+
+/// The commits `ref_name` has that the target doesn't, newest first.
+pub fn branch_commits(path: &Path, ref_name: &str) -> Result<Vec<BranchCommit>> {
+    let ctx = open(path)?;
+    let name = gix::refs::FullName::try_from(ref_name)?;
+    let remote = but_core::extract_remote_name_and_short_name(
+        name.as_ref(),
+        &ctx.repo.get()?.remote_names(),
+    );
+    let (short, remote) = match remote {
+        Some((remote, short)) => (short.to_string(), Some(remote)),
+        None => (name.shorten().to_string(), None),
+    };
+    let details = but_api::legacy::workspace::branch_details(&ctx, short, remote)?;
+    Ok(details
+        .commits
+        .into_iter()
+        .map(|commit| BranchCommit {
+            id: CommitId(commit.id),
+            title: commit
+                .message
+                .lines()
+                .next()
+                .map(|line| line.to_str_lossy().into_owned())
+                .unwrap_or_default(),
+            time: (commit.committed_at / 1000) as i64,
+        })
+        .collect())
+}
+
 /// How applying a branch went.
 pub enum ApplyOutcome {
     Applied,
