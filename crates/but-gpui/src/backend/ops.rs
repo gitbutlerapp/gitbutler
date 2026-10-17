@@ -747,7 +747,8 @@ mod tests {
 
     fn uncommitted(path: &Path) -> Vec<crate::backend::FileChange> {
         let shown = crate::backend::Workspace::default();
-        crate::backend::reload_uncommitted(path, shown)
+        let none = Default::default();
+        crate::backend::reload_uncommitted(path, shown, true, &none)
             .unwrap()
             .uncommitted
     }

@@ -157,9 +157,48 @@ pub struct ProjectEntry {
     pub error: Option<SharedString>,
     loading: bool,
     reload_queued: bool,
-    /// The queued reload needs the commits too, not just the worktree.
-    queued_full: bool,
+    /// What the queued reload reads again.
+    queued: Reload,
     watcher: Option<Watcher>,
+}
+
+/// What a reload reads again: everything, or just the uncommitted files of the checkouts
+/// that changed.
+#[derive(Debug, Default)]
+struct Reload {
+    /// The commits and branches too, as after a change in a git directory.
+    full: bool,
+    /// The main checkout's files.
+    main: bool,
+    /// These linked worktrees' files.
+    linked: HashSet<Arc<str>>,
+}
+
+impl Reload {
+    fn full() -> Self {
+        Self {
+            full: true,
+            ..Self::default()
+        }
+    }
+
+    /// Add what a watcher saw: a change in a git directory, or files of a linked worktree
+    /// (by name) or of the main checkout.
+    fn add(&mut self, git: bool, linked: Option<Arc<str>>) {
+        match linked {
+            _ if git => self.full = true,
+            Some(name) => {
+                self.linked.insert(name);
+            }
+            None => self.main = true,
+        }
+    }
+
+    fn merge(&mut self, other: Reload) {
+        self.full |= other.full;
+        self.main |= other.main;
+        self.linked.extend(other.linked);
+    }
 }
 
 impl ProjectEntry {
@@ -214,7 +253,7 @@ pub struct Store {
     save_queued: bool,
     _save_on_quit: Subscription,
     /// Projects whose files changed, and whether that included the git directory.
-    changes: mpsc::UnboundedSender<(ProjectId, bool)>,
+    changes: mpsc::UnboundedSender<(ProjectId, bool, Option<Arc<str>>)>,
     _change_listener: Task<()>,
     _forge_poll: Task<()>,
     /// When each project was last fetched in the background.
@@ -245,13 +284,13 @@ impl Store {
     }
 
     pub fn new(cx: &mut Context<Self>) -> Self {
-        let (changes, mut changed) = mpsc::unbounded::<(ProjectId, bool)>();
+        let (changes, mut changed) = mpsc::unbounded::<(ProjectId, bool, Option<Arc<str>>)>();
         let listener = cx.spawn(async move |this, cx| {
             // While an agent keeps writing, reload at most this often: each reload runs a
             // full status, and back to back they kept a core busy.
             const MIN_INTERVAL: Duration = Duration::from_millis(500);
             let mut last: Option<Instant> = None;
-            while let Some((id, git)) = changed.next().await {
+            while let Some((id, git, linked)) = changed.next().await {
                 // Watchers fire in bursts; let a burst settle before reloading.
                 let throttle = last.map_or(Duration::ZERO, |at| {
                     MIN_INTERVAL.saturating_sub(at.elapsed())
@@ -260,17 +299,18 @@ impl Store {
                     .timer(throttle.max(Duration::from_millis(60)))
                     .await;
                 last = Some(Instant::now());
-                let mut ids = HashMap::from([(id, git)]);
-                while let Ok((id, git)) = changed.try_recv() {
-                    *ids.entry(id).or_default() |= git;
+                let mut reloads: HashMap<ProjectId, Reload> = HashMap::new();
+                reloads.entry(id).or_default().add(git, linked);
+                while let Ok((id, git, linked)) = changed.try_recv() {
+                    reloads.entry(id).or_default().add(git, linked);
                 }
                 let Ok(()) = this.update(cx, |store, cx| {
-                    for (id, git) in ids {
+                    for (id, reload) in reloads {
                         if store.mutating.as_ref() == Some(&id) {
                             continue;
                         }
                         // Worktree files alone can't move commits or branches.
-                        store.load(&id, git, cx);
+                        store.load(&id, reload, cx);
                     }
                 }) else {
                     break;
@@ -428,7 +468,7 @@ impl Store {
                     error: None,
                     loading: false,
                     reload_queued: false,
-                    queued_full: false,
+                    queued: Reload::default(),
                     watcher: None,
                 }
             })
@@ -624,8 +664,8 @@ impl Store {
             let watch_id = id.clone();
             let watcher = backend::run(move || {
                 backend::activate(&project.path)?;
-                backend::watch::watch(&project, move |git| {
-                    changes.unbounded_send((watch_id.clone(), git)).ok();
+                backend::watch::watch(&project, move |git, linked| {
+                    changes.unbounded_send((watch_id.clone(), git, linked)).ok();
                 })
             })
             .await;
@@ -658,24 +698,24 @@ impl Store {
 
     /// Reload `id`'s workspace, coalescing requests that arrive while a load is running.
     pub fn reload(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        self.load(id, true, cx);
+        self.load(id, Reload::full(), cx);
     }
 
-    /// Load `id` again: all of it, or with `full` false just its uncommitted files on top
-    /// of the commits already shown, which skips walking the commit graph.
-    fn load(&mut self, id: &ProjectId, full: bool, cx: &mut Context<Self>) {
+    /// Load `id` again: all of it, or unless `reload` is full, just the uncommitted files it
+    /// names on top of the commits already shown, which skips walking the commit graph.
+    fn load(&mut self, id: &ProjectId, reload: Reload, cx: &mut Context<Self>) {
         let Some(entry) = self.project_mut(id) else {
             self.settled(id, cx);
             return;
         };
         if entry.loading {
             entry.reload_queued = true;
-            entry.queued_full |= full;
+            entry.queued.merge(reload);
             return;
         }
         entry.loading = true;
         // Loads of one project don't overlap, so these commits are still current.
-        let shown = (!full).then(|| entry.workspace.clone()).flatten();
+        let shown = (!reload.full).then(|| entry.workspace.clone()).flatten();
         let path = entry.project.path.clone();
         let id = id.clone();
         // Started after the mutation finished, so it sees what the mutation did.
@@ -685,7 +725,9 @@ impl Store {
             // While editing, what's resolved changes with the files, so it's read again too.
             let shown = shown.filter(|shown| shown.editing.is_none());
             let result = backend::run(move || match shown {
-                Some(shown) => backend::reload_uncommitted(&path, shown),
+                Some(shown) => {
+                    backend::reload_uncommitted(&path, shown, reload.main, &reload.linked)
+                }
                 None => backend::load_workspace(&path),
             })
             .await;
@@ -696,7 +738,7 @@ impl Store {
                 };
                 entry.loading = false;
                 let again = std::mem::take(&mut entry.reload_queued);
-                let again_full = std::mem::take(&mut entry.queued_full);
+                let queued = std::mem::take(&mut entry.queued);
                 match result {
                     Ok(workspace) => store.workspace_loaded(&id, workspace, !again, cx),
                     Err(err) => entry.error = Some(load_error(&entry.project, &err)),
@@ -712,7 +754,7 @@ impl Store {
                 cx.emit(StoreEvent::Loaded(id.clone()));
                 cx.notify();
                 if again {
-                    store.load(&id, again_full, cx);
+                    store.load(&id, queued, cx);
                 }
             })
             .ok();
