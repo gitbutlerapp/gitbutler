@@ -1,4 +1,3 @@
-use but_core::RefMetadata;
 use but_rebase::graph_rebase::mutate::InsertSide;
 
 use crate::support::{assert_workspace_ref, repo_with_feature_branch};
@@ -59,9 +58,9 @@ fn branch_create_above_checked_out_ref_checks_out_new_ref_in_ad_hoc_workspace() 
     assert_eq!(head_name, new_ref);
     assert_workspace_ref(&result.workspace, "refs/heads/top");
 
-    let order = ctx
-        .meta()?
-        .branch_stack_order(anchor_ref.as_ref())?
+    let order_metadata = ctx.db.get_cache()?.meta()?;
+    let order = order_metadata
+        .branch_stack_order(anchor_ref.as_ref())
         .expect("ad-hoc branch creation above a local ref persists branch order");
     assert_eq!(
         order,
@@ -100,9 +99,9 @@ fn branch_create_below_checked_out_ref_keeps_head_in_ad_hoc_workspace() -> anyho
     assert_workspace_ref(&result.workspace, "refs/heads/main");
     assert!(repo.try_find_reference(new_ref.as_ref())?.is_some());
 
-    let order = ctx
-        .meta()?
-        .branch_stack_order(anchor_ref.as_ref())?
+    let order_metadata = ctx.db.get_cache()?.meta()?;
+    let order = order_metadata
+        .branch_stack_order(anchor_ref.as_ref())
         .expect("ad-hoc branch creation below a local ref persists branch order");
     assert_eq!(
         order,
@@ -207,6 +206,32 @@ fn create_below_bottom_commit(
 }
 
 #[test]
+fn branch_create_above_managed_reference_keeps_new_branch_first() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = context_with_managed_two_commit_segments()?;
+    let mut expected = cached_segments(&ctx)?;
+    let mut anchor: gix::refs::FullName = "refs/heads/C".try_into()?;
+    for name in ["empty-lower", "empty-upper"] {
+        let new_ref: gix::refs::FullName = format!("refs/heads/{name}").try_into()?;
+        but_api::branch::branch_create(
+            &mut ctx,
+            Some(new_ref.clone()),
+            but_api::branch::json::BranchCreatePlacement::Dependent {
+                relative_to: but_api::commit::json::RelativeTo::Reference(anchor),
+                side: InsertSide::Above,
+            },
+        )?;
+        expected.insert(0, (name.into(), vec![]));
+        assert_eq!(
+            cached_segments(&ctx)?,
+            expected,
+            "each new empty branch stays above its anchor and preserves commit ownership"
+        );
+        anchor = new_ref;
+    }
+    Ok(())
+}
+
+#[test]
 fn branch_create_below_bottom_commit_of_bottom_segment_keeps_its_commits() -> anyhow::Result<()> {
     let (mut ctx, _tmp) = context_with_managed_two_commit_segments()?;
     let before = cached_segments(&ctx)?;
@@ -244,6 +269,61 @@ fn branch_create_below_bottom_commit_of_middle_segment_keeps_neighbours() -> any
         expected,
         "{}",
         crate::support::workspace_graph(&ctx)?
+    );
+    Ok(())
+}
+
+#[test]
+fn failed_branch_creation_rolls_back_earlier_metadata_writes() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let new_ref: gix::refs::FullName = "refs/heads/bottom".try_into()?;
+    let anchor_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
+    crate::support::workspace_graph(&ctx)?;
+    let observer = but_db::DbHandle::new_in_directory(&ctx.project_data_dir)?;
+    let metadata_before = observer.meta()?;
+    let order_before = observer.branch_order().get_snapshot()?;
+    let refresh = ctx.project_data_dir.join("REFRESH");
+    if refresh.exists() {
+        std::fs::remove_file(&refresh)?;
+    }
+    let sql = rusqlite::Connection::open(but_db::DbHandle::db_file_path(&ctx.project_data_dir))?;
+    sql.execute_batch(
+        "CREATE TRIGGER reject_new_branch BEFORE INSERT ON branch_order
+         WHEN NEW.branch_ref_name = CAST('refs/heads/bottom' AS BLOB)
+          AND EXISTS (SELECT 1 FROM branch_order
+                      WHERE branch_ref_name = CAST('refs/heads/main' AS BLOB)
+                        AND parent_ref_name = CAST('refs/heads/bottom' AS BLOB))
+         BEGIN SELECT RAISE(ABORT, 'reject order after saving earlier branch'); END;",
+    )?;
+
+    let error = but_api::branch::branch_create(
+        &mut ctx,
+        Some(new_ref),
+        but_api::branch::json::BranchCreatePlacement::Dependent {
+            relative_to: but_api::commit::json::RelativeTo::Reference(anchor_ref),
+            side: InsertSide::Below,
+        },
+    )
+    .err()
+    .expect("the final order entry is rejected after the earlier branch was saved");
+    assert!(
+        format!("{error:#}").contains("reject order after saving earlier branch"),
+        "the regression reaches the late metadata write"
+    );
+    assert_eq!(
+        observer.branch_order().get_snapshot()?,
+        order_before,
+        "an earlier successful metadata write rolls back with the failed operation"
+    );
+    assert_eq!(
+        observer.meta()?,
+        metadata_before,
+        "failed creation leaves all reference metadata unchanged"
+    );
+    assert!(
+        !refresh.exists(),
+        "rolled-back metadata does not notify observers"
     );
     Ok(())
 }

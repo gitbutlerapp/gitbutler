@@ -127,10 +127,8 @@ fn create_branch_for_anonymous_segment(
         ))
     })?;
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
-    let mut meta = ctx.meta()?;
     let (new_ref, _ws) = but_transaction::with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         snapshot_details,
         DryRun::No,

@@ -13,7 +13,6 @@ pub struct Options {
 }
 
 use anyhow::{Context as _, bail};
-use but_core::RefMetadata;
 use but_error::bail_precondition;
 use gix::refs::transaction::PreviousValue;
 
@@ -77,7 +76,7 @@ pub fn remove_reference(
     ref_name: &gix::refs::FullNameRef,
     repo: &mut gix::Repository,
     workspace: &but_graph::Workspace,
-    meta: &mut impl RefMetadata,
+    db: &mut but_db::ConnectionMut<'_, '_>,
     Options {
         avoid_anonymous_stacks,
         keep_metadata,
@@ -113,7 +112,7 @@ pub fn remove_reference(
     let deleted_meta = if keep_metadata {
         false
     } else {
-        meta.remove(ref_name)?
+        db.meta_mut()?.remove(ref_name)?
     };
 
     // Unlikely, hard to test, but can happen.
@@ -122,9 +121,10 @@ pub fn remove_reference(
     }
 
     let stack_id = stack.id;
-    let mut graph = workspace
-        .graph
-        .redo_traversal_with_overlay(repo, meta, Default::default())?;
+    let mut graph =
+        workspace
+            .graph
+            .redo_traversal_with_overlay(repo, &db.meta()?, Default::default())?;
     let ws = graph.into_workspace()?;
     if avoid_anonymous_stacks {
         let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
@@ -157,7 +157,7 @@ pub fn remove_reference(
             )?;
             graph = ws
                 .graph
-                .redo_traversal_with_overlay(repo, meta, Default::default())?;
+                .redo_traversal_with_overlay(repo, &db.meta()?, Default::default())?;
             Ok(Some(graph.into_workspace()?))
         } else {
             Ok(Some(ws))

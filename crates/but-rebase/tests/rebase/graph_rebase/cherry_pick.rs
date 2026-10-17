@@ -21,7 +21,7 @@ fn get_parents(id: &gix::Id) -> Result<Vec<gix::ObjectId>> {
 
 #[test]
 fn basic_cherry_pick_clean() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -75,7 +75,7 @@ Commit {
 // Basic cherry pick - conflicting
 #[test]
 fn basic_cherry_pick_cp_conflicts() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("single-conflicting-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -138,7 +138,7 @@ Commit {
 // Basic cherry pick - identity
 #[test]
 fn basic_cherry_pick_identity() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("single-conflicting-commit")?;
     let parents = get_parents(&target)?;
@@ -168,7 +168,7 @@ Identity {
 // single parent to multiple parents - clean... this one is SFW
 #[test]
 fn single_parent_to_multiple_parents_clean() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -225,7 +225,7 @@ Commit {
 // single parent to multiple parents - cp conflicts
 #[test]
 fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("single-conflicting-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -293,7 +293,7 @@ Commit {
 // single parent to multiple parents - parents conflict
 #[test]
 fn single_parent_to_multiple_parents_parents_conflict() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -332,7 +332,7 @@ FailedToMergeBases {
 #[test]
 fn synthetic_empty_merge_template_with_conflicting_new_parents_materializes_conflicted_merge_commit()
 -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let template_source = repo.rev_parse_single("base")?.object()?.peel_to_commit()?;
     let mut template_commit: gix::objs::Commit = template_source.decode()?.try_into()?;
@@ -423,7 +423,7 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
 
 #[test]
 fn synthetic_empty_merge_template_with_unrelated_new_parents_uses_empty_base_tree() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("disjoint-orphan-branches")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("disjoint-orphan-branches")?;
 
     let template_source = repo.rev_parse_single("main")?.object()?.peel_to_commit()?;
     let mut template_commit: gix::objs::Commit = template_source.decode()?.try_into()?;
@@ -490,7 +490,7 @@ Commit {
 // multiple parent to single parent - clean
 #[test]
 fn multiple_parents_to_single_parent_clean() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("merge-clean-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -545,7 +545,7 @@ Commit {
 // multiple parent to single parent - cp conflicts
 #[test]
 fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("merge-conflicting-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -611,7 +611,7 @@ Commit {
 // multiple parent to single parent - parents conflict
 #[test]
 fn multiple_parents_to_single_parent_parents_conflict() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo
         .rev_parse_single("merge-clean-commit-conflicting-parents")?
@@ -651,7 +651,7 @@ FailedToMergeBases {
 // multiple parents to multiple parents - clean
 #[test]
 fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("merge-clean-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -708,7 +708,7 @@ Commit {
 // multiple parents to multiple parents - cp conflicts
 #[test]
 fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("merge-conflicting-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -778,7 +778,7 @@ Commit {
 // multiple parents to multiple parents - parents conflict
 #[test]
 fn multiple_parents_to_multiple_parents_base_parents_conflict() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo
         .rev_parse_single("merge-clean-commit-conflicting-parents")?
@@ -818,7 +818,7 @@ FailedToMergeBases {
 
 #[test]
 fn multiple_parents_to_multiple_parents_target_parents_conflict() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("merge-clean-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -857,7 +857,7 @@ FailedToMergeBases {
 // multiple parents to multiple parents - identity
 #[test]
 fn multiple_parents_to_multiple_parents_identity() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("merge-clean-commit")?;
     let parents = get_parents(&target)?;
@@ -889,7 +889,7 @@ Identity {
 // no parents cherry pick - is identity
 #[test]
 fn no_parents_identity() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("base")?;
 
@@ -920,7 +920,7 @@ Identity {
 // single parent to no parents - clean
 #[test]
 fn single_parent_to_no_parents_clean() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
 
@@ -972,7 +972,7 @@ Commit {
 // no parents to single parent - clean
 #[test]
 fn no_parents_to_single_parent_clean() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("base")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -1026,7 +1026,7 @@ aa3d213
 // no parents to single parent - cp conflicts
 #[test]
 fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("base-conflicting")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
@@ -1086,7 +1086,7 @@ Commit {
 
 #[test]
 fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
 
     let target = repo.rev_parse_single("merge-conflicting-commit")?;
     let parents = get_parents(&target)?;
@@ -1173,7 +1173,7 @@ Commit {
 
 #[test]
 fn cherry_pick_recursive_merge() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick-recursive-merge")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-recursive-merge")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1256,7 +1256,7 @@ Commit {
 /// (which disables rename detection), the conflict is correctly surfaced.
 #[test]
 fn workspace_merge_surfaces_delete_vs_modify_conflict() -> Result<()> {
-    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick-rename-detection")?;
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-rename-detection")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,

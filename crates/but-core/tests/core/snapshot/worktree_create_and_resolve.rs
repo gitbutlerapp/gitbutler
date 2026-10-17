@@ -205,3 +205,35 @@ Outcome {
     );
     Ok(())
 }
+
+#[test]
+fn file_replaced_by_directory_is_independent_of_change_order() -> anyhow::Result<()> {
+    let (repo, _tmp) = but_testsupport::writable_scenario("single-unsigned");
+    let directory = repo.workdir().expect("fixture has a worktree").join("base");
+    std::fs::remove_file(&directory)?;
+    std::fs::create_dir(&directory)?;
+    std::fs::write(directory.join("child"), "replacement\n")?;
+    let (head, mut state) = args_for_worktree_changes(&repo)?;
+    let out = snapshot::create_tree(head, state.clone())?;
+    let tree = out.worktree.expect("the file was replaced by a directory");
+    // The removed file must not erase its replacement child, regardless of change order.
+    snapbox::assert_data_eq!(
+        visualize_tree(tree.attach(&repo))
+            .to_string()
+            .replace(" \n", "\n"),
+        snapbox::str![[r#"
+803471f
+└── base:c6ba23e
+    └── child:100644:4804f74 "replacement\n"
+
+"#]]
+        .raw(),
+    );
+    state.changes.changes.reverse();
+    assert_eq!(
+        snapshot::create_tree(head, state)?.worktree,
+        Some(tree),
+        "applying the child before deleting its old parent leaf preserves the same tree"
+    );
+    Ok(())
+}

@@ -59,7 +59,11 @@ use but_utils::OnDemand;
 use rusqlite::ErrorCode;
 use std::path::PathBuf;
 
+mod connection;
 mod handle;
+mod metadata;
+pub use connection::{Connection, ConnectionMut};
+pub use metadata::{Metadata, MetadataMut};
 mod table;
 mod transaction;
 
@@ -80,7 +84,6 @@ pub use table::{
     gerrit_metadata::{GerritMeta, GerritMetadataHandle},
     forge_reviews::ForgeReview,
     ci_checks::CiCheck,
-    virtual_branches::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot, VirtualBranchesHandle, VirtualBranchesHandleMut},
     worktree_meta::{WorktreeMeta, WorktreeMetaHandle, WorktreeMetaHandleMut},
 };
 
@@ -139,8 +142,8 @@ pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::gerrit_metadata::M,
     table::forge_reviews::M,
     table::ci_checks::M,
-    table::virtual_branches::M,
     table::worktree_meta::M,
+    metadata::M,
 ];
 
 /// A migration and all the necessary data associated with it to perform it once.
@@ -168,7 +171,7 @@ pub struct M<'a> {
 /// harmless and always preferred over a bump for routine cleanup.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SchemaVersion {
-    /// The current forward-compatible schema line.
+    /// The original forward-compatible schema line.
     ///
     /// Keep using `Zero` for migrations that older binaries can still tolerate after the
     /// migration runs, such as adding tables or columns that they don't require.
@@ -176,12 +179,18 @@ pub enum SchemaVersion {
     /// Switch to `One` only once a migration makes the database unsafe for binaries that only
     /// understand `Zero`, such as removing or reinterpreting persisted data they still use.
     Zero = 0,
-    /// The first forward-incompatible schema line.
+    /// Per-reference workspace and branch metadata.
     ///
     /// Use `One` once a migration requires older `Zero`-only binaries to reject the
     /// database, and keep using it until the next forward-incompatible boundary is introduced.
-    /// Document here WHY the schema is breaking application forward compatibility.
+    /// The per-reference metadata migration removes the four `vb_*` tables. Older binaries
+    /// must reject this database instead of recreating or writing the obsolete singleton state.
     One = 1,
+    /// Byte-preserving ad-hoc branch ordering.
+    ///
+    /// Branch-order names are BLOBs. Earlier binaries read them as UTF-8 strings and must
+    /// reject the database rather than fail while loading or changing reference metadata.
+    Two = 2,
 }
 
 /// A structure to receive an application-wide cache.
@@ -223,4 +232,8 @@ pub struct Transaction<'conn> {
     /// If `true`, on drop we will reset the busy timeout to the default value, as previously the connection
     /// was changed to non-blocking.
     reset_to_blocking_on_drop: bool,
+    /// Project database path for commit-time refresh notifications; absent for caches and memory.
+    project_db_path: Option<&'conn std::path::Path>,
+    /// Successful metadata writes awaiting the outer commit.
+    metadata_changed: bool,
 }

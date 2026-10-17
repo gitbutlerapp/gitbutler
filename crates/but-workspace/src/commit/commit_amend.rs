@@ -1,7 +1,7 @@
 //! An action to amend an existing commit with selected changes.
 
 use anyhow::{Result, bail};
-use but_core::{DiffSpec, RefMetadata};
+use but_core::DiffSpec;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector,
 };
@@ -12,11 +12,11 @@ use super::{ChangeSource, cancel_consumed_changes};
 
 /// The result of amending a commit in the graph rebase editor.
 #[derive(Debug)]
-pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct CommitAmendOutcome<'ws, 'db, 'conn> {
     /// A successful rebase result for continuing operations. This will be
     /// always provided regardless of whether a commit was actually
     /// created.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'ws, 'db, 'conn>,
     /// Selector pointing to the amended commit, if the amend was
     /// successful.
     ///
@@ -52,13 +52,13 @@ pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
 /// this particular function call. The provided `context_lines` MUST align
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
-pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn commit_amend<'ws, 'db, 'conn>(
+    mut editor: Editor<'ws, 'db, 'conn>,
     commit: impl ToCommitSelector,
     changes: Vec<DiffSpec>,
     context_lines: u32,
     source: ChangeSource<'_>,
-) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
+) -> Result<CommitAmendOutcome<'ws, 'db, 'conn>> {
     let (target_selector, target) = editor.find_selectable_commit(commit)?;
 
     let target_id = target.id;

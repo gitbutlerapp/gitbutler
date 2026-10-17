@@ -1,8 +1,5 @@
 use anyhow::Context as _;
-use but_core::{
-    RefMetadata,
-    sync::{RepoExclusive, RepoShared},
-};
+use but_core::sync::{RepoExclusive, RepoShared};
 use but_ctx::Context;
 use but_workspace::{RefInfo, branch::create_reference::Anchor};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
@@ -51,8 +48,7 @@ pub fn new(
         )?
     };
 
-    let mut meta = ctx.meta()?;
-    Ok(run(ctx, &mut meta, guard.write_permission(), operation)?)
+    Ok(run(ctx, guard.write_permission(), operation)?)
 }
 
 fn resolve(
@@ -187,34 +183,23 @@ pub enum NewStackedBranchTarget {
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     operation: NewOperation,
 ) -> anyhow::Result<NewOutcome> {
     match operation {
-        NewOperation::NewUnstackedBranch(op) => op.execute(ctx, meta, perm),
-        NewOperation::NewStackedBranch(op) => op.execute(ctx, meta, perm),
+        NewOperation::NewUnstackedBranch(op) => op.execute(ctx, perm),
+        NewOperation::NewStackedBranch(op) => op.execute(ctx, perm),
     }
 }
 
 impl NewUnstackedBranchOperation {
-    fn execute(
-        self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<NewOutcome> {
+    fn execute(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<NewOutcome> {
         let NewUnstackedBranchOperation { name, switch } = self;
         let sbm = SingleBranchMode::new(ctx, perm.read_permission(), switch)?;
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
 
-        let (new_ref, _ws) = sbm.transaction_with_workspace_setup(
-            ctx,
-            meta,
-            snapshot_details,
-            perm,
-            true,
-            |mut tx| {
+        let (new_ref, _ws) =
+            sbm.transaction_with_workspace_setup(ctx, snapshot_details, perm, true, |mut tx| {
                 let new_ref = if let Some(name) = name {
                     name.clone()
                 } else {
@@ -238,8 +223,7 @@ impl NewUnstackedBranchOperation {
                 }
 
                 Ok(but_transaction::Commit(new_ref))
-            },
-        )?;
+            })?;
 
         Ok(NewOutcome {
             name: new_ref,
@@ -249,12 +233,7 @@ impl NewUnstackedBranchOperation {
 }
 
 impl NewStackedBranchOperation {
-    fn execute(
-        self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<NewOutcome> {
+    fn execute(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<NewOutcome> {
         let NewStackedBranchOperation {
             name,
             target,
@@ -265,13 +244,8 @@ impl NewStackedBranchOperation {
         let sbm = SingleBranchMode::new(ctx, perm.read_permission(), switch)?;
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
 
-        let (new_ref, _ws) = sbm.transaction_with_workspace_setup(
-            ctx,
-            meta,
-            snapshot_details,
-            perm,
-            false,
-            |mut tx| {
+        let (new_ref, _ws) =
+            sbm.transaction_with_workspace_setup(ctx, snapshot_details, perm, false, |mut tx| {
                 let new_ref = if let Some(name) = name {
                     name.clone()
                 } else {
@@ -308,8 +282,7 @@ impl NewStackedBranchOperation {
                 }
 
                 Ok(but_transaction::Commit(new_ref))
-            },
-        )?;
+            })?;
 
         Ok(NewOutcome {
             name: new_ref,
