@@ -1184,6 +1184,12 @@ impl Navigator {
                 }];
                 if expanded {
                     items.push(action("Fetch", &Fetch));
+                    if crate::pr::on_forge(store, target) {
+                        items.push(action(
+                            "Apply a pull request…",
+                            &crate::pr::ApplyPullRequest,
+                        ));
+                    }
                     if let Some(target) = store.workspace(project).and_then(|ws| ws.target.as_ref())
                     {
                         items.push(MenuItem::action(

@@ -9,6 +9,7 @@ use gpui::{
 
 use crate::app::AppView;
 use crate::backend::ai;
+use crate::backend::branches::{self, ApplyOutcome};
 use crate::backend::reviews::{self, MergeMethod};
 use crate::backend::{self, PushState, ReviewState};
 use crate::state::{Overlay, ProjectId, Selection, Store};
@@ -26,6 +27,7 @@ actions!(
         ToggleDraft,
         ToggleAutoMerge,
         RequestReview,
+        ApplyPullRequest,
         MergePullRequest,
         ClosePullRequest,
     ]
@@ -525,6 +527,62 @@ impl AppView {
                 "Merges once its checks pass"
             },
             cx,
+        );
+    }
+
+    /// Ask for a pull request's number, then fetch its branch, from a fork too, and apply
+    /// it to the workspace to try it out.
+    pub fn apply_pull_request(
+        &mut self,
+        _: &ApplyPullRequest,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(selection) = self.store.read(cx).selection.clone() else {
+            return;
+        };
+        if !on_forge(self.store.read(cx), &selection) {
+            return;
+        }
+        let project = selection.project().clone();
+        let input = cx.new(|cx| TextInput::new("Pull request number", false, cx));
+        self.open_prompt(
+            "Apply a pull request",
+            Some("Its branch is fetched, from a fork too, and added to the workspace.".into()),
+            "Apply",
+            input,
+            None,
+            window,
+            cx,
+            move |this, text, _, cx| {
+                let Ok(number) = text.trim().trim_start_matches('#').parse::<u64>() else {
+                    let message = "That isn't a pull request number";
+                    return this.store.update(cx, |store, cx| store.snack(message, cx));
+                };
+                let selected = project.clone();
+                this.store.update(cx, |store, cx| {
+                    store.run(
+                        &project,
+                        format!("Apply pull request #{number}"),
+                        Overlay::default(),
+                        move |path, _| branches::apply_review(path, number),
+                        move |store, (applied, branch), cx| match applied {
+                            ApplyOutcome::Applied | ApplyOutcome::AlreadyApplied => {
+                                if let Some(branch) = branch {
+                                    store.select(Some(Selection::Branch(selected, branch)), cx);
+                                }
+                                store.snack_undoable(format!("Applied #{number}"), cx)
+                            }
+                            ApplyOutcome::Conflicts(stacks) => store.error(
+                                format!("#{number} wasn't applied"),
+                                format!("It conflicts with {}", stacks.join(", ")),
+                                cx,
+                            ),
+                        },
+                        cx,
+                    )
+                })
+            },
         );
     }
 
