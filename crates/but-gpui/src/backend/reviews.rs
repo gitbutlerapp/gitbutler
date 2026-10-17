@@ -95,9 +95,11 @@ fn tracked_name(ctx: &but_ctx::Context, branch: &str) -> Result<Option<String>> 
         .find(|segment| (segment.ref_info.as_ref()).is_some_and(|r| r.ref_name.as_bstr() == branch))
         .and_then(|segment| segment.remote_tracking_ref_name.as_ref())
         .and_then(|name| {
-            let name = std::str::from_utf8(name.as_bstr()).ok()?;
-            let (_remote, branch) = name.strip_prefix("refs/remotes/")?.split_once('/')?;
-            Some(branch.to_owned())
+            // The longest remote name that fits, as remote names can hold slashes too.
+            let remotes = ctx.repo.get().ok()?.remote_names();
+            let (_remote, branch) =
+                but_core::extract_remote_name_and_short_name(name.as_ref(), &remotes)?;
+            Some(branch.to_string())
         });
     Ok(tracked)
 }
