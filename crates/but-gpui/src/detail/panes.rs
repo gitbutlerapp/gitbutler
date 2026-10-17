@@ -1137,9 +1137,8 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
-        let Some(branch) = store
-            .workspace(project)
-            .and_then(|ws| ws.find_branch(ref_name))
+        let Some((ws, branch)) =
+            (store.workspace(project)).and_then(|ws| Some((ws, ws.find_branch(ref_name)?)))
         else {
             return empty_state("Branch not found", "", theme);
         };
@@ -1154,15 +1153,15 @@ impl Detail {
         // Resolving the oldest conflict first, even in a branch below, rebases the rest onto
         // its result. Commits list newest first, and a stack's branches top first.
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
-        let from_bottom: Vec<&backend::Branch> = (store.workspace(project))
-            .and_then(|ws| ws.stack_of(ref_name))
-            .map(|(stack, at)| stack.branches[at..].iter().rev().collect())
-            .unwrap_or_default();
-        let oldest = from_bottom.into_iter().find_map(|holder| {
-            let commit = holder.commits.iter().rev().find(|c| c.conflicted)?;
-            Some((holder, commit))
-        });
-        let resolve_oldest = oldest.filter(|_| conflicted > 0).map(|(holder, commit)| {
+        let oldest = (ws.stack_of(ref_name))
+            .filter(|_| conflicted > 0)
+            .and_then(|(stack, at)| {
+                stack.branches[at..].iter().rev().find_map(|holder| {
+                    let commit = holder.commits.iter().rev().find(|c| c.conflicted)?;
+                    Some((holder, commit))
+                })
+            });
+        let resolve_oldest = oldest.map(|(holder, commit)| {
             let (store, oldest) = (
                 self.store.clone(),
                 Selection::Commit(project.clone(), commit.id),
@@ -1221,8 +1220,7 @@ impl Detail {
                 let feedback = (self.feedback.as_ref())
                     .filter(|(p, number, _)| p == project && *number == review.number)
                     .map(|(.., feedback)| feedback);
-                let github =
-                    store.workspace(project).and_then(|ws| ws.forge.as_deref()) == Some("GitHub");
+                let github = ws.forge.as_deref() == Some("GitHub");
                 // At most half the pane, scrolling on its own, so the files stay in view.
                 el.child(
                     v_flex()
@@ -1247,8 +1245,7 @@ impl Detail {
                 )
             })
             .when(!branch.incoming.is_empty(), |el| {
-                let stacked =
-                    (store.workspace(project)).is_some_and(|ws| ws.has_branches_above(ref_name));
+                let stacked = ws.has_branches_above(ref_name);
                 el.child(render_incoming(&branch.incoming, !stacked, theme, cx))
             })
             .child(files)

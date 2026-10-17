@@ -404,7 +404,7 @@ impl AppView {
     fn push_selected(&mut self, _: &Push, _: &mut Window, cx: &mut Context<Self>) {
         if let Some((project, ref_name)) = self.selected_branch(cx) {
             self.store
-                .update(cx, |store, cx| store.push(&project, ref_name, cx));
+                .update(cx, |store, cx| store.push(&project, ref_name, true, cx));
         }
     }
 
@@ -1041,12 +1041,9 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(path) = self.store.read(cx).path(&project) else {
-            return;
-        };
         let checked = branch.clone();
-        let check = move || {
-            let found = backend::update_conflicts(&path, checked.as_deref())?;
+        let check = move |path: &Path| {
+            let found = backend::update_conflicts(path, checked.as_deref())?;
             let mut detail = Vec::new();
             if !found.branches.is_empty() {
                 detail.push(format!(
@@ -1083,20 +1080,23 @@ impl AppView {
         );
     }
 
-    /// Run `check` off the UI thread, then `then` straight away when it has nothing to warn
-    /// about, or after asking with what it says. A failed check leaves it to `then` to
-    /// report what's wrong.
+    /// Run `check` on the project's folder off the UI thread, then `then` straight away
+    /// when it has nothing to warn about, or after asking with what it says. A failed check
+    /// leaves it to `then` to report what's wrong.
     #[allow(clippy::too_many_arguments)]
     pub fn check_then(
         &mut self,
         project: &ProjectId,
-        check: impl FnOnce() -> anyhow::Result<Option<String>> + Send + 'static,
+        check: impl FnOnce(&Path) -> anyhow::Result<Option<String>> + Send + 'static,
         title: &'static str,
         confirm: &'static str,
         window: &mut Window,
         cx: &mut Context<Self>,
         then: impl FnOnce(&mut AppView, &mut Context<AppView>) + 'static,
     ) {
+        let Some(path) = self.store.read(cx).path(project) else {
+            return;
+        };
         // Asking again while it checks would queue the operation twice.
         if !self.checking.insert(project.clone()) {
             return;
@@ -1104,7 +1104,7 @@ impl AppView {
         cx.notify();
         let project = project.clone();
         cx.spawn_in(window, async move |this, cx| {
-            let warning = backend::run(check).await.ok().flatten();
+            let warning = backend::run(move || check(&path)).await.ok().flatten();
             this.update_in(cx, |this, window, cx| {
                 this.checking.remove(&project);
                 cx.notify();

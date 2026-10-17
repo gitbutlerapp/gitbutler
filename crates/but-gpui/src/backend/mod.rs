@@ -80,14 +80,14 @@ pub(crate) fn open(path: &Path) -> Result<Context> {
 pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
+    let uncommitted = worktree_files(&*ctx.repo.get()?)?;
     if let Some(editing) = edit::editing(&ctx)? {
         return Ok(Workspace {
-            uncommitted: worktree_files(&*ctx.repo.get()?)?,
+            uncommitted,
             editing: Some(editing),
             ..Default::default()
         });
     }
-    let uncommitted = worktree_files(&*ctx.repo.get()?)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
 
     let mut stacks: Vec<Stack> = info
@@ -388,8 +388,8 @@ impl DiffSource {
     }
 }
 
-/// Uncommitted files, each with when it was last written. With `conflicts`, the files the
-/// index has conflicted too.
+/// Uncommitted files, each with when it was last written, and the files the index has
+/// conflicted, as a merge leaves them.
 fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
     let changes = but_core::diff::worktree_changes(repo)?;
     let ui_changes: but_core::ui::WorktreeChanges = changes.clone().into();
