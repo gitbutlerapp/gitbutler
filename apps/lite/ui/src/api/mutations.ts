@@ -78,6 +78,12 @@ declare module "@tanstack/react-query" {
 	}
 }
 
+export const useRelaunch = () =>
+	useMutation({
+		mutationFn: () => window.lite.relaunch(),
+		meta: { failureTitle: "Could not restart" },
+	});
+
 export const useInstallCli = () =>
 	useMutation({
 		mutationFn: () => window.lite.installCli(),
