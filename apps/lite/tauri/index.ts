@@ -1,4 +1,5 @@
 import { createLiteApi } from "#electron/lite-api.ts";
+import "./login.ts";
 import { tauriTransport } from "./transport.ts";
 
 window.lite = createLiteApi(tauriTransport);
