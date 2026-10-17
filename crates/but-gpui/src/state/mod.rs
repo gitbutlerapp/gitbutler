@@ -26,6 +26,12 @@ use saved::{Restored, Saved};
 
 pub type ProjectId = SharedString;
 
+/// Where the review marks of linked worktree `name`'s files are kept, apart from those of
+/// the project's own checkout, which are kept under the project.
+pub fn worktree_review_scope(project: &str, name: &str) -> ProjectId {
+    format!("{project}#{name}").into()
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Selection {
     Project(ProjectId),
@@ -716,6 +722,7 @@ impl Store {
         entry.loading = true;
         // Loads of one project don't overlap, so these commits are still current.
         let shown = (!reload.full).then(|| entry.workspace.clone()).flatten();
+        let full = shown.is_none();
         let path = entry.project.path.clone();
         let id = id.clone();
         // Started after the mutation finished, so it sees what the mutation did.
@@ -740,7 +747,12 @@ impl Store {
                 let again = std::mem::take(&mut entry.reload_queued);
                 let queued = std::mem::take(&mut entry.queued);
                 match result {
-                    Ok(workspace) => store.workspace_loaded(&id, workspace, !again, cx),
+                    Ok(workspace) => {
+                        if full {
+                            store.forget_gone_worktrees(&id, &workspace);
+                        }
+                        store.workspace_loaded(&id, workspace, !again, cx)
+                    }
                     Err(err) => entry.error = Some(load_error(&entry.project, &err)),
                 }
                 // A queued reload has newer data; checking against this one could drop a
@@ -760,6 +772,22 @@ impl Store {
             .ok();
         })
         .detach();
+    }
+
+    /// Forget the review marks of `id`'s worktrees that a full load found gone, neither
+    /// listed nor archived. Not while editing, which lists no worktrees.
+    fn forget_gone_worktrees(&mut self, id: &ProjectId, workspace: &Workspace) {
+        if workspace.editing.is_some() {
+            return;
+        }
+        let prefix = format!("{id}#");
+        let names: HashSet<&str> = (workspace.worktrees.iter())
+            .map(|worktree| &*worktree.name)
+            .chain(workspace.archived_worktrees.iter().map(|name| &**name))
+            .collect();
+        self.seen.files.retain(|scope, _| {
+            (scope.strip_prefix(&prefix)).is_none_or(|name| names.contains(name))
+        });
     }
 
     /// End the mutation in `busy` once `id` has loaded what it did, or can't load at all,
@@ -912,6 +940,16 @@ impl Store {
             .collect();
         if let Some(reviewed) = self.seen.files.get_mut(id.as_ref()) {
             reviewed.retain(|path, _| files.contains(path.as_str()));
+        }
+        // A linked worktree's marks go the same way, file by file.
+        for worktree in &workspace.worktrees {
+            let scope = worktree_review_scope(id, &worktree.name);
+            if let Some(reviewed) = self.seen.files.get_mut(scope.as_ref()) {
+                let files: HashSet<&str> = (worktree.uncommitted.iter())
+                    .map(|f| f.path.as_str())
+                    .collect();
+                reviewed.retain(|path, _| files.contains(path.as_str()));
+            }
         }
         // An agent amending or rebasing the selected commit gives it a new id but keeps its
         // change id; stay on it.

@@ -227,8 +227,30 @@ impl Detail {
                         }
                     }
                 }
-                Selection::Worktree(_, name) => {
+                Selection::Worktree(project, name) => {
                     crumbs.push((format!("Worktree {name}").into(), None));
+                    let scope = crate::state::worktree_review_scope(project, name);
+                    let unreviewed: Vec<FileChange> = (workspace.into_iter())
+                        .flat_map(|ws| &ws.worktrees)
+                        .filter(|w| w.name == *name)
+                        .flat_map(|w| &w.uncommitted)
+                        .filter(|f| store.review(&scope, f) != Review::Reviewed)
+                        .cloned()
+                        .collect();
+                    if !unreviewed.is_empty() {
+                        let store_handle = self.store.clone();
+                        actions.push(
+                            button("review-all", "Mark all reviewed")
+                                .icon(Icon::Tick)
+                                .style(ButtonStyle::Ghost)
+                                .on_click(move |_, _, cx| {
+                                    store_handle.update(cx, |store, cx| {
+                                        store.set_reviewed(&scope, &unreviewed, true, cx)
+                                    })
+                                })
+                                .into_any_element(),
+                        );
+                    }
                 }
                 Selection::History(project) => {
                     crumbs.push(("History".into(), None));
@@ -415,9 +437,14 @@ impl Detail {
                 Some(self.render_file_row(pos, file, extras, theme, cx))
             }
             FileSource::Diff(project, commit) => {
-                let file = self.diff.as_ref()?.files.get(pos)?;
+                let diff = self.diff.as_ref()?;
+                let file = diff.files.get(pos)?;
+                // A linked worktree's files are reviewed too.
+                let review = (diff.key.review_scope())
+                    .map(|scope| self.store.read(cx).review(&scope, &file.file));
                 let extras = FileRow {
                     stats: Some(file.stats()),
+                    review,
                     drag_from: commit.map(|id| (project.clone(), Some(id))),
                     depth,
                     ..Default::default()

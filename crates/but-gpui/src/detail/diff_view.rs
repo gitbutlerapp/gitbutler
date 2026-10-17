@@ -357,8 +357,8 @@ impl Detail {
         match row {
             DiffRow::File(file) => {
                 let folded = matches!(diff.rows.get(ix + 1), Some(DiffRow::Gap));
-                let review =
-                    worktree.then(|| store.review(&diff.key.project, &diff.files[file].file));
+                let review = (diff.key.review_scope())
+                    .map(|scope| store.review(&scope, &diff.files[file].file));
                 let whole = self.whole_button(ix, file, entity.clone());
                 let toggle = entity.clone();
                 let trailing = h_flex()
