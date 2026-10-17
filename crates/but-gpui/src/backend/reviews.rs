@@ -137,6 +137,48 @@ pub fn set_draft(path: &Path, number: u64, draft: bool) -> Result<()> {
         .block_on(forge::set_review_draftiness(ctx, number as usize, draft))
 }
 
+/// How a pull request's reviewers last decided, by login.
+#[derive(Debug, Default)]
+pub struct Verdicts {
+    pub approved: Vec<String>,
+    pub changes_requested: Vec<String>,
+}
+
+/// What each reviewer of pull request `number` decided last: a comment doesn't change it,
+/// and a dismissal takes it back.
+pub fn verdicts(path: &Path, number: u64) -> Result<Verdicts> {
+    use but_forge::ForgeReviewSubmissionState as State;
+    let ctx = open(path)?.into_sync();
+    let submissions = runtime()
+        .handle()
+        .block_on(forge::list_review_submissions(ctx, number as usize))?;
+    let mut last = std::collections::BTreeMap::new();
+    for submission in submissions {
+        let Some(login) = submission.author.map(|author| author.login) else {
+            continue;
+        };
+        match submission.state {
+            State::Approved | State::ChangesRequested => {
+                last.insert(login, submission.state);
+            }
+            State::Dismissed => {
+                last.remove(&login);
+            }
+            State::Commented => {}
+        }
+    }
+    let with = |wanted: State| -> Vec<String> {
+        (last.iter())
+            .filter(|(_, state)| **state == wanted)
+            .map(|(login, _)| login.clone())
+            .collect()
+    };
+    Ok(Verdicts {
+        approved: with(State::Approved),
+        changes_requested: with(State::ChangesRequested),
+    })
+}
+
 /// Who can be asked to review: the logins of the repository's collaborators, bots left
 /// out, in alphabetical order.
 pub fn reviewer_candidates(path: &Path) -> Result<Vec<String>> {

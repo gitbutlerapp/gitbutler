@@ -1202,7 +1202,10 @@ impl Detail {
                     .children(resolve_oldest),
             )
             .when_some(branch.review.as_ref(), |el, review| {
-                el.child(render_review(review, theme, cx))
+                let verdicts = (self.verdicts.as_ref())
+                    .filter(|(p, number, _)| p == project && *number == review.number)
+                    .map(|(.., verdicts)| verdicts);
+                el.child(render_review(review, verdicts, theme, cx))
             })
             .when(!branch.incoming.is_empty(), |el| {
                 let stacked =
@@ -1326,6 +1329,94 @@ fn render_incoming(
         .into_any_element()
 }
 
+impl Detail {
+    /// Ask the forge how the reviewers of `ref_name`'s open pull request decided, for its
+    /// card. Once per visit to the branch, rather than on every reload.
+    pub(super) fn load_verdicts(
+        &mut self,
+        project: &ProjectId,
+        ref_name: &str,
+        cx: &mut Context<Self>,
+    ) {
+        use backend::ReviewState as S;
+        let store = self.store.read(cx);
+        let number = (store.workspace(project))
+            .and_then(|ws| ws.find_branch(ref_name)?.review.as_ref())
+            .filter(|review| matches!(review.state, S::Open | S::Draft))
+            .map(|review| review.number);
+        let (Some(number), Some(path)) = (number, store.path(project)) else {
+            return;
+        };
+        let project = project.clone();
+        self._verdicts_load = cx.spawn(async move |this, cx| {
+            let verdicts = backend::run(move || backend::reviews::verdicts(&path, number)).await;
+            // A forge that can't say, or no account for it, leaves the card as it was.
+            let Ok(verdicts) = verdicts else {
+                return;
+            };
+            this.update(cx, |this, cx| {
+                this.verdicts = Some((project, number, verdicts));
+                cx.notify();
+            })
+            .ok();
+        });
+    }
+}
+
+/// Where a pull request's review stands: who approved, who asked for changes, and whose
+/// review it's still waiting on. Nothing when there's nothing to say.
+fn review_line(
+    review: &backend::Review,
+    verdicts: Option<&backend::reviews::Verdicts>,
+    theme: &Theme,
+) -> Option<AnyElement> {
+    // Asked, and not decided yet as far as the forge has said.
+    let waiting: Vec<String> = (review.reviewers.iter())
+        .filter(|login| {
+            verdicts
+                .is_none_or(|v| !v.approved.contains(login) && !v.changes_requested.contains(login))
+        })
+        .cloned()
+        .collect();
+    let parts = [
+        (
+            verdicts.map_or(&[][..], |v| &v.approved),
+            "Approved by",
+            theme.safe,
+        ),
+        (
+            verdicts.map_or(&[][..], |v| &v.changes_requested),
+            "Changes requested by",
+            theme.danger,
+        ),
+        (&waiting[..], "Waiting on", theme.text_3),
+    ];
+    let parts: Vec<_> = (parts.into_iter())
+        .filter(|(logins, ..)| !logins.is_empty())
+        .map(|(logins, label, color)| {
+            div()
+                .text_color(color)
+                .child(format!("{label} {}", logins.join(", ")))
+        })
+        .collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let mut line = h_flex()
+        .pl(px(24.))
+        .gap(px(6.))
+        .flex_wrap()
+        .text_size(px(12.))
+        .text_color(theme.text_3);
+    for (ix, part) in parts.into_iter().enumerate() {
+        if ix > 0 {
+            line = line.child("·");
+        }
+        line = line.child(part);
+    }
+    Some(line.into_any_element())
+}
+
 /// What's conflicted, on a red tint, with a button that starts resolving it.
 fn conflict_bar(
     text: String,
@@ -1353,7 +1444,12 @@ fn conflict_bar(
 
 /// A branch's pull request in two lines, as t3code shows one: what it is, then its number,
 /// state and checks, with a way to open it.
-fn render_review(review: &backend::Review, theme: &Theme, cx: &Context<Detail>) -> AnyElement {
+fn render_review(
+    review: &backend::Review,
+    verdicts: Option<&backend::reviews::Verdicts>,
+    theme: &Theme,
+    cx: &Context<Detail>,
+) -> AnyElement {
     let (glyph, color) = ui_review::state_glyph(review.state, theme);
     let title = if review.title.is_empty() {
         format!("Pull request #{}", review.number)
@@ -1412,16 +1508,7 @@ fn render_review(review: &backend::Review, theme: &Theme, cx: &Context<Detail>) 
                     el.child("·").child("merges when checks pass")
                 }),
         )
-        .when(!review.reviewers.is_empty(), |el| {
-            el.child(
-                div()
-                    .pl(px(24.))
-                    .text_size(px(12.))
-                    .text_color(theme.text_3)
-                    .truncate()
-                    .child(format!("Review requested: {}", review.reviewers.join(", "))),
-            )
-        })
+        .children(review_line(review, verdicts, theme))
         .into_any_element()
 }
 
