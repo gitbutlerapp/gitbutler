@@ -435,7 +435,13 @@ impl Render for ResolveView {
                             },
                         )
                         .style(ButtonStyle::Gray)
-                        .disabled(picked == 0 || self.applying)
+                        .disabled_because(if self.applying {
+                            Some("Resolving…")
+                        } else if picked == 0 {
+                            Some("Pick a side for a conflict first")
+                        } else {
+                            None
+                        })
                         .on_click(cx.listener(|this, _, _, cx| this.apply(cx))),
                     ),
             )

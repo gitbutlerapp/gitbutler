@@ -821,7 +821,13 @@ impl Detail {
                         div().absolute().top(px(4.)).right(px(4.)).child(
                             icon_button("write-message", Icon::Ai)
                                 .small()
-                                .disabled(self.writing.is_some() || checked == 0)
+                                .disabled_because(if self.writing.is_some() {
+                                    Some("Writing…")
+                                } else if checked == 0 {
+                                    Some("Check some changes to write about")
+                                } else {
+                                    None
+                                })
                                 .tooltip(if self.writing.is_some() {
                                     "Writing…"
                                 } else {
@@ -836,14 +842,12 @@ impl Detail {
                     .gap(px(6.))
                     .child(
                         faint(
-                            if checked == 0 {
-                                "Check files to commit".to_owned()
-                            } else {
-                                format!("{checked} of {} files", workspace.uncommitted.len())
-                            },
+                            format!("{checked} of {} files", workspace.uncommitted.len()),
                             theme,
                         )
-                        .flex_1(),
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate(),
                     )
                     .child(
                         button("close-composer", "Cancel")
@@ -860,7 +864,9 @@ impl Detail {
                             button("amend", "Amend")
                                 .small()
                                 .style(ButtonStyle::Outline)
-                                .disabled(checked == 0)
+                                .disabled_because(
+                                    (checked == 0).then_some("Check some changes first"),
+                                )
                                 .tooltip_with_key(
                                     format!("Add the checked changes to \"{title}\""),
                                     shortcut(&super::AmendTop, cx),
@@ -874,7 +880,7 @@ impl Detail {
                         button("commit", "Commit")
                             .small()
                             .style(ButtonStyle::Pop)
-                            .disabled(checked == 0)
+                            .disabled_because((checked == 0).then_some("Check some changes first"))
                             .tooltip_with_key("Commit the checked changes", Some("⌘↩".into()))
                             .on_click(cx.listener(|this, _, window, cx| this.commit(window, cx))),
                     ),
