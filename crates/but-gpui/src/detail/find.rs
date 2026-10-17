@@ -1,7 +1,6 @@
 //! Finding text in the diff (⌘F): every match marked in the lines, the current one more
 //! strongly, and Enter and ⇧Enter stepping through them.
 
-use std::collections::HashMap;
 use std::ops::Range;
 
 use gpui::{
@@ -20,12 +19,14 @@ actions!(find, [FindInDiff, FindNext, FindPrevious]);
 pub fn bind_keys(cx: &mut App) {
     // After the text field's own keys, so these win in the find field.
     let field = Some("FindBar > TextInput");
+    // The bar is drawn by `DiffPane`, outside the detail's key context.
+    let diff = Some("Detail || FindBar");
     cx.bind_keys([
-        KeyBinding::new("cmd-f", FindInDiff, Some("Detail")),
+        KeyBinding::new("cmd-f", FindInDiff, diff),
         KeyBinding::new("enter", FindNext, field),
         KeyBinding::new("shift-enter", FindPrevious, field),
-        KeyBinding::new("cmd-g", FindNext, Some("Detail")),
-        KeyBinding::new("cmd-shift-g", FindPrevious, Some("Detail")),
+        KeyBinding::new("cmd-g", FindNext, diff),
+        KeyBinding::new("cmd-shift-g", FindPrevious, diff),
     ]);
 }
 
@@ -34,10 +35,8 @@ type LineId = (usize, usize, usize);
 
 pub(super) struct Find {
     input: Entity<TextInput>,
-    /// Every match, in the diff's order.
+    /// Every match, in the diff's order, which sorts them by line.
     matches: Vec<(LineId, Range<usize>)>,
-    /// The matches on each line, by their index in `matches`.
-    by_line: HashMap<LineId, Vec<usize>>,
     current: usize,
 }
 
@@ -85,7 +84,6 @@ impl Detail {
         self.find = Some(Find {
             input,
             matches: Vec::new(),
-            by_line: HashMap::new(),
             current: 0,
         });
         cx.notify();
@@ -109,10 +107,6 @@ impl Detail {
         find.matches = search(&diff.files, &query);
         find.matches
             .retain(|((file, _, _), _)| shown.binary_search(file).is_ok());
-        find.by_line.clear();
-        for (ix, (line, _)) in find.matches.iter().enumerate() {
-            find.by_line.entry(*line).or_default().push(ix);
-        }
         find.current = find.current.min(find.matches.len().saturating_sub(1));
         if reveal {
             find.current = 0;
@@ -144,12 +138,7 @@ impl Detail {
         else {
             return;
         };
-        let row = DiffRow::Line {
-            file,
-            hunk,
-            line,
-            last: false,
-        };
+        let row = DiffRow::Line { file, hunk, line };
         let same_line = |r: &DiffRow| r.same_place(row);
         if self.row_of(same_line).is_none() && self.is_folded(file) {
             self.toggle_fold(file, cx);
@@ -164,11 +153,10 @@ impl Detail {
         let Some(find) = &self.find else {
             return Vec::new();
         };
-        find.by_line
-            .get(&line)
-            .into_iter()
-            .flatten()
-            .map(|ix| (find.matches[*ix].1.clone(), *ix == find.current))
+        let start = find.matches.partition_point(|(at, _)| *at < line);
+        (find.matches[start..].iter().enumerate())
+            .take_while(|(_, (at, _))| *at == line)
+            .map(|(ix, (_, range))| (range.clone(), start + ix == find.current))
             .collect()
     }
 
@@ -190,6 +178,9 @@ impl Detail {
         Some(
             popover(theme)
                 .key_context("FindBar")
+                .on_action(
+                    cx.listener(|this, _: &FindInDiff, window, cx| this.open_find(window, cx)),
+                )
                 .on_action(cx.listener(|this, _: &FindNext, _, cx| this.step_find(1, cx)))
                 .on_action(cx.listener(|this, _: &FindPrevious, _, cx| this.step_find(-1, cx)))
                 // Clicks on the bar stay off the diff under it.

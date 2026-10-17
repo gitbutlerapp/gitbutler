@@ -198,15 +198,6 @@ impl Theme {
         self.syntax[token as usize]
     }
 
-    /// This theme with changed lines on the plain ground, for diffs without line backgrounds.
-    pub fn plain_lines(&self) -> Self {
-        Theme {
-            diff_added_bg: self.bg_1,
-            diff_removed_bg: self.bg_1,
-            ..self.clone()
-        }
-    }
-
     pub fn hover(&self) -> Hsla {
         self.fill_gray.opacity(0.06)
     }

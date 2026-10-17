@@ -27,7 +27,6 @@ pub enum DiffRow {
         file: usize,
         hunk: usize,
         line: usize,
-        last: bool,
     },
     /// An unchanged line between or around the hunks of a file shown whole, by its numbers
     /// on either side.
@@ -35,7 +34,6 @@ pub enum DiffRow {
         file: usize,
         old: u32,
         new: u32,
-        last: bool,
     },
     /// Side by side: the hunk's line on the old side and the one on the new, either missing
     /// where the other side has more lines. An unchanged line is on both.
@@ -44,7 +42,6 @@ pub enum DiffRow {
         hunk: usize,
         left: Option<usize>,
         right: Option<usize>,
-        last: bool,
     },
     /// Binary, too large or empty: a one-line explanation instead of lines.
     Note(usize),
@@ -53,20 +50,18 @@ pub enum DiffRow {
 
 impl DiffRow {
     /// Whether `self` shows what `other` showed, as after rows were built again: the same
-    /// row whether or not it ends its card now, or the same line in the other layout.
+    /// row, the same unchanged line by its new-side number, or the same line in the other
+    /// layout.
     pub fn same_place(self, other: DiffRow) -> bool {
-        use DiffRow::{Line, Pair};
-        match (self.settled(), other.settled()) {
+        use DiffRow::{Context, Line, Pair};
+        match (self, other) {
             (
-                Line {
-                    file, hunk, line, ..
-                },
+                Line { file, hunk, line },
                 Pair {
                     file: f,
                     hunk: h,
                     left,
                     right,
-                    ..
                 },
             )
             | (
@@ -75,42 +70,33 @@ impl DiffRow {
                     hunk: h,
                     left,
                     right,
-                    ..
                 },
-                Line {
-                    file, hunk, line, ..
-                },
+                Line { file, hunk, line },
             ) => (file, hunk) == (f, h) && (left == Some(line) || right == Some(line)),
+            // The old-side number moves with the hunks above the line.
+            (
+                Context { file, new, .. },
+                Context {
+                    file: f, new: n, ..
+                },
+            ) => (file, new) == (f, n),
             (row, other) => row == other,
         }
     }
 
-    /// The row without what a rebuild can change around it: whether it ends its card, and
-    /// an unchanged line's old-side number, which moves with the hunks above it.
-    fn settled(mut self) -> DiffRow {
-        match &mut self {
-            DiffRow::Line { last, .. } | DiffRow::Pair { last, .. } => *last = false,
-            DiffRow::Context { old, last, .. } => (*old, *last) = (0, false),
-            DiffRow::File(_) | DiffRow::Hunk { .. } | DiffRow::Note(_) | DiffRow::Gap => {}
-        }
-        self
-    }
-
     /// The same row in file `to`, as when the file list changed around it.
     pub fn in_file(mut self, to: usize) -> DiffRow {
-        match &mut self {
-            DiffRow::File(file)
-            | DiffRow::Note(file)
-            | DiffRow::Hunk { file, .. }
-            | DiffRow::Line { file, .. }
-            | DiffRow::Pair { file, .. }
-            | DiffRow::Context { file, .. } => *file = to,
-            DiffRow::Gap => {}
+        if let Some(file) = self.file_mut() {
+            *file = to;
         }
         self
     }
 
-    pub fn file(self) -> Option<usize> {
+    pub fn file(mut self) -> Option<usize> {
+        self.file_mut().copied()
+    }
+
+    fn file_mut(&mut self) -> Option<&mut usize> {
         match self {
             DiffRow::File(file)
             | DiffRow::Note(file)
@@ -121,6 +107,12 @@ impl DiffRow {
             DiffRow::Gap => None,
         }
     }
+}
+
+/// Whether row `ix` of `rows` ends its file's card, as the row before the gap after each file
+/// does. A file's header does when the file is folded.
+pub fn ends_card(rows: &[DiffRow], ix: usize) -> bool {
+    matches!(rows.get(ix + 1), Some(DiffRow::Gap))
 }
 
 /// Rows for `files`, with the files `folded` says are folded reduced to their header, the
@@ -171,7 +163,6 @@ pub fn rows(
                                 hunk: hunk_ix,
                                 left,
                                 right,
-                                last: false,
                             }
                         }));
                     } else {
@@ -179,7 +170,6 @@ pub fn rows(
                             file: file_ix,
                             hunk: hunk_ix,
                             line,
-                            last: false,
                         }));
                     }
                 }
@@ -191,13 +181,6 @@ pub fn rows(
                 }
             }
             _ => rows.push(DiffRow::Note(file_ix)),
-        }
-        // The line before the gap ends the file's card.
-        if let Some(
-            DiffRow::Line { last, .. } | DiffRow::Pair { last, .. } | DiffRow::Context { last, .. },
-        ) = rows.last_mut()
-        {
-            *last = true;
         }
         rows.push(DiffRow::Gap);
     }
@@ -239,7 +222,6 @@ fn context_rows(rows: &mut Vec<DiffRow>, file: usize, lines: Range<u32>, ahead: 
         file,
         old: u32::try_from(i64::from(new) - ahead).unwrap_or_default(),
         new,
-        last: false,
     }));
 }
 
@@ -310,11 +292,20 @@ pub struct LineDecor {
     pub selected: Option<Range<usize>>,
     /// What Find matched in the line's text, each with whether it's the current match.
     pub found: Vec<(Range<usize>, bool)>,
+}
+
+/// How the rows of a file lay out, the same for each of them.
+#[derive(Default)]
+pub struct Layout {
     /// A long line wraps onto more rows instead of running off the edge.
     pub wrap: bool,
-    /// The digits in the widest line number of the line's file, which every row's numbers fit.
+    /// Changed lines on the card's ground, without their green and red.
+    pub plain: bool,
+    /// The old side beside the new rather than one above the other.
+    pub split: bool,
+    /// The digits in the widest line number of the file, which every row's numbers fit.
     pub digits: usize,
-    /// How the line's text scrolls sideways when it doesn't wrap, on the old side and the
+    /// How the lines' text scrolls sideways when it doesn't wrap, on the old side and the
     /// new; a unified row takes the new side's.
     pub sideways: [Sideways; 2],
 }
@@ -569,7 +560,8 @@ struct Look {
     bar: Option<Background>,
 }
 
-fn look(kind: LineKind, theme: &Theme) -> Look {
+/// With `plain`, a changed line keeps the card's ground.
+fn look(kind: LineKind, plain: bool, theme: &Theme) -> Look {
     match kind {
         LineKind::Context => Look {
             bg: None,
@@ -578,13 +570,13 @@ fn look(kind: LineKind, theme: &Theme) -> Look {
             bar: None,
         },
         LineKind::Added => Look {
-            bg: Some(theme.diff_added_bg),
+            bg: (!plain).then_some(theme.diff_added_bg),
             number: theme.diff_added,
             emph: theme.diff_added_emph,
             bar: Some(theme.diff_added.into()),
         },
         LineKind::Removed => Look {
-            bg: Some(theme.diff_removed_bg),
+            bg: (!plain).then_some(theme.diff_removed_bg),
             number: theme.diff_removed,
             emph: theme.diff_removed_emph,
             // Hatched: stripes two device pixels wide and apart.
@@ -593,11 +585,22 @@ fn look(kind: LineKind, theme: &Theme) -> Look {
     }
 }
 
+/// The width of a digit of code: Geist Mono's are 0.6em wide.
+fn digit_width(theme: &Theme) -> f32 {
+    theme.code_text * 0.6
+}
+
 /// A line's number, in a column that fits `digits`, at least three, as on but.dev: with two
-/// digits' room on the left, where the bar goes, and one on the right.
-fn number_cell(n: Option<u32>, digits: usize, look: &Look, theme: &Theme) -> gpui::Div {
-    // Geist Mono's digits are 0.6em wide.
-    let digit = theme.code_text * 0.6;
+/// digits' room on the left, where the bar goes, and one on the right. With `toggle`, a click
+/// on it puts the line in the next commit or takes it out.
+fn number_cell(
+    n: Option<u32>,
+    digits: usize,
+    look: &Look,
+    toggle: Option<OnToggle>,
+    theme: &Theme,
+) -> gpui::Div {
+    let digit = digit_width(theme);
     div()
         .flex_none()
         .w(px((digit * (digits.max(3) + 3) as f32).round()))
@@ -615,6 +618,15 @@ fn number_cell(n: Option<u32>, digits: usize, look: &Look, theme: &Theme) -> gpu
                     .bottom_0()
                     .w(px(4.))
                     .bg(bar),
+            )
+        })
+        .when_some(toggle, |el, toggle| {
+            el.cursor(CursorStyle::PointingHand).on_mouse_down(
+                MouseButton::Left,
+                move |_, window, cx| {
+                    cx.stop_propagation();
+                    toggle(window, cx)
+                },
             )
         })
         .child(n.map(|n| n.to_string()).unwrap_or_default())
@@ -660,7 +672,6 @@ fn text_cell(
     sideways: &Sideways,
     theme: &Theme,
 ) -> gpui::Stateful<gpui::Div> {
-    let digit = theme.code_text * 0.6;
     div()
         .id(id)
         .flex_1()
@@ -677,7 +688,7 @@ fn text_cell(
                 .child(
                     div()
                         .whitespace_nowrap()
-                        .min_w(px((sideways.columns + 1) as f32 * digit))
+                        .min_w(px((sideways.columns + 1) as f32 * digit_width(theme)))
                         .child(text),
                 ),
         })
@@ -701,35 +712,15 @@ fn line_card(id: ElementId, last: bool, wrap: bool, theme: &Theme) -> gpui::Stat
         .overflow_hidden()
 }
 
-/// A line's number, which puts the line in the next commit or takes it out when clicked.
-fn numbers(id: ElementId, cell: gpui::Div, toggle: Option<OnToggle>) -> AnyElement {
-    h_flex()
-        .id(id)
-        .flex_none()
-        // As tall as a wrapped line, with its ground and bar.
-        .items_stretch()
-        .child(cell)
-        .when_some(toggle, |el, toggle| {
-            el.cursor(CursorStyle::PointingHand).on_mouse_down(
-                MouseButton::Left,
-                move |_, window, cx| {
-                    cx.stop_propagation();
-                    toggle(window, cx)
-                },
-            )
-        })
-        .into_any_element()
-}
-
-/// A line of the diff inside its file's card, numbered `number`: on the old side for a
-/// removal, the new for the rest. `place` is the line's file, hunk and index in the hunk,
-/// which tell rows apart.
+/// A line of the diff inside its file's card, numbered on the old side for a removal and the
+/// new for the rest. `place` is the line's file, hunk and index in the hunk, which tell rows
+/// apart.
 pub fn line_row(
     line: &DiffLine,
-    number: Option<u32>,
     place: (usize, usize, usize),
     last: bool,
     theme: &Theme,
+    layout: &Layout,
     decor: LineDecor,
 ) -> AnyElement {
     let LineDecor {
@@ -738,24 +729,27 @@ pub fn line_row(
         select,
         selected,
         found,
-        wrap,
-        digits,
-        sideways,
     } = decor;
     let id = row_id(place);
-    let look = look(line.kind, theme);
+    let look = look(line.kind, layout.plain, theme);
+    let number = match line.kind {
+        LineKind::Removed => line.old,
+        LineKind::Added | LineKind::Context => line.new,
+    };
     let text = line_text(line, look.emph, found, selected, theme);
     // Where in the text the pointer is, once the text has been laid out: the edge of
     // the character under it nearer the pointer, as text selection goes everywhere.
-    let layout = text.layout().clone();
+    let text_layout = text.layout().clone();
     let chars = line.text.clone();
     let at = move |position: Point<Pixels>| {
-        let ix = layout.index_for_position(position).unwrap_or_else(|ix| ix);
+        let ix = text_layout
+            .index_for_position(position)
+            .unwrap_or_else(|ix| ix);
         let next = chars[ix..].chars().next().map(|c| ix + c.len_utf8());
         let edges = next.and_then(|next| {
             Some((
-                layout.position_for_index(ix)?,
-                layout.position_for_index(next)?,
+                text_layout.position_for_index(ix)?,
+                text_layout.position_for_index(next)?,
                 next,
             ))
         });
@@ -764,7 +758,7 @@ pub fn line_row(
             _ => ix,
         }
     };
-    line_card(("diff-line", id).into(), last, wrap, theme)
+    line_card(("diff-line", id).into(), last, layout.wrap, theme)
         .role(Role::Label)
         .aria_label(SharedString::from(line.text.clone()))
         .aria_description(match line.kind {
@@ -773,16 +767,12 @@ pub fn line_row(
             LineKind::Context => "unchanged",
         })
         .when_some(look.bg, |el, bg| el.bg(bg))
-        .child(numbers(
-            ("line-numbers", id).into(),
-            number_cell(number, digits, &look, theme),
-            toggle,
-        ))
+        .child(number_cell(number, layout.digits, &look, toggle, theme))
         .child(text_cell(
             ("line-text", id).into(),
             text,
-            wrap,
-            &sideways[1],
+            layout.wrap,
+            &layout.sideways[1],
             theme,
         ))
         .when_some(select, |el, select| {
@@ -801,28 +791,24 @@ pub fn line_row(
         .into_any_element()
 }
 
-/// An unchanged line of a file shown whole, from the file's new side, at `new`; with `split`
-/// on both sides, at `old` and `new`, where its text can't be selected.
+/// An unchanged line of a file shown whole, from the file's new side, at `new`; split, on
+/// both sides, at `old` and `new`, where its text can't be selected.
 pub fn context_row(
     line: &DiffLine,
     file: usize,
     (old, new): (u32, u32),
     last: bool,
     theme: &Theme,
+    layout: &Layout,
     decor: LineDecor,
-    split: bool,
 ) -> AnyElement {
     // Apart from the hunks' lines, which number their hunk below 2^20.
     let place = (file, 0xfffff, new as usize);
-    if split {
+    if layout.split {
         let sides = [Some((line, Some(old))), Some((line, Some(new)))];
-        let halves = (decor.sideways).map(|sideways| Half {
-            sideways,
-            ..Default::default()
-        });
-        return pair_row(sides, halves, place, last, theme, decor.wrap, decor.digits);
+        return pair_row(sides, Default::default(), place, last, theme, layout);
     }
-    line_row(line, Some(new), place, last, theme, decor)
+    line_row(line, place, last, theme, layout, decor)
 }
 
 /// What one side of a side-by-side row adds to its line.
@@ -831,7 +817,6 @@ pub struct Half {
     pub excluded: bool,
     pub toggle: Option<OnToggle>,
     pub found: Vec<(Range<usize>, bool)>,
-    pub sideways: Sideways,
 }
 
 /// A side-by-side row: a line from the old side on the left and one from the new on the
@@ -842,13 +827,14 @@ pub fn pair_row(
     place: (usize, usize, usize),
     last: bool,
     theme: &Theme,
-    wrap: bool,
-    digits: usize,
+    layout: &Layout,
 ) -> AnyElement {
     let id = row_id(place);
+    let wrap = layout.wrap;
     let side = |line: Option<(&DiffLine, Option<u32>)>,
                 half: Half,
-                [name, text_name]: [&'static str; 2]| {
+                sideways: &Sideways,
+                name: &'static str| {
         let Some((line, number)) = line else {
             // Nothing on this side: a hatched gap the other side's lines line up against.
             return (div().flex_1().min_w(px(0.)).h_full()).bg(pattern_slash(
@@ -857,31 +843,34 @@ pub fn pair_row(
                 6.,
             ));
         };
-        let look = look(line.kind, theme);
+        let look = look(line.kind, layout.plain, theme);
         let text = line_text(line, look.emph, half.found, None, theme);
         h_flex()
             .flex_1()
             .min_w(px(0.))
             .when(wrap, |el| el.items_stretch())
             .when_some(look.bg, |el, bg| el.bg(bg))
-            .child(numbers(
-                (name, id).into(),
-                number_cell(number, digits, &look, theme),
+            .child(number_cell(
+                number,
+                layout.digits,
+                &look,
                 half.toggle,
-            ))
-            .child(text_cell(
-                (text_name, id).into(),
-                text,
-                wrap,
-                &half.sideways,
                 theme,
             ))
+            .child(text_cell((name, id).into(), text, wrap, sideways, theme))
             .when(half.excluded, |el| el.opacity(0.45))
     };
+    let [old_side, new_side] = &layout.sideways;
+    // GPUI clips to the card's bounds, not its rounded corners, so the sides of its last row
+    // round their ground to the curve inside its border.
+    let (left, right) = (
+        side(left, left_half, old_side, "pair-left-text"),
+        side(right, right_half, new_side, "pair-right-text"),
+    );
     line_card(("diff-pair", id).into(), last, wrap, theme)
-        .child(side(left, left_half, ["pair-left", "pair-left-text"]))
+        .child(left.when(last, |el| el.rounded_bl(px(5.))))
         .child(div().flex_none().w(px(1.)).h_full().bg(theme.border_3))
-        .child(side(right, right_half, ["pair-right", "pair-right-text"]))
+        .child(right.when(last, |el| el.rounded_br(px(5.))))
         .into_any_element()
 }
 
@@ -988,35 +977,26 @@ mod tests {
 
     #[test]
     fn same_place_finds_a_row_again_after_a_rebuild_or_in_the_other_layout() {
-        let line = |line, last| Line {
+        let line = |line| Line {
             file: 1,
             hunk: 2,
             line,
-            last,
         };
-        let pair = |left, right, last| Pair {
+        let pair = |left, right| Pair {
             file: 1,
             hunk: 2,
             left,
             right,
-            last,
         };
-        let context = |old, new, last| Context {
-            file: 1,
-            old,
-            new,
-            last,
-        };
+        let context = |old, new| Context { file: 1, old, new };
         let same = [
-            // Whether or not they end their card.
-            (line(4, false), line(4, true)),
-            (pair(Some(4), None, true), pair(Some(4), None, false)),
+            (pair(Some(4), None), pair(Some(4), None)),
             // A removed line on the left of its pair, an added one on the right, either way round.
-            (line(4, false), pair(Some(4), Some(6), true)),
-            (line(6, true), pair(Some(4), Some(6), false)),
-            (pair(Some(4), Some(6), false), line(6, false)),
+            (line(4), pair(Some(4), Some(6))),
+            (line(6), pair(Some(4), Some(6))),
+            (pair(Some(4), Some(6)), line(6)),
             // An unchanged line by its new-side number, as the hunks above move its old one.
-            (context(9, 12, false), context(7, 12, true)),
+            (context(9, 12), context(7, 12)),
             (File(1), File(1)),
             (Note(1), Note(1)),
         ];
@@ -1028,16 +1008,21 @@ mod tests {
             hunk: 3,
             left: Some(4),
             right: None,
-            last: false,
+        };
+        let in_other_file = Context {
+            file: 2,
+            old: 9,
+            new: 12,
         };
         let different = [
-            (line(4, false), line(5, false)),
-            (pair(Some(4), Some(6), false), pair(Some(4), None, false)),
-            (pair(Some(4), Some(6), false), line(5, false)),
-            (line(4, false), in_other_hunk),
-            (context(9, 12, false), context(9, 13, false)),
+            (line(4), line(5)),
+            (pair(Some(4), Some(6)), pair(Some(4), None)),
+            (pair(Some(4), Some(6)), line(5)),
+            (line(4), in_other_hunk),
+            (context(9, 12), context(9, 13)),
+            (context(9, 12), in_other_file),
             // An unchanged line of a file shown whole is no hunk's line.
-            (context(4, 4, false), line(4, false)),
+            (context(4, 4), line(4)),
             (File(1), File(2)),
             (Gap, File(1)),
         ];

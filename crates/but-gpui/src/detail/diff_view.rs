@@ -21,7 +21,7 @@ use crate::app::AppView;
 use crate::backend::{
     self, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, Selected,
 };
-use crate::state::{Cut, ProjectId, Review};
+use crate::state::{Cut, Prefs, ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::scrollbar::{Scroll, scrollbar};
@@ -55,11 +55,7 @@ impl DiffPane {
                     return;
                 }
                 let files = (detail.read(cx).diff.as_ref()).map(|diff| diff.files.clone());
-                let same = match (&this.shown, &files) {
-                    (Some(shown), Some(files)) => Arc::ptr_eq(shown, files),
-                    (shown, files) => shown.is_none() && files.is_none(),
-                };
-                if same {
+                if this.shown.as_ref().map(Arc::as_ptr) == files.as_ref().map(Arc::as_ptr) {
                     return cx.notify();
                 }
                 this.shown = files;
@@ -133,17 +129,24 @@ impl Detail {
         }
     }
 
-    /// The digits in the widest line number `file` shows: its last hunk's, or with the file
-    /// shown whole, its length on either side.
-    fn number_digits(&self, file: &FileDiff) -> usize {
+    /// How `file`'s rows lay out with `prefs`. Its numbers fit its last hunk's, or with the
+    /// file shown whole, its length on either side. Its lines scroll sideways on each side,
+    /// or unified, both sides as one.
+    fn layout(&self, file: &FileDiff, prefs: &Prefs) -> diff::Layout {
+        let mut layout = diff::Layout {
+            wrap: prefs.wrap,
+            plain: prefs.plain_lines,
+            split: prefs.split,
+            ..Default::default()
+        };
         let DiffBody::Hunks {
             hunks,
             added,
             removed,
-            ..
+            widest,
         } = &file.body
         else {
-            return 0;
+            return layout;
         };
         let last = hunks.last().map_or(0, |hunk| {
             let side = |number: fn(&DiffLine) -> Option<u32>| {
@@ -151,32 +154,21 @@ impl Detail {
             };
             side(|line| line.old).max(side(|line| line.new))
         });
-        let whole = match self.whole.get(&file.file.path) {
-            Some(Some((_, lines, _))) => {
+        let (length, whole_columns) = match self.whole.get(&file.file.path) {
+            Some(Some((_, lines, columns))) => {
                 let new = lines.len() as u32;
-                new.max((new + removed).saturating_sub(*added))
+                (new.max((new + removed).saturating_sub(*added)), *columns)
             }
-            _ => 0,
+            _ => (0, 0),
         };
-        last.max(whole).to_string().len()
-    }
-
-    /// How `file`'s lines scroll sideways on each side, or with `split` off, both sides as one.
-    fn sideways(&self, file: &FileDiff, split: bool) -> [diff::Sideways; 2] {
-        let DiffBody::Hunks { widest, .. } = &file.body else {
-            return Default::default();
-        };
-        let whole = match self.whole.get(&file.file.path) {
-            Some(Some((_, _, whole))) => *whole,
-            _ => 0,
-        };
-        let columns = widest.map(|side| side.max(whole));
+        layout.digits = last.max(length).to_string().len();
+        let columns = widest.map(|side| side.max(whole_columns));
         let scroll = self
             .sideways
             .get(&file.file.path)
             .cloned()
             .unwrap_or_default();
-        match split {
+        layout.sideways = match prefs.split {
             true => [0, 1].map(|side| diff::Sideways {
                 scroll: scroll[side].clone(),
                 columns: columns[side],
@@ -188,7 +180,8 @@ impl Detail {
                 };
                 [both.clone(), both]
             }
-        }
+        };
+        layout
     }
 
     /// The selection in order, unless it's empty.
@@ -291,17 +284,10 @@ impl Detail {
     }
 
     pub(super) fn render_diff(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
-        let ground = |child: AnyElement| {
-            div()
-                .flex_1()
-                .min_w(px(0.))
-                .h_full()
-                .bg(theme.bg_1)
-                .child(child)
-                .into_any_element()
-        };
+        let ground = || div().flex_1().min_w(px(0.)).h_full().bg(theme.bg_1);
         if let Some(err) = &self.diff_error {
-            return ground(empty_state("Couldn't load the diff", err.clone(), theme));
+            let message = empty_state("Couldn't load the diff", err.clone(), theme);
+            return ground().child(message).into_any_element();
         }
         let Some(diff) = self.shown_diff() else {
             let title = if self.loading.is_some() {
@@ -309,7 +295,9 @@ impl Detail {
             } else {
                 ""
             };
-            return ground(empty_state(title, "", theme));
+            return ground()
+                .child(empty_state(title, "", theme))
+                .into_any_element();
         };
         if diff.files.is_empty() {
             let (title, detail) = match diff.key.source {
@@ -319,7 +307,9 @@ impl Detail {
                 ),
                 _ => ("No changes", ""),
             };
-            return ground(empty_state(title, detail, theme));
+            return ground()
+                .child(empty_state(title, detail, theme))
+                .into_any_element();
         }
         let entity = cx.entity().downgrade();
         // A copy of the header of the file at the top, while the file scrolls under it. It's
@@ -347,11 +337,7 @@ impl Detail {
                 )
         });
         let scrollbar = scrollbar("diff-scrollbar", Scroll::List(self.list.clone()), theme);
-        div()
-            .flex_1()
-            .min_w(px(0.))
-            .h_full()
-            .bg(theme.bg_1)
+        ground()
             // With the bar above it, as far down as but.dev starts its first card.
             .pt(px(7.))
             // A press anywhere ends the last drag; one on a line starts a new one after this.
@@ -532,18 +518,13 @@ impl Detail {
     }
 
     fn render_diff_row(&self, ix: usize, entity: WeakEntity<Detail>, cx: &App) -> AnyElement {
-        let plain;
-        let theme = match self.store.read(cx).prefs.plain_lines {
-            true => {
-                plain = Theme::get(cx).plain_lines();
-                &plain
-            }
-            false => Theme::get(cx),
-        };
+        let theme = Theme::get(cx);
         let Some(diff) = self.diff.as_ref().filter(|diff| ix < diff.rows.len()) else {
             return div().into_any_element();
         };
         let row = diff.rows[ix];
+        // A folded file's header ends its card too.
+        let last = diff::ends_card(&diff.rows, ix);
         let worktree = self.worktree_diff().is_some();
         let store = self.store.read(cx);
         // What dragging or right-clicking a file or some of its hunks carries: changes of the
@@ -593,13 +574,13 @@ impl Detail {
         let padded = div().w_full().px(px(12.));
         match row {
             DiffRow::File(file) => {
-                let folded = matches!(diff.rows.get(ix + 1), Some(DiffRow::Gap));
                 let review = (diff.key.review_scope())
                     .map(|scope| store.review(&scope, &diff.files[file].file));
-                let whole = self.whole_button(ix, file, entity.clone());
+                let whole = self.whole_button(ix, file, &diff.files[file], entity.clone());
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
-                let more = file_menu(file, None).map(|menu| {
+                let header_menu = file_menu(file, None);
+                let more = header_menu.clone().map(|menu| {
                     let entity = entity.clone();
                     icon_button(("file-more", ix), Icon::Kebab)
                         .small()
@@ -624,17 +605,19 @@ impl Detail {
                     HeaderDecor {
                         trailing: Some(trailing.into_any_element()),
                         current: self.cursor.file == file,
-                        folded,
+                        folded: last,
                         ..Default::default()
                     },
                 );
                 padded
                     .id(("file-header", ix))
                     .child(header)
-                    .on_mouse_down(
-                        MouseButton::Right,
-                        menu(file_menu(file, None), None, toggle.clone()),
-                    )
+                    .when_some(header_menu, |el, header_menu| {
+                        el.on_mouse_down(
+                            MouseButton::Right,
+                            menu(Some(header_menu), None, toggle.clone()),
+                        )
+                    })
                     .on_click(move |_, _, cx| {
                         toggle
                             .update(cx, |detail, cx| detail.toggle_fold(file, cx))
@@ -730,12 +713,7 @@ impl Detail {
                     })
                     .into_any_element()
             }
-            DiffRow::Line {
-                file,
-                hunk,
-                line,
-                last,
-            } => {
+            DiffRow::Line { file, hunk, line } => {
                 let Some(text) = self.line_at(ix) else {
                     return padded.into_any_element();
                 };
@@ -747,15 +725,9 @@ impl Detail {
                     select: Some(line_select(ix, entity)),
                     selected: self.selected_in_row(ix),
                     found: self.found_on(place),
-                    wrap: store.prefs.wrap,
-                    digits: self.number_digits(&diff.files[file]),
-                    sideways: self.sideways(&diff.files[file], false),
                 };
-                let number = match text.kind {
-                    LineKind::Removed => text.old,
-                    LineKind::Added | LineKind::Context => text.new,
-                };
-                let element = diff::line_row(text, number, place, last, theme, decor);
+                let layout = self.layout(&diff.files[file], &store.prefs);
+                let element = diff::line_row(text, place, last, theme, &layout, decor);
                 padded.child(element).into_any_element()
             }
             DiffRow::Pair {
@@ -763,14 +735,12 @@ impl Detail {
                 hunk,
                 left,
                 right,
-                last,
             } => {
                 let DiffBody::Hunks { hunks, .. } = &diff.files[file].body else {
                     return padded.into_any_element();
                 };
                 let lines = &hunks[hunk].lines;
-                let [old_side, new_side] = self.sideways(&diff.files[file], true);
-                let half = |line: Option<usize>, sideways| {
+                let half = |line: Option<usize>| {
                     let Some(line) = line else {
                         return diff::Half::default();
                     };
@@ -779,7 +749,6 @@ impl Detail {
                         excluded,
                         toggle,
                         found: self.found_on((file, hunk, line)),
-                        sideways,
                     }
                 };
                 let sides = [
@@ -789,10 +758,9 @@ impl Detail {
                 // Each line is on one row only, so the right one, or the left where there's
                 // none, tells rows apart.
                 let place = (file, hunk, right.or(left).unwrap_or_default());
-                let halves = [half(left, old_side), half(right, new_side)];
-                let digits = self.number_digits(&diff.files[file]);
-                let pair =
-                    diff::pair_row(sides, halves, place, last, theme, store.prefs.wrap, digits);
+                let halves = [half(left), half(right)];
+                let layout = self.layout(&diff.files[file], &store.prefs);
+                let pair = diff::pair_row(sides, halves, place, last, theme, &layout);
                 // A click puts the cursor on the hunk, so its keys act on what was clicked.
                 let entity = entity.clone();
                 padded
@@ -810,25 +778,18 @@ impl Detail {
                     })
                     .into_any_element()
             }
-            DiffRow::Context {
-                file,
-                old,
-                new,
-                last,
-            } => {
+            DiffRow::Context { file, old, new } => {
                 let Some(line) = self.line_at(ix) else {
                     return padded.into_any_element();
                 };
                 let decor = LineDecor {
                     select: Some(line_select(ix, entity)),
                     selected: self.selected_in_row(ix),
-                    wrap: store.prefs.wrap,
-                    digits: self.number_digits(&diff.files[file]),
-                    sideways: self.sideways(&diff.files[file], store.prefs.split),
                     ..Default::default()
                 };
-                let split = store.prefs.split;
-                let element = diff::context_row(line, file, (old, new), last, theme, decor, split);
+                let layout = self.layout(&diff.files[file], &store.prefs);
+                let element =
+                    diff::context_row(line, file, (old, new), last, theme, &layout, decor);
                 padded.child(element).into_any_element()
             }
             DiffRow::Note(file) => padded
@@ -845,10 +806,9 @@ impl Detail {
         &self,
         ix: usize,
         file: usize,
+        file_diff: &FileDiff,
         entity: WeakEntity<Detail>,
     ) -> Option<AnyElement> {
-        let diff = self.diff.as_ref()?;
-        let file_diff = &diff.files[file];
         let has_context = matches!(file_diff.body, DiffBody::Hunks { .. })
             && matches!(
                 file_diff.file.kind,
@@ -923,19 +883,16 @@ impl Detail {
                 if !this.whole.contains_key(&path) {
                     return;
                 }
-                // The file changed while it was read: read it again as it is now.
-                let now = (this.diff.as_ref())
-                    .and_then(|diff| diff.files.iter().position(|f| f.file.path == path));
-                let current = now.is_some_and(|ix| {
-                    this.diff
-                        .as_ref()
-                        .is_some_and(|d| d.files[ix].fingerprint == fingerprint)
+                let now = (this.diff.as_ref()).and_then(|diff| {
+                    (diff.files.iter().enumerate())
+                        .find(|(_, f)| f.file.path == path)
+                        .map(|(ix, f)| (ix, f.fingerprint))
                 });
-                if !current {
-                    if let Some(ix) = now {
-                        this.load_whole(ix, cx);
-                    }
-                    return;
+                match now {
+                    Some((_, now)) if now == fingerprint => {}
+                    // The file changed while it was read: read it again as it is now.
+                    Some((ix, _)) => return this.load_whole(ix, cx),
+                    None => return,
                 }
                 match lines {
                     Ok(Some((widest, lines))) => {
