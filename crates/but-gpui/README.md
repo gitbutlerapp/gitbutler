@@ -51,7 +51,9 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 | uncommitted files | a branch | picks that branch and those files for the next commit |
 | a commit's file | another commit | moves the change between commits |
 | a commit's file | uncommitted changes | uncommits just that file |
-| a branch | another branch | stacks it, with the branches above it, on top of that one |
+| a branch | another branch | stacks it, with the branches above it, on top of that one; ⇧ puts it below that one instead |
+| a branch | Move below, after a stack while dragging | puts it under the stack's last branch |
+| a branch | a linked worktree | puts it under the worktree's branches |
 | a hunk of uncommitted changes | a commit or branch | as its file would, with just that hunk |
 | a hunk of a commit | another commit, or uncommitted changes | moves just that hunk, or uncommits it |
 

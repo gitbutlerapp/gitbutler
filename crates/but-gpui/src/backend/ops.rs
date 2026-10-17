@@ -272,6 +272,20 @@ pub fn stack_branch(path: &Path, branch: &str, onto: &str) -> Result<()> {
     Ok(())
 }
 
+/// Move `branch` right below `commit`, the last commit of the branch it then sits under.
+/// Below that branch's reference instead, `branch` would take over its commits.
+pub fn move_branch_below(path: &Path, branch: &str, commit: CommitId) -> Result<()> {
+    let mut ctx = open(path)?;
+    but_api::branch::move_branch(
+        &mut ctx,
+        full_name(branch)?.as_ref(),
+        RelativeTo::Commit(commit.0),
+        InsertSide::Below,
+        DryRun::No,
+    )?;
+    Ok(())
+}
+
 /// Take `branch` out of its stack into a stack of its own.
 pub fn tear_off_branch(path: &Path, branch: &str) -> Result<()> {
     let mut ctx = open(path)?;

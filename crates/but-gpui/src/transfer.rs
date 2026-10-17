@@ -45,6 +45,11 @@ pub enum Transfer {
         branch: String,
         onto: String,
     },
+    /// Put a branch under another, right below that one's last commit.
+    BranchBelow {
+        branch: String,
+        commit: CommitId,
+    },
     /// Uncommitted files dropped on a branch: get them ready to commit there.
     StageOnBranch {
         branch: String,
@@ -55,7 +60,7 @@ pub enum Transfer {
 impl Transfer {
     /// What `payload` does when it lands on `target`, if anything. A commit landing on
     /// another goes above it; with ⌥ held it squashes into it instead, and with ⇧ it goes
-    /// below it.
+    /// below it. A branch landing on another stacks on it, and with ⇧ goes below it.
     pub fn resolve(
         payload: &Cut,
         target: &Selection,
@@ -127,6 +132,29 @@ impl Transfer {
                     },
                 }
             }
+            (Cut::Branch(_, branch), Selection::Branch(_, above))
+                if held.shift && branch != above =>
+            {
+                let (stack, at) = workspace.stack_of(above)?;
+                // Already right below it.
+                if stack
+                    .branches
+                    .get(at + 1)
+                    .is_some_and(|b| b.ref_name == *branch)
+                {
+                    return None;
+                }
+                Transfer::BranchBelow {
+                    branch: branch.clone(),
+                    commit: stack.branches[at].commits.last()?.id,
+                }
+            }
+            (Cut::Branch(_, branch), Selection::Worktree(_, name)) => Transfer::BranchBelow {
+                branch: branch.clone(),
+                commit: (workspace.worktrees.iter())
+                    .find(|worktree| worktree.name == *name)?
+                    .lane_end?,
+            },
             (Cut::Branch(_, branch), Selection::Branch(_, onto)) if branch != onto => {
                 // Already right on top of it.
                 let (stack, at) = workspace.stack_of(branch)?;
@@ -192,6 +220,7 @@ impl Transfer {
             } => "Copy below",
             Transfer::CherryPick { .. } => "Copy above",
             Transfer::StackBranch { .. } => "Stack on top",
+            Transfer::BranchBelow { .. } => "Move below",
             Transfer::Squash { .. } => "Squash into",
             Transfer::Amend { .. } => "Amend",
             Transfer::MoveFiles { .. } => "Move into",
@@ -206,6 +235,7 @@ impl Transfer {
             Transfer::MoveCommit { to, .. } => format!("Move {}", place(to)).into(),
             Transfer::CherryPick { to, .. } => format!("Copy {}", place(to)).into(),
             Transfer::StackBranch { onto, .. } => format!("Stack on {}", short_ref(onto)).into(),
+            Transfer::BranchBelow { commit, .. } => format!("Move below {}", commit.short()).into(),
             Transfer::Squash { into, .. } => format!("Squash into {}", into.short()).into(),
             Transfer::Amend { into, .. } => format!("Amend {}", into.short()).into(),
             Transfer::MoveFiles { to, .. } => format!("Move into {}", to.short()).into(),
@@ -266,6 +296,18 @@ impl Transfer {
                 label,
                 Overlay::default(),
                 move |path, _| backend::stack_branch(path, &branch, &onto),
+                |store, (), cx| store.snack_undoable("Branch moved", cx),
+                cx,
+            ),
+            Transfer::BranchBelow { branch, commit } => store.run(
+                project,
+                label,
+                Overlay::default(),
+                move |path, remap| {
+                    // The remap knows the workspace's commits, not a linked worktree's.
+                    let commit = remap.get(commit).unwrap_or(commit);
+                    backend::move_branch_below(path, &branch, commit)
+                },
                 |store, (), cx| store.snack_undoable("Branch moved", cx),
                 cx,
             ),
