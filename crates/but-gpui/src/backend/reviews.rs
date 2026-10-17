@@ -332,12 +332,19 @@ pub fn reviewer_candidates(path: &Path) -> Result<Vec<String>> {
     Ok(logins)
 }
 
-/// Ask `login` to review pull request `number`.
-pub fn request_review(path: &Path, number: u64, login: String) -> Result<()> {
+/// Ask `login` to review pull request `number`, or with `ask` false, no longer.
+pub fn request_review(path: &Path, number: u64, login: String, ask: bool) -> Result<()> {
     let ctx = open(path)?.into_sync();
-    runtime()
-        .handle()
-        .block_on(forge::request_review(ctx, number as usize, vec![login]))
+    let runtime = runtime().handle();
+    if ask {
+        runtime.block_on(forge::request_review(ctx, number as usize, vec![login]))
+    } else {
+        runtime.block_on(forge::withdraw_review_request(
+            ctx,
+            number as usize,
+            vec![login],
+        ))
+    }
 }
 
 /// Have the forge merge a pull request once its checks pass, or stop it from doing so.
