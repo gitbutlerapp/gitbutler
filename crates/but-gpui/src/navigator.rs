@@ -1284,6 +1284,7 @@ impl Navigator {
                                 action("Merge pull request…", &MergePullRequest),
                             ]);
                             items.push(action("Comment…", &CommentOnPullRequest));
+                            items.push(action("Labels…", &LabelPullRequest));
                             if workspace.forge.as_deref() == Some("GitHub") {
                                 items.push(action("Request review…", &RequestReview));
                             }

@@ -1724,6 +1724,20 @@ fn render_review(
                         .child(text)
                 }),
         )
+        .when(!review.labels.is_empty(), |el| {
+            el.child(h_flex().pl(px(24.)).gap(px(4.)).flex_wrap().children(
+                review.labels.iter().map(|label| {
+                    div()
+                        .px(px(6.))
+                        .rounded(px(4.))
+                        .border_1()
+                        .border_color(theme.border_2)
+                        .text_size(px(11.))
+                        .text_color(theme.text_2)
+                        .child(label.clone())
+                }),
+            ))
+        })
         .when(review.auto_merge, |el| {
             el.child(
                 div()

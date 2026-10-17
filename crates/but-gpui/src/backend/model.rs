@@ -142,6 +142,7 @@ pub struct Review {
     pub auto_merge: bool,
     /// Who opened it, once the forge has said.
     pub author: Option<String>,
+    pub labels: Vec<String>,
     /// Who's been asked to review it, bots left out. GitHub lists only those who haven't
     /// reviewed yet; GitLab and Bitbucket keep the others.
     pub reviewers: Vec<String>,

@@ -147,6 +147,11 @@ fn describe_reviews(ctx: &Context, stacks: &mut [Stack]) {
             review.state = review_state(cached);
             review.auto_merge = cached.auto_merge_enabled;
             review.author = cached.author.as_ref().map(|author| author.login.clone());
+            review.labels = cached
+                .labels
+                .iter()
+                .map(|label| label.name.clone())
+                .collect();
             review.reviewers = (cached.reviewers.iter())
                 .filter(|user| !user.is_bot)
                 .map(|user| user.login.clone())
@@ -301,6 +306,7 @@ fn branch_from(segment: &but_workspace::ref_info::Segment) -> Branch {
                 failed_checks: Vec::new(),
                 auto_merge: false,
                 author: None,
+                labels: Vec::new(),
                 reviewers: Vec::new(),
             }),
     }
