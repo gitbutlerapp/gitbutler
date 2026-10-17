@@ -28,6 +28,7 @@ actions!(
         ToggleAutoMerge,
         RequestReview,
         CommentOnPullRequest,
+        LabelPullRequest,
         ApplyPullRequest,
         MergePullRequest,
         ClosePullRequest,
@@ -592,6 +593,65 @@ impl AppView {
                 })
             },
         );
+    }
+
+    /// Pick a label of the repository to put on the pull request, or to take off one it has.
+    pub fn label_pull_request(
+        &mut self,
+        _: &LabelPullRequest,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((project, branch, Some((number, ReviewState::Open | ReviewState::Draft)))) =
+            self.review_target(cx)
+        else {
+            return;
+        };
+        let store = self.store.read(cx);
+        let Some(path) = store.path(&project) else {
+            return;
+        };
+        let applied: Vec<String> = (store.workspace(&project))
+            .and_then(|ws| ws.find_branch(&branch)?.review.as_ref())
+            .map(|review| review.labels.clone())
+            .unwrap_or_default();
+        cx.spawn_in(window, async move |this, cx| {
+            let labels = backend::run(move || reviews::repo_labels(&path)).await;
+            this.update_in(cx, |this, window, cx| {
+                let labels = match labels {
+                    Ok(labels) => labels,
+                    Err(err) => {
+                        let message = format!("{err:#}");
+                        return this.store.update(cx, |store, cx| {
+                            store.error("Couldn't list the labels", message, cx)
+                        });
+                    }
+                };
+                let choices = (labels.into_iter())
+                    .map(|label| {
+                        let on = !applied.contains(&label);
+                        let shown = if on {
+                            label.clone()
+                        } else {
+                            format!("✓ {label}")
+                        };
+                        let project = project.clone();
+                        crate::palette::Choice::new(shown, move |this, _, cx| {
+                            this.run_on_review(
+                                project,
+                                "Label",
+                                move |path| reviews::set_label(path, number, label, on),
+                                "Labels changed",
+                                cx,
+                            )
+                        })
+                    })
+                    .collect();
+                this.open_picker("Put on or take off a label", "Toggle", choices, window, cx);
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Ask for a comment on the pull request as a whole, post it, then have the branch

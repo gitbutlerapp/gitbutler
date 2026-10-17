@@ -298,6 +298,25 @@ pub fn reply_to_thread(path: &Path, id: String, body: String) -> Result<()> {
     Ok(())
 }
 
+/// The labels the repository has, by name.
+pub fn repo_labels(path: &Path) -> Result<Vec<String>> {
+    let ctx = open(path)?.into_sync();
+    let labels = runtime().handle().block_on(forge::list_repo_labels(ctx))?;
+    Ok(labels.into_iter().map(|label| label.name).collect())
+}
+
+/// Put `label` on pull request `number`, or with `on` false take it off.
+pub fn set_label(path: &Path, number: u64, label: String, on: bool) -> Result<()> {
+    let ctx = open(path)?.into_sync();
+    let runtime = runtime().handle();
+    if on {
+        runtime.block_on(forge::add_review_labels(ctx, number as usize, vec![label]))?;
+    } else {
+        runtime.block_on(forge::remove_review_label(ctx, number as usize, label))?;
+    }
+    Ok(())
+}
+
 /// Who can be asked to review: the logins of the repository's collaborators, bots left
 /// out, in alphabetical order.
 pub fn reviewer_candidates(path: &Path) -> Result<Vec<String>> {
