@@ -18,7 +18,7 @@ use but_api::{
 };
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
-    WindowState, askpass, csp::csp_with_extras, env, logs, menu, projects, settings, zip,
+    Frontend, WindowState, askpass, csp::csp_with_extras, env, logs, menu, projects, settings, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -77,9 +77,12 @@ fn main() -> anyhow::Result<()> {
     ) {
         tauri_context.config_mut().app.security.csp = updated_csp;
     };
-    if app_settings.get()?.feature_flags.lite_frontend {
+    let frontend = if app_settings.get()?.feature_flags.lite_frontend {
         gitbutler_tauri::lite_frontend::serve(&mut tauri_context);
-    }
+        Frontend::Lite
+    } else {
+        Frontend::Svelte
+    };
 
     if let Some(project_to_open) =
         std::env::var_os("GITBUTLER_PROJECT_DIR").map(std::path::PathBuf::from)
@@ -160,7 +163,7 @@ fn main() -> anyhow::Result<()> {
                 tracing::info!(version = %app_handle.package_info().version,
                                    name = %app_handle.package_info().name, "starting app");
 
-                app_handle.manage(WindowState::new(app_handle.clone()));
+                app_handle.manage(WindowState::new(app_handle.clone(), frontend));
 
                 app_settings.watch_in_background({
                     let app_handle = app_handle.clone();
