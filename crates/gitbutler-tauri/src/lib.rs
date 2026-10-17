@@ -17,6 +17,7 @@
     clippy::too_many_lines
 )]
 
+pub mod ai;
 pub mod logs;
 pub mod menu;
 pub mod window;
