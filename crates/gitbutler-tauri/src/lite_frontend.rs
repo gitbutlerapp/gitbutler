@@ -50,8 +50,19 @@ impl<R: Runtime> Assets<R> for LiteFrontend<R> {
     }
 }
 
-/// Make `context` serve the Lite frontend in place of the Svelte one.
-pub fn serve<R: Runtime>(context: &mut Context<R>) {
+fn embeds_lite<R: Runtime>(context: &Context<R>) -> bool {
+    context
+        .assets()
+        .get(&lite_key(&"index.html".into()))
+        .is_some()
+}
+
+/// Make `context` serve the Lite frontend in place of the Svelte one, unless the build has none.
+pub fn serve<R: Runtime>(context: &mut Context<R>) -> bool {
+    if !embeds_lite(context) {
+        return false;
+    }
     let embedded = context.set_assets(Box::new(NoAssets));
     context.set_assets(Box::new(LiteFrontend(embedded)));
+    true
 }
