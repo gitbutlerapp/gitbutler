@@ -157,7 +157,7 @@ fn checkout(ctx: &Context, worktree: Option<&str>) -> Result<gix::Repository> {
 pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
-    let (uncommitted, managed, checked_out) = {
+    let (uncommitted, managed, checked_out, refs) = {
         let repo = ctx.repo.get()?;
         let head = repo.head_name()?;
         let managed =
@@ -165,7 +165,12 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         let checked_out = head
             .filter(|_| !managed)
             .map(|name| name.shorten().to_string());
-        (worktree_files(&repo)?, managed, checked_out)
+        (
+            worktree_files(&repo)?,
+            managed,
+            checked_out,
+            refs_fingerprint(&repo)?,
+        )
     };
     if let Some(editing) = edit::editing(&ctx)? {
         return Ok(Workspace {
@@ -224,7 +229,27 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         worktrees,
         archived_worktrees,
         worktrees_listed,
+        refs,
     })
+}
+
+/// A hash of every local and remote branch's name and tip.
+fn refs_fingerprint(repo: &gix::Repository) -> Result<u64> {
+    use std::hash::{Hash as _, Hasher as _};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    let refs = repo.references()?;
+    // A ref gix can't read, like an empty file left by a crashed fetch, is skipped as the
+    // graph skips it.
+    for reference in (refs.local_branches()?.chain(refs.remote_branches()?)).filter_map(Result::ok)
+    {
+        reference.name().as_bstr().hash(&mut hasher);
+        reference
+            .target()
+            .try_id()
+            .map(|id| id.to_owned())
+            .hash(&mut hasher);
+    }
+    Ok(hasher.finish())
 }
 
 /// `message` with its body wrapped as `git log` and `but reword` expect.
