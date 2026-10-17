@@ -19,18 +19,17 @@ impl AppView {
     ) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
-        let working = store.busy().map(|busy| {
-            // How long it's taking once that's noticeable, and what waits behind it.
-            let elapsed = store
-                .busy_for()
-                .filter(|t| *t >= SLOW)
-                .map(|t| format!(" {:.1}s", t.as_secs_f32()))
-                .unwrap_or_default();
-            let queued = match store.queued() {
-                0 => String::new(),
-                n => format!(" · {n} more queued"),
+        let working = store.busy().map(|(busy, took)| {
+            // How long it's taking once that's noticeable, and what else runs or waits.
+            let elapsed = match took >= SLOW {
+                true => format!(" {:.1}s", took.as_secs_f32()),
+                false => String::new(),
             };
-            format!("{busy}…{elapsed}{queued}")
+            let others = match store.others_busy() {
+                0 => String::new(),
+                n => format!(" · {n} more"),
+            };
+            format!("{busy}…{elapsed}{others}")
         });
         let state: AnyElement = if let Some(working) = working {
             h_flex()

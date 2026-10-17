@@ -493,7 +493,7 @@ impl AppView {
                     store.run(
                         &project,
                         "Merge pull request",
-                        Overlay::default(),
+                        Overlay::remote(),
                         move |path, _| reviews::merge(path, number, method),
                         move |store, (), cx| {
                             store.snack("Merged. Update to bring it into your workspace", cx);
