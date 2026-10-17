@@ -492,8 +492,8 @@ impl Detail {
             return;
         }
         self.loading = Some(key.clone());
-        let previous = self.recent_files(&key);
-        if let Some(files) = previous.clone()
+        let recent = self.recent_files(&key);
+        if let Some(files) = recent.clone()
             && !key.source.live()
             && files.iter().all(|file| file.annotated)
         {
@@ -502,6 +502,9 @@ impl Detail {
             cx.notify();
             return;
         }
+        // Else the files on screen: a file whose patch is the same, as between a branch of one
+        // commit and that commit, is reused already highlighted.
+        let previous = recent.or_else(|| self.diff.as_ref().map(|diff| diff.files.clone()));
         // A single step loads at once. Selections arriving faster than this, from a held
         // arrow key, wait it out: each replaces the task before its blocking load, which
         // nothing can stop once it starts, so only the commit landed on is loaded. Worktree
@@ -536,7 +539,8 @@ impl Detail {
             if !delay.is_zero() {
                 cx.background_executor().timer(delay).await;
             }
-            const FIRST: usize = 16;
+            // About a screen's worth: the rest follow highlighted a moment later.
+            const FIRST: usize = 6;
             let result = backend::run({
                 let (path, source, worktree) = (path.clone(), source.clone(), worktree.clone());
                 move || backend::load_diff(&path, source, worktree, previous, Some(FIRST))
