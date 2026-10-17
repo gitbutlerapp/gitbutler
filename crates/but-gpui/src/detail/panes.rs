@@ -107,7 +107,7 @@ impl Detail {
                             button("land", label)
                                 .icon(Icon::BranchMerge)
                                 .style(style)
-                                .disabled(pushing)
+                                .disabled_because(pushing.then_some("Wait for the push to finish"))
                                 .dispatch(&crate::edits::LandBranch)
                                 .into_any_element(),
                         );
@@ -125,7 +125,7 @@ impl Detail {
                             button("create-pr", label)
                                 .icon(Icon::Pr)
                                 .style(style)
-                                .disabled(pushing)
+                                .disabled_because(pushing.then_some("Wait for the push to finish"))
                                 .dispatch(&crate::pr::CreatePullRequest)
                                 .into_any_element(),
                         );
@@ -143,7 +143,7 @@ impl Detail {
                             button("push", label)
                                 .icon(Icon::ArrowUp)
                                 .style(ButtonStyle::Pop)
-                                .disabled(pushing)
+                                .disabled_because(pushing.then_some("Wait for the push to finish"))
                                 .tooltip_with_key(
                                     "Push this branch and the ones below it",
                                     shortcut(&crate::app::Push, cx),

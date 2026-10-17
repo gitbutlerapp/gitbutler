@@ -199,7 +199,7 @@ impl SettingsView {
                     .child(
                         button("change-target", "Change…")
                             .small()
-                            .disabled(locked)
+                            .disabled_because(locked.then_some("Unapply every branch first"))
                             .on_click(change_target),
                     ),
             ),

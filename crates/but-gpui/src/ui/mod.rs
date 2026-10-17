@@ -278,7 +278,8 @@ pub struct Button {
     label: Option<SharedString>,
     icon: Option<Icon>,
     style: ButtonStyle,
-    disabled: bool,
+    /// Why it can't be pressed now, shown in place of its tooltip.
+    disabled: Option<SharedString>,
     small: bool,
     /// On an inverted ground, like a selected row.
     inverted: bool,
@@ -295,7 +296,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         label: Some(label.into()),
         icon: None,
         style: ButtonStyle::Outline,
-        disabled: false,
+        disabled: None,
         small: false,
         inverted: false,
         on_click: None,
@@ -333,8 +334,9 @@ impl Button {
         })
     }
 
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
+    /// Unpressable for the reason given, if any, which its tooltip says instead.
+    pub fn disabled_because(mut self, why: Option<impl Into<SharedString>>) -> Self {
+        self.disabled = why.map(Into::into);
         self
     }
 
@@ -431,26 +433,29 @@ impl RenderOnce for Button {
             .text_color(fg)
             .when_some(bg, |el, bg| el.bg(bg))
             .when_some(border, |el, border| el.border_1().border_color(border))
-            .when(!self.disabled, |el| {
+            .when(self.disabled.is_none(), |el| {
                 el.hover(move |el| el.bg(hover))
                     // Gives under the pointer while pressed.
                     .active(|el| el.opacity(0.8))
             })
-            .when(self.disabled, |el| el.opacity(0.45))
+            .when(self.disabled.is_some(), |el| el.opacity(0.45))
             .when_some(self.icon, |el, kind| {
                 el.child(icon(kind).text_color(fg.opacity(if has_label { 0.7 } else { 0.8 })))
             })
             .when_some(self.label, |el, label| el.child(label))
-            .when_some(self.tooltip, |el, tooltip| {
-                let key = self.tooltip_key;
+            .when_some(self.disabled.clone().or(self.tooltip), |el, tooltip| {
+                let key = self.tooltip_key.filter(|_| self.disabled.is_none());
                 el.tooltip(move |_, cx| Tooltip::with_key(tooltip.clone(), key.clone(), cx))
             })
-            .when_some(self.on_click.filter(|_| !self.disabled), |el, handler| {
-                el.on_click(move |event, window, cx| {
-                    cx.stop_propagation();
-                    handler(event, window, cx)
-                })
-            })
+            .when_some(
+                self.on_click.filter(|_| self.disabled.is_none()),
+                |el, handler| {
+                    el.on_click(move |event, window, cx| {
+                        cx.stop_propagation();
+                        handler(event, window, cx)
+                    })
+                },
+            )
     }
 }
 

@@ -339,7 +339,7 @@ impl Render for ReviewView {
                                 )
                                 .small()
                                 .style(ButtonStyle::Ghost)
-                                .disabled(self.writing.is_some())
+                                .disabled_because(self.writing.is_some().then_some("Writing…"))
                                 .tooltip("Write the title and description from the commits")
                                 .on_click(cx.listener(|this, _, _, cx| this.write_with_ai(cx))),
                             ),
@@ -394,7 +394,15 @@ impl Render for ReviewView {
                             },
                         )
                         .style(ButtonStyle::Gray)
-                        .disabled(empty_title || self.writing.is_some() || self.submitting)
+                        .disabled_because(if self.submitting {
+                            Some("Creating the pull request…")
+                        } else if self.writing.is_some() {
+                            Some("Wait for the AI to finish writing")
+                        } else if empty_title {
+                            Some("Give it a title first")
+                        } else {
+                            None
+                        })
                         .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
                     ),
             )
