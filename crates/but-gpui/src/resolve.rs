@@ -15,7 +15,7 @@ use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::{ButtonStyle, button, h_flex, muted, plural, v_flex};
 
-actions!(resolve, [ResolveConflicts, EditByHand]);
+actions!(resolve, [ResolveConflicts]);
 
 /// Lines of unconflicted context shown around each conflict.
 const CONTEXT_LINES: usize = 3;
@@ -290,7 +290,14 @@ impl Render for ResolveView {
                                     div()
                                         .text_color(theme.text_2)
                                         .child(format!("{path}: {reason}"))
-                                })),
+                                }))
+                                .child(muted(
+                                    format!(
+                                        "Resolve these in a terminal with `but resolve {}`.",
+                                        self.commit.short()
+                                    ),
+                                    &theme,
+                                )),
                         )
                     })
                     .into_any_element(),
@@ -380,21 +387,6 @@ impl Render for ResolveView {
                             .on_click(cx.listener(|this, _, _, cx| this.rest_with_ai(cx))),
                         )
                     })
-                    .child(
-                        button("resolve-by-hand", "Edit by hand")
-                            .style(ButtonStyle::Ghost)
-                            .tooltip(
-                                "Check the commit out to resolve its conflicts in any editor, \
-                                 or have an agent do it",
-                            )
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                let (project, commit) = (this.project.clone(), this.commit);
-                                this.store.update(cx, |store, cx| {
-                                    store.edit_commit(&project, commit, cx)
-                                });
-                                cx.emit(DismissEvent);
-                            })),
-                    )
                     .child(div().flex_1())
                     .child(
                         button("resolve-cancel", "Cancel")
@@ -419,27 +411,18 @@ impl Render for ResolveView {
 }
 
 impl crate::app::AppView {
-    /// Register the actions here on the window while the selected commit is conflicted.
+    /// Register [`ResolveConflicts`] on the window while the selected commit is conflicted.
     pub fn resolve_actions(&self, el: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
         let conflicted = self.selected_conflicted(cx).is_some();
         el.when(conflicted, |el| {
             el.on_action(cx.listener(Self::resolve_conflicts))
-                .on_action(cx.listener(Self::edit_by_hand))
         })
     }
 
-    /// The selected commit, when it's conflicted: what both actions here act on.
+    /// The selected commit, when it's conflicted.
     fn selected_conflicted(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
         let (project, commit) = self.selected_commit(cx)?;
         commit.conflicted.then_some((project, commit.id))
-    }
-
-    /// Check the selected commit out to resolve its conflicts by hand.
-    pub fn edit_by_hand(&mut self, _: &EditByHand, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some((project, commit)) = self.selected_conflicted(cx) {
-            self.store
-                .update(cx, |store, cx| store.edit_commit(&project, commit, cx));
-        }
     }
 
     /// Open the resolver for the selected commit, when it's conflicted.

@@ -25,6 +25,9 @@ use std::sync::OnceLock;
 
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
+use but_core::{
+    ChangeState, IgnoredWorktreeChange, IgnoredWorktreeTreeChangeStatus, TreeChange, TreeStatus,
+};
 use but_ctx::Context;
 
 pub use diff::{DiffSource, file_lines, load_diff};
@@ -276,7 +279,7 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
 fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
     let changes = but_core::diff::worktree_changes(repo)?;
     // Status leaves out files with unresolved index conflicts; they're changes too.
-    let conflicted = edit::conflicted_changes(repo, &changes.ignored_changes)?;
+    let conflicted = conflicted_changes(repo, &changes.ignored_changes)?;
     // In milliseconds; a deleted file has none.
     let modified = |path: &bstr::BStr| -> Option<i64> {
         let path = repo.workdir()?.join(gix::path::from_bstr(path).ok()?);
@@ -293,4 +296,50 @@ fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
             ..file_change(change)
         })
         .collect())
+}
+
+/// The files Git's index still has conflicted, as changes from `HEAD` to what's on disk:
+/// a merge leaves its conflicts there, and status passes over them.
+fn conflicted_changes(
+    repo: &gix::Repository,
+    ignored: &[IgnoredWorktreeChange],
+) -> Result<Vec<TreeChange>> {
+    let conflicted = |change: &&IgnoredWorktreeChange| {
+        change.status == IgnoredWorktreeTreeChangeStatus::Conflict
+    };
+    // Status runs on every change to the worktree; most of the time nothing's conflicted.
+    if !ignored.iter().any(|change| conflicted(&change)) {
+        return Ok(Vec::new());
+    }
+    let head = repo.head_tree()?;
+    let on_disk = |kind| ChangeState {
+        id: gix::ObjectId::null(repo.object_hash()),
+        kind,
+    };
+    let mut changes = Vec::new();
+    for change in ignored.iter().filter(conflicted) {
+        let path = gix::path::from_bstr(change.path.as_bstr())?;
+        let status = match head.lookup_entry_by_path(path)? {
+            Some(entry) => {
+                let kind = entry.mode().kind();
+                TreeStatus::Modification {
+                    previous_state: ChangeState {
+                        id: entry.object_id(),
+                        kind,
+                    },
+                    state: on_disk(kind),
+                    flags: None,
+                }
+            }
+            None => TreeStatus::Addition {
+                state: on_disk(gix::object::tree::EntryKind::Blob),
+                is_untracked: false,
+            },
+        };
+        changes.push(TreeChange {
+            path: change.path.clone(),
+            status,
+        });
+    }
+    Ok(changes)
 }

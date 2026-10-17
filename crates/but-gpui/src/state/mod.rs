@@ -21,7 +21,7 @@ mod saved;
 mod seen;
 
 use load::{Change, Reload};
-pub use mutation::{Overlay, Remap, SAVE_EDIT, SLOW, STOP_EDITING};
+pub use mutation::{Overlay, Remap, SLOW};
 use mutation::{Queued, Running};
 pub use saved::{Pane, Prefs, saved_window_place};
 use saved::{Restored, Saved};

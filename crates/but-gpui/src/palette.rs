@@ -106,7 +106,6 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Create pull request", &crate::pr::CreatePullRequest),
     ("Merge pull request", &crate::pr::MergePullRequest),
     ("Resolve conflicts", &crate::resolve::ResolveConflicts),
-    ("Resolve conflicts by hand", &crate::resolve::EditByHand),
     ("Open in editor", &crate::open_in::OpenInEditor),
     ("Open in terminal", &crate::open_in::OpenInTerminal),
     ("Reload", &Refresh),

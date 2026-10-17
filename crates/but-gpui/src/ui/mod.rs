@@ -622,6 +622,8 @@ pub fn empty_state(
         .size_full()
         .items_center()
         .justify_center()
+        .px(px(24.))
+        .text_center()
         .gap(px(4.))
         .child(
             div()
