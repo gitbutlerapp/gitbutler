@@ -1419,7 +1419,7 @@ fn render_review(review: &backend::Review, theme: &Theme, cx: &Context<Detail>) 
                     .text_size(px(12.))
                     .text_color(theme.text_3)
                     .truncate()
-                    .child(format!("Reviewers: {}", review.reviewers.join(", "))),
+                    .child(format!("Review requested: {}", review.reviewers.join(", "))),
             )
         })
         .into_any_element()

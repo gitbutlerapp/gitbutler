@@ -419,14 +419,19 @@ impl Detail {
                         });
                 // What discarding this hunk means, fixed now: by the time a click lands, a
                 // reload may have moved other hunks into this row's indices.
-                let discard = keyed.as_ref().filter(|_| worktree).map(|(_, key)| {
-                    let change = Selected {
-                        file: diff.files[file].file.clone(),
-                        hunks: Some(vec![*key]),
-                    };
-                    let project = diff.key.project.clone();
-                    discard_button(ix, project, change, current, self.app.clone(), cx)
-                });
+                // A conflicted file goes whole or not at all; see `backend::discard`.
+                let whole_only = diff.files[file].file.conflicted;
+                let discard =
+                    (keyed.as_ref())
+                        .filter(|_| worktree && !whole_only)
+                        .map(|(_, key)| {
+                            let change = Selected {
+                                file: diff.files[file].file.clone(),
+                                hunks: Some(vec![*key]),
+                            };
+                            let project = diff.key.project.clone();
+                            discard_button(ix, project, change, current, self.app.clone(), cx)
+                        });
                 let element = diff::render_row(
                     row,
                     &diff.files,

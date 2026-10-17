@@ -59,8 +59,9 @@ enum Row {
     /// A project, its uncommitted changes, a branch or a commit.
     Item(Selection),
     Note(SharedString, bool),
-    /// Above a stack of more than one branch: the project and the branches' refs.
-    StackCaption(ProjectId, Vec<String>),
+    /// Above a stack of more than one branch: the project, how many branches, and the refs
+    /// of those with commits to hide.
+    StackCaption(ProjectId, usize, Vec<String>),
     Section(&'static str),
     /// A branch's commits folded away, and how many.
     More(ProjectId, String, usize),
@@ -185,8 +186,11 @@ impl Navigator {
             rows.push(Row::Item(Selection::Uncommitted(id.clone())));
             for stack in &workspace.stacks {
                 if stack.branches.len() > 1 {
-                    let refs = stack.branches.iter().map(|b| b.ref_name.clone());
-                    rows.push(Row::StackCaption(id.clone(), refs.collect()));
+                    let refs = (stack.branches.iter())
+                        .filter(|b| !b.commits.is_empty())
+                        .map(|b| b.ref_name.clone());
+                    let n = stack.branches.len();
+                    rows.push(Row::StackCaption(id.clone(), n, refs.collect()));
                 }
                 for branch in &stack.branches {
                     let key = (id.clone(), branch.ref_name.clone());
@@ -456,7 +460,7 @@ impl Navigator {
                 .text_color(theme.text_3)
                 .child(*title)
                 .into_any_element(),
-            Some(Row::StackCaption(project, refs)) => {
+            Some(Row::StackCaption(project, n, refs)) => {
                 let keys: Vec<(ProjectId, String)> =
                     refs.iter().map(|r| (project.clone(), r.clone())).collect();
                 h_flex()
@@ -472,7 +476,7 @@ impl Navigator {
                         Tooltip::with_key("Hide or show the stack's commits".into(), None, cx)
                     })
                     .child(small_icon(Icon::Stack).text_color(theme.text_3))
-                    .child(format!("Stack of {}", refs.len()))
+                    .child(format!("Stack of {n}"))
                     .on_click(cx.listener(move |this, _, _, cx| this.toggle_stack(&keys, cx)))
                     .into_any_element()
             }

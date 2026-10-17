@@ -496,18 +496,45 @@ pub fn discard_commit(path: &Path, commit: CommitId) -> Result<()> {
 
 /// Throw away the `selected` uncommitted changes.
 pub fn discard(path: &Path, selected: &[Selected]) -> Result<()> {
+    use but_oplog::legacy::{OperationKind, SnapshotDetails};
     let mut ctx = open(path)?;
-    // Discarding goes by status, which leaves conflicted files out: take them as they are
-    // first, then throw that away.
-    let conflicted: Vec<bstr::BString> = (unmerged(&ctx, selected)?.into_iter())
-        .map(Into::into)
-        .collect();
-    if !conflicted.is_empty() {
-        let _guard = ctx.exclusive_worktree_access();
-        but_workspace::resolve_worktree_conflicts(&*ctx.repo.get()?, conflicted)?;
+    // One lock throughout, so what's conflicted can't change under the discard.
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    // Discarding goes by status, which leaves conflicted files out: take them as they are,
+    // then throw that away. Only whole: discarding part of one would take the rest of it
+    // as resolved, markers and all.
+    let conflicted = unmerged(&ctx, selected)?;
+    if let Some(part) = (selected.iter())
+        .find(|part| part.hunks.is_some() && conflicted.contains(&part.file.path.as_str()))
+    {
+        bail!(
+            "{} has conflicts: discard all of it, or mark it resolved first",
+            part.file.path
+        );
     }
-    let rejected =
-        but_api::legacy::workspace::discard_worktree_changes(&mut ctx, selected_specs(selected))?;
+    let conflicted: Vec<bstr::BString> = conflicted.into_iter().map(Into::into).collect();
+    // The snapshot is recorded before anything changes, as the but-api discard does: undo
+    // then brings back whatever goes, conflicts included, even when some of it couldn't be
+    // discarded.
+    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        &ctx,
+        SnapshotDetails::new(OperationKind::DiscardChanges),
+        perm.read_permission(),
+        DryRun::No,
+    );
+    if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
+        tracing::warn!(?err, "couldn't record the discard for undo");
+    }
+    let repo = ctx.repo.get()?;
+    if !conflicted.is_empty() {
+        but_workspace::resolve_worktree_conflicts(&repo, conflicted)?;
+    }
+    let rejected = but_workspace::discard_workspace_changes(
+        &repo,
+        selected_specs(selected),
+        ctx.settings.context_lines,
+    )?;
     if let Some(spec) = rejected.first() {
         bail!("Couldn't discard {}", spec.path);
     }
@@ -766,6 +793,15 @@ mod tests {
         let (dir, _) = conflicted_repo();
         let path = dir.path();
         let files = crate::backend::load_uncommitted(path).unwrap();
+        let part = Selected {
+            file: files[0].clone(),
+            hunks: Some(Vec::new()),
+        };
+        let refused = discard(path, &[part]).unwrap_err();
+        assert!(
+            refused.to_string().contains("has conflicts"),
+            "part of it would leave the rest resolved, markers and all: {refused:#}"
+        );
         let whole = Selected {
             file: files[0].clone(),
             hunks: None,
