@@ -615,18 +615,13 @@ impl AppView {
             .and_then(|ws| ws.find_branch(&branch)?.review.as_ref())
             .map(|review| review.labels.clone())
             .unwrap_or_default();
-        cx.spawn_in(window, async move |this, cx| {
-            let labels = backend::run(move || reviews::repo_labels(&path)).await;
-            this.update_in(cx, |this, window, cx| {
-                let labels = match labels {
-                    Ok(labels) => labels,
-                    Err(err) => {
-                        let message = format!("{err:#}");
-                        return this.store.update(cx, |store, cx| {
-                            store.error("Couldn't list the labels", message, cx)
-                        });
-                    }
-                };
+        let load = move || reviews::repo_labels(&path);
+        self.pick_from_forge(
+            load,
+            "Couldn't list the labels",
+            window,
+            cx,
+            move |this, labels, window, cx| {
                 let choices = (labels.into_iter())
                     .map(|label| {
                         let on = !applied.contains(&label);
@@ -648,10 +643,8 @@ impl AppView {
                     })
                     .collect();
                 this.open_picker("Put on or take off a label", "Toggle", choices, window, cx);
-            })
-            .ok();
-        })
-        .detach();
+            },
+        );
     }
 
     /// Ask for a comment on the pull request as a whole, post it, then have the branch
@@ -665,41 +658,13 @@ impl AppView {
         let Some((project, branch, Some((number, _)))) = self.review_target(cx) else {
             return;
         };
-        let Some(path) = self.store.read(cx).path(&project) else {
-            return;
-        };
-        let input = cx.new(|cx| TextInput::new("Comment", false, cx));
-        self.open_prompt(
-            &format!("Comment on #{number}"),
-            None,
-            "Comment",
-            input,
-            None,
+        self.post_to_review(
+            (project, branch),
+            format!("Comment on #{number}"),
+            ("Comment", "Commented"),
+            move |path, body| reviews::comment(path, number, body),
             window,
             cx,
-            move |_, body, _, cx| {
-                let body = body.trim().to_owned();
-                if body.is_empty() {
-                    return;
-                }
-                cx.spawn(async move |this, cx| {
-                    let posted = backend::run(move || reviews::comment(&path, number, body)).await;
-                    this.update(cx, |this, cx| match posted {
-                        Ok(()) => {
-                            this.store
-                                .update(cx, |store, cx| store.snack("Commented", cx));
-                            this.detail.update(cx, |detail, cx| {
-                                detail.load_feedback(&project, &branch, cx)
-                            })
-                        }
-                        Err(err) => this.store.update(cx, |store, cx| {
-                            store.error("Couldn't comment", format!("{err:#}"), cx)
-                        }),
-                    })
-                    .ok();
-                })
-                .detach();
-            },
         );
     }
 
@@ -713,36 +678,56 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.post_to_review(
+            (project, ref_name),
+            "Reply to the conversation".into(),
+            ("Reply", "Replied"),
+            move |path, body| reviews::reply_to_thread(path, id, body),
+            window,
+            cx,
+        );
+    }
+
+    /// Ask for a line to `verb` with, then `post` it to the forge off the UI thread: on
+    /// success say `done` and have the branch page ask the forge where the review stands.
+    fn post_to_review(
+        &mut self,
+        (project, branch): (ProjectId, String),
+        title: String,
+        (verb, done): (&'static str, &'static str),
+        post: impl FnOnce(&std::path::Path, String) -> anyhow::Result<()> + Send + 'static,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(path) = self.store.read(cx).path(&project) else {
             return;
         };
-        let input = cx.new(|cx| TextInput::new("Reply", false, cx));
+        let input = cx.new(|cx| TextInput::new(verb, false, cx));
         self.open_prompt(
-            "Reply to the conversation",
+            &title,
             None,
-            "Reply",
+            verb,
             input,
             None,
             window,
             cx,
-            move |_, body, _, cx| {
-                let body = body.trim().to_owned();
-                if body.is_empty() {
+            move |_, text, _, cx| {
+                let text = text.trim().to_owned();
+                if text.is_empty() {
                     return;
                 }
                 cx.spawn(async move |this, cx| {
-                    let posted =
-                        backend::run(move || reviews::reply_to_thread(&path, id, body)).await;
+                    let posted = backend::run(move || post(&path, text)).await;
                     this.update(cx, |this, cx| match posted {
                         Ok(()) => {
-                            this.store
-                                .update(cx, |store, cx| store.snack("Replied", cx));
+                            this.store.update(cx, |store, cx| store.snack(done, cx));
                             this.detail.update(cx, |detail, cx| {
-                                detail.load_feedback(&project, &ref_name, cx)
+                                detail.load_feedback(&project, &branch, cx)
                             })
                         }
                         Err(err) => this.store.update(cx, |store, cx| {
-                            store.error("Couldn't reply", format!("{err:#}"), cx)
+                            let title = format!("Couldn't {}", verb.to_lowercase());
+                            store.error(title, format!("{err:#}"), cx)
                         }),
                     })
                     .ok();
@@ -750,6 +735,31 @@ impl AppView {
                 .detach();
             },
         );
+    }
+
+    /// `load` a list from the forge off the UI thread, then `open` a picker of it, or say
+    /// what went wrong under `failed`.
+    fn pick_from_forge<T: Send + 'static>(
+        &mut self,
+        load: impl FnOnce() -> anyhow::Result<T> + Send + 'static,
+        failed: &'static str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        open: impl FnOnce(&mut AppView, T, &mut Window, &mut Context<AppView>) + 'static,
+    ) {
+        cx.spawn_in(window, async move |this, cx| {
+            let loaded = backend::run(load).await;
+            this.update_in(cx, |this, window, cx| match loaded {
+                Ok(list) => open(this, list, window, cx),
+                Err(err) => {
+                    let message = format!("{err:#}");
+                    this.store
+                        .update(cx, |store, cx| store.error(failed, message, cx))
+                }
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Pick someone to ask for a review of the pull request, from the repository's
@@ -781,18 +791,13 @@ impl AppView {
                     .collect()
             })
             .unwrap_or_default();
-        cx.spawn_in(window, async move |this, cx| {
-            let candidates = backend::run(move || reviews::reviewer_candidates(&path)).await;
-            this.update_in(cx, |this, window, cx| {
-                let logins = match candidates {
-                    Ok(logins) => logins,
-                    Err(err) => {
-                        let message = format!("{err:#}");
-                        return this.store.update(cx, |store, cx| {
-                            store.error("Couldn't list who can review", message, cx)
-                        });
-                    }
-                };
+        let load = move || reviews::reviewer_candidates(&path);
+        self.pick_from_forge(
+            load,
+            "Couldn't list who can review",
+            window,
+            cx,
+            move |this, logins, window, cx| {
                 let choices = (logins.into_iter())
                     .filter(|login| !asked.contains(login))
                     .map(|login| {
@@ -809,10 +814,8 @@ impl AppView {
                     })
                     .collect();
                 this.open_picker("Ask someone to review", "Ask", choices, window, cx);
-            })
-            .ok();
-        })
-        .detach();
+            },
+        );
     }
 
     /// Merge the pull request, asking how.
