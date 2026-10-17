@@ -4,13 +4,13 @@
 use std::collections::HashMap;
 
 use gpui::{
-    AnyElement, App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
-    SharedString, Window, actions, div, prelude::*, px,
+    AnyElement, App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable,
+    SharedString, Stateful, Window, actions, div, prelude::*, px,
 };
 
 use crate::backend::conflicts::{self, ConflictHunk, Conflicts, Pick};
 use crate::backend::{self, CommitId};
-use crate::state::{Overlay, ProjectId, Store};
+use crate::state::{Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::{ButtonStyle, button, h_flex, plural, v_flex};
@@ -19,6 +19,17 @@ actions!(resolve, [ResolveConflicts, EditByHand]);
 
 /// Lines of unconflicted context shown around each conflict.
 const CONTEXT_LINES: usize = 3;
+
+/// Every conflict shown, by file and 0-based hunk, as picks are kept.
+fn conflict_keys(
+    conflicts: &Option<Result<Conflicts, SharedString>>,
+) -> impl Iterator<Item = (String, usize)> + '_ {
+    let files = match conflicts {
+        Some(Ok(found)) => found.files.as_slice(),
+        _ => &[],
+    };
+    (files.iter()).flat_map(|file| (0..file.hunks.len()).map(|ix| (file.path.clone(), ix)))
+}
 
 pub struct ResolveView {
     store: Entity<Store>,
@@ -74,34 +85,16 @@ impl ResolveView {
         }
     }
 
-    fn total(&self) -> usize {
-        match &self.conflicts {
-            Some(Ok(found)) => found.files.iter().map(|f| f.hunks.len()).sum(),
-            _ => 0,
-        }
-    }
-
     fn pick_all(&mut self, pick: Pick, cx: &mut Context<Self>) {
-        if let Some(Ok(found)) = &self.conflicts {
-            for file in &found.files {
-                for ix in 0..file.hunks.len() {
-                    self.picks.insert((file.path.clone(), ix), pick);
-                }
-            }
-        }
+        self.picks
+            .extend(conflict_keys(&self.conflicts).map(|key| (key, pick)));
         cx.notify();
     }
 
     /// Leave every conflict not picked yet to the AI, then resolve them all.
     fn rest_with_ai(&mut self, cx: &mut Context<Self>) {
-        if let Some(Ok(found)) = &self.conflicts {
-            for file in &found.files {
-                for ix in 0..file.hunks.len() {
-                    self.picks
-                        .entry((file.path.clone(), ix))
-                        .or_insert(Pick::Ai);
-                }
-            }
+        for key in conflict_keys(&self.conflicts) {
+            self.picks.entry(key).or_insert(Pick::Ai);
         }
         self.apply(cx);
     }
@@ -255,7 +248,7 @@ impl ResolveView {
 impl Render for ResolveView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
-        let total = self.total();
+        let total = conflict_keys(&self.conflicts).count();
         let picked = self.picks.len();
         let body: AnyElement =
             match &self.conflicts {
@@ -437,13 +430,27 @@ impl Render for ResolveView {
 }
 
 impl crate::app::AppView {
-    /// The selected commit, when it's conflicted: what both actions here act on. The
-    /// palette offers them anywhere, and a clean commit has nothing to resolve.
-    fn selected_conflicted(&self, cx: &gpui::App) -> Option<(ProjectId, CommitId)> {
+    /// Register the actions here on the window while the selected commit is conflicted.
+    /// Resolve is also there on a branch with a conflicted commit: its page's button selects
+    /// that commit, then sends Resolve before the window is drawn again.
+    pub fn resolve_actions(&self, el: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
+        if self.selected_conflicted(cx).is_some() {
+            return el
+                .on_action(cx.listener(Self::resolve_conflicts))
+                .on_action(cx.listener(Self::edit_by_hand));
+        }
+        let store = self.store.read(cx);
+        let branch_conflicted = matches!(&store.selection, Some(branch @ Selection::Branch(..))
+            if store.branch_for(branch).is_some_and(|b| b.commits.iter().any(|c| c.conflicted)));
+        el.when(branch_conflicted, |el| {
+            el.on_action(cx.listener(Self::resolve_conflicts))
+        })
+    }
+
+    /// The selected commit, when it's conflicted: what both actions here act on.
+    fn selected_conflicted(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
         let (project, commit) = self.selected_commit(cx)?;
-        let workspace = self.store.read(cx).workspace(&project)?;
-        let (_, found) = workspace.find_commit(commit)?;
-        found.conflicted.then_some((project, commit))
+        commit.conflicted.then_some((project, commit.id))
     }
 
     /// Check the selected commit out to resolve its conflicts by hand.

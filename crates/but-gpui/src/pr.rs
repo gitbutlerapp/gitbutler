@@ -3,15 +3,15 @@
 //! reopening it.
 
 use gpui::{
-    App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, PromptLevel,
-    SharedString, Task, Window, actions, div, prelude::*, px,
+    App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, PromptLevel,
+    SharedString, Stateful, Task, Window, actions, div, prelude::*, px,
 };
 
 use crate::app::AppView;
 use crate::backend::ai;
 use crate::backend::branches::{self, ApplyOutcome};
 use crate::backend::reviews::{self, MergeMethod};
-use crate::backend::{self, PushState, ReviewState};
+use crate::backend::{self, PushState, Review, ReviewState};
 use crate::state::{Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::short_ref;
@@ -426,17 +426,51 @@ impl Render for ReviewView {
     }
 }
 
-/// A pull request's number and state.
-type Review = (u64, ReviewState);
-
 impl AppView {
-    /// The selected branch, or the branch of the selected commit, with its pull request
-    /// number and state if it has one.
+    /// Register the pull request actions on the window where they apply to the selected
+    /// branch, or the selected commit's branch: what the navigator's menu offers for it.
+    pub fn pr_actions(&self, el: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
+        let store = self.store.read(cx);
+        let Some(selection) = store.selection.as_ref().filter(|s| on_forge(store, s)) else {
+            return el;
+        };
+        let el = el.on_action(cx.listener(Self::apply_pull_request));
+        let Some(branch) = (store.branch_for(selection)).filter(|b| !b.ref_name.is_empty()) else {
+            return el;
+        };
+        let forge = (store.workspace(selection.project())).and_then(|ws| ws.forge.as_deref());
+        match branch.review.as_ref().map(|r| r.state) {
+            None => el.when(!branch.commits.is_empty(), |el| {
+                el.on_action(cx.listener(Self::create_pull_request))
+            }),
+            Some(state @ (ReviewState::Open | ReviewState::Draft)) => el
+                .on_action(cx.listener(Self::edit_pull_request))
+                .on_action(cx.listener(Self::toggle_draft))
+                .on_action(cx.listener(Self::merge_pull_request))
+                .on_action(cx.listener(Self::label_pull_request))
+                .on_action(cx.listener(Self::close_pull_request))
+                // What only GitButler's GitHub support does so far.
+                .when(forge == Some("GitHub"), |el| {
+                    el.on_action(cx.listener(Self::comment_on_pull_request))
+                        .on_action(cx.listener(Self::request_review))
+                })
+                // The forges GitButler can ask to merge on their own.
+                .when(
+                    state == ReviewState::Open && matches!(forge, Some("GitHub" | "GitLab")),
+                    |el| el.on_action(cx.listener(Self::toggle_auto_merge)),
+                ),
+            Some(ReviewState::Closed) => el.on_action(cx.listener(Self::close_pull_request)),
+            Some(ReviewState::Merged) => el,
+        }
+    }
+
+    /// The selected branch, or the branch of the selected commit, with its pull request if
+    /// it has one.
     fn review_target(&self, cx: &App) -> Option<(ProjectId, String, Option<Review>)> {
         let store = self.store.read(cx);
         let selection = store.selection.clone()?;
         let branch = store.branch_for(&selection)?;
-        let review = branch.review.as_ref().map(|r| (r.number, r.state));
+        let review = branch.review.clone();
         Some((selection.project().clone(), branch.ref_name.clone(), review))
     }
 
@@ -449,11 +483,7 @@ impl AppView {
         let Some((project, branch, None)) = self.review_target(cx) else {
             return;
         };
-        let Some(ws) = (self.store.read(cx).workspace(&project)).filter(|ws| ws.forge.is_some())
-        else {
-            self.store.update(cx, |store, cx| {
-                store.snack("This project's remote isn't on a forge GitButler knows", cx)
-            });
+        let Some(ws) = self.store.read(cx).workspace(&project) else {
             return;
         };
         let push = ws.find_branch(&branch).and_then(|b| match b.push {
@@ -474,7 +504,7 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((project, branch, Some((number, _)))) = self.review_target(cx) else {
+        let Some((project, branch, Some(Review { number, .. }))) = self.review_target(cx) else {
             return;
         };
         let store = self.store.clone();
@@ -485,7 +515,7 @@ impl AppView {
 
     /// Mark a draft ready for review, or an open pull request a draft again.
     pub fn toggle_draft(&mut self, _: &ToggleDraft, _: &mut Window, cx: &mut Context<Self>) {
-        let Some((project, _, Some((number, state)))) = self.review_target(cx) else {
+        let Some((project, _, Some(Review { number, state, .. }))) = self.review_target(cx) else {
             return;
         };
         let draft = match state {
@@ -513,13 +543,19 @@ impl AppView {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((project, _, Some((number, ReviewState::Open)))) = self.review_target(cx) else {
+        let Some((
+            project,
+            _,
+            Some(Review {
+                number,
+                state: ReviewState::Open,
+                auto_merge: on,
+                ..
+            }),
+        )) = self.review_target(cx)
+        else {
             return;
         };
-        let store = self.store.read(cx);
-        let on = (store.selection.as_ref())
-            .and_then(|selection| store.branch_for(selection)?.review.as_ref())
-            .is_some_and(|review| review.auto_merge);
         self.run_on_review(
             project,
             "Auto-merge",
@@ -541,13 +577,9 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(selection) = self.store.read(cx).selection.clone() else {
+        let Some(project) = self.selected_project(cx) else {
             return;
         };
-        if !on_forge(self.store.read(cx), &selection) {
-            return;
-        }
-        let project = selection.project().clone();
         let input = cx.new(|cx| TextInput::new("Pull request number", false, cx));
         self.open_prompt(
             "Apply a pull request",
@@ -603,28 +635,30 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((project, branch, Some((number, ReviewState::Open | ReviewState::Draft)))) =
-            self.review_target(cx)
+        let Some((
+            project,
+            _,
+            Some(Review {
+                number,
+                state: ReviewState::Open | ReviewState::Draft,
+                labels,
+                ..
+            }),
+        )) = self.review_target(cx)
         else {
             return;
         };
-        let store = self.store.read(cx);
-        let Some(path) = store.path(&project) else {
+        let Some(path) = self.store.read(cx).path(&project) else {
             return;
         };
-        let applied = (store.workspace(&project))
-            .and_then(|ws| ws.find_branch(&branch)?.review.as_ref())
-            .map_or_else(Vec::new, |review| review.labels.clone());
         self.toggle_on_review(
             project,
             move || reviews::repo_labels(&path),
-            applied,
-            (
-                "Couldn't list the labels",
-                "Put on or take off a label",
-                "Label",
-                "Labels changed",
-            ),
+            labels,
+            "Couldn't list the labels",
+            "Put on or take off a label",
+            "Label",
+            "Labels changed",
             move |path, label, on| reviews::set_label(path, number, label, on),
             window,
             cx,
@@ -639,13 +673,15 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((project, branch, Some((number, _)))) = self.review_target(cx) else {
+        let Some((project, branch, Some(Review { number, .. }))) = self.review_target(cx) else {
             return;
         };
         self.post_to_review(
-            (project, branch),
+            project,
+            branch,
             format!("Comment on #{number}"),
-            ("Comment", "Commented"),
+            "Comment",
+            "Commented",
             move |path, body| reviews::comment(path, number, body),
             window,
             cx,
@@ -663,9 +699,11 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         self.post_to_review(
-            (project, ref_name),
+            project,
+            ref_name,
             "Reply to the conversation".into(),
-            ("Reply", "Replied"),
+            "Reply",
+            "Replied",
             move |path, body| reviews::reply_to_thread(path, id, body),
             window,
             cx,
@@ -673,12 +711,16 @@ impl AppView {
     }
 
     /// Ask for a line to `verb` with, then `post` it to the forge off the UI thread: on
-    /// success say `done` and have the branch page ask the forge where the review stands.
+    /// success say `done` and have the branch page ask the forge where `branch`'s review
+    /// stands.
+    #[allow(clippy::too_many_arguments)]
     fn post_to_review(
         &mut self,
-        (project, branch): (ProjectId, String),
+        project: ProjectId,
+        branch: String,
         title: String,
-        (verb, done): (&'static str, &'static str),
+        verb: &'static str,
+        done: &'static str,
         post: impl FnOnce(&std::path::Path, String) -> anyhow::Result<()> + Send + 'static,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -732,7 +774,10 @@ impl AppView {
         project: ProjectId,
         load: impl FnOnce() -> anyhow::Result<Vec<String>> + Send + 'static,
         on: Vec<String>,
-        (failed, title, label, done): (&'static str, &'static str, &'static str, &'static str),
+        failed: &'static str,
+        title: &'static str,
+        label: &'static str,
+        done: &'static str,
         set: impl Fn(&std::path::Path, String, bool) -> anyhow::Result<()> + Clone + Send + 'static,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -777,19 +822,23 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((project, branch, Some((number, ReviewState::Open | ReviewState::Draft)))) =
-            self.review_target(cx)
+        let Some((
+            project,
+            _,
+            Some(Review {
+                number,
+                state: ReviewState::Open | ReviewState::Draft,
+                reviewers,
+                author,
+                ..
+            }),
+        )) = self.review_target(cx)
         else {
             return;
         };
-        let store = self.store.read(cx);
-        let Some(path) = store.path(&project) else {
+        let Some(path) = self.store.read(cx).path(&project) else {
             return;
         };
-        let review =
-            (store.workspace(&project)).and_then(|ws| ws.find_branch(&branch)?.review.as_ref());
-        let asked = review.map_or_else(Vec::new, |review| review.reviewers.clone());
-        let author = review.and_then(|review| review.author.clone());
         let load = move || {
             let logins = reviews::reviewer_candidates(&path)?;
             Ok((logins.into_iter())
@@ -799,13 +848,11 @@ impl AppView {
         self.toggle_on_review(
             project,
             load,
-            asked,
-            (
-                "Couldn't list who can review",
-                "Ask someone to review, or no longer",
-                "Request review",
-                "Reviewers changed",
-            ),
+            reviewers,
+            "Couldn't list who can review",
+            "Ask someone to review, or no longer",
+            "Request review",
+            "Reviewers changed",
             move |path, login, ask| reviews::request_review(path, number, login, ask),
             window,
             cx,
@@ -819,7 +866,15 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((project, branch, Some((number, ReviewState::Open)))) = self.review_target(cx)
+        let Some((
+            project,
+            branch,
+            Some(Review {
+                number,
+                state: ReviewState::Open,
+                ..
+            }),
+        )) = self.review_target(cx)
         else {
             return;
         };
@@ -866,7 +921,7 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some((project, _, Some((number, state)))) = self.review_target(cx) else {
+        let Some((project, _, Some(Review { number, state, .. }))) = self.review_target(cx) else {
             return;
         };
         match state {
@@ -922,7 +977,7 @@ impl AppView {
     }
 }
 
-/// Whether `selection` is a branch of a project on a forge, so pull requests apply.
+/// Whether `selection`'s project is on a forge, so pull requests apply.
 pub fn on_forge(store: &Store, selection: &Selection) -> bool {
     store
         .workspace(selection.project())

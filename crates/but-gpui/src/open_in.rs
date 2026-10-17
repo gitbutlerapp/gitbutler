@@ -135,13 +135,7 @@ impl AppView {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(project) = self
-            .store
-            .read(cx)
-            .selection
-            .as_ref()
-            .map(|s| s.project().clone())
-        {
+        if let Some(project) = self.selected_project(cx) {
             self.open_in_terminal(&project, cx);
         }
     }
