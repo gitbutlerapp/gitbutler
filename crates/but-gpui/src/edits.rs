@@ -327,6 +327,12 @@ impl AppView {
 
     /// Squash the picked commits into the oldest of them.
     fn squash_picked(&mut self, _: &SquashPicked, _: &mut Window, cx: &mut Context<Self>) {
+        self.squash_picks(None, cx)
+    }
+
+    /// Squash the picked commits into one, in the place of `into` when it's one of them, or
+    /// of the oldest. Their messages are kept, one after another.
+    pub fn squash_picks(&mut self, into: Option<CommitId>, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(Selection::Commit(project, _)) = store.selection.clone() else {
             return;
@@ -335,20 +341,22 @@ impl AppView {
             return;
         };
         // The workspace lists commits newest first.
-        let mut picked: Vec<_> = workspace
+        let picked: Vec<_> = workspace
             .commits()
             .filter(|c| store.picked.contains(&c.id))
             .collect();
-        let Some(oldest) = picked.pop().map(|c| c.id) else {
+        let oldest = picked.last().map(|c| c.id);
+        let Some(into) = into.filter(|id| store.picked.contains(id)).or(oldest) else {
             return;
         };
-        if picked.is_empty() {
+        let rest: Vec<_> = picked.into_iter().filter(|c| c.id != into).collect();
+        if rest.is_empty() {
             return;
         }
-        let overlay = Overlay::commits(picked.iter().map(|c| c.key.clone()));
-        let label = format!("Squash {} commits", picked.len() + 1);
-        let rest = picked.iter().map(|c| c.id).collect();
-        self.squash(project, rest, oldest, overlay, label, cx);
+        let overlay = Overlay::commits(rest.iter().map(|c| c.key.clone()));
+        let label = format!("Squash {} commits", rest.len() + 1);
+        let rest = rest.iter().map(|c| c.id).collect();
+        self.squash(project, rest, into, overlay, label, cx);
     }
 
     fn squash(

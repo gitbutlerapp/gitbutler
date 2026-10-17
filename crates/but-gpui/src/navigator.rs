@@ -1353,12 +1353,31 @@ impl Navigator {
                 ]);
                 items
             }
-            Selection::Commit(_, id) if store.picked.contains(id) => {
+            Selection::Commit(project, id) if store.picked.contains(id) => {
                 let n = store.picked.len();
-                vec![
-                    MenuItem::action(format!("Squash {n} commits"), &SquashPicked, cx),
-                    MenuItem::action(format!("Uncommit {n} commits"), &UncommitSelection, cx),
-                ]
+                // Commits list newest first.
+                let oldest = (store.workspace(project))
+                    .and_then(|ws| ws.commits().filter(|c| store.picked.contains(&c.id)).last())
+                    .map(|c| c.id);
+                let mut items = vec![MenuItem::action(
+                    format!("Squash {n} commits"),
+                    &SquashPicked,
+                    cx,
+                )];
+                // The other way round: the rest go into the one clicked, in its place.
+                if oldest != Some(*id) {
+                    let into = *id;
+                    items.push(MenuItem::new(
+                        format!("Squash {n} commits into this one"),
+                        move |this, _, cx| this.squash_picks(Some(into), cx),
+                    ));
+                }
+                items.push(MenuItem::action(
+                    format!("Uncommit {n} commits"),
+                    &UncommitSelection,
+                    cx,
+                ));
+                items
             }
             Selection::Commit(project, id) => {
                 let Some(workspace) = store.workspace(project) else {
