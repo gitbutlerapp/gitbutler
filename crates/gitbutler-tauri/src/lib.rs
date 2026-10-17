@@ -20,7 +20,10 @@
 pub mod logs;
 pub mod menu;
 pub mod window;
-pub use window::state::{WindowState, event::ChangeForFrontend};
+pub use window::state::{
+    WindowState,
+    event::{ChangeForFrontend, Frontend},
+};
 
 pub mod askpass;
 pub mod debug;

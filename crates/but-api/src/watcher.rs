@@ -5,11 +5,11 @@
 use crate::tags::CacheTag;
 use but_hunk_assignment::WorktreeChanges;
 use gitbutler_operating_modes::OperatingMode;
-use schemars::JsonSchema;
 use serde::Serialize;
 
 /// The type of payloads a watcher event can have
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum WatcherPayload {
     /// Git remote information was fetched.
@@ -44,6 +44,92 @@ impl WatcherPayload {
             WatcherPayload::LinkedWorktreeChanges(_) => WatcherEventKind::LinkedWorktreeChanges,
             WatcherPayload::WorkspaceActivity(_) => WatcherEventKind::WorkspaceActivity,
             WatcherPayload::ExternalInvalidation(_) => WatcherEventKind::ExternalInvalidation,
+        }
+    }
+}
+
+/// A watcher payload with the event name a host delivers it under.
+#[derive(Debug, Clone, Serialize)]
+pub struct WatcherEvent {
+    /// `project://{project_id}/{topic}`, one topic per [`WatcherEventKind`].
+    pub name: String,
+    /// What happened.
+    pub payload: WatcherPayload,
+}
+
+impl From<gitbutler_watcher::Change> for WatcherEvent {
+    fn from(change: gitbutler_watcher::Change) -> Self {
+        use gitbutler_watcher::Change;
+        let lossy_paths = |paths: &[std::path::PathBuf]| {
+            paths
+                .iter()
+                .map(|path| path.to_string_lossy().into_owned())
+                .collect()
+        };
+        let (project_id, payload) = match change {
+            Change::GitFetch(project_id) => {
+                (project_id, WatcherPayload::GitFetch(WatcherGitFetchPayload))
+            }
+            Change::GitHead {
+                project_id,
+                head,
+                operating_mode,
+            } => (
+                project_id,
+                WatcherPayload::GitHead(WatcherGitHeadPayload {
+                    head,
+                    operating_mode,
+                }),
+            ),
+            Change::GitActivity {
+                project_id,
+                head_sha,
+            } => (
+                project_id,
+                WatcherPayload::GitActivity(WatcherGitActivityPayload { head_sha }),
+            ),
+            Change::WorkspaceActivity { project_id } => (
+                project_id,
+                WatcherPayload::WorkspaceActivity(WatcherWorkspaceActivityPayload),
+            ),
+            Change::ExternalInvalidation { project_id, tags } => (
+                project_id,
+                WatcherPayload::ExternalInvalidation(WatcherExternalInvalidationPayload {
+                    // The sentinel is a file anyone can write; only names a tag has get through.
+                    tags: tags
+                        .into_iter()
+                        .filter(|tag| CacheTag::from_name(tag).is_some())
+                        .collect(),
+                }),
+            ),
+            Change::WorktreeChanges {
+                project_id,
+                changes,
+                changed_paths,
+            } => (
+                project_id,
+                WatcherPayload::WorktreeChanges(WatcherWorktreeChangesPayload {
+                    changed_paths: lossy_paths(&changed_paths),
+                    changes,
+                }),
+            ),
+            Change::LinkedWorktreeChanges {
+                project_id,
+                worktree,
+                changes,
+                changed_paths,
+            } => (
+                project_id,
+                WatcherPayload::LinkedWorktreeChanges(WatcherLinkedWorktreeChangesPayload {
+                    worktree,
+                    changed_paths: lossy_paths(&changed_paths),
+                    changes,
+                }),
+            ),
+        };
+        WatcherEvent {
+            name: format!("project://{project_id}/{}", payload.kind().topic()),
+            payload,
         }
     }
 }
@@ -95,6 +181,19 @@ impl WatcherEventKind {
         }
     }
 
+    /// The event's name below its project, as the Svelte desktop app first named it.
+    pub fn topic(self) -> &'static str {
+        match self {
+            WatcherEventKind::GitFetch => "git/fetch",
+            WatcherEventKind::GitHead => "git/head",
+            WatcherEventKind::GitActivity => "git/activity",
+            WatcherEventKind::WorktreeChanges => "worktree_changes",
+            WatcherEventKind::LinkedWorktreeChanges => "linked_worktree_changes",
+            WatcherEventKind::WorkspaceActivity => "workspace-activity",
+            WatcherEventKind::ExternalInvalidation => "external-invalidation",
+        }
+    }
+
     /// The tags this event makes stale.
     ///
     /// This is the event-side third of the tag declarations — see
@@ -131,7 +230,8 @@ impl WatcherEventKind {
 }
 
 /// Git fetch event
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherGitFetchPayload;
 
@@ -139,7 +239,8 @@ pub struct WatcherGitFetchPayload;
 but_schemars::register_sdk_type!(WatcherGitFetchPayload);
 
 /// Git head (and operating mode) change event
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherGitHeadPayload {
     /// The symbolic ref HEAD points at, or `null` when HEAD is detached.
@@ -152,7 +253,8 @@ pub struct WatcherGitHeadPayload {
 but_schemars::register_sdk_type!(WatcherGitHeadPayload);
 
 /// Git files activity. Supplies the head sha
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherGitActivityPayload {
     /// The SHA of the repository's HEAD.
@@ -163,7 +265,8 @@ pub struct WatcherGitActivityPayload {
 but_schemars::register_sdk_type!(WatcherGitActivityPayload);
 
 /// Workspace activity that requires the UI to re-read branch/stack state.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherWorkspaceActivityPayload;
 
@@ -171,7 +274,8 @@ pub struct WatcherWorkspaceActivityPayload;
 but_schemars::register_sdk_type!(WatcherWorkspaceActivityPayload);
 
 /// Cache tags another process declared stale, spelled as `cache-tags` exports them.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherExternalInvalidationPayload {
     /// A client drops every cache providing one of these.
@@ -182,7 +286,8 @@ pub struct WatcherExternalInvalidationPayload {
 but_schemars::register_sdk_type!(WatcherExternalInvalidationPayload);
 
 /// Worktree files changes.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherWorktreeChangesPayload {
     /// Worktree-relative paths that triggered the event, using the same lossy
@@ -196,7 +301,8 @@ pub struct WatcherWorktreeChangesPayload {
 but_schemars::register_sdk_type!(WatcherWorktreeChangesPayload);
 
 /// Linked worktree files changes.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherLinkedWorktreeChangesPayload {
     /// The stable name of the linked worktree, as

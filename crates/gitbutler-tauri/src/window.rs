@@ -73,6 +73,32 @@ pub(crate) mod state {
             }
         }
 
+        impl From<but_api::watcher::WatcherEvent> for ChangeForFrontend {
+            fn from(event: but_api::watcher::WatcherEvent) -> Self {
+                ChangeForFrontend {
+                    name: event.name,
+                    payload: serde_json::json!(event.payload),
+                }
+            }
+        }
+
+        /// The frontend the app serves, which decides how watcher changes are shaped for it.
+        #[derive(Debug, Clone, Copy)]
+        pub enum Frontend {
+            Svelte,
+            /// Reads the SDK's watcher events, as it does over N-API.
+            Lite,
+        }
+
+        impl Frontend {
+            pub fn change_for_frontend(self, change: Change) -> ChangeForFrontend {
+                match self {
+                    Frontend::Svelte => change.into(),
+                    Frontend::Lite => but_api::watcher::WatcherEvent::from(change).into(),
+                }
+            }
+        }
+
         impl From<AppSettings> for ChangeForFrontend {
             fn from(settings: AppSettings) -> Self {
                 ChangeForFrontend {
@@ -92,7 +118,7 @@ pub(crate) mod state {
             }
         }
     }
-    use event::ChangeForFrontend;
+    use event::Frontend;
 
     struct State {
         /// The id of the project displayed by the window.
@@ -122,14 +148,18 @@ pub(crate) mod state {
     pub struct WindowState {
         /// NOTE: This handle is required for this type to be self-contained as it's used by `core` through a trait.
         app_handle: AppHandle,
+        frontend: Frontend,
         /// The state for every open application window.
         state: Arc<parking_lot::Mutex<BTreeMap<WindowLabel, State>>>,
     }
 
-    fn handler_from_app(app_handle: &AppHandle) -> Result<gitbutler_watcher::Handler> {
+    fn handler_from_app(
+        app_handle: &AppHandle,
+        frontend: Frontend,
+    ) -> Result<gitbutler_watcher::Handler> {
         Ok(gitbutler_watcher::Handler::new({
             let app = app_handle.clone();
-            move |change| ChangeForFrontend::from(change).send(&app)
+            move |change| frontend.change_for_frontend(change).send(&app)
         }))
     }
 
@@ -142,9 +172,10 @@ pub(crate) mod state {
     }
 
     impl WindowState {
-        pub fn new(app_handle: AppHandle) -> Self {
+        pub fn new(app_handle: AppHandle, frontend: Frontend) -> Self {
             Self {
                 app_handle,
+                frontend,
                 state: Default::default(),
             }
         }
@@ -171,7 +202,7 @@ pub(crate) mod state {
                     .unwrap_or(ProjectAccessMode::Shared));
             }
             let exclusive_access = ctx.try_exclusive_access().ok();
-            let handler = handler_from_app(&self.app_handle)?;
+            let handler = handler_from_app(&self.app_handle, self.frontend)?;
             let worktree_dir = ctx.workdir_or_fail()?;
             let watch_mode = gitbutler_watcher::WatchMode::from_env_or_settings(
                 &app_settings.get()?.feature_flags.watch_mode,
