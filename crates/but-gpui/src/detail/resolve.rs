@@ -131,9 +131,9 @@ impl Detail {
     }
 
     /// What `conflict`'s sides are called, alone and in a sentence. A commit sits on the
-    /// target when it's its stack's oldest, else on the commit below. Uncommitted changes an
-    /// update merged sit on what the update brought; any other merge's markers name the
-    /// sides themselves.
+    /// target when it's its stack's oldest, else on the commit below. An update's markers
+    /// put the uncommitted changes first, as Git's do, then what the update brought; any
+    /// other merge's markers name the sides themselves.
     fn side_names(&self, conflict: &Conflict, cx: &App) -> [(String, String); 2] {
         let Some((project, conflicted)) = self.conflicted() else {
             return Default::default();
@@ -157,8 +157,8 @@ impl Detail {
             }
             Conflicted::Files(_) => match &conflict.labels {
                 [ours, theirs] if ours.is_empty() || (ours == "ours" && theirs == "theirs") => [
-                    target.unwrap_or_else(|| named("Upstream", "upstream")),
                     named("Your changes", "your changes"),
+                    target.unwrap_or_else(|| named("Upstream", "upstream")),
                 ],
                 [ours, theirs] => [named(ours, ours), named(theirs, theirs)],
             },
@@ -274,14 +274,17 @@ impl Detail {
         self.rebuild_rows(cx);
     }
 
-    /// Write conflict `id`'s lines by hand, from what's kept so far or the commit's own.
+    /// Write conflict `id`'s lines by hand, from what's kept so far or the user's own: the
+    /// commit's, or the uncommitted changes, the first side of a merge's markers.
     fn edit(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
+        let files = matches!(self.conflicted(), Some((_, Conflicted::Files(_))));
         let Some((_, found)) = self.find_conflict(&id) else {
             return;
         };
         let text = match self.resolving.keeping.get(&id) {
             Some(Keeping::Text { text, .. }) => text.clone(),
             Some(Keeping::Pick(pick)) => kept_text(found, *pick),
+            None if files => found.new_base_text.clone(),
             None => found.commit_text.clone(),
         };
         let input = cx.new(|cx| {
@@ -597,6 +600,10 @@ impl Detail {
             sides: names
                 .each_ref()
                 .map(|(label, phrase)| Name { label, phrase }),
+            icons: match self.conflicted() {
+                Some((_, Conflicted::Files(_))) => [Icon::FileDiff, Icon::Branch],
+                _ => [Icon::Branch, Icon::Commit],
+            },
             kept,
             current: self.current_conflict().as_deref() == Some(id.as_str()),
             ancestor: r.ancestors.contains(&id),

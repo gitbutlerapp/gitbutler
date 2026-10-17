@@ -98,6 +98,8 @@ pub struct Row<'a> {
     /// What the two sides are called, alone and in a sentence: what the commit or the
     /// changes now sit on, like the target, and the commit or the changes themselves.
     pub sides: [Name<'a>; 2],
+    /// What marks each side's name.
+    pub icons: [Icon; 2],
     pub kept: Option<Kept<'a>>,
     /// The keyboard's picks go to it.
     pub current: bool,
@@ -325,8 +327,8 @@ fn pick_key(pick: Pick) -> &'static str {
 /// A side's name over its lines, or what it says when it has none.
 fn label(side: Side, row: &Row, theme: &Theme) -> AnyElement {
     let (glyph, name, color) = match side {
-        Side::NewBase => (Icon::Branch, row.sides[0], theme.diff_added),
-        Side::Commit => (Icon::Commit, row.sides[1], theme.blue),
+        Side::NewBase => (row.icons[0], row.sides[0], theme.diff_added),
+        Side::Commit => (row.icons[1], row.sides[1], theme.blue),
         Side::Ancestor => (
             Icon::Clock,
             Name {
