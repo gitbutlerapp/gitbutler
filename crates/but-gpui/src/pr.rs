@@ -762,8 +762,8 @@ impl AppView {
         .detach();
     }
 
-    /// Pick someone to ask for a review of the pull request, from the repository's
-    /// collaborators not asked yet.
+    /// Pick someone of the repository's to ask for a review of the pull request, or, ticked,
+    /// to ask no longer. Its author isn't offered: the forge won't ask them.
     pub fn request_review(
         &mut self,
         _: &RequestReview,
@@ -779,18 +779,10 @@ impl AppView {
         let Some(path) = store.path(&project) else {
             return;
         };
-        // Whoever was asked already, and its author, whom the forge won't ask.
-        let asked: Vec<String> = (store.workspace(&project))
-            .and_then(|ws| ws.find_branch(&branch)?.review.as_ref())
-            .map(|review| {
-                review
-                    .reviewers
-                    .iter()
-                    .chain(&review.author)
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default();
+        let review =
+            (store.workspace(&project)).and_then(|ws| ws.find_branch(&branch)?.review.as_ref());
+        let asked = review.map_or_else(Vec::new, |review| review.reviewers.clone());
+        let author = review.and_then(|review| review.author.clone());
         let load = move || reviews::reviewer_candidates(&path);
         self.pick_from_forge(
             load,
@@ -799,21 +791,33 @@ impl AppView {
             cx,
             move |this, logins, window, cx| {
                 let choices = (logins.into_iter())
-                    .filter(|login| !asked.contains(login))
+                    .filter(|login| author.as_ref() != Some(login))
                     .map(|login| {
+                        let ask = !asked.contains(&login);
+                        let shown = if ask {
+                            login.clone()
+                        } else {
+                            format!("✓ {login}")
+                        };
                         let project = project.clone();
-                        crate::palette::Choice::new(login.clone(), move |this, _, cx| {
+                        crate::palette::Choice::new(shown, move |this, _, cx| {
                             this.run_on_review(
                                 project,
                                 "Request review",
-                                move |path| reviews::request_review(path, number, login),
-                                "Review requested",
+                                move |path| reviews::request_review(path, number, login, ask),
+                                "Reviewers changed",
                                 cx,
                             )
                         })
                     })
                     .collect();
-                this.open_picker("Ask someone to review", "Ask", choices, window, cx);
+                this.open_picker(
+                    "Ask someone to review, or no longer",
+                    "Toggle",
+                    choices,
+                    window,
+                    cx,
+                );
             },
         );
     }
