@@ -71,7 +71,9 @@ export type LiteElectronApi = SDK & {
 	watcherStopAll: () => Promise<number>;
 	readGUISettings: () => Promise<GUISettings>;
 	writeGUISettings: (settings: GUISettings) => Promise<void>;
+	relaunch: () => Promise<void>;
 	platform: string;
+	host: "electron" | "tauri" | "harness";
 };
 
 /**
@@ -106,6 +108,7 @@ export const localEndpoints = [
 	"pathJoin",
 	"pickDirectory",
 	"readGUISettings",
+	"relaunch",
 	"showItemInFolder",
 	"showNativeMenu",
 	"showNotification",

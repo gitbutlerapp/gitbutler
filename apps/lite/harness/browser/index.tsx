@@ -83,7 +83,7 @@ export default function createPanel({
 	workspace = Panel,
 	strict = true,
 }: {
-	transport: LiteApiTransport;
+	transport: Omit<LiteApiTransport, "host">;
 	projectId: string;
 	params?: UrlQueryParams;
 	/** Override only when a harness test needs the complete workspace page. */
@@ -95,7 +95,7 @@ export default function createPanel({
 	 */
 	strict?: boolean;
 }): PluginApp {
-	(window as { lite?: LiteElectronApi }).lite = createLiteApi(transport);
+	(window as { lite?: LiteElectronApi }).lite = createLiteApi({ ...transport, host: "harness" });
 	const workspaceElement = createElement(workspace);
 
 	const toastManager = Toast.createToastManager();

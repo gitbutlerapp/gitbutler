@@ -18,6 +18,7 @@ const api = createLiteApi({
 		return () => ipcRenderer.removeListener(channel, ipcListener);
 	},
 	platform: process.platform,
+	host: "electron",
 });
 
 contextBridge.exposeInMainWorld("lite", api);
