@@ -21,8 +21,8 @@ use crate::ui::{
 
 pub(super) struct Branches {
     project: ProjectId,
-    /// The workspace's branches and target when the list loaded; a reload that changes
-    /// neither leaves the list as it is. `None` until it has loaded.
+    /// The project's branches when the list loaded; a reload that changes none of them
+    /// leaves the list as it is. `None` until it has loaded.
     seen: Option<u64>,
     list: Vec<OtherBranch>,
     /// The selected branch, by ref.
@@ -109,25 +109,13 @@ impl Detail {
         });
     }
 
-    /// What a branch listing depends on: the workspace's branch tips, how far behind the
-    /// target it is, and the last fetch, which can bring in branches without changing either.
+    /// What a branch listing depends on: the project's branches, as its last full load saw
+    /// them.
     fn branches_fingerprint(&self, project: &ProjectId, cx: &Context<Self>) -> u64 {
-        use std::hash::{Hash, Hasher};
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        let store = self.store.read(cx);
-        store.fetched_at(project).hash(&mut hasher);
-        if let Some(workspace) = store.workspace(project) {
-            for branch in workspace.branches() {
-                branch.ref_name.hash(&mut hasher);
-                branch.commits.first().map(|c| c.id.0).hash(&mut hasher);
-            }
-            workspace
-                .target
-                .as_ref()
-                .map(|t| t.behind)
-                .hash(&mut hasher);
-        }
-        hasher.finish()
+        self.store
+            .read(cx)
+            .workspace(project)
+            .map_or(0, |ws| ws.refs)
     }
 
     fn branches_for(&self, project: &ProjectId) -> Option<&Branches> {
@@ -362,9 +350,8 @@ impl Detail {
             return;
         };
         let ref_name = format!("refs/heads/{}", branch.name);
-        let (project, deleted) = (project.clone(), project.clone());
+        let project = project.clone();
         let name = branch.name.clone();
-        let detail = cx.entity().downgrade();
         self.app
             .update(cx, |app, cx| {
                 app.confirm_then(
@@ -381,18 +368,9 @@ impl Detail {
                                 "Delete branch",
                                 Overlay::default(),
                                 move |path, _| backend::remove_branch(path, &ref_name),
-                                move |store, (), cx| {
-                                    store.snack("Branch deleted", cx);
-                                    // The workspace doesn't change, so its reload won't
-                                    // list the branches again.
-                                    detail
-                                        .update(cx, |this, cx| {
-                                            if this.branches_for(&deleted).is_some() {
-                                                this.load_branches(&deleted, true, cx)
-                                            }
-                                        })
-                                        .ok();
-                                },
+                                // The reload after it lists the branches again, as their
+                                // refs changed.
+                                |store, (), cx| store.snack("Branch deleted", cx),
                                 cx,
                             )
                         })

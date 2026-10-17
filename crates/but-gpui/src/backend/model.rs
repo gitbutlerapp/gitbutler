@@ -52,6 +52,9 @@ pub struct Workspace {
     /// Whether the worktrees were listed: GitButler's worktree support is on and listing
     /// them worked. Otherwise the lists say nothing about which worktrees are gone.
     pub worktrees_listed: bool,
+    /// A fingerprint of the repository's local and remote branches, which the Branches page
+    /// lists again when it changes.
+    pub refs: u64,
 }
 
 /// A forge: where a project's pull requests live, and what a forge account signs in to.
