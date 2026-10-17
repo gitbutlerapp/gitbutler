@@ -7,6 +7,7 @@ else
   fe_mode=${1:?First argument must be the mode to build the frontend with}
   echo "Assuming local invocation, building frontend in $fe_mode mode"
   pnpm build:desktop -- --mode "$fe_mode"
+  pnpm -F @gitbutler/lite build:tauri-ui
 fi
 
 set -x
