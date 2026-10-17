@@ -335,6 +335,22 @@ pub struct FileChange {
 }
 
 impl FileChange {
+    /// What changed about the file other than its lines: its executable bit, or whether
+    /// it's a link.
+    pub fn mode_change(&self) -> Option<&'static str> {
+        use but_core::{ModeFlags as F, TreeStatus as S};
+        let (S::Modification { flags, .. } | S::Rename { flags, .. }) = &self.change.status else {
+            return None;
+        };
+        Some(match (*flags)? {
+            F::ExecutableBitAdded => "Made executable",
+            F::ExecutableBitRemoved => "No longer executable",
+            F::TypeChangeFileToLink => "Turned into a symbolic link",
+            F::TypeChangeLinkToFile => "Turned from a symbolic link into a file",
+            F::TypeChange => "Changed type",
+        })
+    }
+
     /// What the change is against: the file as committed, or nothing for an addition.
     /// Committing part of a file moves it without touching the file itself.
     pub fn base(&self) -> Option<gix::ObjectId> {

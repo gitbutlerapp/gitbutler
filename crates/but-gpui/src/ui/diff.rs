@@ -578,9 +578,11 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
         DiffBody::Unresolvable(reason) => {
             format!("Can't be resolved here: {reason}. `but resolve` in a terminal can.")
         }
-        DiffBody::Empty | DiffBody::Hunks { .. } => match file.file.kind {
-            ChangeKind::Renamed => "Renamed without changes".to_owned(),
-            _ => "No content changes".to_owned(),
+        DiffBody::Empty | DiffBody::Hunks { .. } => match (file.file.mode_change(), file.file.kind)
+        {
+            (Some(mode), _) => mode.to_owned(),
+            (None, ChangeKind::Renamed) => "Renamed without changes".to_owned(),
+            (None, _) => "No content changes".to_owned(),
         },
     };
     card(h_flex(), theme)
