@@ -56,9 +56,7 @@ actions!(
         FocusChanges,
         StartCommit,
         ToggleNavigator,
-        ToggleZoom,
         CommandPalette,
-        ToggleAppearance,
     ]
 );
 
@@ -93,7 +91,6 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-c", CopySelection, workspace),
         KeyBinding::new("escape", Cancel, workspace),
         KeyBinding::new(".", ToggleNavigator, workspace),
-        KeyBinding::new("shift-escape", ToggleZoom, None),
         KeyBinding::new("up", SelectPrevious, nav),
         KeyBinding::new("k", SelectPrevious, nav),
         KeyBinding::new("down", SelectNext, nav),
@@ -122,8 +119,6 @@ pub struct AppView {
     pub menu: Option<ContextMenu>,
     pub prompt: Option<Prompt>,
     pub navigator_open: bool,
-    /// The diff takes the whole window.
-    pub zoomed: bool,
     pub palette: Option<Palette>,
     /// The modal on screen, if any, and the subscription that closes it.
     pub modal: Option<(AnyView, Subscription)>,
@@ -141,7 +136,7 @@ impl AppView {
         let store = self.store.read(cx);
         let has_diff = store.selection.is_some();
         let detail = self.detail.read(cx);
-        has_diff.then(|| match detail.zoomed || detail.files_hidden {
+        has_diff.then(|| match detail.files_hidden {
             true => 0.,
             false => store.width(Pane::Files),
         })
@@ -182,32 +177,12 @@ impl AppView {
             menu: None,
             prompt: None,
             navigator_open: true,
-            zoomed: false,
             palette: None,
             modal: None,
             recent_commands: Vec::new(),
             checking: HashSet::new(),
             _subscriptions: subscriptions,
         }
-    }
-
-    /// Switch to light from dark, or to dark from light, whichever is showing.
-    fn toggle_appearance(
-        &mut self,
-        _: &ToggleAppearance,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        use crate::theme::Appearance;
-        let next = if Theme::get(cx).dark {
-            Appearance::Light
-        } else {
-            Appearance::Dark
-        };
-        self.store.update(cx, |store, cx| {
-            store.set_prefs(|prefs| prefs.appearance = next, cx)
-        });
-        self.apply_appearance(window, cx);
     }
 
     /// Use the theme the appearance setting and the system call for.
@@ -408,9 +383,6 @@ impl AppView {
             cx.notify();
             return;
         }
-        if self.zoomed {
-            return self.set_chrome(self.navigator_open, false, window, cx);
-        }
         if self.detail.read(cx).is_focused(window, cx) {
             // Undo the nearest thing first: a text selection, then the file filter.
             let handled = self.detail.update(cx, |detail, cx| {
@@ -434,8 +406,8 @@ impl AppView {
 
     fn focus_navigator(&mut self, _: &FocusNavigator, window: &mut Window, cx: &mut Context<Self>) {
         // Asking for the navigator brings it back.
-        if !self.navigator_open || self.zoomed {
-            self.set_chrome(true, false, window, cx);
+        if !self.navigator_open {
+            self.set_navigator(true, window, cx);
         }
         window.focus(&self.navigator.focus_handle(cx), cx);
     }
@@ -443,7 +415,7 @@ impl AppView {
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
     /// always reach something visible.
     pub(crate) fn focus_main(&self, window: &mut Window, cx: &mut App) {
-        if self.navigator_open && !self.zoomed {
+        if self.navigator_open {
             window.focus(&self.navigator.focus_handle(cx), cx);
         } else {
             self.detail
@@ -521,22 +493,20 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         if let Some(project) = self.selected_project(cx) {
-            self.update_from_target(project, None, window, cx);
+            self.update_from_target(project, window, cx);
         }
     }
 
-    /// Rebase onto the target, or with `branch` just its stack, after asking when a dry run
-    /// says that would leave commits conflicted that aren't now.
+    /// Rebase onto the target, after asking when a dry run says that would leave commits
+    /// conflicted that aren't now.
     pub fn update_from_target(
         &mut self,
         project: ProjectId,
-        branch: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let checked = branch.clone();
         let check = move |path: &Path| {
-            let found = backend::update_conflicts(path, checked.as_deref())?;
+            let found = backend::update_conflicts(path)?;
             let mut detail = Vec::new();
             if !found.branches.is_empty() {
                 detail.push(format!(
@@ -558,9 +528,8 @@ impl AppView {
         };
         let updated = project.clone();
         let update = move |this: &mut AppView, cx: &mut Context<AppView>| {
-            this.store.update(cx, |store, cx| {
-                store.update_from_target(&updated, branch, cx)
-            })
+            this.store
+                .update(cx, |store, cx| store.update_from_target(&updated, cx))
         };
         self.check_then(
             &project,
@@ -619,7 +588,7 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.set_chrome(!self.navigator_open, self.zoomed, window, cx);
+        self.set_navigator(!self.navigator_open, window, cx);
     }
 
     fn command_palette(&mut self, _: &CommandPalette, window: &mut Window, cx: &mut Context<Self>) {
@@ -630,25 +599,12 @@ impl AppView {
         }
     }
 
-    fn toggle_zoom(&mut self, _: &ToggleZoom, window: &mut Window, cx: &mut Context<Self>) {
-        self.set_chrome(self.navigator_open, !self.zoomed, window, cx);
-    }
-
-    /// Show or hide the navigator, and zoom the diff to the whole window or not. The
-    /// details pane draws its own header, so it's told what's around it. When the navigator
-    /// goes, focus moves off it.
-    fn set_chrome(
-        &mut self,
-        navigator_open: bool,
-        zoomed: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    /// Show or hide the navigator. The details pane draws its own header, so it's told
+    /// what's around it. When the navigator goes, focus moves off it.
+    fn set_navigator(&mut self, navigator_open: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.navigator_open = navigator_open;
-        self.zoomed = zoomed;
         self.detail.update(cx, |detail, cx| {
-            detail.zoomed = zoomed;
-            detail.beside_traffic_lights = zoomed || !navigator_open;
+            detail.beside_traffic_lights = !navigator_open;
             cx.notify();
         });
         if self.navigator.focus_handle(cx).contains_focused(window, cx) {
@@ -684,7 +640,6 @@ impl Render for AppView {
             .on_action(cx.listener(Self::add_project))
             .on_action(cx.listener(Self::open_settings))
             .on_action(cx.listener(Self::clone_repository))
-            .on_action(cx.listener(Self::toggle_appearance))
             // Here rather than around the navigator, so the details pane's buttons reach them.
             .map(|el| self.pr_actions(el, cx))
             .map(|el| self.resolve_actions(el, cx))
@@ -710,7 +665,6 @@ impl Render for AppView {
             .on_action(cx.listener(Self::start_commit))
             .on_action(cx.listener(Self::update_selected_project))
             .on_action(cx.listener(Self::toggle_navigator))
-            .on_action(cx.listener(Self::toggle_zoom))
             .on_action(cx.listener(Self::command_palette))
             .size_full()
             .flex()
@@ -727,7 +681,7 @@ impl Render for AppView {
                     .flex_1()
                     .min_h(px(0.))
                     .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
-                    .when(self.navigator_open && !self.zoomed, |el| {
+                    .when(self.navigator_open, |el| {
                         let width = self.store.read(cx).width(Pane::Navigator);
                         el.child(
                             div()

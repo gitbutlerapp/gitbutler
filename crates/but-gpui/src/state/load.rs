@@ -112,7 +112,7 @@ impl Store {
         let restored = std::mem::take(&mut self.restored);
         let mut old: Vec<ProjectEntry> = std::mem::take(&mut self.projects);
         // Projects to open if they're expanded: the new ones, and the ones whose folder
-        // moved, as after Locate….
+        // moved.
         let mut open = Vec::new();
         self.projects = projects
             .into_iter()

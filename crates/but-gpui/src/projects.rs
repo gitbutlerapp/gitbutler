@@ -76,24 +76,6 @@ impl AppView {
         );
     }
 
-    /// Point a project whose folder moved at where it is now.
-    pub fn locate_project(&mut self, project: ProjectId, cx: &mut Context<Self>) {
-        let folder = pick_folder("This is the project", cx);
-        let store = self.store.clone();
-        cx.spawn(async move |_, cx| {
-            let Some(path) = folder.await else {
-                return;
-            };
-            let id = project.to_string();
-            let moved = backend::run(move || backend::relocate_project(&id, &path)).await;
-            store.update(cx, |store, cx| match moved {
-                Ok(()) => store.load_projects(cx),
-                Err(err) => store.error("Couldn't move the project", format!("{err:#}"), cx),
-            });
-        })
-        .detach();
-    }
-
     /// Offer the project's remote branches to pick its target from.
     pub fn pick_target(&mut self, project: ProjectId, window: &mut Window, cx: &mut Context<Self>) {
         let Some(path) = self.store.read(cx).path(&project) else {

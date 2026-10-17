@@ -175,7 +175,7 @@ impl Transfer {
                 ..
             } => "Move to top",
             Transfer::MoveCommit {
-                to: Destination::AboveCommit(_) | Destination::AboveBranch(_),
+                to: Destination::AboveCommit(_),
                 ..
             } => "Move above",
             Transfer::MoveCommit {
@@ -311,7 +311,6 @@ impl Transfer {
 fn place(to: &Destination) -> String {
     match to {
         Destination::Branch(branch) => format!("to {}", short_ref(branch)),
-        Destination::AboveBranch(branch) => format!("above {}", short_ref(branch)),
         Destination::AboveCommit(id) => format!("above {}", id.short()),
         Destination::BelowCommit(id) => format!("below {}", id.short()),
     }

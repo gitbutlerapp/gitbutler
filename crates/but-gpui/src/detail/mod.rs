@@ -225,8 +225,6 @@ pub struct Detail {
     history: Option<history::History>,
     history_scroll: UniformListScrollHandle,
     _history_load: Task<()>,
-    /// The diff takes the whole window.
-    pub zoomed: bool,
     /// The file list beside the diff is hidden, for more room.
     pub files_hidden: bool,
     /// The header starts where the window's traffic lights are.
@@ -362,7 +360,6 @@ impl Detail {
             history: None,
             history_scroll: UniformListScrollHandle::new(),
             _history_load: Task::ready(()),
-            zoomed: false,
             files_hidden: false,
             beside_traffic_lights: false,
             _subscriptions: subscriptions,
@@ -1163,7 +1160,7 @@ impl Render for Detail {
                     .size_full()
                     .items_start()
                     .on_drag_move(resize_pane(Pane::Files, self.store.clone()))
-                    .when(!self.zoomed && !self.files_hidden, |el| {
+                    .when(!self.files_hidden, |el| {
                         el.child(
                             v_flex()
                                 .w(px(width))

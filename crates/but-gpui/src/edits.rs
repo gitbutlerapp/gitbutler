@@ -3,20 +3,17 @@
 //! unstack and unapply. `edit_actions` registers them around the navigator; Push is on the
 //! window instead, so the branch page's button reaches it.
 
-use gpui::{App, Context, Div, KeyBinding, Window, actions, prelude::*};
+use gpui::{App, Context, Div, Window, actions, prelude::*};
 
 use crate::app::{
     AppView, DeleteSelection, NewBranchOnTop, Push, RenameSelection, UncommitSelection,
 };
 use crate::backend::{self, Commit, CommitId, Destination, Selected, Workspace, short_ref};
 use crate::state::{Cut, Overlay, ProjectId, Selection};
-use crate::transfer::Transfer;
 
 actions!(
     edits,
     [
-        MoveUp,
-        MoveDown,
         AddEmptyCommitAbove,
         AddEmptyCommitBelow,
         CherryPick,
@@ -26,7 +23,6 @@ actions!(
         NewBranchHere,
         Unstack,
         UnapplyStack,
-        UpdateStack,
         RewrapMessage,
         CopyChangeId,
         CopyMessage,
@@ -37,14 +33,6 @@ actions!(
     ]
 );
 
-pub fn bind_keys(cx: &mut App) {
-    let nav = Some("Navigator && !TextInput");
-    cx.bind_keys([
-        KeyBinding::new("alt-up", MoveUp, nav),
-        KeyBinding::new("alt-down", MoveDown, nav),
-    ]);
-}
-
 /// Body lines longer than this get rewrapped, as `git` and `but reword` expect.
 const WRAP_AT: usize = 72;
 
@@ -54,32 +42,6 @@ pub fn needs_rewrap(message: &str) -> bool {
         .lines()
         .skip(1)
         .any(|line| line.chars().count() > WRAP_AT)
-}
-
-/// Where moving the commit `id` one step lands it: past its neighbour in the branch, or
-/// across into the next branch of its stack.
-fn step(workspace: &Workspace, id: CommitId, up: bool) -> Option<Destination> {
-    let (branch, _) = workspace.find_commit(id)?;
-    let (stack, at) = workspace.stack_of(&branch.ref_name)?;
-    let ix = branch.commits.iter().position(|c| c.id == id)?;
-    if up {
-        match ix.checked_sub(1) {
-            Some(above) => Some(Destination::AboveCommit(branch.commits[above].id)),
-            None if at > 0 && !branch.ref_name.is_empty() => {
-                Some(Destination::AboveBranch(branch.ref_name.clone()))
-            }
-            None => None,
-        }
-    } else {
-        match branch.commits.get(ix + 1) {
-            Some(below) => Some(Destination::BelowCommit(below.id)),
-            None => stack
-                .branches
-                .get(at + 1)
-                .filter(|below| !below.ref_name.is_empty())
-                .map(|below| Destination::Branch(below.ref_name.clone())),
-        }
-    }
 }
 
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
@@ -118,8 +80,6 @@ impl AppView {
         };
         match store.selection {
             Some(Selection::Commit(..)) => el
-                .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.move_step(true, cx)))
-                .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.move_step(false, cx)))
                 .on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
                     this.add_empty_commit(true, cx)
                 }))
@@ -147,7 +107,6 @@ impl AppView {
                 .on_action(cx.listener(Self::new_branch_below))
                 .on_action(cx.listener(Self::unstack))
                 .on_action(cx.listener(Self::unapply_stack))
-                .on_action(cx.listener(Self::update_stack))
                 .on_action(cx.listener(Self::land_branch))
                 .when(pullable, |el| {
                     el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
@@ -453,28 +412,6 @@ impl AppView {
         }
     }
 
-    fn move_step(&mut self, up: bool, cx: &mut Context<Self>) {
-        let Some((project, id)) = self.single_commit(cx) else {
-            return;
-        };
-        let to = self
-            .store
-            .read(cx)
-            .workspace(&project)
-            .and_then(|ws| step(ws, id, up));
-        match to {
-            Some(to) => {
-                self.store.update(cx, |store, cx| {
-                    Transfer::MoveCommit { id, to }.perform(&project, store, cx);
-                });
-            }
-            None => self.store.update(cx, |store, cx| {
-                let edge = if up { "top" } else { "bottom" };
-                store.snack(format!("Already at the {edge} of its stack"), cx)
-            }),
-        }
-    }
-
     /// An empty commit above or below the selected commit, or on top of the selected branch.
     fn add_empty_commit(&mut self, above: bool, cx: &mut Context<Self>) {
         let at = match self.store.read(cx).selection.clone() {
@@ -670,12 +607,6 @@ impl AppView {
                 cx,
             )
         });
-    }
-
-    fn update_stack(&mut self, _: &UpdateStack, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some((project, ref_name)) = self.selected_named_branch(cx) {
-            self.update_from_target(project, Some(ref_name), window, cx);
-        }
     }
 
     /// Put the selected branch onto the target and push it there, after asking: the push

@@ -751,7 +751,7 @@ impl Navigator {
                                     let project = project.clone();
                                     this.app
                                         .update(cx, |app, cx| {
-                                            app.update_from_target(project, None, window, cx)
+                                            app.update_from_target(project, window, cx)
                                         })
                                         .ok();
                                 })),
