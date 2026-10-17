@@ -1,11 +1,13 @@
 //! The Project section: the selected project's name, target branch, force-push
 //! protection, commit signing and Git hooks, and removing it from GitButler.
 
+use std::collections::HashSet;
+
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*, px};
 
 use super::{Row, SettingsView, field_with_save};
 use crate::backend::settings as backend;
-use crate::state::ProjectId;
+use crate::state::{Prefs, ProjectId};
 use crate::theme::Theme;
 use crate::ui::{ButtonStyle, button, h_flex, muted, switch};
 
@@ -119,21 +121,29 @@ impl SettingsView {
             })
             .detach();
         });
-        let hooks = self.store.read(cx).runs_hooks(project);
-        let hooks_id = project.to_string();
-        let toggle_hooks = cx.listener(move |this, _: &ClickEvent, _, cx| {
-            let id = hooks_id.clone();
-            this.store.update(cx, |store, cx| {
-                store.set_prefs(
-                    |prefs| {
-                        if !prefs.run_hooks.remove(&id) {
-                            prefs.run_hooks.insert(id);
-                        }
-                    },
-                    cx,
-                )
-            });
-        });
+        // A switch for one of this app's choices made per project: the projects it's on.
+        let project_switch =
+            |id: &'static str, on: bool, projects: fn(&mut Prefs) -> &mut HashSet<String>| {
+                let project = project.to_string();
+                switch(id, on, theme).on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    let project = project.clone();
+                    this.store.update(cx, |store, cx| {
+                        store.set_prefs(
+                            |prefs| {
+                                let projects = projects(prefs);
+                                if !projects.remove(&project) {
+                                    projects.insert(project);
+                                }
+                            },
+                            cx,
+                        )
+                    });
+                }))
+            };
+        let store = self.store.read(cx);
+        let (runs_hooks, lands) = (store.runs_hooks(project), store.lands_directly(project));
+        let hooks = project_switch("run-hooks", runs_hooks, |prefs| &mut prefs.run_hooks);
+        let land = project_switch("land-directly", lands, |prefs| &mut prefs.land_directly);
         let workspace = self.store.read(cx).workspace(project);
         let target = workspace
             .and_then(|ws| ws.target.as_ref())
@@ -224,7 +234,13 @@ impl SettingsView {
             Row::new(
                 "Run Git hooks",
                 "Runs the repository's pre-commit, commit-msg, post-commit and pre-push hooks.",
-                switch("run-hooks", hooks, theme).on_click(toggle_hooks),
+                hooks,
+            ),
+            Row::new(
+                "Land branches directly",
+                "A branch offers Land in place of Create pull request, putting it straight \
+                 onto the target and pushing that, with no pull request. Works without a forge.",
+                land,
             ),
             Row::new(
                 "Remove project",

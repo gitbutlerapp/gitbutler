@@ -86,7 +86,32 @@ impl Detail {
                     let pushable = workspace
                         .filter(|ws| ws.find_branch(ref_name).is_some_and(|b| b.push.can_push()));
                     let pushing = store.pushing(selection.project(), ref_name);
-                    if can_create {
+                    // Landing directly takes the place of a pull request, forge or not.
+                    let land = (store.lands_directly(selection.project()))
+                        .then_some(workspace)
+                        .flatten()
+                        .and_then(|ws| {
+                            let whole = crate::edits::land_scope(ws, ref_name)?;
+                            Some((whole, &ws.target.as_ref()?.name))
+                        });
+                    if let Some((whole, target)) = land {
+                        let label = match whole {
+                            true => format!("Land the stack on {target}"),
+                            false => format!("Land on {target}"),
+                        };
+                        let style = match pushable {
+                            Some(_) => ButtonStyle::Ghost,
+                            None => ButtonStyle::Pop,
+                        };
+                        actions.push(
+                            button("land", label)
+                                .icon(Icon::BranchMerge)
+                                .style(style)
+                                .disabled(pushing)
+                                .dispatch(&crate::edits::LandBranch)
+                                .into_any_element(),
+                        );
+                    } else if can_create {
                         // The next step once nothing's left to push.
                         let style = match pushable {
                             Some(_) => ButtonStyle::Ghost,
