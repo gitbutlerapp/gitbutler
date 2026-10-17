@@ -8,10 +8,11 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, Pixels, Point, Subscription,
+    Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, Pixels, Subscription,
     Toggled, WeakEntity, Window, div, list, prelude::*, px,
 };
 
+use super::file_list::FileMenu;
 use super::{
     Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleFiles, TogglePlainLines,
     ToggleReviewed, ToggleSplit, ToggleWrap,
@@ -20,7 +21,6 @@ use crate::app::AppView;
 use crate::backend::{
     self, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, Selected,
 };
-use crate::overlays::MenuItem;
 use crate::state::{Cut, ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
@@ -537,28 +537,24 @@ impl Detail {
                 .into(),
             })
         };
-        // A linked worktree's changes don't move into the workspace from here, so right-
-        // clicking them only offers to throw them away.
-        let linked = |file: usize, hunks| {
-            let worktree = diff.key.linked()?;
-            let file = diff.files[file].file.clone();
-            Some((diff.key.project.clone(), worktree, Selected { file, hunks }))
+        // What right-clicking a file or some of its hunks offers. A linked worktree's changes
+        // don't move into the workspace from here, so they can only be thrown away.
+        let file_menu = |file: usize, hunks| match diff.key.linked() {
+            Some(worktree) => {
+                let file = diff.files[file].file.clone();
+                let change = Selected { file, hunks };
+                Some(FileMenu::Linked(diff.key.project.clone(), worktree, change))
+            }
+            None => payload(file, hunks).map(FileMenu::Cut),
         };
-        let app = self.app.clone();
-        let menu = |payload: Option<Cut>,
-                    linked: Option<(ProjectId, Arc<str>, Selected)>,
-                    line: Option<u32>,
-                    entity: WeakEntity<Detail>| {
-            let app = app.clone();
+        let menu = |menu: Option<FileMenu>, line: Option<u32>, entity: WeakEntity<Detail>| {
             move |event: &gpui::MouseDownEvent, _: &mut Window, cx: &mut App| {
-                if let Some(payload) = payload.clone() {
+                if let Some(menu) = menu.clone() {
                     entity
                         .update(cx, |detail, cx| {
-                            detail.changes_menu(payload, Some(line), event.position, cx)
+                            detail.file_menu(menu, Some(line), event.position, cx)
                         })
                         .ok();
-                } else if let Some(linked) = linked.clone() {
-                    linked_menu(&app, linked, event.position, cx)
                 }
             }
         };
@@ -572,14 +568,14 @@ impl Detail {
                 let whole = self.whole_button(ix, file, entity.clone());
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
-                let more = payload(file, None).map(|payload| {
+                let more = file_menu(file, None).map(|menu| {
                     let entity = entity.clone();
                     icon_button(("file-more", ix), Icon::Kebab)
                         .small()
                         .on_click(move |event, _, cx| {
-                            let (payload, position) = (payload.clone(), event.position());
+                            let (menu, position) = (menu.clone(), event.position());
                             (entity.update(cx, |detail, cx| {
-                                detail.changes_menu(payload, Some(None), position, cx)
+                                detail.file_menu(menu, Some(None), position, cx)
                             }))
                             .ok();
                         })
@@ -606,12 +602,7 @@ impl Detail {
                     .child(header)
                     .on_mouse_down(
                         MouseButton::Right,
-                        menu(
-                            payload(file, None),
-                            linked(file, None),
-                            None,
-                            toggle.clone(),
-                        ),
+                        menu(file_menu(file, None), None, toggle.clone()),
                     )
                     .on_click(move |_, _, cx| {
                         toggle
@@ -687,12 +678,7 @@ impl Detail {
                     .child(header)
                     .on_mouse_down(
                         MouseButton::Right,
-                        menu(
-                            carried.clone(),
-                            linked(file, Some(vec![key])),
-                            Some(line),
-                            entity,
-                        ),
+                        menu(file_menu(file, Some(vec![key])), Some(line), entity),
                     )
                     .when(unmodified > 0, |el| {
                         el.tooltip(|_, cx| {
@@ -1061,22 +1047,6 @@ fn discard_button(
                 }),
         )
         .into_any_element()
-}
-
-/// What right-clicking a linked worktree's file or hunk offers.
-fn linked_menu(
-    app: &WeakEntity<AppView>,
-    (project, worktree, change): (ProjectId, Arc<str>, Selected),
-    position: Point<Pixels>,
-    cx: &mut App,
-) {
-    let discard = MenuItem::new("Discard changes…", move |this, window, cx| {
-        let (worktree, changes) = (Some(worktree.clone()), vec![change.clone()]);
-        this.discard(project.clone(), worktree, changes, window, cx)
-    })
-    .danger();
-    app.update(cx, |app, cx| app.open_menu(position, vec![discard], cx))
-        .ok();
 }
 
 /// The word around byte `ix` of `text`, or an empty range when `ix` isn't in one.
