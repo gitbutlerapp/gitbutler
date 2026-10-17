@@ -45,6 +45,22 @@ fn main() {
     eprintln!("The GPUI client only builds on macOS for now.");
 }
 
+/// Draw text as GitButler's web apps do, with `-webkit-font-smoothing: antialiased`. Unless the
+/// app's `AppleFontSmoothing` says otherwise, GPUI thickens glyph strokes the way macOS font
+/// smoothing would, lighter text more, so the same fonts read heavier here than in but.dev.
+/// A registered default lives in memory only and is never written to the app's preferences.
+#[cfg(target_os = "macos")]
+fn draw_text_unsmoothed() {
+    use objc2_foundation::{NSDictionary, NSNumber, NSString, NSUserDefaults};
+
+    let key = NSString::from_str("AppleFontSmoothing");
+    let off = NSNumber::numberWithInt(0);
+    let defaults =
+        NSDictionary::<NSString, objc2::runtime::AnyObject>::from_slices(&[&*key], &[off.as_ref()]);
+    // SAFETY: the dictionary maps strings to objects, as `registerDefaults:` takes.
+    unsafe { NSUserDefaults::standardUserDefaults().registerDefaults(&defaults) };
+}
+
 #[cfg(target_os = "macos")]
 fn main() {
     #[cfg(feature = "dev-script")]
@@ -64,6 +80,7 @@ fn main() {
         .with_writer(std::io::stderr)
         .init();
     backend::init();
+    draw_text_unsmoothed();
 
     gpui_platform::application()
         .with_assets(ui::Assets)
