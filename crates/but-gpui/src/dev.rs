@@ -13,6 +13,7 @@
 //! drag 120 300 120 500    # append `alt` or `shift` to hold them, `hold` to keep the button down
 //! drop 120 500            # let go of a held drag there
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
+//! scroll 900 400 0 200    # and by 200 to the right
 //! shot /tmp/view.png      # render the current frame to a PNG
 //! perf next key down      # time an input until loads settle, plus one frame, and the
 //!                         # longest the UI thread was busy meanwhile (`stall`)
@@ -249,13 +250,15 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             window.dispatch_event(mouse_move(at, None, Modifiers::default()), cx);
         }
         "scroll" => {
-            let [x, y, dy] = numbers()?[..] else {
-                bail!("scroll takes x y dy");
+            let (x, y, dy, dx) = match numbers()?[..] {
+                [x, y, dy] => (x, y, dy, 0.),
+                [x, y, dy, dx] => (x, y, dy, dx),
+                _ => bail!("scroll takes x y dy, and dx to scroll sideways"),
             };
             window.dispatch_event(
                 PlatformInput::ScrollWheel(ScrollWheelEvent {
                     position: point(px(x), px(y)),
-                    delta: ScrollDelta::Pixels(point(px(0.), px(-dy))),
+                    delta: ScrollDelta::Pixels(point(px(-dx), px(-dy))),
                     modifiers: Modifiers::default(),
                     touch_phase: TouchPhase::Moved,
                 }),
