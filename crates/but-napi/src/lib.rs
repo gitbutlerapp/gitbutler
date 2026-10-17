@@ -22,14 +22,7 @@ use napi::{
 use napi_derive::napi;
 
 // Force but-api to be linked so napi-rs discovers its #[napi] functions.
-use but_api::{
-    self as _,
-    watcher::{
-        WatcherExternalInvalidationPayload, WatcherGitActivityPayload, WatcherGitFetchPayload,
-        WatcherGitHeadPayload, WatcherLinkedWorktreeChangesPayload, WatcherPayload,
-        WatcherWorkspaceActivityPayload, WatcherWorktreeChangesPayload,
-    },
-};
+use but_api as _;
 
 pub mod ai;
 pub mod logs;
@@ -292,83 +285,10 @@ fn open_prepared_context(project_id: &ProjectHandleOrLegacyProjectId) -> anyhow:
 }
 
 fn event_from_change(change: gitbutler_watcher::Change) -> WatcherEvent {
-    match change {
-        gitbutler_watcher::Change::GitFetch(project_id) => WatcherEvent {
-            name: format!("project://{project_id}/git/fetch"),
-            payload: serde_json::json!(WatcherPayload::GitFetch(WatcherGitFetchPayload)),
-        },
-        gitbutler_watcher::Change::GitHead {
-            project_id,
-            head,
-            operating_mode,
-        } => WatcherEvent {
-            name: format!("project://{project_id}/git/head"),
-            payload: serde_json::json!(WatcherPayload::GitHead(WatcherGitHeadPayload {
-                head,
-                operating_mode,
-            })),
-        },
-        gitbutler_watcher::Change::GitActivity {
-            project_id,
-            head_sha,
-        } => WatcherEvent {
-            name: format!("project://{project_id}/git/activity"),
-            payload: serde_json::json!(WatcherPayload::GitActivity(WatcherGitActivityPayload {
-                head_sha
-            })),
-        },
-        gitbutler_watcher::Change::WorkspaceActivity { project_id } => WatcherEvent {
-            name: format!("project://{project_id}/workspace-activity"),
-            payload: serde_json::json!(WatcherPayload::WorkspaceActivity(
-                WatcherWorkspaceActivityPayload
-            )),
-        },
-        gitbutler_watcher::Change::ExternalInvalidation { project_id, tags } => WatcherEvent {
-            name: format!("project://{project_id}/external-invalidation"),
-            payload: serde_json::json!(WatcherPayload::ExternalInvalidation(
-                WatcherExternalInvalidationPayload {
-                    // The sentinel is a file anyone can write; only names a tag has get through.
-                    tags: tags
-                        .into_iter()
-                        .filter(|tag| but_api::tags::CacheTag::from_name(tag).is_some())
-                        .collect(),
-                }
-            )),
-        },
-        gitbutler_watcher::Change::WorktreeChanges {
-            project_id,
-            changes,
-            changed_paths,
-        } => WatcherEvent {
-            name: format!("project://{project_id}/worktree_changes"),
-            payload: serde_json::json!(WatcherPayload::WorktreeChanges(
-                WatcherWorktreeChangesPayload {
-                    changes,
-                    changed_paths: changed_paths
-                        .iter()
-                        .map(|path| path.to_string_lossy().into_owned())
-                        .collect(),
-                }
-            )),
-        },
-        gitbutler_watcher::Change::LinkedWorktreeChanges {
-            project_id,
-            worktree,
-            changes,
-            changed_paths,
-        } => WatcherEvent {
-            name: format!("project://{project_id}/linked_worktree_changes"),
-            payload: serde_json::json!(WatcherPayload::LinkedWorktreeChanges(
-                WatcherLinkedWorktreeChangesPayload {
-                    worktree,
-                    changes,
-                    changed_paths: changed_paths
-                        .iter()
-                        .map(|path| path.to_string_lossy().into_owned())
-                        .collect(),
-                }
-            )),
-        },
+    let event = but_api::watcher::WatcherEvent::from(change);
+    WatcherEvent {
+        name: event.name,
+        payload: serde_json::json!(event.payload),
     }
 }
 
