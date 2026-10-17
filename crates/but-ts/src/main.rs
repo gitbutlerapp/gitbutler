@@ -96,10 +96,9 @@ fn main() -> anyhow::Result<()> {
     if output_path.exists() {
         let existing = std::fs::read_to_string(output_path)?;
         // Strip any previous but-ts output so the command is idempotent.
-        let prefix = if let Some(idx) = existing.find(MARKER) {
-            existing[..idx].trim_end().to_string() + "\n\n"
-        } else {
-            existing
+        let prefix = match existing.find(MARKER) {
+            Some(idx) => existing[..idx].to_string(),
+            None => existing,
         };
         final_output = format!("{prefix}{ts_output}");
     }
