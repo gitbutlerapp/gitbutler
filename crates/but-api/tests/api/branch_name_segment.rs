@@ -1,11 +1,13 @@
 use but_api::commit::json::ChangesSource;
 use but_testsupport::{CommandExt as _, git_at_dir};
+use gitbutler_oplog::{OplogExt, RestoreKind};
 
-use crate::support::repo_with_feature_branch;
+use crate::support::{persist_default_target, repo_with_feature_branch};
 
 #[test]
 fn branch_name_segment_attaches_the_detached_linked_worktree() -> anyhow::Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
+    persist_default_target(&repo)?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     ctx.settings.feature_flags.worktree_manipulation = true;
     assert!(
@@ -50,5 +52,13 @@ fn branch_name_segment_attaches_the_detached_linked_worktree() -> anyhow::Result
         main_head,
         "the main worktree is left alone"
     );
+
+    let snapshot = ctx.oplog_head()?.expect("naming records an undo point");
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.restore_snapshot(
+        snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
     Ok(())
 }
