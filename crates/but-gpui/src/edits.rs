@@ -4,6 +4,7 @@
 //! window instead, so the branch page's button reaches it.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use gpui::{App, Context, Div, Window, actions, prelude::*};
 
@@ -248,7 +249,7 @@ impl AppView {
             }
             Some(Selection::Uncommitted(project)) => {
                 let changes = self.detail.read(cx).selected_changes(cx);
-                self.discard(project, changes, window, cx);
+                self.discard(project, None, changes, window, cx);
             }
             _ => {}
         }
@@ -438,51 +439,81 @@ impl AppView {
         );
     }
 
-    /// Throw away uncommitted changes. One file or hunk goes at once, with Undo on the
-    /// snackbar as in Zed's review; several files ask first.
+    /// Throw away uncommitted changes of the main checkout, or of the linked `worktree`.
+    /// One file or hunk of the main checkout goes at once, with Undo on the snackbar as in
+    /// Zed's review; several files ask first. A linked worktree's always ask, as the oplog
+    /// can't bring them back.
     pub fn discard(
         &mut self,
         project: ProjectId,
+        worktree: Option<Arc<str>>,
         mut changes: Vec<Selected>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         // Not what a pending discard or commit already takes, as after a quick second press.
-        let store = self.store.read(cx);
-        changes.retain(|change| {
-            let path = &change.file.path;
-            match &change.hunks {
-                None => !store.hides_file(&project, path),
-                Some(hunks) => !hunks.iter().all(|h| store.hides_hunk(&project, path, *h)),
+        // Those only take the main checkout's changes.
+        if worktree.is_none() {
+            let store = self.store.read(cx);
+            changes.retain(|change| {
+                let path = &change.file.path;
+                match &change.hunks {
+                    None => !store.hides_file(&project, path),
+                    Some(hunks) => !hunks.iter().all(|h| store.hides_hunk(&project, path, *h)),
+                }
+            });
+        }
+        let ask = match (&worktree, &changes[..]) {
+            (_, []) => return,
+            (None, [_]) => None,
+            (None, _) => Some((
+                format!("Discard changes to {} files?", changes.len()),
+                "You can undo this with ⌘Z.",
+            )),
+            (Some(name), picked) => {
+                let what = match picked {
+                    [one] if one.hunks.is_some() => format!("a hunk of {}", one.file.path),
+                    [one] => format!("changes to {}", one.file.path),
+                    _ => format!("changes to {} files", picked.len()),
+                };
+                Some((
+                    format!("Discard {what} in {name}?"),
+                    "Changes discarded in a linked worktree can't be undone.",
+                ))
             }
-        });
+        };
         let run = move |this: &mut AppView, changes: Vec<Selected>, cx: &mut Context<AppView>| {
-            let project = project.clone();
+            // An overlay hides the main checkout's files, and only a full reload reads a
+            // linked worktree's again.
+            let overlay = match worktree {
+                None => Overlay {
+                    files_only: true,
+                    ..Overlay::files(&changes)
+                },
+                Some(_) => Overlay::default(),
+            };
+            let undoable = worktree.is_none();
             this.store.update(cx, |store, cx| {
                 store.run(
                     &project,
                     "Discard",
-                    Overlay {
-                        files_only: true,
-                        ..Overlay::files(&changes)
+                    overlay,
+                    move |path, _| backend::discard(path, worktree.as_deref(), &changes),
+                    move |store, (), cx| match undoable {
+                        true => store.snack_undoable("Changes discarded", cx),
+                        false => store.snack("Changes discarded", cx),
                     },
-                    move |path, _| backend::discard(path, &changes),
-                    |store, (), cx| store.snack_undoable("Changes discarded", cx),
                     cx,
                 )
             });
         };
-        match changes.len() {
-            0 => {}
-            1 => run(self, changes, cx),
-            n => self.confirm_then(
-                format!("Discard changes to {n} files?"),
-                "You can undo this with ⌘Z.",
-                "Discard",
-                window,
-                cx,
-                move |this, cx| run(this, changes, cx),
-            ),
+        match ask {
+            None => run(self, changes, cx),
+            Some((message, detail)) => {
+                self.confirm_then(message, detail, "Discard", window, cx, move |this, cx| {
+                    run(this, changes, cx)
+                })
+            }
         }
     }
 

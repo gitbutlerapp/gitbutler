@@ -1,13 +1,14 @@
 //! The diff column: every changed file as a card, built row by row so only what's on
 //! screen is laid out. Uncommitted files carry review controls, and their hunks a Discard
-//! button while under the cursor or the pointer, as in Zed's agent review.
+//! button while under the cursor or the pointer, as in Zed's agent review, a linked
+//! worktree's too.
 
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, Pixels, Subscription,
+    Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, Pixels, Point, Subscription,
     Toggled, WeakEntity, Window, div, list, prelude::*, px,
 };
 
@@ -19,6 +20,7 @@ use crate::app::AppView;
 use crate::backend::{
     self, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, Selected,
 };
+use crate::overlays::MenuItem;
 use crate::state::{Cut, ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
@@ -535,7 +537,19 @@ impl Detail {
                 .into(),
             })
         };
-        let menu = |payload: Option<Cut>, line: Option<u32>, entity: WeakEntity<Detail>| {
+        // A linked worktree's changes don't move into the workspace from here, so right-
+        // clicking them only offers to throw them away.
+        let linked = |file: usize, hunks| {
+            let worktree = diff.key.linked()?;
+            let file = diff.files[file].file.clone();
+            Some((diff.key.project.clone(), worktree, Selected { file, hunks }))
+        };
+        let app = self.app.clone();
+        let menu = |payload: Option<Cut>,
+                    linked: Option<(ProjectId, Arc<str>, Selected)>,
+                    line: Option<u32>,
+                    entity: WeakEntity<Detail>| {
+            let app = app.clone();
             move |event: &gpui::MouseDownEvent, _: &mut Window, cx: &mut App| {
                 if let Some(payload) = payload.clone() {
                     entity
@@ -543,6 +557,8 @@ impl Detail {
                             detail.changes_menu(payload, Some(line), event.position, cx)
                         })
                         .ok();
+                } else if let Some(linked) = linked.clone() {
+                    linked_menu(&app, linked, event.position, cx)
                 }
             }
         };
@@ -590,7 +606,12 @@ impl Detail {
                     .child(header)
                     .on_mouse_down(
                         MouseButton::Right,
-                        menu(payload(file, None), None, toggle.clone()),
+                        menu(
+                            payload(file, None),
+                            linked(file, None),
+                            None,
+                            toggle.clone(),
+                        ),
                     )
                     .on_click(move |_, _, cx| {
                         toggle
@@ -626,14 +647,15 @@ impl Detail {
                 // What discarding this hunk means, fixed now: by the time a click lands, a
                 // reload may have moved other hunks into this row's indices.
                 // A conflicted file goes whole or not at all; see `backend::discard`.
-                let discard = (worktree && !diff.files[file].file.conflicted).then(|| {
-                    let change = Selected {
-                        file: diff.files[file].file.clone(),
-                        hunks: Some(vec![key]),
-                    };
-                    let project = diff.key.project.clone();
-                    discard_button(ix, project, change, current, self.app.clone(), cx)
-                });
+                let discard =
+                    (diff.key.source.live() && !diff.files[file].file.conflicted).then(|| {
+                        let change = Selected {
+                            file: diff.files[file].file.clone(),
+                            hunks: Some(vec![key]),
+                        };
+                        let (project, linked) = (diff.key.project.clone(), diff.key.linked());
+                        discard_button(ix, project, linked, change, current, self.app.clone(), cx)
+                    });
                 // The lines before the hunk, unless the file shown whole has them above.
                 let shown = matches!(
                     ix.checked_sub(1).map(|row| diff.rows[row]),
@@ -665,7 +687,12 @@ impl Detail {
                     .child(header)
                     .on_mouse_down(
                         MouseButton::Right,
-                        menu(carried.clone(), Some(line), entity),
+                        menu(
+                            carried.clone(),
+                            linked(file, Some(vec![key])),
+                            Some(line),
+                            entity,
+                        ),
                     )
                     .when(unmodified > 0, |el| {
                         el.tooltip(|_, cx| {
@@ -1003,11 +1030,12 @@ fn review_button(
         .into_any_element()
 }
 
-/// Discard for an uncommitted hunk, shown on the hunk under the cursor and on the one under
-/// the pointer.
+/// Discard for an uncommitted hunk, of the main checkout or of the `linked` worktree, shown
+/// on the hunk under the cursor and on the one under the pointer.
 fn discard_button(
     ix: usize,
     project: ProjectId,
+    linked: Option<Arc<str>>,
     change: Selected,
     current: bool,
     app: WeakEntity<AppView>,
@@ -1025,14 +1053,30 @@ fn discard_button(
                 .style(ButtonStyle::Ghost)
                 .tooltip_with_key("Throw this hunk away", shortcut(&DiscardHunk, cx))
                 .on_click(move |_, window, cx| {
-                    let changes = vec![change.clone()];
+                    let (changes, linked) = (vec![change.clone()], linked.clone());
                     app.update(cx, |app, cx| {
-                        app.discard(project.clone(), changes, window, cx)
+                        app.discard(project.clone(), linked, changes, window, cx)
                     })
                     .ok();
                 }),
         )
         .into_any_element()
+}
+
+/// What right-clicking a linked worktree's file or hunk offers.
+fn linked_menu(
+    app: &WeakEntity<AppView>,
+    (project, worktree, change): (ProjectId, Arc<str>, Selected),
+    position: Point<Pixels>,
+    cx: &mut App,
+) {
+    let discard = MenuItem::new("Discard changes…", move |this, window, cx| {
+        let (worktree, changes) = (Some(worktree.clone()), vec![change.clone()]);
+        this.discard(project.clone(), worktree, changes, window, cx)
+    })
+    .danger();
+    app.update(cx, |app, cx| app.open_menu(position, vec![discard], cx))
+        .ok();
 }
 
 /// The word around byte `ix` of `text`, or an empty range when `ix` isn't in one.

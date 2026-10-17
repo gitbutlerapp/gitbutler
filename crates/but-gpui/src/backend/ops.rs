@@ -57,8 +57,8 @@ pub(super) fn rewritten(workspace: &but_api::WorkspaceState) -> Rewritten {
 
 /// The `selected` files a merge left conflicted, as the index has them now: what the UI
 /// asks for may predate the merge.
-fn unmerged<'a>(ctx: &but_ctx::Context, selected: &'a [Selected]) -> Result<Vec<&'a str>> {
-    let index = ctx.repo.get()?.index_or_empty()?;
+fn unmerged<'a>(repo: &gix::Repository, selected: &'a [Selected]) -> Result<Vec<&'a str>> {
+    let index = repo.index_or_empty()?;
     Ok((selected.iter())
         .map(|part| part.file.path.as_str())
         .filter(|path| {
@@ -71,7 +71,7 @@ fn unmerged<'a>(ctx: &but_ctx::Context, selected: &'a [Selected]) -> Result<Vec<
 
 /// Refuse conflicted files, which would go in markers and all.
 fn refuse_conflicted(ctx: &but_ctx::Context, selected: &[Selected]) -> Result<()> {
-    if let Some(path) = unmerged(ctx, selected)?.first() {
+    if let Some(path) = unmerged(&*ctx.repo.get()?, selected)?.first() {
         bail!("Mark {path} resolved first: it still has conflicts");
     }
     Ok(())
@@ -542,17 +542,24 @@ pub fn discard_commit(path: &Path, commit: CommitId) -> Result<()> {
     Ok(())
 }
 
-/// Throw away the `selected` uncommitted changes.
-pub fn discard(path: &Path, selected: &[Selected]) -> Result<()> {
+/// Throw away the `selected` uncommitted changes of the main checkout, or of the linked
+/// `worktree` with that name.
+pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Result<()> {
     use but_oplog::legacy::{OperationKind, SnapshotDetails};
     let mut ctx = open(path)?;
     // One lock throughout, so what's conflicted can't change under the discard.
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
+    let main = ctx.repo.get()?;
+    let linked = (worktree.map(|name| {
+        but_workspace::worktrees::open_worktree_repo(&main, name.as_bytes().as_bstr())
+    }))
+    .transpose()?;
+    let repo = linked.as_ref().unwrap_or(&main);
     // Discarding goes by status, which leaves conflicted files out: take them as they are,
     // then throw that away. Only whole: discarding part of one would take the rest of it
     // as resolved, markers and all.
-    let conflicted = unmerged(&ctx, selected)?;
+    let conflicted = unmerged(repo, selected)?;
     if let Some(part) = (selected.iter())
         .find(|part| part.hunks.is_some() && conflicted.contains(&part.file.path.as_str()))
     {
@@ -564,19 +571,20 @@ pub fn discard(path: &Path, selected: &[Selected]) -> Result<()> {
     let conflicted: Vec<bstr::BString> = conflicted.into_iter().map(Into::into).collect();
     // The snapshot is recorded before anything changes, as the but-api discard does: undo
     // then brings back whatever goes, conflicts included, even when some of it couldn't be
-    // discarded.
-    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-        &ctx,
-        SnapshotDetails::new(OperationKind::DiscardChanges),
-        perm.read_permission(),
-        DryRun::No,
-    );
-    if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
-        tracing::warn!(?err, "couldn't record the discard for undo");
+    // discarded. The oplog can't restore a linked worktree, so its discard has none.
+    if linked.is_none() {
+        let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+            &ctx,
+            SnapshotDetails::new(OperationKind::DiscardChanges),
+            perm.read_permission(),
+            DryRun::No,
+        );
+        if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
+            tracing::warn!(?err, "couldn't record the discard for undo");
+        }
     }
-    let repo = ctx.repo.get()?;
     if !conflicted.is_empty() {
-        but_workspace::resolve_worktree_conflicts(&repo, conflicted)?;
+        but_workspace::resolve_worktree_conflicts(repo, conflicted)?;
     }
     // An added or deleted file goes only whole, and its one hunk is all of it anyway.
     let mut specs = selected_specs(selected);
@@ -586,11 +594,11 @@ pub fn discard(path: &Path, selected: &[Selected]) -> Result<()> {
         }
     }
     let context_lines = ctx.settings.context_lines;
-    let specs = current_hunks(&repo, specs, context_lines)?;
-    let rejected = but_workspace::discard_workspace_changes(&repo, specs, context_lines)?;
+    let specs = current_hunks(repo, specs, context_lines)?;
+    let rejected = but_workspace::discard_workspace_changes(repo, specs, context_lines)?;
     if !rejected.is_empty() {
         // A file with nothing left to discard is as good as discarded.
-        let left = but_core::diff::worktree_changes(&repo)?.changes;
+        let left = but_core::diff::worktree_changes(repo)?.changes;
         if let Some(spec) = (rejected.iter()).find(|spec| left.iter().any(|c| c.path == spec.path))
         {
             bail!("Couldn't discard {}", spec.path);
@@ -760,7 +768,7 @@ mod tests {
             file: files[0].clone(),
             hunks: Some(Vec::new()),
         };
-        let refused = discard(path, &[part]).unwrap_err();
+        let refused = discard(path, None, &[part]).unwrap_err();
         assert!(
             refused.to_string().contains("has conflicts"),
             "part of it would leave the rest resolved, markers and all: {refused:#}"
@@ -769,7 +777,7 @@ mod tests {
             file: files[0].clone(),
             hunks: None,
         };
-        discard(path, &[whole]).unwrap();
+        discard(path, None, &[whole]).unwrap();
         assert_eq!(
             std::fs::read_to_string(path.join("file")).unwrap(),
             "ours\n"
@@ -797,9 +805,48 @@ mod tests {
             file: diff[0].file.clone(),
             hunks: Some(vec![hunks[0].key]),
         };
-        discard(path, std::slice::from_ref(&hunk)).unwrap();
+        discard(path, None, std::slice::from_ref(&hunk)).unwrap();
         assert!(!path.join("new").exists(), "the whole file goes");
-        discard(path, &[hunk]).expect("nothing left to discard is no error");
+        discard(path, None, &[hunk]).expect("nothing left to discard is no error");
+    }
+
+    #[test]
+    fn discarding_in_a_linked_worktree_leaves_the_main_checkout_alone() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        let outside = tempfile::tempdir().unwrap();
+        let linked = outside.path().join("agent");
+        git(
+            path,
+            &[
+                "worktree",
+                "add",
+                "-q",
+                "-b",
+                "agent",
+                linked.to_str().unwrap(),
+            ],
+        );
+        std::fs::write(path.join("file"), "main\n").unwrap();
+        std::fs::write(linked.join("file"), "agent\n").unwrap();
+
+        let source = DiffSource::Linked("agent".into());
+        let diff = load_diff(path, source, None, None, None).unwrap();
+        let whole = Selected {
+            file: diff[0].file.clone(),
+            hunks: None,
+        };
+        discard(path, Some("agent"), &[whole]).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(linked.join("file")).unwrap(),
+            "one\n",
+            "the worktree's file is back to its commit"
+        );
+        assert_eq!(
+            std::fs::read_to_string(path.join("file")).unwrap(),
+            "main\n",
+            "the main checkout's change to the same path stays"
+        );
     }
 
     #[test]
@@ -980,14 +1027,14 @@ mod tests {
             file: diff[0].file.clone(),
             hunks: Some(vec![hunks[ix].key]),
         };
-        discard(path, &[hunk(0)]).unwrap();
+        discard(path, None, &[hunk(0)]).unwrap();
         // Read before the first discard, which took two lines out above it.
-        discard(path, &[hunk(1)]).unwrap();
+        discard(path, None, &[hunk(1)]).unwrap();
         assert_eq!(
             std::fs::read_to_string(path.join("file")).unwrap(),
             lines.concat(),
             "each discard took back just its own hunk"
         );
-        discard(path, &[hunk(1)]).expect("a hunk that's gone has nothing left to discard");
+        discard(path, None, &[hunk(1)]).expect("a hunk that's gone has nothing left to discard");
     }
 }
