@@ -522,11 +522,41 @@ impl Detail {
                     )
             }
         };
-        let end = div()
-            .flex_none()
-            .w(px(22.))
-            .flex()
-            .justify_center()
+        // What right-clicking the row, or its ⋯, offers for the file.
+        let menu_payload = (extras.drag_from.clone()).map(|(project, from)| Cut::Files {
+            project,
+            from,
+            files: vec![Selected {
+                file: file.clone(),
+                hunks: None,
+            }]
+            .into(),
+        });
+        // The ⋯ takes the mark's place while the pointer is on the row or the row is current.
+        let more = menu_payload.clone().map(|payload| {
+            div()
+                .absolute()
+                .inset_0()
+                .flex()
+                .items_center()
+                .justify_center()
+                .when(!current, |el| {
+                    el.invisible().group_hover(ROW_GROUP, |s| s.visible())
+                })
+                .child(
+                    icon_button(("file-menu", ix), Icon::Kebab)
+                        .small()
+                        .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                            this.changes_menu(payload.clone(), Some(None), event.position(), cx)
+                        })),
+                )
+        });
+        let has_menu = more.is_some();
+        let mark = div()
+            .when(has_menu && current, |el| el.invisible())
+            .when(has_menu && !current, |el| {
+                el.group_hover(ROW_GROUP, |s| s.invisible())
+            })
             .child(if file.conflicted {
                 small_icon(Icon::Warning)
                     .text_color(theme.danger)
@@ -543,6 +573,16 @@ impl Detail {
                     .child(file.kind.letter())
                     .into_any_element()
             });
+        let end = div()
+            .relative()
+            .flex_none()
+            .w(px(22.))
+            .h_full()
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(mark)
+            .children(more);
         let mut row = file_row(("file", ix), current, theme)
             .aria_label(file.path.clone())
             .aria_description(file.kind.word())
@@ -624,7 +664,8 @@ impl Detail {
                     crate::transfer::drag_preview(self.store.clone(), label),
                 );
             }
-            let menu_payload = payload(whole);
+        }
+        if let Some(menu_payload) = menu_payload {
             row = row.on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, _, cx| {
