@@ -184,6 +184,10 @@ pub struct Detail {
     upstream: Option<upstream::Upstream>,
     upstream_scroll: UniformListScrollHandle,
     _upstream_load: Task<()>,
+    /// How the reviewers of the selected branch's pull request decided, once the forge said:
+    /// the project and pull request number they're for.
+    verdicts: Option<(ProjectId, u64, backend::reviews::Verdicts)>,
+    _verdicts_load: Task<()>,
     /// The Branches page's branches, for the project it shows, and its filter.
     branches: Option<branches::Branches>,
     branch_filter: Entity<TextInput>,
@@ -243,6 +247,9 @@ impl Detail {
                         }
                         Some(Selection::Project(project)) => {
                             this.load_upstream(&project, false, true, cx)
+                        }
+                        Some(Selection::Branch(project, ref_name)) => {
+                            this.load_verdicts(&project, &ref_name, cx)
                         }
                         _ => {}
                     }
@@ -351,6 +358,8 @@ impl Detail {
             upstream: None,
             upstream_scroll: UniformListScrollHandle::new(),
             _upstream_load: Task::ready(()),
+            verdicts: None,
+            _verdicts_load: Task::ready(()),
             branches: None,
             branch_filter,
             branches_scroll: UniformListScrollHandle::new(),
