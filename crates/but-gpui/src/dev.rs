@@ -18,6 +18,7 @@
 //! scroll 900 400 0 200    # and by 200 to the right
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! sh but commit -m x      # run a shell command, as an agent or another app would
+//! size 900 500           # resize the window, in logical pixels
 //! shot /tmp/view.png      # render the current frame to a PNG
 //! perf next key down      # time an input until loads settle, plus one frame, and the
 //!                         # longest the UI thread was busy meanwhile (`stall`)
@@ -345,6 +346,12 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             if !status.success() {
                 bail!("`{rest}` failed: {status}");
             }
+        }
+        "size" => {
+            let [width, height] = numbers()?[..] else {
+                bail!("size takes width height");
+            };
+            window.resize(gpui::size(px(width), px(height)));
         }
         "shot" => {
             let image = window.render_to_image()?;
