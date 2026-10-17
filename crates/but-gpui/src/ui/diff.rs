@@ -562,7 +562,8 @@ fn look(kind: LineKind, theme: &Theme) -> Look {
 fn number_cell(n: Option<u32>, gutter: Option<Hsla>, theme: &Theme) -> gpui::Div {
     div()
         .flex_none()
-        .w(px(44.))
+        // Five digits and the padding, at the size code shows.
+        .w(px((theme.code_text * 11. / 3.).round()))
         .pr(px(8.))
         .flex()
         .items_start()
