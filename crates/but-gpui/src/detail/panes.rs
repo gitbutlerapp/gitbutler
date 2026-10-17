@@ -1207,17 +1207,28 @@ impl Detail {
                     .map(|(.., feedback)| feedback);
                 let github =
                     store.workspace(project).and_then(|ws| ws.forge.as_deref()) == Some("GitHub");
-                el.child(render_review(
-                    review,
-                    feedback.map(|f| &f.verdicts),
-                    github,
-                    theme,
-                    cx,
-                ))
-                .children(feedback.and_then(|feedback| {
-                    self.render_threads(project, ref_name, &feedback.threads, theme, cx)
-                }))
-                .children(feedback.and_then(|feedback| render_comments(&feedback.comments, theme)))
+                // At most half the pane, scrolling on its own, so the files stay in view.
+                el.child(
+                    v_flex()
+                        .id("pull-request")
+                        .flex_shrink_0()
+                        .max_h(gpui::relative(0.5))
+                        .overflow_y_scroll()
+                        .child(render_review(
+                            review,
+                            feedback.map(|f| &f.verdicts),
+                            github,
+                            theme,
+                            cx,
+                        ))
+                        .children(feedback.and_then(|feedback| {
+                            self.render_threads(project, ref_name, &feedback.threads, theme, cx)
+                        }))
+                        .children(
+                            feedback
+                                .and_then(|feedback| render_comments(&feedback.comments, theme)),
+                        ),
+                )
             })
             .when(!branch.incoming.is_empty(), |el| {
                 let stacked =
