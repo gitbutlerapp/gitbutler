@@ -312,6 +312,8 @@ pub struct LineDecor {
     pub found: Vec<(Range<usize>, bool)>,
     /// A long line wraps onto more rows instead of running off the edge.
     pub wrap: bool,
+    /// The digits in the widest line number of the line's file, which every row's numbers fit.
+    pub digits: usize,
 }
 
 /// What the pointer does to a line's text, given the byte offset in the line it's at:
@@ -580,12 +582,15 @@ fn look(kind: LineKind, theme: &Theme) -> Look {
     }
 }
 
-fn number_cell(n: Option<u32>, look: &Look, theme: &Theme) -> gpui::Div {
+/// A line's number, in a column that fits `digits`, at least three, as on but.dev: with two
+/// digits' room on the left, where the bar goes, and one on the right.
+fn number_cell(n: Option<u32>, digits: usize, look: &Look, theme: &Theme) -> gpui::Div {
+    // Geist Mono's digits are 0.6em wide.
+    let digit = theme.code_text * 0.6;
     div()
         .flex_none()
-        // Five digits and the padding, at the size code shows.
-        .w(px((theme.code_text * 11. / 3.).round()))
-        .pr(px(8.))
+        .w(px((digit * (digits.max(3) + 3) as f32).round()))
+        .pr(px(digit))
         .flex()
         .items_start()
         .justify_end()
@@ -703,6 +708,7 @@ pub fn line_row(
         selected,
         found,
         wrap,
+        digits,
     } = decor;
     let id = row_id(place);
     let look = look(line.kind, theme);
@@ -737,7 +743,7 @@ pub fn line_row(
         .when_some(look.bg, |el, bg| el.bg(bg))
         .child(numbers(
             ("line-numbers", id).into(),
-            number_cell(number, &look, theme),
+            number_cell(number, digits, &look, theme),
             toggle,
         ))
         .child(text_cell(text, wrap, theme))
@@ -772,7 +778,15 @@ pub fn context_row(
     let place = (file, 0xfffff, new as usize);
     if split {
         let sides = [Some((line, Some(old))), Some((line, Some(new)))];
-        return pair_row(sides, Default::default(), place, last, theme, decor.wrap);
+        return pair_row(
+            sides,
+            Default::default(),
+            place,
+            last,
+            theme,
+            decor.wrap,
+            decor.digits,
+        );
     }
     line_row(line, Some(new), place, last, theme, decor)
 }
@@ -794,6 +808,7 @@ pub fn pair_row(
     last: bool,
     theme: &Theme,
     wrap: bool,
+    digits: usize,
 ) -> AnyElement {
     let id = row_id(place);
     let side = |line: Option<(&DiffLine, Option<u32>)>, half: Half, name: &'static str| {
@@ -814,7 +829,7 @@ pub fn pair_row(
             .when_some(look.bg, |el, bg| el.bg(bg))
             .child(numbers(
                 (name, id).into(),
-                number_cell(number, &look, theme),
+                number_cell(number, digits, &look, theme),
                 half.toggle,
             ))
             .child(text_cell(text, wrap, theme))
