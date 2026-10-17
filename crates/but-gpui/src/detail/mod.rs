@@ -100,6 +100,20 @@ struct DiffKey {
     source: DiffSource,
 }
 
+impl DiffKey {
+    /// Where the review marks of this diff's files are kept, when it's uncommitted changes:
+    /// of the project's own checkout or of one of its linked worktrees.
+    fn review_scope(&self) -> Option<ProjectId> {
+        match &self.source {
+            DiffSource::Worktree => Some(self.project.clone()),
+            DiffSource::Linked(name) => {
+                Some(crate::state::worktree_review_scope(&self.project, name))
+            }
+            _ => None,
+        }
+    }
+}
+
 /// How long a diff loads before the pane says it's loading.
 const SHOW_LOADING: Duration = Duration::from_millis(150);
 /// How long a pull request's reviews and conversations go before a reload asks again.
@@ -302,7 +316,11 @@ impl Detail {
                     }
                 }
                 StoreEvent::Reviewed(project) | StoreEvent::Pending(project) => {
-                    if this.selected_project(cx).as_ref() == Some(project) {
+                    // Marks of a linked worktree's files come under their own scope.
+                    let scope = (this.diff.as_ref()).and_then(|diff| diff.key.review_scope());
+                    if this.selected_project(cx).as_ref() == Some(project)
+                        || scope.as_ref() == Some(project)
+                    {
                         this.rebuild_rows(cx);
                     }
                 }
@@ -705,14 +723,15 @@ impl Detail {
     fn build_rows(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> Vec<DiffRow> {
         let store = self.store.read(cx);
         let worktree = key.source == DiffSource::Worktree;
+        let scope = key.review_scope();
         let terms = self.filter_terms(cx);
         diff::rows(
             files,
             |file| {
                 let path = &file.file.path;
-                !self.unfolded.contains(path)
-                    && (self.folded.contains(path)
-                        || (worktree && store.review(&key.project, &file.file) == Review::Reviewed))
+                let reviewed = (scope.as_ref())
+                    .is_some_and(|scope| store.review(scope, &file.file) == Review::Reviewed);
+                !self.unfolded.contains(path) && (self.folded.contains(path) || reviewed)
             },
             |file| {
                 (worktree && store.hides_file(&key.project, &file.file.path))
@@ -1048,9 +1067,16 @@ impl Detail {
             file: file_ix,
             hunk: None,
         };
-        let Some((project, file)) = self.cursor_file() else {
+        let Some(diff) = &self.diff else {
             return;
         };
+        let (Some(project), Some(file)) = (diff.key.review_scope(), diff.files.get(file_ix)) else {
+            return;
+        };
+        if !self.shown_files().contains(&file_ix) {
+            return;
+        }
+        let file = file.clone();
         let reviewed = self.store.read(cx).review(&project, &file.file) == Review::Reviewed;
         self.unfolded.remove(&file.file.path);
         self.store.update(cx, |store, cx| {

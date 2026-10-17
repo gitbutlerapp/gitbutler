@@ -856,7 +856,17 @@ impl Navigator {
                             }),
                     )
                 })
-                .when(n > 0, |el| el.child(count(None, n, style.meta(theme.warn))))
+                .when(n > 0, |el| {
+                    let scope = crate::state::worktree_review_scope(id, name);
+                    let to_review = (worktree.uncommitted.iter())
+                        .filter(|file| store.review(&scope, file) != crate::state::Review::Reviewed)
+                        .count();
+                    if to_review > 0 {
+                        el.child(count(Some(Icon::Eye), to_review, style.meta(theme.warn)))
+                    } else {
+                        el.child(count(Some(Icon::Tick), n, style.muted()))
+                    }
+                })
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 .into_any_element(),
         )
