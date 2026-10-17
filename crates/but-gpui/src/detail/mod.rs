@@ -11,6 +11,7 @@ mod find;
 pub use find::{FindInDiff, bind_keys as bind_find_keys};
 mod history;
 mod panes;
+mod pull_request;
 mod upstream;
 
 pub use diff_view::DiffPane;
