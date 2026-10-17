@@ -147,9 +147,13 @@ impl Store {
                 }
             })
             .collect();
+        let first_load = !self.projects_loaded;
         // A single project is always open, and one left closed, as after removing the
-        // others, has nothing loaded or watched yet.
+        // others, has nothing loaded or watched yet. Only when the list changed: reading it
+        // again as the window comes forward leaves a project the user collapsed alone.
+        let changed = first_load || !open.is_empty() || !old.is_empty();
         if let [only] = self.projects.as_mut_slice()
+            && changed
             && !only.expanded
         {
             only.expanded = true;
@@ -157,8 +161,12 @@ impl Store {
                 open.push(only.id.clone());
             }
         }
-        let first_load = !self.projects_loaded;
         self.projects_loaded = true;
+        // A selected project that went, as when removed, leaves the first open one selected.
+        if (self.selection.as_ref()).is_some_and(|s| self.project(s.project()).is_none()) {
+            let first = (self.projects.iter()).find(|entry| entry.expanded);
+            self.select(first.map(|entry| Selection::Uncommitted(entry.id.clone())), cx);
+        }
 
         for id in &open {
             if self.project(id).is_some_and(|entry| entry.expanded) {
@@ -207,9 +215,6 @@ impl Store {
 
     /// Take `id` out of GitButler; its repository stays on disk.
     pub fn remove_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        if self.selection.as_ref().is_some_and(|s| s.project() == id) {
-            self.select(None, cx);
-        }
         let removed = id.to_string();
         cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
