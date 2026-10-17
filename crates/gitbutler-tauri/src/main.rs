@@ -440,6 +440,7 @@ fn main() -> anyhow::Result<()> {
                 but_api::ai::tauri_reset_ai_configuration::reset_ai_configuration,
                 but_api::legacy::oplog::tauri_restore_snapshot_with_kind::restore_snapshot_with_kind,
                 but_api::legacy::forge::tauri_set_review_thread_resolved::set_review_thread_resolved,
+                gitbutler_tauri::ai::stream_ai_response,
                 but_api::ai::tauri_update_ai_configuration::update_ai_configuration,
                 but_api::legacy::users::tauri_update_profile_and_persist::update_profile_and_persist,
                 but_api::legacy::projects::tauri_update_project_settings::update_project_settings,
