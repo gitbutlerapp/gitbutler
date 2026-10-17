@@ -134,26 +134,39 @@ impl Workspace {
         })
     }
 
-    /// Whether pushing `ref_name`, which pushes the branches below it too, has commits to
-    /// send.
-    pub fn can_push(&self, ref_name: &str) -> bool {
+    /// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.
+    fn pushed_with(&self, ref_name: &str) -> &[Branch] {
         self.stack_of(ref_name)
-            .is_some_and(|(stack, at)| (stack.branches[at..].iter()).any(Branch::can_push))
+            .map_or(&[], |(stack, at)| &stack.branches[at..])
     }
 
-    /// Whether pushing `ref_name` would push a conflicted commit, its own or a branch's below.
+    /// Whether pushing `ref_name` has commits to send.
+    pub fn can_push(&self, ref_name: &str) -> bool {
+        self.pushed_with(ref_name).iter().any(Branch::can_push)
+    }
+
+    /// How many commits only the remote has that pushing `ref_name` drops: a forced push
+    /// replaces what's there.
+    pub fn push_drops(&self, ref_name: &str) -> usize {
+        match self.needs_force(ref_name) {
+            false => 0,
+            true => self
+                .pushed_with(ref_name)
+                .iter()
+                .map(|b| b.incoming.len())
+                .sum(),
+        }
+    }
+
+    /// Whether pushing `ref_name` would push a conflicted commit.
     pub fn pushes_conflicts(&self, ref_name: &str) -> bool {
-        self.stack_of(ref_name).is_some_and(|(stack, at)| {
-            (stack.branches[at..].iter()).any(|b| b.commits.iter().any(|c| c.conflicted))
-        })
+        (self.pushed_with(ref_name).iter()).any(|b| b.commits.iter().any(|c| c.conflicted))
     }
 
-    /// Whether pushing `ref_name`, which pushes the branches below it too, has to force:
-    /// it or one of those was rewritten since it was pushed.
+    /// Whether pushing `ref_name` has to force: it or a branch below it was rewritten since
+    /// it was pushed.
     pub fn needs_force(&self, ref_name: &str) -> bool {
-        self.stack_of(ref_name).is_some_and(|(stack, at)| {
-            (stack.branches[at..].iter()).any(|branch| branch.push == PushState::NeedsForce)
-        })
+        (self.pushed_with(ref_name).iter()).any(|branch| branch.push == PushState::NeedsForce)
     }
 
     /// Whether `ref_name` can pull the commits only its remote has: it has some, and no

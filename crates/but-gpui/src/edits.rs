@@ -290,7 +290,7 @@ impl AppView {
     }
 
     /// Push the selected branch, or from the uncommitted changes the branch they commit to.
-    pub fn push_selected(&mut self, _: &Push, _: &mut Window, cx: &mut Context<Self>) {
+    pub fn push_selected(&mut self, _: &Push, window: &mut Window, cx: &mut Context<Self>) {
         let branch = match self.selection(cx) {
             Some(Selection::Uncommitted(project)) => {
                 let target = self.detail.read(cx).effective_target(&project, cx);
@@ -303,17 +303,47 @@ impl AppView {
             }
             _ => self.branch_of_selection(cx),
         };
-        if let Some((project, ref_name)) = branch {
-            self.store.update(cx, |store, cx| {
-                match store
-                    .workspace(&project)
-                    .is_some_and(|ws| ws.can_push(&ref_name))
-                {
-                    true => store.push(&project, ref_name, true, cx),
-                    false => store.snack("Nothing to push yet", cx),
-                }
-            });
+        let Some((project, ref_name)) = branch else {
+            return;
+        };
+        let Some(ws) = self.store.read(cx).workspace(&project) else {
+            return;
+        };
+        let refused = if !ws.can_push(&ref_name) {
+            "Nothing to push yet"
+        } else if ws.pushes_conflicts(&ref_name) {
+            "Resolve the conflicted commits first"
+        } else {
+            ""
+        };
+        if !refused.is_empty() {
+            return self.store.update(cx, |store, cx| store.snack(refused, cx));
         }
+        let (what, them) = match ws.push_drops(&ref_name) {
+            0 => {
+                return self
+                    .store
+                    .update(cx, |store, cx| store.push(&project, ref_name, true, cx));
+            }
+            1 => ("the commit".to_owned(), "it"),
+            n => (format!("the {n} commits"), "them"),
+        };
+        let drops = match ws.can_pull(&ref_name) {
+            true => format!("It drops {what} only the remote has. Pull first to keep {them}."),
+            false => format!("It drops {what} only the remote has."),
+        };
+        // Asked here, as the project's own protection is off unless turned on.
+        self.confirm_then(
+            format!("Force push {}?", short_ref(&ref_name)),
+            &drops,
+            "Force push",
+            window,
+            cx,
+            move |this, cx| {
+                this.store
+                    .update(cx, |store, cx| store.push(&project, ref_name, false, cx))
+            },
+        );
     }
 
     fn delete_selection(
