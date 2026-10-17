@@ -342,7 +342,7 @@ impl Detail {
             _load: Task::ready(()),
             waiting_since: None,
             _waiting: Task::ready(()),
-            list: ListState::new(0, ListAlignment::Top, px(150.)),
+            list: ListState::new(0, ListAlignment::Top, px(40.)),
             uncommitted_files: UniformListScrollHandle::new(),
             diff_files: UniformListScrollHandle::new(),
             message,

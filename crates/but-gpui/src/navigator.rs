@@ -159,7 +159,7 @@ impl Navigator {
             detail,
             focus: cx.focus_handle(),
             rows: Vec::new(),
-            list: ListState::new(0, ListAlignment::Top, px(200.)),
+            list: ListState::new(0, ListAlignment::Top, px(56.)),
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
             closed_branches: HashSet::new(),
