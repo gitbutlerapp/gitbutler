@@ -59,7 +59,10 @@ fn embeds_lite<R: Runtime>(context: &Context<R>) -> bool {
 
 /// Make `context` serve the Lite frontend in place of the Svelte one, unless the build has none.
 pub fn serve<R: Runtime>(context: &mut Context<R>) -> bool {
-    if !embeds_lite(context) {
+    if tauri::is_dev() {
+        context.config_mut().build.dev_url =
+            Some("http://localhost:1421".parse().expect("valid Lite dev URL"));
+    } else if !embeds_lite(context) {
         return false;
     }
     let embedded = context.set_assets(Box::new(NoAssets));
