@@ -6,31 +6,28 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use futures::{StreamExt as _, channel::mpsc};
-use gpui::{AsyncApp, Context, EventEmitter, SharedString, Subscription, Task, WeakEntity};
-use serde::{Deserialize, Serialize};
+use futures::channel::mpsc;
+use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
 
 use crate::backend::watch::Watcher;
-use crate::backend::{
-    self, Branch, Commit, CommitId, FileChange, Project, Selected, SnapshotId, Workspace,
-};
+use crate::backend::{Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace};
 use crate::transfer::short_ref;
 
+mod background;
+mod load;
 mod mutation;
 mod saved;
+mod seen;
 
-use mutation::Queued;
+use load::{Change, Reload};
 pub use mutation::{Overlay, Remap, SAVE_EDIT, SLOW, STOP_EDITING};
+use mutation::{Queued, Running};
 pub use saved::{Pane, Prefs, saved_window_place};
 use saved::{Restored, Saved};
+use seen::Seen;
+pub use seen::{Review, worktree_review_scope};
 
 pub type ProjectId = SharedString;
-
-/// Where the review marks of linked worktree `name`'s files are kept, apart from those of
-/// the project's own checkout, which are kept under the project.
-pub fn worktree_review_scope(project: &str, name: &str) -> ProjectId {
-    format!("{project}#{name}").into()
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Selection {
@@ -43,7 +40,7 @@ pub enum Selection {
     /// The operation log, to look back at and restore.
     History(ProjectId),
     /// A linked worktree, by name, and its uncommitted changes.
-    Worktree(ProjectId, std::sync::Arc<str>),
+    Worktree(ProjectId, Arc<str>),
 }
 
 impl Selection {
@@ -141,15 +138,6 @@ pub enum Notice {
     },
 }
 
-/// Where an uncommitted file stands in review.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Review {
-    NotReviewed,
-    Reviewed,
-    /// Reviewed, then changed again.
-    Changed,
-}
-
 pub struct Toast {
     pub id: usize,
     pub notice: Notice,
@@ -162,49 +150,9 @@ pub struct ProjectEntry {
     pub workspace: Option<Workspace>,
     pub error: Option<SharedString>,
     loading: bool,
-    reload_queued: bool,
-    /// What the queued reload reads again.
-    queued: Reload,
+    /// What to read again once the running load lands, if anything was asked for meanwhile.
+    queued: Option<Reload>,
     watcher: Option<Watcher>,
-}
-
-/// What a reload reads again: everything, or just the uncommitted files of the checkouts
-/// that changed.
-#[derive(Debug, Default)]
-struct Reload {
-    /// The commits and branches too, as after a change in a git directory.
-    full: bool,
-    /// The main checkout's files.
-    main: bool,
-    /// These linked worktrees' files.
-    linked: HashSet<Arc<str>>,
-}
-
-impl Reload {
-    fn full() -> Self {
-        Self {
-            full: true,
-            ..Self::default()
-        }
-    }
-
-    /// Add what a watcher saw: a change in a git directory, or files of a linked worktree
-    /// (by name) or of the main checkout.
-    fn add(&mut self, git: bool, linked: Option<Arc<str>>) {
-        match linked {
-            _ if git => self.full = true,
-            Some(name) => {
-                self.linked.insert(name);
-            }
-            None => self.main = true,
-        }
-    }
-
-    fn merge(&mut self, other: Reload) {
-        self.full |= other.full;
-        self.main |= other.main;
-        self.linked.extend(other.linked);
-    }
 }
 
 impl ProjectEntry {
@@ -235,15 +183,13 @@ pub struct Store {
     pub file_tree: bool,
     pub prefs: Prefs,
     pub toasts: Vec<Toast>,
-    /// The label of the mutation in flight, if any. Mutations run one at a time, each
-    /// until the reload after it lands, so the next one sees what it did.
-    pub busy: Option<SharedString>,
-    /// The running mutation's project, overlay and start.
-    running: Option<(ProjectId, Overlay, Instant)>,
+    /// The mutation in flight, if any. Mutations run one at a time, each until the reload
+    /// after it lands, so the next one sees what it did.
+    running: Option<Running>,
     busy_ticker: Task<()>,
     /// Mutations asked for while one ran, in order.
     queue: VecDeque<Queued>,
-    /// The project a finished mutation waits on. Its next load to start ends `busy`.
+    /// The project a finished mutation waits on. Its next load to start ends `running`.
     settling: Option<ProjectId>,
     /// The project an operation is changing right now. Its own reload follows and sees all
     /// of it, so the watcher's reloads for it would only queue in front.
@@ -258,8 +204,8 @@ pub struct Store {
     save_task: Task<()>,
     save_queued: bool,
     _save_on_quit: Subscription,
-    /// Projects whose files changed, and whether that included the git directory.
-    changes: mpsc::UnboundedSender<(ProjectId, bool, Option<Arc<str>>)>,
+    /// Where the watchers send what changed.
+    changes: mpsc::UnboundedSender<Change>,
     _change_listener: Task<()>,
     _forge_poll: Task<()>,
     /// When each project was last fetched in the background.
@@ -284,47 +230,18 @@ impl Store {
     #[cfg(feature = "dev-script")]
     pub fn is_settled(&self) -> bool {
         self.projects_loaded
-            && self.busy.is_none()
+            && self.running.is_none()
             && self.queue.is_empty()
-            && self.projects.iter().all(|p| !p.loading && !p.reload_queued)
+            && self
+                .projects
+                .iter()
+                .all(|p| !p.loading && p.queued.is_none())
     }
 
     pub fn new(cx: &mut Context<Self>) -> Self {
-        let (changes, mut changed) = mpsc::unbounded::<(ProjectId, bool, Option<Arc<str>>)>();
-        let listener = cx.spawn(async move |this, cx| {
-            // While an agent keeps writing, reload at most this often: each reload runs a
-            // full status, and back to back they kept a core busy.
-            const MIN_INTERVAL: Duration = Duration::from_millis(500);
-            let mut last: Option<Instant> = None;
-            while let Some((id, git, linked)) = changed.next().await {
-                // Watchers fire in bursts; let a burst settle before reloading.
-                let throttle = last.map_or(Duration::ZERO, |at| {
-                    MIN_INTERVAL.saturating_sub(at.elapsed())
-                });
-                cx.background_executor()
-                    .timer(throttle.max(Duration::from_millis(60)))
-                    .await;
-                last = Some(Instant::now());
-                let mut reloads: HashMap<ProjectId, Reload> = HashMap::new();
-                reloads.entry(id).or_default().add(git, linked);
-                while let Ok((id, git, linked)) = changed.try_recv() {
-                    reloads.entry(id).or_default().add(git, linked);
-                }
-                let Ok(()) = this.update(cx, |store, cx| {
-                    for (id, reload) in reloads {
-                        if store.mutating.as_ref() == Some(&id) {
-                            continue;
-                        }
-                        // Worktree files alone can't move commits or branches.
-                        store.load(&id, reload, cx);
-                    }
-                }) else {
-                    break;
-                };
-            }
-        });
+        let (changes, changed) = mpsc::unbounded();
+        let (forge_requests, requested) = mpsc::unbounded();
         let saved = Saved::load();
-        let (forge_requests, requested) = mpsc::unbounded::<ProjectId>();
         let mut store = Self {
             projects: Vec::new(),
             projects_loaded: false,
@@ -333,7 +250,6 @@ impl Store {
             picked: Vec::new(),
             dragging: None,
             toasts: Vec::new(),
-            busy: None,
             settling: None,
             mutating: None,
             running: None,
@@ -359,43 +275,16 @@ impl Store {
                 async {}
             }),
             changes,
-            _change_listener: listener,
+            _change_listener: Self::reload_on_change(changed, cx),
             forge_requests,
             forge_queued: HashSet::new(),
             forge_failed: HashSet::new(),
             _forge_worker: cx
                 .spawn(async move |this, cx| Self::forge_worker(this, requested, cx).await),
-            // Pull requests and CI change on the forge, where no watcher sees them: ask
-            // when a project opens, then every minute.
+            _forge_poll: Self::poll_forge(cx),
             fetched: HashMap::new(),
             fetch_failed: HashMap::new(),
             _auto_fetch: Self::fetch_in_background(cx),
-            _forge_poll: cx.spawn(async move |this, cx| {
-                loop {
-                    cx.background_executor()
-                        .timer(Duration::from_secs(60))
-                        .await;
-                    // Not the projects that failed last time: that's a missing account or a
-                    // keychain prompt the user turned down, and asking again every minute
-                    // would only nag. Opening a project or pushing asks again.
-                    let Ok(ids) = this.update(cx, |store, _| {
-                        let open = store.projects.iter().filter(|e| e.expanded);
-                        open.filter(|entry| !store.forge_failed.contains(&entry.id))
-                            .map(|entry| entry.id.clone())
-                            .collect::<Vec<_>>()
-                    }) else {
-                        break;
-                    };
-                    for id in ids {
-                        if this
-                            .update(cx, |store, _| store.refresh_forge(&id))
-                            .is_err()
-                        {
-                            return;
-                        }
-                    }
-                }
-            }),
         };
         store.load_projects(cx);
         store
@@ -411,6 +300,11 @@ impl Store {
 
     pub fn workspace(&self, id: &str) -> Option<&Workspace> {
         self.project(id)?.workspace.as_ref()
+    }
+
+    /// `project`'s commit `id`, and the branch holding it.
+    pub fn find_commit(&self, project: &str, id: CommitId) -> Option<(&Branch, &Commit)> {
+        self.workspace(project)?.find_commit(id)
     }
 
     pub fn path(&self, id: &str) -> Option<PathBuf> {
@@ -431,461 +325,14 @@ impl Store {
         }
     }
 
-    pub fn load_projects(&mut self, cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| {
-            let projects = backend::run(backend::list_projects).await;
-            this.update(cx, |store, cx| match projects {
-                Ok(projects) => store.set_projects(projects, cx),
-                Err(err) => store.error("Couldn't list projects", format!("{err:#}"), cx),
-            })
-            .ok();
-        })
-        .detach();
-    }
-
-    fn set_projects(&mut self, projects: Vec<Project>, cx: &mut Context<Self>) {
-        // What was open last time applies to the first listing only; later ones add
-        // projects the user just added, which start closed.
-        let restored = std::mem::take(&mut self.restored);
-        let previous: HashSet<ProjectId> = self.projects.iter().map(|p| p.id.clone()).collect();
-        let mut old: Vec<ProjectEntry> = std::mem::take(&mut self.projects);
-        // Projects to open as if new: the ones whose folder moved, as after Locate….
-        let mut reopen = Vec::new();
-        self.projects = projects
-            .into_iter()
-            .map(|project| {
-                let id: ProjectId = project.id.clone().into();
-                if let Some(ix) = old.iter().position(|entry| entry.id == id) {
-                    let mut entry = old.swap_remove(ix);
-                    if entry.project.path != project.path {
-                        entry.error = None;
-                        entry.watcher = None;
-                        entry.workspace = None;
-                        reopen.push(id);
-                    }
-                    entry.project = project;
-                    return entry;
-                }
-                ProjectEntry {
-                    expanded: restored.expanded.contains(id.as_ref()),
-                    id,
-                    project,
-                    workspace: None,
-                    error: None,
-                    loading: false,
-                    reload_queued: false,
-                    queued: Reload::default(),
-                    watcher: None,
-                }
-            })
-            .collect();
-        // A single project is always open, and one left closed, as after removing the
-        // others, has nothing loaded or watched yet.
-        if let [only] = self.projects.as_mut_slice()
-            && !only.expanded
-        {
-            only.expanded = true;
-            reopen.push(only.id.clone());
-        }
-        let first_load = !self.projects_loaded;
-        self.projects_loaded = true;
-
-        let new: Vec<ProjectId> = self
-            .projects
-            .iter()
-            .filter(|entry| !previous.contains(&entry.id))
+    /// The projects open in the navigator.
+    fn expanded_ids(&self) -> Vec<ProjectId> {
+        (self.projects.iter())
+            .filter(|entry| entry.expanded)
             .map(|entry| entry.id.clone())
-            .chain(reopen.into_iter().filter(|id| previous.contains(id)))
-            .collect();
-        for id in &new {
-            if self.project(id).is_some_and(|entry| entry.expanded) {
-                self.open_project(id, cx);
-            }
-        }
-        if first_load {
-            let open = restored
-                .selection
-                .and_then(|id| self.project(&id).filter(|entry| entry.expanded))
-                .or_else(|| self.projects.iter().find(|entry| entry.expanded))
-                .map(|entry| Selection::Uncommitted(entry.id.clone()));
-            if let Some(selection) = open {
-                self.select(Some(selection), cx);
-            }
-        }
-        cx.notify();
-    }
-
-    pub fn add_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| {
-            let result = backend::run(move || {
-                backend::add_project(&path)?;
-                backend::list_projects().map(|projects| (projects, path))
-            })
-            .await;
-            this.update(cx, |store, cx| match result {
-                Ok((projects, path)) => {
-                    let added = projects
-                        .iter()
-                        .find(|project| project.path == path)
-                        .map(|project| ProjectId::from(project.id.clone()));
-                    store.set_projects(projects, cx);
-                    if let Some(id) = added {
-                        store.set_expanded(&id, true, cx);
-                        store.select(Some(Selection::Uncommitted(id)), cx);
-                    }
-                }
-                Err(err) => store.error("Couldn't add the project", format!("{err:#}"), cx),
-            })
-            .ok();
-        })
-        .detach();
-    }
-
-    /// Fetch the expanded projects as often as GitButler's shared setting says, so what the
-    /// target and remotes have stays current. Quietly: a failed fetch only logs, and the
-    /// next one tries again.
-    fn fetch_in_background(cx: &mut Context<Self>) -> Task<()> {
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_secs(60))
-                    .await;
-                let interval = backend::run(|| Ok(backend::settings::fetch_interval())).await;
-                let Ok(Some(minutes)) = interval else {
-                    continue;
-                };
-                let interval = Duration::from_secs(minutes * 60);
-                let Ok(due) = this.update(cx, |store, _| store.due_for_fetch(interval)) else {
-                    return;
-                };
-                for (project, path) in due {
-                    let fetched = backend::run(move || backend::fetch(&path)).await;
-                    if let Err(err) = &fetched {
-                        tracing::warn!(%project, "background fetch failed: {err:#}");
-                    }
-                    let reloaded = this.update(cx, |store, cx| {
-                        store.fetched.insert(project.clone(), Instant::now());
-                        match fetched {
-                            Ok(()) => store.fetch_failed.remove(&project),
-                            Err(_) => store.fetch_failed.insert(project.clone(), Instant::now()),
-                        };
-                        store.reload(&project, cx);
-                    });
-                    if reloaded.is_err() {
-                        return;
-                    }
-                }
-            }
-        })
-    }
-
-    fn due_for_fetch(&self, interval: Duration) -> Vec<(ProjectId, PathBuf)> {
-        self.projects
-            .iter()
-            .filter(|entry| entry.expanded && entry.workspace.is_some())
-            .filter(|entry| {
-                const AFTER_FAILING: Duration = Duration::from_secs(30 * 60);
-                (self.fetch_failed.get(&entry.id)).is_none_or(|at| at.elapsed() >= AFTER_FAILING)
-            })
-            .filter(|entry| {
-                self.fetched
-                    .get(&entry.id)
-                    .is_none_or(|at| at.elapsed() >= interval)
-            })
-            .map(|entry| (entry.id.clone(), entry.project.path.clone()))
             .collect()
     }
 
-    /// Take `id` out of GitButler; its repository stays on disk.
-    pub fn remove_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        if self.selection.as_ref().is_some_and(|s| s.project() == id) {
-            self.select(None, cx);
-        }
-        let removed = id.to_string();
-        cx.spawn(async move |this, cx| {
-            let result = backend::run(move || {
-                backend::settings::remove_project(&removed)?;
-                backend::list_projects()
-            })
-            .await;
-            this.update(cx, |store, cx| match result {
-                Ok(projects) => {
-                    store.set_projects(projects, cx);
-                    store.snack("Project removed", cx);
-                }
-                Err(err) => store.error("Couldn't remove the project", format!("{err:#}"), cx),
-            })
-            .ok();
-        })
-        .detach();
-    }
-
-    pub fn set_expanded(&mut self, id: &ProjectId, expanded: bool, cx: &mut Context<Self>) {
-        let Some(entry) = self.project_mut(id) else {
-            return;
-        };
-        if entry.expanded == expanded {
-            return;
-        }
-        entry.expanded = expanded;
-        if expanded {
-            self.open_project(id, cx);
-        } else {
-            entry.watcher = None;
-            if self
-                .selection
-                .as_ref()
-                .is_some_and(|selection| selection.project() == id)
-            {
-                self.select(Some(Selection::Project(id.clone())), cx);
-            }
-        }
-        self.save_soon(cx);
-        cx.notify();
-    }
-
-    /// Watch and load every expanded project again, after a setting changed what they
-    /// watch and list.
-    pub fn reopen_expanded(&mut self, cx: &mut Context<Self>) {
-        let expanded: Vec<ProjectId> = (self.projects.iter())
-            .filter(|entry| entry.expanded)
-            .map(|entry| entry.id.clone())
-            .collect();
-        for id in expanded {
-            self.rewatch(&id, cx);
-            self.reload(&id, cx);
-        }
-    }
-
-    /// Start watching `id` over, as when the worktrees it should watch changed.
-    fn rewatch(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        let Some(entry) = self.project(id) else {
-            return;
-        };
-        let project = entry.project.clone();
-        let changes = self.changes.clone();
-        let id = id.clone();
-        cx.spawn(async move |this, cx| {
-            let watch_id = id.clone();
-            let watcher = backend::run(move || watch(&project, watch_id, changes)).await;
-            this.update(cx, |store, _| match (store.project_mut(&id), watcher) {
-                (Some(entry), Ok(watcher)) if entry.expanded => entry.watcher = Some(watcher),
-                (_, Err(err)) => tracing::warn!("couldn't watch {id} again: {err:#}"),
-                _ => {}
-            })
-            .ok();
-        })
-        .detach();
-    }
-
-    /// Prepare `id` for display and start watching it, then load it.
-    fn open_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        let Some(entry) = self.project_mut(id) else {
-            return;
-        };
-        let project = entry.project.clone();
-        // Hold off reloads until the project is ready.
-        entry.loading = true;
-        let changes = self.changes.clone();
-        let id = id.clone();
-        cx.spawn(async move |this, cx| {
-            let watch_id = id.clone();
-            let watcher = backend::run(move || {
-                backend::activate(&project.path)?;
-                watch(&project, watch_id, changes)
-            })
-            .await;
-            this.update(cx, |store, cx| {
-                let Some(entry) = store.project_mut(&id) else {
-                    return;
-                };
-                entry.loading = false;
-                entry.reload_queued = false;
-                if watcher.is_ok() {
-                    store.refresh_forge(&id);
-                }
-                let Some(entry) = store.project_mut(&id) else {
-                    return;
-                };
-                match watcher {
-                    Ok(watcher) if entry.expanded => entry.watcher = Some(watcher),
-                    Ok(_) => {}
-                    Err(err) => {
-                        tracing::warn!("Couldn't open {}: {err:#}", entry.project.name);
-                        entry.error = Some(load_error(&entry.project, &err));
-                    }
-                }
-                store.reload(&id, cx);
-            })
-            .ok();
-        })
-        .detach();
-    }
-
-    /// Reload `id`'s workspace, coalescing requests that arrive while a load is running.
-    pub fn reload(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        self.load(id, Reload::full(), cx);
-    }
-
-    /// Load `id` again: all of it, or unless `reload` is full, just the uncommitted files it
-    /// names on top of the commits already shown, which skips walking the commit graph.
-    fn load(&mut self, id: &ProjectId, reload: Reload, cx: &mut Context<Self>) {
-        let Some(entry) = self.project_mut(id) else {
-            self.settled(id, cx);
-            return;
-        };
-        if entry.loading {
-            entry.reload_queued = true;
-            entry.queued.merge(reload);
-            return;
-        }
-        entry.loading = true;
-        // Loads of one project don't overlap, so these commits are still current.
-        let shown = (!reload.full).then(|| entry.workspace.clone()).flatten();
-        let full = shown.is_none();
-        let path = entry.project.path.clone();
-        let id = id.clone();
-        // Started after the mutation finished, so it sees what the mutation did.
-        let settles = self.settling.as_ref() == Some(&id);
-        cx.notify();
-        cx.spawn(async move |this, cx| {
-            // While editing, what's resolved changes with the files, so it's read again too.
-            let shown = shown.filter(|shown| shown.editing.is_none());
-            let result = backend::run(move || match shown {
-                Some(shown) => {
-                    backend::reload_uncommitted(&path, shown, reload.main, &reload.linked)
-                }
-                None => backend::load_workspace(&path),
-            })
-            .await;
-            this.update(cx, |store, cx| {
-                let Some(entry) = store.project_mut(&id) else {
-                    store.settled(&id, cx);
-                    return;
-                };
-                entry.loading = false;
-                let again = std::mem::take(&mut entry.reload_queued);
-                let queued = std::mem::take(&mut entry.queued);
-                match result {
-                    Ok(workspace) => {
-                        if full && workspace.worktrees_listed {
-                            store.forget_gone_worktrees(&id, &workspace);
-                        }
-                        store.workspace_loaded(&id, workspace, !again, cx)
-                    }
-                    Err(err) => entry.error = Some(load_error(&entry.project, &err)),
-                }
-                // A queued reload has newer data; checking against this one could drop a
-                // selection a mutation just made.
-                if !again {
-                    store.validate_selection(&id, cx);
-                }
-                if settles {
-                    store.settled(&id, cx);
-                }
-                cx.emit(StoreEvent::Loaded(id.clone()));
-                cx.notify();
-                if again {
-                    store.load(&id, queued, cx);
-                }
-            })
-            .ok();
-        })
-        .detach();
-    }
-
-    /// Forget the review marks of `id`'s worktrees that a full load listed as gone, neither
-    /// active nor archived, as when an agent removes one: one recreated under its name
-    /// starts over.
-    fn forget_gone_worktrees(&mut self, id: &ProjectId, workspace: &Workspace) {
-        let prefix = format!("{id}#");
-        let names: HashSet<&str> = (workspace.worktrees.iter())
-            .map(|worktree| &*worktree.name)
-            .chain(workspace.archived_worktrees.iter().map(|name| &**name))
-            .collect();
-        self.seen.files.retain(|scope, _| {
-            (scope.strip_prefix(&prefix)).is_none_or(|name| names.contains(name))
-        });
-    }
-
-    /// End the mutation in `busy` once `id` has loaded what it did, or can't load at all,
-    /// and start the next one waiting.
-    fn settled(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        if self.settling.as_ref() == Some(id) {
-            self.settling = None;
-            self.busy = None;
-            self.running = None;
-            cx.emit(StoreEvent::Pending(id.clone()));
-            self.start_next(cx);
-        }
-    }
-
-    /// Ask the forge about `id`'s pull requests and CI in the background, then show what
-    /// changed. Quiet when it can't: plenty of projects have no forge account.
-    pub fn refresh_forge(&mut self, id: &ProjectId) {
-        if self.forge_queued.insert(id.clone()) {
-            self.forge_requests.unbounded_send(id.clone()).ok();
-        }
-    }
-
-    /// Works through forge refreshes one at a time. Reading the forge token can stop on a
-    /// keychain prompt, and one prompt is plenty; it also keeps the forge's rate limit happy.
-    async fn forge_worker(
-        this: WeakEntity<Store>,
-        mut requested: mpsc::UnboundedReceiver<ProjectId>,
-        cx: &mut AsyncApp,
-    ) {
-        while let Some(id) = requested.next().await {
-            let Ok(path) = this.update(cx, |store, _| {
-                store.forge_queued.remove(&id);
-                let open = store.project(&id).filter(|entry| entry.expanded);
-                open.map(|entry| entry.project.path.clone())
-            }) else {
-                return;
-            };
-            let Some(path) = path else {
-                continue;
-            };
-            // Pull requests show as soon as they're listed; their checks take a request each.
-            let reviews_path = path.clone();
-            let refreshed = backend::run(move || backend::refresh_reviews(&reviews_path)).await;
-            let Ok(_) = this.update(cx, |store, _| match &refreshed {
-                Ok(()) => store.forge_failed.remove(&id),
-                Err(_) => store.forge_failed.insert(id.clone()),
-            }) else {
-                return;
-            };
-            if let Err(err) = refreshed {
-                tracing::debug!(%id, "forge refresh failed: {err:#}");
-                continue;
-            }
-            if this.update(cx, |store, cx| store.reload(&id, cx)).is_err() {
-                return;
-            }
-            match backend::run(move || backend::refresh_checks(&path)).await {
-                Ok(()) => {
-                    if this.update(cx, |store, cx| store.reload(&id, cx)).is_err() {
-                        return;
-                    }
-                }
-                Err(err) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
-            }
-        }
-    }
-
-    pub fn reload_all(&mut self, cx: &mut Context<Self>) {
-        let ids: Vec<ProjectId> = self
-            .projects
-            .iter()
-            .filter(|entry| entry.expanded)
-            .map(|entry| entry.id.clone())
-            .collect();
-        for id in ids {
-            self.reload(&id, cx);
-        }
-    }
-
-    /// Keep the selection pointing at something that still exists after a reload.
     /// Keep the selection pointing at something that still exists after `id` reloaded.
     /// Another project's selection waits for its own reload: it may be what an operation
     /// there just made.
@@ -913,191 +360,6 @@ impl Store {
         }
     }
 
-    /// `settled` is false when a newer load is already queued behind this one.
-    fn workspace_loaded(
-        &mut self,
-        id: &ProjectId,
-        workspace: Workspace,
-        settled: bool,
-        cx: &mut Context<Self>,
-    ) {
-        // While a commit is being edited there's nothing else to look at or act on, and
-        // what was seen and reviewed waits for the workspace to come back.
-        if workspace.editing.is_some() {
-            if let Some(entry) = self.project_mut(id) {
-                entry.workspace = Some(workspace);
-                entry.error = None;
-            }
-            let elsewhere = (self.selection.as_ref())
-                .is_some_and(|s| s.project() == id && !matches!(s, Selection::Project(_)));
-            if elsewhere {
-                self.select(Some(Selection::Project(id.clone())), cx);
-            }
-            return;
-        }
-        let commits: HashSet<&str> = workspace
-            .commits()
-            .map(|commit| commit.key.as_str())
-            .collect();
-        let first_sight = !self.seen.commits.contains_key(id.as_ref());
-        let seen = self.seen.commits.entry(id.to_string()).or_default();
-        seen.retain(|key| commits.contains(key.as_str()));
-        // Nothing is news the first time a project shows up, and neither is what the
-        // app's own operations created.
-        let before = self.rebaseline.get(id);
-        seen.extend(
-            commits
-                .iter()
-                .filter(|key| first_sight || before.is_some_and(|before| !before.contains(**key)))
-                .map(|key| key.to_string()),
-        );
-        if settled {
-            self.rebaseline.remove(id);
-        }
-        let files: HashSet<&str> = workspace
-            .uncommitted
-            .iter()
-            .map(|f| f.path.as_str())
-            .collect();
-        if let Some(reviewed) = self.seen.files.get_mut(id.as_ref()) {
-            reviewed.retain(|path, _| files.contains(path.as_str()));
-        }
-        // A linked worktree's marks go the same way, file by file.
-        for worktree in &workspace.worktrees {
-            let scope = worktree_review_scope(id, &worktree.name);
-            if let Some(reviewed) = self.seen.files.get_mut(scope.as_ref()) {
-                let files: HashSet<&str> = (worktree.uncommitted.iter())
-                    .map(|f| f.path.as_str())
-                    .collect();
-                reviewed.retain(|path, _| files.contains(path.as_str()));
-            }
-        }
-        // An agent amending or rebasing the selected commit gives it a new id but keeps its
-        // change id; stay on it.
-        let rewritten = match &self.selection {
-            Some(Selection::Commit(project, commit)) if project == id => self
-                .workspace(id)
-                .and_then(|old| old.find_commit(*commit))
-                .filter(|_| workspace.find_commit(*commit).is_none())
-                .and_then(|(_, old)| {
-                    let mut commits = workspace.commits();
-                    commits.find(|new| new.key == old.key).map(|new| new.id)
-                }),
-            _ => None,
-        };
-        // Picks follow rewritten commits the same way, and go when a commit is gone.
-        if !self.picked.is_empty() && self.selection.as_ref().is_some_and(|s| s.project() == id) {
-            let old = self.workspace(id);
-            let picked: Vec<CommitId> = (self.picked.iter())
-                .filter_map(|commit| {
-                    if workspace.find_commit(*commit).is_some() {
-                        return Some(*commit);
-                    }
-                    let (_, old) = old?.find_commit(*commit)?;
-                    let mut commits = workspace.commits();
-                    commits.find(|new| new.key == old.key).map(|new| new.id)
-                })
-                .collect();
-            self.picked = if picked.len() > 1 { picked } else { Vec::new() };
-        }
-        // A cut commit follows the same way, and the cut goes with the commit; a commit
-        // picked from outside the workspace stays as it is.
-        if let Some(mut cut) = self.cut.take_if(|cut| cut.project() == id) {
-            let old = self.workspace(id);
-            let follow = |commit: CommitId| -> Option<CommitId> {
-                let Some((_, old)) = old.and_then(|old| old.find_commit(commit)) else {
-                    return Some(commit);
-                };
-                if workspace.find_commit(commit).is_some() {
-                    return Some(commit);
-                }
-                let mut commits = workspace.commits();
-                commits.find(|new| new.key == old.key).map(|new| new.id)
-            };
-            let kept = match &mut cut {
-                Cut::Commit(_, commit)
-                | Cut::Pick(_, commit)
-                | Cut::Files {
-                    from: Some(commit), ..
-                } => follow(*commit).map(|new| *commit = new).is_some(),
-                Cut::Branch(..) | Cut::Files { from: None, .. } => true,
-            };
-            self.cut = kept.then_some(cut);
-        }
-        // The file watcher learns which worktrees to watch when it starts, so one added,
-        // shown again or archived starts it over. Edit mode lists none, so going in and out
-        // of it doesn't count.
-        let unwatched = self.workspace(id).is_some_and(|old| {
-            let names = |ws: &backend::Workspace| -> HashSet<Arc<str>> {
-                ws.worktrees.iter().map(|w| w.name.clone()).collect()
-            };
-            old.editing.is_none() && names(old) != names(&workspace)
-        });
-        if let Some(entry) = self.project_mut(id) {
-            entry.workspace = Some(workspace);
-            entry.error = None;
-        }
-        if unwatched {
-            self.rewatch(id, cx);
-        }
-        if let Some(commit) = rewritten {
-            let picked = std::mem::take(&mut self.picked);
-            self.select(Some(Selection::Commit(id.clone(), commit)), cx);
-            self.picked = picked;
-        }
-        self.save_soon(cx);
-    }
-
-    pub fn is_unread(&self, project: &str, commit: &Commit) -> bool {
-        self.seen
-            .commits
-            .get(project)
-            .is_some_and(|seen| !seen.contains(&commit.key))
-    }
-
-    pub fn review(&self, project: &str, file: &FileChange) -> Review {
-        match self
-            .seen
-            .files
-            .get(project)
-            .and_then(|files| files.get(&file.path))
-        {
-            None => Review::NotReviewed,
-            Some(version) if *version == file.modified.unwrap_or(0) => Review::Reviewed,
-            Some(_) => Review::Changed,
-        }
-    }
-
-    /// Uncommitted files of `project` that still want a look.
-    pub fn to_review(&self, project: &str) -> usize {
-        self.workspace(project).map_or(0, |ws| {
-            ws.uncommitted
-                .iter()
-                .filter(|file| self.review(project, file) != Review::Reviewed)
-                .count()
-        })
-    }
-
-    pub fn set_reviewed(
-        &mut self,
-        project: &ProjectId,
-        files: &[FileChange],
-        reviewed: bool,
-        cx: &mut Context<Self>,
-    ) {
-        let entry = self.seen.files.entry(project.to_string()).or_default();
-        for file in files {
-            if reviewed {
-                entry.insert(file.path.clone(), file.modified.unwrap_or(0));
-            } else {
-                entry.remove(&file.path);
-            }
-        }
-        cx.emit(StoreEvent::Reviewed(project.clone()));
-        self.save_soon(cx);
-        cx.notify();
-    }
-
     pub fn select(&mut self, selection: Option<Selection>, cx: &mut Context<Self>) {
         if !self.picked.is_empty() {
             self.picked.clear();
@@ -1107,7 +369,7 @@ impl Store {
             return;
         }
         if let Some(Selection::Commit(project, id)) = &selection
-            && let Some((_, commit)) = self.workspace(project).and_then(|ws| ws.find_commit(*id))
+            && let Some((_, commit)) = self.find_commit(project, *id)
         {
             let key = commit.key.clone();
             self.seen
@@ -1242,33 +504,4 @@ impl Store {
         self.cut = cut;
         cx.notify();
     }
-}
-
-/// What the user has looked at, so new work by agents stands out. Per project id.
-#[derive(Default, Clone, Serialize, Deserialize)]
-struct Seen {
-    /// Commit keys (see [`Commit::key`]) that have been looked at.
-    commits: HashMap<String, HashSet<String>>,
-    /// Uncommitted files marked reviewed, with the file version reviewed.
-    files: HashMap<String, HashMap<String, i64>>,
-}
-
-/// Why a project didn't load: plainly when its folder is gone, otherwise as reported.
-fn load_error(project: &backend::Project, err: &anyhow::Error) -> SharedString {
-    if project.path.exists() {
-        format!("{err:#}").into()
-    } else {
-        "The project's folder isn't there any more.".into()
-    }
-}
-
-/// Watch `project` for changes, sending them as `id`'s to `changes`.
-fn watch(
-    project: &Project,
-    id: ProjectId,
-    changes: mpsc::UnboundedSender<(ProjectId, bool, Option<Arc<str>>)>,
-) -> anyhow::Result<Watcher> {
-    backend::watch::watch(project, move |git, linked| {
-        changes.unbounded_send((id.clone(), git, linked)).ok();
-    })
 }

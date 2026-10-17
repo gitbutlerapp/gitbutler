@@ -17,7 +17,7 @@ impl AppView {
     ) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
-        let working = match &store.busy {
+        let working = match store.busy() {
             Some(busy) => {
                 // How long it's taking once that's noticeable, and what waits behind it.
                 let elapsed = store

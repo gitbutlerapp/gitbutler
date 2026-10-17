@@ -10,26 +10,21 @@ use gpui::{
 };
 
 use crate::app::{
-    AddProject, AppView, Collapse, Confirm, CopySelection, CutSelection, DeleteSelection, Expand,
-    Fetch, MenuItem, NewBranchOnTop, OpenPullRequest, Push, Refresh, RenameSelection, SelectNext,
-    SelectPrevious, StartCommit, UncommitSelection, UpdateFromTarget,
+    AddProject, AppView, Collapse, Confirm, Expand, Refresh, SelectNext, SelectPrevious,
 };
 use crate::backend::{CommitId, CommitState, PushState};
 use crate::detail::{ChecksChanged, Detail};
-use crate::edits::{
-    AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage, MoveDown,
-    MoveToNewBranch, MoveUp, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage, SquashAll,
-    SquashPicked, TakeRemote, UnapplyStack, Unstack, UpdateStack,
-};
 use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::Transfer;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, count, dot, h_flex, icon,
-    icon_button, just_now, list_row, plural, popover, relative_time, resize_handle, review,
-    small_icon, v_flex,
+    icon_button, just_now, list_row, popover, relative_time, resize_handle, review, small_icon,
+    v_flex,
 };
+
+mod menu;
 
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
@@ -207,9 +202,7 @@ impl Navigator {
                     } else {
                         FOLD_AFTER.max(selected_at.map_or(0, |at| at + 1))
                     };
-                    let closed = self.closed_branches.contains(&key)
-                        && !matches!(&store.selection, Some(Selection::Commit(p, c))
-                            if p == id && branch.commits.iter().any(|commit| commit.id == *c));
+                    let closed = self.closed_branches.contains(&key) && selected_at.is_none();
                     rows.push(Row::Item(Selection::Branch(key.0, key.1)));
                     if closed {
                         continue;
@@ -227,8 +220,8 @@ impl Navigator {
                             .iter()
                             .filter(|commit| {
                                 !store.hides_commit(id, &commit.key)
-                                    || store.selection
-                                        == Some(Selection::Commit(id.clone(), commit.id))
+                                    || matches!(&store.selection, Some(Selection::Commit(p, c))
+                                        if p == id && *c == commit.id)
                             })
                             .take(shown)
                             .map(|commit| Row::Item(Selection::Commit(id.clone(), commit.id))),
@@ -320,14 +313,6 @@ impl Navigator {
         }
     }
 
-    fn select_previous(&mut self, _: &SelectPrevious, window: &mut Window, cx: &mut Context<Self>) {
-        self.step(-1, window, cx);
-    }
-
-    fn select_next(&mut self, _: &SelectNext, window: &mut Window, cx: &mut Context<Self>) {
-        self.step(1, window, cx);
-    }
-
     fn expand(&mut self, _: &Expand, _: &mut Window, cx: &mut Context<Self>) {
         match self.store.read(cx).selection.clone() {
             Some(Selection::Project(id)) => {
@@ -382,9 +367,8 @@ impl Navigator {
             }
             Some(Selection::Commit(project, id)) => {
                 let branch = store
-                    .workspace(&project)
-                    .and_then(|ws| ws.find_commit(id))
-                    .map(|(branch, _)| branch.ref_name.clone());
+                    .find_commit(&project, id)
+                    .map(|(b, _)| b.ref_name.clone());
                 if let Some(ref_name) = branch {
                     self.select(Selection::Branch(project, ref_name), window, cx);
                 }
@@ -866,9 +850,7 @@ impl Navigator {
                 })
                 .when(n > 0, |el| {
                     let scope = crate::state::worktree_review_scope(id, name);
-                    let to_review = (worktree.uncommitted.iter())
-                        .filter(|file| store.review(&scope, file) != crate::state::Review::Reviewed)
-                        .count();
+                    let to_review = store.unreviewed(&scope, &worktree.uncommitted);
                     if to_review > 0 {
                         el.child(count(Some(Icon::Eye), to_review, style.meta(theme.warn)))
                     } else {
@@ -1078,7 +1060,7 @@ impl Navigator {
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
         let theme = style.theme;
-        let (_, commit) = store.workspace(id)?.find_commit(*commit_id)?;
+        let (_, commit) = store.find_commit(id, *commit_id)?;
         let cut = store.cut.as_ref();
         let is_cut =
             matches!(cut, Some(Cut::Commit(_, cut) | Cut::Pick(_, cut)) if cut == commit_id);
@@ -1096,7 +1078,7 @@ impl Navigator {
         let unread = store.is_unread(id, commit);
         Some(
             style
-                .row(format!("commit-{id}-{}", commit_id.short()), 20.)
+                .row(format!("commit-{id}-{}", commit_id.0), 20.)
                 .aria_label(label.clone())
                 .child(small_icon(glyph).text_color(style.meta(color)))
                 .child(
@@ -1162,7 +1144,6 @@ impl Navigator {
         let menu_target = target.clone();
         let highlight = theme.pop;
         div()
-            .id(ElementId::Name(format!("drop-{target:?}").into()))
             .relative()
             .rounded(px(4.))
             .child(el)
@@ -1231,347 +1212,6 @@ impl Navigator {
             )
             .into_any_element()
     }
-
-    /// What right-clicking `target` offers. Right-clicking selects the row first, so the
-    /// items run the same actions as their keys. A branch with commits starts with hiding
-    /// or showing them.
-    fn menu_items(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
-        let mut items = self.row_actions(target, cx);
-        if let Selection::Branch(project, ref_name) = target
-            && let Some(first) = items.first_mut()
-            && (self.store.read(cx).branch_for(target)).is_some_and(|b| !b.commits.is_empty())
-        {
-            *first = first.clone().separated();
-            let key = (project.clone(), ref_name.clone());
-            items.insert(
-                0,
-                match self.closed_branches.contains(&key) {
-                    true => MenuItem::action("Show commits", &Expand, cx),
-                    false => MenuItem::action("Hide commits", &Collapse, cx),
-                },
-            );
-        }
-        items
-    }
-
-    fn row_actions(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
-        let store = self.store.read(cx);
-        let action =
-            |label: &'static str, action: &dyn gpui::Action| MenuItem::action(label, action, cx);
-        match target {
-            Selection::Project(project) => {
-                let expanded = store.project(project).is_some_and(|p| p.expanded);
-                let mut items = vec![if expanded {
-                    action("Collapse", &Collapse)
-                } else {
-                    action("Expand", &Expand)
-                }];
-                if expanded {
-                    items.push(action("Fetch", &Fetch));
-                    if crate::pr::on_forge(store, target) {
-                        items.push(action(
-                            "Apply a pull request…",
-                            &crate::pr::ApplyPullRequest,
-                        ));
-                    }
-                    if let Some(target) = store.workspace(project).and_then(|ws| ws.target.as_ref())
-                    {
-                        items.push(MenuItem::action(
-                            format!("Update from {}", target.name),
-                            &UpdateFromTarget,
-                            cx,
-                        ));
-                    }
-                }
-                let archived = (store.workspace(project))
-                    .map_or_else(Vec::new, |ws| ws.archived_worktrees.clone());
-                if !archived.is_empty() {
-                    let project = project.clone();
-                    items.push(MenuItem::new(
-                        "Show an archived worktree…",
-                        move |this, window, cx| {
-                            let choices = (archived.iter())
-                                .map(|name| {
-                                    let (project, name) = (project.clone(), name.clone());
-                                    crate::palette::Choice::new(
-                                        name.to_string(),
-                                        move |this, _, cx| {
-                                            this.store.update(cx, |store, cx| {
-                                                store.set_worktree_archived(
-                                                    &project, name, false, cx,
-                                                )
-                                            })
-                                        },
-                                    )
-                                })
-                                .collect();
-                            this.open_picker("Show a worktree again", "Show", choices, window, cx)
-                        },
-                    ));
-                }
-                if let Some(path) = store.path(project) {
-                    let label = self
-                        .app
-                        .upgrade()
-                        .map(|app| app.read(cx).open_in_editor_label(cx))
-                        .unwrap_or_default();
-                    let (editor_project, terminal_project) = (project.clone(), project.clone());
-                    items.extend([
-                        MenuItem::new(label, move |this, window, cx| {
-                            let position = window.mouse_position();
-                            this.open_in_editor(&editor_project, None, None, None, position, cx)
-                        })
-                        .separated(),
-                        MenuItem::new("Open in terminal", move |this, _, cx| {
-                            this.open_in_terminal(&terminal_project, cx)
-                        }),
-                        MenuItem::new("Reveal in Finder", move |_, _, cx| cx.reveal_path(&path)),
-                    ]);
-                }
-                items
-            }
-            Selection::Uncommitted(project) => {
-                if store
-                    .workspace(project)
-                    .is_none_or(|ws| ws.uncommitted.is_empty())
-                {
-                    return Vec::new();
-                }
-                vec![
-                    action("Commit…", &StartCommit),
-                    action("Discard checked changes…", &DeleteSelection).danger(),
-                ]
-            }
-            Selection::Branch(project, ref_name) => {
-                let mut items = Vec::new();
-                let (Some(branch), Some(workspace)) =
-                    (store.branch_for(target), store.workspace(project))
-                else {
-                    return items;
-                };
-                if branch.push.can_push() {
-                    items.push(action("Push", &Push));
-                }
-                if !branch.incoming.is_empty() && !workspace.has_branches_above(ref_name) {
-                    items.extend([
-                        MenuItem::action(
-                            format!(
-                                "Pull {} from the remote",
-                                plural(branch.incoming.len(), "commit")
-                            ),
-                            &PullRemote,
-                            cx,
-                        ),
-                        action("Take the remote's version…", &TakeRemote),
-                    ]);
-                }
-                if let Some(url) = branch.review.as_ref().and_then(|r| r.url.clone()) {
-                    items.extend([
-                        action("Open pull request", &OpenPullRequest),
-                        MenuItem::new("Copy pull request link", move |this, _, cx| {
-                            this.copy_text(url.clone(), cx)
-                        }),
-                    ]);
-                }
-                if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
-                    use crate::backend::ReviewState as S;
-                    use crate::pr::*;
-                    match branch.review.as_ref().map(|r| r.state) {
-                        None if !branch.commits.is_empty() => {
-                            items.push(action("Create pull request…", &CreatePullRequest))
-                        }
-                        Some(state @ (S::Open | S::Draft)) => {
-                            items.extend([
-                                action("Edit pull request…", &EditPullRequest),
-                                action(
-                                    if state == S::Draft {
-                                        "Mark ready for review"
-                                    } else {
-                                        "Convert to draft"
-                                    },
-                                    &ToggleDraft,
-                                ),
-                                action("Merge pull request…", &MergePullRequest),
-                                action("Labels…", &LabelPullRequest),
-                            ]);
-                            // What only GitButler's GitHub support does so far.
-                            if workspace.forge.as_deref() == Some("GitHub") {
-                                items.extend([
-                                    action("Comment…", &CommentOnPullRequest),
-                                    action("Request review…", &RequestReview),
-                                ]);
-                            }
-                            // The forges GitButler can ask to merge on their own.
-                            let auto_merges =
-                                matches!(workspace.forge.as_deref(), Some("GitHub" | "GitLab"));
-                            if state == S::Open && auto_merges {
-                                let on = branch.review.as_ref().is_some_and(|r| r.auto_merge);
-                                items.push(action(
-                                    if on {
-                                        "Don't merge automatically"
-                                    } else {
-                                        "Merge when checks pass"
-                                    },
-                                    &ToggleAutoMerge,
-                                ));
-                            }
-                            items.push(action("Close pull request…", &ClosePullRequest));
-                        }
-                        Some(S::Closed) => {
-                            items.push(action("Reopen pull request", &ClosePullRequest))
-                        }
-                        _ => {}
-                    }
-                }
-                if ref_name.is_empty() {
-                    return items;
-                }
-                items.push(action("New branch on top…", &NewBranchOnTop).separated());
-                if !branch.commits.is_empty() {
-                    items.push(action("New branch below…", &NewBranchBelow));
-                }
-                items.push(action("Add empty commit", &AddEmptyCommitAbove));
-                if branch.commits.len() > 1 {
-                    items.push(action("Squash all commits", &SquashAll));
-                }
-                let stacked = workspace
-                    .stack_of(ref_name)
-                    .is_some_and(|(stack, _)| stack.branches.len() > 1);
-                items.push(action("Cut", &CutSelection).separated());
-                if stacked {
-                    items.push(action("Unstack", &Unstack));
-                }
-                if let Some(target) = workspace.target.as_ref().filter(|t| t.needs_update) {
-                    items.push(MenuItem::action(
-                        format!("Update stack from {}", target.name),
-                        &UpdateStack,
-                        cx,
-                    ));
-                }
-                if let (Some(target), Some(whole)) = (
-                    workspace.target.as_ref(),
-                    crate::edits::land_scope(workspace, ref_name),
-                ) {
-                    let label = if whole {
-                        format!("Land the stack on {}…", target.name)
-                    } else {
-                        format!("Land on {}…", target.name)
-                    };
-                    items.push(MenuItem::action(label, &crate::edits::LandBranch, cx));
-                }
-                items.push(action(
-                    if stacked {
-                        "Unapply stack"
-                    } else {
-                        "Unapply branch"
-                    },
-                    &UnapplyStack,
-                ));
-                items.extend([
-                    action("Rename…", &RenameSelection).separated(),
-                    action("Copy name", &CopySelection),
-                    action("Delete branch…", &DeleteSelection).danger(),
-                ]);
-                items
-            }
-            Selection::Commit(project, id) if store.picked.contains(id) => {
-                let n = store.picked.len();
-                // Commits list newest first.
-                let oldest = (store.workspace(project))
-                    .and_then(|ws| ws.commits().filter(|c| store.picked.contains(&c.id)).last())
-                    .map(|c| c.id);
-                let mut items = vec![MenuItem::action(
-                    format!("Squash {n} commits"),
-                    &SquashPicked,
-                    cx,
-                )];
-                // The other way round: the rest go into the one clicked, in its place.
-                if oldest != Some(*id) {
-                    let into = *id;
-                    items.push(MenuItem::new(
-                        format!("Squash {n} commits into this one"),
-                        move |this, _, cx| this.squash_picks(Some(into), cx),
-                    ));
-                }
-                items.push(MenuItem::action(
-                    format!("Uncommit {n} commits"),
-                    &UncommitSelection,
-                    cx,
-                ));
-                items
-            }
-            Selection::Commit(project, id) => {
-                let Some(workspace) = store.workspace(project) else {
-                    return Vec::new();
-                };
-                let Some((branch, commit)) = workspace.find_commit(*id) else {
-                    return Vec::new();
-                };
-                let mut items = Vec::new();
-                if commit.conflicted {
-                    items.extend([
-                        action("Resolve conflicts…", &crate::resolve::ResolveConflicts),
-                        action("Resolve by hand", &crate::resolve::EditByHand),
-                    ]);
-                }
-                items.extend([
-                    action("Cut", &CutSelection).separated(),
-                    action("Cherry-pick", &CherryPick),
-                    action("Edit message…", &RenameSelection).separated(),
-                ]);
-                if crate::edits::needs_rewrap(&commit.message) {
-                    items.push(action("Rewrap message", &RewrapMessage));
-                }
-                items.extend([
-                    action("Add empty commit above", &AddEmptyCommitAbove),
-                    action("Add empty commit below", &AddEmptyCommitBelow),
-                ]);
-                if !branch.ref_name.is_empty() && branch.commits.first().map(|c| c.id) != Some(*id)
-                {
-                    items.push(action("New branch ending here…", &NewBranchHere));
-                }
-                items.extend([
-                    action("Move up", &MoveUp).separated(),
-                    action("Move down", &MoveDown),
-                    action("Move to a new branch", &MoveToNewBranch),
-                    action("Copy commit ID", &CopySelection).separated(),
-                ]);
-                if commit.has_change_id() {
-                    items.push(action("Copy change ID", &CopyChangeId));
-                }
-                items.extend([
-                    action("Copy message", &CopyMessage),
-                    action("Uncommit", &UncommitSelection).separated(),
-                    action("Discard commit…", &DeleteSelection).danger(),
-                ]);
-                items
-            }
-            Selection::Worktree(project, name) => {
-                let Some(worktree) = (store.workspace(project))
-                    .and_then(|ws| ws.worktrees.iter().find(|w| w.name == *name))
-                else {
-                    return Vec::new();
-                };
-                let path = worktree.path.clone();
-                let copied = path.display().to_string();
-                let (project, name) = (project.clone(), name.clone());
-                vec![
-                    MenuItem::new("Reveal in Finder", move |_, _, cx| cx.reveal_path(&path)),
-                    MenuItem::new("Copy path", move |this, _, cx| {
-                        this.copy_text(copied.clone(), cx)
-                    }),
-                    MenuItem::new("Archive", move |this, _, cx| {
-                        let (project, name) = (project.clone(), name.clone());
-                        this.store.update(cx, |store, cx| {
-                            store.set_worktree_archived(&project, name, true, cx)
-                        })
-                    })
-                    .separated(),
-                ]
-            }
-            Selection::Branches(_) | Selection::History(_) => Vec::new(),
-        }
-    }
 }
 
 impl Focusable for Navigator {
@@ -1628,8 +1268,10 @@ impl Render for Navigator {
             .id("navigator")
             .key_context("Navigator")
             .track_focus(&self.focus)
-            .on_action(cx.listener(Self::select_previous))
-            .on_action(cx.listener(Self::select_next))
+            .on_action(
+                cx.listener(|this, _: &SelectPrevious, window, cx| this.step(-1, window, cx)),
+            )
+            .on_action(cx.listener(|this, _: &SelectNext, window, cx| this.step(1, window, cx)))
             .on_action(cx.listener(|this, _: &SelectFirst, window, cx| {
                 this.step(isize::MIN / 2, window, cx)
             }))
