@@ -147,19 +147,7 @@ impl Detail {
             .flex_1()
             .min_h(px(0.))
             .child(header)
-            .child(
-                v_flex()
-                    .flex_1()
-                    .min_h(px(0.))
-                    .child(rows)
-                    .when(files.is_empty(), |el| {
-                        el.child(
-                            muted("Your working directory matches the last commit", theme)
-                                .px(px(16.))
-                                .py(px(8.)),
-                        )
-                    }),
-            )
+            .child(v_flex().flex_1().min_h(px(0.)).child(rows))
             .into_any_element()
     }
 

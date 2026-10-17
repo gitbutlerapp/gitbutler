@@ -1080,6 +1080,12 @@ impl Detail {
         self.composing
     }
 
+    /// Whether there's a file shown for the diff's keys to act on, not one the filter hides.
+    pub fn has_files(&self) -> bool {
+        (self.shown_diff())
+            .is_some_and(|diff| diff.rows.iter().any(|r| matches!(r, DiffRow::File(_))))
+    }
+
     /// Commit what the open composer has once its message is written; until then, go to
     /// the message box.
     pub fn commit_or_write(&mut self, window: &mut Window, cx: &mut Context<Self>) {

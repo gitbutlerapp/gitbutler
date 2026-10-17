@@ -73,6 +73,8 @@ impl AppView {
         let uncommitted = matches!(store.selection, Some(Selection::Uncommitted(_)));
         let hints: Vec<(&dyn Action, &str)> = if uncommitted && detail.composing() {
             vec![(&StartCommit, "commit"), (&AmendTop, "amend")]
+        } else if (detail_focused && !detail.has_files()) || store.selection.is_none() {
+            Vec::new()
         } else if detail_focused && uncommitted {
             vec![
                 (&NextHunk, "next hunk"),
