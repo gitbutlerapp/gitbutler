@@ -235,7 +235,10 @@ impl Navigator {
             if workspace.stacks.is_empty() {
                 rows.push(Row::Note("No branches yet".into(), false));
             }
-            if matches!(&store.dragging, Some(Cut::Commit(project, _)) if project == id) {
+            // Outside the workspace there's nowhere to put a branch of its own.
+            if workspace.managed
+                && matches!(&store.dragging, Some(Cut::Commit(project, _)) if project == id)
+            {
                 rows.push(Row::NewBranch(id.clone()));
             }
             rows.extend(
@@ -747,12 +750,10 @@ impl Navigator {
                                 .style(ButtonStyle::Gray)
                                 .inverted(style.solid)
                                 .tooltip("Rebase branches onto the latest target")
-                                .on_click(cx.listener(move |this, _, window, cx| {
+                                .on_click(cx.listener(move |this, _, _, cx| {
                                     let project = project.clone();
                                     this.app
-                                        .update(cx, |app, cx| {
-                                            app.update_from_target(project, window, cx)
-                                        })
+                                        .update(cx, |app, cx| app.update_from_target(project, cx))
                                         .ok();
                                 })),
                         )
@@ -1012,6 +1013,9 @@ impl Navigator {
                 })
                 .when(branch.commits.is_empty(), |el| {
                     el.child(faint("empty", theme))
+                })
+                .when(store.pushing(id, ref_name), |el| {
+                    el.child(faint("pushing", theme))
                 })
                 .when(closed, |el| {
                     el.child(count(

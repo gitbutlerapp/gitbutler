@@ -136,9 +136,17 @@ impl Store {
             };
             let reviews_path = path.clone();
             let refreshed = backend::run(move || backend::refresh_reviews(&reviews_path)).await;
-            let Ok(_) = this.update(cx, |store, _| match &refreshed {
-                Ok(()) => store.forge_failed.remove(&id),
-                Err(_) => store.forge_failed.insert(id.clone()),
+            // The pull requests show without waiting for their checks.
+            let Ok(_) = this.update(cx, |store, cx| match &refreshed {
+                Ok(changed) => {
+                    store.forge_failed.remove(&id);
+                    if *changed {
+                        store.reload_forge(&id, cx);
+                    }
+                }
+                Err(_) => {
+                    store.forge_failed.insert(id.clone());
+                }
             }) else {
                 return;
             };
@@ -146,19 +154,23 @@ impl Store {
                 tracing::debug!(%id, "forge refresh failed: {err:#}");
                 continue;
             }
-            if let Err(err) = backend::run(move || backend::refresh_checks(&path)).await {
-                tracing::debug!(%id, "CI refresh failed: {err:#}");
-            }
-            // One reload shows the pull requests and their checks. A running mutation's own
-            // reload comes after it and shows them too.
-            let reloaded = this.update(cx, |store, cx| {
-                if store.mutating.as_ref() != Some(&id) {
-                    store.reload(&id, cx);
-                }
+            let checked = backend::run(move || backend::refresh_checks(&path)).await;
+            let reloaded = this.update(cx, |store, cx| match checked {
+                Ok(true) => store.reload_forge(&id, cx),
+                Ok(false) => {}
+                Err(err) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
             });
             if reloaded.is_err() {
                 return;
             }
+        }
+    }
+
+    /// Show what a forge refresh changed. A running mutation's own reload comes after it
+    /// and shows it too.
+    fn reload_forge(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if self.mutating.as_ref() != Some(id) {
+            self.reload(id, cx);
         }
     }
 }

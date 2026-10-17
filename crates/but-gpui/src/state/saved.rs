@@ -69,6 +69,10 @@ impl Store {
         }
     }
 
+    pub fn runs_hooks(&self, project: &super::ProjectId) -> bool {
+        self.prefs.run_hooks.contains(project.as_ref())
+    }
+
     pub fn set_prefs(&mut self, update: impl FnOnce(&mut Prefs), cx: &mut Context<Self>) {
         update(&mut self.prefs);
         self.save_soon(cx);
@@ -192,6 +196,9 @@ pub struct Prefs {
     /// Diffs show the old side beside the new rather than one above the other.
     pub split: bool,
     pub code_size: crate::theme::CodeSize,
+    /// Projects, by id, whose Git hooks run around commits and pushes. Off unless picked,
+    /// as in the desktop app.
+    pub run_hooks: HashSet<String>,
 }
 
 /// Where the window was: the display it was on, and its left, top, width and height on that

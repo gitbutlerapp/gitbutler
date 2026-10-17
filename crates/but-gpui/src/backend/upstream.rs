@@ -8,6 +8,7 @@ use std::path::Path;
 use anyhow::Result;
 use bstr::ByteSlice;
 use but_core::DryRun;
+use but_core::sync::RepoExclusive;
 
 use super::ops::{full_name, holds};
 use super::{CommitId, open, runtime, title};
@@ -70,12 +71,14 @@ pub fn fetch_status(path: &Path) -> Result<(Option<i64>, Option<String>)> {
 }
 
 /// Push `ref_name` and the branches below it, forced when one of them was rewritten since it
-/// was pushed. Returns the name it has on its remote, which needn't be its local one, and why
-/// updating the stack's pull requests afterwards failed, if it did.
+/// was pushed, and with `run_hooks` after the repository's pre-push hook passes. Returns the
+/// name it has on its remote, which needn't be its local one, and why updating the stack's
+/// pull requests afterwards failed, if it did.
 pub fn push(
     path: &Path,
     ref_name: &str,
     protect: bool,
+    run_hooks: bool,
 ) -> Result<(Option<String>, Option<String>)> {
     let ctx = open(path)?;
     // Decided when it runs, as an amend queued before it rewrites the branch.
@@ -88,7 +91,7 @@ pub fn push(
                 force,
                 !protect,
                 ref_name.to_owned(),
-                true,
+                run_hooks,
                 Vec::new(),
             ),
         )
@@ -150,8 +153,8 @@ pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
     Ok(())
 }
 
-/// A dry run of pulling into `branch`: the branches it would leave with conflicted commits
-/// they don't have now, each with how many.
+/// A dry run of pulling into `branch`: the branches (full refs) it would leave with
+/// conflicted commits they don't have now, each with how many.
 pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(String, usize)>> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
@@ -202,37 +205,77 @@ fn integrate_remote(
     )
 }
 
+/// What [`update_from_target()`] did.
+#[derive(Debug)]
+pub enum UpdateOutcome {
+    /// It would have left these conflicted that aren't now, so nothing changed.
+    WouldConflict(UpdateConflicts),
+    Updated {
+        /// Branches (full refs) left with conflicted commits they didn't have, each with
+        /// how many.
+        conflicted: Vec<(String, usize)>,
+        /// Branches (full refs) that landed on the target, which the update removed.
+        landed: Vec<String>,
+    },
+}
+
 /// Rebase every stack onto the target as it is now. Doesn't fetch first; see [`fetch()`].
-pub fn update_from_target(path: &Path) -> Result<()> {
+/// Unless `confirmed`, a dry run goes first, and when the rebase would leave anything
+/// conflicted that isn't now, it stops there.
+pub fn update_from_target(path: &Path, confirmed: bool) -> Result<UpdateOutcome> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
-    integrate_upstream(&mut ctx, &info, DryRun::No)?;
-    Ok(())
+    // Held from the dry run through the update, so nothing lands in between.
+    let mut guard = ctx.exclusive_worktree_access();
+    if !confirmed {
+        let found = update_conflicts(&mut ctx, &info, guard.write_permission())?;
+        if !found.branches.is_empty() || !found.files.is_empty() {
+            return Ok(UpdateOutcome::WouldConflict(found));
+        }
+    }
+    let updated = integrate_upstream(&mut ctx, &info, DryRun::No, guard.write_permission())?;
+    let after = but_api::legacy::workspace::head_info(&ctx)?;
+    let names = |info: &but_workspace::RefInfo| -> Vec<String> {
+        (info.stacks.iter())
+            .flat_map(|stack| &stack.segments)
+            .filter_map(|segment| Some(segment.ref_name()?.to_string()))
+            .collect()
+    };
+    let remaining = names(&after);
+    Ok(UpdateOutcome::Updated {
+        conflicted: newly_conflicted(&info, &updated.workspace_state.conflicted_commits),
+        landed: (names(&info).into_iter())
+            .filter(|name| !remaining.contains(name))
+            .collect(),
+    })
 }
 
 /// What [`update_from_target()`] would leave conflicted that isn't now.
 #[derive(Debug)]
 pub struct UpdateConflicts {
-    /// Branches, each with how many of its commits.
+    /// Branches (full refs), each with how many of its commits.
     pub branches: Vec<(String, usize)>,
     /// Uncommitted files the target changed too, which get conflict markers.
     pub files: Vec<String>,
 }
 
-/// A dry run of [`update_from_target()`], for what it would leave conflicted.
-pub fn update_conflicts(path: &Path) -> Result<UpdateConflicts> {
-    let mut ctx = open(path)?;
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let preview = integrate_upstream(&mut ctx, &info, DryRun::Yes)?;
-    let branches = newly_conflicted(&info, &preview.workspace_state.conflicted_commits);
+/// A dry run of [`update_from_target()`] with `info` as the workspace is now, for what it
+/// would leave conflicted.
+pub fn update_conflicts(
+    ctx: &mut but_ctx::Context,
+    info: &but_workspace::RefInfo,
+    perm: &mut RepoExclusive,
+) -> Result<UpdateConflicts> {
+    let preview = integrate_upstream(ctx, info, DryRun::Yes, perm)?;
+    let branches = newly_conflicted(info, &preview.workspace_state.conflicted_commits);
     let files = (preview.worktree_conflicts.iter())
         .map(|path| path.to_str_lossy().into_owned())
         .collect();
     Ok(UpdateConflicts { branches, files })
 }
 
-/// The branches in `info` with commits among `conflicted` that aren't conflicted yet, each
-/// with how many.
+/// The branches (full refs, empty for an unnamed one) in `info` with commits among
+/// `conflicted` that aren't conflicted yet, each with how many.
 fn newly_conflicted(
     info: &but_workspace::RefInfo,
     conflicted: &[(gix::ObjectId, but_core::ChangeId)],
@@ -246,10 +289,8 @@ fn newly_conflicted(
         .flat_map(|stack| &stack.segments)
         .filter_map(|segment| {
             let count = segment.commits.iter().filter(newly).count();
-            let name = (segment.ref_info.as_ref()).map_or("an unnamed branch".into(), |info| {
-                info.ref_name.shorten().to_string()
-            });
-            (count > 0).then_some((name, count))
+            let name = segment.ref_name().map(ToString::to_string);
+            (count > 0).then(|| (name.unwrap_or_default(), count))
         })
         .collect()
 }
@@ -258,15 +299,10 @@ fn integrate_upstream(
     ctx: &mut but_ctx::Context,
     info: &but_workspace::RefInfo,
     dry_run: DryRun,
+    perm: &mut RepoExclusive,
 ) -> Result<but_api::workspace::WorkspaceIntegrateUpstreamOutcome> {
     let updates = but_api::workspace::rebase_lane_bottoms(info.stacks.iter().map(|s| s.lane()));
-    let mut guard = ctx.exclusive_worktree_access();
-    but_api::workspace::workspace_integrate_upstream_with_perm(
-        ctx,
-        updates,
-        dry_run,
-        guard.write_permission(),
-    )
+    but_api::workspace::workspace_integrate_upstream_with_perm(ctx, updates, dry_run, perm)
 }
 
 pub fn fetch(path: &Path) -> Result<()> {

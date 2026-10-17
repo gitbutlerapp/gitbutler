@@ -625,7 +625,10 @@ impl Detail {
                                 store.run(
                                     &project,
                                     "Mark resolved",
-                                    Overlay::default(),
+                                    Overlay {
+                                        files_only: true,
+                                        ..Overlay::default()
+                                    },
                                     move |path, _| backend::mark_resolved(path, files),
                                     |store, (), cx| store.snack_undoable("Marked resolved", cx),
                                     cx,

@@ -10,7 +10,7 @@ use crate::app::AppView;
 use crate::backend::ai;
 use crate::backend::reviews::{self, MergeMethod};
 use crate::backend::{self, Forge, Review, ReviewState, Workspace, short_ref};
-use crate::state::{Overlay, ProjectId, Selection, Store};
+use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, Newline, TextInput};
@@ -62,6 +62,19 @@ impl ReviewView {
             })
             .detach();
         }
+        // The store can turn the operation down before it starts, as while `but resolve`
+        // edits a commit, and then nothing reports back: the form is free again.
+        cx.subscribe(&store, |this, store, event, cx| {
+            if let StoreEvent::Pending(project) = event
+                && this.submitting
+                && *project == this.project
+                && !store.read(cx).publishing(&this.project, &this.branch)
+            {
+                this.submitting = false;
+                cx.notify();
+            }
+        })
+        .detach();
         let path = store.read(cx).path(&project);
         // A branch of one commit starts from that commit's message, as `but pr` does.
         let (subject, description) = store
@@ -182,13 +195,14 @@ impl ReviewView {
         self.error = None;
         cx.notify();
         self.store.update(cx, |store, cx| {
+            let run_hooks = store.runs_hooks(&project);
             store.run(
                 &project,
                 "Create pull request",
-                Overlay::default(),
+                Overlay::push(&branch, true),
                 // A failure goes to the form, which keeps what was typed.
                 move |path, _| {
-                    let published = reviews::publish(path, &branch, title, body, draft);
+                    let published = reviews::publish(path, &branch, title, body, draft, run_hooks);
                     Ok(
                         published.map_err(|err| match backend::push_refusal(&err).as_deref() {
                             None => format!("{err:#}"),

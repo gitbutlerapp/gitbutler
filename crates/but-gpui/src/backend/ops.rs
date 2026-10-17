@@ -3,6 +3,7 @@
 //! Undo history comes from `but-api`'s own oplog snapshots, except that [`discard`],
 //! [`split_off`] and [`move_to_new_branch`] record their own.
 
+use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -123,51 +124,99 @@ fn branch_ref(name: &str) -> Result<gix::refs::FullName> {
     full_name(&format!("refs/heads/{name}"))
 }
 
-/// Commit the `selected` uncommitted changes to `destination`.
+/// Run the pre-commit hook on what `changes` would commit; its failure refuses the commit.
+fn pre_commit(ctx: &but_ctx::Context, changes: &[DiffSpec]) -> Result<()> {
+    let result = but_api::legacy::repo::pre_commit_hook_diffspecs(ctx, changes.to_vec())?;
+    if let HookResult::Failure(ErrorData { error }) = result {
+        bail!("The pre-commit hook refused the commit:\n{error}");
+    }
+    Ok(())
+}
+
+/// Run the post-commit hook, and say what it printed if it failed: the commit stands.
+fn post_commit(ctx: &but_ctx::Context) -> Option<String> {
+    match but_api::legacy::repo::post_commit_hook(ctx) {
+        Ok(HookResult::Failure(ErrorData { error })) => Some(error),
+        Ok(_) => None,
+        Err(err) => Some(format!("{err:#}")),
+    }
+}
+
+/// Commit the `selected` uncommitted changes to `destination`. With `run_hooks`, the
+/// repository's hooks run in Git's order. pre-commit and commit-msg run first, and either
+/// refuses the commit by failing; commit-msg can also rewrite the message. post-commit runs
+/// once the commit is made, which stands even if the hook fails, and what it printed then
+/// comes back as the third value. Hooks run outside GitButler's lock, so one that runs
+/// `but` doesn't wait on it.
 pub fn commit(
     path: &Path,
     destination: &Destination,
     selected: &[Selected],
     message: &str,
-) -> Result<(CommitId, LeftOut)> {
+    run_hooks: bool,
+) -> Result<(CommitId, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
     refuse_conflicted(&ctx, selected)?;
     let changes = selected_specs(selected);
     if changes.is_empty() {
         bail!("Nothing to commit");
     }
-    let (relative_to, side) = destination.relative_to()?;
-    let mut guard = ctx.exclusive_worktree_access();
-    let outcome = but_api::commit::create::commit_create(
-        &mut ctx,
-        relative_to,
-        side,
-        changes,
-        ChangesSource::Head,
-        message.to_owned(),
-        DryRun::No,
-        guard.write_permission(),
-    )?;
-    let left_out = left_out(&outcome.rejected_specs);
-    match outcome.new_commit {
-        Some(id) => Ok((CommitId(id), left_out)),
-        None => bail!("Nothing could be committed.\n{}", left_out.join("\n")),
+    let mut message = message.to_owned();
+    if run_hooks {
+        pre_commit(&ctx, &changes)?;
+        match but_api::legacy::repo::message_hook(&ctx, message.clone())? {
+            MessageHookResult::Failure(ErrorData { error }) => {
+                bail!("The commit-msg hook refused the commit:\n{error}")
+            }
+            MessageHookResult::Message(rewritten) => message = rewritten.message,
+            MessageHookResult::Success | MessageHookResult::NotConfigured => {}
+        }
     }
+    let (relative_to, side) = destination.relative_to()?;
+    let outcome = {
+        let mut guard = ctx.exclusive_worktree_access();
+        but_api::commit::create::commit_create(
+            &mut ctx,
+            relative_to,
+            side,
+            changes,
+            ChangesSource::Head,
+            message,
+            DryRun::No,
+            guard.write_permission(),
+        )?
+    };
+    let left_out = left_out(&outcome.rejected_specs);
+    let Some(id) = outcome.new_commit else {
+        bail!("Nothing could be committed.\n{}", left_out.join("\n"));
+    };
+    let hook_failed = run_hooks.then(|| post_commit(&ctx)).flatten();
+    Ok((CommitId(id), left_out, hook_failed))
 }
 
 /// Create a new stack named `name` (or a generated name) and return its full ref name.
+/// With one branch checked out rather than the workspace, there are no stacks beside it:
+/// the new branch goes on top of it and is checked out, as `git checkout -b` would.
 pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
+    use but_api::branch::json::BranchCreatePlacement as Placement;
     let mut ctx = open(path)?;
     let name = match name.map(str::trim).filter(|name| !name.is_empty()) {
         Some(name) => name.to_owned(),
         None => but_api::branch::branch_canned_name(&ctx)?,
     };
     let ref_name = branch_ref(&name)?;
-    but_api::branch::branch_create(
-        &mut ctx,
-        Some(ref_name.clone()),
-        but_api::branch::json::BranchCreatePlacement::Independent { order: None },
-    )?;
+    let checked_out = (ctx.repo.get()?.head_name()?).filter(|head| {
+        head.as_bstr() != but_core::WORKSPACE_REF_NAME
+            && head.as_ref().category() == Some(gix::refs::Category::LocalBranch)
+    });
+    let placement = match checked_out {
+        Some(head) => Placement::Dependent {
+            relative_to: but_api::commit::json::RelativeTo::Reference(head),
+            side: InsertSide::Above,
+        },
+        None => Placement::Independent { order: None },
+    };
+    but_api::branch::branch_create(&mut ctx, Some(ref_name.clone()), placement)?;
     Ok(ref_name.to_string())
 }
 
@@ -292,13 +341,25 @@ pub fn remove_branch(path: &Path, ref_name: &str) -> Result<()> {
 }
 
 /// Fold the `selected` uncommitted changes into `commit`.
-pub fn amend(path: &Path, commit: CommitId, selected: &[Selected]) -> Result<(Rewritten, LeftOut)> {
+/// Add the `selected` changes to `commit`. With `run_hooks`, pre-commit runs first and can
+/// refuse, and post-commit runs after, as the desktop app does; what a failed post-commit
+/// printed comes back as the third value.
+pub fn amend(
+    path: &Path,
+    commit: CommitId,
+    selected: &[Selected],
+    run_hooks: bool,
+) -> Result<(Rewritten, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
     refuse_conflicted(&ctx, selected)?;
+    let changes = selected_specs(selected);
+    if run_hooks {
+        pre_commit(&ctx, &changes)?;
+    }
     let outcome = but_api::commit::amend::commit_amend(
         &mut ctx,
         commit.0,
-        selected_specs(selected),
+        changes,
         ChangesSource::Head,
         DryRun::No,
     )?;
@@ -306,7 +367,8 @@ pub fn amend(path: &Path, commit: CommitId, selected: &[Selected]) -> Result<(Re
     if outcome.new_commit.is_none() {
         bail!("Nothing could be amended.\n{}", left_out.join("\n"));
     }
-    Ok((rewritten(&outcome.workspace), left_out))
+    let hook_failed = run_hooks.then(|| post_commit(&ctx)).flatten();
+    Ok((rewritten(&outcome.workspace), left_out, hook_failed))
 }
 
 pub fn move_commits(
@@ -513,8 +575,9 @@ pub fn discard(path: &Path, selected: &[Selected]) -> Result<()> {
             spec.hunk_headers.clear();
         }
     }
-    let rejected =
-        but_workspace::discard_workspace_changes(&repo, specs, ctx.settings.context_lines)?;
+    let context_lines = ctx.settings.context_lines;
+    let specs = current_hunks(&repo, specs, context_lines)?;
+    let rejected = but_workspace::discard_workspace_changes(&repo, specs, context_lines)?;
     if !rejected.is_empty() {
         // A file with nothing left to discard is as good as discarded.
         let left = but_core::diff::worktree_changes(&repo)?.changes;
@@ -524,6 +587,50 @@ pub fn discard(path: &Path, selected: &[Selected]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// `specs` with their hunks as the worktree has them now. A discard queued behind another
+/// in the same file has hunks from before that one moved the lines below it, so each is
+/// found again by the committed lines it changes, which that discard left alone. One that's
+/// gone has nothing left to discard, and a file left with none is skipped: no hunks would
+/// discard all of it.
+fn current_hunks(
+    repo: &gix::Repository,
+    specs: Vec<DiffSpec>,
+    context_lines: u32,
+) -> Result<Vec<DiffSpec>> {
+    let changes = but_core::diff::worktree_changes(repo)?.changes;
+    let mut current = Vec::new();
+    for mut spec in specs {
+        if !spec.hunk_headers.is_empty() {
+            let patch = match changes.iter().find(|change| change.path == spec.path) {
+                Some(change) => change.unified_patch(repo, context_lines)?,
+                None => None,
+            };
+            let hunks = match patch {
+                Some(but_core::UnifiedPatch::Patch { hunks, .. }) => hunks,
+                _ => Vec::new(),
+            };
+            spec.hunk_headers = (spec.hunk_headers.iter())
+                .filter_map(|wanted| {
+                    // Picked lines name one side only; they aren't hunks to find.
+                    if wanted.old_lines == 0 || wanted.new_lines == 0 {
+                        return Some(*wanted);
+                    }
+                    (hunks.iter())
+                        .find(|h| {
+                            h.old_start == wanted.old_start && h.old_lines == wanted.old_lines
+                        })
+                        .map(Into::into)
+                })
+                .collect();
+            if spec.hunk_headers.is_empty() {
+                continue;
+            }
+        }
+        current.push(spec);
+    }
+    Ok(current)
 }
 
 /// Take the conflicted uncommitted `files` as they are on disk, markers or not.
@@ -556,6 +663,24 @@ mod tests {
         crate::backend::reload_uncommitted(path, shown, true, &none)
             .unwrap()
             .uncommitted
+    }
+
+    /// A repository on `main` with one commit of `file` holding `content`. It signs nothing
+    /// and reads hooks from its own `.git/hooks`, whatever the global config says.
+    fn repo_with(content: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path();
+        git(path, &["init", "-q", "-b", "main"]);
+        git(path, &["config", "user.name", "T"]);
+        git(path, &["config", "user.email", "t@example.com"]);
+        git(path, &["config", "commit.gpgsign", "false"]);
+        git(path, &["config", "gitbutler.signCommits", "false"]);
+        let hooks = path.join(".git/hooks");
+        git(path, &["config", "core.hooksPath", hooks.to_str().unwrap()]);
+        std::fs::write(path.join("file"), content).unwrap();
+        git(path, &["add", "file"]);
+        git(path, &["commit", "-q", "-m", "first"]);
+        dir
     }
 
     /// A repository mid-merge, with `file` changed on both sides and left conflicted.
@@ -604,7 +729,7 @@ mod tests {
             file: files[0].clone(),
             hunks: None,
         };
-        let refused = amend(path, head, std::slice::from_ref(&whole)).unwrap_err();
+        let refused = amend(path, head, std::slice::from_ref(&whole), false).unwrap_err();
         assert!(
             refused.to_string().contains("resolved first"),
             "the markers would go in: {refused:#}"
@@ -698,7 +823,7 @@ mod tests {
             file: diff[0].file.clone(),
             hunks: Some(vec![hunks[0].key]),
         };
-        amend(path, head, &[first_hunk]).unwrap();
+        amend(path, head, &[first_hunk], false).unwrap();
 
         let amended = git(path, &["show", "HEAD:file"]);
         assert!(amended.starts_with("first edit\n"), "{amended}");
@@ -708,5 +833,117 @@ mod tests {
             lines.concat(),
             "the worktree keeps the last edit, now uncommitted"
         );
+    }
+
+    #[test]
+    fn a_failing_pre_commit_hook_refuses_the_commit_and_passing_hooks_shape_it() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        std::fs::write(path.join("file"), "two\n").unwrap();
+        let hook = |name: &str, script: &str| {
+            let file = path.join(".git/hooks").join(name);
+            std::fs::write(&file, format!("#!/bin/sh\n{script}\n")).unwrap();
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
+        };
+        let changes = || {
+            vec![Selected {
+                file: uncommitted(path)[0].clone(),
+                hunks: None,
+            }]
+        };
+        let main = Destination::Branch("refs/heads/main".into());
+        let first = git(path, &["rev-parse", "HEAD"]);
+
+        hook("pre-commit", "echo 'lint failed'; exit 1");
+        let refused = commit(path, &main, &changes(), "Two", true).unwrap_err();
+        assert!(
+            format!("{refused:#}").contains("lint failed"),
+            "the error is what the hook printed: {refused:#}"
+        );
+        assert_eq!(
+            git(path, &["rev-parse", "HEAD"]),
+            first,
+            "nothing was committed"
+        );
+        assert_eq!(
+            uncommitted(path).len(),
+            1,
+            "the change is still uncommitted"
+        );
+
+        hook("pre-commit", "exit 0");
+        hook("commit-msg", "echo 'Two, checked' > \"$1\"");
+        hook("post-commit", "echo 'notify failed'; exit 1");
+        let (_, _, hook_failed) = commit(path, &main, &changes(), "Two", true).unwrap();
+        assert_eq!(
+            git(path, &["log", "-1", "--format=%s"]).trim(),
+            "Two, checked",
+            "the commit takes the message commit-msg rewrote"
+        );
+        assert!(uncommitted(path).is_empty(), "the commit stands");
+        assert!(
+            hook_failed.is_some_and(|output| output.contains("notify failed")),
+            "post-commit's failure comes back to report"
+        );
+    }
+
+    #[test]
+    fn a_new_branch_outside_the_workspace_goes_on_top_of_the_checked_out_one() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        git(
+            path,
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
+        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        crate::backend::settings::set_target(path, "refs/remotes/origin/main").unwrap();
+
+        assert_eq!(
+            create_branch(path, Some("feature")).unwrap(),
+            "refs/heads/feature"
+        );
+        assert_eq!(
+            git(path, &["symbolic-ref", "HEAD"]).trim(),
+            "refs/heads/feature",
+            "it's checked out, as `git checkout -b` would"
+        );
+        let workspace = crate::backend::load_workspace(path).unwrap();
+        assert!(!workspace.managed, "still outside the workspace");
+        assert_eq!(workspace.checked_out.as_deref(), Some("feature"));
+    }
+
+    #[test]
+    fn a_hunk_discard_queued_behind_another_finds_its_hunk_again() {
+        let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let dir = repo_with(&lines.concat());
+        let path = dir.path();
+        let mut edited = lines.clone();
+        edited[1] = "two\nmore\nlines\n".into();
+        edited[18] = "last edit\n".into();
+        std::fs::write(path.join("file"), edited.concat()).unwrap();
+
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+            panic!("a text diff");
+        };
+        assert_eq!(
+            hunks.len(),
+            2,
+            "the edits are far enough apart for two hunks"
+        );
+        let hunk = |ix: usize| Selected {
+            file: diff[0].file.clone(),
+            hunks: Some(vec![hunks[ix].key]),
+        };
+        discard(path, &[hunk(0)]).unwrap();
+        // Read before the first discard, which took two lines out above it.
+        discard(path, &[hunk(1)]).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(path.join("file")).unwrap(),
+            lines.concat(),
+            "each discard took back just its own hunk"
+        );
+        discard(path, &[hunk(1)]).expect("a hunk that's gone has nothing left to discard");
     }
 }

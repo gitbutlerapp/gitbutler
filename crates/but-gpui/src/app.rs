@@ -1,9 +1,6 @@
 //! The window's root: the project navigator on the left, details on the right, the keys,
 //! and the actions that work anywhere in the window. `overlays.rs` draws what opens above.
 
-use std::collections::HashSet;
-use std::path::Path;
-
 use gpui::{
     AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, KeyBinding, Modifiers,
     PromptLevel, Role, StyleRefinement, Subscription, Window, actions, div, prelude::*, px,
@@ -124,9 +121,6 @@ pub struct AppView {
     pub modal: Option<(AnyView, Subscription)>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
-    /// Projects where a dry run is checking what an operation would conflict, before
-    /// it's queued.
-    pub checking: HashSet<ProjectId>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -180,7 +174,6 @@ impl AppView {
             palette: None,
             modal: None,
             recent_commands: Vec::new(),
-            checking: HashSet::new(),
             _subscriptions: subscriptions,
         }
     }
@@ -274,7 +267,8 @@ impl AppView {
         }) else {
             return;
         };
-        let selected = project.clone();
+        // With the composer open, it's what the next commit goes to.
+        let (selected, detail) = (project.clone(), self.detail.downgrade());
         self.prompt_branch(
             project,
             "New branch",
@@ -282,7 +276,13 @@ impl AppView {
             window,
             cx,
             |path, _, name| backend::create_branch(path, Some(name)),
-            |store, ref_name, cx| store.select(Some(Selection::Branch(selected, ref_name)), cx),
+            move |store, ref_name, cx| {
+                (detail.update(cx, |detail, cx| {
+                    detail.branch_created(&selected, ref_name.clone(), cx)
+                }))
+                .ok();
+                store.select(Some(Selection::Branch(selected, ref_name)), cx)
+            },
         );
     }
 
@@ -437,11 +437,17 @@ impl AppView {
 
     fn start_commit(&mut self, _: &StartCommit, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(project) = self.selected_project(cx) {
+            // Only what's on screen gets committed: from another page, ⌘↩ shows the
+            // changes first.
+            let shown =
+                self.store.read(cx).selection == Some(Selection::Uncommitted(project.clone()));
             self.store.update(cx, |store, cx| {
                 store.select(Some(Selection::Uncommitted(project)), cx)
             });
-            self.detail
-                .update(cx, |detail, cx| detail.focus_message(window, cx));
+            self.detail.update(cx, |detail, cx| match shown {
+                true => detail.commit_or_write(window, cx),
+                false => detail.focus_message(window, cx),
+            });
         }
     }
 
@@ -505,22 +511,17 @@ impl AppView {
     fn update_selected_project(
         &mut self,
         _: &UpdateFromTarget,
-        window: &mut Window,
+        _: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if let Some(project) = self.selected_project(cx) {
-            self.update_from_target(project, window, cx);
+            self.update_from_target(project, cx);
         }
     }
 
-    /// Rebase onto the target, after asking when a dry run says that would leave commits
-    /// conflicted that aren't now. Asking again while one waits or runs does nothing.
-    pub fn update_from_target(
-        &mut self,
-        project: ProjectId,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    /// Rebase onto the target. When that would leave commits conflicted that aren't now, the
+    /// card saying so offers to go ahead. Asking again while one waits or runs does nothing.
+    pub fn update_from_target(&mut self, project: ProjectId, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(target) = store.workspace(&project).and_then(|ws| ws.target.as_ref()) else {
             return;
@@ -530,84 +531,9 @@ impl AppView {
             self.store.update(cx, |store, cx| store.snack(message, cx));
             return;
         }
-        if store.updating(&project) {
-            return;
-        }
-        let check = move |path: &Path| {
-            let found = backend::update_conflicts(path)?;
-            let mut detail = Vec::new();
-            if !found.branches.is_empty() {
-                detail.push(format!(
-                    "Rebasing leaves conflicted commits in {}.",
-                    commit_counts(&found.branches)
-                ));
-            }
-            if !found.files.is_empty() {
-                detail.push(format!(
-                    "The target changed the same lines as your uncommitted changes to {}, \
-                     which get conflict markers.",
-                    found.files.join(", ")
-                ));
-            }
-            Ok((!detail.is_empty()).then(|| {
-                detail.push("You can resolve them afterwards, or undo the update.".into());
-                detail.join(" ")
-            }))
-        };
-        let updated = project.clone();
-        let update = move |this: &mut AppView, cx: &mut Context<AppView>| {
-            this.store
-                .update(cx, |store, cx| store.update_from_target(&updated, cx))
-        };
-        self.check_then(
-            &project,
-            check,
-            "Update with conflicts?",
-            "Update anyway",
-            window,
-            cx,
-            update,
-        );
-    }
-
-    /// Run `check` on the project's folder off the UI thread, then `then` straight away
-    /// when it has nothing to warn about, or after asking with what it says. A failed check
-    /// leaves it to `then` to report what's wrong.
-    #[allow(clippy::too_many_arguments)]
-    pub fn check_then(
-        &mut self,
-        project: &ProjectId,
-        check: impl FnOnce(&Path) -> anyhow::Result<Option<String>> + Send + 'static,
-        title: &'static str,
-        confirm: &'static str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-        then: impl FnOnce(&mut AppView, &mut Context<AppView>) + 'static,
-    ) {
-        let Some(path) = self.store.read(cx).path(project) else {
-            return;
-        };
-        // Asking again while it checks would queue the operation twice.
-        if !self.checking.insert(project.clone()) {
-            return;
-        }
-        cx.notify();
-        let project = project.clone();
-        cx.spawn_in(window, async move |this, cx| {
-            let warning = backend::run(move || check(&path)).await.ok().flatten();
-            this.update_in(cx, |this, window, cx| {
-                this.checking.remove(&project);
-                cx.notify();
-                match warning {
-                    None => then(this, cx),
-                    Some(detail) => {
-                        this.confirm_then(title.into(), &detail, confirm, window, cx, then)
-                    }
-                }
-            })
-            .ok();
-        })
-        .detach();
+        self.store.update(cx, |store, cx| {
+            store.update_from_target(&project, false, cx)
+        });
     }
 
     pub fn toggle_navigator(
@@ -773,10 +699,17 @@ fn copied(text: &str) -> String {
     }
 }
 
-/// Branches with how many of their commits: "feature/a (2 commits), feature/b (1 commit)".
+/// Branches (full refs, empty for an unnamed one) with how many of their commits:
+/// "feature/a (2 commits), feature/b (1 commit)".
 pub fn commit_counts(branches: &[(String, usize)]) -> String {
     let counts: Vec<String> = (branches.iter())
-        .map(|(name, count)| format!("{name} ({})", plural(*count, "commit")))
+        .map(|(ref_name, count)| {
+            let name = match short_ref(ref_name) {
+                "" => "an unnamed branch",
+                name => name,
+            };
+            format!("{name} ({})", plural(*count, "commit"))
+        })
         .collect();
     counts.join(", ")
 }

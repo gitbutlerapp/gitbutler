@@ -10,6 +10,7 @@ use anyhow::{Context as _, Result};
 use gpui::{Context, SharedString, Task};
 
 use super::{ProjectId, Selection, Store, StoreEvent};
+use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{self, CommitId, Destination, HunkKey, Selected, SnapshotId, short_ref};
 
 /// How long a mutation runs before the status bar says how long it's taking.
@@ -32,9 +33,21 @@ pub struct Overlay {
     pub new_commit: Option<(String, SharedString)>,
     /// It changes only uncommitted files, so the reload after it reads just those.
     pub files_only: bool,
+    /// The branch (full ref) it pushes, with the ones below it.
+    pub pushes: Option<String>,
+    /// It opens a pull request for the branch it pushes.
+    pub publishes: bool,
 }
 
 impl Overlay {
+    pub fn push(ref_name: &str, publishes: bool) -> Self {
+        Self {
+            pushes: Some(ref_name.to_owned()),
+            publishes,
+            ..Self::default()
+        }
+    }
+
     pub fn commits(keys: impl IntoIterator<Item = String>) -> Self {
         Self {
             commits: keys.into_iter().collect(),
@@ -201,18 +214,118 @@ impl Store {
         );
     }
 
-    /// Rebase the project's branches onto its target's latest commits, unless an update
-    /// already waits or runs.
-    pub fn update_from_target(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
-        if self.updating(project) {
+    /// Rebase the project's branches onto its target's latest commits. Unless `confirmed`,
+    /// it does nothing while another update waits or runs, and stops short of leaving
+    /// anything conflicted that isn't now, with a card that offers to update anyway. The
+    /// card shows before its update has finished, so a confirmed one queues regardless.
+    pub fn update_from_target(
+        &mut self,
+        project: &ProjectId,
+        confirmed: bool,
+        cx: &mut Context<Self>,
+    ) {
+        if !confirmed && self.updating(project) {
             return;
         }
+        let updated = project.clone();
         self.run(
             project,
             UPDATE,
             Overlay::default(),
-            move |path, _| backend::update_from_target(path),
-            move |store, (), cx| store.snack_undoable("Updated from target", cx),
+            move |path, _| backend::update_from_target(path, confirmed),
+            move |store, outcome, cx| {
+                let target = (store.workspace(&updated).and_then(|ws| ws.target.as_ref()))
+                    .map_or_else(|| "the target".to_owned(), |target| target.name.clone());
+                match outcome {
+                    UpdateOutcome::WouldConflict(found) => {
+                        let again = updated.clone();
+                        store.would_conflict(
+                            "Updating leaves conflicts",
+                            update_conflicts_detail(&target, &found),
+                            "Update anyway",
+                            move |store, cx| store.update_from_target(&again, true, cx),
+                            cx,
+                        )
+                    }
+                    UpdateOutcome::Updated { conflicted, landed } => {
+                        // Its "Resolve the oldest…" bar is the next step.
+                        if let Some((branch, _)) = conflicted.iter().find(|(b, _)| !b.is_empty()) {
+                            let branch = Selection::Branch(updated, branch.clone());
+                            store.select(Some(branch), cx);
+                        }
+                        store.snack_undoable(updated_message(&target, &conflicted, &landed), cx)
+                    }
+                }
+            },
+            cx,
+        );
+    }
+
+    /// Bring the commits only `ref_name`'s remote has into it, its own rebased on top.
+    /// Unless `confirmed`, it stops short of leaving commits conflicted that aren't now, and
+    /// the card saying so offers to pull anyway.
+    pub fn pull_remote(
+        &mut self,
+        project: &ProjectId,
+        ref_name: String,
+        confirmed: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let name = short_ref(&ref_name).to_owned();
+        let pulled = project.clone();
+        self.run(
+            project,
+            "Pull from the remote",
+            Overlay::default(),
+            {
+                let ref_name = ref_name.clone();
+                move |path, _| {
+                    if !confirmed {
+                        let found = backend::pull_conflicts(path, &ref_name)?;
+                        if !found.is_empty() {
+                            return Ok(Some(found));
+                        }
+                    }
+                    backend::pull_remote(path, &ref_name, false).map(|()| None)
+                }
+            },
+            move |store, found: Option<Vec<(String, usize)>>, cx| {
+                let Some(found) = found else {
+                    return store.snack_undoable(format!("Pulled into {name}"), cx);
+                };
+                let detail = format!(
+                    "Rebasing your commits onto the remote's leaves conflicted commits in {}. \
+                     You can resolve them afterwards, or undo the pull.",
+                    crate::app::commit_counts(&found)
+                );
+                store.would_conflict(
+                    "Pulling leaves conflicts",
+                    detail,
+                    "Pull anyway",
+                    move |store, cx| store.pull_remote(&pulled, ref_name.clone(), true, cx),
+                    cx,
+                )
+            },
+            cx,
+        );
+    }
+
+    /// Say an update or pull stopped short of leaving conflicts, with a button that goes
+    /// ahead anyway.
+    fn would_conflict(
+        &mut self,
+        title: &'static str,
+        detail: String,
+        anyway: &'static str,
+        again: impl Fn(&mut Store, &mut Context<Store>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.notify_user(
+            super::Notice::Error {
+                title: title.into(),
+                detail: detail.into(),
+                retry: Some((anyway.into(), std::rc::Rc::new(again))),
+            },
             cx,
         );
     }
@@ -228,13 +341,14 @@ impl Store {
     ) {
         let name = short_ref(&ref_name).to_owned();
         let pushed = project.clone();
+        let run_hooks = self.runs_hooks(project);
         self.run(
             project,
             format!("Push {name}"),
-            Overlay::default(),
+            Overlay::push(&ref_name, false),
             {
                 let ref_name = ref_name.clone();
-                move |path, _| match backend::push(path, &ref_name, protect) {
+                move |path, _| match backend::push(path, &ref_name, protect, run_hooks) {
                     Ok(_) => Ok(None),
                     Err(err) => backend::push_refusal(&err).map(Some).ok_or(err),
                 }
@@ -328,14 +442,18 @@ impl Store {
         then: impl FnOnce(&mut Store, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
+        let run_hooks = self.runs_hooks(project);
         self.run(
             project,
             format!("Amend {}", into.short()),
             Overlay::files(files.iter()),
-            move |path, remap| backend::amend(path, remap.get(into)?, &files),
-            |store, (rewritten, left_out), cx| {
+            move |path, remap| backend::amend(path, remap.get(into)?, &files, run_hooks),
+            |store, (rewritten, left_out, hook_failed), cx| {
                 store.follow(&rewritten, cx);
                 store.report_left_out("Amended", &left_out, cx);
+                if let Some(output) = hook_failed {
+                    store.error("Amended, but the post-commit hook failed", output, cx);
+                }
                 then(store, cx)
             },
             cx,
@@ -598,6 +716,18 @@ impl Store {
             .collect()
     }
 
+    /// Whether a pending operation pushes `ref_name`, on its own or to open its pull request.
+    pub fn pushing(&self, project: &ProjectId, ref_name: &str) -> bool {
+        self.overlays(project)
+            .any(|o| o.pushes.as_deref() == Some(ref_name))
+    }
+
+    /// Whether a pending operation opens `ref_name`'s pull request.
+    pub fn publishing(&self, project: &ProjectId, ref_name: &str) -> bool {
+        self.overlays(project)
+            .any(|o| o.publishes && o.pushes.as_deref() == Some(ref_name))
+    }
+
     /// Keep the selection on commits an operation rewrote.
     pub fn follow(&mut self, rewritten: &backend::Rewritten, cx: &mut Context<Self>) {
         if let Some(Selection::Commit(project, id)) = &self.selection
@@ -627,9 +757,69 @@ impl Store {
     }
 }
 
+/// What an update onto `target` would leave conflicted that isn't now.
+fn update_conflicts_detail(target: &str, found: &UpdateConflicts) -> String {
+    let mut detail = Vec::new();
+    if !found.branches.is_empty() {
+        detail.push(format!(
+            "Rebasing onto {target} leaves conflicted commits in {}.",
+            crate::app::commit_counts(&found.branches)
+        ));
+    }
+    if !found.files.is_empty() {
+        detail.push(format!(
+            "{target} changed the same lines as your uncommitted changes to {}, which get \
+             conflict markers.",
+            found.files.join(", ")
+        ));
+    }
+    detail.push("You can resolve them afterwards, or undo the update.".into());
+    detail.join(" ")
+}
+
+/// What an update from `target` did: the branches (full refs) it left `conflicted`, and
+/// the ones that `landed` and went.
+fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[String]) -> String {
+    let mut said = vec![format!("Updated from {target}")];
+    for (branch, count) in conflicted {
+        let name = match short_ref(branch) {
+            "" => "An unnamed branch",
+            name => name,
+        };
+        let count = crate::ui::plural(*count, "conflicted commit");
+        said.push(format!("{name} has {count}"));
+    }
+    let landed: Vec<&str> = landed.iter().map(|name| short_ref(name)).collect();
+    match landed.len() {
+        0 => {}
+        1 => said.push(format!("{} landed and was removed", landed[0])),
+        _ => said.push(format!("{} landed and were removed", landed.join(", "))),
+    }
+    said.join(". ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_update_says_what_conflicted_and_what_landed() {
+        assert_eq!(
+            updated_message(
+                "origin/main",
+                &[("refs/heads/feature-a".into(), 2)],
+                &["refs/heads/feature-b".into()]
+            ),
+            "Updated from origin/main. feature-a has 2 conflicted commits. \
+             feature-b landed and was removed",
+            "each branch by its short name"
+        );
+        assert_eq!(
+            updated_message("origin/main", &[], &[]),
+            "Updated from origin/main",
+            "nothing else happened"
+        );
+    }
 
     fn id(n: u8) -> CommitId {
         CommitId(gix::ObjectId::from([n; 20]))

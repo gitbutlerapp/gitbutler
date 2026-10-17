@@ -1,5 +1,5 @@
 //! The Project section: the selected project's name, target branch, force-push
-//! protection and commit signing, and removing it from GitButler.
+//! protection, commit signing and Git hooks, and removing it from GitButler.
 
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*, px};
 
@@ -119,13 +119,31 @@ impl SettingsView {
             })
             .detach();
         });
+        let hooks = self.store.read(cx).runs_hooks(project);
+        let hooks_id = project.to_string();
+        let toggle_hooks = cx.listener(move |this, _: &ClickEvent, _, cx| {
+            let id = hooks_id.clone();
+            this.store.update(cx, |store, cx| {
+                store.set_prefs(
+                    |prefs| {
+                        if !prefs.run_hooks.remove(&id) {
+                            prefs.run_hooks.insert(id);
+                        }
+                    },
+                    cx,
+                )
+            });
+        });
         let workspace = self.store.read(cx).workspace(project);
         let target = workspace
             .and_then(|ws| ws.target.as_ref())
             .map(|t| t.name.clone());
         // With stacks applied, their commits would be read against the new target from
-        // where the old one forked; GitButler's other apps don't allow it either.
-        let has_stacks = workspace.is_some_and(|ws| !ws.stacks.is_empty());
+        // where the old one forked; GitButler's other apps don't allow it either. Outside
+        // the workspace, the branch checked out shows as a stack, but a new target leaves it
+        // as it is.
+        let locked =
+            target.is_some() && workspace.is_some_and(|ws| ws.managed && !ws.stacks.is_empty());
         let target_project = project.clone();
         let change_target = cx.listener(move |this, _: &ClickEvent, window, cx| {
             let project = target_project.clone();
@@ -156,16 +174,11 @@ impl SettingsView {
             ),
             Row::new(
                 "Target branch",
-                match (has_stacks, &target) {
-                    (false, _) => "What the workspace integrates into and pull requests aim at.",
-                    (true, None) => {
-                        "What the workspace integrates into and pull requests aim at. Choose \
-                         one on the project's page."
-                    }
-                    (true, Some(_)) => {
-                        "What the workspace integrates into and pull requests aim at. To change \
-                         it, unapply every branch first."
-                    }
+                if locked {
+                    "What the workspace integrates into and pull requests aim at. To change it, \
+                     unapply every branch first."
+                } else {
+                    "What the workspace integrates into and pull requests aim at."
                 },
                 h_flex()
                     .gap(px(8.))
@@ -176,7 +189,7 @@ impl SettingsView {
                     .child(
                         button("change-target", "Change…")
                             .small()
-                            .disabled(has_stacks)
+                            .disabled(locked)
                             .on_click(change_target),
                     ),
             ),
@@ -207,6 +220,11 @@ impl SettingsView {
                         )
                     })
                     .child(switch("sign", sign, theme).on_click(toggle_sign)),
+            ),
+            Row::new(
+                "Run Git hooks",
+                "Runs the repository's pre-commit, commit-msg, post-commit and pre-push hooks.",
+                switch("run-hooks", hooks, theme).on_click(toggle_hooks),
             ),
             Row::new(
                 "Remove project",

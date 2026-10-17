@@ -127,24 +127,55 @@ fn check_failed(check: &but_forge::CiCheck) -> Option<bool> {
 }
 
 /// Ask the forge about the project's pull requests, refreshing the cache that
-/// [`load_workspace`](super::load_workspace) reads. Fails when the project has no forge or
-/// no account for it.
-pub fn refresh_reviews(path: &Path) -> Result<()> {
+/// [`load_workspace`](super::load_workspace) reads, and say whether that changed it. Fails
+/// when the project has no forge or no account for it.
+pub fn refresh_reviews(path: &Path) -> Result<bool> {
     let started = std::time::Instant::now();
     tracing::debug!(path = %path.display(), "refreshing reviews");
     let ctx = open(path)?;
+    // Without when each was last synced, which every refresh changes.
+    let cached = || {
+        let mut reviews: Vec<_> = (cached_reviews(&ctx).into_values())
+            .map(|review| but_forge::ForgeReview {
+                last_sync_at: Default::default(),
+                ..review
+            })
+            .collect();
+        reviews.sort_by_key(|review| review.number);
+        serde_json::to_string(&reviews).unwrap_or_default()
+    };
+    let before = cached();
     forge::list_reviews(&ctx, Some(but_forge::CacheConfig::NoCache))?;
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed reviews");
-    Ok(())
+    Ok(cached() != before)
 }
 
-/// Ask the forge about the CI of each branch with a pull request, a request per branch.
-pub fn refresh_checks(path: &Path) -> Result<()> {
+/// Ask the forge about the CI of each branch with a pull request, a request per branch, and
+/// say whether that changed what the cache has.
+pub fn refresh_checks(path: &Path) -> Result<bool> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
+    // Serializing a check leaves out when it was last synced.
+    let cached = || {
+        let mut refs = (ctx.db.get_cache().ok())
+            .and_then(|db| db.ci_checks().list_all_references().ok())
+            .unwrap_or_default();
+        refs.sort();
+        let checks: Vec<_> = (refs.iter())
+            .map(|name| {
+                let cache_only = Some(but_forge::CacheConfig::CacheOnly);
+                let mut checks =
+                    forge::list_ci_checks_for_ref(&ctx, name, cache_only).unwrap_or_default();
+                checks.sort_by_key(|check| check.id);
+                (name, checks)
+            })
+            .collect();
+        serde_json::to_string(&checks).unwrap_or_default()
+    };
+    let before = cached();
     forge::warm_ci_checks_cache(&ctx)?;
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed checks");
-    Ok(())
+    Ok(cached() != before)
 }
 
 /// What a new pull request for `branch` starts with: the branch it would merge into, and a
@@ -175,17 +206,18 @@ pub struct Published {
 }
 
 /// Push `branch` (a full ref) and the branches below it, those that have anything to push,
-/// then open a pull request for it.
+/// then open a pull request for it. `run_hooks` runs the pre-push hook first.
 pub fn publish(
     path: &Path,
     branch: &str,
     title: String,
     body: String,
     draft: bool,
+    run_hooks: bool,
 ) -> Result<Published> {
     // The pull request's head is the branch as the remote names it: what a push reports,
     // or for a branch pushed before, the remote branch it tracks.
-    let (pushed, push_sync_failed) = push(path, branch, true)?;
+    let (pushed, push_sync_failed) = push(path, branch, true, run_hooks)?;
     let short = branch
         .strip_prefix("refs/heads/")
         .unwrap_or(branch)
