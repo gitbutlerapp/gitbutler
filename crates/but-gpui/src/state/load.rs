@@ -84,8 +84,9 @@ impl Store {
     ) -> Task<()> {
         cx.spawn(async move |this, cx| {
             // While an agent keeps writing, reload at most this often: each reload runs a
-            // full status, and back to back they kept a core busy.
-            const MIN_INTERVAL: Duration = Duration::from_millis(500);
+            // full status, which gix spreads over every core. Twice a second kept one busy in
+            // a repository of mise's size; a change after a quiet spell still shows at once.
+            const MIN_INTERVAL: Duration = Duration::from_millis(1000);
             let mut last: Option<Instant> = None;
             while let Some((id, git, linked)) = changed.next().await {
                 // Watchers fire in bursts; let a burst settle before reloading.
