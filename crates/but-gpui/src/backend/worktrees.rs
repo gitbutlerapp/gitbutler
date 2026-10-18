@@ -87,6 +87,13 @@ fn read(repo: &gix::Repository, name: &str) -> Option<(Vec<FileChange>, Option<&
         .ok()
 }
 
+/// Remove worktree `name` from disk as `git worktree remove` does, which refuses one with
+/// uncommitted changes unless `force`. Its branch stays.
+pub fn remove(path: &Path, name: &str, force: bool) -> Result<()> {
+    let mut ctx = open(path)?;
+    but_api::worktrees::worktree_remove(&mut ctx, name.to_owned(), force)
+}
+
 /// Hide worktree `name` from the workspace, or with `archived` false show it again. It
 /// stays on disk either way.
 pub fn set_archived(path: &Path, name: &str, archived: bool) -> Result<()> {
