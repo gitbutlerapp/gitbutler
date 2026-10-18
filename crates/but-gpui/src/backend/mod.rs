@@ -400,12 +400,18 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
         kind,
         modified: None,
         conflicted: false,
+        lines: None,
         change,
     }
 }
 
-/// Uncommitted files, each with when it was last written, and the files the index has
-/// conflicted, as a merge leaves them.
+/// Past this many uncommitted files, as an agent's generated output can make, their lines
+/// aren't counted: reading them all would hold up every reload.
+const COUNT_LINES_UP_TO: usize = 300;
+
+/// Uncommitted files, each with when it was last written and, while there are few enough,
+/// the lines it adds and removes, and the files the index has conflicted, as a merge leaves
+/// them.
 fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
     let changes = but_core::diff::worktree_changes(repo)?;
     // Status leaves out files with unresolved index conflicts; they're changes too.
@@ -417,6 +423,15 @@ fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
         let since_epoch = written.duration_since(std::time::UNIX_EPOCH).ok()?;
         i64::try_from(since_epoch.as_millis()).ok()
     };
+    let count = conflicted.len() + changes.changes.len() <= COUNT_LINES_UP_TO;
+    let lines = |change: &but_core::TreeChange| match change.unified_patch(repo, 0) {
+        Ok(Some(but_core::UnifiedPatch::Patch {
+            lines_added,
+            lines_removed,
+            ..
+        })) => Some((lines_added, lines_removed)),
+        _ => None,
+    };
     let changes = changes.changes.into_iter().map(|change| (change, false));
     // Conflicted first, as a conflicted commit lists them: they're what needs doing.
     Ok((conflicted.into_iter().map(|change| (change, true)))
@@ -424,6 +439,7 @@ fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
         .map(|(change, conflicted)| FileChange {
             modified: modified(change.path.as_bstr()),
             conflicted,
+            lines: count.then(|| lines(&change)).flatten(),
             ..file_change(change)
         })
         .collect())

@@ -1110,6 +1110,7 @@ mod tests {
                 kind: ChangeKind::Modified,
                 modified: None,
                 conflicted: false,
+                lines: None,
                 change: but_core::TreeChange {
                     path: "a.rs".into(),
                     status: but_core::TreeStatus::Modification {

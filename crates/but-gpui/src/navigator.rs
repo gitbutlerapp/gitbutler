@@ -2102,7 +2102,7 @@ fn section_branches<'a>(workspace: &'a Workspace, name: Option<&Arc<str>>) -> Ve
 }
 
 /// What a worktree's uncommitted `files` count: what a merge left conflicted, as an update
-/// can, first, then all of them.
+/// can, first, then the lines they add and remove, or with none counted, how many there are.
 fn change_counts(files: &[FileChange], style: RowStyle) -> impl Iterator<Item = Stateful<Div>> {
     let (theme, n) = (style.theme, files.len());
     let conflicted = files.iter().filter(|f| f.conflicted).count();
@@ -2112,12 +2112,31 @@ fn change_counts(files: &[FileChange], style: RowStyle) -> impl Iterator<Item = 
         style.meta(theme.danger),
         plural(conflicted, "conflicted file"),
     );
-    let all = meta_count(
-        Icon::File,
-        n,
-        style.meta(theme.warn),
-        plural(n, "uncommitted file"),
-    );
+    // A conflicted file's lines are its markers, which the file list doesn't count either.
+    let (added, removed) = (files.iter().filter(|f| !f.conflicted))
+        .filter_map(|f| f.lines)
+        .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
+    let all = match added + removed {
+        0 => meta_count(
+            Icon::File,
+            n,
+            style.meta(theme.warn),
+            plural(n, "uncommitted file"),
+        ),
+        _ => {
+            let tip = format!(
+                "{}: {} added, {removed} removed",
+                plural(n, "uncommitted file"),
+                plural(added as usize, "line"),
+            );
+            Some(
+                div()
+                    .id(ElementId::Name(tip.clone().into()))
+                    .child(crate::ui::diff::stats(added, removed, theme))
+                    .tooltip(Tooltip::text(tip)),
+            )
+        }
+    };
     conflicts.into_iter().chain(all)
 }
 

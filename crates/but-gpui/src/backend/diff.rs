@@ -71,7 +71,7 @@ pub fn load_diff(
         Ok(changes.into_iter().map(file_change).collect())
     };
     let changes: Vec<FileChange> = match &source {
-        // With modification times, so review marks match the workspace's file list.
+        // With modification times, as the workspace's file list has them.
         DiffSource::Worktree | DiffSource::Linked(_) => match worktree {
             Some(files) => files,
             None => worktree_files(&repo)?,

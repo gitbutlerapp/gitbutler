@@ -379,6 +379,9 @@ pub struct FileChange {
     /// An uncommitted file a merge left conflicted, markers and all, as an update can when
     /// the target changed the same lines. It's kept out of commits until marked resolved.
     pub conflicted: bool,
+    /// The lines it adds and removes, counted for uncommitted files while there are few
+    /// enough to read them all.
+    pub lines: Option<(u32, u32)>,
     /// What the backend needs to diff or move this change again.
     pub(crate) change: but_core::TreeChange,
 }
