@@ -20,8 +20,22 @@ use crate::theme::Theme;
 
 actions!(
     text_input,
-    [SelectAll, Newline, Submit, Cancel, Paste, Cut, Copy]
+    [
+        SelectAll, Newline, Submit, Cancel, Paste, Cut, Copy, Undo, Redo
+    ]
 );
+
+/// What the last change to a field's text was, for undoing runs of them as one.
+#[derive(Clone, Copy, PartialEq)]
+enum Edit {
+    /// A character typed after another, or text an input method is still composing.
+    Typed,
+    /// A character deleted after another.
+    Deleted,
+    /// Text set from outside, as AI writing a message sets it again and again.
+    Set,
+    Other,
+}
 
 /// Where a motion or deletion goes from the cursor.
 #[derive(Clone, Copy, PartialEq)]
@@ -94,6 +108,8 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-v", Paste, c),
         KeyBinding::new("cmd-c", Copy, c),
         KeyBinding::new("cmd-x", Cut, c),
+        KeyBinding::new("cmd-z", Undo, c),
+        KeyBinding::new("cmd-shift-z", Redo, c),
     ]);
 }
 
@@ -124,6 +140,10 @@ pub struct TextInput {
     scroll: Option<(ScrollHandle, Range<usize>)>,
     /// How far a single line longer than the field is slid left, to keep the caret in it.
     scroll_x: Pixels,
+    /// The text and selection before each change, and the ones undone, newest last.
+    undo: Vec<(String, Range<usize>)>,
+    redo: Vec<(String, Range<usize>)>,
+    last_edit: Edit,
     is_selecting: bool,
     cursor_visible: bool,
     blink: Task<()>,
@@ -151,6 +171,10 @@ impl TextInput {
             last_line_height: px(18.),
             scroll: None,
             scroll_x: px(0.),
+            undo: Vec::new(),
+            redo: Vec::new(),
+            // So filling the new field, as one opening on a message, is no change to undo.
+            last_edit: Edit::Set,
             wanted_height: None,
             is_selecting: false,
             cursor_visible: true,
@@ -174,6 +198,7 @@ impl TextInput {
     }
 
     pub fn set_text(&mut self, text: impl Into<String>, cx: &mut Context<Self>) {
+        self.remember(Edit::Set);
         self.content = text.into();
         if !self.multiline {
             self.content = self.content.replace('\n', " ");
@@ -221,6 +246,8 @@ impl TextInput {
     }
 
     fn move_to(&mut self, offset: usize, window: &Window, cx: &mut Context<Self>) {
+        // Typing somewhere else starts a new undo step.
+        self.last_edit = Edit::Other;
         self.selected_range = offset..offset;
         self.selection_reversed = false;
         window.notify_text_selection_changed(&self.focus_handle);
@@ -229,6 +256,7 @@ impl TextInput {
     }
 
     fn select_to(&mut self, offset: usize, window: &Window, cx: &mut Context<Self>) {
+        self.last_edit = Edit::Other;
         if self.selection_reversed {
             self.selected_range.start = offset
         } else {
@@ -375,6 +403,57 @@ impl TextInput {
         self.select_to(self.content.len(), window, cx)
     }
 
+    /// Keep the text as it is before a change of kind `edit`, unless it carries on a run of
+    /// the same kind, which undoes as one step.
+    fn remember(&mut self, edit: Edit) {
+        // A password or key isn't kept around to bring back.
+        if self.masked {
+            return;
+        }
+        if edit == Edit::Other || edit != self.last_edit {
+            if self.undo.len() == 200 {
+                self.undo.remove(0);
+            }
+            (self.undo).push((self.content.clone(), self.selected_range.clone()));
+            self.redo.clear();
+        }
+        self.last_edit = edit;
+    }
+
+    /// Start a new undo step with the next change, as before AI writes into the field, so
+    /// undoing what it wrote brings back what was there.
+    pub fn break_undo_run(&mut self) {
+        self.last_edit = Edit::Other;
+    }
+
+    fn undo(&mut self, _: &Undo, _: &mut Window, cx: &mut Context<Self>) {
+        self.step(true, cx)
+    }
+
+    fn redo(&mut self, _: &Redo, _: &mut Window, cx: &mut Context<Self>) {
+        self.step(false, cx)
+    }
+
+    /// Go back to the text before the last change, or with `back` false forward again.
+    fn step(&mut self, back: bool, cx: &mut Context<Self>) {
+        let (from, to) = match back {
+            true => (&mut self.undo, &mut self.redo),
+            false => (&mut self.redo, &mut self.undo),
+        };
+        let Some((content, selected)) = from.pop() else {
+            return;
+        };
+        to.push((
+            std::mem::replace(&mut self.content, content),
+            self.selected_range.clone(),
+        ));
+        self.selected_range = selected;
+        self.marked_range = None;
+        self.last_edit = Edit::Other;
+        cx.emit(InputEvent::Changed);
+        cx.notify();
+    }
+
     fn delete(&mut self, action: &Delete, window: &mut Window, cx: &mut Context<Self>) {
         if self.selected_range.is_empty() {
             self.select_to(self.target(action.to), window, cx)
@@ -496,6 +575,18 @@ impl TextInput {
             .map(|range_utf16| self.range_from_utf16(&range_utf16))
             .or(self.marked_range.clone())
             .unwrap_or(self.selected_range.clone());
+        let typed = self.marked_range.is_some()
+            || (range.is_empty() && new_text.chars().count() == 1)
+                && !new_text.contains(char::is_whitespace);
+        let deleted = new_text.is_empty() && self.content[range.clone()].chars().count() == 1;
+        // Deleting nothing, as backspace at the start, changes nothing to undo.
+        if !range.is_empty() || !new_text.is_empty() {
+            self.remember(match (typed, deleted) {
+                (true, _) => Edit::Typed,
+                (_, true) => Edit::Deleted,
+                _ => Edit::Other,
+            });
+        }
         if self.multiline {
             self.content.replace_range(range.clone(), new_text);
         } else {
@@ -671,6 +762,8 @@ impl Render for TextInput {
             .on_action(cx.listener(Self::paste))
             .on_action(cx.listener(Self::cut))
             .on_action(cx.listener(Self::copy))
+            .on_action(cx.listener(Self::undo))
+            .on_action(cx.listener(Self::redo))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))
