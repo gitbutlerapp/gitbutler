@@ -483,11 +483,10 @@ impl Store {
             .filter(|branch| !branch.is_empty() && workspace.find_branch(branch).is_some());
         // Picks follow rewritten commits the same way, and go when a commit is gone.
         if !self.picked.is_empty() && self.selection.as_ref().is_some_and(|s| s.project() == id) {
+            let mut picks = std::mem::take(&mut self.picked);
             let old = self.workspace(id);
-            let picked: Vec<CommitId> = (self.picked.iter())
-                .filter_map(|commit| follow_by_key(old, &workspace, *commit))
-                .collect();
-            self.picked = if picked.len() > 1 { picked } else { Vec::new() };
+            picks.follow(|commit| follow_by_key(old, &workspace, *commit));
+            self.picked = picks;
         }
         // A cut commit follows the same way, and the cut goes with the commit; a commit
         // picked from elsewhere, as the target's history, stays as it is.

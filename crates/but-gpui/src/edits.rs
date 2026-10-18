@@ -529,7 +529,7 @@ impl AppView {
             self.store.update(cx, |store, cx| {
                 let ids = match store.picked.is_empty() {
                     true => vec![id],
-                    false => std::mem::take(&mut store.picked),
+                    false => store.picked.take(),
                 };
                 store.uncommit(&project, ids, cx)
             });

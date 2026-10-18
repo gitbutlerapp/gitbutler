@@ -17,6 +17,7 @@ impl AppView {
     ) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
+        let detail = self.detail.read(cx);
         let working = store.busy().map(|(busy, took)| {
             // How long it's taking once that's noticeable, and what else runs or waits.
             let elapsed = match took >= SLOW {
@@ -57,6 +58,15 @@ impl AppView {
                 .child("right-click to squash or uncommit them")
                 .child(keycap("esc", &theme))
                 .into_any_element()
+        } else if detail.picked_files() > 0 {
+            h_flex()
+                .gap(px(6.))
+                .child(div().text_color(theme.pop).child(format!(
+                    "{} picked",
+                    crate::ui::plural(detail.picked_files(), "file")
+                )))
+                .child(keycap("esc", &theme))
+                .into_any_element()
         } else {
             // The selected project's standing against its target.
             let summary = store.selection.as_ref().and_then(|selection| {
@@ -82,7 +92,6 @@ impl AppView {
             div().children(summary).into_any_element()
         };
 
-        let detail = self.detail.read(cx);
         let detail_focused = detail.is_focused(window, cx);
         // A text field has focus, where keys type rather than act.
         let typing = window.focused(cx).is_some_and(|focused| {

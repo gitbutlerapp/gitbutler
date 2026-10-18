@@ -386,7 +386,9 @@ impl AppView {
         if self.detail.read(cx).is_focused(window, cx) {
             // Undo the nearest thing first: a text selection, then the file filter.
             let handled = self.detail.update(cx, |detail, cx| {
-                detail.clear_text_selection(cx) || detail.close_open_filter(window, cx)
+                detail.clear_text_selection(cx)
+                    || detail.clear_file_picks(cx)
+                    || detail.close_open_filter(window, cx)
             });
             if !handled {
                 self.focus_main(window, cx);
@@ -402,6 +404,8 @@ impl AppView {
                 cx.notify()
             });
         }
+        self.detail
+            .update(cx, |detail, cx| detail.clear_file_picks(cx));
     }
 
     fn focus_navigator(&mut self, _: &FocusNavigator, window: &mut Window, cx: &mut Context<Self>) {
