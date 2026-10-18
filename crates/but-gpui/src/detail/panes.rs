@@ -202,61 +202,77 @@ impl Detail {
             }
         }
         let last = crumbs.len().saturating_sub(1);
+        // As ui-react's LocationBar: on the window's second ground, the navigator's toggle, a
+        // hairline, then the trail, every crumb quiet and joined by chevrons.
+        let toggle = icon_button("toggle-navigator", Icon::Sidebar)
+            .tooltip_with_key(
+                "Toggle navigator",
+                shortcut(&crate::app::ToggleNavigator, cx),
+            )
+            .dispatch(&crate::app::ToggleNavigator);
         h_flex()
             .h(px(HEADER_HEIGHT))
             .flex_none()
-            .px(px(16.))
+            .px(px(12.))
             .when(self.beside_traffic_lights, |el| el.pl(px(84.)))
-            .gap(px(6.))
+            .gap(px(12.))
+            .bg(theme.bg_2)
             .border_b_1()
             .border_color(theme.border_3)
-            .children(
-                crumbs
-                    .into_iter()
-                    .enumerate()
-                    .flat_map(|(ix, (crumb, target))| {
-                        let sep = (ix > 0)
-                            .then(|| div().text_color(theme.text_3).child("/").into_any_element());
-                        // Shrinking by length as well as width, long crumbs give way first and
-                        // short ones, like the project's name or a commit's ID, stay whole.
-                        let shrink = crumb.chars().count() as f32;
-                        let el = match target.filter(|_| ix != last) {
-                            Some(target) => {
-                                let app = self.app.clone();
-                                div()
-                                    .id(("crumb", ix))
-                                    .cursor_pointer()
-                                    .hover(|el| el.underline().text_color(theme.text_1))
-                                    .text_color(theme.text_2)
+            .text_color(theme.text_2)
+            .child(toggle)
+            .child(div().flex_none().w(px(1.)).h(px(16.)).bg(theme.border_3))
+            .child(
+                h_flex().flex_1().min_w(px(0.)).gap(px(6.)).children(
+                    crumbs
+                        .into_iter()
+                        .enumerate()
+                        .flat_map(|(ix, (crumb, target))| {
+                            let sep = (ix > 0).then(|| {
+                                small_icon(Icon::ChevronRight)
+                                    .size(px(10.))
+                                    .text_color(theme.text_3)
+                                    .into_any_element()
+                            });
+                            // Shrinking by length as well as width, long crumbs give way first and
+                            // short ones, like the project's name or a commit's ID, stay whole.
+                            let shrink = crumb.chars().count() as f32;
+                            let el = match target.filter(|_| ix != last) {
+                                Some(target) => {
+                                    let app = self.app.clone();
+                                    // A step darker under the pointer: it's still a quiet trail.
+                                    let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
+                                    div()
+                                        .id(("crumb", ix))
+                                        .cursor_pointer()
+                                        .hover(move |el| el.text_color(hover))
+                                        .truncate()
+                                        .map(|mut el| {
+                                            el.style().flex_shrink = Some(shrink);
+                                            el
+                                        })
+                                        .child(crumb)
+                                        .on_click(move |_, window, cx| {
+                                            (app.update(cx, |app, cx| {
+                                                app.select(target.clone(), window, cx)
+                                            }))
+                                            .ok();
+                                        })
+                                        .into_any_element()
+                                }
+                                None => div()
                                     .truncate()
                                     .map(|mut el| {
                                         el.style().flex_shrink = Some(shrink);
                                         el
                                     })
                                     .child(crumb)
-                                    .on_click(move |_, window, cx| {
-                                        (app.update(cx, |app, cx| {
-                                            app.select(target.clone(), window, cx)
-                                        }))
-                                        .ok();
-                                    })
-                                    .into_any_element()
-                            }
-                            None => div()
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
-                                .text_color(theme.text_1)
-                                .truncate()
-                                .map(|mut el| {
-                                    el.style().flex_shrink = Some(shrink);
-                                    el
-                                })
-                                .child(crumb)
-                                .into_any_element(),
-                        };
-                        sep.into_iter().chain([el])
-                    }),
+                                    .into_any_element(),
+                            };
+                            sep.into_iter().chain([el])
+                        }),
+                ),
             )
-            .child(div().flex_1())
             .children(actions)
     }
 
