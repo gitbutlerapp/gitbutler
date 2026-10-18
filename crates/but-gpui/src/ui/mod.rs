@@ -257,7 +257,12 @@ pub fn dropdown(
 
 /// The box around a text field, ringed while it has focus.
 pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme) -> Div {
+    let clicked = input.clone();
     div()
+        // Its padding is part of the field to click.
+        .on_mouse_down(gpui::MouseButton::Left, move |_, window, cx| {
+            window.focus(&gpui::Focusable::focus_handle(&clicked, cx), cx)
+        })
         .px(px(8.))
         .py(px(5.))
         .rounded(px(4.))
