@@ -58,6 +58,16 @@ impl AppView {
                 .child("right-click to squash or uncommit them")
                 .child(keycap("esc", &theme))
                 .into_any_element()
+        } else if detail.picked_line_count() > 0 {
+            h_flex()
+                .gap(px(6.))
+                .child(div().text_color(theme.pop).child(format!(
+                    "{} picked",
+                    crate::ui::plural(detail.picked_line_count(), "line")
+                )))
+                .child("drag a grip or right-click to move them")
+                .child(keycap("esc", &theme))
+                .into_any_element()
         } else if detail.picked_files() > 0 {
             h_flex()
                 .gap(px(6.))
@@ -117,10 +127,12 @@ impl AppView {
             vec![(&NextFile, "next file")]
         } else if detail_focused && uncommitted {
             vec![
-                (&NextFile, "next file"),
                 (&NextHunk, "next hunk"),
+                (&CutSelection, "cut hunk"),
                 (&DiscardHunk, "discard hunk"),
             ]
+        } else if detail_focused && detail.cursor_cut(cx).is_some() {
+            vec![(&NextHunk, "next hunk"), (&CutSelection, "cut hunk")]
         } else if detail_focused {
             vec![(&NextFile, "next file"), (&NextHunk, "next hunk")]
         } else {

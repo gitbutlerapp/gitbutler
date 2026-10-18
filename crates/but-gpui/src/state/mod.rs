@@ -116,7 +116,11 @@ impl Cut {
         match self {
             Cut::Commit(_, id) | Cut::CherryPick(_, id) => format!("commit {}", id.short()),
             Cut::Branch(_, ref_name) => short_ref(ref_name).to_owned(),
-            Cut::Files { files, .. } if files.len() == 1 => files[0].file.path.clone(),
+            // Hunks or lines of one file: what of it isn't said here, where the diff isn't.
+            Cut::Files { files, .. } if files.len() == 1 => match &files[0].hunks {
+                Some(_) => format!("changes in {}", files[0].file.path),
+                None => files[0].file.path.clone(),
+            },
             Cut::Files { files, .. } => format!("{} files", files.len()),
         }
     }

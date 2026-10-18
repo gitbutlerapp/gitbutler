@@ -7,10 +7,11 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, MouseDownEvent, Pixels,
-    Point, SharedString, Subscription, WeakEntity, Window, div, list, prelude::*, px,
+    Action, AnyElement, App, ClickEvent, Context, CursorStyle, Entity, MouseButton, MouseDownEvent,
+    Pixels, Point, SharedString, Subscription, WeakEntity, Window, div, list, prelude::*, px,
 };
 
+use super::lines::Pick;
 use super::{
     Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleFiles, TogglePlainLines, ToggleSplit,
     ToggleWrap,
@@ -28,7 +29,7 @@ use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, button, checkbox, empty_state, h_flex, icon, icon_button, shortcut,
-    toggle_group, v_flex,
+    small_icon, toggle_group, v_flex,
 };
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -651,6 +652,7 @@ impl Detail {
                 padded
                     .id(("file-header", ix))
                     .child(header)
+                    .on_mouse_down(MouseButton::Left, press_off(entity.clone()))
                     .when_some(header_menu, |el, header_menu| {
                         el.on_mouse_down(
                             MouseButton::Right,
@@ -694,10 +696,7 @@ impl Detail {
                 // A conflicted file goes whole or not at all; see `backend::discard`.
                 let discard =
                     (diff.key.source.live() && !diff.files[file].file.conflicted).then(|| {
-                        let change = Selected {
-                            file: diff.files[file].file.clone(),
-                            hunks: Some(vec![key]),
-                        };
+                        let change = diff.files[file].part(Some(vec![key]));
                         let (project, linked) = (diff.key.project.clone(), diff.key.linked());
                         discard_button(ix, project, linked, change, current, self.app.clone(), cx)
                     });
@@ -725,7 +724,7 @@ impl Detail {
                 );
                 let line = key.0.new_start;
                 let carried = self.diff_cut(file, Some(vec![key]), cx);
-                let whole = entity.clone();
+                let (whole, dragged) = (entity.clone(), entity.clone());
                 padded
                     .id(("hunk", ix))
                     .group("hunk-row")
@@ -743,12 +742,12 @@ impl Detail {
                             },
                         )
                     })
+                    .on_mouse_down(MouseButton::Left, press_off(dragged.clone()))
                     .when_some(carried, |el, carried| {
-                        let label = format!("{path} · line {line}");
-                        el.on_drag(
-                            carried,
-                            crate::transfer::drag_preview(self.store.clone(), label.into()),
-                        )
+                        let lines: Vec<_> =
+                            (0..hunks[hunk].lines.len()).map(|l| (hunk, l)).collect();
+                        let label = self.lines_label(file, &lines);
+                        el.on_drag(carried, self.drag_preview(label, false, dragged))
                     })
                     .into_any_element()
             }
@@ -762,6 +761,7 @@ impl Detail {
                 let decor = LineDecor {
                     excluded,
                     toggle,
+                    gutter: self.line_gutter(place, &entity, cx),
                     select: Some(line_select(ix, entity)),
                     selected: self.selected_in_row(ix),
                     found: self.found_on(place),
@@ -791,6 +791,7 @@ impl Detail {
                         excluded,
                         toggle,
                         found: self.found_on((file, hunk, line)),
+                        gutter: self.line_gutter((file, hunk, line), &entity, cx),
                     }
                 };
                 let sides = [
@@ -810,6 +811,7 @@ impl Detail {
                     .on_mouse_down(MouseButton::Left, move |_, _, cx| {
                         entity
                             .update(cx, |detail, cx| {
+                                detail.press_off_picks(cx);
                                 detail.place_cursor(Cursor {
                                     file,
                                     hunk: Some(hunk),
@@ -1043,6 +1045,114 @@ impl Detail {
     }
 }
 
+impl Detail {
+    /// What line `place` (its file, hunk and index in the hunk) offers in its numbers outside
+    /// the composer: picking it, and a grip that drags what it takes. None for an unchanged
+    /// line, and in a diff whose changes can't move, like a branch's.
+    fn line_gutter(
+        &self,
+        place: (usize, usize, usize),
+        entity: &WeakEntity<Detail>,
+        cx: &App,
+    ) -> Option<diff::Gutter> {
+        let (file, hunk, line) = place;
+        let diff_file = self.diff.as_ref()?.files.get(file)?;
+        let key = diff_file.hunks().get(hunk)?.key;
+        let changed = (diff_file.hunks()[hunk].lines.get(line))
+            .is_some_and(|line| line.kind != LineKind::Context);
+        // The composer's checks own the numbers while it's open.
+        if !changed || (self.composing && self.worktree_diff().is_some()) {
+            return None;
+        }
+        // Lines of a diff that can't be cut from have no grip, nor numbers to pick.
+        self.owned_cut(Vec::new(), cx)?;
+        let picked = self.line_picked(&diff_file.file.path, key, line);
+        // What a grip takes is worked out for the one under the pointer only, afresh as lines
+        // get picked or the diff changes: it can be a whole file's lines, too many to work out
+        // for every line drawn.
+        let over = (self.grip_over.as_ref()).filter(|(at, _)| at.0 == file);
+        let taken =
+            |line: usize| over.is_some_and(|(_, lines)| lines.binary_search(&(hunk, line)).is_ok());
+        let outline = taken(line).then(|| (line == 0 || !taken(line - 1), !taken(line + 1)));
+        let drag = (over.is_some_and(|(at, _)| *at == place))
+            .then(|| self.grip_takes(place))
+            .and_then(|takes| {
+                let cut = self.lines_cut(file, takes.iter().copied(), cx)?;
+                Some((cut, self.lines_label(file, &takes)))
+            });
+        let picking = entity.clone();
+        let pick = Rc::new(
+            move |modifiers, dragging, window: &mut Window, cx: &mut App| {
+                (picking.update(cx, |detail, cx| match dragging {
+                    // Dragging on down the numbers from a press on one runs the pick along.
+                    true if detail.picking_lines && detail.line_picks.is_some() => {
+                        detail.pick_line(place, Pick::Run, cx)
+                    }
+                    true => {}
+                    // With the diff's keys, so ⌘X cuts what's picked.
+                    false => {
+                        detail.picking_lines = true;
+                        window.focus(&detail.focus, cx);
+                        detail.pick_line(place, Pick::from(modifiers), cx)
+                    }
+                }))
+                .ok();
+            },
+        );
+        let hover = entity.clone();
+        // As tall as the line and a little wider than its glyph, to land on easily.
+        let grip = div()
+            .id(("line-grip", (file << 40) | (hunk << 20) | line))
+            .h_full()
+            .px(px(2.))
+            .flex()
+            .items_center()
+            .cursor(CursorStyle::OpenHand)
+            .child(small_icon(Icon::DragVertical).text_color(Theme::get(cx).text_2))
+            // Not a press on the number, which would pick the line, nor the start of
+            // dragging over the numbers to pick more.
+            .on_mouse_down(MouseButton::Left, {
+                let pressed = entity.clone();
+                move |_, _, cx| {
+                    cx.stop_propagation();
+                    (pressed.update(cx, |detail, _| detail.picking_lines = false)).ok();
+                }
+            })
+            .on_hover(move |hovered, _, cx| {
+                (hover.update(cx, |detail, cx| {
+                    let ours = detail
+                        .grip_over
+                        .as_ref()
+                        .is_some_and(|(at, _)| *at == place);
+                    match (*hovered, ours) {
+                        (true, false) => detail.grip_over = Some((place, detail.grip_takes(place))),
+                        (false, true) => detail.grip_over = None,
+                        _ => return,
+                    }
+                    cx.notify();
+                }))
+                .ok();
+            })
+            .when_some(drag, |el, (cut, label)| {
+                el.on_drag(cut, self.drag_preview(label, picked, entity.clone()))
+            })
+            .into_any_element();
+        Some(diff::Gutter {
+            picked,
+            pick,
+            grip,
+            outline,
+        })
+    }
+}
+
+/// A press on a row off its line numbers: see [`Detail::press_off_picks`].
+fn press_off(entity: WeakEntity<Detail>) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) {
+    move |_, _, cx| {
+        (entity.update(cx, |detail, cx| detail.press_off_picks(cx))).ok();
+    }
+}
+
 /// Right-clicking the line at row `ix`: see [`Detail::line_menu`].
 fn line_menu(
     ix: usize,
@@ -1080,9 +1190,24 @@ impl Detail {
             .filter(|(start, end)| (start.0..=end.0).contains(&row))
             .and_then(|_| self.selected_text());
         let Some(text) = selected else {
+            // A changed line's run, or the picked lines when it's one of them, as its grip
+            // takes; an unchanged one's hunk.
+            let changed = match diff.rows.get(row) {
+                Some(DiffRow::Line { file, hunk, line }) => {
+                    let lines = diff.files[*file].hunks().get(*hunk).map(|h| &h.lines);
+                    (lines.and_then(|lines| lines.get(*line)))
+                        .is_some_and(|line| line.kind != LineKind::Context)
+                        .then_some((*file, *hunk, *line))
+                }
+                _ => None,
+            };
             let key = hunk.and_then(|hunk| Some(diff.files[file].hunks().get(hunk)?.key));
+            let menu = match changed {
+                Some(place) => self.lines_cut(file, self.grip_takes(place), cx),
+                None => self.diff_cut(file, key.map(|key| vec![key]), cx),
+            };
             self.clear_text_selection(cx);
-            if let Some(menu) = self.diff_cut(file, key.map(|key| vec![key]), cx) {
+            if let Some(menu) = menu {
                 self.changes_menu(menu, Some(line), position, cx);
             }
             return;
@@ -1128,6 +1253,7 @@ fn line_select(ix: usize, entity: WeakEntity<Detail>) -> LineSelect {
         down: Rc::new(move |at, event, window, cx| {
             let (count, shift) = (event.click_count, event.modifiers.shift);
             down.update(cx, |detail, cx| {
+                detail.press_off_picks(cx);
                 detail.start_text_selection((ix, at), count, shift, window, cx)
             })
             .ok();

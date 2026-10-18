@@ -78,6 +78,7 @@ icons! {
     Commit => "commit",
     CommitFill => "commit-fill",
     Diff => "diff",
+    DragVertical => "drag-vertical",
     Eye => "eye",
     CollapseVertical => "collapse-vertical",
     Cross => "cross",

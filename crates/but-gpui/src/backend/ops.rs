@@ -89,6 +89,22 @@ fn changes_source(worktree: Option<&str>) -> ChangesSource {
     })
 }
 
+/// [`selected_specs`] to take out of a commit or the worktree, refusing some of a file that
+/// can only be taken whole, as the rest would go along.
+fn taken_specs(selected: &[Selected]) -> Result<Vec<DiffSpec>> {
+    if let Some(part) =
+        (selected.iter()).find(|part| part.file.whole_only() && part.hunks.is_some())
+    {
+        let why = match part.file.kind {
+            ChangeKind::Added => "it's added here",
+            ChangeKind::Deleted => "it's deleted here",
+            _ => "it's not a plain file on one side",
+        };
+        bail!("Only all of {} can be taken out, as {why}", part.file.path);
+    }
+    Ok(selected_specs(selected))
+}
+
 /// Whole files, or just some of their hunks.
 fn selected_specs(selected: &[Selected]) -> Vec<DiffSpec> {
     selected
@@ -475,7 +491,7 @@ pub fn uncommit_files(path: &Path, commit: CommitId, files: &[Selected]) -> Resu
     let outcome = but_api::commit::uncommit::commit_uncommit_changes(
         &mut ctx,
         commit.0,
-        selected_specs(files),
+        taken_specs(files)?,
         None,
         DryRun::No,
     )?;
@@ -494,7 +510,7 @@ pub fn move_files(
         &mut ctx,
         from.0,
         to.0,
-        selected_specs(files),
+        taken_specs(files)?,
         DryRun::No,
     )?;
     Ok(rewritten(&outcome.workspace))
@@ -506,7 +522,7 @@ pub fn discard_from_commit(path: &Path, commit: CommitId, files: &[Selected]) ->
     let outcome = but_api::commit::discard_commit::commit_discard_changes(
         &mut ctx,
         commit.0,
-        selected_specs(files),
+        taken_specs(files)?,
         DryRun::No,
     )?;
     Ok(rewritten(&outcome.workspace))
@@ -525,7 +541,7 @@ pub fn split_off(
     // process's change.
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let changes = selected_specs(files);
+    let changes = taken_specs(files)?;
     let (new, workspace) = but_transaction::with_transaction_with_perm(
         &mut ctx,
         &mut meta,
@@ -605,6 +621,7 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
         );
     }
     let conflicted: Vec<bstr::BString> = conflicted.into_iter().map(Into::into).collect();
+    let specs = taken_specs(selected)?;
     // The snapshot is recorded before anything changes, as the but-api discard does: undo
     // then brings back whatever goes, conflicts included, even when some of it couldn't be
     // discarded. The oplog can't restore a linked worktree, so its discard has none.
@@ -617,13 +634,6 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
         );
         if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
             tracing::warn!(?err, "couldn't record the discard for undo");
-        }
-    }
-    // An added or deleted file goes only whole, and its one hunk is all of it anyway.
-    let mut specs = selected_specs(selected);
-    for (spec, part) in specs.iter_mut().zip(selected) {
-        if matches!(part.file.kind, ChangeKind::Added | ChangeKind::Deleted) {
-            spec.hunk_headers.clear();
         }
     }
     let context_lines = ctx.settings.context_lines;
@@ -676,9 +686,30 @@ fn current_hunks(
             };
             spec.hunk_headers = (spec.hunk_headers.iter())
                 .filter_map(|wanted| {
-                    // Picked lines name one side only; they aren't hunks to find.
-                    if wanted.old_lines == 0 || wanted.new_lines == 0 {
-                        return Some(*wanted);
+                    // Picked lines name one side only, as a commit takes them: a discard takes
+                    // them out of the hunk around them, against its other side.
+                    let within = |start: u32, lines: u32, outer: u32, outer_lines: u32| {
+                        start >= outer && start + lines <= outer + outer_lines
+                    };
+                    if wanted.old_lines == 0 {
+                        let hunk = (hunks.iter()).find(|h| {
+                            within(wanted.new_start, wanted.new_lines, h.new_start, h.new_lines)
+                        })?;
+                        return Some(but_core::HunkHeader {
+                            old_start: hunk.old_start,
+                            old_lines: hunk.old_lines,
+                            ..*wanted
+                        });
+                    }
+                    if wanted.new_lines == 0 {
+                        let hunk = (hunks.iter()).find(|h| {
+                            within(wanted.old_start, wanted.old_lines, h.old_start, h.old_lines)
+                        })?;
+                        return Some(but_core::HunkHeader {
+                            new_start: hunk.new_start,
+                            new_lines: hunk.new_lines,
+                            ..*wanted
+                        });
                     }
                     (hunks.iter())
                         .find(|h| {
@@ -714,7 +745,7 @@ mod tests {
     use std::process::Command;
 
     use super::*;
-    use crate::backend::{DiffBody, DiffSource, Kept, Workspace, load_diff};
+    use crate::backend::{DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff};
 
     fn git(dir: &Path, args: &[&str]) -> String {
         let out = Command::new("git")
@@ -825,7 +856,7 @@ mod tests {
     }
 
     #[test]
-    fn discarding_the_hunk_of_an_added_file_removes_it() {
+    fn an_added_file_is_discarded_whole_or_not_at_all() {
         let dir = repo_with("one\n");
         let path = dir.path();
         std::fs::write(path.join("new"), "one\ntwo\n").unwrap();
@@ -834,10 +865,19 @@ mod tests {
         let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
             panic!("a text diff");
         };
-        let hunk = Selected {
-            file: diff[0].file.clone(),
-            hunks: Some(vec![hunks[0].key]),
-        };
+        let line = diff[0].part(Some(
+            hunks[0].picked(&std::collections::BTreeSet::from([1])),
+        ));
+        let refused = discard(path, None, &[line]).unwrap_err();
+        assert!(
+            refused
+                .to_string()
+                .contains("Only all of new can be taken out"),
+            "a line of it would take the rest along: {refused:#}"
+        );
+        assert!(path.join("new").exists(), "nothing went");
+        let hunk = diff[0].part(Some(vec![hunks[0].key]));
+        assert!(hunk.hunks.is_none(), "all of its hunks is the file whole");
         discard(path, None, std::slice::from_ref(&hunk)).unwrap();
         assert!(!path.join("new").exists(), "the whole file goes");
         discard(path, None, &[hunk]).expect("nothing left to discard is no error");
@@ -1147,5 +1187,165 @@ mod tests {
             "each discard took back just its own hunk"
         );
         discard(path, None, &[hunk(1)]).expect("a hunk that's gone has nothing left to discard");
+    }
+
+    /// The file of `repo_with` one line at a time, and the index of the line in its hunk
+    /// whose text is `text`.
+    fn line_in(hunk: &crate::backend::Hunk, text: &str) -> usize {
+        (hunk.lines.iter())
+            .position(|line| &*line.text == text)
+            .unwrap_or_else(|| panic!("{text} is in the hunk"))
+    }
+
+    #[test]
+    fn discarding_picked_lines_keeps_the_rest_of_their_hunk() {
+        let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let dir = repo_with(&lines.concat());
+        let path = dir.path();
+        let mut edited = lines.clone();
+        edited[4] = "five a\nfive b\n".into();
+        std::fs::write(path.join("file"), edited.concat()).unwrap();
+
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let hunk = &diff[0].hunks()[0];
+        let picks = std::collections::BTreeSet::from([line_in(hunk, "five b")]);
+        let lines_picked = Selected {
+            file: diff[0].file.clone(),
+            hunks: Some(hunk.picked(&picks)),
+        };
+        discard(path, None, &[lines_picked]).unwrap();
+
+        let mut expected = lines.clone();
+        expected[4] = "five a\n".into();
+        assert_eq!(
+            std::fs::read_to_string(path.join("file")).unwrap(),
+            expected.concat(),
+            "only the picked line went; the rest of its hunk stays uncommitted"
+        );
+    }
+
+    /// A workspace whose one commit, on top of the target, turns line 5 of `file` into two,
+    /// with that commit's id and diff.
+    fn workspace_with_an_edit() -> (tempfile::TempDir, CommitId, Vec<FileDiff>, Vec<String>) {
+        let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let dir = repo_with(&lines.concat());
+        let path = dir.path();
+        git(
+            path,
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
+        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        crate::backend::settings::set_target(path, "refs/remotes/origin/main").unwrap();
+        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+        let mut edited = lines.clone();
+        edited[4] = "five a\nfive b\n".into();
+        std::fs::write(path.join("file"), edited.concat()).unwrap();
+        git(path, &["commit", "-q", "-am", "edit"]);
+        let head = git(path, &["rev-parse", "HEAD"]);
+        let commit = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        let diff = load_diff(path, DiffSource::Commit(commit), None, None, None).unwrap();
+        (dir, commit, diff, edited)
+    }
+
+    /// The line "five b" of `diff`'s one hunk, picked to take out of its commit.
+    fn five_b_out(diff: &[FileDiff]) -> Selected {
+        let hunk = &diff[0].hunks()[0];
+        let picks = std::collections::BTreeSet::from([line_in(hunk, "five b")]);
+        Selected {
+            file: diff[0].file.clone(),
+            hunks: Some(hunk.picked_out(&picks)),
+        }
+    }
+
+    #[test]
+    fn uncommitting_picked_lines_leaves_them_uncommitted() {
+        let (dir, commit, diff, edited) = workspace_with_an_edit();
+        let path = dir.path();
+        let rewritten = uncommit_files(path, commit, &[five_b_out(&diff)]).unwrap();
+        let commit = rewritten.get(&commit).copied().unwrap_or(commit);
+        let committed = git(path, &["show", &format!("{}:file", commit.0)]);
+        assert!(committed.contains("five a\n"), "{committed}");
+        assert!(
+            !committed.contains("five b"),
+            "the picked line left the commit"
+        );
+        assert_eq!(
+            std::fs::read_to_string(path.join("file")).unwrap(),
+            edited.concat(),
+            "and stays in the worktree, uncommitted"
+        );
+    }
+
+    #[test]
+    fn splitting_off_picked_lines_puts_them_in_a_commit_above() {
+        let (dir, commit, diff, _) = workspace_with_an_edit();
+        let path = dir.path();
+        let (rewritten, new) = split_off(path, commit, &[five_b_out(&diff)]).unwrap();
+        let commit = rewritten.get(&commit).copied().unwrap_or(commit);
+        let below = git(path, &["show", &format!("{}:file", commit.0)]);
+        let above = git(path, &["show", &format!("{}:file", new.0)]);
+        assert!(!below.contains("five b"), "{below}");
+        assert!(above.contains("five a\nfive b\n"), "{above}");
+    }
+
+    #[test]
+    fn discarding_picked_lines_from_a_commit_takes_them_out_of_it_and_the_worktree() {
+        let (dir, commit, diff, _) = workspace_with_an_edit();
+        let path = dir.path();
+        let rewritten = discard_from_commit(path, commit, &[five_b_out(&diff)]).unwrap();
+        let commit = rewritten.get(&commit).copied().unwrap_or(commit);
+        let committed = git(path, &["show", &format!("{}:file", commit.0)]);
+        assert!(
+            committed.contains("five a\n") && !committed.contains("five b"),
+            "{committed}"
+        );
+        let on_disk = std::fs::read_to_string(path.join("file")).unwrap();
+        assert!(!on_disk.contains("five b"), "{on_disk}");
+    }
+
+    #[test]
+    fn moving_picked_lines_takes_them_into_the_other_commit() {
+        let (dir, commit, diff, _) = workspace_with_an_edit();
+        let path = dir.path();
+        let empty = insert_empty_commit(path, &Destination::AboveCommit(commit)).unwrap();
+        let rewritten = move_files(path, commit, empty, &[five_b_out(&diff)]).unwrap();
+        let (commit, empty) = (
+            rewritten.get(&commit).copied().unwrap_or(commit),
+            rewritten.get(&empty).copied().unwrap_or(empty),
+        );
+        let below = git(path, &["show", &format!("{}:file", commit.0)]);
+        let above = git(path, &["show", &format!("{}:file", empty.0)]);
+        assert!(!below.contains("five b"), "{below}");
+        assert!(above.contains("five a\nfive b\n"), "{above}");
+    }
+
+    #[test]
+    fn amending_picked_lines_commits_just_those() {
+        let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let dir = repo_with(&lines.concat());
+        let path = dir.path();
+        let mut edited = lines.clone();
+        edited[4] = "five a\nfive b\n".into();
+        std::fs::write(path.join("file"), edited.concat()).unwrap();
+
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let hunk = &diff[0].hunks()[0];
+        let picks = std::collections::BTreeSet::from([line_in(hunk, "five a")]);
+        let picked = Selected {
+            file: diff[0].file.clone(),
+            hunks: Some(hunk.picked(&picks)),
+        };
+        let head = git(path, &["rev-parse", "HEAD"]);
+        let head = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        amend(path, head, &[picked], None, false).unwrap();
+
+        let amended = git(path, &["show", "HEAD:file"]);
+        // Just the added line: line 5, whose removal wasn't picked, stays below it.
+        assert!(amended.contains("line 4\nfive a\nline 5\n"), "{amended}");
+        assert_eq!(
+            std::fs::read_to_string(path.join("file")).unwrap(),
+            edited.concat(),
+            "the rest stays uncommitted on disk"
+        );
     }
 }
