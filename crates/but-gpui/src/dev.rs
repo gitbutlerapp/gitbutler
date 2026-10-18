@@ -75,13 +75,21 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
     let Some(path) = std::env::var_os("GITBUTLER_GPUI_SCRIPT").map(PathBuf::from) else {
         return;
     };
-    let script = match std::fs::read_to_string(&path) {
-        Ok(script) => script,
-        Err(err) => {
-            eprintln!("can't read {}: {err}", path.display());
-            return;
+    // Read as lines arrive, so a pipe (`tail -f steps | …` with the script at /dev/stdin)
+    // drives the app a step at a time. Opened there too, as a pipe's open waits for a writer.
+    let (send, mut script) = futures::channel::mpsc::unbounded();
+    std::thread::spawn(move || {
+        use std::io::BufRead as _;
+        let file = match std::fs::File::open(&path) {
+            Ok(file) => file,
+            Err(err) => return eprintln!("can't read {}: {err}", path.display()),
+        };
+        for line in std::io::BufReader::new(file).lines().map_while(Result::ok) {
+            if send.unbounded_send(line).is_err() {
+                break;
+            }
         }
-    };
+    });
     // Off screen, macOS naps the app after half a minute: its timers coalesce and its
     // threads lose priority, so every step slows down. Timings should be a visible window's.
     std::mem::forget(
@@ -95,7 +103,10 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
     // In the window, where a script sees and clicks them, not in a native alert.
     cx.set_prompt_builder(gpui::fallback_prompt_renderer);
     cx.spawn(async move |cx| {
-        for (line_no, line) in script.lines().enumerate() {
+        use futures::StreamExt as _;
+        let mut line_no = 0;
+        while let Some(line) = script.next().await {
+            line_no += 1;
             let line = line.split('#').next().unwrap_or_default().trim();
             if line.is_empty() {
                 continue;
@@ -163,7 +174,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
             }
             .await;
             if let Err(err) = result {
-                eprintln!("script line {}: {line}: {err:#}", line_no + 1);
+                eprintln!("script line {line_no}: {line}: {err:#}");
             }
             // Let the frame settle before the next step, and draw what it asked to draw again
             // (a measured height), as macOS would for a window on screen.
