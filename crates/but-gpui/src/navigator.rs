@@ -862,18 +862,25 @@ impl Navigator {
                 })
                 .when(expanded && needs_update, |el| {
                     let project = id.clone();
+                    // Pressing it leaves the selection where it is, as pressing the row wouldn't.
                     el.child(
-                        button(ElementId::Name(format!("update-{id}").into()), "Update")
-                            .small()
-                            .style(ButtonStyle::Gray)
-                            .inverted(style.solid)
-                            .tooltip("Rebase your branches onto the target's new commits")
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                let project = project.clone();
-                                this.app
-                                    .update(cx, |app, cx| app.update_from_target(project, cx))
-                                    .ok();
-                            })),
+                        div()
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .child(
+                                button(ElementId::Name(format!("update-{id}").into()), "Update")
+                                    .small()
+                                    .style(ButtonStyle::Gray)
+                                    .inverted(style.solid)
+                                    .tooltip("Rebase your branches onto the target's new commits")
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        let project = project.clone();
+                                        this.app
+                                            .update(cx, |app, cx| {
+                                                app.update_from_target(project, cx)
+                                            })
+                                            .ok();
+                                    })),
+                            ),
                     )
                 })
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
