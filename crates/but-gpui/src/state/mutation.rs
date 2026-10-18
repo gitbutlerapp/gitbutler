@@ -580,6 +580,8 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let shown = project.clone();
+        // Out of a linked worktree, which the oplog can't put it back into.
+        let undoable = !self.in_worktree(project, id);
         self.run(
             project,
             "Move to a new branch",
@@ -588,7 +590,7 @@ impl Store {
             move |store, (rewritten, branch), cx| {
                 store.follow(&rewritten, cx);
                 store.select(Some(Selection::Branch(shown, branch)), cx);
-                store.snack_undoable("Moved to a new branch", cx)
+                store.snack_after(undoable, "Moved to a new branch", cx)
             },
             cx,
         );
@@ -648,6 +650,7 @@ impl Store {
             n => format!("Uncommit {n} commits"),
         };
         // A linked worktree's commits uncommit into it, which the oplog can't bring back.
+        let undoable = !ids.iter().any(|id| self.in_worktree(project, *id));
         let home = (ids.first())
             .and_then(|id| self.worktree_of(&Selection::Commit(project.clone(), *id)))
             .map(|worktree| worktree.name.clone());
@@ -677,7 +680,7 @@ impl Store {
                     };
                     store.select(Some(shown), cx);
                 }
-                store.snack_after(home.is_none(), "Uncommitted", cx)
+                store.snack_after(undoable, "Uncommitted", cx)
             },
             cx,
         );

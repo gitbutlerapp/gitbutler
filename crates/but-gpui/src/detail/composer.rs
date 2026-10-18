@@ -451,16 +451,12 @@ impl Detail {
     }
 
     pub fn start_reword(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(selection @ Selection::Commit(..)) = self.selection(cx) else {
-            return;
-        };
-        if (self.store).update(cx, |store, cx| store.changes_elsewhere(&selection, cx)) {
-            return;
-        }
-        let Selection::Commit(project, id) = selection else {
+        let Some(Selection::Commit(project, id)) = self.selection(cx) else {
             return;
         };
         let store = self.store.read(cx);
+        // The oplog can't take back what rewrites a linked worktree's branch.
+        let undoable = !store.in_worktree(&project, id);
         // A rewording still running is where the next one starts.
         let Some(message) = (store.find_commit(&project, id))
             .map(|(_, commit)| store.message_of(&project, commit).1.to_owned())
@@ -499,9 +495,9 @@ impl Detail {
                             "Edit message",
                             overlay,
                             move |path, remap| backend::reword(path, remap.get(id)?, &message),
-                            |store, rewritten, cx| {
+                            move |store, rewritten, cx| {
                                 store.follow(&rewritten, cx);
-                                store.snack_undoable("Message updated", cx)
+                                store.snack_after(undoable, "Message updated", cx)
                             },
                             cx,
                         )
