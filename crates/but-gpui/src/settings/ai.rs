@@ -32,16 +32,23 @@ pub(super) struct Ai {
 }
 
 impl Ai {
-    pub(super) fn new(cx: &mut Context<SettingsView>) -> Self {
+    pub(super) fn new(window: &mut Window, cx: &mut Context<SettingsView>) -> Self {
         let key = cx.new(|cx| TextInput::new("Paste a key", false, cx).masked());
         let model = cx.new(|cx| TextInput::new("Model", false, cx));
         let endpoint = cx.new(|cx| TextInput::new("http://localhost:11434", false, cx));
         for input in [&key, &model, &endpoint] {
-            cx.subscribe(input, |this, input, event, cx| match event {
-                InputEvent::Submit => this.save_ai_field(&input, cx),
-                InputEvent::Changed => cx.notify(),
-                InputEvent::Cancel => this.sync_ai_fields(cx),
-            })
+            cx.subscribe_in(
+                input,
+                window,
+                |this, input, event, window, cx| match event {
+                    InputEvent::Submit => this.save_ai_field(input, cx),
+                    InputEvent::Changed => cx.notify(),
+                    InputEvent::Cancel => {
+                        this.sync_ai_fields(cx);
+                        this.back_to_search(window, cx);
+                    }
+                },
+            )
             .detach();
         }
         Self {
