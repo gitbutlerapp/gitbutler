@@ -18,6 +18,9 @@ use crate::ui::{ButtonStyle, button, faint, h_flex, muted, switch, v_flex};
 
 actions!(pr, [CreatePullRequest, MergePullRequest]);
 
+/// Why a pull request with commits not pushed yet can't be merged.
+pub const PUSH_BEFORE_MERGE: &str = "Push first, so the pull request has these commits";
+
 pub struct ReviewView {
     store: Entity<Store>,
     project: ProjectId,
@@ -473,6 +476,12 @@ impl AppView {
         else {
             return;
         };
+        // The forge merges what it has, not the commits only here.
+        if (self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.can_push(&branch)) {
+            self.store
+                .update(cx, |store, cx| store.snack(PUSH_BEFORE_MERGE, cx));
+            return;
+        }
         // GitLab merges as the project is set up to, whatever is asked for.
         let gitlab = (self.store.read(cx).workspace(&project)).and_then(|ws| ws.forge)
             == Some(Forge::GitLab);

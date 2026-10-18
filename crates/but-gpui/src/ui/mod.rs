@@ -359,9 +359,10 @@ impl Button {
         })
     }
 
-    /// Unpressable for the reason given, if any, which its tooltip says instead.
+    /// Unpressable for the reason given, if any, which its tooltip says instead. `None`
+    /// keeps an earlier reason.
     pub fn disabled_because(mut self, why: Option<impl Into<SharedString>>) -> Self {
-        self.disabled = why.map(Into::into);
+        self.disabled = why.map(Into::into).or(self.disabled);
         self
     }
 
