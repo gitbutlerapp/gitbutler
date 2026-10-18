@@ -20,6 +20,7 @@ pub use diff_view::DiffPane;
 pub use resolve::ResolveConflicts;
 
 use std::cell::Cell;
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -35,7 +36,7 @@ use gpui::{
 use crate::app::{AddProject, AppView};
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
-use crate::state::{Pane, Picks, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{FileSort, Pane, Picks, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -176,10 +177,11 @@ pub const FOOTER_HEIGHT: f32 = 44.;
 
 struct LoadedDiff {
     key: DiffKey,
-    /// In the file list's order: as loaded, or as the tree lists them.
+    /// In the file list's order: as picked, and in a tree, folder by folder.
     files: Arc<Vec<FileDiff>>,
-    /// The files are in the tree's order.
+    /// The files are in the tree's order, and the order they're sorted in.
     tree: bool,
+    sort: FileSort,
     rows: Vec<DiffRow>,
 }
 
@@ -421,8 +423,10 @@ impl Detail {
                     })
                     .collect();
                 this.forget(gone, cx);
-                let tree = store.read(cx).file_tree;
-                if let Some(diff) = this.diff.as_ref().filter(|diff| diff.tree != tree) {
+                let order = (store.read(cx).file_tree, store.read(cx).file_sort);
+                if let Some(diff) =
+                    (this.diff.as_ref()).filter(|diff| (diff.tree, diff.sort) != order)
+                {
                     let key = diff.key.clone();
                     let files = this
                         .recent_files(&key)
@@ -862,15 +866,23 @@ impl Detail {
             gone.push(self.recent.remove(0));
         }
         self.forget(gone, cx);
-        // The keys step through the files as the list shows them.
-        let tree = self.store.read(cx).file_tree;
-        let files = match tree {
-            true => {
+        // The keys step through the files as the list shows them: in the order picked, and
+        // in a tree, folder by folder. Copied only when that's not how they came.
+        let (tree, sort) = (self.store.read(cx).file_tree, self.store.read(cx).file_sort);
+        let order = |a: &FileDiff, b: &FileDiff| {
+            let folders = match tree {
+                true => file_tree::folder_order(&a.file.path, &b.file.path),
+                false => Ordering::Equal,
+            };
+            folders.then_with(|| file_tree::file_order(sort, &a.file, &b.file))
+        };
+        let files = match files.is_sorted_by(|a, b| order(a, b).is_le()) {
+            true => files,
+            false => {
                 let mut sorted = files.to_vec();
-                sorted.sort_by(|a, b| file_tree::tree_order(&a.file.path, &b.file.path));
+                sorted.sort_by(order);
                 Arc::new(sorted)
             }
-            false => files,
         };
         let rows = self.build_rows(&key, &files, cx);
         let top = same.then(|| self.keep_place(&rows, &files));
@@ -905,6 +917,7 @@ impl Detail {
             key,
             files,
             tree,
+            sort,
             rows,
         });
         self.settle_line_picks();

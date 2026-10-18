@@ -15,7 +15,7 @@ use super::{Detail, FilterFiles, keeps_path};
 use crate::app::AppView;
 use crate::backend::{self, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Overlay, ProjectId, Rereads, Selection};
+use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
@@ -182,14 +182,17 @@ impl Detail {
         let (index, paths): (Vec<usize>, Vec<&str>) = match &source {
             FileSource::Uncommitted(project, worktree) => {
                 let worktree = worktree.as_deref();
-                (store.workspace(project))
+                let files = (store.workspace(project))
                     .and_then(|ws| ws.uncommitted_in(worktree))
-                    .unwrap_or_default()
-                    .iter()
-                    .enumerate()
+                    .unwrap_or_default();
+                let mut kept: Vec<(usize, &FileChange)> = (files.iter().enumerate())
                     .filter(|(_, f)| {
                         !store.hides_file(project, worktree, &f.path) && keeps_path(&terms, &f.path)
                     })
+                    .collect();
+                // In the order picked, as the diff beside it has them.
+                kept.sort_by(|(_, a), (_, b)| file_tree::file_order(store.file_sort, a, b));
+                (kept.into_iter())
                     .map(|(pos, f)| (pos, f.path.as_str()))
                     .unzip()
             }
@@ -646,16 +649,28 @@ impl Detail {
             )
     }
 
-    /// The file list's ⋯ menu, as but.dev's: the files as a list or as a tree.
+    /// The file list's ⋯ menu, as but.dev's: the files as a list or as a tree, by name or
+    /// the last written first. Files with no write time, as a commit's, go by name either way.
     fn view_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
-        let tree = self.store.read(cx).file_tree;
+        let (tree, sort) = (self.store.read(cx).file_tree, self.store.read(cx).file_sort);
         let show = |label: &str, as_tree: bool| {
             MenuItem::new(label.to_owned(), move |this, _, cx| {
                 (this.store).update(cx, |store, cx| store.set_file_tree(as_tree, cx))
             })
             .ticked(tree == as_tree)
         };
-        let items = vec![show("As list", false).under("View"), show("As tree", true)];
+        let by = |label: &str, by: FileSort| {
+            MenuItem::new(label.to_owned(), move |this, _, cx| {
+                (this.store).update(cx, |store, cx| store.set_file_sort(by, cx))
+            })
+            .ticked(sort == by)
+        };
+        let items = vec![
+            show("As list", false).under("View"),
+            show("As tree", true),
+            by("Name", FileSort::Name).separated().under("Sort by"),
+            by("Last modified", FileSort::Modified),
+        ];
         (self.app)
             .update(cx, |app, cx| app.open_menu(position, items, cx))
             .ok();
