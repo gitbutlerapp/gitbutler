@@ -1006,7 +1006,7 @@ impl Detail {
                 file,
                 hunk: Some(hunk),
             };
-            self.list.scroll_to_reveal_item(row);
+            self.reveal_row(row);
             cx.notify();
         }
     }
@@ -1276,6 +1276,21 @@ impl Detail {
                 app.discard(project, worktree, vec![change], window, cx)
             })
             .ok();
+    }
+
+    /// Bring diff row `row` into view: left where it is when it's on screen, else scrolled to
+    /// just below the top. gpui's own reveal goes by estimated heights, and past rows not
+    /// drawn yet, like a file header or an image, it stops short.
+    fn reveal_row(&mut self, row: usize) {
+        let view = self.list.viewport_bounds();
+        let shown = (self.list.bounds_for_item(row))
+            .is_some_and(|item| item.top() >= view.top() && item.bottom() <= view.bottom());
+        if !shown {
+            self.list.scroll_to(ListOffset {
+                item_ix: row.saturating_sub(2),
+                offset_in_item: px(0.),
+            });
+        }
     }
 
     fn scroll_to_file(&mut self, file_ix: usize, cx: &mut Context<Self>) {

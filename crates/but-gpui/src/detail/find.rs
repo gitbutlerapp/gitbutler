@@ -142,7 +142,7 @@ impl Detail {
             self.toggle_fold(file, cx);
         }
         if let Some(ix) = self.row_of(same_line) {
-            self.list.scroll_to_reveal_item(ix);
+            self.reveal_row(ix);
         }
     }
 
