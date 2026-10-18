@@ -146,7 +146,10 @@ pub const FOOTER_HEIGHT: f32 = 44.;
 
 struct LoadedDiff {
     key: DiffKey,
+    /// In the file list's order: as loaded, or as the tree lists them.
     files: Arc<Vec<FileDiff>>,
+    /// The files are in the tree's order.
+    tree: bool,
     rows: Vec<DiffRow>,
 }
 
@@ -343,8 +346,19 @@ impl Detail {
                     cx.notify()
                 }
             }),
-            // What the side panel shows comes from the store.
-            cx.observe(&store, |_, _, cx| cx.notify()),
+            // What the side panel shows comes from the store, and the diff's files go in the
+            // file list's order, as the keys step through them.
+            cx.observe(&store, |this, store, cx| {
+                let tree = store.read(cx).file_tree;
+                if let Some(diff) = this.diff.as_ref().filter(|diff| diff.tree != tree) {
+                    let key = diff.key.clone();
+                    let files = this
+                        .recent_files(&key)
+                        .unwrap_or_else(|| diff.files.clone());
+                    this.show_diff(key, files, cx);
+                }
+                cx.notify()
+            }),
         ];
         let mut detail = Self {
             store,
@@ -671,6 +685,16 @@ impl Detail {
             self.recent.remove(0);
         }
         self.recent.push((key.clone(), files.clone()));
+        // The keys step through the files as the list shows them.
+        let tree = self.store.read(cx).file_tree;
+        let files = match tree {
+            true => {
+                let mut sorted = files.to_vec();
+                sorted.sort_by(|a, b| file_tree::tree_order(&a.file.path, &b.file.path));
+                Arc::new(sorted)
+            }
+            false => files,
+        };
         let rows = self.build_rows(&key, &files, cx);
         let top = same.then(|| self.keep_place(&rows, &files));
         // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
@@ -693,7 +717,12 @@ impl Detail {
             })
             .map(|(ix, _)| ix)
             .collect();
-        self.diff = Some(LoadedDiff { key, files, rows });
+        self.diff = Some(LoadedDiff {
+            key,
+            files,
+            tree,
+            rows,
+        });
         self.prune_resolving();
         for file in stale {
             self.load_whole(file, cx);
@@ -950,7 +979,21 @@ impl Detail {
 
     /// Step `delta` files through the ones shown.
     fn move_file(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let shown = self.shown_files();
+        // Not into a directory folded shut in the tree, whose files the list doesn't show.
+        let folded_away = |file: &usize| {
+            let path = (self.diff.as_ref()).and_then(|diff| diff.files.get(*file));
+            path.is_some_and(|f| {
+                (self.collapsed_dirs.iter()).any(|dir| {
+                    (f.file.path.strip_prefix(dir.as_str()))
+                        .is_some_and(|rest| rest.starts_with('/'))
+                })
+            })
+        };
+        let tree = self.store.read(cx).file_tree;
+        let mut shown = self.shown_files();
+        if tree {
+            shown.retain(|file| !folded_away(file));
+        }
         if shown.is_empty() {
             return;
         }
