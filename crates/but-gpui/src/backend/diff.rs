@@ -504,8 +504,8 @@ fn load_file(
 fn decoded(bytes: &[u8], decode: impl FnOnce(&[u8]) -> Option<Picture>) -> Option<Picture> {
     use std::hash::{Hash as _, Hasher as _};
     use std::sync::{LazyLock, Mutex};
-    // At most 2.8 MB each.
-    const KEPT: usize = 64;
+    // About this many bytes of pixels, the oldest going first; one image can be 2.8 MB.
+    const KEPT_BYTES: usize = 32 << 20;
     type Kept = std::collections::VecDeque<(u64, Picture)>;
     static DECODED: LazyLock<Mutex<Kept>> = LazyLock::new(Default::default);
     let mut hasher = std::hash::DefaultHasher::new();
@@ -516,10 +516,16 @@ fn decoded(bytes: &[u8], decode: impl FnOnce(&[u8]) -> Option<Picture>) -> Optio
     }
     let render = decode(bytes)?;
     let mut decoded = DECODED.lock().ok()?;
-    if decoded.len() == KEPT {
+    decoded.push_back((key, render.clone()));
+    let bytes = |kept: &Kept| -> usize {
+        let sizes = kept.iter().map(|(_, picture)| picture.image.size(0));
+        sizes
+            .map(|size| (size.width.0 * size.height.0 * 4) as usize)
+            .sum()
+    };
+    while decoded.len() > 1 && bytes(&decoded) > KEPT_BYTES {
         decoded.pop_front();
     }
-    decoded.push_back((key, render.clone()));
     Some(render)
 }
 

@@ -496,6 +496,18 @@ pub struct Picture {
 }
 
 impl FileDiff {
+    /// The images it shows: an image file's sides, or an SVG's drawn.
+    pub fn pictures(&self) -> impl Iterator<Item = &Picture> {
+        let image = match &self.body {
+            DiffBody::Image { before, after } => [before.as_ref(), after.as_ref()],
+            _ => [None, None],
+        };
+        let drawn = (self.drawing.as_ref()).map_or([None, None], |drawn| {
+            [drawn.before.as_ref(), drawn.after.as_ref()]
+        });
+        image.into_iter().chain(drawn).flatten()
+    }
+
     pub fn stats(&self) -> (u32, u32) {
         match &self.body {
             DiffBody::Hunks { added, removed, .. } => (*added, *removed),
