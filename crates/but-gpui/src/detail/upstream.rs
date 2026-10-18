@@ -279,9 +279,19 @@ impl Detail {
                 (entry.workspace.as_ref())
                     .filter(|ws| !ws.managed && ws.editing.is_none() && ws.target.is_some())
                     .map(|ws| {
-                        let on = match &ws.checked_out {
-                            Some(branch) => format!("Working on {branch} directly."),
-                            None => "Working outside the workspace.".to_owned(),
+                        // Until Git finishes, the workspace is no place to go back to.
+                        let text = match (&ws.checked_out, ws.git_operation) {
+                            (_, Some(op)) => format!(
+                                "Git is partway through {op}. Finish it in a terminal with \
+                                 `{op} --continue`, or stop it with `{op} --abort`."
+                            ),
+                            (Some(branch), None) => format!(
+                                "Working on {branch} directly. Use the GitButler workspace to \
+                                 work on several branches at once."
+                            ),
+                            (None, None) => "Working outside the workspace. Use the GitButler \
+                                             workspace to work on several branches at once."
+                                .to_owned(),
                         };
                         let project = project.clone();
                         v_flex()
@@ -291,31 +301,32 @@ impl Detail {
                             .p(px(8.))
                             .rounded(px(6.))
                             .bg(theme.hover())
-                            .child(div().text_color(theme.text_1).child(format!(
-                                "{on} Use the GitButler workspace to work on several branches \
-                                 at once."
-                            )))
-                            .child(
-                                crate::ui::button("switch-back", "Back to workspace")
-                                    .small()
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.store.update(cx, |store, cx| {
-                                            store.run(
-                                                &project,
-                                                "Back to workspace",
-                                                Overlay::default(),
-                                                |path, _| backend::switch_back_to_workspace(path),
-                                                |store, (), cx| {
-                                                    store.snack(
-                                                        "Back in the GitButler workspace",
-                                                        cx,
-                                                    )
-                                                },
-                                                cx,
-                                            )
-                                        })
-                                    })),
-                            )
+                            .child(div().text_color(theme.text_1).child(text))
+                            .when(ws.git_operation.is_none(), |el| {
+                                el.child(
+                                    crate::ui::button("switch-back", "Back to workspace")
+                                        .small()
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            this.store.update(cx, |store, cx| {
+                                                store.run(
+                                                    &project,
+                                                    "Back to workspace",
+                                                    Overlay::default(),
+                                                    |path, _| {
+                                                        backend::switch_back_to_workspace(path)
+                                                    },
+                                                    |store, (), cx| {
+                                                        store.snack(
+                                                            "Back in the GitButler workspace",
+                                                            cx,
+                                                        )
+                                                    },
+                                                    cx,
+                                                )
+                                            })
+                                        })),
+                                )
+                            })
                     }),
             )
             .when(!entry.project.path.exists(), |el| {

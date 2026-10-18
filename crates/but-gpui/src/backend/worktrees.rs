@@ -9,7 +9,7 @@ use anyhow::Result;
 use bstr::ByteSlice;
 use but_ctx::Context;
 
-use super::{Workspace, Worktree, open, worktree_files};
+use super::{FileChange, Workspace, Worktree, git_operation, open, worktree_files};
 
 /// The active linked worktrees with their uncommitted changes, and the names of the
 /// archived ones.
@@ -28,13 +28,14 @@ pub(super) fn linked(ctx: &Context) -> Result<Option<Listing>> {
     let active = (listing.active.into_iter())
         .filter_map(|listed| {
             let name: Arc<str> = listed.name.to_str_lossy().into();
-            let uncommitted = files_of(&repo, &name)?;
+            let (uncommitted, git_operation) = read(&repo, &name)?;
             Some(Worktree {
                 name,
                 path: listed.path,
                 branch: listed.ref_name.map(|name| name.shorten().to_string()),
                 lane_end: None,
                 uncommitted,
+                git_operation,
                 updated_at: listed.updated_at_ms.map(|ms| ms / 1000),
             })
         })
@@ -63,9 +64,10 @@ pub fn reload_uncommitted(
         if !linked.contains(&worktree.name) {
             return true;
         }
-        match files_of(&repo, &worktree.name) {
-            Some(files) => {
+        match read(&repo, &worktree.name) {
+            Some((files, operation)) => {
                 worktree.uncommitted = files;
+                worktree.git_operation = operation;
                 true
             }
             None => false,
@@ -75,13 +77,13 @@ pub fn reload_uncommitted(
     Ok(shown)
 }
 
-/// The uncommitted files of worktree `name`, or nothing when it can't be read, as when an
-/// agent just removed it: the next full load lists the worktrees as they are.
-fn files_of(repo: &gix::Repository, name: &str) -> Option<Vec<super::FileChange>> {
-    let files = but_workspace::worktrees::open_worktree_repo(repo, name.as_bytes().as_bstr())
-        .and_then(|checkout| worktree_files(&checkout));
-    files
-        .inspect_err(|err| tracing::warn!("couldn't read worktree {name}: {err:#}"))
+/// The uncommitted files of worktree `name` and the Git command it's partway through, or
+/// nothing when it can't be read, as when an agent just removed it: the next full load lists
+/// the worktrees as they are.
+fn read(repo: &gix::Repository, name: &str) -> Option<(Vec<FileChange>, Option<&'static str>)> {
+    let read = but_workspace::worktrees::open_worktree_repo(repo, name.as_bytes().as_bstr())
+        .and_then(|checkout| Ok((worktree_files(&checkout)?, git_operation(&checkout))));
+    read.inspect_err(|err| tracing::warn!("couldn't read worktree {name}: {err:#}"))
         .ok()
 }
 
