@@ -175,6 +175,15 @@ impl Workspace {
         })
     }
 
+    /// The lane holding the branch `ref_name`, a stack's or a linked worktree's, and the
+    /// branch's place in it from the top.
+    pub fn lane_of(&self, ref_name: &str) -> Option<(&[Branch], usize)> {
+        self.lanes().find_map(|lane| {
+            let at = lane.iter().position(|b| b.ref_name == ref_name)?;
+            Some((lane, at))
+        })
+    }
+
     /// The stack holding the branch `ref_name`, and the branch's place in it from the top.
     pub fn stack_of(&self, ref_name: &str) -> Option<(&Stack, usize)> {
         self.stacks.iter().find_map(|stack| {

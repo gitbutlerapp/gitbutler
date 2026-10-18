@@ -647,6 +647,10 @@ impl Store {
             1 => "Uncommit".to_owned(),
             n => format!("Uncommit {n} commits"),
         };
+        // A linked worktree's commits uncommit into it, which the oplog can't bring back.
+        let home = (ids.first())
+            .and_then(|id| self.worktree_of(&Selection::Commit(project.clone(), *id)))
+            .map(|worktree| worktree.name.clone());
         let project = project.clone();
         self.run(
             &project.clone(),
@@ -667,9 +671,13 @@ impl Store {
                         .key_of(selected, *id)
                         .is_some_and(|key| keys.contains(&key))
                 {
-                    store.select(Some(Selection::Uncommitted(project)), cx);
+                    let shown = match home.clone() {
+                        Some(name) => Selection::Worktree(project, name),
+                        None => Selection::Uncommitted(project),
+                    };
+                    store.select(Some(shown), cx);
                 }
-                store.snack_undoable("Uncommitted", cx)
+                store.snack_after(home.is_none(), "Uncommitted", cx)
             },
             cx,
         );
