@@ -67,9 +67,35 @@
 		var(--transition-button),
 		border-color var(--transition-fast);
 
+	/* The hover ground: the segment's own box, growing a little as it fades in. Under the
+	   pointer only, never on the picked segment, which has the raised ground. */
+	&::before {
+		position: absolute;
+		/* Out over the border, so the ground fills the segment edge to edge. */
+		inset: -1px;
+		scale: 0.92;
+		border-radius: var(--radius-control);
+		background-color: var(--bg-hover);
+		content: "";
+		opacity: 0;
+		transition:
+			opacity var(--transition-fast) ease-out,
+			scale var(--transition-fast) ease-out;
+	}
+
+	&:hover:not([data-pressed], [data-disabled])::before {
+		scale: 1;
+		opacity: 1;
+	}
+
+	/* Positioned, so the icon, label and count paint above the ground. */
+	& > * {
+		position: relative;
+	}
+
 	/* The divider on the seam before this segment: a short line, gone beside the picked segment,
-	   where the raised ground already draws the edge. */
-	& + &::before {
+	   where the raised ground already draws the edge, and beside a hovered one. */
+	& + &::after {
 		position: absolute;
 		top: 50%;
 		left: -1px;
@@ -81,8 +107,8 @@
 		transition: opacity var(--transition-medium) ease-out;
 	}
 
-	&[data-pressed]::before,
-	&[data-pressed] + &::before {
+	&:is([data-pressed], :hover:not([data-disabled]))::after,
+	&:is([data-pressed], :hover:not([data-disabled])) + &::after {
 		opacity: 0;
 	}
 
@@ -142,6 +168,11 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.segment::before {
+		scale: 1;
+		transition: opacity var(--transition-fast);
+	}
+
+	.segment::after {
 		transition: none;
 	}
 }

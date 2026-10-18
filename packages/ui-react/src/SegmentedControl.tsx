@@ -51,7 +51,7 @@ const placeGround = (track: HTMLElement | null) => {
  * Picks one value of a setting, a filter or a mode from a few {@link Segment}s, and always has one
  * picked: a diff's Split or Unified, a theme, whose notifications to show. The picked segment is
  * raised on a gray track, and the raised ground slides to the next one picked. The others sit
- * quieter, with a short divider between two of them, and come up under the pointer.
+ * quieter, with a short divider between two of them; under the pointer one comes up on a ground.
  *
  * - Not for switching what a pane shows: that is `Tabs`. Not for switches that turn on and off on
  *   their own: that is a `ToggleGroup` with `multiple`.
