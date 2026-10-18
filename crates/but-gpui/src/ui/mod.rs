@@ -657,16 +657,31 @@ pub fn short_path(path: &std::path::Path) -> String {
 }
 
 /// What to show of an error: Git's own complaints when it ran Git, like "fatal: Could not
-/// read from remote repository.", as the rest repeats the command it ran; else its first
-/// lines, without the codes libgit2 appends ("; class=Index (10); code=Locked (-14)").
+/// read from remote repository.", and what the remote said back, as a server's hook does
+/// when it refuses a push, as the rest repeats the command it ran; else its first lines,
+/// without the codes libgit2 appends ("; class=Index (10); code=Locked (-14)").
 pub fn error_summary(text: &str) -> String {
     let lines: Vec<&str> = (text.lines())
         .map(|line| line.split("; class=").next().unwrap_or(line))
         .collect();
     let mut said: Vec<&str> = Vec::new();
     for line in lines.iter().map(|line| line.trim()) {
-        if (line.starts_with("fatal:") || line.starts_with("error:")) && !said.contains(&line) {
-            said.push(line);
+        let (remote, line) = match line.strip_prefix("remote:") {
+            Some(said) => (true, said.trim()),
+            None => (false, line),
+        };
+        let git = line.starts_with("fatal:") || line.starts_with("error:");
+        if line.is_empty() || !(remote || git) {
+            continue;
+        }
+        // Git's line again with a wrapper's ": …" after it keeps its short form.
+        let wraps = |long: &str, short: &str| {
+            (long.strip_prefix(short)).is_some_and(|rest| rest.is_empty() || rest.starts_with(':'))
+        };
+        match (said.iter_mut()).find(|said| wraps(said, line) || wraps(line, said)) {
+            Some(said) if line.len() < said.len() => *said = line,
+            Some(_) => {}
+            None => said.push(line),
         }
     }
     match said.is_empty() {
@@ -777,6 +792,23 @@ mod tests {
             "fatal: '/x.git' does not appear to be a git repository\n\
              fatal: Could not read from remote repository.",
             "Git's own lines, each once"
+        );
+        let rejected = "error: remote unpack failed\n ! [remote rejected] a -> b\n\
+            error: failed to push some refs to '/u.git': git command exited with code 1:\n\n\
+            STDERR:\nerror: remote unpack failed\nerror: failed to push some refs to '/u.git'\n";
+        assert_eq!(
+            error_summary(rejected),
+            "error: remote unpack failed\nerror: failed to push some refs to '/u.git'",
+            "a line repeated with the wrapper's words after it, in its short form"
+        );
+        let declined = "git command exited with non-zero exit code 1:\nSTDERR:\n\
+            remote: pushes are frozen for the release        \n\
+            ! [remote rejected] a -> b (pre-receive hook declined)\n\
+            error: failed to push some refs to '/u.git'\n";
+        assert_eq!(
+            error_summary(declined),
+            "pushes are frozen for the release\nerror: failed to push some refs to '/u.git'",
+            "the remote's reason, as its hook gave it"
         );
         assert_eq!(
             error_summary("the index is locked; class=Index (10); code=Locked (-14)"),
