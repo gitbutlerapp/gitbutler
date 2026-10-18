@@ -21,7 +21,7 @@ use crate::app::AppView;
 use crate::backend::{
     self, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, Selected,
 };
-use crate::state::{Prefs, ProjectId, Review};
+use crate::state::{Pane, Prefs, ProjectId, Review};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::scrollbar::{Scroll, scrollbar};
@@ -84,7 +84,7 @@ impl Render for DiffPane {
             (
                 detail.focus.clone(),
                 detail.render_diff_tools(&theme, cx),
-                detail.render_diff(&theme, cx),
+                detail.render_diff(window, &theme, cx),
                 detail.render_find(window, &theme, cx),
             )
         });
@@ -281,7 +281,12 @@ impl Detail {
         had
     }
 
-    pub(super) fn render_diff(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn render_diff(
+        &self,
+        window: &Window,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
         let ground = || div().flex_1().min_w(px(0.)).h_full().bg(theme.bg_1);
         if let Some(err) = &self.diff_error {
             let message = empty_state("Couldn't load the diff", err.clone(), theme);
@@ -317,6 +322,8 @@ impl Detail {
                 .into_any_element();
         }
         let entity = cx.entity().downgrade();
+        // A narrow pane keeps its room for file names, not the review label.
+        let labelled = self.diff_width(window, cx) >= 480.;
         // A copy of the header of the file at the top, while the file scrolls under it. It's
         // clipped to the list, so the next file can push it out the top.
         let sticky = self.sticky_header(diff).map(|(ix, lift)| {
@@ -338,7 +345,7 @@ impl Detail {
                         // rounded corners.
                         .bg(theme.bg_1)
                         .block_mouse_except_scroll()
-                        .child(self.render_diff_row(ix, entity.clone(), cx)),
+                        .child(self.render_diff_row(ix, labelled, entity.clone(), cx)),
                 )
         });
         let scrollbar = scrollbar("diff-scrollbar", Scroll::List(self.list.clone()), theme);
@@ -364,7 +371,7 @@ impl Detail {
                             let Some(detail) = entity.upgrade() else {
                                 return div().into_any_element();
                             };
-                            detail.read(cx).render_diff_row(ix, detail.downgrade(), cx)
+                            (detail.read(cx)).render_diff_row(ix, labelled, detail.downgrade(), cx)
                         })
                         .size_full(),
                     )
@@ -372,6 +379,18 @@ impl Detail {
                     .children(scrollbar),
             )
             .into_any_element()
+    }
+
+    /// How wide the diff is drawn: the window less the panes beside it.
+    fn diff_width(&self, window: &Window, cx: &App) -> f32 {
+        let window = window.viewport_size().width.into();
+        let (navigator, files) = (!self.beside_traffic_lights, !self.files_hidden);
+        let store = self.store.read(cx);
+        let beside = |pane, shown| match shown {
+            true => store.fitted_width(pane, window, navigator, files),
+            false => 0.,
+        };
+        window - beside(Pane::Navigator, navigator) - beside(Pane::Files, files)
     }
 
     /// The bar over the diff, as but.dev's: the file list's toggle, which counts the files and
@@ -514,7 +533,13 @@ impl Detail {
         Some((header, lift))
     }
 
-    fn render_diff_row(&self, ix: usize, entity: WeakEntity<Detail>, cx: &App) -> AnyElement {
+    fn render_diff_row(
+        &self,
+        ix: usize,
+        labelled: bool,
+        entity: WeakEntity<Detail>,
+        cx: &App,
+    ) -> AnyElement {
         let theme = Theme::get(cx);
         let Some(diff) = self.diff.as_ref().filter(|diff| ix < diff.rows.len()) else {
             return div().into_any_element();
@@ -561,7 +586,9 @@ impl Detail {
                     .flex_none()
                     .gap(px(4.))
                     .children(whole)
-                    .children(review.map(|review| review_button(ix, file, review, entity, cx)))
+                    .children(
+                        review.map(|review| review_button(ix, file, review, labelled, entity, cx)),
+                    )
                     .children(more);
                 let header = diff::file_header(
                     file,
@@ -947,6 +974,7 @@ fn review_button(
     ix: usize,
     file: usize,
     review: Review,
+    labelled: bool,
     entity: WeakEntity<Detail>,
     cx: &App,
 ) -> AnyElement {
@@ -972,7 +1000,7 @@ fn review_button(
         })
         .hover(|el| el.bg(theme.hover()))
         .child(checkbox(("review-check", ix), check, theme))
-        .child(label)
+        .when(labelled, |el| el.child(label))
         .tooltip(move |_, cx| {
             let text = match review {
                 Review::Reviewed => "Mark not reviewed",
