@@ -1016,6 +1016,7 @@ fn image_row(
             )
             .child(match image {
                 Some(image) => div()
+                    .max_w_full()
                     .p(px(6.))
                     .rounded(px(4.))
                     .border_1()
