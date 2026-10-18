@@ -1244,6 +1244,7 @@ impl Navigator {
         let store = self.store.clone();
         let can_drop_target = target.clone();
         let menu_target = target.clone();
+        let paste_target = target.clone();
         let highlight = theme.pop;
         div()
             .relative()
@@ -1261,6 +1262,24 @@ impl Navigator {
                         .items_center()
                         .child(
                             div()
+                                .id(ElementId::Name(format!("paste-{paste_target:?}").into()))
+                                .cursor_pointer()
+                                // Opaque, as the row's own text sits under it.
+                                .hover(|el| el.bg(theme.bg_1.blend(highlight.opacity(0.14))))
+                                // It reads as a button, so it pastes, as ⌘V on the row does,
+                                // without pressing the row under it, which would select or
+                                // pick it, or start dragging it.
+                                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                                    let Some(cut) = this.store.read(cx).cut.clone() else {
+                                        return;
+                                    };
+                                    let (target, held) = (paste_target.clone(), window.modifiers());
+                                    (this.app.update(cx, |app, cx| {
+                                        app.transfer(&cut, &target, held, window, cx)
+                                    }))
+                                    .ok();
+                                }))
                                 .px(px(6.))
                                 .py(px(1.))
                                 .rounded(px(4.))
