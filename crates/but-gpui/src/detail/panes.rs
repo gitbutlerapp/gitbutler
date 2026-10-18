@@ -43,6 +43,20 @@ impl Detail {
                 Some(Selection::Project(entry.id.clone())),
             ));
             let workspace = entry.workspace.as_ref();
+            // The worktree a branch, stack or commit is in, named as its navigator heading is.
+            let heading = |item: &Selection| -> Crumb {
+                let project = item.project().clone();
+                match store.worktree_of(item) {
+                    Some(worktree) => (
+                        worktree.name.to_string().into(),
+                        Some(Selection::Worktree(project, worktree.name.clone())),
+                    ),
+                    None => (
+                        "Main worktree".into(),
+                        Some(Selection::Uncommitted(project)),
+                    ),
+                }
+            };
             match selection {
                 Selection::Project(_) => {
                     let needs_update = workspace
@@ -83,7 +97,7 @@ impl Detail {
                             crumbs.push((format!("Editing {title}").into(), None));
                             actions.extend(self.editing_actions(project, cx));
                         }
-                        None => crumbs.push(("Uncommitted changes".into(), None)),
+                        None => crumbs.push(("Main worktree".into(), None)),
                     }
                 }
                 Selection::Branch(_, ref_name) => {
@@ -91,6 +105,7 @@ impl Detail {
                         true => "Unnamed branch",
                         false => short_ref(ref_name),
                     };
+                    crumbs.push(heading(selection));
                     crumbs.push((name.to_owned().into(), None));
                     // An unnamed branch has no ref to open a pull request from.
                     let review = workspace
@@ -180,12 +195,13 @@ impl Detail {
                     self.branches_header(project, &mut crumbs, &mut actions, theme, cx);
                 }
                 Selection::Worktree(_, name) => {
-                    crumbs.push((format!("Worktree {name}").into(), None));
+                    crumbs.push((name.to_string().into(), None));
                 }
                 Selection::Stack(_, bottom) => {
                     let n = workspace
                         .and_then(|ws| ws.lane(bottom))
                         .map_or(0, <[_]>::len);
+                    crumbs.push(heading(selection));
                     crumbs.push((format!("Stack of {n}").into(), None));
                 }
                 Selection::History(project) => {
@@ -196,6 +212,7 @@ impl Detail {
                     if let Some((branch, commit)) = workspace.and_then(|ws| ws.find_commit(*id)) {
                         let branch_selection =
                             Selection::Branch(project.clone(), branch.ref_name.clone());
+                        crumbs.push(heading(selection));
                         crumbs.push((branch.name.clone().into(), Some(branch_selection)));
                         crumbs.push((commit.id.short().into(), None));
                     }
