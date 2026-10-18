@@ -204,6 +204,34 @@ pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stat
         .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
 }
 
+/// A selected `row` whose neighbours are selected too, `above` and `below`: a run of them
+/// reads as one block, as Finder draws one, rounded only where it starts and ends, with a
+/// faint line between its rows. `solid` as `list_row`'s selection is while its list has
+/// the focus.
+pub fn joined(
+    row: Stateful<Div>,
+    (above, below): (bool, bool),
+    solid: bool,
+    theme: &Theme,
+) -> Stateful<Div> {
+    let line = match solid {
+        true => theme.text_inverted.opacity(0.1),
+        false => theme.bg_1.opacity(0.4),
+    };
+    row.when(above, |el| {
+        el.relative().rounded_t(px(0.)).child(
+            div()
+                .absolute()
+                .top_0()
+                .left(px(8.))
+                .right(px(8.))
+                .h(px(1.))
+                .bg(line),
+        )
+    })
+    .when(below, |el| el.rounded_b(px(0.)))
+}
+
 /// An on/off switch, for a setting that applies at once.
 pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Stateful<Div> {
     h_flex()

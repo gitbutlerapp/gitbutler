@@ -1,6 +1,8 @@
 //! The file lists beside the diff: uncommitted files, or the loaded diff's, flat or as a
 //! tree, with what right-clicking them offers.
 
+use std::collections::HashSet;
+
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
     Point, ScrollStrategy, SharedString, Stateful, Toggled, div, img, prelude::*, px,
@@ -43,6 +45,8 @@ struct FileRow {
     depth: Option<usize>,
     /// Picked with other files, which its menu and a drag take along.
     picked: bool,
+    /// The rows above and below are picked with it: see [`crate::ui::joined`].
+    joined: (bool, bool),
 }
 
 /// How far each level of a file tree steps in.
@@ -226,6 +230,14 @@ impl Detail {
             *self.listed_cursor.borrow_mut() = cursor;
         }
         let picked = self.picked_cut(cx);
+        // Which rows are picked, while some are, so picked files next to each other join up.
+        let picks: HashSet<&str> = self.file_picks.iter().map(String::as_str).collect();
+        let lit: Vec<bool> = match picks.is_empty() {
+            true => Vec::new(),
+            false => (rows.iter())
+                .map(|row| matches!(row, TreeRow::File { pos, .. } if picks.contains(paths[*pos])))
+                .collect(),
+        };
         side_list(
             id,
             rows.len(),
@@ -237,25 +249,33 @@ impl Detail {
                     this.render_dir_row(dir, cursor_row == Some(ix), &source, theme, cx)
                 }
                 TreeRow::File { pos, depth } => {
-                    let depth = tree.then_some(*depth);
+                    let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
+                    let row = FileRow {
+                        depth: tree.then_some(*depth),
+                        joined: match lit(ix) {
+                            true => (ix > 0 && lit(ix - 1), lit(ix + 1)),
+                            false => (false, false),
+                        },
+                        ..Default::default()
+                    };
                     // The current file is solid while the list holds the focus, as the
                     // navigator's selection is while it does.
                     let solid = this.files_focus.is_focused(window);
                     let (pos, picked) = (index[*pos], picked.as_ref());
-                    this.render_source_file(&source, pos, depth, picked, solid, theme, cx)
+                    this.render_source_file(&source, pos, row, picked, solid, theme, cx)
                 }
             },
         )
     }
 
-    /// The `pos`th file of `source`, with what its list shows beside it. A picked file's
-    /// menu is `picked`, all the picks'.
+    /// The `pos`th file of `source`, with what its list shows beside it, beyond where it sits
+    /// in the list, `row`. A picked file's menu is `picked`, all the picks'.
     #[allow(clippy::too_many_arguments)]
     fn render_source_file(
         &self,
         source: &FileSource,
         pos: usize,
-        depth: Option<usize>,
+        row: FileRow,
         picked: Option<&Cut>,
         solid: bool,
         theme: &Theme,
@@ -284,7 +304,7 @@ impl Detail {
                             files: vec![whole].into(),
                         })
                     }),
-                    depth,
+                    ..row
                 };
                 Some(self.render_file_row(pos, file, extras, solid, theme, cx))
             }
@@ -296,8 +316,7 @@ impl Detail {
                     diff_ix: Some(pos),
                     picked: picked.is_some(),
                     menu: picked.unwrap_or_else(|| self.diff_cut(pos, None, cx)),
-                    depth,
-                    ..Default::default()
+                    ..row
                 };
                 Some(self.render_file_row(pos, &file.file, extras, solid, theme, cx))
             }
@@ -731,6 +750,7 @@ impl Detail {
             .when(solid, |el| {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
             })
+            .map(|el| crate::ui::joined(el, extras.joined, solid, theme))
             .aria_label(file.path.clone())
             .aria_description(file.kind.word())
             .group(ROW_GROUP)
