@@ -1164,6 +1164,24 @@ impl Graph {
             Vec<(gix::refs::FullName, gix::refs::FullName, SegmentIndex)>,
         >::new();
 
+        let local_target_by_target_ref: BTreeMap<_, _> = self
+            .traversal_tips
+            .iter()
+            .filter(|tip| matches!(tip.role, TipRole::TargetRemote))
+            .filter_map(|tip| tip.ref_name.clone())
+            .filter_map(|target_ref| {
+                let (local_target, _remote) = repo
+                    .upstream_branch_and_remote_for_tracking_branch(target_ref.as_ref())
+                    .ok()??;
+                Some((target_ref, local_target))
+            })
+            .collect();
+        let pairs_with = |local: &gix::refs::FullName, remote: &gix::refs::FullName| {
+            local_target_by_target_ref
+                .get(remote)
+                .is_none_or(|local_target| local_target == local)
+        };
+
         let mut remote_sidx_by_ref_name = BTreeMap::new();
         for (remote_sidx, remote_ref_name) in self.inner.node_indices().filter_map(|sidx| {
             self[sidx]
@@ -1237,6 +1255,7 @@ impl Graph {
             };
             let (local, remote, remote_sidx) =
                 disambiguated_name.pop().expect("one item as checked above");
+            let pairs = pairs_with(&local, &remote);
             let commit_id = s.commits.first().with_context(no_commits)?.id;
             s.ref_info = Some(crate::RefInfo::from_ref(
                 local,
@@ -1244,15 +1263,16 @@ impl Graph {
                 worktree_by_branch,
             ));
             s.remote_tracking_ref_name = Some(remote);
-            s.remote_tracking_branch_segment_id = Some(remote_sidx);
+            s.remote_tracking_branch_segment_id = pairs.then_some(remote_sidx);
             let rn = s.ref_info.as_ref().expect("just set it");
             s.commits
                 .first_mut()
                 .with_context(no_commits)?
                 .refs
                 .retain(|crn| crn != rn);
-            // Assure the remote is also paired up!
-            self[remote_sidx].sibling_segment_id = Some(s.id);
+            if pairs {
+                self[remote_sidx].sibling_segment_id = Some(s.id);
+            }
         }
 
         // NOTE: setting this directly at iteration time isn't great as the post-processing then
@@ -1275,20 +1295,15 @@ impl Graph {
             if let Some(remote_sidx) = segment
                 .remote_tracking_ref_name
                 .as_ref()
+                .filter(|rn| pairs_with(ref_name, rn))
                 .and_then(|rn| remote_sidx_by_ref_name.remove(rn.as_ref()))
             {
                 segment.remote_tracking_branch_segment_id = Some(remote_sidx);
                 links_from_remote_to_local.push((remote_sidx, segment.id));
             }
         }
-        let workspace_target_refs: BTreeSet<_> = self
-            .traversal_tips
-            .iter()
-            .filter(|tip| matches!(tip.role, TipRole::TargetRemote))
-            .filter_map(|tip| tip.ref_name.clone())
-            .collect();
         for (remote_ref_name, remote_sidx) in remote_sidx_by_ref_name {
-            if !workspace_target_refs.contains(&remote_ref_name) {
+            if !local_target_by_target_ref.contains_key(&remote_ref_name) {
                 continue;
             }
             let Some(local_sidx) = self.ensure_local_tracking_segment_for_remote(

@@ -58,6 +58,7 @@ Important concepts:
 
 - target ref — usually something like `origin/main`; the branch/ref used as the workflow frame of reference.
 - target commit ID — a commit reachable from the target ref that should stay included in the workspace context, making the workspace stable even when the target ref moves.
+- local target — the branch the target ref's fetch refspec maps back to (`main` for `origin/main`). It is the target segment's sibling in the graph and the branch the editor treats as the target's own. Other branches configured to track the target ref fork from it and are never the local target.
 - workspace stacks — legacy/presentation metadata; useful for compatibility but not ideal as new operation targets.
 
 Treat target ref and target commit as **frame-of-reference metadata**, not automatically as mutation commands.
