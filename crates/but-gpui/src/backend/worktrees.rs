@@ -33,7 +33,7 @@ pub(super) fn linked(ctx: &Context) -> Result<Option<Listing>> {
                 name,
                 path: listed.path,
                 branch: listed.ref_name.map(|name| name.shorten().to_string()),
-                lane_end: None,
+                branches: Vec::new(),
                 uncommitted,
                 git_operation,
                 updated_at: listed.updated_at_ms.map(|ms| ms / 1000),

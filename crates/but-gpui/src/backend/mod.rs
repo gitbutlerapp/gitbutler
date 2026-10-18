@@ -240,11 +240,33 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let (mut worktrees, archived_worktrees) = listed.unwrap_or_default();
     for worktree in &mut worktrees {
         let lane = (info.worktrees.iter()).find(|lane| lane.name == worktree.name.as_ref());
-        let bottom = lane.and_then(|lane| {
-            (lane.segments.iter().rev()).find(|segment| segment.ref_name().is_some())
-        });
-        worktree.lane_end =
-            bottom.and_then(|segment| segment.commits.last().map(|c| CommitId(c.id)));
+        let segments = lane.iter().flat_map(|lane| &lane.segments);
+        worktree.branches = (segments.enumerate())
+            .filter_map(|(ix, segment)| {
+                use but_workspace::ref_info::LocalCommitRelation as R;
+                let mut branch = branch_from(&ctx, &cached, segment);
+                // A detached run of commits has no ref to tell it apart by, and a branch the
+                // workspace has applied is listed there.
+                let applied = (stacks.iter().flat_map(|stack| &stack.branches))
+                    .any(|stacked| stacked.ref_name == branch.ref_name);
+                if branch.ref_name.is_empty() || applied {
+                    return None;
+                }
+                // A lane started from a newer target than the workspace's runs on down through
+                // the target's own commits, which aren't the worktree's work.
+                let theirs = (segment.commits.iter()).position(
+                    |commit| matches!(commit.relation, R::Integrated(by) if by == commit.inner.id),
+                );
+                if let Some(theirs) = theirs {
+                    branch.commits.truncate(theirs);
+                    // Its checked-out branch shows even before it has commits of its own.
+                    if theirs == 0 && ix > 0 {
+                        return None;
+                    }
+                }
+                Some(branch)
+            })
+            .collect();
     }
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     Ok(Workspace {

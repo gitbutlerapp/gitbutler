@@ -3,6 +3,7 @@
 
 use std::collections::HashSet;
 use std::hash::Hash;
+use std::sync::Arc;
 use std::time::{Duration, UNIX_EPOCH};
 
 use gpui::{
@@ -13,7 +14,7 @@ use gpui::{
 };
 
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
-use crate::backend::{CommitId, CommitState, PushState, Worktree, short_ref};
+use crate::backend::{Branch, CommitId, CommitState, PushState, Workspace, Worktree, short_ref};
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Pane, Prefs, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
@@ -29,6 +30,9 @@ use crate::ui::{
 
 mod account;
 mod menu;
+
+/// How far a worktree's rows sit in from its heading.
+const NEST: f32 = 14.;
 
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
@@ -88,16 +92,22 @@ enum Row {
     LaneEnd(ProjectId, String),
     /// After a project's worktrees: how many are inactive, which it shows or hides.
     Inactive(ProjectId, usize),
+    /// Over a worktree's uncommitted changes and branches, the main one for `None`, which
+    /// folds them.
+    WorktreeHeading(ProjectId, Option<Arc<str>>),
+    /// The line after a worktree's section.
+    WorktreeDivider,
 }
 
-/// How an item row draws: `solid` is the selection while the navigator has focus, and
-/// `cut` is the row waiting for ⌘V.
+/// How an item row draws: `solid` is the selection while the navigator has focus, `cut` is
+/// the row waiting for ⌘V, and `nested` sits in a worktree's section.
 #[derive(Clone, Copy)]
 struct RowStyle<'a> {
     theme: &'a Theme,
     selected: bool,
     solid: bool,
     cut: bool,
+    nested: bool,
 }
 
 impl RowStyle<'_> {
@@ -105,7 +115,7 @@ impl RowStyle<'_> {
         let theme = self.theme;
         list_row(ElementId::Name(id.into()), self.selected, theme)
             .mx(px(3.))
-            .pl(px(8. + indent))
+            .pl(px(8. + indent + if self.nested { NEST } else { 0. }))
             .when(self.solid, |el| {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
             })
@@ -151,6 +161,8 @@ pub struct Navigator {
     closed_branches: HashSet<(ProjectId, String)>,
     /// Projects showing their inactive worktrees too.
     shown_inactive: HashSet<ProjectId>,
+    /// Worktrees showing only their heading, the main one by `None`.
+    folded_worktrees: HashSet<(ProjectId, Option<Arc<str>>)>,
     /// The filter over the projects not expanded, while it's open.
     projects_filter: Option<(Entity<TextInput>, Subscription)>,
     /// The projects not expanded show all of them rather than the first few.
@@ -193,6 +205,7 @@ impl Navigator {
             unfolded_branches: HashSet::new(),
             closed_branches: HashSet::new(),
             shown_inactive: HashSet::new(),
+            folded_worktrees: HashSet::new(),
             projects_filter: None,
             projects_unfolded: false,
             pointer_over: false,
@@ -222,96 +235,59 @@ impl Navigator {
             if let Some(err) = &entry.error {
                 rows.push(Row::Note(err.clone(), true));
             }
-            rows.push(Row::Item(Selection::Uncommitted(id.clone())));
-            // Nothing but the edit goes on while a commit is checked out, its files listed
-            // where the uncommitted ones are.
-            if workspace.editing.is_some() {
-                continue;
+            // With linked worktrees, the main one and each linked one are a section, under a
+            // heading that folds it; without, the project is its one worktree.
+            let headed = !workspace.worktrees.is_empty() && workspace.editing.is_none();
+            let selection = store.selection.as_ref().filter(|s| s.project() == id);
+            if headed {
+                rows.push(Row::WorktreeHeading(id.clone(), None));
             }
-            for stack in &workspace.stacks {
-                if stack.branches.len() > 1 {
-                    let refs = (stack.branches.iter())
-                        .filter(|b| !b.commits.is_empty())
-                        .map(|b| b.ref_name.clone());
-                    let n = stack.branches.len();
-                    rows.push(Row::StackCaption(id.clone(), n, refs.collect()));
+            let main_selected = selection.is_some_and(|s| section_holds(workspace, None, s));
+            if !headed || self.worktree_open(id, None, main_selected) {
+                rows.push(Row::Item(Selection::Uncommitted(id.clone())));
+                // Nothing but the edit goes on while a commit is checked out, its files listed
+                // where the uncommitted ones are.
+                if workspace.editing.is_some() {
+                    continue;
                 }
-                for branch in &stack.branches {
-                    let key = (id.clone(), branch.ref_name.clone());
-                    // Past the fold, but never past the selected commit, as after moving it
-                    // down a step.
-                    let selected_at = match &store.selection {
-                        Some(Selection::Commit(p, c)) if p == id => {
-                            branch.commits.iter().position(|commit| commit.id == *c)
+                for stack in &workspace.stacks {
+                    self.lane_rows(store, id, &stack.branches, &mut rows);
+                    if let Some(dragged @ Cut::Branch(..)) = &store.dragging
+                        && let Some(last) = stack.branches.last()
+                    {
+                        let below = Selection::Branch(id.clone(), last.ref_name.clone());
+                        if Transfer::resolve(dragged, &below, Modifiers::shift(), store).is_some() {
+                            rows.push(Row::LaneEnd(id.clone(), last.ref_name.clone()));
                         }
-                        _ => None,
-                    };
-                    let unfolded = self.unfolded_branches.contains(&key);
-                    let fold_at = FOLD_AFTER.max(selected_at.map_or(0, |at| at + 1));
-                    let shown = match unfolded {
-                        true => branch.commits.len(),
-                        false => fold_at,
-                    };
-                    let closed = self.closed_branches.contains(&key) && selected_at.is_none();
-                    rows.push(Row::Item(Selection::Branch(key.0, key.1)));
-                    if closed {
-                        continue;
-                    }
-                    rows.extend(
-                        store
-                            .new_commits(id, &branch.ref_name)
-                            .into_iter()
-                            .map(Row::Pending),
-                    );
-                    // Commits a pending operation takes away go, unless selected.
-                    rows.extend(
-                        (branch.commits.iter().enumerate())
-                            .filter(|&(at, commit)| {
-                                !store.hides_commit(id, &commit.key) || selected_at == Some(at)
-                            })
-                            .take(shown)
-                            .map(|(_, commit)| Row::Item(Selection::Commit(id.clone(), commit.id))),
-                    );
-                    if branch.commits.len() > shown {
-                        let hidden = branch.commits.len() - shown;
-                        rows.push(Row::More(id.clone(), branch.ref_name.clone(), hidden));
-                    } else if unfolded && branch.commits.len() > fold_at {
-                        rows.push(Row::Fewer(id.clone(), branch.ref_name.clone()));
                     }
                 }
-                if let Some(dragged @ Cut::Branch(..)) = &store.dragging
-                    && let Some(last) = stack.branches.last()
+                if workspace.stacks.is_empty() {
+                    rows.push(Row::Note("No branches yet".into(), false));
+                }
+                // Outside the workspace there's nowhere to put a branch of its own.
+                if workspace.managed
+                    && matches!(&store.dragging, Some(Cut::Commit(project, _)) if project == id)
                 {
-                    let below = Selection::Branch(id.clone(), last.ref_name.clone());
-                    if Transfer::resolve(dragged, &below, Modifiers::shift(), store).is_some() {
-                        rows.push(Row::LaneEnd(id.clone(), last.ref_name.clone()));
-                    }
+                    rows.push(Row::NewBranch(id.clone()));
                 }
             }
-            if workspace.stacks.is_empty() {
-                rows.push(Row::Note("No branches yet".into(), false));
-            }
-            // Outside the workspace there's nowhere to put a branch of its own.
-            if workspace.managed
-                && matches!(&store.dragging, Some(Cut::Commit(project, _)) if project == id)
-            {
-                rows.push(Row::NewBranch(id.clone()));
-            }
-            // The inactive worktrees wait behind a row of their own, unless one is selected.
-            let (inactive, active): (Vec<_>, Vec<_>) =
-                workspace.worktrees.iter().partition(|worktree| {
-                    is_inactive(worktree)
-                        && !matches!(&store.selection, Some(Selection::Worktree(p, name))
-                            if p == id && *name == worktree.name)
-                });
-            let worktree_row = |worktree: &Worktree| {
-                Row::Item(Selection::Worktree(id.clone(), worktree.name.clone()))
-            };
-            rows.extend(active.into_iter().map(worktree_row));
-            if !inactive.is_empty() {
-                rows.push(Row::Inactive(id.clone(), inactive.len()));
-                if self.shown_inactive.contains(id) {
-                    rows.extend(inactive.into_iter().map(worktree_row));
+            if headed {
+                rows.push(Row::WorktreeDivider);
+                let holds_selected =
+                    |wt: &Worktree| selection.is_some_and(|s| worktree_holds(s, wt));
+                // The inactive ones wait behind a row of their own, unless the selection's in one.
+                let (inactive, active): (Vec<_>, Vec<_>) = (workspace.worktrees.iter())
+                    .partition(|wt| is_inactive(wt) && !holds_selected(wt));
+                for wt in active {
+                    self.worktree_rows(store, id, wt, holds_selected(wt), &mut rows);
+                }
+                if !inactive.is_empty() {
+                    rows.push(Row::Inactive(id.clone(), inactive.len()));
+                    if self.shown_inactive.contains(id) {
+                        for wt in inactive {
+                            self.worktree_rows(store, id, wt, false, &mut rows);
+                        }
+                    }
                 }
             }
             rows.push(Row::Item(Selection::Branches(id.clone())));
@@ -381,6 +357,96 @@ impl Navigator {
             rows.push(Row::Note(miss.into(), false));
         }
         rows
+    }
+
+    /// A stack's or a linked worktree's branches: a caption over two or more, then each
+    /// branch with its commits, up to the fold, unless it's closed.
+    fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Vec<Row>) {
+        if branches.len() > 1 {
+            let refs = (branches.iter())
+                .filter(|b| !b.commits.is_empty())
+                .map(|b| b.ref_name.clone());
+            rows.push(Row::StackCaption(
+                id.clone(),
+                branches.len(),
+                refs.collect(),
+            ));
+        }
+        for branch in branches {
+            let key = (id.clone(), branch.ref_name.clone());
+            // Past the fold, but never past the selected commit, as after moving it down a step.
+            let selected_at = match &store.selection {
+                Some(Selection::Commit(p, c)) if p == id => {
+                    branch.commits.iter().position(|commit| commit.id == *c)
+                }
+                _ => None,
+            };
+            let unfolded = self.unfolded_branches.contains(&key);
+            let fold_at = FOLD_AFTER.max(selected_at.map_or(0, |at| at + 1));
+            let shown = match unfolded {
+                true => branch.commits.len(),
+                false => fold_at,
+            };
+            let closed = self.closed_branches.contains(&key) && selected_at.is_none();
+            rows.push(Row::Item(Selection::Branch(key.0, key.1)));
+            if closed {
+                continue;
+            }
+            rows.extend(
+                store
+                    .new_commits(id, &branch.ref_name)
+                    .into_iter()
+                    .map(Row::Pending),
+            );
+            // Commits a pending operation takes away go, unless selected.
+            rows.extend(
+                (branch.commits.iter().enumerate())
+                    .filter(|&(at, commit)| {
+                        !store.hides_commit(id, &commit.key) || selected_at == Some(at)
+                    })
+                    .take(shown)
+                    .map(|(_, commit)| Row::Item(Selection::Commit(id.clone(), commit.id))),
+            );
+            if branch.commits.len() > shown {
+                let hidden = branch.commits.len() - shown;
+                rows.push(Row::More(id.clone(), branch.ref_name.clone(), hidden));
+            } else if unfolded && branch.commits.len() > fold_at {
+                rows.push(Row::Fewer(id.clone(), branch.ref_name.clone()));
+            }
+        }
+    }
+
+    /// A linked worktree's heading and, unless it's folded without the selection in it, its
+    /// uncommitted changes and branches; then a line ruling it off from what follows.
+    fn worktree_rows(
+        &self,
+        store: &Store,
+        id: &ProjectId,
+        worktree: &Worktree,
+        selected: bool,
+        rows: &mut Vec<Row>,
+    ) {
+        rows.push(Row::WorktreeHeading(
+            id.clone(),
+            Some(worktree.name.clone()),
+        ));
+        if self.worktree_open(id, Some(&worktree.name), selected) {
+            rows.push(Row::Item(Selection::Worktree(
+                id.clone(),
+                worktree.name.clone(),
+            )));
+            self.lane_rows(store, id, &worktree.branches, rows);
+        }
+        rows.push(Row::WorktreeDivider);
+    }
+
+    /// Whether worktree `name` of `project`, the main one for `None`, shows what's in it: it
+    /// isn't folded, or `selected` is in it.
+    fn worktree_open(&self, project: &ProjectId, name: Option<&Arc<str>>, selected: bool) -> bool {
+        selected
+            || !self
+                .folded_worktrees
+                .contains(&(project.clone(), name.cloned()))
     }
 
     /// The words the projects filter looks for, each in a project's name.
@@ -629,9 +695,25 @@ impl Navigator {
     /// The row at `ix` of the list, drawn inside its card.
     fn render_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
+        let nested = self.nested(ix);
         let el = match self.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(px(10.)).into_any_element(),
-            Some(Row::Item(item)) => self.render_item(item, window, theme, cx),
+            Some(Row::Item(item)) => self.render_item(item, nested, window, theme, cx),
+            Some(Row::WorktreeHeading(project, name)) => {
+                self.worktree_heading(ix, project, name.as_ref(), theme, cx)
+            }
+            // A dashed line, as ui-react's WorktreeDivider.
+            Some(Row::WorktreeDivider) => h_flex()
+                .h(px(12.))
+                .px(px(12.))
+                .child(
+                    div()
+                        .flex_1()
+                        .border_t_1()
+                        .border_dashed()
+                        .border_color(theme.border_3),
+                )
+                .into_any_element(),
             Some(Row::Note(text, is_error)) => h_flex()
                 .min_h(px(ROW_HEIGHT))
                 .px(px(12.))
@@ -662,22 +744,26 @@ impl Navigator {
             Some(Row::ProjectsHeading(title, listed, total)) => {
                 self.projects_heading(title, *listed, *total, theme, cx)
             }
-            // Under the projects' names.
-            Some(Row::MoreProjects(hidden)) => fold_row(("more-projects", ix), 35., theme)
-                .child(format!("{hidden} more"))
-                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                    this.projects_unfolded = true;
-                    cx.notify();
-                }))
-                .into_any_element(),
-            Some(Row::FewerProjects) => fold_row(("fewer-projects", ix), 35., theme)
-                .child("Show fewer")
-                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                    this.projects_unfolded = false;
-                    this.hold_still = true;
-                    cx.notify();
-                }))
-                .into_any_element(),
+            // The glyph under the projects' chevrons, the words under their names.
+            Some(Row::MoreProjects(hidden)) => {
+                fold_row(("more-projects", ix), Icon::Kebab, 11., 35., theme)
+                    .child(format!("{hidden} more"))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.projects_unfolded = true;
+                        cx.notify();
+                    }))
+                    .into_any_element()
+            }
+            Some(Row::FewerProjects) => {
+                fold_row(("fewer-projects", ix), Icon::ChevronUp, 11., 35., theme)
+                    .child("Show fewer")
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.projects_unfolded = false;
+                        this.hold_still = true;
+                        cx.notify();
+                    }))
+                    .into_any_element()
+            }
             Some(Row::StackCaption(project, n, refs)) => {
                 let keys: Vec<(ProjectId, String)> =
                     refs.iter().map(|r| (project.clone(), r.clone())).collect();
@@ -729,7 +815,8 @@ impl Navigator {
             }
             Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
-                fold_row(("more", ix), 36., theme)
+                // The glyph under the commits' glyphs, the words under their titles.
+                fold_row(("more", ix), Icon::Kebab, 31., 51., theme)
                     .child(format!("{hidden} more"))
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.unfolded_branches.insert(key.clone());
@@ -739,7 +826,7 @@ impl Navigator {
             }
             Some(Row::Fewer(project, ref_name)) => {
                 let key = (project.clone(), ref_name.clone());
-                fold_row(("fewer", ix), 36., theme)
+                fold_row(("fewer", ix), Icon::ChevronUp, 31., 51., theme)
                     .child("Show fewer")
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.unfolded_branches.remove(&key);
@@ -750,23 +837,12 @@ impl Navigator {
             }
             Some(Row::Inactive(project, n)) => {
                 let (project, shown) = (project.clone(), self.shown_inactive.contains(project));
-                h_flex()
-                    .id(("inactive", ix))
-                    .h(px(24.))
-                    // The chevron under the worktrees' folders, the words under their names.
-                    .pl(px(19.))
-                    .gap(px(10.))
-                    .text_size(px(12.))
-                    .text_color(theme.text_2)
-                    .hover(|el| el.text_color(theme.text_1))
-                    .child(
-                        small_icon(if shown {
-                            Icon::ChevronDown
-                        } else {
-                            Icon::ChevronRight
-                        })
-                        .text_color(theme.text_3),
-                    )
+                let chevron = match shown {
+                    true => Icon::ChevronDown,
+                    false => Icon::ChevronRight,
+                };
+                // The chevron under the worktrees' chevrons, the words under their names.
+                fold_row(("inactive", ix), chevron, 11., 55., theme)
                     .child(plural(*n, "inactive worktree"))
                     .tooltip(Tooltip::text(
                         "Nothing uncommitted, and no commits or checkouts in 12 hours",
@@ -777,6 +853,11 @@ impl Navigator {
                     }))
                     .into_any_element()
             }
+        };
+        // Items step in by their style, keeping the highlight full width; the rest as a whole.
+        let el = match nested && !matches!(self.rows[ix], Row::Item(_)) {
+            true => div().pl(px(NEST)).child(el).into_any_element(),
+            false => el,
         };
         let first = ix == 0 || matches!(self.rows[ix - 1], Row::Gap);
         let last = self
@@ -802,6 +883,7 @@ impl Navigator {
     fn render_item(
         &self,
         item: &Selection,
+        nested: bool,
         window: &Window,
         theme: &Theme,
         cx: &Context<Self>,
@@ -824,17 +906,19 @@ impl Navigator {
             selected,
             solid: selected && self.focus.contains_focused(window, cx),
             cut,
+            nested,
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
-            Selection::Uncommitted(id) => Some(self.uncommitted_row(item, id, style, cx)),
+            Selection::Uncommitted(_) | Selection::Worktree(..) => {
+                self.uncommitted_row(item, style, cx)
+            }
             Selection::Branch(id, ref_name) => self.branch_row(item, id, ref_name, style, cx),
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
             Selection::Branches(_) => {
                 Some(self.page_row(item, Icon::Branch, "Branches", style, cx))
             }
             Selection::History(_) => Some(self.page_row(item, Icon::Clock, "History", style, cx)),
-            Selection::Worktree(id, name) => self.worktree_row(item, id, name, style, cx),
         };
         match el {
             Some(el) => self.drop_target(el, item.clone(), window, theme, cx),
@@ -853,7 +937,10 @@ impl Navigator {
         cx.listener(move |this, event: &MouseDownEvent, window, cx| {
             let (platform, shift) = (event.modifiers.platform, event.modifiers.shift);
             match &item {
-                Selection::Commit(project, id) if platform || shift => {
+                // A linked worktree's commits change there, so they aren't picked to change.
+                Selection::Commit(project, id)
+                    if (platform || shift) && this.store.read(cx).worktree_of(&item).is_none() =>
+                {
                     // A run of commits takes the ones shown, not those folded away.
                     let range = shift.then(|| {
                         (this.rows.iter())
@@ -1191,79 +1278,39 @@ impl Navigator {
             .into_any_element()
     }
 
-    /// A linked worktree: its name, the branch it has checked out and how many files it
-    /// has changed.
-    fn worktree_row(
+    /// A worktree's uncommitted changes: the main one's for [`Selection::Uncommitted`], a
+    /// linked one's for [`Selection::Worktree`].
+    fn uncommitted_row(
         &self,
         item: &Selection,
-        id: &ProjectId,
-        name: &str,
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
         let theme = style.theme;
-        let worktree = (store.workspace(id)?.worktrees.iter()).find(|w| &*w.name == name)?;
-        let n = worktree.uncommitted.len();
-        Some(
-            style
-                .row(format!("worktree-{id}-{name}"), 6.)
-                .aria_label(format!("Worktree {name}"))
-                .child(icon(Icon::Folder).text_color(if n > 0 {
-                    style.meta(theme.warn)
-                } else {
-                    style.muted()
-                }))
-                .child(
-                    div()
-                        .flex_none()
-                        .max_w(px(120.))
-                        .truncate()
-                        .child(name.to_owned()),
+        let id = item.project();
+        let workspace = store.workspace(id)?;
+        let (row_id, uncommitted, scope, editing) = match item {
+            Selection::Worktree(_, name) => {
+                let worktree = (workspace.worktrees.iter()).find(|w| w.name == *name)?;
+                let scope = crate::state::worktree_review_scope(id, name);
+                (
+                    format!("worktree-{id}-{name}"),
+                    &worktree.uncommitted,
+                    scope,
+                    false,
                 )
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .truncate()
-                        .font_family(theme.mono_font.clone())
-                        .text_size(px(11.))
-                        .text_color(style.muted())
-                        .children(worktree.branch.clone()),
+            }
+            _ => {
+                let editing = workspace.editing.is_some();
+                (
+                    format!("uncommitted-{id}"),
+                    &workspace.uncommitted,
+                    id.clone(),
+                    editing,
                 )
-                // Written to in the last two minutes, likely by the agent working in it.
-                .when(worktree.last_activity().is_some_and(just_now), |el| {
-                    el.child(
-                        div()
-                            .id(ElementId::Name(format!("active-{id}-{name}").into()))
-                            .child(dot(style.meta(theme.safe)))
-                            .tooltip(Tooltip::text("Changed in the last 2 minutes")),
-                    )
-                })
-                .children(review_count(
-                    store.unreviewed(
-                        &crate::state::worktree_review_scope(id, name),
-                        &worktree.uncommitted,
-                    ),
-                    n,
-                    style,
-                ))
-                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                .into_any_element(),
-        )
-    }
-
-    fn uncommitted_row(
-        &self,
-        item: &Selection,
-        id: &ProjectId,
-        style: RowStyle,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let store = self.store.read(cx);
-        let theme = style.theme;
-        let uncommitted = store.workspace(id).map_or(&[][..], |ws| &ws.uncommitted);
-        let editing = store.workspace(id).is_some_and(|ws| ws.editing.is_some());
+            }
+        };
         let n = uncommitted.len();
         let conflicted = uncommitted.iter().filter(|f| f.conflicted).count();
         let label = match (editing, n) {
@@ -1271,46 +1318,194 @@ impl Navigator {
             (false, 0) => "No uncommitted changes",
             (false, _) => "Uncommitted changes",
         };
-        style
-            .row(format!("uncommitted-{id}"), 6.)
-            .aria_label(label)
-            .child(icon(Icon::FileDiff).text_color(if n > 0 {
-                style.meta(theme.warn)
-            } else {
-                style.muted()
-            }))
+        // Only the main worktree's files go to the workspace's branches, and the commit being
+        // edited's go nowhere else until it's finished.
+        let drags = matches!(item, Selection::Uncommitted(_)) && n > 0 && !editing;
+        Some(
+            style
+                .row(row_id, 6.)
+                .aria_label(label)
+                .child(icon(Icon::Diff).text_color(if n > 0 {
+                    style.meta(theme.warn)
+                } else {
+                    style.muted()
+                }))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .when(n == 0 && !editing, |el| el.text_color(style.muted()))
+                        .child(label),
+                )
+                // What a merge left conflicted, as an update can, before anything else.
+                .children(meta_count(
+                    Icon::Warning,
+                    conflicted,
+                    style.meta(theme.danger),
+                    plural(conflicted, "conflicted file"),
+                ))
+                .children(review_count(
+                    store.unreviewed(&scope, uncommitted),
+                    n,
+                    style,
+                ))
+                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .when(drags, |el| {
+                    let files = self.detail.read(cx).files_to_move(id, cx);
+                    let label: SharedString = match files.len() {
+                        1 => files[0].file.path.clone().into(),
+                        n => format!("{n} files").into(),
+                    };
+                    let payload = Cut::Files {
+                        project: id.clone(),
+                        from: None,
+                        files: files.into(),
+                    };
+                    el.on_drag(payload, drag_preview(self.store.clone(), label))
+                })
+                .into_any_element(),
+        )
+    }
+
+    /// Over a worktree's section: a chevron that folds it, its folder and name, and, folded,
+    /// the counts the rows under it would show. A linked one's right-click menu is its own.
+    fn worktree_heading(
+        &self,
+        ix: usize,
+        project: &ProjectId,
+        name: Option<&Arc<str>>,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let store = self.store.read(cx);
+        let (Some(entry), Some(workspace)) = (store.project(project), store.workspace(project))
+        else {
+            return div().into_any_element();
+        };
+        let worktree = name.and_then(|name| workspace.worktrees.iter().find(|w| w.name == *name));
+        let (label, path, files, branches): (_, _, _, Vec<&Branch>) = match worktree {
+            Some(wt) => (
+                wt.name.to_string(),
+                &wt.path,
+                wt.uncommitted.len(),
+                wt.branches.iter().collect(),
+            ),
+            None => (
+                "Main worktree".to_owned(),
+                &entry.project.path,
+                workspace.uncommitted.len(),
+                workspace.branches().collect(),
+            ),
+        };
+        let unpushed_n = unpushed(branches.iter().copied());
+        let commits = || branches.iter().flat_map(|branch| &branch.commits);
+        let unread = commits().any(|commit| store.is_unread(project, commit));
+        // Open even when folded while the selection's in it.
+        let open = (self.rows.get(ix + 1)).is_some_and(|row| *row != Row::WorktreeDivider);
+        // Written to in the last two minutes, likely by the agent working in it.
+        let active = worktree.is_some_and(|wt| wt.last_activity().is_some_and(just_now));
+        let key = (project.clone(), name.cloned());
+        let menu_target = name.map(|name| Selection::Worktree(project.clone(), name.clone()));
+        h_flex()
+            .id(("worktree-heading", ix))
+            .h(px(ROW_HEIGHT))
+            .mx(px(3.))
+            .px(px(8.))
+            .gap(px(8.))
+            .rounded(px(4.))
+            .hover(|el| el.bg(theme.hover()))
+            .child(
+                small_icon(match open {
+                    true => Icon::ChevronDown,
+                    false => Icon::ChevronRight,
+                })
+                .text_color(theme.text_3),
+            )
+            .child(
+                icon(if name.is_some() {
+                    Icon::FolderCopy
+                } else {
+                    Icon::Folder
+                })
+                .text_color(theme.text_2),
+            )
             .child(
                 div()
+                    .id(("worktree-name", ix))
                     .flex_1()
                     .min_w(px(0.))
                     .truncate()
-                    .when(n == 0 && !editing, |el| el.text_color(style.muted()))
+                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .tooltip(Tooltip::text(path.display().to_string()))
                     .child(label),
             )
-            // What a merge left conflicted, as an update can, before anything else.
-            .children(meta_count(
-                Icon::Warning,
-                conflicted,
-                style.meta(theme.danger),
-                plural(conflicted, "conflicted file"),
-            ))
-            .children(review_count(store.unreviewed(id, uncommitted), n, style))
-            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-            // The commit being edited's files go nowhere else until it's finished.
-            .when(n > 0 && !editing, |el| {
-                let files = self.detail.read(cx).files_to_move(id, cx);
-                let label: SharedString = match files.len() {
-                    1 => files[0].file.path.clone().into(),
-                    n => format!("{n} files").into(),
-                };
-                let payload = Cut::Files {
-                    project: id.clone(),
-                    from: None,
-                    files: files.into(),
-                };
-                el.on_drag(payload, drag_preview(self.store.clone(), label))
+            .when(!open, |el| {
+                el.children(meta_count(
+                    Icon::File,
+                    files,
+                    theme.warn,
+                    plural(files, "uncommitted file"),
+                ))
+                .children(meta_count(
+                    Icon::ArrowUp,
+                    unpushed_n,
+                    theme.blue,
+                    plural(unpushed_n, "unpushed commit"),
+                ))
+                .when(unread, |el| el.child(dot(theme.pop)))
+            })
+            .when(active, |el| {
+                el.child(
+                    div()
+                        .id(("worktree-active", ix))
+                        .child(dot(theme.safe))
+                        .tooltip(Tooltip::text("Changed in the last 2 minutes")),
+                )
+            })
+            // Folding what holds the selection takes it up to the project, as closing a folder
+            // in a tree does.
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                if !open {
+                    this.folded_worktrees.remove(&key);
+                    return cx.notify();
+                }
+                this.folded_worktrees.insert(key.clone());
+                let store = this.store.read(cx);
+                let inside = (store.selection.as_ref())
+                    .zip(store.workspace(&key.0))
+                    .is_some_and(|(s, ws)| {
+                        s.project() == &key.0 && section_holds(ws, key.1.as_ref(), s)
+                    });
+                match inside {
+                    true => this.select(Selection::Project(key.0.clone()), window, cx),
+                    false => cx.notify(),
+                }
+            }))
+            .when_some(menu_target, |el, target| {
+                el.on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                        let items = this.menu_items(&target, cx);
+                        (this.app)
+                            .update(cx, |app, cx| app.open_menu(event.position, items, cx))
+                            .ok();
+                    }),
+                )
             })
             .into_any_element()
+    }
+
+    /// Whether row `ix` sits in a worktree's section, under its heading.
+    fn nested(&self, ix: usize) -> bool {
+        (self.rows[..ix].iter().rev())
+            .find(|row| {
+                matches!(
+                    row,
+                    Row::WorktreeHeading(..) | Row::WorktreeDivider | Row::Gap
+                )
+            })
+            .is_some_and(|row| matches!(row, Row::WorktreeHeading(..)))
     }
 
     fn branch_row(
@@ -1432,13 +1627,17 @@ impl Navigator {
                         cx.notify();
                     }
                 }))
-                .when(!ref_name.is_empty(), |el| {
-                    let payload = Cut::Branch(id.clone(), ref_name.to_owned());
-                    el.on_drag(
-                        payload,
-                        drag_preview(self.store.clone(), branch.name.clone().into()),
-                    )
-                })
+                // A linked worktree's branches stay where its agent works on them.
+                .when(
+                    !ref_name.is_empty() && store.worktree_of(item).is_none(),
+                    |el| {
+                        let payload = Cut::Branch(id.clone(), ref_name.to_owned());
+                        el.on_drag(
+                            payload,
+                            drag_preview(self.store.clone(), branch.name.clone().into()),
+                        )
+                    },
+                )
                 .into_any_element(),
         )
     }
@@ -1493,7 +1692,9 @@ impl Navigator {
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                .on_drag(payload, drag_preview(self.store.clone(), label))
+                .when(store.worktree_of(item).is_none(), |el| {
+                    el.on_drag(payload, drag_preview(self.store.clone(), label))
+                })
                 .into_any_element(),
         )
     }
@@ -1628,18 +1829,25 @@ fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
     changed
 }
 
-/// A worktree with nothing uncommitted, so not active either, that hasn't moved in
-/// [`INACTIVE_AFTER`]. One with no reflog to date it stays listed.
-/// A row that unfolds a list, "N more", or folds it again, "Show fewer", `indent` in to line
-/// up with the list's titles.
-fn fold_row(id: impl Into<ElementId>, indent: f32, theme: &Theme) -> Stateful<Div> {
+/// A row that unfolds a list, "N more", or folds it again, "Show fewer", as ui-react's
+/// MoreItem: `glyph` at `icon_at` under the list's glyphs, the words at `text_at` under its
+/// titles.
+fn fold_row(
+    id: impl Into<ElementId>,
+    glyph: Icon,
+    icon_at: f32,
+    text_at: f32,
+    theme: &Theme,
+) -> Stateful<Div> {
     h_flex()
         .id(id)
         .h(px(24.))
-        .pl(px(indent))
+        .pl(px(icon_at))
+        .gap(px(text_at - icon_at - 12.))
         .text_size(px(12.))
         .text_color(theme.text_2)
         .hover(|el| el.text_color(theme.text_1))
+        .child(small_icon(glyph).text_color(theme.text_3))
 }
 
 /// Whether `new` stands where `old` did, to keep it under the pointer: the same row, or the
@@ -1665,6 +1873,34 @@ fn active_lately(at: i64) -> bool {
         .is_ok_and(|age| age <= ACTIVE_WITHIN)
 }
 
+/// Whether `selection` is in `worktree`: its uncommitted changes, a branch or a commit.
+fn worktree_holds(selection: &Selection, worktree: &Worktree) -> bool {
+    matches!(selection, Selection::Worktree(_, name) if *name == worktree.name)
+        || worktree.branches.iter().any(|branch| selection.on(branch))
+}
+
+/// Whether `selection` is in the section of worktree `name`, the main one's for `None`.
+fn section_holds(workspace: &Workspace, name: Option<&Arc<str>>, selection: &Selection) -> bool {
+    match name {
+        None => {
+            matches!(selection, Selection::Uncommitted(_))
+                || workspace.branches().any(|branch| selection.on(branch))
+        }
+        Some(name) => (workspace.worktrees.iter())
+            .find(|wt| wt.name == *name)
+            .is_some_and(|wt| worktree_holds(selection, wt)),
+    }
+}
+
+/// How many of `branches`' commits are only local.
+fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
+    (branches.flat_map(|branch| &branch.commits))
+        .filter(|commit| commit.state == CommitState::Local)
+        .count()
+}
+
+/// A worktree with nothing uncommitted, so not active either, that hasn't moved in
+/// [`INACTIVE_AFTER`]. One with no reflog to date it stays listed.
 fn is_inactive(worktree: &Worktree) -> bool {
     worktree.uncommitted.is_empty()
         && worktree.updated_at.is_some_and(|at| {

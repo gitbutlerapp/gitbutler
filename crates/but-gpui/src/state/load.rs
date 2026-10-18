@@ -496,7 +496,7 @@ impl Store {
             self.picked = if picked.len() > 1 { picked } else { Vec::new() };
         }
         // A cut commit follows the same way, and the cut goes with the commit; a commit
-        // picked from outside the workspace stays as it is.
+        // picked from elsewhere, as the target's history, stays as it is.
         if let Some(mut cut) = self.cut.take_if(|cut| cut.project() == id) {
             let old = self.workspace(id);
             let follow = |commit| match old.is_some_and(|old| old.find_commit(commit).is_some()) {

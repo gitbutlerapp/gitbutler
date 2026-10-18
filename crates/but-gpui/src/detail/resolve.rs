@@ -896,7 +896,7 @@ impl AppView {
     /// The oldest conflicted commit of the selected branch or commit's stack.
     fn oldest_conflict(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
         let store = self.store.read(cx);
-        let selection = store.selection.as_ref()?;
+        let selection = (store.selection.as_ref()).filter(|s| store.worktree_of(s).is_none())?;
         let workspace = store.workspace(selection.project())?;
         let commit = match selection {
             Selection::Commit(_, id) => *id,

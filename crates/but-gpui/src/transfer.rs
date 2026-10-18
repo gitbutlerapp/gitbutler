@@ -74,6 +74,25 @@ impl Transfer {
         if matches!(target, Selection::Branch(_, branch) if branch.is_empty()) {
             return None;
         }
+        // A linked worktree's branches and commits change there: nothing lands on them or
+        // moves off them from here, though a copy of a commit can.
+        let source = match payload {
+            Cut::Commit(project, id)
+            | Cut::Files {
+                project,
+                from: Some(id),
+                ..
+            } => Some(Selection::Commit(project.clone(), *id)),
+            Cut::Branch(project, ref_name) => {
+                Some(Selection::Branch(project.clone(), ref_name.clone()))
+            }
+            Cut::CherryPick(..) | Cut::Files { from: None, .. } => None,
+        };
+        if store.worktree_of(target).is_some()
+            || source.is_some_and(|source| store.worktree_of(&source).is_some())
+        {
+            return None;
+        }
         let workspace = store.workspace(target.project())?;
         Some(match (payload, target) {
             (Cut::Commit(_, id), Selection::Uncommitted(_)) => Transfer::Uncommit(*id),
@@ -153,7 +172,7 @@ impl Transfer {
                 branch: branch.clone(),
                 commit: (workspace.worktrees.iter())
                     .find(|worktree| worktree.name == *name)?
-                    .lane_end?,
+                    .lane_end()?,
             },
             (Cut::Branch(_, branch), Selection::Branch(_, onto)) if branch != onto => {
                 // Already right on top of it.

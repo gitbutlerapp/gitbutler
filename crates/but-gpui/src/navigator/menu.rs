@@ -167,6 +167,11 @@ impl Navigator {
                         }),
                     ]);
                 }
+                // A linked worktree's branch changes there: from here, it's only copied.
+                if store.worktree_of(target).is_some() {
+                    items.push(action("Copy name", &CopySelection).separated());
+                    return items;
+                }
                 if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
                     use crate::backend::ReviewState as S;
                     match branch.review.as_ref().map(|r| r.state) {
@@ -256,6 +261,18 @@ impl Navigator {
                     return Vec::new();
                 };
                 let edits = CommitEdits::of(branch, commit);
+                // A linked worktree's commit changes there: from here, it's only copied.
+                if store.worktree_of(target).is_some() {
+                    let mut items = vec![
+                        action("Cherry-pick", &CherryPick),
+                        action("Copy commit ID", &CopySelection).separated(),
+                    ];
+                    if edits.change_id {
+                        items.push(action("Copy change ID", &CopyChangeId));
+                    }
+                    items.push(action("Copy message", &CopyMessage));
+                    return items;
+                }
                 let mut items = Vec::new();
                 if commit.conflicted {
                     items.push(action(
