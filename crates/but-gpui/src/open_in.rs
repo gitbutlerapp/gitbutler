@@ -61,7 +61,7 @@ impl AppView {
                             this.store.update(cx, |store, cx| {
                                 store.set_prefs(|prefs| prefs.editor = Some(id.clone()), cx);
                                 store.snack(
-                                    format!("Files open in {name}. Settings can change it."),
+                                    format!("Files now open in {name}, set in Settings → General"),
                                     cx,
                                 )
                             });

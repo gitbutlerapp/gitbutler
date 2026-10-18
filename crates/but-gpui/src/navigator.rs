@@ -1070,7 +1070,7 @@ impl Navigator {
                     )
                     .when_some(review.checks, |el, checks| {
                         let (glyph, color, text) = review::checks_summary(checks, theme);
-                        let tip = format!("{text}. Click to check again");
+                        let tip = format!("{text}, click to check again");
                         let (store, project) = (self.store.clone(), id.clone());
                         el.child(
                             div()

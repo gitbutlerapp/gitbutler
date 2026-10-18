@@ -1297,7 +1297,7 @@ impl Render for Detail {
             None if self.store.read(cx).projects.is_empty() => welcome(&theme, cx),
             None => empty_state(
                 "Nothing selected",
-                "Pick a project, branch or commit on the left.",
+                "Pick a project, branch or commit on the left",
                 &theme,
             ),
             Some(selection) => {

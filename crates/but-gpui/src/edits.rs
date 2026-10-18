@@ -150,8 +150,7 @@ impl AppView {
                         // workspace has.
                         if store.workspace(&project).is_some_and(|ws| !ws.managed) {
                             return store.snack(
-                                "Moving a commit to a new branch needs the GitButler \
-                                 workspace. Go back to it from the project's page.",
+                                "Switch to the workspace first, to move a commit to a new branch",
                                 cx,
                             );
                         }
