@@ -542,7 +542,7 @@ impl Detail {
         // While composing, the checkbox takes the icon's place once it's checked, or while
         // the pointer is on the row.
         let lead = match extras.checkbox {
-            None => (file_icon(&file.path))
+            None => (file_icon(&file.path, cx))
                 .when(reviewed, |el| el.opacity(0.5))
                 .into_any_element(),
             Some(check) => {
@@ -559,7 +559,7 @@ impl Detail {
                     .relative()
                     .flex_none()
                     .size(px(14.))
-                    .child(file_icon(&file.path).absolute().map(|el| match on {
+                    .child(file_icon(&file.path, cx).absolute().map(|el| match on {
                         true => el.opacity(0.),
                         false => el.group_hover(ROW_GROUP, |s| s.opacity(0.)),
                     }))

@@ -112,9 +112,7 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
-        Ok((icon_bytes(path).or_else(|| file_icons::load(path)))
-            .map(Cow::Borrowed)
-            .or_else(|| person::load(path).map(Cow::Owned)))
+        Ok((icon_bytes(path).map(Cow::Borrowed)).or_else(|| person::load(path).map(Cow::Owned)))
     }
 
     fn list(&self, _path: &str) -> anyhow::Result<Vec<SharedString>> {

@@ -1,15 +1,19 @@
 //! GitButler's file-type marks, shared with Lite and but.dev: which one a file gets, by the
 //! same map and rule as `@gitbutler/ui-react`.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
-use gpui::{Img, SharedString, img, prelude::*, px};
+use gpui::{App, ImageSource, Img, RenderImage, SvgRenderer, img, prelude::*, px};
 
 include!(concat!(env!("OUT_DIR"), "/file_icons.rs"));
 
-/// Where the marks are served from, for [`gpui::img`].
-const PREFIX: &str = "file-icons/";
+thread_local! {
+    /// Each mark, drawn the first time it's needed. Loaded as an asset instead, a mark new
+    /// to the screen stayed blank in a view gpui caches until something else redrew it.
+    static DRAWN: RefCell<HashMap<&'static str, Arc<RenderImage>>> = RefCell::default();
+}
 
 /// The icon names by whole file name, then by extension, from the UI package's map.
 static TYPES: LazyLock<[HashMap<&'static str, &'static str>; 2]> = LazyLock::new(|| {
@@ -31,7 +35,7 @@ fn entries(source: &'static str) -> HashMap<&'static str, &'static str> {
 
 /// The mark for the file at `path`: by its whole name, else by its longest extension that has
 /// one ("d.ts" before "ts"), else a plain document.
-pub fn file_icon(path: &str) -> Img {
+pub fn file_icon(path: &str, cx: &App) -> Img {
     let name = path.rsplit('/').next().unwrap_or(path).to_lowercase();
     let suffixes =
         std::iter::once(name.as_str()).chain(name.match_indices('.').map(|(i, _)| &name[i + 1..]));
@@ -40,19 +44,22 @@ pub fn file_icon(path: &str) -> Img {
         .find(|icon| icon_svg(icon).is_some())
         .copied()
         .unwrap_or("document");
-    img(SharedString::from(format!("{PREFIX}{icon}.svg")))
-        .size(px(14.))
-        .flex_none()
+    let drawn = DRAWN.with_borrow_mut(|drawn| {
+        let draw = || draw(&cx.svg_renderer(), icon);
+        drawn.entry(icon).or_insert_with(draw).clone()
+    });
+    img(ImageSource::Render(drawn)).size(px(14.)).flex_none()
 }
 
-/// The SVG of a mark, by its asset path.
-pub(super) fn load(path: &str) -> Option<&'static [u8]> {
-    icon_svg(path.strip_prefix(PREFIX)?.strip_suffix(".svg")?)
+/// Mark `icon` drawn as `img` draws an SVG asset.
+fn draw(renderer: &SvgRenderer, icon: &str) -> Arc<RenderImage> {
+    let svg = icon_svg(icon).expect("only compiled-in marks are drawn");
+    (renderer.render_single_frame(svg, 1.)).expect("the compiled-in marks draw, as a test checks")
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{TYPES, icon_svg};
+    use super::{TYPES, draw, icon_svg};
 
     #[test]
     fn the_shared_map_reads_and_names_icons_that_exist() {
@@ -69,5 +76,17 @@ mod tests {
         );
         assert!(icon_svg("rust").is_some(), "the icons are compiled in");
         assert!(icon_svg("document").is_some(), "the fallback exists");
+    }
+
+    #[test]
+    fn every_mark_draws() {
+        let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::ui::Assets));
+        for icon in TYPES
+            .iter()
+            .flat_map(|map| map.values())
+            .filter(|i| icon_svg(i).is_some())
+        {
+            draw(&renderer, icon);
+        }
     }
 }
