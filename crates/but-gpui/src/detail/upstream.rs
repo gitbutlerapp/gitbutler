@@ -126,8 +126,6 @@ impl Detail {
                     Some(previous) => (Vec::new(), previous.selected),
                     None => (Vec::new(), None),
                 };
-                // The first page stops where the workspace forked off; paging goes on below.
-                let more = has_more || (after.is_none() && !commits.is_empty());
                 list.extend(commits);
                 let selected = selected
                     .filter(|id| list.iter().any(|c| c.id == *id))
@@ -135,7 +133,7 @@ impl Detail {
                 this.upstream = Some(Upstream {
                     project,
                     commits: list,
-                    more,
+                    more: has_more,
                     selected,
                     fetch,
                     unconnected_forge,

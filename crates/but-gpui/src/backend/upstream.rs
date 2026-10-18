@@ -56,8 +56,17 @@ pub fn target_commits(
                 incoming: !target.in_workspace,
             }
         })
-        .collect();
-    Ok((commits, page.has_more))
+        .collect::<Vec<TargetCommit>>();
+    // The first page stops where the workspace forked off, with older commits below that
+    // unless it's where the history starts.
+    let repo = ctx.repo.get()?;
+    let forked_above_root = after.is_none()
+        && (commits.last()).is_some_and(|last| {
+            // A shallow clone's oldest commits name parents it doesn't have.
+            (repo.find_commit(last.id.0))
+                .is_ok_and(|c| c.parent_ids().next().is_some_and(|p| repo.has_object(p)))
+        });
+    Ok((commits, page.has_more || forked_above_root))
 }
 
 /// When the project last fetched, in seconds since the epoch, and why the last attempt
