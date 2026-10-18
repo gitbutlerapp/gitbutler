@@ -309,14 +309,11 @@ impl AppView {
         let Some(ws) = self.store.read(cx).workspace(&project) else {
             return;
         };
-        let refused = if !ws.can_push(&ref_name) {
-            "Nothing to push yet"
-        } else if ws.pushes_conflicts(&ref_name) {
-            "Resolve the conflicted commits first"
-        } else {
-            ""
+        let refused = match ws.can_push(&ref_name) {
+            true => ws.push_refused(&ref_name),
+            false => Some("Nothing to push yet"),
         };
-        if !refused.is_empty() {
+        if let Some(refused) = refused {
             return self.store.update(cx, |store, cx| store.snack(refused, cx));
         }
         let (what, them) = match ws.push_drops(&ref_name) {
