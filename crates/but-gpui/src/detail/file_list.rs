@@ -697,7 +697,7 @@ impl Detail {
                     .into_any_element()
             }
         };
-        // The ⋯ takes the mark's place while the pointer is on the row or the row is current.
+        // The ⋯ takes the mark's place while the pointer is on the row.
         // A plain glyph rather than a button: a list draws it on every row.
         let more = extras.menu.clone().map(|menu| {
             div()
@@ -713,9 +713,8 @@ impl Detail {
                     true => el.bg(theme.text_inverted.opacity(0.1)),
                     false => el.bg(theme.hover()),
                 })
-                .when(!current, |el| {
-                    el.invisible().group_hover(ROW_GROUP, |s| s.visible())
-                })
+                .invisible()
+                .group_hover(ROW_GROUP, |s| s.visible())
                 .child(small_icon(Icon::Kebab).text_color(muted))
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     cx.stop_propagation();
@@ -724,10 +723,7 @@ impl Detail {
         });
         let has_menu = more.is_some();
         let mark = div()
-            .when(has_menu && current, |el| el.invisible())
-            .when(has_menu && !current, |el| {
-                el.group_hover(ROW_GROUP, |s| s.invisible())
-            })
+            .when(has_menu, |el| el.group_hover(ROW_GROUP, |s| s.invisible()))
             .map(|el| match file.conflicted {
                 true => el.child(small_icon(Icon::Warning).text_color(theme.danger)),
                 false => el
