@@ -38,6 +38,9 @@ pub struct Workspace {
     pub forge: Option<Forge>,
     pub stacks: Vec<Stack>,
     pub uncommitted: Vec<FileChange>,
+    /// The tree of the main checkout's `HEAD` that `uncommitted` was read against. While it's
+    /// the same, an operation on commits left the files as they were: see [`super::Kept`].
+    pub tree: Option<gix::ObjectId>,
     /// `HEAD` is GitButler's workspace. Otherwise one branch is checked out, as in a new
     /// project or after a plain `git checkout`, and the stacks are just that branch.
     pub managed: bool,
@@ -94,6 +97,8 @@ pub struct Worktree {
     pub uncommitted: Vec<FileChange>,
     /// The Git command it's stopped partway through, like `git rebase`.
     pub git_operation: Option<&'static str>,
+    /// The tree of its `HEAD` that `uncommitted` was read against, as the main checkout's.
+    pub tree: Option<gix::ObjectId>,
     /// When it or its branch last moved, as a commit or checkout does, in seconds since the
     /// epoch, from their reflogs.
     pub updated_at: Option<i64>,

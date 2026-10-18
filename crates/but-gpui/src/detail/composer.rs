@@ -14,7 +14,7 @@ use crate::backend::{
     LineKind, PushState, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
-use crate::state::{NewAt, Overlay, ProjectId, Rereads, Selection, Store};
+use crate::state::{NewAt, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -487,7 +487,6 @@ impl Detail {
                         let reworded = store.key_of(&project, id).map(|key| (key, message.clone()));
                         let overlay = Overlay {
                             reworded,
-                            rereads: Rereads::Commits,
                             ..Overlay::default()
                         };
                         store.run(

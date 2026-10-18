@@ -1075,7 +1075,7 @@ mod tests {
     }
 
     #[test]
-    fn a_reload_of_the_commits_keeps_the_files_shown() {
+    fn a_reload_of_the_commits_keeps_the_files_while_their_tree_stays() {
         let dir = repo_with("one\n");
         let path = dir.path();
         git(
@@ -1118,6 +1118,15 @@ mod tests {
             paths(&files),
             vec!["file", "new"],
             "unless they're asked for"
+        );
+
+        // A commit taking the change in gives `HEAD` another tree, and so another diff.
+        git(path, &["commit", "-qam", "take it in"]);
+        let moved = load(Kept::from(&commits, false, &HashSet::new()));
+        assert_eq!(
+            paths(&moved),
+            vec!["new"],
+            "or the tree they were read against moved"
         );
     }
 

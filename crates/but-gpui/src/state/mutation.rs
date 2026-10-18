@@ -61,13 +61,12 @@ pub struct Overlay {
 /// What an operation changes, for the reload after it to read again.
 #[derive(Default, Clone, Copy)]
 pub enum Rereads {
-    /// Commits, branches and every checkout's files.
+    /// Commits and branches, and the files of each checkout whose `HEAD` has another tree
+    /// by now, which is all an operation on commits writes: see [`backend::Kept`].
     #[default]
-    All,
+    Commits,
     /// Only the uncommitted files of the checkout `files_in` names, or of the main one.
     Files,
-    /// Only commits and branches, leaving every checkout's files as they are.
-    Commits,
 }
 
 /// Where a commit an operation makes shows until it's loaded.
@@ -822,10 +821,14 @@ impl Store {
             // Which oplog entry the operation recorded, if it did, for its Undo button.
             let result = backend::run(move || {
                 let before = backend::history::oplog_head(&path);
+                let heads = backend::worktrees::heads(&path);
                 let value = op(&path, &remap)?;
                 let recorded =
                     backend::history::oplog_head(&path).filter(|after| Some(*after) != before);
-                Ok((value, recorded))
+                // The oplog records only the main checkout: what moved a linked worktree,
+                // even one stacked on a branch here, can't be undone.
+                let moved_worktree = backend::worktrees::heads(&path) != heads;
+                Ok((value, recorded, moved_worktree))
             })
             .await;
             this.update(cx, |store, cx| {
@@ -837,9 +840,8 @@ impl Store {
                     running.settling = true;
                     moved = running.moved.take();
                     reload = match running.overlay.rereads {
-                        Rereads::All => Reload::full(),
-                        Rereads::Files => Reload::files(running.overlay.files_in.clone()),
                         Rereads::Commits => Reload::commits(),
+                        Rereads::Files => Reload::files(running.overlay.files_in.clone()),
                     };
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
@@ -849,8 +851,11 @@ impl Store {
                     store.rebaseline.insert(project.clone(), before);
                 }
                 match result {
-                    Ok((value, recorded)) => {
+                    Ok((value, recorded, moved_worktree)) => {
                         store.last_snapshot = recorded.map(|snapshot| (project.clone(), snapshot));
+                        if moved_worktree {
+                            store.keep_last_snapshot();
+                        }
                         done(store, value, cx)
                     }
                     Err(err) => {

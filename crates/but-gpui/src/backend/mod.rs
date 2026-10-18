@@ -183,24 +183,40 @@ fn checkout(ctx: &Context, worktree: Option<&str>) -> Result<gix::Repository> {
 /// load, and an operation that changes only commits and branches leaves them as they are.
 #[derive(Default)]
 pub struct Kept {
-    /// The main checkout's.
-    pub main: Option<Vec<FileChange>>,
-    /// Linked worktrees' by name, with the Git command each is partway through.
-    pub linked: HashMap<Arc<str>, (Vec<FileChange>, Option<&'static str>)>,
+    /// The main checkout's, with the tree of its `HEAD` they were read against.
+    pub main: Option<(Vec<FileChange>, Option<gix::ObjectId>)>,
+    /// Linked worktrees' by name.
+    pub linked: HashMap<Arc<str>, KeptWorktree>,
 }
+
+/// A linked worktree's uncommitted files as shown, with the Git command it's partway through
+/// and the tree of its `HEAD` they were read against.
+pub type KeptWorktree = (Vec<FileChange>, Option<&'static str>, Option<gix::ObjectId>);
 
 impl Kept {
     /// What `shown` has, but for the main checkout's files with `main` and the `linked`
-    /// worktrees' files, which are read again.
+    /// worktrees' files, which are read again. A checkout's files are read again too when
+    /// its `HEAD` has another tree by now: an operation on commits writes a checkout's
+    /// files only where it changes that tree, so the rest stay as they were.
     pub fn from(shown: &Workspace, main: bool, linked: &HashSet<Arc<str>>) -> Self {
         Self {
-            main: (!main).then(|| shown.uncommitted.clone()),
+            main: (!main).then(|| (shown.uncommitted.clone(), shown.tree)),
             linked: (shown.worktrees.iter())
                 .filter(|worktree| !linked.contains(&worktree.name))
-                .map(|w| (w.name.clone(), (w.uncommitted.clone(), w.git_operation)))
+                .map(|w| {
+                    (
+                        w.name.clone(),
+                        (w.uncommitted.clone(), w.git_operation, w.tree),
+                    )
+                })
                 .collect(),
         }
     }
+}
+
+/// The tree of `repo`'s `HEAD`, which its uncommitted files are read against.
+fn head_tree(repo: &gix::Repository) -> Option<gix::ObjectId> {
+    repo.head_tree_id().ok().map(|id| id.detach())
 }
 
 /// The project's workspace, with the uncommitted files `kept` doesn't have read from disk.
@@ -208,7 +224,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
     let Kept { main, mut linked } = kept;
-    let (uncommitted, managed, checked_out, refs, git_operation) = {
+    let (uncommitted, tree, managed, checked_out, refs, git_operation) = {
         let repo = ctx.repo.get()?;
         let head = repo.head_name()?;
         let managed =
@@ -216,12 +232,14 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         let checked_out = head
             .filter(|_| !managed)
             .map(|name| name.shorten().to_string());
+        let tree = head_tree(&repo);
         let files = match main {
-            Some(files) => files,
-            None => worktree_files(&repo)?,
+            Some((files, read_against)) if read_against == tree => files,
+            _ => worktree_files(&repo)?,
         };
         (
             files,
+            tree,
             managed,
             checked_out,
             refs_fingerprint(&repo)?,
@@ -231,6 +249,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     if let Some(editing) = edit::editing(&ctx)? {
         return Ok(Workspace {
             uncommitted,
+            tree,
             git_operation,
             refs,
             editing: Some(editing),
@@ -302,6 +321,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         forge: reviews::forge_of(&ctx),
         stacks,
         uncommitted,
+        tree,
         managed,
         checked_out,
         git_operation,
