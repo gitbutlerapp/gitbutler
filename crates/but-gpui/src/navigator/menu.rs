@@ -64,9 +64,9 @@ impl Navigator {
             Selection::Project(project) => {
                 let expanded = store.project(project).is_some_and(|p| p.expanded);
                 let mut items = vec![if expanded {
-                    action("Collapse", &Collapse)
+                    action("Stop watching", &Collapse)
                 } else {
-                    action("Expand", &Expand)
+                    action("Watch", &Expand)
                 }];
                 if expanded {
                     items.push(action("Fetch", &Fetch));

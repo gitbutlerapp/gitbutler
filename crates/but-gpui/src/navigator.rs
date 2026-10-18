@@ -44,6 +44,15 @@ const STACK_STEP: f32 = 22.;
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
 
+/// The eye of a project the app watches, or struck through for one it doesn't.
+fn watch_glyph(watched: bool) -> gpui::Svg {
+    let eye = match watched {
+        true => Icon::Eye,
+        false => Icon::EyeOff,
+    };
+    gpui::svg().path(eye.path()).size(px(14.)).flex_none()
+}
+
 /// How long a worktree with nothing uncommitted stays listed after it last moved.
 const INACTIVE_AFTER: Duration = Duration::from_secs(12 * 60 * 60);
 
@@ -210,6 +219,8 @@ pub struct Navigator {
     projects_unfolded: bool,
     /// Whether the pointer is over the navigator.
     pointer_over: bool,
+    /// The project whose watch button the pointer is on, which shows what a click makes it.
+    watch_hovered: Option<ProjectId>,
     /// The row under the pointer holds still through the next change to the rows: one a
     /// workspace's load made, as an agent's commit, or "Show fewer" folding what's above it,
     /// which would leave the list scrolled past the fold. What else the user folds or does
@@ -252,6 +263,7 @@ impl Navigator {
             projects_filter: None,
             projects_unfolded: false,
             pointer_over: false,
+            watch_hovered: None,
             hold_still: false,
             _subscriptions: subscriptions,
         }
@@ -1186,6 +1198,7 @@ impl Navigator {
         let workspace = entry.workspace.as_ref();
         let (toggle_id, chevron_id) = (id.clone(), id.clone());
         let expanded = entry.expanded;
+        let hovered = self.watch_hovered.as_ref() == Some(id);
         // Folded, the row sums up the whole card; open, it leaves out what the rows under it
         // say: their uncommitted files, unpushed commits and worktrees.
         let summary = workspace.filter(|ws| ws.editing.is_none()).map(|ws| {
@@ -1222,8 +1235,10 @@ impl Navigator {
                         .flex_none()
                         .gap(px(4.))
                         .child(
+                            // Whether the app watches the project, as an open one is loaded and
+                            // kept current, and under the pointer what a click makes it.
                             div()
-                                .id(ElementId::Name(format!("chevron-{id}").into()))
+                                .id(ElementId::Name(format!("watch-{id}").into()))
                                 .flex_none()
                                 .size(px(20.))
                                 .flex()
@@ -1231,18 +1246,30 @@ impl Navigator {
                                 .justify_center()
                                 .rounded(px(4.))
                                 .hover(|el| el.bg(theme.hover()))
-                                .child(
-                                    small_icon(if expanded {
-                                        Icon::ChevronDown
-                                    } else {
-                                        Icon::ChevronRight
-                                    })
-                                    .text_color(style.muted()),
-                                )
-                                // Folding the project doesn't select it.
+                                .child(watch_glyph(expanded != hovered).text_color(
+                                    match (hovered, style.solid) {
+                                        (false, _) => style.muted(),
+                                        (true, true) => theme.text_inverted,
+                                        (true, false) => theme.text_1,
+                                    },
+                                ))
+                                .on_hover(cx.listener({
+                                    let id = id.clone();
+                                    move |this, on: &bool, _, cx| {
+                                        this.watch_hovered = on.then(|| id.clone());
+                                        cx.notify()
+                                    }
+                                }))
+                                .tooltip(Tooltip::text(match expanded {
+                                    true => "Stop watching",
+                                    false => "Watch this project",
+                                }))
+                                // Watching it or not doesn't select it.
                                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                     cx.stop_propagation();
+                                    // The row moves to the other card, from under the pointer.
+                                    this.watch_hovered = None;
                                     this.store.update(cx, |store, cx| {
                                         store.set_expanded(&chevron_id, !expanded, cx)
                                     });

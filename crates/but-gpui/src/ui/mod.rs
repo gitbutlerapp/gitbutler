@@ -78,6 +78,7 @@ icons! {
     Commit => "commit",
     CommitFill => "commit-fill",
     Diff => "diff",
+    Eye => "eye",
     CollapseVertical => "collapse-vertical",
     Cross => "cross",
     ExpandVertical => "expand-vertical",
@@ -108,6 +109,8 @@ icons! {
     Warning => "warning";
     // ui-react's FolderIcon, a component with its gradient in CSS.
     own: FolderFill => "folder-fill",
+    // ui-react's eye, struck through, for a project not watched.
+    EyeOff => "eye-off",
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.
