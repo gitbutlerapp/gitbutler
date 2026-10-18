@@ -555,7 +555,7 @@ impl Store {
     ) {
         let label = label.into();
         let captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
-            ws.commits()
+            ws.own_commits()
                 .map(|commit| (commit.id, commit.key.clone()))
                 .collect()
         });
@@ -587,7 +587,7 @@ impl Store {
             let now = self
                 .workspace(&next.project)
                 .into_iter()
-                .flat_map(|ws| ws.commits());
+                .flat_map(|ws| ws.own_commits());
             let remap = Remap::new(
                 &next.captured,
                 now.map(|commit| (commit.key.as_str(), commit.id)),

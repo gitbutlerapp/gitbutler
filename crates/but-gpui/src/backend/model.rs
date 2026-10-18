@@ -91,9 +91,9 @@ pub struct Worktree {
     pub path: std::path::PathBuf,
     /// The branch it has checked out, or `None` for a detached `HEAD`.
     pub branch: Option<String>,
-    /// The last commit of the bottom branch of its lane, which a branch moves below to go
-    /// under the worktree's branches. `None` when that branch has no commits of its own.
-    pub lane_end: Option<CommitId>,
+    /// The branches of its lane, from the one checked out down to where it started, without
+    /// the commits the target already has: what was committed in it.
+    pub branches: Vec<Branch>,
     pub uncommitted: Vec<FileChange>,
     /// The Git command it's stopped partway through, like `git rebase`.
     pub git_operation: Option<&'static str>,
@@ -103,6 +103,13 @@ pub struct Worktree {
 }
 
 impl Worktree {
+    /// The last commit of the bottom branch of its lane, which a branch moves below to go
+    /// under the worktree's branches. `None` when that branch has no commits of its own.
+    pub fn lane_end(&self) -> Option<CommitId> {
+        let bottom = (self.branches.iter().rev()).find(|branch| !branch.ref_name.is_empty())?;
+        bottom.commits.last().map(|commit| commit.id)
+    }
+
     /// When one of its uncommitted files was last written, in seconds since the epoch.
     pub fn last_activity(&self) -> Option<i64> {
         (self.uncommitted.iter())
@@ -112,16 +119,29 @@ impl Worktree {
 }
 
 impl Workspace {
+    /// The workspace's own branches, its stacks', which commits and moves go to.
     pub fn branches(&self) -> impl Iterator<Item = &Branch> {
         self.stacks.iter().flat_map(|stack| &stack.branches)
     }
 
-    pub fn commits(&self) -> impl Iterator<Item = &Commit> {
+    /// Every branch shown: the workspace's, then its linked worktrees'.
+    fn shown_branches(&self) -> impl Iterator<Item = &Branch> {
+        (self.branches()).chain(self.worktrees.iter().flat_map(|wt| &wt.branches))
+    }
+
+    /// The commits of its own branches, which edits change. A linked worktree's are left
+    /// out, so an edit naming one of them fails rather than change it.
+    pub fn own_commits(&self) -> impl Iterator<Item = &Commit> {
         self.branches().flat_map(|branch| &branch.commits)
     }
 
+    /// Every commit shown, its linked worktrees' too.
+    pub fn commits(&self) -> impl Iterator<Item = &Commit> {
+        self.shown_branches().flat_map(|branch| &branch.commits)
+    }
+
     pub fn find_commit(&self, id: CommitId) -> Option<(&Branch, &Commit)> {
-        self.branches().find_map(|branch| {
+        self.shown_branches().find_map(|branch| {
             branch
                 .commits
                 .iter()
@@ -131,7 +151,8 @@ impl Workspace {
     }
 
     pub fn find_branch(&self, ref_name: &str) -> Option<&Branch> {
-        self.branches().find(|branch| branch.ref_name == ref_name)
+        self.shown_branches()
+            .find(|branch| branch.ref_name == ref_name)
     }
 
     /// The stack holding the branch `ref_name`, and the branch's place in it from the top.

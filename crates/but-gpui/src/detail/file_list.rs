@@ -313,14 +313,15 @@ impl Detail {
 
     /// The project the loaded diff's changes can be moved or taken out of, with the commit
     /// they're in, or `None` when they're uncommitted. A branch's diff spans commits, a
-    /// linked worktree's changes don't move into the workspace, and a commit of the target's
+    /// linked worktree's changes and commits change only there, and a commit of the target's
     /// history, on the project page, isn't the workspace's to change: those have no owner.
     pub(super) fn diff_owner(&self, cx: &App) -> Option<(ProjectId, Option<CommitId>)> {
         let key = &self.diff.as_ref()?.key;
         let from = match key.source {
             DiffSource::Worktree => None,
             DiffSource::Commit(id)
-                if self.store.read(cx).find_commit(&key.project, id).is_some() =>
+                if (self.store.read(cx).workspace(&key.project))
+                    .is_some_and(|ws| ws.own_commits().any(|commit| commit.id == id)) =>
             {
                 Some(id)
             }

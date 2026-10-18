@@ -24,8 +24,8 @@ impl Detail {
             return empty_state("Worktree not found", "", theme);
         };
         let files = self.render_diff_file_list(theme, cx);
-        // Its branch links to its commits: in the workspace when it's applied, else on the
-        // Branches page.
+        // Its branch links to its commits: in the navigator when they're listed there, as its
+        // own lane's are, else on the Branches page.
         let branch = worktree.branch.clone().map(|branch| {
             let ref_name = format!("refs/heads/{branch}");
             let applied =

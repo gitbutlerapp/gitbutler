@@ -99,6 +99,7 @@ impl Detail {
                         .and_then(|ws| ws.find_branch(ref_name))
                         .filter(|b| !ref_name.is_empty() && !b.commits.is_empty())
                         .filter(|_| crate::pr::on_forge(store, selection))
+                        .filter(|_| store.worktree_of(selection).is_none())
                         .map(|b| b.review.as_ref().map(|r| r.state));
                     let can_create = review == Some(None);
                     let can_merge = review == Some(Some(crate::backend::ReviewState::Open));

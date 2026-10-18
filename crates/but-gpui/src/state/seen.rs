@@ -115,6 +115,12 @@ impl Store {
                 .filter(|key| first_sight || before.is_some_and(|before| !before.contains(**key)))
                 .map(|key| key.to_string()),
         );
+        // Nor is what was committed in a linked worktree: its changes were there to watch as
+        // they were written. Kept by change ID, they stay seen when its branch is applied.
+        let in_worktrees = (workspace.worktrees.iter())
+            .flat_map(|worktree| &worktree.branches)
+            .flat_map(|branch| &branch.commits);
+        seen.extend(in_worktrees.map(|commit| commit.key.clone()));
         if latest {
             self.rebaseline.remove(id);
         }

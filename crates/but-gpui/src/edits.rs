@@ -6,10 +6,11 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use gpui::{App, Context, Div, Window, actions, prelude::*};
+use gpui::{App, Context, Div, Entity, Window, actions, prelude::*};
 
 use crate::app::{
-    AppView, DeleteSelection, NewBranchOnTop, Push, RenameSelection, UncommitSelection,
+    AppView, CutSelection, DeleteSelection, NewBranchOnTop, Push, RenameSelection,
+    UncommitSelection,
 };
 use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
 use crate::state::{Cut, Overlay, ProjectId, Remap, Selection, Store};
@@ -45,6 +46,28 @@ fn needs_rewrap(message: &str) -> bool {
         .lines()
         .skip(1)
         .any(|line| line.chars().count() > WRAP_AT)
+}
+
+/// In place of the edits that change the selection, a note saying where to make them.
+fn elsewhere(el: Div, store: &Entity<Store>) -> Div {
+    fn refuse<A: gpui::Action>(
+        store: &Entity<Store>,
+    ) -> impl Fn(&A, &mut Window, &mut App) + 'static {
+        let store = store.clone();
+        move |_, _, cx| {
+            store.update(cx, |store, cx| {
+                if let Some(selection) = store.selection.clone() {
+                    store.changes_elsewhere(&selection, cx);
+                }
+            })
+        }
+    }
+    el.on_action(refuse::<DeleteSelection>(store))
+        .on_action(refuse::<RenameSelection>(store))
+        .on_action(refuse::<NewBranchOnTop>(store))
+        .on_action(refuse::<UncommitSelection>(store))
+        .on_action(refuse::<CutSelection>(store))
+        .on_action(refuse::<Push>(store))
 }
 
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
@@ -120,6 +143,29 @@ impl AppView {
     /// on top and uncommit are always there; the rest only where the selection lets them do
     /// something, which is also what the palette offers.
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
+        // A linked worktree's branches and commits change in it: from here they're copied,
+        // and what would change them says where to.
+        let store = self.store.read(cx);
+        if let Some(selection) =
+            (store.selection.as_ref()).filter(|s| store.worktree_of(s).is_some())
+        {
+            let commit = match selection {
+                Selection::Commit(project, id) => store.find_commit(project, *id),
+                _ => None,
+            };
+            let change_id = commit.is_some_and(|(_, commit)| commit.has_change_id());
+            return elsewhere(el, &self.store)
+                .when(commit.is_some(), |el| {
+                    el.on_action(cx.listener(Self::cherry_pick)).on_action(
+                        cx.listener(|this, _: &CopyMessage, _, cx| this.copy_commit(false, cx)),
+                    )
+                })
+                .when(change_id, |el| {
+                    el.on_action(
+                        cx.listener(|this, _: &CopyChangeId, _, cx| this.copy_commit(true, cx)),
+                    )
+                });
+        }
         let el = el
             .on_action(cx.listener(Self::delete_selection))
             .on_action(cx.listener(Self::rename_selection))

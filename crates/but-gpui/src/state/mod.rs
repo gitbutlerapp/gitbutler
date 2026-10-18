@@ -11,7 +11,7 @@ use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
 
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace, short_ref,
+    Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace, Worktree, short_ref,
 };
 
 mod account;
@@ -55,6 +55,15 @@ impl Selection {
             | Selection::Branches(project)
             | Selection::History(project)
             | Selection::Worktree(project, _) => project,
+        }
+    }
+
+    /// Whether it's `branch` or one of its commits.
+    pub fn on(&self, branch: &Branch) -> bool {
+        match self {
+            Selection::Branch(_, ref_name) => branch.ref_name == *ref_name,
+            Selection::Commit(_, id) => branch.commits.iter().any(|commit| commit.id == *id),
+            _ => false,
         }
     }
 }
@@ -318,6 +327,26 @@ impl Store {
         Some(self.project(id)?.project.path.clone())
     }
 
+    /// The linked worktree whose branches `selection`, a branch or a commit, is on, and not
+    /// the workspace's too. Its agent works on them there, so nothing here changes them.
+    pub fn worktree_of(&self, selection: &Selection) -> Option<&Worktree> {
+        let workspace = self.workspace(selection.project())?;
+        if workspace.branches().any(|branch| selection.on(branch)) {
+            return None;
+        }
+        (workspace.worktrees.iter()).find(|wt| wt.branches.iter().any(|b| selection.on(b)))
+    }
+
+    /// Whether `selection` is on a linked worktree's branches, saying where to make the
+    /// change instead when it is.
+    pub fn changes_elsewhere(&mut self, selection: &Selection, cx: &mut Context<Self>) -> bool {
+        let Some(name) = self.worktree_of(selection).map(|wt| wt.name.clone()) else {
+            return false;
+        };
+        self.snack(format!("Make that change in worktree {name}"), cx);
+        true
+    }
+
     /// The branch `selection` is, or the one holding the commit it is.
     pub fn branch_for(&self, selection: &Selection) -> Option<&Branch> {
         let workspace = self.workspace(selection.project())?;
@@ -402,8 +431,11 @@ impl Store {
         range: Option<Vec<CommitId>>,
         cx: &mut Context<Self>,
     ) {
+        // A linked worktree's commit, changed only there, isn't one to pick along.
         let at = match &self.selection {
-            Some(Selection::Commit(p, at)) if p == project => *at,
+            Some(s @ Selection::Commit(p, at)) if p == project && self.worktree_of(s).is_none() => {
+                *at
+            }
             _ => return self.select(Some(Selection::Commit(project.clone(), id)), cx),
         };
         let mut picked = std::mem::take(&mut self.picked);

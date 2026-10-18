@@ -443,7 +443,13 @@ impl Detail {
     }
 
     pub fn start_reword(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::Commit(project, id)) = self.selection(cx) else {
+        let Some(selection @ Selection::Commit(..)) = self.selection(cx) else {
+            return;
+        };
+        if (self.store).update(cx, |store, cx| store.changes_elsewhere(&selection, cx)) {
+            return;
+        }
+        let Selection::Commit(project, id) = selection else {
             return;
         };
         let Some(message) = (self.store.read(cx).find_commit(&project, id))
@@ -504,8 +510,9 @@ impl Detail {
         let workspace = self.store.read(cx).workspace(project)?;
         // A branch merged upstream is done with, even before an update takes it out.
         let open = |branch: &Branch| branch.push != PushState::Integrated;
+        // One of its own branches: a linked worktree's are committed to there.
         if let Some(target) = &self.commit_target
-            && workspace.find_branch(target).is_some_and(open)
+            && (workspace.branches()).any(|branch| branch.ref_name == *target && open(branch))
         {
             return Some(target.clone());
         }
@@ -638,7 +645,8 @@ impl Detail {
         }
         let target = self.effective_target(project, cx)?;
         let workspace = self.store.read(cx).workspace(project)?;
-        let top = workspace.find_branch(&target)?.commits.first()?;
+        let branch = (workspace.branches()).find(|branch| branch.ref_name == target)?;
+        let top = branch.commits.first()?;
         Some((top.id, top.title.clone()))
     }
 
