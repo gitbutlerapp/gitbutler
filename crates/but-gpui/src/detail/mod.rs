@@ -1160,6 +1160,12 @@ impl Detail {
         }
     }
 
+    /// How wide the file list is drawn while it's shown.
+    fn files_width(&self, window: &Window, cx: &App) -> f32 {
+        let window = window.viewport_size().width.into();
+        (self.store.read(cx)).fitted_width(Pane::Files, window, !self.beside_traffic_lights, true)
+    }
+
     /// The path of the file under the cursor, in any diff.
     pub fn cursor_path(&self) -> Option<String> {
         let diff = self.diff.as_ref()?;
@@ -1368,12 +1374,7 @@ impl Render for Detail {
                         None => self.render_upstream_side(project, &theme, cx),
                     },
                 };
-                let width = self.store.read(cx).fitted_width(
-                    Pane::Files,
-                    window.viewport_size().width.into(),
-                    !self.beside_traffic_lights,
-                    true,
-                );
+                let width = self.files_width(window, cx);
                 // A commit's header runs across the page, over its files and its diff.
                 let header = match selection {
                     Selection::Commit(project, id) => {
