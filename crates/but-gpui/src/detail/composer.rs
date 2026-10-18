@@ -334,9 +334,24 @@ impl Detail {
                 .map(|file| file.path.clone());
             self.checks.unchecked.extend(conflicted.collect::<Vec<_>>());
         }
+        let message = self.message.focus_handle(cx);
+        if !self.composing {
+            self.composer_back = window.focused(cx).filter(|focused| *focused != message);
+        }
         self.composing = true;
-        window.focus(&self.message.focus_handle(cx), cx);
+        window.focus(&message, cx);
         cx.notify();
+    }
+
+    /// Close the composer, giving the focus back to where writing the message started:
+    /// the navigator, say, so its keys go on working after a commit.
+    pub(super) fn leave_composer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.close_composer(cx);
+        let back = self
+            .composer_back
+            .take()
+            .unwrap_or_else(|| self.focus.clone());
+        window.focus(&back, cx);
     }
 
     /// Get `files` ready to commit to `branch`, after they were dropped on it.
@@ -560,10 +575,9 @@ impl Detail {
     /// Close the composer once what it committed landed. Focus stays in the pane if it was
     /// in the message box, which goes away.
     fn finish_composing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let typing = self.message.focus_handle(cx).is_focused(window);
-        self.close_composer(cx);
-        if typing {
-            window.focus(&self.focus, cx);
+        match self.message.focus_handle(cx).is_focused(window) {
+            true => self.leave_composer(window, cx),
+            false => self.close_composer(cx),
         }
     }
 
@@ -854,10 +868,9 @@ impl Detail {
                             .small()
                             .style(ButtonStyle::Ghost)
                             .tooltip_with_key("Close without committing", Some("esc".into()))
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.close_composer(cx);
-                                window.focus(&this.focus, cx);
-                            })),
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.leave_composer(window, cx)),
+                            ),
                     )
                     .when_some(self.amend_target(project, cx), |el, (_, title)| {
                         el.child(
