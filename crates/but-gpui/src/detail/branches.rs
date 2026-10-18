@@ -234,6 +234,29 @@ impl Detail {
         rows
     }
 
+    /// Select the first branch the filter shows when it hides the selected one, so the diff
+    /// is of a branch in the list.
+    pub(super) fn select_shown_branch(&mut self, cx: &mut Context<Self>) {
+        let Some(branches) = &self.branches else {
+            return;
+        };
+        let rows = self.branch_rows(branches, cx);
+        let shown = |ix: &usize| Some(&branches.list[*ix].ref_name) == branches.selected.as_ref();
+        if rows
+            .iter()
+            .any(|row| matches!(row, Row::Branch(ix) if shown(ix)))
+        {
+            return;
+        }
+        let first = rows.iter().find_map(|row| match row {
+            Row::Branch(ix) => Some(branches.list[*ix].ref_name.clone()),
+            _ => None,
+        });
+        if let Some(first) = first {
+            self.select_other_branch(first, cx);
+        }
+    }
+
     fn select_other_branch(&mut self, ref_name: String, cx: &mut Context<Self>) {
         if let Some(branches) = &mut self.branches {
             branches.selected = Some(ref_name);

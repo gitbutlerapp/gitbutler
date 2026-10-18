@@ -348,8 +348,9 @@ impl Detail {
                 // would redraw the diff on every keystroke.
                 InputEvent::Changed => {}
             }),
-            cx.subscribe(&branch_filter, |_, _, event, cx| {
+            cx.subscribe(&branch_filter, |this, _, event, cx| {
                 if let InputEvent::Changed = event {
+                    this.select_shown_branch(cx);
                     cx.notify()
                 }
             }),
