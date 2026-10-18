@@ -1689,6 +1689,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "two-face 0.5.2+bat-0.26.1",
  "unicode-segmentation",
 ]
 
