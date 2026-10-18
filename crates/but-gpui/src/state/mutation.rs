@@ -436,14 +436,18 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let run_hooks = self.runs_hooks(project);
+        // Which commit, as it's often not on screen.
+        let amended = (self.find_commit(project, into)).map_or("Amended".into(), |(_, commit)| {
+            format!("Amended \"{}\"", crate::ui::commit_title(&commit.title))
+        });
         self.run(
             project,
             format!("Amend {}", into.short()),
             Overlay::files(files.iter()),
             move |path, remap| backend::amend(path, remap.get(into)?, &files, run_hooks),
-            |store, (rewritten, left_out, hook_failed), cx| {
+            move |store, (rewritten, left_out, hook_failed), cx| {
                 store.follow(&rewritten, cx);
-                store.report_left_out("Amended", &left_out, cx);
+                store.report_left_out(&amended, &left_out, cx);
                 if let Some(output) = hook_failed {
                     store.error("Amended, but the post-commit hook failed", output, cx);
                 }
