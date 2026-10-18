@@ -50,7 +50,7 @@ export const Popup: FC<{ anchored?: boolean } & useRender.ComponentProps<"div">>
  *
  * - `xsmall` (320): a one-line question and its buttons — "Discard 3 files?".
  * - `small` (420): a prompt with a field or a short list, and pickers.
- * - `medium` (640): a pane that lays itself out around one group.
+ * - `medium` (520): a pane that lays itself out around one group.
  * - `large` (820): a pane with more than one group, or a working surface: settings, the conflict
  *   resolver.
  *
