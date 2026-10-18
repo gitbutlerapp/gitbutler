@@ -115,6 +115,17 @@ impl Detail {
         }
     }
 
+    /// Whether applying what's picked resolves every conflict of the shown file at `path`.
+    pub(super) fn picks_settle(&self, path: &str) -> bool {
+        (self.diff.iter().flat_map(|diff| diff.files.iter()))
+            .find(|file| file.file.path == path)
+            .is_some_and(|file| {
+                let conflicts = file.conflicts();
+                !conflicts.is_empty()
+                    && (conflicts.iter()).all(|c| self.resolving.keeping.contains_key(&c.id))
+            })
+    }
+
     /// The shown diff's conflicts in file order, each with its file's place in the diff.
     fn conflicts(&self) -> impl Iterator<Item = (usize, &Conflict)> {
         (self.diff.iter())
@@ -135,21 +146,34 @@ impl Detail {
         }
     }
 
+    /// Whether the conflicts shown are a commit's checked out for editing: between it and
+    /// the commit it now sits on, as a conflicted commit's are, though they're in its files.
+    fn editing_commit(&self, cx: &App) -> bool {
+        matches!(self.conflicted(), Some((project, Conflicted::Files(None)))
+            if (self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.editing.is_some()))
+    }
+
     /// What `conflict`'s sides are called, alone and in a sentence. A commit sits on the
-    /// target when it's its stack's oldest, else on the commit below. An update's markers
-    /// put the uncommitted changes first, as Git's do, then what the update brought; any
-    /// other merge's markers name the sides themselves.
+    /// target when it's its stack's oldest, else on the commit below, as a commit checked out
+    /// for editing does. An update's markers put the uncommitted changes first, as Git's do,
+    /// then what the update brought; any other merge's markers name the sides themselves.
     fn side_names(&self, conflict: &Conflict, cx: &App) -> [(String, String); 2] {
         let Some((project, conflicted)) = self.conflicted() else {
             return Default::default();
         };
         let store = self.store.read(cx);
         let workspace = store.workspace(&project);
+        let named = |label: &str, phrase: &str| (label.to_owned(), phrase.to_owned());
+        if self.editing_commit(cx) {
+            return [
+                named("Commit below", "the commit below"),
+                named("This commit", "this commit"),
+            ];
+        }
         let target = (workspace.and_then(|ws| ws.target.as_ref())).map(|target| {
             let name = target.name.rsplit('/').next().unwrap_or(&target.name);
             (name.to_owned(), name.to_owned())
         });
-        let named = |label: &str, phrase: &str| (label.to_owned(), phrase.to_owned());
         match conflicted {
             Conflicted::Commit(id) => {
                 let oldest = workspace.is_some_and(|ws| oldest_first(ws, id).first() == Some(&id));
@@ -431,13 +455,15 @@ impl Detail {
         }
     }
 
-    /// Resolve every conflict something is kept for, as one step. The rest stay.
-    pub(super) fn apply_resolutions(&mut self, cx: &mut Context<Self>) {
+    /// Resolve every conflict something is kept for, as one step. The rest stay. With
+    /// `finish`, the commit checked out for editing is finished once that worked. Whether
+    /// there was anything to resolve.
+    pub(super) fn apply_resolutions(&mut self, finish: bool, cx: &mut Context<Self>) -> bool {
         let Some((project, conflicted)) = self.conflicted() else {
-            return;
+            return false;
         };
         let Some(diff) = &self.diff else {
-            return;
+            return false;
         };
         let keep: Vec<(String, &Conflict, Keep)> = (diff.files.iter())
             .flat_map(|file| file.conflicts().iter().map(move |c| (file, c)))
@@ -452,16 +478,19 @@ impl Detail {
             })
             .collect();
         if keep.is_empty() {
-            return;
+            return false;
         }
         let commit = match conflicted {
             Conflicted::Commit(commit) => commit,
             Conflicted::Files(worktree) => {
                 let decided = keep.len();
+                let editing = (self.store.read(cx).workspace(&project))
+                    .is_some_and(|ws| ws.editing.is_some());
                 let keep: Vec<(String, String, Keep)> = (keep.into_iter())
                     .map(|(path, c, keep)| (path, c.id.clone(), keep))
                     .collect();
-                return self.store.update(cx, |store, cx| {
+                let project_done = project.clone();
+                self.store.update(cx, |store, cx| {
                     store.run(
                         &project,
                         "Resolve",
@@ -476,23 +505,29 @@ impl Detail {
                             }
                         },
                         move |store, files, cx| {
+                            if finish {
+                                return store.finish_editing(&project_done, cx);
+                            }
                             let resolved = plural(decided, "conflict");
+                            // A commit being edited is finished, not committed.
                             let message = match files {
-                                0 => format!("Resolved {resolved}"),
+                                n if n == 0 || editing => format!("Resolved {resolved}"),
                                 n => format!(
                                     "Resolved {resolved}, {} ready to commit",
                                     plural(n, "file")
                                 ),
                             };
-                            // The oplog can't bring a linked worktree back.
-                            match worktree {
-                                None => store.snack_undoable(message, cx),
-                                Some(_) => store.snack(message, cx),
+                            // The oplog can't bring back a linked worktree, nor a commit
+                            // checked out for editing.
+                            match worktree.is_none() && !editing {
+                                true => store.snack_undoable(message, cx),
+                                false => store.snack(message, cx),
                             }
                         },
                         cx,
                     )
                 });
+                return true;
             }
         };
         let keep: Vec<(String, usize, Keep)> = (keep.into_iter())
@@ -545,6 +580,7 @@ impl Detail {
                 cx,
             )
         });
+        true
     }
 
     /// One of the conflict's rows, acting on it through `entity`.
@@ -606,7 +642,9 @@ impl Detail {
                 .each_ref()
                 .map(|(label, phrase)| Name { label, phrase }),
             icons: match self.conflicted() {
-                Some((_, Conflicted::Files(_))) => [Icon::FileDiff, Icon::Branch],
+                Some((_, Conflicted::Files(_))) if !self.editing_commit(cx) => {
+                    [Icon::FileDiff, Icon::Branch]
+                }
                 _ => [Icon::Branch, Icon::Commit],
             },
             kept,
@@ -639,6 +677,13 @@ impl Detail {
         let (project, conflicted) = self.conflicted()?;
         let store = self.store.read(cx);
         let workspace = store.workspace(&project)?;
+        let no_undo = match conflicted {
+            Conflicted::Files(Some(_)) => Some("A linked worktree can't undo it."),
+            Conflicted::Files(None) if workspace.editing.is_some() => {
+                Some("Finish then commits the result.")
+            }
+            _ => None,
+        };
         let total = self.conflicts().count();
         let decided = (self.conflicts())
             .filter(|(_, c)| self.resolving.keeping.contains_key(&c.id))
@@ -674,7 +719,7 @@ impl Detail {
                 )
                 .on_click(move |_, _, cx| {
                     entity
-                        .update(cx, |this, cx| this.apply_resolutions(cx))
+                        .update(cx, |this, cx| this.apply_resolutions(false, cx))
                         .ok();
                 })
                 .into_any_element()
@@ -706,12 +751,12 @@ impl Detail {
             ),
             None if decided == total => (
                 format!("{} ready to apply", plural(total, "conflict")),
-                // The oplog only records the main checkout.
-                match (total, matches!(conflicted, Conflicted::Files(Some(_)))) {
-                    (1, false) => "Apply resolves it in one step you can undo.".into(),
-                    (_, false) => "Apply resolves them in one step you can undo.".into(),
-                    (1, true) => "Apply resolves it. A linked worktree can't undo it.".into(),
-                    (_, true) => "Apply resolves them. A linked worktree can't undo it.".into(),
+                // The oplog only records the main checkout, and not while a commit's edited.
+                match (total, no_undo) {
+                    (1, None) => "Apply resolves it in one step you can undo.".into(),
+                    (_, None) => "Apply resolves them in one step you can undo.".into(),
+                    (1, Some(why)) => format!("Apply resolves it. {why}"),
+                    (_, Some(why)) => format!("Apply resolves them. {why}"),
                 },
                 apply,
             ),
@@ -913,7 +958,9 @@ pub(super) fn conflict_keys(
                 this.suggest(id, cx);
             }
         }))
-        .on_action(cx.listener(|this, _: &ApplyResolutions, _, cx| this.apply_resolutions(cx)))
+        .on_action(cx.listener(|this, _: &ApplyResolutions, _, cx| {
+            this.apply_resolutions(false, cx);
+        }))
 }
 
 /// The Apply button for the commit's header, while something is kept to apply.
@@ -933,7 +980,7 @@ pub(super) fn apply_button(
             )
             .on_click(move |_, _, cx| {
                 entity
-                    .update(cx, |this, cx| this.apply_resolutions(cx))
+                    .update(cx, |this, cx| this.apply_resolutions(false, cx))
                     .ok();
             })
             .into_any_element()

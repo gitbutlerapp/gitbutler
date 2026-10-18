@@ -324,13 +324,22 @@ impl Detail {
 
     pub fn focus_message(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // The composer sits under the changes; with none, as when an agent committed them
-        // all while it was open, there's nowhere to write.
+        // all while it was open, there's nowhere to write. A commit being edited isn't
+        // committed but finished.
         if let Some(Selection::Uncommitted(project)) = self.selection(cx)
-            && (self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.uncommitted.is_empty())
+            && let Some(workspace) = self.store.read(cx).workspace(&project)
         {
-            self.store
-                .update(cx, |store, cx| store.snack("No changes to commit", cx));
-            return;
+            let refused = match workspace.editing {
+                Some(_) => Some("Finish or cancel editing the commit first"),
+                None => workspace
+                    .uncommitted
+                    .is_empty()
+                    .then_some("No changes to commit"),
+            };
+            if let Some(refused) = refused {
+                self.store.update(cx, |store, cx| store.snack(refused, cx));
+                return;
+            }
         }
         // A file a merge left conflicted can't be committed until it's marked resolved, so
         // it starts out of the commit.

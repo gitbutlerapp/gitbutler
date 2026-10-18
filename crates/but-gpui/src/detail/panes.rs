@@ -4,8 +4,8 @@
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, Entity, SharedString, UniformListScrollHandle,
-    Window, div, prelude::*, px, uniform_list,
+    AnyElement, ClickEvent, Context, Div, Entity, SharedString, UniformListScrollHandle, Window,
+    div, prelude::*, px, uniform_list,
 };
 
 use super::Detail;
@@ -75,9 +75,18 @@ impl Detail {
                         );
                     }
                 }
-                Selection::Uncommitted(_) => {
-                    crumbs.push(("Uncommitted changes".into(), None));
-                    actions.extend(self.mark_all_reviewed(cx));
+                Selection::Uncommitted(project) => {
+                    match workspace.and_then(|ws| ws.editing.as_ref()) {
+                        Some(editing) => {
+                            let title = commit_title(&editing.title);
+                            crumbs.push((format!("Editing {title}").into(), None));
+                            actions.extend(self.editing_actions(project, cx));
+                        }
+                        None => {
+                            crumbs.push(("Uncommitted changes".into(), None));
+                            actions.extend(self.mark_all_reviewed(cx));
+                        }
+                    }
                 }
                 Selection::Branch(_, ref_name) => {
                     let name = match ref_name.is_empty() {
@@ -248,6 +257,58 @@ impl Detail {
             .children(actions)
     }
 
+    /// Cancel and Finish for the commit `project` has checked out for editing. Finishing
+    /// applies what's picked first, and with files still conflicted asks, as their markers
+    /// would go into the commit.
+    fn editing_actions(&self, project: &ProjectId, cx: &Context<Self>) -> [AnyElement; 2] {
+        let cancel = project.clone();
+        let finish = project.clone();
+        [
+            button("cancel-editing", "Cancel")
+                .style(ButtonStyle::Ghost)
+                .tooltip("Put the commit back as it was")
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    (this.store).update(cx, |store, cx| store.cancel_editing(&cancel, false, cx))
+                }))
+                .into_any_element(),
+            button("finish-editing", "Finish")
+                .icon(Icon::Tick)
+                .style(ButtonStyle::Pop)
+                .tooltip("Commit the files as they are in its place, and rebase what's above it")
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    let project = finish.clone();
+                    let left = (this.store.read(cx).workspace(&project)).map_or(0, |ws| {
+                        (ws.uncommitted.iter())
+                            .filter(|f| f.conflicted && !this.picks_settle(&f.path))
+                            .count()
+                    });
+                    // What's picked goes in first, as finishing means the picking is done;
+                    // finishing waits for it, so a resolve that fails finishes nothing.
+                    let finish = move |this: &mut Self, cx: &mut Context<Self>| {
+                        if !this.apply_resolutions(true, cx) {
+                            (this.store).update(cx, |store, cx| store.finish_editing(&project, cx))
+                        }
+                    };
+                    if left == 0 {
+                        return finish(this, cx);
+                    }
+                    let detail = cx.entity();
+                    (this.app.update(cx, |app, cx| {
+                        app.confirm_then(
+                            format!("Finish with {} still conflicted?", plural(left, "file")),
+                            "Their conflict markers go into the commit as they are.",
+                            "Finish",
+                            window,
+                            cx,
+                            move |_, cx| detail.update(cx, finish),
+                        )
+                    }))
+                    .ok();
+                }))
+                .into_any_element(),
+        ]
+    }
+
     /// "Mark all reviewed" for the selected checkout's uncommitted files, while any still
     /// want a look. It marks them as they are when clicked.
     fn mark_all_reviewed(&self, cx: &App) -> Option<AnyElement> {
@@ -336,7 +397,11 @@ impl Detail {
             .children(unfinished)
             .children(banner.map(|banner| side_header(theme).child(banner)))
             .child(self.render_uncommitted_files(project, &workspace.uncommitted, theme, cx))
-            .when(!workspace.uncommitted.is_empty(), |el| el.child(footer))
+            // A commit being edited is finished from the header, not committed.
+            .when(
+                !workspace.uncommitted.is_empty() && workspace.editing.is_none(),
+                |el| el.child(footer),
+            )
             .into_any_element()
     }
 

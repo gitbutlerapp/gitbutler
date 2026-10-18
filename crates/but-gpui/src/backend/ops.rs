@@ -682,6 +682,11 @@ fn current_hunks(
 pub fn mark_resolved(path: &Path, files: Vec<String>) -> Result<()> {
     let mut ctx = open(path)?;
     let paths = files.into_iter().map(Into::into).collect();
+    // Undo can't restore a commit checked out for editing, so it isn't recorded.
+    if super::edit::editing(&ctx)?.is_some() {
+        let _guard = ctx.exclusive_worktree_access();
+        return but_workspace::resolve_worktree_conflicts(&*ctx.repo.get()?, paths);
+    }
     but_api::workspace::resolve_worktree_conflicts(&mut ctx, paths)
 }
 

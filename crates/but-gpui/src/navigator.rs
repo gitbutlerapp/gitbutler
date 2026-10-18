@@ -204,13 +204,12 @@ impl Navigator {
             if let Some(err) = &entry.error {
                 rows.push(Row::Note(err.clone(), true));
             }
-            // Nothing but the edit goes on while a commit is checked out; its page is the
-            // project's.
+            rows.push(Row::Item(Selection::Uncommitted(id.clone())));
+            // Nothing but the edit goes on while a commit is checked out, its files listed
+            // where the uncommitted ones are.
             if workspace.editing.is_some() {
-                rows.push(Row::Note("Editing a commit".into(), false));
                 continue;
             }
-            rows.push(Row::Item(Selection::Uncommitted(id.clone())));
             for stack in &workspace.stacks {
                 if stack.branches.len() > 1 {
                     let refs = (stack.branches.iter())
@@ -988,11 +987,17 @@ impl Navigator {
         let store = self.store.read(cx);
         let theme = style.theme;
         let uncommitted = store.workspace(id).map_or(&[][..], |ws| &ws.uncommitted);
+        let editing = store.workspace(id).is_some_and(|ws| ws.editing.is_some());
         let n = uncommitted.len();
         let conflicted = uncommitted.iter().filter(|f| f.conflicted).count();
+        let label = match (editing, n) {
+            (true, _) => "Editing a commit",
+            (false, 0) => "No uncommitted changes",
+            (false, _) => "Uncommitted changes",
+        };
         style
             .row(format!("uncommitted-{id}"), 6.)
-            .aria_label("Uncommitted changes")
+            .aria_label(label)
             .child(icon(Icon::FileDiff).text_color(if n > 0 {
                 style.meta(theme.warn)
             } else {
@@ -1003,12 +1008,8 @@ impl Navigator {
                     .flex_1()
                     .min_w(px(0.))
                     .truncate()
-                    .when(n == 0, |el| el.text_color(style.muted()))
-                    .child(if n > 0 {
-                        "Uncommitted changes"
-                    } else {
-                        "No uncommitted changes"
-                    }),
+                    .when(n == 0 && !editing, |el| el.text_color(style.muted()))
+                    .child(label),
             )
             // What a merge left conflicted, as an update can, before anything else.
             .children(meta_count(
@@ -1019,7 +1020,8 @@ impl Navigator {
             ))
             .children(review_count(store.unreviewed(id, uncommitted), n, style))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-            .when(n > 0, |el| {
+            // The commit being edited's files go nowhere else until it's finished.
+            .when(n > 0 && !editing, |el| {
                 let files = self.detail.read(cx).files_to_move(id, cx);
                 let label: SharedString = match files.len() {
                     1 => files[0].file.path.clone().into(),

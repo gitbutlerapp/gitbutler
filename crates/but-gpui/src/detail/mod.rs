@@ -1367,8 +1367,8 @@ impl Render for Detail {
                         Some(editing) => empty_state(
                             commit_title(&editing.title),
                             format!(
-                                "Commit {} is checked out for editing. Finish it with \
-                                 `but resolve finish`, or cancel with `but resolve cancel`.",
+                                "Commit {} is checked out for editing. Its files are under \
+                                 Editing a commit, with Finish and Cancel.",
                                 editing.commit.short()
                             ),
                             &theme,

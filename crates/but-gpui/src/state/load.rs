@@ -449,17 +449,18 @@ impl Store {
         latest: bool,
         cx: &mut Context<Self>,
     ) {
-        // While a commit is being edited there's nothing else to look at or act on, and
-        // what was seen and reviewed waits for the workspace to come back.
+        // While a commit is being edited there's nothing else to look at or act on than its
+        // files, and what was seen and reviewed waits for the workspace to come back.
         if workspace.editing.is_some() {
             if let Some(entry) = self.project_mut(id) {
                 entry.workspace = Some(workspace);
                 entry.error = None;
             }
-            let elsewhere = (self.selection.as_ref())
-                .is_some_and(|s| s.project() == id && !matches!(s, Selection::Project(_)));
+            let elsewhere = (self.selection.as_ref()).is_some_and(|s| {
+                s.project() == id && !matches!(s, Selection::Project(_) | Selection::Uncommitted(_))
+            });
             if elsewhere {
-                self.select(Some(Selection::Project(id.clone())), cx);
+                self.select(Some(Selection::Uncommitted(id.clone())), cx);
             }
             return;
         }
