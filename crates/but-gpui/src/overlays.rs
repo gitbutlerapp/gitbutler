@@ -18,7 +18,7 @@ use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, error_summary, h_flex, icon, keycap, list_row,
-    muted, popover, shortcut, v_flex,
+    muted, popover, shortcut, small_icon, v_flex,
 };
 
 /// A right-click menu.
@@ -40,6 +40,10 @@ pub struct MenuItem {
     pub danger: bool,
     /// Starts a new group, with a line above it.
     pub separated: bool,
+    /// Starts a new group under this heading, as a choice of one does: "Sort by".
+    pub heading: Option<SharedString>,
+    /// The choice its group stands at, which carries a tick.
+    pub ticked: bool,
     pub handler: MenuHandler,
 }
 
@@ -53,6 +57,8 @@ impl MenuItem {
             key: None,
             danger: false,
             separated: false,
+            heading: None,
+            ticked: false,
             handler: Rc::new(handler),
         }
     }
@@ -76,6 +82,17 @@ impl MenuItem {
 
     pub fn separated(mut self) -> Self {
         self.separated = true;
+        self
+    }
+
+    pub fn under(mut self, heading: impl Into<SharedString>) -> Self {
+        self.heading = Some(heading.into());
+        self.separated = true;
+        self
+    }
+
+    pub fn ticked(mut self, ticked: bool) -> Self {
+        self.ticked = ticked;
         self
     }
 }
@@ -370,6 +387,17 @@ impl AppView {
                     .bg(theme.border_3)
                     .into_any_element()
             });
+            // As ui-react's menu sections head theirs.
+            let heading = item.heading.clone().map(|heading| {
+                div()
+                    .px(px(14.))
+                    .pt(px(4.))
+                    .pb(px(2.))
+                    .text_size(px(12.))
+                    .text_color(theme.text_3)
+                    .child(heading)
+                    .into_any_element()
+            });
             let row = list_row(("menu-item", ix), false, theme)
                 .mx(px(4.))
                 .gap(px(16.))
@@ -381,13 +409,16 @@ impl AppView {
                 })
                 .child(div().flex_1().child(item.label.clone()))
                 .when_some(item.key.clone(), |el, key| el.child(keycap(&key, theme)))
+                .when(item.ticked, |el| {
+                    el.child(small_icon(Icon::Tick).text_color(theme.text_1))
+                })
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                     this.menu = None;
                     handler(this, window, cx);
                     cx.notify();
                 }))
                 .into_any_element();
-            line.into_iter().chain([row])
+            line.into_iter().chain(heading).chain([row])
         });
         Some(
             deferred(

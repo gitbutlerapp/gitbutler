@@ -17,10 +17,12 @@ use crate::app::{
 };
 use crate::backend::{CommitId, CommitState, PushState, Worktree, short_ref};
 use crate::detail::{ChecksChanged, Detail};
-use crate::state::{Cut, Pane, ProjectId, Selection, Store, StoreEvent};
+use crate::overlays::MenuItem;
+use crate::state::{Cut, Pane, Prefs, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, drag_preview};
 use crate::ui::scrollbar::{Scroll, scrolled};
+use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dot, faint,
     h_flex, icon, icon_button, just_now, list_row, plural, relative_time, resize_handle, review,
@@ -35,6 +37,9 @@ const FOLD_AFTER: usize = 8;
 
 /// How long a worktree with nothing uncommitted stays listed after it last moved.
 const INACTIVE_AFTER: Duration = Duration::from_secs(12 * 60 * 60);
+
+/// How recently a project was last active for "Active in the last 7 days" to keep it.
+const ACTIVE_WITHIN: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
 actions!(
     navigator,
@@ -65,7 +70,11 @@ enum Row {
     /// Above a stack of more than one branch: the project, how many branches, and the refs
     /// of those with commits to hide.
     StackCaption(ProjectId, usize, Vec<String>),
-    Section(&'static str),
+    /// Over the projects not expanded: what it calls them, how many it lists, and how many
+    /// there are, filters aside.
+    ProjectsHeading(&'static str, usize, usize),
+    /// Projects past the fold, and how many.
+    MoreProjects(usize),
     /// A branch's commits folded away, and how many.
     More(ProjectId, String, usize),
     /// A commit an operation is still making, by its title.
@@ -140,6 +149,10 @@ pub struct Navigator {
     closed_branches: HashSet<(ProjectId, String)>,
     /// Projects showing their inactive worktrees too.
     shown_inactive: HashSet<ProjectId>,
+    /// The filter over the projects not expanded, while it's open.
+    projects_filter: Option<(Entity<TextInput>, Subscription)>,
+    /// The projects not expanded show all of them rather than the first few.
+    projects_unfolded: bool,
     /// Whether the pointer is over the navigator.
     pointer_over: bool,
     /// A workspace loaded since the rows were last built. What it changed came from
@@ -177,6 +190,8 @@ impl Navigator {
             unfolded_branches: HashSet::new(),
             closed_branches: HashSet::new(),
             shown_inactive: HashSet::new(),
+            projects_filter: None,
+            projects_unfolded: false,
             pointer_over: false,
             loaded: false,
             _subscriptions: subscriptions,
@@ -296,23 +311,118 @@ impl Navigator {
             rows.push(Row::Item(Selection::Branches(id.clone())));
             rows.push(Row::Item(Selection::History(id.clone())));
         }
-        let mut collapsed = store
-            .projects
-            .iter()
+        // The rest share one card under a heading that also adds projects, so it's there
+        // when every project is expanded too.
+        let title = match rows.is_empty() {
+            true => "All projects",
+            false => "More projects",
+        };
+        if !rows.is_empty() {
+            rows.push(Row::Gap);
+        }
+        let others: Vec<&ProjectEntry> = (store.projects.iter())
             .filter(|entry| !entry.expanded)
-            .peekable();
-        if collapsed.peek().is_some() {
-            if !rows.is_empty() {
-                rows.push(Row::Gap);
-            }
-            rows.push(Row::Section(if rows.len() > 1 {
-                "More projects"
-            } else {
-                "All projects"
-            }));
-            rows.extend(collapsed.map(|entry| Row::Item(Selection::Project(entry.id.clone()))));
+            .collect();
+        let prefs = &store.prefs;
+        let terms = self.filter_terms(cx);
+        let selected = |entry: &ProjectEntry| {
+            store.selection.as_ref() == Some(&Selection::Project(entry.id.clone()))
+        };
+        let mut listed: Vec<(&ProjectEntry, Option<i64>)> = (others.iter())
+            .map(|entry| (*entry, last_active(entry)))
+            .filter(|(entry, at)| {
+                !prefs.active_projects_only || at.is_some_and(active_lately) || selected(entry)
+            })
+            .filter(|(entry, _)| {
+                let name = entry.project.name.to_lowercase();
+                terms.iter().all(|term| name.contains(term.as_str()))
+            })
+            .collect();
+        // Stable, so projects active at the same moment stay by name.
+        if prefs.projects_by_activity {
+            listed.sort_by_key(|(_, at)| std::cmp::Reverse(*at));
+        }
+        rows.push(Row::ProjectsHeading(title, listed.len(), others.len()));
+        // A filter finds a project even in a folded list.
+        if prefs.projects_folded && terms.is_empty() {
+            return rows;
+        }
+        // Past the fold, but never past the selected project.
+        let shown = match self.projects_unfolded || !terms.is_empty() {
+            true => listed.len(),
+            false => FOLD_AFTER
+                .max((listed.iter().position(|(entry, _)| selected(entry))).map_or(0, |at| at + 1)),
+        };
+        rows.extend(
+            (listed.iter().take(shown))
+                .map(|(entry, _)| Row::Item(Selection::Project(entry.id.clone()))),
+        );
+        if listed.len() > shown {
+            rows.push(Row::MoreProjects(listed.len() - shown));
+        }
+        // A filter that matches nothing says what it looked for.
+        if listed.is_empty() && !others.is_empty() {
+            let miss = match self.projects_filter.as_ref() {
+                Some((input, _)) if !terms.is_empty() => {
+                    format!("No projects match \"{}\"", input.read(cx).text().trim())
+                }
+                _ => "None active in the last 7 days".to_owned(),
+            };
+            rows.push(Row::Note(miss.into(), false));
         }
         rows
+    }
+
+    /// The words the projects filter looks for, each in a project's name.
+    fn filter_terms(&self, cx: &App) -> Vec<String> {
+        (self.projects_filter.iter())
+            .flat_map(|(input, _)| {
+                input
+                    .read(cx)
+                    .text()
+                    .split_whitespace()
+                    .map(str::to_lowercase)
+            })
+            .collect()
+    }
+
+    /// Open the filter over the projects not expanded, or go back to it.
+    fn open_projects_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let input = match &self.projects_filter {
+            Some((input, _)) => input.clone(),
+            None => {
+                let input = cx.new(|cx| TextInput::new("Filter projects", false, cx));
+                let listen = cx.subscribe_in(&input, window, |this, _, event, window, cx| {
+                    match event {
+                        InputEvent::Changed => cx.notify(),
+                        InputEvent::Cancel => this.close_projects_filter(window, cx),
+                        // Enter goes to the first project it found.
+                        InputEvent::Submit => {
+                            let first = (this.rows.iter())
+                                .skip_while(|row| !matches!(row, Row::ProjectsHeading(..)))
+                                .find_map(|row| match row {
+                                    Row::Item(item @ Selection::Project(_)) => Some(item.clone()),
+                                    _ => None,
+                                });
+                            this.close_projects_filter(window, cx);
+                            if let Some(first) = first {
+                                this.select(first, window, cx);
+                            }
+                        }
+                    }
+                });
+                self.projects_filter = Some((input.clone(), listen));
+                input
+            }
+        };
+        window.focus(&input.focus_handle(cx), cx);
+        cx.notify();
+    }
+
+    fn close_projects_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.projects_filter = None;
+        window.focus(&self.focus, cx);
+        cx.notify();
     }
 
     fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
@@ -539,10 +649,22 @@ impl Navigator {
                 .child(div().flex_1().min_w(px(0.)).truncate().child(title.clone()))
                 .child(div().text_size(px(11.)).text_color(theme.text_2).child("…"))
                 .into_any_element(),
-            Some(Row::Section(title)) => h_flex()
-                .h(px(26.))
-                .px(px(12.))
-                .child(section_label(*title, theme))
+            Some(Row::ProjectsHeading(title, listed, total)) => {
+                self.projects_heading(title, *listed, *total, theme, cx)
+            }
+            Some(Row::MoreProjects(hidden)) => h_flex()
+                .id(("more-projects", ix))
+                .h(px(24.))
+                // Under the projects' names.
+                .pl(px(35.))
+                .text_size(px(12.))
+                .text_color(theme.text_2)
+                .hover(|el| el.text_color(theme.text_1))
+                .child(format!("{hidden} more"))
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                    this.projects_unfolded = true;
+                    cx.notify();
+                }))
                 .into_any_element(),
             Some(Row::StackCaption(project, n, refs)) => {
                 let keys: Vec<(ProjectId, String)> =
@@ -735,6 +857,138 @@ impl Navigator {
         })
     }
 
+    /// The heading over the projects not expanded: a fold, how many it lists of how many
+    /// there are, and ways to find, order and add projects. While the filter's open, the
+    /// filter in its place.
+    fn projects_heading(
+        &self,
+        title: &'static str,
+        listed: usize,
+        total: usize,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        // The chevron over the projects' chevrons.
+        let row = h_flex()
+            .h(px(ROW_HEIGHT))
+            .pl(px(12.))
+            .pr(px(4.))
+            .gap(px(2.));
+        let count = match listed == total {
+            true => total.to_string(),
+            false => format!("{listed} of {total}"),
+        };
+        if let Some((input, _)) = &self.projects_filter {
+            return row
+                .gap(px(6.))
+                .child(small_icon(Icon::Search).text_color(theme.text_3))
+                .child(div().flex_1().min_w(px(0.)).child(input.clone()))
+                .child(faint(count, theme).text_size(px(12.)).flex_none())
+                .child(
+                    icon_button("close-projects-filter", Icon::Cross)
+                        .small()
+                        .tooltip("Close the filter")
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.close_projects_filter(window, cx)
+                        })),
+                )
+                .into_any_element();
+        }
+        let folded = self.store.read(cx).prefs.projects_folded;
+        let fold = h_flex()
+            .id("projects-fold")
+            .flex_1()
+            .min_w(px(0.))
+            .h_full()
+            .gap(px(6.))
+            .when(total > 0, |el| {
+                el.cursor_pointer()
+                    .child(
+                        small_icon(match folded {
+                            true => Icon::ChevronRight,
+                            false => Icon::ChevronDown,
+                        })
+                        .text_color(theme.text_3),
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        (this.store).update(cx, |store, cx| {
+                            store.set_prefs(
+                                |prefs| prefs.projects_folded = !prefs.projects_folded,
+                                cx,
+                            )
+                        })
+                    }))
+            })
+            .child(section_label(title, theme).truncate())
+            .when(total > 0, |el| {
+                el.child(faint(count, theme).text_size(px(12.)))
+            });
+        row.child(fold)
+            .when(total > 0, |el| {
+                el.child(
+                    icon_button("filter-projects", Icon::Search)
+                        .small()
+                        .tooltip("Filter projects")
+                        .on_click(
+                            cx.listener(|this, _, window, cx| {
+                                this.open_projects_filter(window, cx)
+                            }),
+                        ),
+                )
+            })
+            .child(
+                icon_button("add-project", Icon::Plus)
+                    .small()
+                    .tooltip_with_key("Add project", shortcut(&AddProject, cx))
+                    .dispatch(&AddProject),
+            )
+            .when(total > 0, |el| {
+                el.child(
+                    icon_button("project-view-options", Icon::Kebab)
+                        .small()
+                        .tooltip("Sort and show")
+                        .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                            let position = event.position();
+                            let items = this.view_options(cx);
+                            (this
+                                .app
+                                .update(cx, |app, cx| app.open_menu(position, items, cx)))
+                            .ok();
+                        })),
+                )
+            })
+            .into_any_element()
+    }
+
+    /// How the projects not expanded are listed, with headed choices as ui-react's view
+    /// options menu has them: their order, and which to show.
+    fn view_options(&self, cx: &App) -> Vec<MenuItem> {
+        fn set(
+            update: fn(&mut Prefs),
+        ) -> impl Fn(&mut AppView, &mut Window, &mut Context<AppView>) {
+            move |app, _, cx| {
+                app.store
+                    .update(cx, |store, cx| store.set_prefs(update, cx))
+            }
+        }
+        let prefs = &self.store.read(cx).prefs;
+        let (by_activity, active_only) = (prefs.projects_by_activity, prefs.active_projects_only);
+        vec![
+            MenuItem::new("Last activity", set(|p| p.projects_by_activity = true))
+                .under("Sort by")
+                .ticked(by_activity),
+            MenuItem::new("Name", set(|p| p.projects_by_activity = false)).ticked(!by_activity),
+            MenuItem::new("All", set(|p| p.active_projects_only = false))
+                .under("Show")
+                .ticked(!active_only),
+            MenuItem::new(
+                "Active in the last 7 days",
+                set(|p| p.active_projects_only = true),
+            )
+            .ticked(active_only),
+        ]
+    }
+
     fn project_row(
         &self,
         item: &Selection,
@@ -762,7 +1016,12 @@ impl Navigator {
         });
         let unread =
             workspace.is_some_and(|ws| ws.commits().any(|commit| store.is_unread(id, commit)));
-        let activity = workspace.and_then(|ws| ws.last_activity());
+        // An open project's from what it loaded; a closed one's from what Git last recorded,
+        // as nothing's loaded or watched for it.
+        let activity = match expanded {
+            true => workspace.and_then(|ws| ws.last_activity()),
+            false => last_active(entry),
+        };
         let needs_update =
             (workspace.and_then(|ws| ws.target.as_ref())).is_some_and(|t| t.needs_update);
         Some(
@@ -857,7 +1116,7 @@ impl Navigator {
                                 .id(ElementId::Name(format!("quiet-{id}").into()))
                                 .text_size(px(11.))
                                 .text_color(style.muted())
-                                .tooltip(Tooltip::text(format!("Last changed {age} ago")))
+                                .tooltip(Tooltip::text(format!("Last active {age} ago")))
                                 .child(age),
                         )
                     }
@@ -1354,6 +1613,19 @@ fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
 
 /// A worktree with nothing uncommitted, so not active either, that hasn't moved in
 /// [`INACTIVE_AFTER`]. One with no reflog to date it stays listed.
+/// When `entry` was last active: what Git last recorded in it, or what its loaded workspace
+/// shows since, as files an agent is writing.
+fn last_active(entry: &ProjectEntry) -> Option<i64> {
+    let loaded = entry.workspace.as_ref().and_then(|ws| ws.last_activity());
+    entry.project.last_active.max(loaded)
+}
+
+fn active_lately(at: i64) -> bool {
+    (UNIX_EPOCH + Duration::from_secs(at.max(0) as u64))
+        .elapsed()
+        .is_ok_and(|age| age <= ACTIVE_WITHIN)
+}
+
 fn is_inactive(worktree: &Worktree) -> bool {
     worktree.uncommitted.is_empty()
         && worktree.updated_at.is_some_and(|at| {
@@ -1470,11 +1742,6 @@ impl Render for Navigator {
                         .dispatch(&Refresh),
                 )
             })
-            .child(
-                icon_button("add-project", Icon::Plus)
-                    .tooltip_with_key("Add project", shortcut(&AddProject, cx))
-                    .dispatch(&AddProject),
-            )
             .child(self.account(&theme, cx));
 
         v_flex()

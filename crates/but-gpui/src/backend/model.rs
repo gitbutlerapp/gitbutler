@@ -25,6 +25,9 @@ pub struct Project {
     pub id: String,
     pub name: String,
     pub path: PathBuf,
+    /// When Git last recorded something done in it, in seconds since the epoch: a commit,
+    /// checkout or rebase, or the index changing, in its main checkout or a linked one.
+    pub last_active: Option<i64>,
 }
 
 #[derive(Debug, Clone, Default)]

@@ -85,12 +85,28 @@ pub fn list_projects() -> Result<Vec<Project>> {
             Some(Project {
                 id: project.id.to_string(),
                 name: project.title.clone(),
+                last_active: last_active(git_dir),
                 path,
             })
         })
         .collect();
     projects.sort_by_key(|project| project.name.to_lowercase());
     Ok(projects)
+}
+
+/// When Git last wrote the reflog or index of the repository at `git_dir` or one of its linked
+/// worktrees: a few file times, cheap enough for every project, unlike reading its status.
+fn last_active(git_dir: &Path) -> Option<i64> {
+    let linked = std::fs::read_dir(git_dir.join("worktrees"))
+        .into_iter()
+        .flatten();
+    std::iter::once(git_dir.to_owned())
+        .chain(linked.flatten().map(|entry| entry.path()))
+        .flat_map(|dir| [dir.join("logs/HEAD"), dir.join("index")])
+        .filter_map(|file| file.metadata().and_then(|m| m.modified()).ok())
+        .max()
+        .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|since| since.as_secs() as i64)
 }
 
 /// Register the repository at `path` with GitButler, so it shows up in [`list_projects()`].
