@@ -3,6 +3,7 @@
 //! unstack and unapply. `edit_actions` registers them around the navigator; Push is on the
 //! window instead, so the branch page's button reaches it.
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -13,7 +14,7 @@ use crate::app::{
     UncommitSelection,
 };
 use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
-use crate::state::{Cut, NewAt, Overlay, ProjectId, Remap, Selection, Store};
+use crate::state::{Cut, Overlay, ProjectId, Remap, Selection, Store};
 
 actions!(
     edits,
@@ -631,17 +632,16 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         // Not what a pending discard or commit already takes, as after a quick second press.
-        // Those only take the main checkout's changes.
-        if worktree.is_none() {
-            let store = self.store.read(cx);
-            changes.retain(|change| {
-                let path = &change.file.path;
-                match &change.hunks {
-                    None => !store.hides_file(&project, path),
-                    Some(hunks) => !hunks.iter().all(|h| store.hides_hunk(&project, path, *h)),
+        let (store, checkout) = (self.store.read(cx), worktree.as_deref());
+        changes.retain(|change| {
+            let path = &change.file.path;
+            match &change.hunks {
+                None => !store.hides_file(&project, checkout, path),
+                Some(hunks) => {
+                    !(hunks.iter()).all(|h| store.hides_hunk(&project, checkout, path, *h))
                 }
-            });
-        }
+            }
+        });
         let ask = match (&worktree, &changes[..]) {
             (_, []) => return,
             (None, [_]) => None,
@@ -662,14 +662,10 @@ impl AppView {
             }
         };
         let run = move |this: &mut AppView, changes: Vec<Selected>, cx: &mut Context<AppView>| {
-            // An overlay hides the main checkout's files, and only a full reload reads a
-            // linked worktree's again.
-            let overlay = match worktree {
-                None => Overlay {
-                    files_only: true,
-                    ..Overlay::files(&changes)
-                },
-                Some(_) => Overlay::default(),
+            let overlay = Overlay {
+                files_only: true,
+                files_in: worktree.clone(),
+                ..Overlay::files(&changes)
             };
             let undoable = worktree.is_none();
             this.store.update(cx, |store, cx| {
@@ -712,11 +708,7 @@ impl AppView {
         let selected = project.clone();
         self.store.update(cx, |store, cx| {
             // It shows where it goes right away, dimmed until it's there.
-            let at = match &to {
-                Destination::Branch(ref_name) => Some(NewAt::Top(ref_name.clone())),
-                Destination::AboveCommit(id) => store.key_of(&project, *id).map(NewAt::Above),
-                Destination::BelowCommit(id) => store.key_of(&project, *id).map(NewAt::Below),
-            };
+            let at = store.new_at(&project, &to);
             let overlay = Overlay {
                 new_commit: at.map(|at| (at, SharedString::default())),
                 commits_only: true,
@@ -906,12 +898,16 @@ impl AppView {
         let Some((project, ref_name)) = self.selected_named_branch(cx) else {
             return;
         };
-        // The whole stack goes, so the snackbar counts the other branches in it.
-        let stack = (self.store.read(cx).workspace(&project))
+        // The whole stack goes, at once, and the snackbar counts the other branches in it.
+        // An unnamed one has no ref to tell it from another stack's.
+        let stack: HashSet<String> = (self.store.read(cx).workspace(&project))
             .and_then(|ws| ws.stack_of(&ref_name))
-            .map(|(stack, _)| stack.branches.len())
-            .unwrap_or(1);
-        let name = match stack {
+            .map(|(stack, _)| {
+                let names = stack.branches.iter().map(|b| b.ref_name.clone());
+                names.filter(|name| !name.is_empty()).collect()
+            })
+            .unwrap_or_default();
+        let name = match stack.len().max(1) {
             1 => short_ref(&ref_name).to_owned(),
             2 => format!("{} and the other branch in its stack", short_ref(&ref_name)),
             n => format!(
@@ -924,7 +920,10 @@ impl AppView {
             store.run(
                 &project,
                 "Unapply",
-                Overlay::default(),
+                Overlay {
+                    branches: stack,
+                    ..Overlay::default()
+                },
                 move |path, _| backend::unapply_stack(path, &ref_name),
                 move |store, (), cx| store.snack_undoable(format!("Unapplied {name}"), cx),
                 cx,

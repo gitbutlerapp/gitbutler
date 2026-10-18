@@ -496,6 +496,7 @@ impl Detail {
                         "Resolve",
                         Overlay {
                             files_only: true,
+                            files_in: worktree.clone(),
                             ..Overlay::default()
                         },
                         {

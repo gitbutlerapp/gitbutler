@@ -309,7 +309,11 @@ impl Navigator {
             }
             let main_selected = selection.is_some_and(|s| within(s, workspace.branches()));
             if self.worktree_open(id, None, main_selected) {
-                for stack in &workspace.stacks {
+                // A stack being unapplied leaves at once.
+                let stacks = (workspace.stacks.iter()).filter(|stack| {
+                    !(stack.branches.iter()).any(|b| store.hides_branch(id, &b.ref_name))
+                });
+                for stack in stacks {
                     self.lane_rows(store, id, &stack.branches, &mut rows);
                     if let Some(dragged @ Cut::Branch(..)) = &store.dragging
                         && let Some(last) = stack.branches.last()
@@ -338,6 +342,7 @@ impl Navigator {
                 let heads = |wt: &Worktree| matches!(selection, Some(Selection::Worktree(_, name)) if *name == wt.name);
                 // The inactive ones wait behind a row of their own, unless the selection's in one.
                 let (inactive, active): (Vec<_>, Vec<_>) = (workspace.worktrees.iter())
+                    .filter(|wt| !store.hides_worktree(id, &wt.name))
                     .partition(|wt| is_inactive(wt) && !heads(wt) && !on_branches(wt));
                 for wt in active {
                     self.worktree_rows(store, id, wt, on_branches(wt), &mut rows);
@@ -462,27 +467,30 @@ impl Navigator {
             rows.extend(pending(
                 &|at| matches!(at, NewAt::Top(ref_name) if *ref_name == branch.ref_name),
             ));
-            // Commits a pending operation takes away go, unless selected; ones it makes show
-            // where they go.
-            rows.extend(
-                (branch.commits.iter().enumerate())
-                    .filter(|&(at, commit)| {
-                        !store.hides_commit(id, &commit.key) || selected_at == Some(at)
-                    })
-                    .take(shown)
-                    .flat_map(|(_, commit)| {
-                        let item = Row::Item(Selection::Commit(id.clone(), commit.id));
-                        (pending(&|at| matches!(at, NewAt::Above(key) if *key == commit.key)))
-                            .chain([item])
-                            .chain(pending(
-                                &|at| matches!(at, NewAt::Below(key) if *key == commit.key),
-                            ))
-                    }),
-            );
-            if branch.commits.len() > shown {
-                let hidden = branch.commits.len() - shown;
-                rows.push(Row::More(id.clone(), branch.ref_name.clone(), hidden));
-            } else if unfolded && branch.commits.len() > fold_at {
+            // Commits a pending operation takes away go, unless selected and going nowhere
+            // else, as a moved one shows twice otherwise; ones it makes show where they go.
+            let commits: Vec<_> = (branch.commits.iter().enumerate())
+                .filter(|&(at, commit)| {
+                    !store.hides_commit(id, &commit.key)
+                        || (selected_at == Some(at) && !store.moves_commit(id, &commit.key))
+                })
+                .collect();
+            let count = commits.len();
+            rows.extend((commits.into_iter()).take(shown).flat_map(|(_, commit)| {
+                let item = Row::Item(Selection::Commit(id.clone(), commit.id));
+                (pending(&|at| matches!(at, NewAt::Above(key) if *key == commit.key)))
+                    .chain([item])
+                    .chain(pending(
+                        &|at| matches!(at, NewAt::Below(key) if *key == commit.key),
+                    ))
+            }));
+            if count > shown {
+                rows.push(Row::More(
+                    id.clone(),
+                    branch.ref_name.clone(),
+                    count - shown,
+                ));
+            } else if unfolded && count > fold_at {
                 rows.push(Row::Fewer(id.clone(), branch.ref_name.clone()));
             }
         }

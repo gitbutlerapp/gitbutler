@@ -186,7 +186,7 @@ impl Detail {
                         .iter()
                         .enumerate()
                         .filter(|(_, f)| {
-                            !store.hides_file(project, &f.path) && keeps_path(&terms, &f.path)
+                            !store.hides_file(project, None, &f.path) && keeps_path(&terms, &f.path)
                         })
                         .map(|(pos, f)| (pos, f.path.as_str()))
                         .unzip()
@@ -199,7 +199,10 @@ impl Detail {
                     diff.files
                         .iter()
                         .enumerate()
-                        .filter(|(_, f)| keeps_path(&terms, &f.file.path))
+                        .filter(|(_, f)| {
+                            keeps_path(&terms, &f.file.path)
+                                && !diff.key.leaving(store, &f.file.path)
+                        })
                         .map(|(pos, f)| (pos, f.file.path.as_str()))
                         .unzip()
                 })
@@ -506,7 +509,7 @@ impl Detail {
                 from: None,
                 worktree: None,
                 files: (store.workspace(project)?.uncommitted.iter())
-                    .filter(|f| under(&f.path) && !store.hides_file(project, &f.path))
+                    .filter(|f| under(&f.path) && !store.hides_file(project, None, &f.path))
                     .map(whole)
                     .collect(),
             },

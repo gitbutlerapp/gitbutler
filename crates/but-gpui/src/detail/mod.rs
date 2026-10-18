@@ -139,6 +139,27 @@ impl DiffKey {
         }
     }
 
+    /// The checkout whose uncommitted files this diff is: the main one (`Some(None)`) or a
+    /// linked worktree by name. `None` for a diff of commits.
+    fn checkout(&self) -> Option<Option<&str>> {
+        match &self.source {
+            DiffSource::Worktree => Some(None),
+            DiffSource::Linked(name) => Some(Some(name)),
+            _ => None,
+        }
+    }
+
+    /// Whether a pending operation takes the file at `path` out of this diff: out of the
+    /// uncommitted files it is, or out of its commit.
+    fn leaving(&self, store: &Store, path: &str) -> bool {
+        let commit = match self.source {
+            DiffSource::Commit(id) => store.key_of(&self.project, id),
+            _ => None,
+        };
+        (self.checkout()).is_some_and(|checkout| store.hides_file(&self.project, checkout, path))
+            || commit.is_some_and(|commit| store.hides_commit_file(&self.project, &commit, path))
+    }
+
     /// The linked worktree this diff is of, whose files open from its own checkout.
     fn linked(&self) -> Option<Arc<str>> {
         match &self.source {
@@ -872,24 +893,17 @@ impl Detail {
     /// operation takes away are left out until it's done.
     fn build_rows(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> Vec<DiffRow> {
         let store = self.store.read(cx);
-        let worktree = key.source == DiffSource::Worktree;
-        let commit = match key.source {
-            DiffSource::Commit(id) => store.key_of(&key.project, id),
-            _ => None,
-        };
         let terms = self.filter_terms(cx);
         diff::rows(
             files,
             |file| self.folded.contains(&file.file.path),
             |file| self.drawing_of(file).is_some(),
-            |file| {
-                let path = &file.file.path;
-                (worktree && store.hides_file(&key.project, path))
-                    || (commit.as_ref())
-                        .is_some_and(|commit| store.hides_commit_file(&key.project, commit, path))
-                    || !keeps_path(&terms, path)
+            |file| key.leaving(store, &file.file.path) || !keeps_path(&terms, &file.file.path),
+            |file, hunk| {
+                (key.checkout()).is_some_and(|checkout| {
+                    store.hides_hunk(&key.project, checkout, &file.file.path, hunk.key)
+                })
             },
-            |file, hunk| worktree && store.hides_hunk(&key.project, &file.file.path, hunk.key),
             |file| match self.whole.get(&file.file.path) {
                 Some(Some((fingerprint, lines, _))) if *fingerprint == file.fingerprint => {
                     Some(lines.len() as u32)

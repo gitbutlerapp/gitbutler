@@ -29,6 +29,13 @@ pub struct Overlay {
     pub files: HashSet<String>,
     /// Hunks leaving uncommitted files that otherwise stay, by path.
     pub hunks: HashMap<String, Vec<HunkKey>>,
+    /// The linked worktree, by name, whose files `files` and `hunks` are; the main
+    /// checkout's without one.
+    pub files_in: Option<Arc<str>>,
+    /// Branches leaving, by full ref, as a stack's do when it's unapplied.
+    pub branches: HashSet<String>,
+    /// Linked worktrees leaving, by name.
+    pub worktrees: HashSet<Arc<str>>,
     /// Files leaving a commit whole, by path, under the commit's key.
     pub commit_files: HashMap<String, HashSet<String>>,
     /// Where a new commit goes, and its title.
@@ -37,7 +44,8 @@ pub struct Overlay {
     pub reworded: Option<(String, String)>,
     /// The branch (full ref) it renames, and its new name.
     pub renamed: Option<(String, String)>,
-    /// It changes only uncommitted files, so the reload after it reads just those.
+    /// It changes only the uncommitted files of the checkout they're in, so the reload after
+    /// it reads just those.
     pub files_only: bool,
     /// It changes only commits and branches, leaving every checkout's files as they are, so
     /// the reload after it doesn't read those again.
@@ -84,6 +92,22 @@ impl Overlay {
             commits: keys.into_iter().collect(),
             ..Self::default()
         }
+    }
+
+    /// Whether `selection` is on a branch or in a linked worktree this takes away.
+    fn takes_away(&self, selection: &Selection, store: &Store) -> bool {
+        let branch = match selection {
+            Selection::Stack(_, bottom) => Some(bottom.as_str()),
+            _ => store
+                .branch_for(selection)
+                .map(|branch| branch.ref_name.as_str()),
+        };
+        let worktree = match selection {
+            Selection::Worktree(_, name) => Some(name),
+            _ => store.worktree_of(selection).map(|wt| &wt.name),
+        };
+        branch.is_some_and(|ref_name| self.branches.contains(ref_name))
+            || worktree.is_some_and(|name| self.worktrees.contains(name))
     }
 
     /// Hides the files taken whole, and of the others the hunks taken.
@@ -187,6 +211,8 @@ pub(super) struct Queued {
     overlay: Overlay,
     /// The project's commits when it was asked for, for its [`Remap`].
     captured: HashMap<CommitId, String>,
+    /// The selection it moved off what it takes away, back if it fails.
+    moved: Option<Selection>,
     start: Start,
 }
 
@@ -202,6 +228,7 @@ pub(super) struct Running {
     settling: bool,
     /// Reloads asked for while it ran, which the reload after it reads too.
     deferred: Reload,
+    moved: Option<Selection>,
 }
 
 impl Store {
@@ -487,10 +514,14 @@ impl Store {
         } else {
             ("Show worktree", format!("{name} is back"))
         };
+        let overlay = Overlay {
+            worktrees: archived.then(|| name.clone()).into_iter().collect(),
+            ..Overlay::default()
+        };
         self.run(
             project,
             label,
-            Overlay::default(),
+            overlay,
             move |path, _| backend::worktrees::set_archived(path, &name, archived),
             move |store, (), cx| store.snack(done, cx),
             cx,
@@ -507,10 +538,14 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let done = format!("Deleted {name}");
+        let overlay = Overlay {
+            worktrees: HashSet::from([name.clone()]),
+            ..Overlay::default()
+        };
         self.run(
             project,
             "Delete worktree",
-            Overlay::default(),
+            overlay,
             move |path, _| backend::worktrees::remove(path, &name, force),
             move |store, (), cx| store.snack(done, cx),
             cx,
@@ -552,10 +587,9 @@ impl Store {
     ) {
         let run_hooks = self.runs_hooks(project);
         let undoable = worktree.is_none() && !self.in_worktree(project, into);
-        // The overlay hides the main checkout's files.
-        let overlay = match worktree {
-            None => Overlay::files(files.iter()),
-            Some(_) => Overlay::default(),
+        let overlay = Overlay {
+            files_in: worktree.clone(),
+            ..Overlay::files(files.iter())
         };
         // Which commit, as it's often not on screen.
         let amended = (self.find_commit(project, into)).map_or("Amended".into(), |(_, commit)| {
@@ -639,6 +673,15 @@ impl Store {
                 .map(|commit| (commit.id, commit.key.clone()))
                 .collect()
         });
+        // What's selected leaving with its branch or worktree, the selection goes now where
+        // the reload after it would put it.
+        let selection = self.selection.as_ref();
+        let moved = selection
+            .filter(|s| s.project() == project && overlay.takes_away(s, self))
+            .cloned();
+        if moved.is_some() {
+            self.select(Some(Selection::Uncommitted(project.clone())), cx);
+        }
         let id = project.clone();
         let start_label = label.clone();
         self.queue.push_back(Queued {
@@ -646,6 +689,7 @@ impl Store {
             label,
             overlay,
             captured,
+            moved,
             start: Box::new(move |store, remap, cx| {
                 store.start(&id, start_label, op, done, remap, cx)
             }),
@@ -680,6 +724,7 @@ impl Store {
                     started: Instant::now(),
                     settling: false,
                     deferred: Reload::default(),
+                    moved: next.moved,
                 },
             );
             (next.start)(self, remap, cx);
@@ -756,10 +801,12 @@ impl Store {
                 // The reload after it reads just the uncommitted files, or just the commits
                 // and branches, if that's all it changed, and what was asked for while it ran.
                 let mut reload = Reload::full();
+                let mut moved = None;
                 if let Some(running) = store.running.get_mut(&project) {
                     running.settling = true;
+                    moved = running.moved.take();
                     if running.overlay.files_only {
-                        reload = Reload::files();
+                        reload = Reload::files(running.overlay.files_in.clone());
                     }
                     if running.overlay.commits_only {
                         reload = Reload::commits();
@@ -776,7 +823,16 @@ impl Store {
                         store.last_snapshot = recorded.map(|snapshot| (project.clone(), snapshot));
                         done(store, value, cx)
                     }
-                    Err(err) => store.error(format!("{label} failed"), format!("{err:#}"), cx),
+                    Err(err) => {
+                        // What it would have taken away stays, so the selection goes back.
+                        let uncommitted = Selection::Uncommitted(project.clone());
+                        if let Some(moved) = moved
+                            && store.selection.as_ref() == Some(&uncommitted)
+                        {
+                            store.select(Some(moved), cx);
+                        }
+                        store.error(format!("{label} failed"), format!("{err:#}"), cx)
+                    }
                 }
                 store.load(&project, reload, cx);
             })
@@ -864,13 +920,38 @@ impl Store {
         self.overlays(project).any(|o| o.commits.contains(key))
     }
 
-    pub fn hides_file(&self, project: &ProjectId, path: &str) -> bool {
-        self.overlays(project).any(|o| o.files.contains(path))
+    /// Whether the commit with `key` leaves for where a stand-in shows it, as a moved one does.
+    pub fn moves_commit(&self, project: &ProjectId, key: &str) -> bool {
+        (self.overlays(project)).any(|o| o.new_commit.is_some() && o.commits.contains(key))
     }
 
-    pub fn hides_hunk(&self, project: &ProjectId, path: &str, hunk: HunkKey) -> bool {
+    /// Whether the file at `path` is leaving the uncommitted files of the linked worktree
+    /// named `checkout`, or of the main checkout for `None`.
+    pub fn hides_file(&self, project: &ProjectId, checkout: Option<&str>, path: &str) -> bool {
+        (self.overlays(project))
+            .any(|o| o.files_in.as_deref() == checkout && o.files.contains(path))
+    }
+
+    pub fn hides_hunk(
+        &self,
+        project: &ProjectId,
+        checkout: Option<&str>,
+        path: &str,
+        hunk: HunkKey,
+    ) -> bool {
+        self.overlays(project).any(|o| {
+            o.files_in.as_deref() == checkout
+                && o.hunks.get(path).is_some_and(|hunks| hunks.contains(&hunk))
+        })
+    }
+
+    pub fn hides_branch(&self, project: &ProjectId, ref_name: &str) -> bool {
         self.overlays(project)
-            .any(|o| o.hunks.get(path).is_some_and(|hunks| hunks.contains(&hunk)))
+            .any(|o| o.branches.contains(ref_name))
+    }
+
+    pub fn hides_worktree(&self, project: &ProjectId, name: &str) -> bool {
+        self.overlays(project).any(|o| o.worktrees.contains(name))
     }
 
     /// Whether the file at `path` is leaving the commit with key `commit`.
@@ -890,6 +971,30 @@ impl Store {
             .filter(|(place, _)| at(place))
             .map(|(_, title)| title.clone())
             .collect()
+    }
+
+    /// Where a commit going to `to` shows until it's there.
+    pub fn new_at(&self, project: &ProjectId, to: &Destination) -> Option<NewAt> {
+        Some(match to {
+            Destination::Branch(ref_name) => NewAt::Top(ref_name.clone()),
+            Destination::AboveCommit(id) => NewAt::Above(self.key_of(project, *id)?),
+            Destination::BelowCommit(id) => NewAt::Below(self.key_of(project, *id)?),
+        })
+    }
+
+    /// Commit `id` as it shows on its way to `to`: where, and its title, or its short id when
+    /// it's from outside the workspace.
+    pub fn arriving(
+        &self,
+        project: &ProjectId,
+        id: CommitId,
+        to: &Destination,
+    ) -> Option<(NewAt, SharedString)> {
+        let title = match self.find_commit(project, id) {
+            Some((_, commit)) => self.message_of(project, commit).0.to_owned(),
+            None => id.short(),
+        };
+        Some((self.new_at(project, to)?, title.into()))
     }
 
     /// `commit`'s title and message, as the last pending mutation to reword it leaves them.

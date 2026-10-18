@@ -46,10 +46,12 @@ impl Reload {
         }
     }
 
-    /// The main checkout's files, after an operation that changed only them.
-    pub(super) fn files() -> Self {
+    /// The uncommitted files of linked worktree `checkout`, or of the main checkout for
+    /// `None`, after an operation that changed only them.
+    pub(super) fn files(checkout: Option<Arc<str>>) -> Self {
         Self {
-            main: true,
+            main: checkout.is_none(),
+            linked: checkout.into_iter().collect(),
             ..Self::default()
         }
     }
