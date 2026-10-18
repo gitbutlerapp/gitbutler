@@ -26,25 +26,37 @@ pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 44.;
 pub const STATUS_BAR_HEIGHT: f32 = 28.;
 
-/// Every icon, with the file under `assets/icons` it's drawn from.
+/// Every icon: the design system's, compiled in from `packages/ui-react` so they're the ones
+/// Lite and but.dev draw, and a build fails if one goes; then this app's own, under
+/// `assets/icons`, for what ui-react draws in code rather than from a file.
 macro_rules! icons {
-    ($($variant:ident => $name:literal),* $(,)?) => {
+    (
+        $($variant:ident => $name:literal),* $(,)?;
+        own: $($own:ident => $own_name:literal),* $(,)?
+    ) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum Icon {
-            $($variant),*
+            $($variant,)*
+            $($own,)*
         }
 
         impl Icon {
             pub fn path(self) -> &'static str {
                 match self {
-                    $(Icon::$variant => concat!("icons/", $name, ".svg")),*
+                    $(Icon::$variant => concat!("icons/", $name, ".svg"),)*
+                    $(Icon::$own => concat!("icons/", $own_name, ".svg"),)*
                 }
             }
         }
 
         fn icon_bytes(path: &str) -> Option<&'static [u8]> {
             match path {
-                $(concat!("icons/", $name, ".svg") => Some(include_bytes!(concat!("../../assets/icons/", $name, ".svg"))),)*
+                $(concat!("icons/", $name, ".svg") => Some(include_bytes!(concat!(
+                    "../../../../packages/ui-react/src/icons/", $name, ".svg"
+                ))),)*
+                $(concat!("icons/", $own_name, ".svg") => Some(include_bytes!(concat!(
+                    "../../assets/icons/", $own_name, ".svg"
+                ))),)*
                 _ => None,
             }
         }
@@ -73,7 +85,6 @@ icons! {
     FilesSidebar => "files-sidebar",
     Folder => "folder",
     FolderCopy => "folder-copy",
-    FolderFill => "folder-fill",
     FolderTree => "folder-tree",
     Hash => "hash",
     Kebab => "kebab",
@@ -91,7 +102,9 @@ icons! {
     TextBlock => "text-block",
     TextWrap => "text-wrap",
     Tick => "tick",
-    Warning => "warning",
+    Warning => "warning";
+    // ui-react's FolderIcon, a component with its gradient in CSS.
+    own: FolderFill => "folder-fill",
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.
