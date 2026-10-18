@@ -208,8 +208,8 @@ pub(super) struct Saved {
     pub(super) prefs: Prefs,
 }
 
-/// Choices from Settings that only this app keeps; GitButler's shared settings live with
-/// the other apps'.
+/// Choices from Settings, and how the navigator lists projects, that only this app keeps;
+/// GitButler's shared settings live with the other apps'.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Prefs {
@@ -230,6 +230,12 @@ pub struct Prefs {
     pub run_hooks: HashSet<String>,
     /// Projects, by id, whose branches offer Land in place of Create pull request.
     pub land_directly: HashSet<String>,
+    /// The navigator's other projects go by when they were last active rather than by name.
+    pub projects_by_activity: bool,
+    /// The navigator's other projects leave out those not active in the last 7 days.
+    pub active_projects_only: bool,
+    /// The navigator's other projects are folded away under their heading.
+    pub projects_folded: bool,
 }
 
 /// Where the window was: the display it was on, and its left, top, width and height on that
