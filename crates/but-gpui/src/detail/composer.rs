@@ -10,8 +10,8 @@ use gpui::{
 
 use super::{ChecksChanged, Detail, DiffKey};
 use crate::backend::{
-    self, CommitId, Destination, DiffBody, DiffSource, FileChange, FileDiff, Hunk, HunkKey,
-    LineKind, Selected, ai, short_ref,
+    self, Branch, CommitId, Destination, DiffBody, DiffSource, FileChange, FileDiff, Hunk, HunkKey,
+    LineKind, PushState, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
 use crate::state::{Overlay, ProjectId, Selection, Store};
@@ -477,16 +477,16 @@ impl Detail {
     /// The branch the composer commits to.
     pub fn effective_target(&self, project: &ProjectId, cx: &App) -> Option<String> {
         let workspace = self.store.read(cx).workspace(project)?;
+        // A branch merged upstream is done with, even before an update takes it out.
+        let open = |branch: &Branch| branch.push != PushState::Integrated;
         if let Some(target) = &self.commit_target
-            && workspace.find_branch(target).is_some()
+            && workspace.find_branch(target).is_some_and(open)
         {
             return Some(target.clone());
         }
-        workspace
-            .stacks
-            .first()
-            .and_then(|stack| stack.branches.first())
-            .filter(|branch| !branch.ref_name.is_empty())
+        (workspace.stacks.iter())
+            .filter_map(|stack| stack.branches.first())
+            .find(|branch| !branch.ref_name.is_empty() && open(branch))
             .map(|branch| branch.ref_name.clone())
     }
 
@@ -518,6 +518,7 @@ impl Detail {
             return;
         }
         let target = self.effective_target(&project, cx);
+        let picked = self.commit_target.clone();
         let run_hooks = self.store.read(cx).runs_hooks(&project);
         let detail = cx.entity().downgrade();
         let window = window.window_handle();
@@ -552,7 +553,14 @@ impl Detail {
                 move |store, (branch, (_id, left_out, hook_failed)), cx| {
                     // The box is shared by projects, and may hold the next commit's message
                     // by now.
+                    let target = branch.clone();
                     after_landing(&detail, window, &finished, cx, |detail, window, cx| {
+                        // The next commit goes where this one did, not to whichever stack is
+                        // first now, as one an agent just made, unless another was picked
+                        // meanwhile.
+                        if detail.commit_target == picked {
+                            detail.commit_target = Some(target);
+                        }
                         if detail.message.read(cx).text().trim() == committed {
                             (detail.message).update(cx, |input, cx| input.set_text("", cx));
                             detail.finish_composing(window, cx);
