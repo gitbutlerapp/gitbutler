@@ -75,9 +75,6 @@ enum Row {
     /// A project, its uncommitted changes, a branch or a commit.
     Item(Selection),
     Note(SharedString, bool),
-    /// Above a stack of more than one branch, which folds it: the project, the stack's bottom
-    /// branch, which names it, and how many branches it has.
-    StackCaption(ProjectId, String, usize),
     /// Over the projects not expanded: what it calls them, how many it lists, and how many
     /// there are, filters aside.
     ProjectsHeading(&'static str, usize, usize),
@@ -282,7 +279,7 @@ impl Navigator {
             if headed {
                 rows.inset = NEST;
             }
-            let main_selected = selection.is_some_and(|s| workspace.branches().any(|b| s.on(b)));
+            let main_selected = selection.is_some_and(|s| within(s, workspace.branches()));
             if !headed || self.worktree_open(id, None, main_selected) {
                 for stack in &workspace.stacks {
                     self.lane_rows(store, id, &stack.branches, &mut rows);
@@ -309,7 +306,7 @@ impl Navigator {
                 rows.inset = 0.;
                 rows.push(Row::WorktreeDivider);
                 let on_branches =
-                    |wt: &Worktree| selection.is_some_and(|s| wt.branches.iter().any(|b| s.on(b)));
+                    |wt: &Worktree| selection.is_some_and(|s| within(s, wt.branches.iter()));
                 let heads = |wt: &Worktree| matches!(selection, Some(Selection::Worktree(_, name)) if *name == wt.name);
                 // The inactive ones wait behind a row of their own, unless the selection's in one.
                 let (inactive, active): (Vec<_>, Vec<_>) = (workspace.worktrees.iter())
@@ -405,11 +402,7 @@ impl Navigator {
             let key = (id.clone(), bottom.ref_name.clone());
             let selected = (store.selection.as_ref())
                 .is_some_and(|s| s.project() == id && branches.iter().any(|b| s.on(b)));
-            rows.push(Row::StackCaption(
-                key.0.clone(),
-                key.1.clone(),
-                branches.len(),
-            ));
+            rows.push(Row::Item(Selection::Stack(key.0.clone(), key.1.clone())));
             if self.folded_stacks.contains(&key) && !selected {
                 return;
             }
@@ -607,12 +600,16 @@ impl Navigator {
                 self.folded_worktrees.remove(&(project, Some(name)));
                 cx.notify();
             }
+            Some(Selection::Stack(project, bottom)) => {
+                self.folded_stacks.remove(&(project, bottom));
+                cx.notify();
+            }
             _ => {}
         }
     }
 
-    /// Step out the way a tree does: a commit to its branch, an open branch or worktree
-    /// closed, a branch in a worktree up to its heading, and anything else up to its project.
+    /// Step out the way a tree does: a commit to its branch, an open branch, stack or worktree
+    /// closed, a branch up to its stack or worktree, and anything else up to its project.
     fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let selection = store.selection.clone();
@@ -645,9 +642,12 @@ impl Navigator {
             Some(Selection::Worktree(project, name)) if folds => {
                 self.toggle_section(&project, Some(name), true, window, cx)
             }
+            Some(Selection::Stack(project, bottom)) if folds => {
+                self.toggle_stack(&project, &bottom, true, window, cx)
+            }
             // Jump up, like closing a folder in a tree.
             Some(selection) => {
-                let up = section_heading(store, &selection)
+                let up = parent(store, &selection)
                     .unwrap_or_else(|| Selection::Project(selection.project().clone()));
                 self.select(up, window, cx)
             }
@@ -807,9 +807,6 @@ impl Navigator {
                     }))
                     .into_any_element()
             }
-            Some(Row::StackCaption(project, bottom, n)) => {
-                self.stack_caption(ix, project, bottom, *n, theme, cx)
-            }
             // Both drop zones are padded, not margined: a margin collapses through the card's
             // ground.
             Some(Row::NewBranch(project)) => {
@@ -953,6 +950,7 @@ impl Navigator {
                 Some(self.page_row(item, Icon::Branch, "Branches", style, cx))
             }
             Selection::History(_) => Some(self.page_row(item, Icon::Clock, "History", style, cx)),
+            Selection::Stack(id, bottom) => self.stack_row(ix, item, id, bottom, style, cx),
         };
         match el {
             Some(el) => self.drop_target(el, item.clone(), window, theme, cx),
@@ -1505,7 +1503,7 @@ impl Navigator {
             .zip(store.workspace(project))
             .is_some_and(|(s, ws)| {
                 s.project() == project
-                    && section_branches(ws, key.1.as_ref()).iter().any(|b| s.on(b))
+                    && within(s, section_branches(ws, key.1.as_ref()).into_iter())
             });
         let heading = match &key.1 {
             Some(name) => Selection::Worktree(project.clone(), name.clone()),
@@ -1524,21 +1522,21 @@ impl Navigator {
     }
 
     /// Over a stack of two or more branches, as ui-react's StackCaption: a chevron, its
-    /// glyph and how many. A click on it folds the branches away, and folded, it says how many
-    /// commits they have to push and when they last changed.
-    fn stack_caption(
+    /// glyph and how many. Selecting it shows what its branches change together; its chevron,
+    /// or a double-click, folds them away, and folded, it says how many commits they have to
+    /// push and when they last changed.
+    fn stack_row(
         &self,
         ix: usize,
-        project: &ProjectId,
+        item: &Selection,
+        id: &ProjectId,
         bottom: &str,
-        n: usize,
-        theme: &Theme,
+        style: RowStyle,
         cx: &Context<Self>,
-    ) -> AnyElement {
+    ) -> Option<AnyElement> {
         let store = self.store.read(cx);
-        let branches = (store.workspace(project))
-            .and_then(|ws| lane_of(ws, bottom))
-            .unwrap_or_default();
+        let theme = style.theme;
+        let branches = store.workspace(id)?.lane(bottom)?;
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
         let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
@@ -1546,67 +1544,106 @@ impl Navigator {
         let latest = (branches.iter().flat_map(|branch| &branch.commits))
             .map(|commit| commit.time)
             .max();
-        let key = (project.clone(), bottom.to_owned());
-        h_flex()
-            .id(("stack", ix))
-            .h(px(ROW_HEIGHT))
-            .mx(px(3.))
-            .pl(px(14.))
-            .pr(px(8.))
-            .gap(px(8.))
-            .rounded(px(4.))
-            .cursor_pointer()
+        let label = format!("Stack of {}", branches.len());
+        let step_color = match style.solid {
+            true => style.muted(),
+            false => theme.text_3,
+        };
+        let fold = (id.clone(), bottom.to_owned());
+        let step = div()
+            .id(("stack-fold", ix))
+            .flex_none()
+            .w(px(14.))
+            .h(px(16.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(3.))
             .hover(|el| el.bg(theme.hover()))
             .child(
-                div().w(px(14.)).flex().justify_center().child(
-                    small_icon(match open {
-                        true => Icon::ChevronDown,
-                        false => Icon::ChevronRight,
-                    })
-                    .text_color(theme.text_3),
-                ),
+                small_icon(match open {
+                    true => Icon::ChevronDown,
+                    false => Icon::ChevronRight,
+                })
+                .text_color(step_color),
             )
-            .child(icon(Icon::Stack).text_color(theme.text_3))
-            .child(
-                div()
-                    .id(("stack-name", ix))
-                    .flex_1()
-                    .min_w(px(0.))
-                    .truncate()
-                    .text_size(px(12.))
-                    .text_color(theme.text_2)
-                    .tooltip(Tooltip::text(format!("Stack: {}", names.join(" ← "))))
-                    .child(format!("Stack of {n}")),
-            )
-            .when(!open, |el| {
-                el.children(meta_count(
-                    Icon::ArrowUp,
-                    unpushed_n,
-                    theme.blue,
-                    plural(unpushed_n, "unpushed commit"),
-                ))
-                .children(latest.map(|at| faint(relative_time(at), theme).text_size(px(11.))))
-            })
-            // Folding what holds the selection takes it up to the project, as a worktree's
-            // heading does.
+            // Folding the stack doesn't select it.
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                if !open {
-                    this.folded_stacks.remove(&key);
-                    return cx.notify();
-                }
-                this.folded_stacks.insert(key.clone());
-                let store = this.store.read(cx);
-                let inside = (store.selection.as_ref())
-                    .zip(store.workspace(&key.0).and_then(|ws| lane_of(ws, &key.1)))
-                    .is_some_and(|(s, lane)| {
-                        s.project() == &key.0 && lane.iter().any(|branch| s.on(branch))
-                    });
-                match inside {
-                    true => this.select(Selection::Project(key.0.clone()), window, cx),
-                    false => cx.notify(),
-                }
-            }))
-            .into_any_element()
+                cx.stop_propagation();
+                this.toggle_stack(&fold.0, &fold.1, open, window, cx);
+            }));
+        let fold = (id.clone(), bottom.to_owned());
+        Some(
+            style
+                .row(format!("stack-{id}-{bottom}"), 6.)
+                .aria_label(label.clone())
+                .aria_expanded(open)
+                .child(step)
+                .child(icon(Icon::Stack).text_color(style.muted()))
+                .child(
+                    div()
+                        .id(("stack-name", ix))
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .text_color(style.muted())
+                        .tooltip(Tooltip::text(format!("Stack: {}", names.join(" ← "))))
+                        .child(label),
+                )
+                .when(!open, |el| {
+                    el.children(meta_count(
+                        Icon::ArrowUp,
+                        unpushed_n,
+                        style.meta(theme.blue),
+                        plural(unpushed_n, "unpushed commit"),
+                    ))
+                    .children(latest.map(|at| {
+                        div()
+                            .flex_none()
+                            .text_size(px(11.))
+                            .text_color(style.muted())
+                            .child(relative_time(at))
+                    }))
+                })
+                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                    if event.click_count() == 2 {
+                        this.toggle_stack(&fold.0, &fold.1, open, window, cx);
+                    }
+                }))
+                .into_any_element(),
+        )
+    }
+
+    /// Fold the stack over `bottom` away, or unfold it. Folding it over the selection takes
+    /// the selection up to the stack.
+    fn toggle_stack(
+        &mut self,
+        project: &ProjectId,
+        bottom: &str,
+        open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let key = (project.clone(), bottom.to_owned());
+        if !open {
+            self.folded_stacks.remove(&key);
+            return cx.notify();
+        }
+        let store = self.store.read(cx);
+        let inside = (store.selection.as_ref())
+            .zip(store.workspace(project).and_then(|ws| ws.lane(bottom)))
+            .is_some_and(|(s, lane)| s.project() == project && lane.iter().any(|b| s.on(b)));
+        self.folded_stacks.insert(key);
+        match inside {
+            true => self.select(
+                Selection::Stack(project.clone(), bottom.to_owned()),
+                window,
+                cx,
+            ),
+            false => cx.notify(),
+        }
     }
 
     fn branch_row(
@@ -2029,20 +2066,35 @@ fn active_lately(at: i64) -> bool {
         .is_ok_and(|age| age <= ACTIVE_WITHIN)
 }
 
-/// The heading of the worktree `selection`, a branch, is in, when its project has linked
-/// worktrees: a linked one's, or the main one's uncommitted changes.
-fn section_heading(store: &Store, selection: &Selection) -> Option<Selection> {
+/// What ← goes up to from `selection`, a branch or a stack: a branch in a stack to the stack,
+/// and a stack, or a branch alone, to its worktree's heading, when its project has linked
+/// worktrees.
+fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
     let project = selection.project().clone();
-    let headed = store
-        .workspace(&project)
-        .is_some_and(|ws| !ws.worktrees.is_empty());
-    if !headed || !matches!(selection, Selection::Branch(..)) {
+    let workspace = store.workspace(&project)?;
+    let bottom = match selection {
+        Selection::Branch(_, ref_name) => {
+            let lane = (workspace.lanes())
+                .find(|lane| lane.iter().any(|branch| branch.ref_name == *ref_name))?;
+            match lane {
+                [_, .., bottom] => {
+                    return Some(Selection::Stack(project, bottom.ref_name.clone()));
+                }
+                _ => ref_name.clone(),
+            }
+        }
+        Selection::Stack(_, bottom) => bottom.clone(),
+        _ => return None,
+    };
+    if workspace.worktrees.is_empty() {
         return None;
     }
-    Some(match store.worktree_of(selection) {
-        Some(worktree) => Selection::Worktree(project, worktree.name.clone()),
-        None => Selection::Uncommitted(project),
-    })
+    Some(
+        match store.worktree_of(&Selection::Branch(project.clone(), bottom)) {
+            Some(worktree) => Selection::Worktree(project, worktree.name.clone()),
+            None => Selection::Uncommitted(project),
+        },
+    )
 }
 
 /// The branches in worktree `name`'s section, the main one's for `None`.
@@ -2074,15 +2126,12 @@ fn change_counts(
     conflicts.into_iter().chain(review)
 }
 
-/// The branches of the stack, or linked worktree's lane, whose bottom branch is `bottom`.
-fn lane_of<'a>(workspace: &'a Workspace, bottom: &str) -> Option<&'a [Branch]> {
-    (workspace.stacks.iter().map(|stack| &stack.branches[..]))
-        .chain(workspace.worktrees.iter().map(|wt| &wt.branches[..]))
-        .find(|branches| {
-            branches
-                .last()
-                .is_some_and(|branch| branch.ref_name == bottom)
-        })
+/// Whether `selection` is one of `branches`, a commit on one, or a stack of them.
+fn within<'a>(selection: &Selection, mut branches: impl Iterator<Item = &'a Branch>) -> bool {
+    branches.any(|branch| {
+        selection.on(branch)
+            || matches!(selection, Selection::Stack(_, bottom) if *bottom == branch.ref_name)
+    })
 }
 
 /// How many of `branches`' commits are only local.

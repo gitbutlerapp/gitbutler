@@ -457,6 +457,19 @@ impl Detail {
                 let oldest = branch.commits.last()?.id;
                 DiffSource::Range { oldest, newest }
             }
+            // Its top branch's newest commit back to its bottom branch's oldest, skipping
+            // branches with none yet.
+            Selection::Stack(project, bottom) => {
+                let branches = store.workspace(project)?.lane(bottom)?;
+                let newest = branches
+                    .iter()
+                    .find_map(|branch| branch.commits.first())?
+                    .id;
+                let oldest = (branches.iter().rev())
+                    .find_map(|branch| branch.commits.last())?
+                    .id;
+                DiffSource::Range { oldest, newest }
+            }
         };
         Some(DiffKey {
             project: selection.project().clone(),
@@ -1359,6 +1372,9 @@ impl Render for Detail {
                     Selection::History(project) => self.render_history_side(project, &theme, cx),
                     Selection::Worktree(project, name) => {
                         self.render_worktree_side(project, name, &theme, cx)
+                    }
+                    Selection::Stack(project, bottom) => {
+                        self.render_stack_side(project, bottom, &theme, cx)
                     }
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)

@@ -43,6 +43,8 @@ pub enum Selection {
     History(ProjectId),
     /// A linked worktree, by name, and its uncommitted changes.
     Worktree(ProjectId, Arc<str>),
+    /// A stack of two or more branches, by its bottom branch, and what they change together.
+    Stack(ProjectId, String),
 }
 
 impl Selection {
@@ -54,7 +56,8 @@ impl Selection {
             | Selection::Commit(project, _)
             | Selection::Branches(project)
             | Selection::History(project)
-            | Selection::Worktree(project, _) => project,
+            | Selection::Worktree(project, _)
+            | Selection::Stack(project, _) => project,
         }
     }
 
@@ -357,7 +360,8 @@ impl Store {
             | Selection::Uncommitted(_)
             | Selection::Branches(_)
             | Selection::History(_)
-            | Selection::Worktree(..) => None,
+            | Selection::Worktree(..)
+            | Selection::Stack(..) => None,
         }
     }
 
@@ -387,6 +391,7 @@ impl Store {
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
+            Selection::Stack(_, bottom) => workspace.lane(bottom).is_some_and(|b| b.len() > 1),
         };
         if !still_there {
             self.select(

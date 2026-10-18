@@ -155,6 +155,21 @@ impl Workspace {
             .find(|branch| branch.ref_name == ref_name)
     }
 
+    /// The branches of each stack, then of each linked worktree's lane, top first.
+    pub fn lanes(&self) -> impl Iterator<Item = &[Branch]> {
+        (self.stacks.iter().map(|stack| &stack.branches[..]))
+            .chain(self.worktrees.iter().map(|wt| &wt.branches[..]))
+    }
+
+    /// The branches of the stack, or linked worktree's lane, whose bottom branch is `bottom`.
+    pub fn lane(&self, bottom: &str) -> Option<&[Branch]> {
+        self.lanes().find(|branches| {
+            branches
+                .last()
+                .is_some_and(|branch| branch.ref_name == bottom)
+        })
+    }
+
     /// The stack holding the branch `ref_name`, and the branch's place in it from the top.
     pub fn stack_of(&self, ref_name: &str) -> Option<(&Stack, usize)> {
         self.stacks.iter().find_map(|stack| {

@@ -332,7 +332,7 @@ impl Navigator {
                     .separated(),
                 ]
             }
-            Selection::Branches(_) | Selection::History(_) => Vec::new(),
+            Selection::Branches(_) | Selection::History(_) | Selection::Stack(..) => Vec::new(),
         }
     }
 }
