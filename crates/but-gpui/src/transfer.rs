@@ -8,7 +8,7 @@ use gpui::{
 };
 
 use crate::backend::{self, CommitId, Destination, Selected, short_ref};
-use crate::state::{Cut, Overlay, Selection, Store};
+use crate::state::{Cut, NewAt, Overlay, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::{Icon, popover, small_icon};
 
@@ -332,10 +332,14 @@ impl Transfer {
                 },
                 cx,
             ),
+            // It leaves where it was and shows dimmed where it goes.
             Transfer::MoveCommit { id, to } => store.run(
                 project,
                 label,
-                Overlay::default(),
+                Overlay {
+                    new_commit: store.arriving(project, id, &to),
+                    ..Overlay::commits(store.key_of(project, id))
+                },
                 move |path, remap| {
                     backend::move_commits(path, &[remap.get(id)?], &remap.destination(to)?)
                 },
@@ -348,7 +352,10 @@ impl Transfer {
             Transfer::CherryPick { id, to } => store.run(
                 project,
                 label,
-                Overlay::default(),
+                Overlay {
+                    new_commit: store.arriving(project, id, &to),
+                    ..Overlay::default()
+                },
                 move |path, remap| {
                     // A commit from outside the workspace can't have been rewritten.
                     let id = remap.get(id).unwrap_or(id);
@@ -416,10 +423,15 @@ impl Transfer {
                 worktree,
             } => {
                 let selected = project.clone();
+                let overlay = Overlay {
+                    new_commit: Some((NewAt::Top(branch.clone()), SharedString::default())),
+                    files_in: worktree.clone(),
+                    ..Overlay::files(files.iter())
+                };
                 store.run(
                     project,
                     label,
-                    Overlay::default(),
+                    overlay,
                     move |path, _| {
                         let to = Destination::Branch(branch);
                         backend::commit(path, &to, &files, worktree.as_deref(), "", false)

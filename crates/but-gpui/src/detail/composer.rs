@@ -225,10 +225,10 @@ impl Detail {
     fn changes_not_pending(&self, project: &ProjectId, cx: &App) -> Vec<Selected> {
         let store = self.store.read(cx);
         (self.selected_changes(cx).into_iter())
-            .filter(|s| !store.hides_file(project, &s.file.path))
+            .filter(|s| !store.hides_file(project, None, &s.file.path))
             .filter_map(|mut s| {
                 if let Some(hunks) = &mut s.hunks {
-                    hunks.retain(|hunk| !store.hides_hunk(project, &s.file.path, *hunk));
+                    hunks.retain(|hunk| !store.hides_hunk(project, None, &s.file.path, *hunk));
                     // No hunks would take the whole file.
                     if hunks.is_empty() {
                         return None;
@@ -515,9 +515,13 @@ impl Detail {
 
     /// The branch the composer commits to.
     pub fn effective_target(&self, project: &ProjectId, cx: &App) -> Option<String> {
-        let workspace = self.store.read(cx).workspace(project)?;
-        // A branch merged upstream is done with, even before an update takes it out.
-        let open = |branch: &Branch| branch.push != PushState::Integrated;
+        let store = self.store.read(cx);
+        let workspace = store.workspace(project)?;
+        // A branch merged upstream is done with, even before an update takes it out, as is
+        // one being unapplied.
+        let open = |branch: &Branch| {
+            branch.push != PushState::Integrated && !store.hides_branch(project, &branch.ref_name)
+        };
         // One of its own branches: a linked worktree's are committed to there.
         if let Some(target) = &self.commit_target
             && (workspace.branches()).any(|branch| branch.ref_name == *target && open(branch))

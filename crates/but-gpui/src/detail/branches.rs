@@ -1,6 +1,8 @@
 //! The Branches page: branches outside the workspace, local ones first, then the ones only a
 //! remote has, each with what it would bring in, ready to apply or delete.
 
+use std::collections::HashSet;
+
 use gpui::{
     AnyElement, ClickEvent, Context, Focusable as _, MouseButton, MouseDownEvent, Pixels, Point,
     SharedString, Window, div, prelude::*, px,
@@ -206,13 +208,16 @@ impl Detail {
     /// The branches the filter keeps, local ones first, under headings.
     fn branch_rows(&self, branches: &Branches, cx: &Context<Self>) -> Vec<Row> {
         let query = self.branch_filter.read(cx).text().trim().to_lowercase();
+        let store = self.store.read(cx);
+        // One being deleted leaves at once.
         let keeps = |branch: &OtherBranch| {
-            query.is_empty()
-                || branch.name.to_lowercase().contains(&query)
-                || branch
-                    .author
-                    .as_ref()
-                    .is_some_and(|author| author.to_lowercase().contains(&query))
+            !store.hides_branch(&branches.project, &branch.ref_name)
+                && (query.is_empty()
+                    || branch.name.to_lowercase().contains(&query)
+                    || branch
+                        .author
+                        .as_ref()
+                        .is_some_and(|author| author.to_lowercase().contains(&query)))
         };
         let mut rows = Vec::new();
         for (heading, local) in [("Local", true), ("Remote", false)] {
@@ -379,6 +384,7 @@ impl Detail {
         let ref_name = format!("refs/heads/{}", branch.name);
         let project = project.clone();
         let name = branch.name.clone();
+        let detail = cx.entity().downgrade();
         self.app
             .update(cx, |app, cx| {
                 app.confirm_then(
@@ -390,14 +396,29 @@ impl Detail {
                     cx,
                     move |app, cx| {
                         app.store.update(cx, |store, cx| {
+                            let overlay = Overlay {
+                                branches: HashSet::from([ref_name.clone()]),
+                                ..Overlay::default()
+                            };
+                            let gone = ref_name.clone();
                             store.run(
                                 &project,
                                 "Delete branch",
-                                Overlay::default(),
+                                overlay,
                                 move |path, _| backend::remove_branch(path, &ref_name),
-                                // The reload after it lists the branches again, as their
-                                // refs changed.
-                                |store, (), cx| store.snack("Branch deleted", cx),
+                                // Out of the list now: reading the branches again, as their
+                                // refs changed, lands after the overlay is gone.
+                                move |store, (), cx| {
+                                    (detail.update(cx, |detail, _| {
+                                        if let Some(branches) = detail.branches.as_mut() {
+                                            branches.list.retain(|b| b.ref_name != gone);
+                                        }
+                                    }))
+                                    .ok();
+                                    // The oplog can't bring it back, so ⌘Z won't try.
+                                    store.keep_last_snapshot();
+                                    store.snack("Branch deleted", cx)
+                                },
                                 cx,
                             )
                         })
