@@ -908,7 +908,7 @@ impl AppView {
                         move |store, update_needed, cx| {
                             let mut message = format!("Landed on {target}");
                             if update_needed {
-                                message.push_str(". Update to bring the other branches along");
+                                message.push_str(", the other branches need an Update");
                             }
                             store.snack(message, cx)
                         },

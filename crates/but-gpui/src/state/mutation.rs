@@ -817,7 +817,7 @@ fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[Strin
     let mut said = vec![format!("Updated from {target}")];
     for (branch, count) in conflicted {
         let name = match short_ref(branch) {
-            "" => "An unnamed branch",
+            "" => "an unnamed branch",
             name => name,
         };
         let count = crate::ui::plural(*count, "conflicted commit");
@@ -827,9 +827,10 @@ fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[Strin
     match landed.len() {
         0 => {}
         1 => said.push(format!("{} landed and was removed", landed[0])),
-        _ => said.push(format!("{} landed and were removed", landed.join(", "))),
+        _ => said.push(format!("{} landed and were removed", landed.join(" and "))),
     }
-    said.join(". ")
+    // A snackbar is one fragment, so its parts are listed rather than sentences.
+    said.join(", ")
 }
 
 /// Branches (full refs, empty for an unnamed one) with how many of their commits:
@@ -859,7 +860,7 @@ mod tests {
                 &[("refs/heads/feature-a".into(), 2)],
                 &["refs/heads/feature-b".into()]
             ),
-            "Updated from origin/main. feature-a has 2 conflicted commits. \
+            "Updated from origin/main, feature-a has 2 conflicted commits, \
              feature-b landed and was removed",
             "each branch by its short name"
         );
