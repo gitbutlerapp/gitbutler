@@ -309,6 +309,13 @@ impl Detail {
                 .child(empty_state(title, detail, theme))
                 .into_any_element();
         }
+        if diff.rows.is_empty() && self.filtering {
+            let filter = self.file_filter.read(cx).text();
+            let title = format!("No files match \"{}\"", filter.trim());
+            return ground()
+                .child(empty_state(title, "Escape shows them all again", theme))
+                .into_any_element();
+        }
         let entity = cx.entity().downgrade();
         // A copy of the header of the file at the top, while the file scrolls under it. It's
         // clipped to the list, so the next file can push it out the top.
