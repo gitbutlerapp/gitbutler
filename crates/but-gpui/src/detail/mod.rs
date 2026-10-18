@@ -28,8 +28,8 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
-    ListAlignment, ListOffset, ListState, ScrollHandle, SharedString, Subscription, Task,
-    UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*, px,
+    ListAlignment, ListOffset, ListState, RenderImage, ScrollHandle, SharedString, Subscription,
+    Task, UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*, px,
 };
 
 use crate::app::{AddProject, AppView};
@@ -392,6 +392,17 @@ impl Detail {
             // What the side panel shows comes from the store, and the diff's files go in the
             // file list's order, as the keys step through them.
             cx.observe(&store, |this, store, cx| {
+                // Diffs of a project no longer watched go with it, unless on screen.
+                let shown = this.diff.as_ref().map(|diff| diff.key.clone());
+                let gone: Vec<_> = this
+                    .recent
+                    .extract_if(.., |(key, _)| {
+                        let watched =
+                            (store.read(cx).project(&key.project)).is_some_and(|p| p.expanded);
+                        !watched && shown.as_ref() != Some(key)
+                    })
+                    .collect();
+                this.forget(gone, cx);
                 let tree = store.read(cx).file_tree;
                 if let Some(diff) = this.diff.as_ref().filter(|diff| diff.tree != tree) {
                     let key = diff.key.clone();
@@ -729,6 +740,35 @@ impl Detail {
         });
     }
 
+    /// Let go of diffs no longer kept, and of the images only they show: gpui keeps an
+    /// image on the GPU until told to drop it.
+    fn forget(&mut self, gone: Vec<(DiffKey, Arc<Vec<FileDiff>>)>, cx: &mut Context<Self>) {
+        let pictures = |diffs: &[(DiffKey, Arc<Vec<FileDiff>>)]| -> Vec<Arc<RenderImage>> {
+            (diffs.iter().flat_map(|(_, files)| files.iter()))
+                .flat_map(|file| file.pictures().map(|picture| picture.image.clone()))
+                .collect()
+        };
+        let gone = pictures(&gone);
+        if gone.is_empty() {
+            return;
+        }
+        let kept: HashSet<_> = pictures(&self.recent)
+            .iter()
+            .map(|image| image.id)
+            .collect();
+        let dropped: Vec<_> = (gone.into_iter())
+            .filter(|image| !kept.contains(&image.id))
+            .collect();
+        // Once no window is being updated, as drop_image skips one that is.
+        if !dropped.is_empty() {
+            cx.defer(move |cx| {
+                for image in dropped {
+                    cx.drop_image(image, None);
+                }
+            });
+        }
+    }
+
     /// The files `key` had when it was last shown, if that was lately.
     fn recent_files(&self, key: &DiffKey) -> Option<Arc<Vec<FileDiff>>> {
         (self.recent.iter())
@@ -760,12 +800,35 @@ impl Detail {
         for file in files.iter() {
             self.sideways.entry(file.file.path.clone()).or_default();
         }
+        // At most this many, holding about this many lines in all (some 80 MB highlighted,
+        // at some 400 bytes a line, which an image's pixels count as too), the oldest going
+        // first and the one shown staying. Enough that one huge diff doesn't push out the
+        // rest.
         const RECENT: usize = 16;
-        self.recent.retain(|(recent, _)| *recent != key);
-        if self.recent.len() == RECENT {
-            self.recent.remove(0);
-        }
+        const RECENT_LINES: usize = 200_000;
+        let mut gone: Vec<_> = self
+            .recent
+            .extract_if(.., |(recent, _)| *recent == key)
+            .collect();
         self.recent.push((key.clone(), files.clone()));
+        let lines = |recent: &[(DiffKey, Arc<Vec<FileDiff>>)]| -> usize {
+            let files = recent.iter().flat_map(|(_, files)| files.iter());
+            (files.map(|file| {
+                let lines: usize = file.hunks().iter().map(|hunk| hunk.lines.len()).sum();
+                let sizes = file.pictures().map(|picture| picture.image.size(0));
+                let bytes: usize = sizes
+                    .map(|size| (size.width.0 * size.height.0 * 4) as usize)
+                    .sum();
+                lines + bytes / 400
+            }))
+            .sum()
+        };
+        while self.recent.len() > RECENT
+            || (self.recent.len() > 1 && lines(&self.recent) > RECENT_LINES)
+        {
+            gone.push(self.recent.remove(0));
+        }
+        self.forget(gone, cx);
         // The keys step through the files as the list shows them.
         let tree = self.store.read(cx).file_tree;
         let files = match tree {
