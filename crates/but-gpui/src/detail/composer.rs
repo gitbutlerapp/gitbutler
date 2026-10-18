@@ -712,6 +712,7 @@ impl Detail {
         let notes = self.message.read(cx).text().to_owned();
         let prompt = ai::commit_prompt(&notes, &diff);
         let input = self.message.clone();
+        input.update(cx, |input, _| input.break_undo_run());
         let task = cx.spawn(async move |this, cx| {
             let written = ai::write(ai::COMMIT_SYSTEM, prompt, |text| {
                 let shown = text.trim_start().to_owned();

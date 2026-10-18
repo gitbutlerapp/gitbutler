@@ -157,6 +157,9 @@ impl ReviewView {
         );
         let prompt = ai::pr_prompt(&title, &body, &messages);
         let fields = (self.title.clone(), self.body.clone());
+        for field in [&fields.0, &fields.1] {
+            field.update(cx, |input, _| input.break_undo_run());
+        }
         let task = cx.spawn(async move |this, cx| {
             let written = ai::write(ai::PR_SYSTEM, prompt, |text| {
                 let (title, body) = ai::split_title_body(text);

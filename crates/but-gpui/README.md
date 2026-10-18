@@ -88,7 +88,7 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | ⌘↩ | write the commit message, or commit once it's written |
 | ⌥⌘↩ | while committing: amend the newest commit of the target branch instead |
 | ⇧⌘B | while committing: pick the branch to commit to |
-| ⌘Z, ⇧⌘Z | undo, redo |
+| ⌘Z, ⇧⌘Z | undo, redo; in a text field, the typing |
 | ⌘X, ⌘V | cut the selection (in the changes, the file under the cursor), paste it onto the selected row (⌥⌘V squashes a commit instead of moving it, ⇧⌘V puts it below) |
 | ⌘N | new branch |
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
