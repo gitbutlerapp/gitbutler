@@ -52,17 +52,17 @@ impl AppView {
             h_flex()
                 .gap(px(6.))
                 .child(div().text_color(theme.pop).child(format!(
-                    "{} picked",
+                    "{} selected",
                     crate::ui::plural(store.picked.len(), "commit")
                 )))
-                .child("right-click to squash or uncommit them")
+                .child("drag them together, or right-click to squash or uncommit them")
                 .child(keycap("esc", &theme))
                 .into_any_element()
         } else if detail.picked_line_count() > 0 {
             h_flex()
                 .gap(px(6.))
                 .child(div().text_color(theme.pop).child(format!(
-                    "{} picked",
+                    "{} selected",
                     crate::ui::plural(detail.picked_line_count(), "line")
                 )))
                 .child("drag a grip or right-click to move them")
@@ -72,7 +72,7 @@ impl AppView {
             h_flex()
                 .gap(px(6.))
                 .child(div().text_color(theme.pop).child(format!(
-                    "{} picked",
+                    "{} selected",
                     crate::ui::plural(detail.picked_files(), "file")
                 )))
                 .child(keycap("esc", &theme))

@@ -517,8 +517,12 @@ impl Store {
                 false => Some(commit),
             };
             let kept = match &mut cut {
-                Cut::Commit(_, commit)
-                | Cut::CherryPick(_, commit)
+                Cut::Commit(_, commits) => {
+                    let followed: Option<Arc<[CommitId]>> =
+                        commits.iter().map(|commit| follow(*commit)).collect();
+                    followed.map(|followed| *commits = followed).is_some()
+                }
+                Cut::CherryPick(_, commit)
                 | Cut::Files {
                     from: Some(commit), ..
                 } => follow(*commit).map(|new| *commit = new).is_some(),

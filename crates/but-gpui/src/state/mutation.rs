@@ -214,6 +214,11 @@ impl Remap {
             .context("A commit changed before this could run. Try again.")
     }
 
+    /// Each of `ids`, as [`Self::get`] has it.
+    pub fn all(&self, ids: &[CommitId]) -> Result<Vec<CommitId>> {
+        ids.iter().map(|id| self.get(*id)).collect()
+    }
+
     /// `to`, with the commit it's relative to as it is after the operations queued before.
     pub fn destination(&self, to: Destination) -> Result<Destination> {
         Ok(match to {
@@ -572,21 +577,22 @@ impl Store {
         );
     }
 
-    /// Move commit `id` into a new branch of its own, and select that branch.
+    /// Move commits `ids` into a new branch of their own, and select that branch.
     pub fn move_to_new_branch(
         &mut self,
         project: &ProjectId,
-        id: CommitId,
+        ids: Arc<[CommitId]>,
         cx: &mut Context<Self>,
     ) {
         let shown = project.clone();
-        // Out of a linked worktree, which the oplog can't put it back into.
-        let undoable = !self.in_worktree(project, id);
+        // Out of a linked worktree, which the oplog can't put them back into.
+        let undoable = !ids.iter().any(|id| self.in_worktree(project, *id));
+        let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
         self.run(
             project,
             "Move to a new branch",
-            Overlay::commits(self.key_of(project, id)),
-            move |path, remap| backend::move_to_new_branch(path, remap.get(id)?),
+            Overlay::commits(keys.collect::<Vec<_>>()),
+            move |path, remap| backend::move_to_new_branch(path, &remap.all(&ids)?),
             move |store, (rewritten, branch), cx| {
                 store.follow(&rewritten, cx);
                 store.select(Some(Selection::Branch(shown, branch)), cx);
@@ -659,13 +665,7 @@ impl Store {
             &project.clone(),
             label,
             Overlay::commits(keys.clone()),
-            move |path, remap| {
-                let ids = ids
-                    .iter()
-                    .map(|id| remap.get(*id))
-                    .collect::<Result<Vec<_>>>()?;
-                backend::uncommit(path, &ids)
-            },
+            move |path, remap| backend::uncommit(path, &remap.all(&ids)?),
             move |store, (), cx| {
                 // The selected commit's changes are uncommitted now; show them there.
                 if let Some(Selection::Commit(selected, id)) = &store.selection
@@ -1034,17 +1034,18 @@ impl Store {
         })
     }
 
-    /// Commit `id` as it shows on its way to `to`: where, and its title, or its short id when
-    /// it's from outside the workspace.
+    /// Commits `ids` as they show on their way to `to`: where, and one's title, or its short
+    /// id when it's from outside the workspace, or how many there are.
     pub fn arriving(
         &self,
         project: &ProjectId,
-        id: CommitId,
+        ids: &[CommitId],
         to: &Destination,
     ) -> Option<(NewAt, SharedString)> {
-        let title = match self.find_commit(project, id) {
-            Some((_, commit)) => self.message_of(project, commit).0.to_owned(),
-            None => id.short(),
+        let title = match (ids, self.find_commit(project, *ids.first()?)) {
+            ([_], Some((_, commit))) => self.message_of(project, commit).0.to_owned(),
+            ([id], None) => id.short(),
+            _ => format!("{} commits", ids.len()),
         };
         Some((self.new_at(project, to)?, title.into()))
     }

@@ -892,11 +892,12 @@ impl Navigator {
                 let zone = drop_zone(("new-branch-drop", ix), "New branch", theme)
                     .h(px(30.))
                     .on_drop(cx.listener(move |this, payload: &Cut, _, cx| {
-                        if let Cut::Commit(from, id) = payload
+                        if let Cut::Commit(from, ids) = payload
                             && *from == project
                         {
+                            let ids = ids.clone();
                             this.store
-                                .update(cx, |store, cx| store.move_to_new_branch(from, *id, cx));
+                                .update(cx, |store, cx| store.move_to_new_branch(from, ids, cx));
                         }
                     }));
                 div().py(px(2.)).child(zone).into_any_element()
@@ -1008,10 +1009,12 @@ impl Navigator {
             (Some(Cut::Branch(p, r)), Selection::Branch(project, ref_name)) => {
                 p == project && r == ref_name
             }
-            (
-                Some(Cut::Commit(p, c) | Cut::CherryPick(p, c)),
-                Selection::Commit(project, commit),
-            ) => p == project && c == commit,
+            (Some(Cut::Commit(p, ids)), Selection::Commit(project, commit)) => {
+                p == project && ids.contains(commit)
+            }
+            (Some(Cut::CherryPick(p, c)), Selection::Commit(project, commit)) => {
+                p == project && c == commit
+            }
             _ => false,
         };
         let style = RowStyle {
@@ -1047,7 +1050,9 @@ impl Navigator {
     }
 
     /// Select `item` on press, as native lists do: a click waits for the release. ⌘ (ctrl off
-    /// macOS) or ⇧ picks commits along with the selected one.
+    /// macOS) or ⇧ picks commits along with the selected one. A press on one of several
+    /// picked commits leaves them picked, so dragging it takes them all; letting go without
+    /// dragging selects just it (see [`Self::commit_row`]).
     fn select_on_press(
         &self,
         item: &Selection,
@@ -1062,6 +1067,9 @@ impl Navigator {
                     this.store
                         .update(cx, |store, cx| store.pick(project, *id, range, cx));
                     window.focus(&this.focus, cx);
+                }
+                Selection::Commit(_, id) if this.store.read(cx).among_picks(*id) => {
+                    window.focus(&this.focus, cx)
                 }
                 _ => this.select(item.clone(), window, cx),
             }
@@ -1989,9 +1997,16 @@ impl Navigator {
                 CommitState::Integrated => (Icon::Tick, theme.safe),
             }
         };
-        let payload = Cut::Commit(id.clone(), *commit_id);
+        // A picked commit takes the other picks along.
+        let moved = store.with_picks(id, *commit_id);
         let (title, _) = store.message_of(id, commit);
         let label: SharedString = title.to_owned().into();
+        let several = moved.len() > 1;
+        let dragged: SharedString = match several {
+            false => label.clone(),
+            true => format!("{} commits", moved.len()).into(),
+        };
+        let payload = Cut::Commit(id.clone(), moved);
         let unread = store.is_unread(id, commit);
         Some(
             style
@@ -2020,7 +2035,16 @@ impl Navigator {
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                .on_drag(payload, drag_preview(self.store.clone(), label))
+                .when(several, |el| {
+                    let item = item.clone();
+                    el.on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                        let held = event.modifiers();
+                        if !held.secondary() && !held.shift {
+                            this.select(item.clone(), window, cx)
+                        }
+                    }))
+                })
+                .on_drag(payload, drag_preview(self.store.clone(), dragged))
                 .into_any_element(),
         )
     }

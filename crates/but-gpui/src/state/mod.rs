@@ -75,7 +75,8 @@ impl Selection {
 /// What ⌘X picked up, waiting for ⌘V on a destination.
 #[derive(Debug, Clone)]
 pub enum Cut {
-    Commit(ProjectId, CommitId),
+    /// Commits to move, the picked ones together, in the order they're listed.
+    Commit(ProjectId, Arc<[CommitId]>),
     /// A commit to put a copy of somewhere else.
     CherryPick(ProjectId, CommitId),
     /// A branch to stack on another, with the branches above it.
@@ -114,7 +115,9 @@ impl Cut {
 
     pub fn describe(&self) -> String {
         match self {
-            Cut::Commit(_, id) | Cut::CherryPick(_, id) => format!("commit {}", id.short()),
+            Cut::Commit(_, ids) if ids.len() > 1 => format!("{} commits", ids.len()),
+            Cut::Commit(_, ids) => format!("commit {}", ids[0].short()),
+            Cut::CherryPick(_, id) => format!("commit {}", id.short()),
             Cut::Branch(_, ref_name) => short_ref(ref_name).to_owned(),
             // Hunks or lines of one file: what of it isn't said here, where the diff isn't.
             Cut::Files { files, .. } if files.len() == 1 => match &files[0].hunks {
@@ -509,6 +512,24 @@ impl Store {
                 .expect("not poisoned")
                 .insert(snapshot);
         }
+    }
+
+    /// What moving commit `id` of `project` takes: the picked commits, in the order they're
+    /// listed, when it's one of several, or else just it.
+    pub fn with_picks(&self, project: &ProjectId, id: CommitId) -> Arc<[CommitId]> {
+        if !self.among_picks(id) {
+            return [id].into();
+        }
+        (self.workspace(project).into_iter())
+            .flat_map(|ws| ws.commits())
+            .filter(|commit| self.picked.contains(&commit.id))
+            .map(|commit| commit.id)
+            .collect()
+    }
+
+    /// Whether commit `id` is one of several picked.
+    pub fn among_picks(&self, id: CommitId) -> bool {
+        self.picked.len() > 1 && self.picked.contains(&id)
     }
 
     /// Whether `id` of `project` is a linked worktree's commit.

@@ -557,9 +557,9 @@ pub fn split_off(
     Ok((rewritten(&workspace), new))
 }
 
-/// Move `commit` into a new branch of its own, beside the other stacks, as one operation
+/// Move `commits` into a new branch of their own, beside the other stacks, as one operation
 /// to undo. Returns what moved, and the new branch's full name.
-pub fn move_to_new_branch(path: &Path, commit: CommitId) -> Result<(Rewritten, String)> {
+pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritten, String)> {
     use but_oplog::legacy::{OperationKind, SnapshotDetails};
     let mut ctx = open(path)?;
     let name = branch_ref(&but_api::branch::branch_canned_name(&ctx)?)?;
@@ -574,7 +574,7 @@ pub fn move_to_new_branch(path: &Path, commit: CommitId) -> Result<(Rewritten, S
         |mut tx| {
             tx.create_reference(name.as_ref(), None, None)?;
             tx.move_commits(
-                [commit.0],
+                commits.iter().map(|commit| commit.0),
                 RelativeTo::Reference(name.clone()),
                 InsertSide::Below,
             )

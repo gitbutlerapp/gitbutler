@@ -308,8 +308,10 @@ impl AppView {
         let cut = match self.selection(cx) {
             // From a commit's diff, its lines, hunk or file under the cursor.
             Some(Selection::Commit(..)) if in_diff => self.detail.read(cx).cursor_cut(cx),
-            Some(Selection::Commit(..)) => {
-                (self.single_commit(cx)).map(|(project, id)| Cut::Commit(project, id))
+            // The picked commits with it, when it's one of them.
+            Some(Selection::Commit(project, id)) => {
+                let ids = self.store.read(cx).with_picks(&project, id);
+                Some(Cut::Commit(project, ids))
             }
             Some(Selection::Branch(project, ref_name)) if !ref_name.is_empty() => {
                 Some(Cut::Branch(project, ref_name))
