@@ -213,12 +213,12 @@ impl Transfer {
             Transfer::CherryPick {
                 to: Destination::Branch(_),
                 ..
-            } => "Copy to top",
+            } => "Cherry-pick to top",
             Transfer::CherryPick {
                 to: Destination::BelowCommit(_),
                 ..
-            } => "Copy below",
-            Transfer::CherryPick { .. } => "Copy above",
+            } => "Cherry-pick below",
+            Transfer::CherryPick { .. } => "Cherry-pick above",
             Transfer::StackBranch { .. } => "Stack on top",
             Transfer::BranchBelow { .. } => "Move below",
             Transfer::Squash { .. } => "Squash into",
@@ -233,7 +233,7 @@ impl Transfer {
         match self {
             Transfer::Uncommit(_) | Transfer::UncommitFiles { .. } => "Uncommit".into(),
             Transfer::MoveCommit { to, .. } => format!("Move {}", place(to)).into(),
-            Transfer::CherryPick { to, .. } => format!("Copy {}", place(to)).into(),
+            Transfer::CherryPick { to, .. } => format!("Cherry-pick {}", place(to)).into(),
             Transfer::StackBranch { onto, .. } => format!("Stack on {}", short_ref(onto)).into(),
             Transfer::BranchBelow { commit, .. } => format!("Move below {}", commit.short()).into(),
             Transfer::Squash { into, .. } => format!("Squash into {}", into.short()).into(),
