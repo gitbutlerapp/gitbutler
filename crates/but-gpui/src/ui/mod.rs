@@ -3,6 +3,7 @@
 pub mod conflict;
 pub mod diff;
 pub mod file_icons;
+pub mod illustration;
 pub mod modal;
 pub mod person;
 pub mod review;
@@ -19,6 +20,7 @@ use gpui::{
 
 use crate::state::{Pane, Store};
 use crate::theme::Theme;
+use illustration::{Illustration, illustration};
 
 pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 44.;
@@ -755,25 +757,47 @@ pub fn local_time(seconds: i64) -> String {
         .format_or_unix(gix::date::time::CustomFormat::new("%d/%m/%Y, %H:%M"))
 }
 
+/// A surface with nothing in it, as ui-react's EmptyState: a drawing picked by what the state
+/// means, a title naming it, and a line saying what happens next, each left out when there's
+/// none. Its foot is padded so the block sits a little above the middle, where it reads as
+/// centred, and it caps its width so it stays a block in a wide pane.
 pub fn empty_state(
+    drawing: Option<Illustration>,
     title: impl Into<SharedString>,
     detail: impl Into<SharedString>,
     theme: &Theme,
+    cx: &App,
 ) -> AnyElement {
+    let (title, detail): (SharedString, SharedString) = (title.into(), detail.into());
     v_flex()
         .size_full()
         .items_center()
         .justify_center()
-        .px(px(24.))
+        .px(px(32.))
+        .pb(px(60.))
         .text_center()
-        .gap(px(4.))
         .child(
-            div()
-                .text_size(px(14.))
-                .text_color(theme.text_1)
-                .child(title.into()),
+            v_flex()
+                .max_w(px(350.))
+                .items_center()
+                .gap(px(24.))
+                .children(drawing.map(|drawing| illustration(drawing, theme, cx)))
+                .child(
+                    v_flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .when(!title.is_empty(), |el| {
+                            el.child(
+                                div()
+                                    .text_size(px(14.))
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .text_color(theme.text_1)
+                                    .child(title),
+                            )
+                        })
+                        .when(!detail.is_empty(), |el| el.child(muted(detail, theme))),
+                ),
         )
-        .child(muted(detail.into(), theme))
         .into_any_element()
 }
 

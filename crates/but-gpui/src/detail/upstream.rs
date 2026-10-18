@@ -12,6 +12,7 @@ use crate::backend::upstream::{self, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge};
 use crate::state::{Overlay, ProjectId};
 use crate::theme::Theme;
+use crate::ui::illustration::Illustration;
 use crate::ui::{
     Icon, error_summary, faint, h_flex, icon, list_row, muted, plural, relative_time, small_icon,
     v_flex,
@@ -220,7 +221,13 @@ impl Detail {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let Some(entry) = store.project(project) else {
-            return crate::ui::empty_state("Project not found", "", theme);
+            return crate::ui::empty_state(
+                Some(Illustration::Papers),
+                "Project not found",
+                "",
+                theme,
+                cx,
+            );
         };
         let target = entry
             .workspace
@@ -376,13 +383,15 @@ impl Detail {
                     }),
             );
         let list = match upstream {
-            None => crate::ui::empty_state("Loading…", "", theme),
+            None => crate::ui::empty_state(None, "Loading…", "", theme, cx),
             Some(Upstream {
                 failed: Some(err), ..
             }) => crate::ui::empty_state(
+                Some(Illustration::Papers),
                 "Couldn't read the target's history",
                 error_summary(err),
                 theme,
+                cx,
             ),
             // The page lists what it read, whether or not the project is expanded and loaded.
             Some(upstream) if upstream.commits.is_empty() => {

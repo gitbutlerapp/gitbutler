@@ -1383,9 +1383,11 @@ impl Render for Detail {
         let body: AnyElement = match &selection {
             None if self.store.read(cx).projects.is_empty() => welcome(&theme, cx),
             None => empty_state(
+                None,
                 "Nothing selected",
                 "Pick a project, branch or commit on the left",
                 &theme,
+                cx,
             ),
             Some(selection) => {
                 let side = match selection {
@@ -1410,6 +1412,7 @@ impl Render for Detail {
                     }
                     Selection::Project(project) => match self.editing(project, cx) {
                         Some(editing) => empty_state(
+                            None,
                             commit_title(&editing.title),
                             format!(
                                 "Commit {} is checked out for editing. Its files are under \
@@ -1417,6 +1420,7 @@ impl Render for Detail {
                                 editing.commit.short()
                             ),
                             &theme,
+                            cx,
                         ),
                         None => self.render_upstream_side(project, &theme, cx),
                     },

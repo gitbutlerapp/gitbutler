@@ -9,6 +9,7 @@ use crate::backend::history::Operation;
 use crate::backend::{self, DiffSource, SnapshotId};
 use crate::state::{Overlay, ProjectId};
 use crate::theme::Theme;
+use crate::ui::illustration::Illustration;
 use crate::ui::{ButtonStyle, button, faint, list_row, relative_time};
 
 /// How many operations a page of the log holds.
@@ -208,13 +209,15 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let Some(history) = self.history_for(project) else {
-            return crate::ui::empty_state("Loading history…", "", theme);
+            return crate::ui::empty_state(None, "Loading history…", "", theme, cx);
         };
         if history.operations.is_empty() {
             return crate::ui::empty_state(
+                Some(Illustration::Cactus),
                 "Nothing here yet",
                 "Changes you make with GitButler show up here",
                 theme,
+                cx,
             );
         }
         let count = history.operations.len() + usize::from(history.more);

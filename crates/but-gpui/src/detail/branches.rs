@@ -14,6 +14,7 @@ use crate::overlays::MenuItem;
 use crate::state::{Cut, Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
+use crate::ui::illustration::Illustration;
 use crate::ui::{
     ButtonStyle, Icon, button, empty_state, faint, field, list_row, muted, plural, relative_time,
     small_icon, v_flex,
@@ -418,20 +419,21 @@ impl Detail {
             .flex_none()
             .m(px(10.));
         let Some(branches) = self.branches_for(project).filter(|b| b.seen.is_some()) else {
-            return empty_state("Loading branches…", "", theme);
+            return empty_state(None, "Loading branches…", "", theme, cx);
         };
         let rows = self.branch_rows(branches, cx);
         let list = if rows.is_empty() {
-            let empty = if branches.list.is_empty() {
-                "Every branch is applied".to_owned()
+            let (drawing, empty) = if branches.list.is_empty() {
+                (Illustration::Cactus, "Every branch is applied".to_owned())
             } else {
                 let filter = self.branch_filter.read(cx).text();
-                format!("No branches match \"{}\"", filter.trim())
+                let miss = format!("No branches match \"{}\"", filter.trim());
+                (Illustration::Papers, miss)
             };
             div()
                 .flex_1()
                 .min_h(px(0.))
-                .child(empty_state(empty, "", theme))
+                .child(empty_state(Some(drawing), empty, "", theme, cx))
         } else {
             side_list(
                 "other-branches",
