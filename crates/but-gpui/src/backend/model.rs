@@ -364,6 +364,33 @@ impl FileChange {
         })
     }
 
+    /// Where a submodule points now and pointed before, which is all there is to show of one.
+    pub fn submodule(&self) -> Option<String> {
+        use but_core::TreeStatus as S;
+        let at = |state: &but_core::ChangeState| {
+            (state.kind == gix::object::tree::EntryKind::Commit).then(|| CommitId(state.id).short())
+        };
+        Some(match &self.change.status {
+            S::Addition { state, .. } => format!("Submodule at {}", at(state)?),
+            S::Deletion { previous_state } => {
+                format!("Removed submodule at {}", at(previous_state)?)
+            }
+            S::Modification {
+                previous_state,
+                state,
+                ..
+            }
+            | S::Rename {
+                previous_state,
+                state,
+                ..
+            } => match (at(previous_state), at(state)?) {
+                (Some(before), now) => format!("Submodule moved from {before} to {now}"),
+                (None, now) => format!("Submodule at {now}"),
+            },
+        })
+    }
+
     /// What the change is against: the file as committed, or nothing for an addition.
     /// Committing part of a file moves it without touching the file itself.
     pub fn base(&self) -> Option<gix::ObjectId> {

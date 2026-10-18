@@ -598,7 +598,8 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
         {
             (Some(mode), _) => mode.to_owned(),
             (None, ChangeKind::Renamed) => "Renamed without changes".to_owned(),
-            // Git couldn't read it, as when it isn't readable, or it's a submodule.
+            (None, _) if let Some(submodule) = file.file.submodule() => submodule,
+            // Git couldn't read it, as when it isn't readable.
             (None, _) if matches!(file.body, DiffBody::Empty) => {
                 "Can't show its content".to_owned()
             }
