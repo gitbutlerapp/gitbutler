@@ -95,6 +95,7 @@ Caveats:
 
 - The graph is segment/bucket based because older UI concerns influenced it.
 - It can encode ordering information Git itself does not represent, especially around refs.
+- A named segment may own no commits: it is a ref on the commit below it, so read what it points at with `resolve_to_unambiguously_pointed_to_commit()`, never off its own `commits`.
 - Merge parent order may not always be reliable; be careful with first-parent traversal or UI that assumes the first parent is the mainline.
 
 ## Workspace projection and refinfo

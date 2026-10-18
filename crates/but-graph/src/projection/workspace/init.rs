@@ -373,10 +373,9 @@ impl Graph {
         let is_listed = frame
             .metadata
             .is_some_and(|metadata| metadata.find_owner_indexes_by_name(name, Applied).is_some());
-        let is_upstream = self[local_target]
-            .commits
-            .first()
-            .is_none_or(|commit| commit.flags.contains(CommitFlags::Integrated));
+        let is_upstream = self
+            .resolve_to_unambiguously_pointed_to_commit(local_target)
+            .is_none_or(|(commit, _)| commit.flags.contains(CommitFlags::Integrated));
         (is_upstream && !is_listed).then_some(local_target)
     }
 
@@ -564,10 +563,8 @@ impl Graph {
                     .collect();
                 let base = match groups.get(idx + 1) {
                     Some(next) => (
-                        next.members
-                            .first()
-                            .and_then(|&sidx| self[sidx].commits.first())
-                            .map(|c| c.id),
+                        self.resolve_to_unambiguously_pointed_to_commit(next.head)
+                            .map(|(c, _)| c.id),
                         Some(next.head),
                     ),
                     None => lane.base.unzip(),

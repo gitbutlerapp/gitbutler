@@ -1880,7 +1880,7 @@ RefInfo {
                     commits_on_remote: [],
                     metadata: Branch,
                     push_status: CompletelyUnpushed,
-                    base: "None",
+                    base: "cbc6713",
                 },
                 ref_info::ui::Segment {
                     id: NodeIndex(6),
@@ -1967,7 +1967,7 @@ RefInfo {
                     commits_on_remote: [],
                     metadata: Branch,
                     push_status: CompletelyUnpushed,
-                    base: "None",
+                    base: "cbc6713",
                 },
                 ref_info::ui::Segment {
                     id: NodeIndex(6),
