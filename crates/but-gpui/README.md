@@ -46,7 +46,7 @@ Moving things works by drag and drop or by ⌘X on the source and ⌘V on the de
 | a commit, or the selected ones | a branch | moves them to the top of that branch |
 | a commit, or the selected ones | another commit | moves them there, between the two commits under the pointer; on a commit's middle, squashes them in |
 | a commit, or the selected ones | uncommitted changes | uncommits them, a worktree commit's into that worktree |
-| a commit | New branch, below the stacks while dragging | moves it into a new branch of its own (also in its menu) |
+| a commit | New branch, below the stacks and any linked worktrees while dragging | moves it into a new branch of its own (also in its menu) |
 | uncommitted files | a commit | amends that commit |
 | uncommitted files | a branch | picks that branch and those files for the next commit; a linked worktree's files, or onto a worktree's branch, commits them there with no message |
 | a commit's file | another commit | moves the change between commits |
