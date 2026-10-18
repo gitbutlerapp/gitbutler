@@ -149,15 +149,19 @@ impl DiffKey {
         }
     }
 
-    /// Whether a pending operation takes the file at `path` out of this diff: out of the
+    /// Whether a pending operation takes a file, by path, out of this diff: out of the
     /// uncommitted files it is, or out of its commit.
-    fn leaving(&self, store: &Store, path: &str) -> bool {
+    fn leaving<'a>(&'a self, store: &'a Store) -> impl Fn(&str) -> bool + 'a {
         let commit = match self.source {
             DiffSource::Commit(id) => store.key_of(&self.project, id),
             _ => None,
         };
-        (self.checkout()).is_some_and(|checkout| store.hides_file(&self.project, checkout, path))
-            || commit.is_some_and(|commit| store.hides_commit_file(&self.project, &commit, path))
+        move |path| {
+            let project = &self.project;
+            (self.checkout()).is_some_and(|checkout| store.hides_file(project, checkout, path))
+                || (commit.as_ref())
+                    .is_some_and(|commit| store.hides_commit_file(project, commit, path))
+        }
     }
 
     /// The linked worktree this diff is of, whose files open from its own checkout.
@@ -957,11 +961,12 @@ impl Detail {
     fn build_rows(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> Vec<DiffRow> {
         let store = self.store.read(cx);
         let terms = self.filter_terms(cx);
+        let leaving = key.leaving(store);
         diff::rows(
             files,
             |file| self.folded.contains(&file.file.path),
             |file| self.drawing_of(file).is_some(),
-            |file| key.leaving(store, &file.file.path) || !keeps_path(&terms, &file.file.path),
+            |file| leaving(&file.file.path) || !keeps_path(&terms, &file.file.path),
             |file, hunk| {
                 (key.checkout()).is_some_and(|checkout| {
                     store.hides_hunk(&key.project, checkout, &file.file.path, hunk.key)

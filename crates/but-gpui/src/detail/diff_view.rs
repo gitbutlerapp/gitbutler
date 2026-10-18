@@ -601,7 +601,7 @@ impl Detail {
                 if let Some(menu) = menu.clone() {
                     entity
                         .update(cx, |detail, cx| {
-                            detail.file_menu(menu, line, event.position, cx)
+                            detail.changes_menu(menu, Some(line), event.position, cx)
                         })
                         .ok();
                 }
@@ -623,7 +623,7 @@ impl Detail {
                         .on_click(move |event, _, cx| {
                             let (menu, position) = (menu.clone(), event.position());
                             (entity.update(cx, |detail, cx| {
-                                detail.file_menu(menu, None, position, cx)
+                                detail.changes_menu(menu, Some(None), position, cx)
                             }))
                             .ok();
                         })
@@ -1086,7 +1086,7 @@ impl Detail {
             let key = hunk.and_then(|hunk| Some(diff.files[file].hunks().get(hunk)?.key));
             self.clear_text_selection(cx);
             if let Some(menu) = self.diff_cut(file, key.map(|key| vec![key]), cx) {
-                self.file_menu(menu, line, position, cx);
+                self.changes_menu(menu, Some(line), position, cx);
             }
             return;
         };
