@@ -460,14 +460,22 @@ impl Store {
         self.update_seen(id, &workspace, latest);
         // An agent amending or rebasing the selected commit gives it a new id but keeps its
         // change id; stay on it.
-        let rewritten = match &self.selection {
+        // One that's gone, as squashed away, leaves its branch selected, if that's still there.
+        let (rewritten, gone_from) = match &self.selection {
             Some(Selection::Commit(project, commit)) if project == id => {
-                follow_by_key(self.workspace(id), &workspace, *commit)
-                    .filter(|new| new != commit)
-                    .map(|new| (*commit, new))
+                let old = self.workspace(id);
+                match follow_by_key(old, &workspace, *commit) {
+                    Some(new) => ((new != *commit).then_some((*commit, new)), None),
+                    None => {
+                        let branch = old.and_then(|old| old.find_commit(*commit));
+                        (None, branch.map(|(branch, _)| branch.ref_name.clone()))
+                    }
+                }
             }
-            _ => None,
+            _ => (None, None),
         };
+        let gone_from = gone_from
+            .filter(|branch| !branch.is_empty() && workspace.find_branch(branch).is_some());
         // Picks follow rewritten commits the same way, and go when a commit is gone.
         if !self.picked.is_empty() && self.selection.as_ref().is_some_and(|s| s.project() == id) {
             let old = self.workspace(id);
@@ -520,6 +528,9 @@ impl Store {
             let picked = std::mem::take(&mut self.picked);
             self.select_followed(id.clone(), from, to, cx);
             self.picked = picked;
+        }
+        if let Some(branch) = gone_from {
+            self.select(Some(Selection::Branch(id.clone(), branch)), cx);
         }
         self.save_soon(cx);
     }

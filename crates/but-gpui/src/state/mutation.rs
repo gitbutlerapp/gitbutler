@@ -456,10 +456,11 @@ impl Store {
             1 => "Uncommit".to_owned(),
             n => format!("Uncommit {n} commits"),
         };
+        let project = project.clone();
         self.run(
-            project,
+            &project.clone(),
             label,
-            Overlay::commits(keys),
+            Overlay::commits(keys.clone()),
             move |path, remap| {
                 let ids = ids
                     .iter()
@@ -467,7 +468,18 @@ impl Store {
                     .collect::<Result<Vec<_>>>()?;
                 backend::uncommit(path, &ids)
             },
-            |store, (), cx| store.snack_undoable("Uncommitted", cx),
+            move |store, (), cx| {
+                // The selected commit's changes are uncommitted now; show them there.
+                if let Some(Selection::Commit(selected, id)) = &store.selection
+                    && *selected == project
+                    && store
+                        .key_of(selected, *id)
+                        .is_some_and(|key| keys.contains(&key))
+                {
+                    store.select(Some(Selection::Uncommitted(project)), cx);
+                }
+                store.snack_undoable("Uncommitted", cx)
+            },
             cx,
         );
     }
