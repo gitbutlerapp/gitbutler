@@ -340,6 +340,19 @@ impl Store {
         self.load(id, Reload::full(), cx);
     }
 
+    /// Load again the expanded projects whose folder went since they last loaded, and those
+    /// that failed to load: a watcher doesn't see its own folder move, and what failed may
+    /// have been fixed in a terminal.
+    pub fn recheck_folders(&mut self, cx: &mut Context<Self>) {
+        let stale: Vec<ProjectId> = (self.projects.iter())
+            .filter(|entry| entry.expanded && entry.project.path.exists() == entry.error.is_some())
+            .map(|entry| entry.id.clone())
+            .collect();
+        for id in stale {
+            self.reload(&id, cx);
+        }
+    }
+
     pub fn reload_all(&mut self, cx: &mut Context<Self>) {
         for id in self.expanded_ids() {
             self.reload(&id, cx);

@@ -156,10 +156,13 @@ impl AppView {
                 this.store
                     .update(cx, |store, cx| store.save_window_place(window, cx));
             }),
-            // The CLI and GitButler's other apps add and remove projects too.
+            // The CLI and GitButler's other apps add and remove projects too, and folders move.
             cx.observe_window_activation(window, |this, window, cx| {
                 if window.is_window_active() {
-                    this.store.update(cx, |store, cx| store.load_projects(cx));
+                    this.store.update(cx, |store, cx| {
+                        store.load_projects(cx);
+                        store.recheck_folders(cx);
+                    });
                 }
             }),
         ];
