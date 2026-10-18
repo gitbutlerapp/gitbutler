@@ -2,6 +2,7 @@
 
 pub mod conflict;
 pub mod diff;
+pub mod emoji;
 pub mod file_icons;
 pub mod illustration;
 pub mod modal;

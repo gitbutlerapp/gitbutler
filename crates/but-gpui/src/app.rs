@@ -115,6 +115,8 @@ pub struct AppView {
     navigator: Entity<Navigator>,
     pub menu: Option<ContextMenu>,
     pub prompt: Option<Prompt>,
+    /// The emoji picker open on a project's icon.
+    pub icon_picker: Option<crate::projects::IconPicker>,
     pub navigator_open: bool,
     pub palette: Option<Palette>,
     /// The modal on screen, if any, and the subscription that closes it.
@@ -180,6 +182,7 @@ impl AppView {
             navigator,
             menu: None,
             prompt: None,
+            icon_picker: None,
             navigator_open: true,
             palette: None,
             modal: None,
@@ -731,6 +734,7 @@ impl Render for AppView {
             .children(self.render_prompt(cx))
             .children(self.render_palette(cx))
             .children(self.render_menu(cx))
+            .children(self.render_icon_picker(window, cx))
     }
 }
 

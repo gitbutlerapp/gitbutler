@@ -7,10 +7,10 @@ use std::time::{Duration, Instant};
 use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
-use super::panes::{list_heading, side_header, side_list};
+use super::panes::{list_heading, meta_row, side_header, side_list, title_text};
 use crate::backend::upstream::{self, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge};
-use crate::state::{Overlay, ProjectId};
+use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
@@ -213,6 +213,87 @@ impl Detail {
         self.show_picked(cx);
     }
 
+    /// A project's header: its icon, which opens the picker, and its name, over where it is
+    /// and when it last fetched.
+    pub(super) fn render_project_header(
+        &self,
+        project: &ProjectId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let store = self.store.read(cx);
+        let Some(entry) = store.project(project) else {
+            return div().into_any_element();
+        };
+        let emoji = store.project_icon(project).map(str::to_owned);
+        let fetch = self.upstream_for(project).map(|u| u.fetch.clone());
+        let picked = project.clone();
+        // As wide as the other pages' icons, so the titles line up.
+        let trigger = div()
+            .id("project-icon")
+            .flex_none()
+            .w(px(16.))
+            .h(px(22.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(4.))
+            .cursor_pointer()
+            .hover(|el| el.bg(theme.hover()))
+            .map(|el| match &emoji {
+                Some(emoji) => el.text_size(px(16.)).child(emoji.clone()),
+                None => el.child(icon(Icon::Folder).text_color(theme.text_1)),
+            })
+            // No tooltip: it would sit over the picker's search field.
+            .on_click(
+                cx.listener(move |this, event: &gpui::ClickEvent, window, cx| {
+                    // Just under the button, which the click is half its height above.
+                    let at = event.position() + gpui::point(px(0.), px(14.));
+                    let project = picked.clone();
+                    (this.app)
+                        .update(cx, |app, cx| app.open_icon_picker(project, at, window, cx))
+                        .ok();
+                }),
+            );
+        let meta = meta_row(theme)
+            .child(
+                div()
+                    .min_w(px(0.))
+                    // Cut in the middle, keeping the folder's own name at its end.
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_ellipsis_middle()
+                    .child(crate::ui::short_path(&entry.project.path)),
+            )
+            .child(
+                h_flex()
+                    .flex_none()
+                    .gap(px(4.))
+                    .child(small_icon(Icon::Refresh).text_color(theme.text_3))
+                    .child(match fetch {
+                        Some(None) => "No remote to fetch from".into(),
+                        Some(Some((Some(at), _))) => match relative_time(at).as_str() {
+                            "now" => "Fetched just now".into(),
+                            ago => format!("Fetched {ago} ago"),
+                        },
+                        _ => "Not fetched yet".into(),
+                    }),
+            );
+        let main = v_flex()
+            .gap(px(10.))
+            .child(
+                h_flex()
+                    .items_start()
+                    .gap(px(8.))
+                    .child(trigger)
+                    .child(title_text(entry.project.name.clone())),
+            )
+            .child(meta);
+        let target = Selection::Project(project.clone());
+        let menu = h_flex().h(px(22.)).child(self.row_menu_button(target, cx));
+        self.page_header(main, menu, theme)
+    }
+
     pub(super) fn render_upstream_side(
         &self,
         project: &ProjectId,
@@ -235,34 +316,16 @@ impl Detail {
             .and_then(|ws| ws.target.as_ref())
             .map(|t| t.name.clone());
         let upstream = self.upstream_for(project);
-        let fetch = upstream.map(|u| u.fetch.clone());
         let fetch_error = upstream.and_then(|u| u.fetch.as_ref()?.1.clone());
+        // Where it is and when it fetched head its page; here, what needs doing, if anything.
+        let needs_doing = fetch_error.is_some()
+            || upstream.is_some_and(|u| u.unconnected_forge.is_some())
+            || !entry.project.path.exists()
+            || entry.error.is_some()
+            || (entry.workspace.as_ref())
+                .is_some_and(|ws| !ws.managed && ws.editing.is_none() && ws.target.is_some());
         let about = side_header(theme)
             .text_size(px(12.))
-            .child(
-                div()
-                    .font_family(theme.mono_font.clone())
-                    .text_color(theme.text_2)
-                    // Cut in the middle, keeping the folder's own name at its end.
-                    .overflow_hidden()
-                    .whitespace_nowrap()
-                    .text_ellipsis_middle()
-                    .child(crate::ui::short_path(&entry.project.path)),
-            )
-            .child(
-                h_flex()
-                    .gap(px(6.))
-                    .text_color(theme.text_2)
-                    .child(small_icon(Icon::Refresh).text_color(theme.text_2))
-                    .child(match fetch {
-                        Some(None) => "No remote to fetch from".into(),
-                        Some(Some((Some(at), _))) => match relative_time(at).as_str() {
-                            "now" => "Fetched just now".into(),
-                            ago => format!("Fetched {ago} ago"),
-                        },
-                        _ => "Not fetched yet".into(),
-                    }),
-            )
             .children(fetch_error.map(|err| {
                 div()
                     .text_color(theme.danger)
@@ -492,7 +555,7 @@ impl Detail {
         };
         v_flex()
             .size_full()
-            .child(about)
+            .when(needs_doing, |el| el.child(about))
             .child(list)
             .into_any_element()
     }
