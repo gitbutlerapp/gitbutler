@@ -63,11 +63,30 @@ pub fn target_commits(
 /// When the project last fetched, in seconds since the epoch, and why the last attempt
 /// failed if it did.
 pub fn fetch_status(path: &Path) -> Result<(Option<i64>, Option<String>)> {
-    let status = but_api::workspace::workspace_fetch_status(&open(path)?)?;
-    Ok((
-        status.last_successful_ms.map(|ms| (ms / 1000) as i64),
-        status.last_error,
-    ))
+    let ctx = open(path)?;
+    let status = but_api::workspace::workspace_fetch_status(&ctx)?;
+    // A fetch in a terminal counts too: Git notes every fetch in FETCH_HEAD, one for each
+    // worktree, as an agent fetching in its own leaves one there.
+    let common = ctx.repo.get()?.common_dir().to_owned();
+    let linked = std::fs::read_dir(common.join("worktrees"))
+        .into_iter()
+        .flatten();
+    let fetch_head = std::iter::once(common.clone())
+        .chain(linked.flatten().map(|entry| entry.path()))
+        .filter_map(|dir| {
+            dir.join("FETCH_HEAD")
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+        })
+        .max()
+        .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|since| since.as_secs() as i64);
+    let fetched = status.last_successful_ms.map(|ms| (ms / 1000) as i64);
+    // An error from before a later fetch elsewhere is stale.
+    let attempted = status.last_attempted_ms.map(|ms| (ms / 1000) as i64);
+    let error = status.last_error.filter(|_| fetch_head <= attempted);
+    Ok((fetched.max(fetch_head), error))
 }
 
 /// Push `ref_name` and the branches below it, forced when one of them was rewritten since it
