@@ -1332,7 +1332,7 @@ impl Navigator {
                     .truncate()
                     .child("Editing a commit"),
             )
-            .children(change_counts(store, id, files, style))
+            .children(change_counts(files, style))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
             .into_any_element()
     }
@@ -1358,18 +1358,12 @@ impl Navigator {
         };
         let worktree =
             (name.as_ref()).and_then(|name| workspace.worktrees.iter().find(|wt| wt.name == *name));
-        let (label, path, uncommitted, scope) = match worktree {
-            Some(wt) => (
-                wt.name.to_string(),
-                &wt.path,
-                &wt.uncommitted,
-                crate::state::worktree_review_scope(id, &wt.name),
-            ),
+        let (label, path, uncommitted) = match worktree {
+            Some(wt) => (wt.name.to_string(), &wt.path, &wt.uncommitted),
             None => (
                 "Main worktree".to_owned(),
                 &entry.project.path,
                 &workspace.uncommitted,
-                id.clone(),
             ),
         };
         let branches = section_branches(workspace, name.as_ref());
@@ -1436,7 +1430,7 @@ impl Navigator {
                     .tooltip(Tooltip::text(path.display().to_string()))
                     .child(label),
             )
-            .children(change_counts(store, &scope, uncommitted, style))
+            .children(change_counts(uncommitted, style))
             .when(headed && !open, |el| {
                 el.children(meta_count(
                     Icon::ArrowUp,
@@ -2107,23 +2101,24 @@ fn section_branches<'a>(workspace: &'a Workspace, name: Option<&Arc<str>>) -> Ve
     }
 }
 
-/// What a worktree's uncommitted `files`, their review marks under `scope`, count: what a
-/// merge left conflicted, as an update can, first, then what's left to review.
-fn change_counts(
-    store: &Store,
-    scope: &str,
-    files: &[FileChange],
-    style: RowStyle,
-) -> impl Iterator<Item = Stateful<Div>> {
+/// What a worktree's uncommitted `files` count: what a merge left conflicted, as an update
+/// can, first, then all of them.
+fn change_counts(files: &[FileChange], style: RowStyle) -> impl Iterator<Item = Stateful<Div>> {
+    let (theme, n) = (style.theme, files.len());
     let conflicted = files.iter().filter(|f| f.conflicted).count();
     let conflicts = meta_count(
         Icon::Warning,
         conflicted,
-        style.meta(style.theme.danger),
+        style.meta(theme.danger),
         plural(conflicted, "conflicted file"),
     );
-    let review = review_count(store.unreviewed(scope, files), files.len(), style);
-    conflicts.into_iter().chain(review)
+    let all = meta_count(
+        Icon::File,
+        n,
+        style.meta(theme.warn),
+        plural(n, "uncommitted file"),
+    );
+    conflicts.into_iter().chain(all)
 }
 
 /// Whether `selection` is one of `branches`, a commit on one, or a stack of them.
@@ -2150,17 +2145,6 @@ fn is_inactive(worktree: &Worktree) -> bool {
                 .elapsed()
                 .is_ok_and(|age| age > INACTIVE_AFTER)
         })
-}
-
-/// Of `n` uncommitted files, how many are left to review, or that none are.
-fn review_count(to_review: usize, n: usize, style: RowStyle) -> Option<Stateful<Div>> {
-    if to_review > 0 {
-        let tip = format!("{} to review", plural(to_review, "file"));
-        meta_count(Icon::Eye, to_review, style.meta(style.theme.warn), tip)
-    } else {
-        let tip = format!("{} reviewed", plural(n, "file"));
-        meta_count(Icon::Tick, n, style.muted(), tip)
-    }
 }
 
 /// A small count in a row's meta, coloured by meaning (amber waits on you, blue is

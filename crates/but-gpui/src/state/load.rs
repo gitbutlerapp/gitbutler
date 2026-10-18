@@ -378,7 +378,6 @@ impl Store {
         }
         // Loads of one project don't overlap, so these commits are still current.
         let shown = (!reload.full).then(|| entry.workspace.clone()).flatten();
-        let full = shown.is_none();
         let path = entry.project.path.clone();
         let id = id.clone();
         // Started after the mutation finished, so it sees what the mutation did.
@@ -399,12 +398,7 @@ impl Store {
                 entry.loading = false;
                 let queued = entry.queued.take();
                 match result {
-                    Ok(workspace) => {
-                        if full && workspace.worktrees_listed {
-                            store.forget_gone_worktrees(&id, &workspace);
-                        }
-                        store.workspace_loaded(&id, workspace, queued.is_none(), cx)
-                    }
+                    Ok(workspace) => store.workspace_loaded(&id, workspace, queued.is_none(), cx),
                     Err(err) => entry.error = Some(load_error(&entry.project, &err)),
                 }
                 // A queued reload has newer data; checking against this one could drop a
@@ -444,7 +438,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         // While a commit is being edited there's nothing else to look at or act on than its
-        // files, and what was seen and reviewed waits for the workspace to come back.
+        // files, and what was seen waits for the workspace to come back.
         if workspace.editing.is_some() {
             if let Some(entry) = self.project_mut(id) {
                 entry.workspace = Some(workspace);

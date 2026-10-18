@@ -55,9 +55,6 @@ pub struct Workspace {
     pub worktrees: Vec<Worktree>,
     /// The names of the worktrees archived, to bring back.
     pub archived_worktrees: Vec<std::sync::Arc<str>>,
-    /// Whether the worktrees were listed: GitButler's worktree support is on and listing
-    /// them worked. Otherwise the lists say nothing about which worktrees are gone.
-    pub worktrees_listed: bool,
     /// A fingerprint of the repository's local and remote branches, which the Branches page
     /// lists again when it changes.
     pub refs: u64,

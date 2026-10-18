@@ -11,8 +11,8 @@ use gpui::{
 use super::Detail;
 use super::pull_request::render_review;
 use crate::app::StartCommit;
-use crate::backend::{self, CommitState, FileChange, PushState, short_ref};
-use crate::state::{ProjectId, Review, Selection, Store};
+use crate::backend::{self, CommitState, PushState, short_ref};
+use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::person::person_avatar;
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -82,10 +82,7 @@ impl Detail {
                             crumbs.push((format!("Editing {title}").into(), None));
                             actions.extend(self.editing_actions(project, cx));
                         }
-                        None => {
-                            crumbs.push(("Uncommitted changes".into(), None));
-                            actions.extend(self.mark_all_reviewed(cx));
-                        }
+                        None => crumbs.push(("Uncommitted changes".into(), None)),
                     }
                 }
                 Selection::Branch(_, ref_name) => {
@@ -183,7 +180,6 @@ impl Detail {
                 }
                 Selection::Worktree(_, name) => {
                     crumbs.push((format!("Worktree {name}").into(), None));
-                    actions.extend(self.mark_all_reviewed(cx));
                 }
                 Selection::Stack(_, bottom) => {
                     let n = workspace
@@ -316,42 +312,7 @@ impl Detail {
         ]
     }
 
-    /// "Mark all reviewed" for the selected checkout's uncommitted files, while any still
-    /// want a look. It marks them as they are when clicked.
-    fn mark_all_reviewed(&self, cx: &App) -> Option<AnyElement> {
-        let key = self.key_for_selection(cx)?;
-        let scope = key.review_scope()?;
-        let store = self.store.read(cx);
-        let files = key.uncommitted(store)?;
-        // With the file filter open, all is all it shows.
-        let (terms, in_scope) = (self.filter_terms(cx), scope.clone());
-        let unreviewed = move |store: &Store, file: &FileChange| {
-            super::keeps_path(&terms, &file.path)
-                && store.review(&in_scope, file) != Review::Reviewed
-        };
-        if !files.iter().any(|file| unreviewed(store, file)) {
-            return None;
-        }
-        let store = self.store.clone();
-        Some(
-            button("review-all", "Mark all reviewed")
-                .icon(Icon::Tick)
-                .style(ButtonStyle::Ghost)
-                .on_click(move |_, _, cx| {
-                    store.update(cx, |store, cx| {
-                        let files: Vec<FileChange> = (key.uncommitted(store).unwrap_or_default())
-                            .iter()
-                            .filter(|file| unreviewed(store, file))
-                            .cloned()
-                            .collect();
-                        store.set_reviewed(&scope, &files, true, cx)
-                    })
-                })
-                .into_any_element(),
-        )
-    }
-
-    /// What an agent left uncommitted, laid out for reviewing first. The commit box
+    /// What an agent left uncommitted, laid out to read first. The commit box
     /// stays closed until asked for, and only then do checkboxes appear.
     pub(super) fn render_uncommitted_side(
         &self,

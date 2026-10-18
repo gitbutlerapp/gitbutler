@@ -14,7 +14,6 @@ use crate::app::{
 };
 use crate::detail::{
     DiscardFile, DiscardHunk, NextFile, NextHunk, PreviousFile, PreviousHunk, ToggleFold,
-    ToggleReviewed,
 };
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage,
@@ -42,7 +41,6 @@ pub fn bind_keys(cx: &mut gpui::App) {
 
 /// Every command, in the order they're listed before anything is typed.
 const COMMANDS: &[(&str, &dyn Action)] = &[
-    ("Mark file reviewed or not", &ToggleReviewed),
     ("Next hunk", &NextHunk),
     ("Previous hunk", &PreviousHunk),
     ("Next file", &NextFile),

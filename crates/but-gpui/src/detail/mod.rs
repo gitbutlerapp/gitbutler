@@ -35,7 +35,7 @@ use gpui::{
 use crate::app::{AddProject, AppView};
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
-use crate::state::{Pane, ProjectId, Review, Selection, Store, StoreEvent};
+use crate::state::{Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -51,7 +51,6 @@ actions!(
         PreviousFile,
         NextHunk,
         PreviousHunk,
-        ToggleReviewed,
         DiscardHunk,
         DiscardFile,
         ToggleFold,
@@ -66,8 +65,8 @@ actions!(
     ]
 );
 
-/// Reviewing keys follow Zed's agent review: cmd-y keeps (here: marks reviewed) and
-/// cmd-alt-z rejects (here: discards). Moving between files and hunks follows Lite.
+/// Discarding a hunk follows Zed's agent review, whose cmd-alt-z rejects one. Moving between
+/// files and hunks follows Lite.
 pub fn bind_keys(cx: &mut App) {
     let c = Some("Detail && !TextInput");
     cx.bind_keys([
@@ -75,7 +74,6 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("k", PreviousFile, c),
         KeyBinding::new("down", NextHunk, c),
         KeyBinding::new("up", PreviousHunk, c),
-        KeyBinding::new("cmd-y", ToggleReviewed, c),
         KeyBinding::new("cmd-alt-z", DiscardHunk, c),
         KeyBinding::new("cmd-backspace", DiscardFile, c),
         KeyBinding::new("z", ToggleFold, c),
@@ -118,18 +116,6 @@ struct DiffKey {
 }
 
 impl DiffKey {
-    /// Where the review marks of this diff's files are kept, when it's uncommitted changes:
-    /// of the project's own checkout or of one of its linked worktrees.
-    fn review_scope(&self) -> Option<ProjectId> {
-        match &self.source {
-            DiffSource::Worktree => Some(self.project.clone()),
-            DiffSource::Linked(name) => {
-                Some(crate::state::worktree_review_scope(&self.project, name))
-            }
-            _ => None,
-        }
-    }
-
     /// The uncommitted files this diff follows, as the store has them: the project's
     /// own checkout's, or a linked worktree's. `None` for a diff of commits.
     fn uncommitted<'a>(&self, store: &'a Store) -> Option<&'a [FileChange]> {
@@ -236,9 +222,8 @@ pub struct Detail {
     text_selection: Option<(TextPoint, TextPoint)>,
     /// The left button went down on a line and hasn't come up yet.
     selecting: bool,
-    /// Files folded or unfolded by hand; otherwise reviewed files fold.
+    /// Files folded by hand.
     folded: HashSet<String>,
-    unfolded: HashSet<String>,
     /// The commit message being written with AI, streaming into the box.
     writing: Option<Task<()>>,
     /// The find bar over the diff, while it's open.
@@ -320,16 +305,10 @@ impl Detail {
                         }
                     }
                 }
-                StoreEvent::Reviewed(project) | StoreEvent::Pending(project) => {
-                    // Marks of a linked worktree's files come under their own scope.
-                    let scope = (this.diff.as_ref()).and_then(|diff| diff.key.review_scope());
-                    if this.selected_project(cx).as_ref() == Some(project)
-                        || scope.as_ref() == Some(project)
-                    {
+                StoreEvent::Pending(project) => {
+                    if this.selected_project(cx).as_ref() == Some(project) {
                         this.rebuild_rows(cx);
-                        if let StoreEvent::Pending(_) = event {
-                            this.skip_taken(cx);
-                        }
+                        this.skip_taken(cx);
                     }
                 }
             }),
@@ -404,7 +383,6 @@ impl Detail {
             text_selection: None,
             selecting: false,
             folded: HashSet::new(),
-            unfolded: HashSet::new(),
             writing: None,
             find: None,
             resolving: Default::default(),
@@ -494,7 +472,6 @@ impl Detail {
         self.text_selection = None;
         self.cursor = Cursor::default();
         self.folded.clear();
-        self.unfolded.clear();
     }
 
     /// Show the diff of what was just picked on the selected page, from its top.
@@ -753,8 +730,7 @@ impl Detail {
         self.focus.contains_focused(window, cx)
     }
 
-    /// The diff's rows. Files folded by hand, or reviewed and not unfolded, show only their
-    /// header; uncommitted files and hunks, or files of the commit shown, that a pending
+    /// The diff's rows. Files folded by hand show only their header; uncommitted files and hunks, or files of the commit shown, that a pending
     /// operation takes away are left out until it's done.
     fn build_rows(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> Vec<DiffRow> {
         let store = self.store.read(cx);
@@ -763,16 +739,10 @@ impl Detail {
             DiffSource::Commit(id) => store.key_of(&key.project, id),
             _ => None,
         };
-        let scope = key.review_scope();
         let terms = self.filter_terms(cx);
         diff::rows(
             files,
-            |file| {
-                let path = &file.file.path;
-                let reviewed = (scope.as_ref())
-                    .is_some_and(|scope| store.review(scope, &file.file) == Review::Reviewed);
-                !self.unfolded.contains(path) && (self.folded.contains(path) || reviewed)
-            },
+            |file| self.folded.contains(&file.file.path),
             |file| {
                 let path = &file.file.path;
                 (worktree && store.hides_file(&key.project, path))
@@ -1199,47 +1169,6 @@ impl Detail {
             .collect()
     }
 
-    pub fn toggle_reviewed_file(&mut self, file_ix: usize, cx: &mut Context<Self>) {
-        self.cursor = Cursor {
-            file: file_ix,
-            hunk: None,
-        };
-        let Some(diff) = &self.diff else {
-            return;
-        };
-        let (Some(project), Some(file)) = (diff.key.review_scope(), diff.files.get(file_ix)) else {
-            return;
-        };
-        if !self.shown_files().contains(&file_ix) {
-            return;
-        }
-        let file = file.clone();
-        let reviewed = self.store.read(cx).review(&project, &file.file) == Review::Reviewed;
-        self.unfolded.remove(&file.file.path);
-        self.store.update(cx, |store, cx| {
-            store.set_reviewed(&project, &[file.file], !reviewed, cx)
-        });
-        // Fold it now, so the scroll below lands on the next file's header.
-        self.rebuild_rows(cx);
-        if !reviewed {
-            // Like Zed's keep-and-next: move on to the next file still wanting a look, going
-            // round to the top for one passed over.
-            let store = self.store.read(cx);
-            let shown = self.shown_files();
-            let next = self.diff.as_ref().and_then(|diff| {
-                let files = diff.files.iter().enumerate();
-                (files.clone().skip(file_ix + 1))
-                    .chain(files.take(file_ix))
-                    .filter(|(ix, _)| shown.binary_search(ix).is_ok())
-                    .find(|(_, f)| store.review(&project, &f.file) != Review::Reviewed)
-                    .map(|(ix, _)| ix)
-            });
-            if let Some(next) = next {
-                self.scroll_to_file(next, cx);
-            }
-        }
-    }
-
     pub fn toggle_fold(&mut self, file_ix: usize, cx: &mut Context<Self>) {
         let Some(path) = self
             .diff
@@ -1249,11 +1178,7 @@ impl Detail {
         else {
             return;
         };
-        if self.is_folded(file_ix) {
-            self.folded.remove(&path);
-            self.unfolded.insert(path);
-        } else {
-            self.unfolded.remove(&path);
+        if !self.folded.remove(&path) {
             self.folded.insert(path);
         }
         self.cursor = Cursor {
@@ -1438,9 +1363,6 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PreviousFile, _, cx| this.move_file(-1, cx)))
             .on_action(cx.listener(|this, _: &NextHunk, _, cx| this.move_hunk(true, cx)))
             .on_action(cx.listener(|this, _: &PreviousHunk, _, cx| this.move_hunk(false, cx)))
-            .on_action(cx.listener(|this, _: &ToggleReviewed, _, cx| {
-                this.toggle_reviewed_file(this.cursor.file, cx)
-            }))
             .on_action(cx.listener(|this, _: &DiscardHunk, window, cx| {
                 if let Some(hunk) = this.cursor.hunk {
                     this.discard(this.cursor.file, Some(hunk), window, cx);
