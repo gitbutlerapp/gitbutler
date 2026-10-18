@@ -12,9 +12,7 @@ use gpui::{
     prelude::*, px,
 };
 
-use crate::app::{
-    AddProject, AppView, Collapse, Confirm, Expand, Refresh, SelectNext, SelectPrevious,
-};
+use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
 use crate::backend::{CommitId, CommitState, PushState, Worktree, short_ref};
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
@@ -1776,13 +1774,6 @@ impl Render for Navigator {
                 )
             })
             .child(div().flex_1())
-            .when(project_count > 0, |el| {
-                el.child(
-                    icon_button("refresh", Icon::Refresh)
-                        .tooltip_with_key("Reload", shortcut(&Refresh, cx))
-                        .dispatch(&Refresh),
-                )
-            })
             .child(self.account(&theme, cx));
 
         v_flex()

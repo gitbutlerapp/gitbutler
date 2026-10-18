@@ -30,7 +30,6 @@ actions!(
         CopySelection,
         OpenPullRequest,
         ToggleFileTree,
-        Refresh,
         Undo,
         Redo,
         Fetch,
@@ -67,7 +66,6 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("alt-cmd-h", HideOthers, None),
         KeyBinding::new("cmd-m", Minimize, None),
         KeyBinding::new("cmd-o", AddProject, None),
-        KeyBinding::new("cmd-r", Refresh, None),
         KeyBinding::new("alt-shift-f", Fetch, None),
         KeyBinding::new("alt-shift-r", UpdateFromTarget, None),
         KeyBinding::new("cmd-n", NewBranch, None),
@@ -243,13 +241,6 @@ impl AppView {
             }
         })
         .detach();
-    }
-
-    pub fn refresh(&mut self, _: &Refresh, _: &mut Window, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| {
-            store.load_projects(cx);
-            store.reload_all(cx);
-        });
     }
 
     /// Undo the selected project's last operation, or with `redo` what was undone.
@@ -610,7 +601,6 @@ impl Render for AppView {
             .map(|el| self.resolve_actions(el, cx))
             .on_action(cx.listener(Self::go_to_branch))
             .on_action(cx.listener(Self::open_selected_in_terminal))
-            .on_action(cx.listener(Self::refresh))
             .on_action(cx.listener(|this, _: &Undo, _, cx| this.undo(false, cx)))
             .on_action(cx.listener(|this, _: &Redo, _, cx| this.undo(true, cx)))
             .on_action(cx.listener(Self::fetch))
