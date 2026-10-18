@@ -590,15 +590,17 @@ impl Graph {
                 .stacks(Applied)
                 .find(|stack| stack.id == id)
         });
-        let ad_hoc_names: BTreeSet<_> = if frame.kind.has_managed_ref() {
-            BTreeSet::new()
+        let ad_hoc_orders = if frame.kind.has_managed_ref() {
+            &[][..]
         } else {
-            self.ad_hoc_branch_stack_orders
-                .iter()
-                .flatten()
-                .map(|rn| rn.as_ref())
-                .collect()
+            &self.ad_hoc_branch_stack_orders[..]
         };
+        let ad_hoc_names: BTreeSet<_> = ad_hoc_orders
+            .iter()
+            .chain(&self.worktree_branch_stack_orders)
+            .flatten()
+            .map(|rn| rn.as_ref())
+            .collect();
         let wanted_by_metadata = |name: &gix::refs::FullNameRef| {
             own_metadata.is_some_and(|stack| {
                 stack

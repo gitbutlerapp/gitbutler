@@ -55,6 +55,42 @@ fn workspace_with_worktree_tips(
 }
 
 #[test]
+fn worktree_orders_skip_deleted_branches() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
+    but_testsupport::invoke_bash_at_dir(
+        "git branch wt-lower A~1",
+        repo.workdir().expect("fixture has a working directory"),
+    );
+    let mut meta = but_meta::BranchOrderMetadata::from_paths(
+        repo.path().join("virtual-branches.toml"),
+        repo.path(),
+    )?;
+    let r = |name: &str| crate::utils::r(name).to_owned();
+    meta.set_branch_stack_order(&[
+        r("refs/heads/wt-inside"),
+        r("refs/heads/deleted"),
+        r("refs/heads/wt-lower"),
+    ])?;
+
+    let ws = workspace_with_worktree_tips(&repo, &meta)?;
+    let lane: Vec<_> = ws
+        .worktrees
+        .iter()
+        .find(|worktree| worktree.name == "wt-inside")
+        .expect("wt-inside has a lane")
+        .segments
+        .iter()
+        .filter_map(|segment| Some(segment.ref_name()?.shorten().to_string()))
+        .collect();
+    assert_eq!(
+        lane,
+        ["wt-inside", "wt-lower"],
+        "a deleted branch drops out of the order without cutting off the branches below it"
+    );
+    Ok(())
+}
+
+#[test]
 fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
     let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(

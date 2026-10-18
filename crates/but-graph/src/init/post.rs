@@ -128,7 +128,7 @@ impl Graph {
         // anonymous segment from the refs left on its first commit, which would
         // re-couple a fork to the lane it points into. The pass maintains
         // remote/sibling links itself when it moves a name.
-        self.fork_out_refs_outside_lanes(meta, &worktree_by_branch)?;
+        self.fork_out_refs_outside_lanes(repo, meta, &worktree_by_branch)?;
         self.land_worktree_lanes_on_commits(meta, &worktree_by_branch)?;
 
         // Finally, once all segments were added, it's good to generations
@@ -1709,8 +1709,9 @@ impl Graph {
     /// relative to them must never rewrite the lane they point into. Wherever
     /// the branch currently lives - naming a commit-owning segment, chained
     /// into a lane as an empty segment, or riding on a commit in its refs -
-    /// it is re-attached uniformly as a fork: an empty segment nothing routes
-    /// through, whose only connection lands on its commit, with
+    /// it is re-attached uniformly as a fork: an empty segment only its own
+    /// worktree's branch order routes through, whose only connection lands on
+    /// its commit, with
     /// [`Self::land_worktree_lanes_on_commits()`] keeping that connection clear
     /// of the reference naming the commit. Refs remaining on the commit itself
     /// keep their usual meaning of moving with it.
@@ -1723,6 +1724,7 @@ impl Graph {
     /// built the graph, and the entrypoint ref.
     fn fork_out_refs_outside_lanes<T: RefMetadata>(
         &mut self,
+        repo: &OverlayRepo<'_>,
         meta: &OverlayMetadata<'_, T>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
@@ -1743,12 +1745,64 @@ impl Graph {
             .filter(|ref_name| seen.insert(ref_name.clone()))
             .collect();
         let mut identity_left_the_lane = BTreeSet::new();
-        for ref_name in refs_outside_lanes {
-            if let Some((fork_sidx, vacated_sidx)) =
-                self.fork_out_ref(ref_name, meta, worktree_by_branch)?
-            {
-                identity_left_the_lane.insert(fork_sidx);
-                identity_left_the_lane.extend(vacated_sidx);
+        let mut forked = BTreeSet::new();
+        let mut entrypoint_stacked = None;
+        for tip in refs_outside_lanes {
+            let groups = ordered_ref_groups(repo, meta, tip.clone())?;
+            let (own_lane, entrypoint_stacked) =
+                if groups.iter().map(|(_, names)| names.len()).sum::<usize>() > 1 {
+                    if entrypoint_stacked.is_none() {
+                        entrypoint_stacked = Some(self.entrypoint_stacked_names(meta)?);
+                    }
+                    (
+                        self.first_parent_commits(groups[0].0),
+                        entrypoint_stacked.as_ref().expect("just computed"),
+                    )
+                } else {
+                    (BTreeSet::new(), &BTreeSet::new())
+                };
+            let may_join = |commit: ObjectId, ref_name: &gix::refs::FullName| {
+                *ref_name == tip
+                    || (own_lane.contains(&commit)
+                        && !entrypoint_stacked.contains(ref_name)
+                        && !worktree_by_branch.contains_key(ref_name))
+            };
+            let mut ordered = Vec::new();
+            let mut lane_tip = None;
+            for (commit, group) in groups {
+                let mut forks = Vec::new();
+                let mut claimed_elsewhere = false;
+                for ref_name in group {
+                    if !may_join(commit, &ref_name) || !forked.insert(ref_name.clone()) {
+                        claimed_elsewhere = true;
+                        break;
+                    }
+                    if let Some((fork_sidx, vacated_sidx)) =
+                        self.fork_out_ref(ref_name.clone(), meta, worktree_by_branch)?
+                    {
+                        identity_left_the_lane.insert(fork_sidx);
+                        identity_left_the_lane.extend(vacated_sidx);
+                        forks.push(fork_sidx);
+                        ordered.push(ref_name);
+                    }
+                }
+                let (Some(&top), Some(&bottom)) = (forks.first(), forks.last()) else {
+                    break;
+                };
+                for pair in forks.windows(2) {
+                    let [above, below] = *pair else { continue };
+                    self.reconnect_fork(above, below);
+                }
+                match lane_tip {
+                    None => lane_tip = Some(top),
+                    Some(lane_tip) => self.route_first_parent_through_forks(lane_tip, top, bottom),
+                }
+                if claimed_elsewhere {
+                    break;
+                }
+            }
+            if ordered.len() > 1 {
+                self.worktree_branch_stack_orders.push(ordered);
             }
         }
         // Anonymous lane segments may still carry sibling links planted by the
@@ -1859,6 +1913,101 @@ impl Graph {
             );
         }
         owners
+    }
+
+    /// The branches the entrypoint's metadata stacks: those of the applied workspace stacks, or
+    /// the persisted order of the entrypoint's branch otherwise.
+    fn entrypoint_stacked_names<T: RefMetadata>(
+        &self,
+        meta: &OverlayMetadata<'_, T>,
+    ) -> anyhow::Result<BTreeSet<gix::refs::FullName>> {
+        let workspace = self
+            .entrypoint
+            .and_then(|(entrypoint, _)| self[entrypoint].workspace_metadata());
+        Ok(match (workspace, &self.entrypoint_ref) {
+            (Some(workspace), _) => workspace
+                .stacks(Applied)
+                .flat_map(|stack| &stack.branches)
+                .map(|branch| branch.ref_name.clone())
+                .collect(),
+            (None, Some(entrypoint_ref)) => meta
+                .branch_stack_order(entrypoint_ref.as_ref())?
+                .into_iter()
+                .flatten()
+                .collect(),
+            (None, None) => BTreeSet::new(),
+        })
+    }
+
+    /// The commits from `start` along first parents.
+    fn first_parent_commits(&self, start: ObjectId) -> BTreeSet<ObjectId> {
+        let first_parent_by_id: BTreeMap<_, _> = self
+            .inner
+            .node_weights()
+            .flat_map(|segment| &segment.commits)
+            .map(|commit| (commit.id, commit.parent_ids.first().copied()))
+            .collect();
+        let mut commits = BTreeSet::new();
+        let mut cursor = Some(start);
+        while let Some(id) = cursor.filter(|id| commits.insert(*id)) {
+            cursor = first_parent_by_id.get(&id).copied().flatten();
+        }
+        commits
+    }
+
+    /// Make `fork` rest on `below` instead of the commit it was forked onto.
+    fn reconnect_fork(&mut self, fork: SegmentIndex, below: SegmentIndex) {
+        let outgoing: Vec<_> = self
+            .inner
+            .edges_directed(fork, Direction::Outgoing)
+            .map(|edge| edge.id())
+            .collect();
+        for edge in outgoing {
+            self.inner.remove_edge(edge);
+        }
+        self.connect_segments(fork, None, below, None);
+    }
+
+    /// Let the first-parent path from `lane_tip` enter the commit `bottom` rests on
+    /// through the fork chain `top..=bottom`, the way the worktree's branch order stacks them.
+    fn route_first_parent_through_forks(
+        &mut self,
+        lane_tip: SegmentIndex,
+        top: SegmentIndex,
+        bottom: SegmentIndex,
+    ) {
+        let Some(commit_sidx) = self
+            .inner
+            .edges_directed(bottom, Direction::Outgoing)
+            .next()
+            .map(|edge| edge.target())
+        else {
+            return;
+        };
+        let mut sidx = lane_tip;
+        let entering = loop {
+            let Some(edge) = self
+                .inner
+                .edges_directed(sidx, Direction::Outgoing)
+                .min_by_key(|edge| edge.weight().parent_order)
+            else {
+                return;
+            };
+            if edge.target() == commit_sidx {
+                break EdgeOwned::from(edge);
+            }
+            sidx = edge.target();
+        };
+        self.inner.remove_edge(entering.id);
+        self.inner.add_edge(
+            entering.source,
+            top,
+            Edge {
+                dst: None,
+                dst_id: None,
+                ..entering.weight
+            },
+        );
     }
 
     /// Returns the fork segment now carrying `ref_name` along with the lane
@@ -2044,6 +2193,30 @@ impl Graph {
             self.inner.remove_edge(edge.id);
         }
     }
+}
+
+/// `ref_name` and the existing branches its persisted stack order puts below it, grouped by
+/// the commit they point at.
+fn ordered_ref_groups<T: RefMetadata>(
+    repo: &OverlayRepo<'_>,
+    meta: &OverlayMetadata<'_, T>,
+    ref_name: gix::refs::FullName,
+) -> anyhow::Result<Vec<(ObjectId, Vec<gix::refs::FullName>)>> {
+    let order = meta
+        .branch_stack_order(ref_name.as_ref())?
+        .unwrap_or_else(|| vec![ref_name.clone()]);
+    let mut groups: Vec<(ObjectId, Vec<gix::refs::FullName>)> = Vec::new();
+    for name in order.into_iter().skip_while(|name| *name != ref_name) {
+        let Some(mut reference) = repo.try_find_reference(name.as_ref())? else {
+            continue;
+        };
+        let commit = reference.peel_to_id()?.detach();
+        match groups.last_mut() {
+            Some((group_commit, names)) if *group_commit == commit => names.push(name),
+            _ => groups.push((commit, vec![name])),
+        }
+    }
+    Ok(groups)
 }
 
 fn ad_hoc_order_bottom_segment_id(
