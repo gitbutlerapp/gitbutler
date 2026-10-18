@@ -7,8 +7,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, Pixels, Subscription,
-    WeakEntity, Window, div, list, prelude::*, px,
+    Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, Pixels, SharedString,
+    Subscription, WeakEntity, Window, div, list, prelude::*, px,
 };
 
 use super::file_list::FileMenu;
@@ -18,9 +18,10 @@ use super::{
 };
 use crate::app::AppView;
 use crate::backend::{
-    self, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, Selected,
+    self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, PushState,
+    Selected,
 };
-use crate::state::{Prefs, ProjectId};
+use crate::state::{Prefs, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::illustration::Illustration;
@@ -301,25 +302,23 @@ impl Detail {
             return ground().child(message).into_any_element();
         }
         let Some(diff) = self.shown_diff() else {
-            let title = if self.loading.is_some() {
-                "Loading diff…"
-            } else {
-                ""
+            let message = match (self.loading.is_some(), self.nothing_committed(cx)) {
+                (true, _) => empty_state(None, "Loading diff…", "", theme, cx),
+                (false, Some(line)) => empty_state(Some(Illustration::Cactus), "", line, theme, cx),
+                (false, None) => empty_state(None, "", "", theme, cx),
             };
-            return ground()
-                .child(empty_state(None, title, "", theme, cx))
-                .into_any_element();
+            return ground().child(message).into_any_element();
         };
         if diff.files.is_empty() {
             // A clean worktree is good news, as but.dev greets it; a commit with nothing in
             // it is a list with nothing in it.
-            let (drawing, title, detail) = match diff.key.source {
+            let (drawing, title, detail): (_, _, SharedString) = match diff.key.source {
                 DiffSource::Worktree | DiffSource::Linked(_) => (
                     Illustration::Waving,
                     "No uncommitted changes",
-                    "Edits show up here as soon as they're saved",
+                    "Edits show up here as soon as they're saved".into(),
                 ),
-                _ => (Illustration::Cactus, "No changes", ""),
+                _ => (Illustration::Cactus, "", self.changes_nothing(cx)),
             };
             return ground()
                 .child(empty_state(Some(drawing), title, detail, theme, cx))
@@ -394,6 +393,57 @@ impl Detail {
                     .children(scrollbar),
             )
             .into_any_element()
+    }
+
+    /// For a selected branch or stack with no commits, what but.dev's branch page says.
+    fn nothing_committed(&self, cx: &App) -> Option<SharedString> {
+        let store = self.store.read(cx);
+        let selection = store.selection.as_ref()?;
+        let workspace = store.workspace(selection.project())?;
+        let target = workspace
+            .target
+            .as_ref()
+            .map_or("the target", |t| t.name.as_str());
+        let branches: Vec<&Branch> = match selection {
+            Selection::Branch(_, ref_name) => vec![workspace.find_branch(ref_name)?],
+            Selection::Stack(_, bottom) => workspace.lane(bottom)?.iter().collect(),
+            _ => return None,
+        };
+        let what = match selection {
+            Selection::Stack(..) => "these branches",
+            _ => "this branch",
+        };
+        (branches.iter().all(|branch| branch.commits.is_empty()))
+            .then(|| format!("No commits above {target} on {what}").into())
+    }
+
+    /// What a diff of commits with no changes in it says, as but.dev's branch page does: a
+    /// branch the target already has changes nothing against it.
+    fn changes_nothing(&self, cx: &App) -> SharedString {
+        let store = self.store.read(cx);
+        let Some(selection) = store.selection.as_ref() else {
+            return "No changes".into();
+        };
+        let workspace = store.workspace(selection.project());
+        let target =
+            (workspace.and_then(|ws| ws.target.as_ref())).map_or("the target", |t| t.name.as_str());
+        match selection {
+            Selection::Commit(..) => "This commit changes no files".into(),
+            Selection::Branch(..) | Selection::Stack(..)
+                if store
+                    .branch_for(selection)
+                    .is_some_and(|b| b.push == PushState::Integrated) =>
+            {
+                format!(
+                    "{target} already has these commits, so the branch changes nothing against it"
+                )
+                .into()
+            }
+            Selection::Branch(..) | Selection::Stack(..) => {
+                format!("Nothing changed against {target}").into()
+            }
+            _ => "No changes".into(),
+        }
     }
 
     /// The bar over the diff, as but.dev's: the file list's toggle, which counts the files and
