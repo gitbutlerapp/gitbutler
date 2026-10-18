@@ -316,7 +316,7 @@ impl Store {
                     return store.snack_undoable(format!("Pulled into {name}"), cx);
                 };
                 let detail = format!(
-                    "Rebasing your commits onto the remote's leaves conflicted commits in {}. \
+                    "Rebasing onto the remote's commits leaves conflicted commits in {}. \
                      You can resolve them afterwards, or undo the pull.",
                     commit_counts(&found)
                 );
