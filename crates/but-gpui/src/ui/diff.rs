@@ -103,6 +103,16 @@ impl DiffRow {
         self.file_mut().copied()
     }
 
+    /// The hunk it's in, among its file's.
+    pub fn hunk_mut(&mut self) -> Option<&mut usize> {
+        match self {
+            DiffRow::Hunk { hunk, .. }
+            | DiffRow::Line { hunk, .. }
+            | DiffRow::Pair { hunk, .. } => Some(hunk),
+            _ => None,
+        }
+    }
+
     fn file_mut(&mut self) -> Option<&mut usize> {
         match self {
             DiffRow::File(file)

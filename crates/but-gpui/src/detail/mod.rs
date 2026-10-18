@@ -837,7 +837,19 @@ impl Detail {
                 Some(file) => {
                     let path = &diff.files.get(file)?.file.path;
                     let now = files.iter().position(|f| &f.file.path == path)?;
-                    Some(row.in_file(now))
+                    let mut row = row.in_file(now);
+                    // Its hunk as the cursor follows one, which hunks an agent adds or drops
+                    // elsewhere in the file don't move.
+                    if let Some(hunk) = row.hunk_mut()
+                        && let Some(ix) = follow_hunk(
+                            &hunk_keys(&diff.files[file]),
+                            *hunk,
+                            &hunk_keys(&files[now]),
+                        )
+                    {
+                        *hunk = ix;
+                    }
+                    Some(row)
                 }
                 None => Some(*row),
             });
