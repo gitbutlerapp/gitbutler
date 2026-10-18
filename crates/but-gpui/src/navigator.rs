@@ -444,7 +444,11 @@ impl Navigator {
     /// the pointer is over the list, so does the row under it: rows added above it, like an
     /// agent's new commit, push the rows above it up rather than it down.
     fn sync_list(&mut self, rows: Vec<Row>, window: &Window, cx: &App) {
-        let hovered = std::mem::take(&mut self.loaded)
+        // At the very top the list stays there, showing what's added, as the diff does;
+        // scrolled, the row under the pointer stays where it is.
+        let top = self.list.logical_scroll_top();
+        let at_top = top.item_ix == 0 && top.offset_in_item == px(0.);
+        let hovered = (std::mem::take(&mut self.loaded) && !at_top)
             .then(|| self.hovered_row(window))
             .flatten();
         // The hovered row's index before and after, and how far below the top it is.
@@ -462,9 +466,9 @@ impl Navigator {
             }
             None => splice(&self.list, &self.rows, &rows, 0),
         };
-        // The first rows count as added above the top, which would leave the list scrolled
-        // to their end.
-        if self.rows.is_empty() && changed {
+        // Rows added above the first one count as added above the top, which would leave
+        // the list scrolled to their end.
+        if at_top && changed {
             self.list.scroll_to(ListOffset::default());
         }
         self.rows = rows;
