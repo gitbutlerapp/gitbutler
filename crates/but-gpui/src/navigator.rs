@@ -1763,14 +1763,23 @@ impl Navigator {
                 .child(step)
                 .child(icon(Icon::Stack).text_color(style.muted()))
                 .child(
-                    div()
+                    h_flex()
                         .id(("stack-name", ix))
                         .flex_1()
                         .min_w(px(0.))
-                        .truncate()
-                        .text_color(style.muted())
+                        .gap(px(6.))
                         .tooltip(Tooltip::text(format!("Stack: {}", names.join(" ← "))))
-                        .child(label),
+                        .child(div().flex_none().text_color(style.muted()).child(label))
+                        // Folded, its top branch tells it from another stack as tall, named
+                        // as the branch rows name it; open, that row is right under it.
+                        .children(names.first().filter(|_| !open).map(|top| {
+                            div()
+                                .min_w(px(0.))
+                                .truncate()
+                                .font_family(theme.mono_font.clone())
+                                .text_color(style.meta(theme.blue))
+                                .child(top.to_string())
+                        })),
                 )
                 .when(!open, |el| {
                     el.children(meta_count(
