@@ -185,6 +185,12 @@ impl Detail {
                     crumbs.push((format!("Worktree {name}").into(), None));
                     actions.extend(self.mark_all_reviewed(cx));
                 }
+                Selection::Stack(_, bottom) => {
+                    let n = workspace
+                        .and_then(|ws| ws.lane(bottom))
+                        .map_or(0, <[_]>::len);
+                    crumbs.push((format!("Stack of {n}").into(), None));
+                }
                 Selection::History(project) => {
                     crumbs.push(("History".into(), None));
                     self.history_header(project, &mut actions, cx);
@@ -744,6 +750,53 @@ impl Detail {
                     .then(|| (project.clone(), ref_name.to_owned()));
                 el.child(render_incoming(&branch.incoming, pull, theme, cx))
             })
+            .child(files)
+            .into_any_element()
+    }
+}
+
+impl Detail {
+    /// What a stack's branches change together: its branches, top first, and how many
+    /// commits they have, over their files.
+    pub(super) fn render_stack_side(
+        &self,
+        project: &ProjectId,
+        bottom: &str,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let store = self.store.read(cx);
+        let Some(branches) = store.workspace(project).and_then(|ws| ws.lane(bottom)) else {
+            return empty_state("Stack not found", "", theme);
+        };
+        let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
+        let commits = branches.iter().map(|branch| branch.commits.len()).sum();
+        let files = self.render_diff_file_list(theme, cx);
+        v_flex()
+            .size_full()
+            .child(
+                side_header(theme)
+                    .child(
+                        h_flex()
+                            .gap(px(8.))
+                            .child(icon(Icon::Stack).text_color(theme.text_2))
+                            .child(
+                                div()
+                                    .font_family(theme.mono_font.clone())
+                                    .text_size(px(14.))
+                                    .text_color(theme.blue)
+                                    .truncate()
+                                    .child(names.join(" ← ")),
+                            ),
+                    )
+                    .child(muted(
+                        match commits {
+                            0 => "No commits yet".to_owned(),
+                            n => format!("{} across {} branches", plural(n, "commit"), names.len()),
+                        },
+                        theme,
+                    )),
+            )
             .child(files)
             .into_any_element()
     }

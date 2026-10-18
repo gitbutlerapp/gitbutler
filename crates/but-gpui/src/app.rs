@@ -485,7 +485,10 @@ impl AppView {
                 let worktree = workspace.worktrees.iter().find(|w| w.name == name)?;
                 Some(worktree.path.display().to_string())
             }
-            Selection::Uncommitted(_) | Selection::Branches(_) | Selection::History(_) => None,
+            Selection::Uncommitted(_)
+            | Selection::Branches(_)
+            | Selection::History(_)
+            | Selection::Stack(..) => None,
         });
         if let Some(text) = text {
             self.copy_text(text, cx);
