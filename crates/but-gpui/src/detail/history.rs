@@ -224,7 +224,7 @@ impl Detail {
             &self.history_scroll,
             "history-scrollbar",
             cx,
-            |this, ix, theme, cx| {
+            |this, ix, theme, _, cx| {
                 let history = this.history.as_ref()?;
                 let row = match history.operations.get(ix) {
                     Some(operation) => {
