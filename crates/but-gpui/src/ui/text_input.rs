@@ -11,8 +11,8 @@ use gpui::{
     App, Bounds, ClipboardItem, Context, CursorStyle, ElementId, ElementInputHandler, Entity,
     EntityInputHandler, EventEmitter, FocusHandle, Focusable, GlobalElementId, KeyBinding,
     LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point,
-    Role, SharedString, Style, Task, TextRun, UTF16Selection, UnderlineStyle, Window, WrappedLine,
-    actions, div, fill, point, prelude::*, px, relative, size,
+    Role, ScrollHandle, SharedString, Style, Task, TextRun, UTF16Selection, UnderlineStyle, Window,
+    WrappedLine, actions, div, fill, point, prelude::*, px, relative, size,
 };
 use unicode_segmentation::UnicodeSegmentation as _;
 
@@ -120,6 +120,8 @@ pub struct TextInput {
     last_line_height: Pixels,
     /// Height the text wanted on the last paint, used to size the next layout.
     wanted_height: Option<Pixels>,
+    /// The box that scrolls a long text, and the selection it last scrolled to show.
+    scroll: Option<(ScrollHandle, Range<usize>)>,
     is_selecting: bool,
     cursor_visible: bool,
     blink: Task<()>,
@@ -145,6 +147,7 @@ impl TextInput {
             last_layout: Vec::new(),
             last_bounds: None,
             last_line_height: px(18.),
+            scroll: None,
             wanted_height: None,
             is_selecting: false,
             cursor_visible: true,
@@ -154,6 +157,12 @@ impl TextInput {
 
     pub fn masked(mut self) -> Self {
         self.masked = true;
+        self
+    }
+
+    /// Keep the caret in view of `scroll`, the box this input scrolls in, as it moves.
+    pub fn scrolled_by(mut self, scroll: ScrollHandle) -> Self {
+        self.scroll = Some((scroll, 0..0));
         self
     }
 
@@ -903,6 +912,31 @@ impl Element for TextElement {
         }
         let lines = std::mem::take(&mut prepaint.lines);
         self.input.update(cx, |input, _cx| {
+            // Once the caret moved, scroll the box just enough to show it.
+            let caret = position_in(&lines, line_height, input.cursor_offset());
+            let focused = input.focus_handle.is_focused(window);
+            if let Some((scroll, shown)) = &mut input.scroll
+                && focused
+                && *shown != input.selected_range
+                && let Some(caret) = caret
+            {
+                *shown = input.selected_range.clone();
+                let (view, mut offset) = (scroll.bounds(), scroll.offset());
+                // Inside the box's padding, as far as the text sits from its top unscrolled.
+                let inset = bounds.top() - offset.y - view.top();
+                let top = bounds.top() + caret.y;
+                let bottom = top + line_height;
+                if bottom > view.bottom() - inset {
+                    offset.y -= bottom - (view.bottom() - inset);
+                } else if top < view.top() + inset {
+                    offset.y += view.top() + inset - top;
+                }
+                if offset != scroll.offset() {
+                    scroll.set_offset(offset);
+                    // Painting can't ask for another frame; the next one can.
+                    window.on_next_frame(|window, _| window.refresh());
+                }
+            }
             input.last_layout = lines;
             input.last_bounds = Some(bounds);
             input.last_line_height = line_height;
