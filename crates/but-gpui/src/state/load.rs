@@ -100,9 +100,11 @@ impl Store {
     }
 
     pub fn load_projects(&mut self, cx: &mut Context<Self>) {
+        let edits = self.project_edits;
         cx.spawn(async move |this, cx| {
             let projects = backend::run(backend::list_projects).await;
             this.update(cx, |store, cx| match projects {
+                Ok(_) if store.project_edits != edits => {}
                 Ok(projects) => store.set_projects(projects, cx),
                 Err(err) => store.error("Couldn't list projects", format!("{err:#}"), cx),
             })
@@ -190,6 +192,7 @@ impl Store {
     }
 
     pub fn add_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+        self.project_edits += 1;
         cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
                 let added = backend::add_project(&path)?;
@@ -198,6 +201,7 @@ impl Store {
             .await;
             this.update(cx, |store, cx| match result {
                 Ok((projects, (id, existed))) => {
+                    store.project_edits += 1;
                     let id = ProjectId::from(id);
                     store.set_projects(projects, cx);
                     store.set_expanded(&id, true, cx);
@@ -220,6 +224,7 @@ impl Store {
     /// Take `id` out of GitButler; its repository stays on disk.
     pub fn remove_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         let removed = id.to_string();
+        self.project_edits += 1;
         cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
                 backend::remove_project(&removed)?;
@@ -228,6 +233,7 @@ impl Store {
             .await;
             this.update(cx, |store, cx| match result {
                 Ok(projects) => {
+                    store.project_edits += 1;
                     store.set_projects(projects, cx);
                     store.snack("Project removed", cx);
                 }
@@ -461,9 +467,10 @@ impl Store {
         // An agent amending or rebasing the selected commit gives it a new id but keeps its
         // change id; stay on it.
         // One that's gone, as squashed away, leaves its branch selected, if that's still there.
+        // A selected branch renamed, as an agent names one, is followed by its newest commit.
+        let old = self.workspace(id);
         let (rewritten, gone_from) = match &self.selection {
             Some(Selection::Commit(project, commit)) if project == id => {
-                let old = self.workspace(id);
                 match follow_by_key(old, &workspace, *commit) {
                     Some(new) => ((new != *commit).then_some((*commit, new)), None),
                     None => {
@@ -471,6 +478,15 @@ impl Store {
                         (None, branch.map(|(branch, _)| branch.ref_name.clone()))
                     }
                 }
+            }
+            Some(Selection::Branch(project, ref_name))
+                if project == id && workspace.find_branch(ref_name).is_none() =>
+            {
+                let newest =
+                    old.and_then(|old| Some(old.find_branch(ref_name)?.commits.first()?.id));
+                let now = newest.and_then(|commit| follow_by_key(old, &workspace, commit));
+                let branch = now.and_then(|commit| workspace.find_commit(commit));
+                (None, branch.map(|(branch, _)| branch.ref_name.clone()))
             }
             _ => (None, None),
         };

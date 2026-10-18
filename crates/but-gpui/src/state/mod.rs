@@ -185,6 +185,9 @@ pub struct Store {
     window: Option<saved::WindowPlace>,
     /// What was open when the app last quit, until the first project listing uses it.
     restored: Restored,
+    /// Counts projects added and removed, as each starts and lands, so a listing begun
+    /// before one doesn't put back what it removed or drop what it added.
+    project_edits: u64,
     /// The saved state as last written, so unchanged state isn't written again.
     last_saved: Vec<u8>,
     /// File lists show a tree of directories rather than a flat list.
@@ -269,6 +272,7 @@ impl Store {
                 expanded: saved.expanded,
                 selection: saved.selection,
             },
+            project_edits: 0,
             last_saved: Vec::new(),
             rebaseline: HashMap::new(),
             save_task: Task::ready(()),
