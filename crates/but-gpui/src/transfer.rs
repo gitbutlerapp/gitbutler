@@ -12,18 +12,19 @@ use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::{Icon, popover, small_icon};
 
+/// What a drop or paste does. Commits move, squash and uncommit as many as were picked.
 pub enum Transfer {
-    Uncommit(CommitId),
+    Uncommit(Arc<[CommitId]>),
     UncommitFiles {
         from: CommitId,
         files: Arc<[Selected]>,
     },
     MoveCommit {
-        id: CommitId,
+        ids: Arc<[CommitId]>,
         to: Destination,
     },
     Squash {
-        id: CommitId,
+        ids: Arc<[CommitId]>,
         into: CommitId,
     },
     /// Uncommitted files of the main checkout, or of the linked `worktree`, into a commit.
@@ -127,50 +128,62 @@ impl Transfer {
         }
         let workspace = store.workspace(target.project())?;
         Some(match (payload, target) {
-            (Cut::Commit(project, id), Selection::Uncommitted(_) | Selection::Worktree(..))
-                if uncommits_into(store, project, *id, target) =>
+            (Cut::Commit(project, ids), Selection::Uncommitted(_) | Selection::Worktree(..))
+                if ids
+                    .iter()
+                    .all(|id| uncommits_into(store, project, *id, target)) =>
             {
-                Transfer::Uncommit(*id)
+                Transfer::Uncommit(ids.clone())
             }
-            (Cut::Commit(_, id), Selection::Branch(_, branch)) => {
-                let (current, _) = workspace.find_commit(*id)?;
+            (Cut::Commit(_, ids), Selection::Branch(_, branch)) => {
                 // Already the top of that branch.
-                if current.ref_name == *branch && current.commits.first().map(|c| c.id) == Some(*id)
-                {
-                    return None;
+                if let [id] = ids[..] {
+                    let (current, _) = workspace.find_commit(id)?;
+                    let top = current.commits.first().map(|c| c.id);
+                    if current.ref_name == *branch && top == Some(id) {
+                        return None;
+                    }
                 }
                 Transfer::MoveCommit {
-                    id: *id,
+                    ids: ids.clone(),
                     to: Destination::Branch(branch.clone()),
                 }
             }
-            (Cut::Commit(_, id), Selection::Commit(_, target_id)) if id != target_id => {
-                // Already right above it, or right below.
+            (Cut::Commit(_, ids), Selection::Commit(_, target_id)) if !ids.contains(target_id) => {
+                // Already right above it, or right below, as one commit can be; several move
+                // together wherever they are.
                 let next = |after: CommitId| {
                     let (branch, _) = workspace.find_commit(after)?;
                     let mut commits = branch.commits.iter().skip_while(|c| c.id != after);
                     commits.nth(1).map(|c| c.id)
                 };
+                let one = match ids[..] {
+                    [id] => Some(id),
+                    _ => None,
+                };
                 let (already, to) = match place {
                     Place::Into => {
                         return Some(Transfer::Squash {
-                            id: *id,
+                            ids: ids.clone(),
                             into: *target_id,
                         });
                     }
                     Place::Below => (
-                        next(*target_id) == Some(*id),
+                        one.is_some_and(|id| next(*target_id) == Some(id)),
                         Destination::BelowCommit(*target_id),
                     ),
                     Place::Above => (
-                        next(*id) == Some(*target_id),
+                        one.is_some_and(|id| next(id) == Some(*target_id)),
                         Destination::AboveCommit(*target_id),
                     ),
                 };
                 if already {
                     return None;
                 }
-                Transfer::MoveCommit { id: *id, to }
+                Transfer::MoveCommit {
+                    ids: ids.clone(),
+                    to,
+                }
             }
             (Cut::CherryPick(_, id), Selection::Branch(_, branch)) => Transfer::CherryPick {
                 id: *id,
@@ -313,6 +326,14 @@ impl Transfer {
         cx: &mut Context<Store>,
     ) -> Option<(String, Arc<[Selected]>)> {
         let label = self.describe();
+        // Picked commits that moved, or went into one, are no longer what's picked.
+        if let Transfer::Uncommit(ids)
+        | Transfer::MoveCommit { ids, .. }
+        | Transfer::Squash { ids, .. } = &self
+            && ids.len() > 1
+        {
+            store.picked.clear();
+        }
         // The oplog snapshots only the main checkout, so undoing what moves a linked
         // worktree's changes, or rewrites the branches it has checked out, would lose them.
         let in_worktree = |id| store.in_worktree(project, id);
@@ -326,9 +347,13 @@ impl Transfer {
         let undoable = match &self {
             Transfer::UncommitFiles { from, .. } => !in_worktree(*from),
             Transfer::MoveFiles { from, to, .. } => !in_worktree(*from) && !in_worktree(*to),
-            Transfer::MoveCommit { id, to } => !in_worktree(*id) && !lands_in_worktree(to),
+            Transfer::MoveCommit { ids, to } => {
+                !ids.iter().any(|id| in_worktree(*id)) && !lands_in_worktree(to)
+            }
             Transfer::CherryPick { to, .. } => !lands_in_worktree(to),
-            Transfer::Squash { id, into } => !in_worktree(*id) && !in_worktree(*into),
+            Transfer::Squash { ids, into } => {
+                !ids.iter().any(|id| in_worktree(*id)) && !in_worktree(*into)
+            }
             Transfer::StackBranch { branch, onto } => {
                 !branch_in_worktree(branch) && !branch_in_worktree(onto)
             }
@@ -340,7 +365,7 @@ impl Transfer {
             Transfer::Uncommit(_) | Transfer::Amend { .. } | Transfer::StageOnBranch { .. } => true,
         };
         match self {
-            Transfer::Uncommit(id) => store.uncommit(project, vec![id], cx),
+            Transfer::Uncommit(ids) => store.uncommit(project, ids.to_vec(), cx),
             Transfer::UncommitFiles { from, files } => store.run(
                 project,
                 label,
@@ -353,19 +378,19 @@ impl Transfer {
                 cx,
             ),
             // It leaves where it was and shows dimmed where it goes.
-            Transfer::MoveCommit { id, to } => store.run(
+            Transfer::MoveCommit { ids, to } => store.run(
                 project,
                 label,
                 Overlay {
-                    new_commit: store.arriving(project, id, &to),
-                    ..Overlay::commits(store.key_of(project, id))
+                    new_commit: store.arriving(project, &ids, &to),
+                    ..Overlay::commits(keys(store, project, &ids))
                 },
                 move |path, remap| {
-                    backend::move_commits(path, &[remap.get(id)?], &remap.destination(to)?)
+                    backend::move_commits(path, &remap.all(&ids)?, &remap.destination(to)?)
                 },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_after(undoable, "Commit moved", cx)
+                    store.snack_after(undoable, "Moved", cx)
                 },
                 cx,
             ),
@@ -373,7 +398,7 @@ impl Transfer {
                 project,
                 label,
                 Overlay {
-                    new_commit: store.arriving(project, id, &to),
+                    new_commit: store.arriving(project, &[id], &to),
                     ..Overlay::default()
                 },
                 move |path, remap| {
@@ -407,11 +432,16 @@ impl Transfer {
                 move |store, (), cx| store.snack_after(undoable, "Branch moved", cx),
                 cx,
             ),
-            Transfer::Squash { id, into } => store.run(
+            Transfer::Squash { ids, into } => store.run(
                 project,
                 label,
-                Overlay::commits(store.key_of(project, id)),
-                move |path, remap| backend::squash(path, &[remap.get(id)?], remap.get(into)?),
+                Overlay::commits(keys(store, project, &ids)),
+                move |path, remap| {
+                    // Oldest first, so their messages follow `into`'s in the order they were
+                    // written.
+                    let ids: Vec<CommitId> = ids.iter().rev().copied().collect();
+                    backend::squash(path, &remap.all(&ids)?, remap.get(into)?)
+                },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_after(undoable, "Squashed", cx)
@@ -468,6 +498,13 @@ impl Transfer {
         }
         None
     }
+}
+
+/// The keys an overlay hides commits `ids` of `project` by.
+fn keys(store: &Store, project: &ProjectId, ids: &[CommitId]) -> Vec<String> {
+    (ids.iter())
+        .filter_map(|id| store.key_of(project, *id))
+        .collect()
 }
 
 /// Whether `target` is the checkout commit `id`'s changes uncommit into: a linked worktree's

@@ -175,7 +175,7 @@ impl AppView {
                                 cx,
                             );
                         }
-                        store.move_to_new_branch(&project, id, cx)
+                        store.move_to_new_branch(&project, [id].into(), cx)
                     });
                 }))
                 .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
@@ -299,7 +299,7 @@ impl AppView {
     pub(crate) fn single_commit(&self, cx: &mut Context<Self>) -> Option<(ProjectId, CommitId)> {
         if self.store.read(cx).picked.len() > 1 {
             self.store.update(cx, |store, cx| {
-                store.snack("That works on one commit: click one to pick just it", cx)
+                store.snack("That works on one commit: click one to select just it", cx)
             });
             return None;
         }
