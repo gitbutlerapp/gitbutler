@@ -586,8 +586,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/but-sdk
       '@gitbutler/design-core':
-        specifier: 10.0.0
-        version: 10.0.0
+        specifier: 10.0.1
+        version: 10.0.1
       '@gitbutler/ui-react':
         specifier: workspace:*
         version: link:../../packages/ui-react
@@ -1193,8 +1193,8 @@ importers:
         version: 4.11.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
       '@gitbutler/design-core':
-        specifier: 10.0.0
-        version: 10.0.0
+        specifier: 10.0.1
+        version: 10.0.1
       '@storybook/addon-docs':
         specifier: ^10.6.0
         version: 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.1)(react@19.2.4))
@@ -2355,6 +2355,9 @@ packages:
 
   '@gitbutler/design-core@10.0.0':
     resolution: {integrity: sha512-ZTYr4tRr+xKgq16gmGG0iOZDjDV8ApMnpT3AialdPAZ7sCMEzKBTM3xWPVDvfuzcKiJXXnwqpWu+sh74/NlgIQ==}
+
+  '@gitbutler/design-core@10.0.1':
+    resolution: {integrity: sha512-ECOLgCuU/hnGuYpnKdIaH/1Yid7gYx6NAj2o/mXIn3LqaNqDWmZRH5JGUhlJt6mdxlf+IRFHaWpCxiwhTkyjRw==}
 
   '@gitbutler/design-core@2.2.2':
     resolution: {integrity: sha512-oPPnYjwsKxwoTY6wK/fT9ylwhSIBgQxCOGJzYefbM8WFr2OuJePH9MnDnZ3K9UQlb94p+NR7m/QCFzhbDVRwxw==}
@@ -12385,6 +12388,8 @@ snapshots:
       - supports-color
 
   '@gitbutler/design-core@10.0.0': {}
+
+  '@gitbutler/design-core@10.0.1': {}
 
   '@gitbutler/design-core@2.2.2': {}
 

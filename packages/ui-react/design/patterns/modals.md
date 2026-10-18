@@ -27,7 +27,7 @@ list of its own, it is a page or a panel, not a modal.
 
 **Size by what it holds, starting at `small`.** `xsmall` (320) for a one-line
 question, `small` (420) for a prompt with a field or a short list, `medium`
-(640) for a pane around one group, `large` (820) for settings, the conflict
+(520) for a pane around one group, `large` (820) for settings, the conflict
 resolver or any pane with more than one group. Before `large`, ask
 whether the content wants a page. Height follows the content; only the body
 scrolls.
