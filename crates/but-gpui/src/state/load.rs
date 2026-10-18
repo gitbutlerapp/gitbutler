@@ -165,7 +165,10 @@ impl Store {
         // A selected project that went, as when removed, leaves the first open one selected.
         if (self.selection.as_ref()).is_some_and(|s| self.project(s.project()).is_none()) {
             let first = (self.projects.iter()).find(|entry| entry.expanded);
-            self.select(first.map(|entry| Selection::Uncommitted(entry.id.clone())), cx);
+            self.select(
+                first.map(|entry| Selection::Uncommitted(entry.id.clone())),
+                cx,
+            );
         }
 
         for id in &open {
@@ -189,21 +192,22 @@ impl Store {
     pub fn add_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
-                backend::add_project(&path)?;
-                backend::list_projects().map(|projects| (projects, path))
+                let added = backend::add_project(&path)?;
+                backend::list_projects().map(|projects| (projects, added))
             })
             .await;
             this.update(cx, |store, cx| match result {
-                Ok((projects, path)) => {
-                    let added = projects
-                        .iter()
-                        .find(|project| project.path == path)
-                        .map(|project| ProjectId::from(project.id.clone()));
+                Ok((projects, (id, existed))) => {
+                    let id = ProjectId::from(id);
                     store.set_projects(projects, cx);
-                    if let Some(id) = added {
-                        store.set_expanded(&id, true, cx);
-                        store.select(Some(Selection::Uncommitted(id.clone())), cx);
-                        store.added = Some(id);
+                    store.set_expanded(&id, true, cx);
+                    store.select(Some(Selection::Uncommitted(id.clone())), cx);
+                    match (existed, store.project(&id)) {
+                        (true, Some(entry)) => {
+                            let name = entry.project.name.clone();
+                            store.snack(format!("{name} is already added"), cx)
+                        }
+                        _ => store.added = Some(id),
                     }
                 }
                 Err(err) => store.error("Couldn't add the project", format!("{err:#}"), cx),
