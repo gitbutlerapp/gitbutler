@@ -231,7 +231,7 @@ impl Detail {
             .as_deref()
             .and_then(|id| self.conflict_row_ix(id, Part::Bar))
         {
-            self.list.scroll_to_reveal_item(row);
+            self.reveal_row(row);
         }
         self.resolving.current = id;
         cx.notify();
