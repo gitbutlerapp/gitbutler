@@ -238,7 +238,10 @@ impl Detail {
                 div()
                     .font_family(theme.mono_font.clone())
                     .text_color(theme.text_2)
-                    .truncate()
+                    // Cut in the middle, keeping the folder's own name at its end.
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_ellipsis_middle()
                     .child(crate::ui::short_path(&entry.project.path)),
             )
             .child(
