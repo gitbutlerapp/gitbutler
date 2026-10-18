@@ -237,6 +237,10 @@ mod tests {
             "refs/heads/main",
             "picking a target leaves the checked-out branch alone, as the desktop app does"
         );
-        assert!(!crate::backend::load_workspace(path).unwrap().managed);
+        assert!(
+            !crate::backend::load_workspace(path, Default::default())
+                .unwrap()
+                .managed
+        );
     }
 }

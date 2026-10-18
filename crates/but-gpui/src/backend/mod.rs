@@ -20,9 +20,9 @@ pub mod upstream;
 pub mod watch;
 pub mod worktrees;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
@@ -179,9 +179,35 @@ fn checkout(ctx: &Context, worktree: Option<&str>) -> Result<gix::Repository> {
     }
 }
 
-pub fn load_workspace(path: &Path) -> Result<Workspace> {
+/// Uncommitted files read before, shown again rather than read: reading them is most of a
+/// load, and an operation that changes only commits and branches leaves them as they are.
+#[derive(Default)]
+pub struct Kept {
+    /// The main checkout's.
+    pub main: Option<Vec<FileChange>>,
+    /// Linked worktrees' by name, with the Git command each is partway through.
+    pub linked: HashMap<Arc<str>, (Vec<FileChange>, Option<&'static str>)>,
+}
+
+impl Kept {
+    /// What `shown` has, but for the main checkout's files with `main` and the `linked`
+    /// worktrees' files, which are read again.
+    pub fn from(shown: &Workspace, main: bool, linked: &HashSet<Arc<str>>) -> Self {
+        Self {
+            main: (!main).then(|| shown.uncommitted.clone()),
+            linked: (shown.worktrees.iter())
+                .filter(|worktree| !linked.contains(&worktree.name))
+                .map(|w| (w.name.clone(), (w.uncommitted.clone(), w.git_operation)))
+                .collect(),
+        }
+    }
+}
+
+/// The project's workspace, with the uncommitted files `kept` doesn't have read from disk.
+pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
+    let Kept { main, mut linked } = kept;
     let (uncommitted, managed, checked_out, refs, git_operation) = {
         let repo = ctx.repo.get()?;
         let head = repo.head_name()?;
@@ -190,7 +216,10 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         let checked_out = head
             .filter(|_| !managed)
             .map(|name| name.shorten().to_string());
-        let files = worktree_files(&repo)?;
+        let files = match main {
+            Some(files) => files,
+            None => worktree_files(&repo)?,
+        };
         (
             files,
             managed,
@@ -232,7 +261,7 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         behind: target.commits_ahead,
         needs_update: target.commits_ahead > 0 || stacks_behind,
     });
-    let listed = worktrees::linked(&ctx).unwrap_or_else(|err| {
+    let listed = worktrees::linked(&ctx, &mut linked).unwrap_or_else(|err| {
         tracing::warn!("couldn't list the linked worktrees: {err:#}");
         None
     });

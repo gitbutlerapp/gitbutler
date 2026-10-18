@@ -710,10 +710,11 @@ pub fn mark_resolved(path: &Path, files: Vec<String>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use std::process::Command;
 
     use super::*;
-    use crate::backend::{DiffBody, DiffSource, load_diff};
+    use crate::backend::{DiffBody, DiffSource, Kept, Workspace, load_diff};
 
     fn git(dir: &Path, args: &[&str]) -> String {
         let out = Command::new("git")
@@ -1042,9 +1043,56 @@ mod tests {
             "refs/heads/feature",
             "it's checked out, as `git checkout -b` would"
         );
-        let workspace = crate::backend::load_workspace(path).unwrap();
+        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
         assert!(!workspace.managed, "still outside the workspace");
         assert_eq!(workspace.checked_out.as_deref(), Some("feature"));
+    }
+
+    #[test]
+    fn a_reload_of_the_commits_keeps_the_files_shown() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        git(
+            path,
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
+        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        crate::backend::settings::set_target(path, "refs/remotes/origin/main").unwrap();
+        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+        let head = git(path, &["rev-parse", "HEAD"]);
+        let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        std::fs::write(path.join("file"), "two\n").unwrap();
+        let load = |kept| crate::backend::load_workspace(path, kept).unwrap();
+        let paths = |ws: &Workspace| {
+            ws.uncommitted
+                .iter()
+                .map(|f| f.path.clone())
+                .collect::<Vec<_>>()
+        };
+        let shown = load(Kept::default());
+
+        reword(path, top, "reworded").unwrap();
+        // Written after the files were shown, so only reading them again finds it.
+        std::fs::write(path.join("new"), "new\n").unwrap();
+        let commits = load(Kept::from(&shown, false, &HashSet::new()));
+        let title = (commits.branches().find_map(|b| b.commits.first())).map(|c| &c.title);
+        assert_eq!(
+            title.map(String::as_str),
+            Some("reworded"),
+            "the commits are read"
+        );
+        assert_eq!(
+            paths(&commits),
+            vec!["file"],
+            "the files are the ones shown"
+        );
+        let files = load(Kept::from(&shown, true, &HashSet::new()));
+        assert_eq!(
+            paths(&files),
+            vec!["file", "new"],
+            "unless they're asked for"
+        );
     }
 
     #[test]
@@ -1063,7 +1111,7 @@ mod tests {
         let head = git(path, &["rev-parse", "HEAD"]);
         let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
         let branch_at_top = |path: &Path| {
-            let workspace = crate::backend::load_workspace(path).unwrap();
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             (workspace.branches())
                 .find(|b| b.commits.first().map(|c| c.id) == Some(top))
                 .map(|b| b.ref_name.clone())

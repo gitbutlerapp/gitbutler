@@ -1,7 +1,7 @@
 //! Linked worktrees, like the ones agents work in, each with its uncommitted changes. They
 //! are listed when GitButler's experimental worktree support is on; archived ones are hidden.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -15,8 +15,12 @@ use super::{FileChange, Workspace, Worktree, git_operation, open, worktree_files
 /// archived ones.
 type Listing = (Vec<Worktree>, Vec<Arc<str>>);
 
-/// The project's [`Listing`]; `None` with GitButler's worktree support off.
-pub(super) fn linked(ctx: &Context) -> Result<Option<Listing>> {
+/// The project's [`Listing`]; `None` with GitButler's worktree support off. A worktree's
+/// files in `kept` are shown again rather than read.
+pub(super) fn linked(
+    ctx: &Context,
+    kept: &mut HashMap<Arc<str>, (Vec<FileChange>, Option<&'static str>)>,
+) -> Result<Option<Listing>> {
     if !ctx.settings.feature_flags.worktree_manipulation {
         return Ok(None);
     }
@@ -28,7 +32,10 @@ pub(super) fn linked(ctx: &Context) -> Result<Option<Listing>> {
     let active = (listing.active.into_iter())
         .filter_map(|listed| {
             let name: Arc<str> = listed.name.to_str_lossy().into();
-            let (uncommitted, git_operation) = read(&repo, &name)?;
+            let (uncommitted, git_operation) = match kept.remove(&name) {
+                Some(kept) => kept,
+                None => read(&repo, &name)?,
+            };
             Some(Worktree {
                 name,
                 path: listed.path,
