@@ -329,7 +329,7 @@ impl Detail {
     /// a commit listed in the navigator, or a checkout's uncommitted changes. A branch's diff
     /// spans commits, and a commit of the target's history, on the project page, isn't the
     /// workspace's to change: their files aren't cut.
-    fn owned_cut(&self, files: Vec<Selected>, cx: &App) -> Option<Cut> {
+    pub(super) fn owned_cut(&self, files: Vec<Selected>, cx: &App) -> Option<Cut> {
         let key = &self.diff.as_ref()?.key;
         let (from, worktree) = match &key.source {
             DiffSource::Worktree => (None, None),
@@ -350,21 +350,27 @@ impl Detail {
         })
     }
 
-    /// The picked uncommitted files, or the one under the cursor, to cut, as the diff's other
-    /// keys act on them.
+    /// What ⌘X in the diff cuts: the picked lines, or the picked files, or else the hunk under
+    /// the cursor, or its file.
     pub fn cursor_cut(&self, cx: &App) -> Option<Cut> {
-        // Right after selecting Uncommitted changes, the diff can still be the last one, a
-        // commit's or another project's.
+        // Right after selecting something else, the diff can still be the last one, another
+        // project's.
         let project = self.selected_project(cx);
-        let uncommitted = (self.diff.as_ref()).is_some_and(|d| {
-            d.key.source == DiffSource::Worktree && Some(&d.key.project) == project.as_ref()
-        });
-        if uncommitted && !self.file_picks.is_empty() {
+        if self.diff.as_ref().map(|d| &d.key.project) != project.as_ref() {
+            return None;
+        }
+        if self.line_picks.is_some() {
+            return self.line_picks_cut(cx);
+        }
+        if !self.file_picks.is_empty() {
             return self.owned_cut(self.picked_changes(), cx);
         }
-        (uncommitted && self.shown_files().contains(&self.cursor.file))
-            .then(|| self.diff_cut(self.cursor.file, None, cx))
-            .flatten()
+        if !self.shown_files().contains(&self.cursor.file) {
+            return None;
+        }
+        let file = self.diff.as_ref()?.files.get(self.cursor.file)?;
+        let hunk = (self.cursor.hunk).and_then(|hunk| Some(file.hunks().get(hunk)?.key));
+        self.diff_cut(self.cursor.file, hunk.map(|key| vec![key]), cx)
     }
 
     /// The loaded diff's file at `file`, or `hunks` of it, to drag or cut.
@@ -374,8 +380,8 @@ impl Detail {
         hunks: Option<Vec<HunkKey>>,
         cx: &App,
     ) -> Option<Cut> {
-        let file = self.diff.as_ref()?.files.get(file)?.file.clone();
-        self.owned_cut(vec![Selected { file, hunks }], cx)
+        let part = self.diff.as_ref()?.files.get(file)?.part(hunks);
+        self.owned_cut(vec![part], cx)
     }
 
     /// What right-clicking or dragging any of the picked files takes: all of them.
@@ -841,7 +847,7 @@ impl Detail {
             let label: SharedString = dragged.describe().into();
             row = row.on_drag(
                 dragged,
-                crate::transfer::drag_preview(self.store.clone(), label),
+                self.drag_preview(label, false, cx.entity().downgrade()),
             );
         }
         if let Some(menu) = extras.menu {
@@ -879,10 +885,11 @@ impl Detail {
             return;
         };
         let hunk = files.iter().any(|f| f.hunks.is_some());
-        let what = match (hunk, files.len()) {
-            (true, _) => "hunk",
-            (false, 1) => "file",
-            (false, _) => "files",
+        let what = match (self.takes_lines(&files), hunk, files.len()) {
+            (true, ..) => "lines",
+            (false, true, _) => "hunk",
+            (false, false, 1) => "file",
+            (false, false, _) => "files",
         };
         let cut = payload.clone();
         let mut items = vec![MenuItem::new("Cut", move |this: &mut AppView, _, cx| {
@@ -924,8 +931,12 @@ impl Detail {
                     );
                 }
                 let (project, worktree, files) = (project.clone(), worktree.clone(), files.clone());
+                let discard = match what {
+                    "lines" | "hunk" => format!("Discard {what}…"),
+                    _ => "Discard changes…".to_owned(),
+                };
                 items.push(
-                    MenuItem::new("Discard changes…", move |this, window, cx| {
+                    MenuItem::new(discard, move |this, window, cx| {
                         let (project, worktree) = (project.clone(), worktree.clone());
                         this.discard(project, worktree, files.to_vec(), window, cx)
                     })

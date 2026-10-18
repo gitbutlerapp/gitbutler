@@ -395,7 +395,14 @@ fn side_line(
 ) -> AnyElement {
     line_card(id.clone(), last, layout.wrap, theme)
         .when_some(look.bg, |el, bg| el.bg(bg))
-        .child(number_cell(line.new, layout.digits, &look, None, theme))
+        .child(number_cell(
+            line.new,
+            layout.digits,
+            &look,
+            None,
+            None,
+            theme,
+        ))
         .child(text_cell(
             id,
             line_text(line, look.emph, Vec::new(), None, theme),
@@ -670,6 +677,7 @@ mod tests {
             none,
             none,
             |_, _| false,
+            |_, _, _| false,
             |_| None,
             false,
             open,
@@ -730,6 +738,7 @@ mod tests {
             none,
             none,
             |_, _| false,
+            |_, _, _| false,
             |_| None,
             false,
             settled,
@@ -745,6 +754,7 @@ mod tests {
             none,
             none,
             |_, _| false,
+            |_, _, _| false,
             |_| Some(60),
             false,
             settled,

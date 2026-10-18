@@ -32,7 +32,7 @@ pub fn bind_keys(cx: &mut App) {
 }
 
 /// A diff line, by file, hunk and line, which stays put when files fold.
-type LineId = (usize, usize, usize);
+pub(super) type LineId = (usize, usize, usize);
 
 pub(super) struct Find {
     input: Entity<TextInput>,

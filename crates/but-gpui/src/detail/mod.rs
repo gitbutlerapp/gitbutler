@@ -10,6 +10,7 @@ mod file_tree;
 mod find;
 pub use find::FindInDiff;
 mod history;
+mod lines;
 mod panes;
 mod pull_request;
 mod resolve;
@@ -238,6 +239,14 @@ pub struct Detail {
     svg_text: HashSet<String>,
     /// Files picked in the file list, by path, to act on together.
     file_picks: Picks<String>,
+    /// Lines picked by their numbers, in one file, to act on together.
+    line_picks: Option<lines::LinePicks>,
+    /// The grip under the pointer, by its file, hunk and line, and what it takes, by hunk
+    /// and line index in order, outlined meanwhile.
+    grip_over: Option<(find::LineId, Vec<(usize, usize)>)>,
+    /// A press on a line's number began what the pointer's dragging over the numbers, which
+    /// picks the run of lines it passes.
+    picking_lines: bool,
     /// Files whose lines are being read, one read each at a time.
     whole_reading: HashSet<String>,
     /// What signed each commit previewed, like "an SSH key", or `None` when nothing did or
@@ -440,6 +449,9 @@ impl Detail {
             whole: HashMap::new(),
             whole_reading: HashSet::new(),
             file_picks: Picks::default(),
+            line_picks: None,
+            grip_over: None,
+            picking_lines: false,
             svg_text: HashSet::new(),
             signers: HashMap::new(),
             sideways: HashMap::new(),
@@ -548,6 +560,7 @@ impl Detail {
     fn reset_view(&mut self) {
         self.text_selection = None;
         self.file_picks.clear();
+        self.line_picks = None;
         self.cursor = Cursor::default();
         self.folded.clear();
     }
@@ -864,12 +877,16 @@ impl Detail {
             let paths: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
             (self.file_picks).follow(|path| paths.contains(path.as_str()).then(|| path.clone()));
         }
+        if !same {
+            self.line_picks = None;
+        }
         self.diff = Some(LoadedDiff {
             key,
             files,
             tree,
             rows,
         });
+        self.settle_line_picks();
         self.prune_resolving();
         for file in stale {
             self.load_whole(file, cx);
@@ -951,15 +968,25 @@ impl Detail {
         let store = self.store.read(cx);
         let terms = self.filter_terms(cx);
         let leaving = key.leaving(store);
+        // Hunks, and lines of them, a pending operation takes out of their file.
+        let commit = match key.source {
+            DiffSource::Commit(id) => store.key_of(&key.project, id),
+            _ => None,
+        };
+        let parts = match (key.checkout(), &commit) {
+            (Some(checkout), _) => store.parts_leaving(&key.project, checkout, None),
+            (None, Some(commit)) => store.parts_leaving(&key.project, None, Some(commit)),
+            (None, None) => HashMap::new(),
+        };
+        let parts_of = |file: &FileDiff| parts.get(file.file.path.as_str());
         diff::rows(
             files,
             |file| self.folded.contains(&file.file.path),
             |file| self.drawing_of(file).is_some(),
             |file| leaving(&file.file.path) || !keeps_path(&terms, &file.file.path),
-            |file, hunk| {
-                (key.checkout()).is_some_and(|checkout| {
-                    store.hides_hunk(&key.project, checkout, &file.file.path, hunk.key)
-                })
+            |file, hunk| parts_of(file).is_some_and(|keys| keys.contains(&hunk.key)),
+            |file, hunk, line| {
+                parts_of(file).is_some_and(|keys| keys.iter().any(|key| key.takes(hunk, line)))
             },
             |file| match self.whole.get(&file.file.path) {
                 Some(Some((fingerprint, lines, _))) if *fingerprint == file.fingerprint => {
@@ -1440,7 +1467,8 @@ impl Detail {
         let Some(file) = diff.files.get(file_ix) else {
             return;
         };
-        if !self.shown_files().contains(&file_ix) {
+        // A conflicted file's hunk has no discard button either: it goes whole or not at all.
+        if !self.shown_files().contains(&file_ix) || (hunk.is_some() && file.file.conflicted) {
             return;
         }
         let hunks = match hunk.map(|ix| file.hunks().get(ix)) {
@@ -1450,10 +1478,7 @@ impl Detail {
             Some(None) => return,
         };
         let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
-        let change = Selected {
-            file: file.file.clone(),
-            hunks,
-        };
+        let change = file.part(hunks);
         self.app
             .update(cx, |app, cx| {
                 app.discard(project, worktree, vec![change], window, cx)

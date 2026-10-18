@@ -395,6 +395,27 @@ pub struct FileChange {
 }
 
 impl FileChange {
+    /// Whether it can only be taken whole, as GitButler can't take some of its hunks: it's
+    /// added or deleted, or a side of it isn't a plain file, as a link isn't.
+    pub fn whole_only(&self) -> bool {
+        use gix::object::tree::EntryKind as K;
+        let plain =
+            |state: &but_core::ChangeState| matches!(state.kind, K::Blob | K::BlobExecutable);
+        match &self.change.status {
+            but_core::TreeStatus::Modification {
+                previous_state,
+                state,
+                ..
+            }
+            | but_core::TreeStatus::Rename {
+                previous_state,
+                state,
+                ..
+            } => !plain(previous_state) || !plain(state),
+            _ => true,
+        }
+    }
+
     /// What changed about the file other than its lines: its executable bit, or whether
     /// it's a link.
     pub fn mode_change(&self) -> Option<&'static str> {
@@ -510,6 +531,16 @@ pub struct Picture {
 }
 
 impl FileDiff {
+    /// `hunks` of it to take, or all of it with `None`. All the hunks of a file that can only
+    /// be taken whole are the file whole.
+    pub fn part(&self, hunks: Option<Vec<HunkKey>>) -> Selected {
+        let all = |keys: &Vec<HunkKey>| (self.hunks().iter()).all(|h| keys.contains(&h.key));
+        Selected {
+            file: self.file.clone(),
+            hunks: hunks.filter(|keys| !(self.file.whole_only() && all(keys))),
+        }
+    }
+
     /// The images it shows: an image file's sides, or an SVG's drawn.
     pub fn pictures(&self) -> impl Iterator<Item = &Picture> {
         let image = match &self.body {
@@ -645,11 +676,58 @@ impl Hunk {
         }
         runs.into_iter().map(HunkKey).collect()
     }
+
+    /// The runs `picked` gives, each against this hunk's other side: what taking those lines
+    /// out of where they are means, to an uncommit, a move or a discard, as against adding
+    /// them to a commit.
+    pub fn picked_out(&self, picks: &std::collections::BTreeSet<usize>) -> Vec<HunkKey> {
+        let whole = self.key.0;
+        (self.picked(picks).into_iter())
+            .map(|HunkKey(run)| {
+                HunkKey(match run.old_lines {
+                    0 => but_core::HunkHeader {
+                        old_start: whole.old_start,
+                        old_lines: whole.old_lines,
+                        ..run
+                    },
+                    _ => but_core::HunkHeader {
+                        new_start: whole.new_start,
+                        new_lines: whole.new_lines,
+                        ..run
+                    },
+                })
+            })
+            .collect()
+    }
 }
 
 /// Identifies a hunk of a file's uncommitted changes, to commit just that part.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HunkKey(pub(crate) but_core::HunkHeader);
+
+impl HunkKey {
+    /// Whether this key, of `hunk` or of part of it, takes `line` of it: all of its lines for
+    /// the whole hunk; else the changed lines of the side it picks, named alone as a commit
+    /// takes them, or against the whole of the hunk's other side as a discard does.
+    pub fn takes(&self, hunk: &Hunk, line: &DiffLine) -> bool {
+        let (key, whole) = (self.0, hunk.key.0);
+        if key == whole {
+            return true;
+        }
+        let within = |n: Option<u32>, start: u32, lines: u32| {
+            n.is_some_and(|n| n >= start && n < start + lines)
+        };
+        let old_side = (key.new_start, key.new_lines) == (0, 0)
+            || (key.new_start, key.new_lines) == (whole.new_start, whole.new_lines);
+        let new_side = (key.old_start, key.old_lines) == (0, 0)
+            || (key.old_start, key.old_lines) == (whole.old_start, whole.old_lines);
+        match line.kind {
+            LineKind::Context => false,
+            LineKind::Removed => old_side && within(line.old, key.old_start, key.old_lines),
+            LineKind::Added => new_side && within(line.new, key.new_start, key.new_lines),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct DiffLine {
@@ -706,6 +784,51 @@ mod tests {
             new_start,
             new_lines,
         }
+    }
+
+    #[test]
+    fn lines_picked_out_name_the_hunk_they_leave() {
+        let line = |kind, old, new| DiffLine {
+            kind,
+            old,
+            new,
+            text: "".into(),
+            spans: Vec::new(),
+            emph: Vec::new(),
+        };
+        let hunk = Hunk {
+            key: HunkKey(header(1, 3, 1, 3)),
+            header: String::new(),
+            lines: vec![
+                line(LineKind::Context, Some(1), Some(1)),
+                line(LineKind::Removed, Some(2), None),
+                line(LineKind::Added, None, Some(2)),
+                line(LineKind::Context, Some(3), Some(3)),
+            ],
+            scope: Vec::new(),
+        };
+        assert_eq!(
+            hunk.picked_out(&BTreeSet::from([1, 2])),
+            vec![HunkKey(header(2, 1, 1, 3)), HunkKey(header(1, 3, 2, 1))],
+            "each side's run stands against the whole of the other side, as a discard reads it"
+        );
+        let taken = |key: HunkKey| -> Vec<bool> {
+            hunk.lines
+                .iter()
+                .map(|line| key.takes(&hunk, line))
+                .collect()
+        };
+        assert_eq!(
+            taken(hunk.picked_out(&BTreeSet::from([2]))[0]),
+            [false, false, true, false],
+            "a picked line, against the other side, takes just itself"
+        );
+        assert_eq!(
+            taken(hunk.picked(&BTreeSet::from([1]))[0]),
+            [false, true, false, false],
+            "and so does one named alone"
+        );
+        assert_eq!(taken(hunk.key), [true; 4], "the whole hunk takes all of it");
     }
 
     #[test]

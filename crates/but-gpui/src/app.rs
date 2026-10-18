@@ -304,18 +304,20 @@ impl AppView {
     }
 
     fn cut_selection(&mut self, _: &CutSelection, window: &mut Window, cx: &mut Context<Self>) {
+        let in_diff = self.detail.read(cx).is_focused(window, cx);
         let cut = match self.selection(cx) {
+            // From a commit's diff, its lines, hunk or file under the cursor.
+            Some(Selection::Commit(..)) if in_diff => self.detail.read(cx).cursor_cut(cx),
             Some(Selection::Commit(..)) => {
                 (self.single_commit(cx)).map(|(project, id)| Cut::Commit(project, id))
             }
             Some(Selection::Branch(project, ref_name)) if !ref_name.is_empty() => {
                 Some(Cut::Branch(project, ref_name))
             }
-            // From the diff, the file under the cursor, as ⌘⌫ discards it; from the navigator
-            // or the composer, what's checked.
-            Some(Selection::Uncommitted(_))
-                if self.detail.read(cx).is_focused(window, cx)
-                    && !self.detail.read(cx).composing() =>
+            // From the diff, the lines, hunk or file under the cursor; from the navigator or
+            // the composer, what's checked.
+            Some(Selection::Uncommitted(_) | Selection::Worktree(..))
+                if in_diff && !self.detail.read(cx).composing() =>
             {
                 self.detail.read(cx).cursor_cut(cx)
             }
@@ -391,6 +393,7 @@ impl AppView {
             // Undo the nearest thing first: a text selection, then the file filter.
             let handled = self.detail.update(cx, |detail, cx| {
                 detail.clear_text_selection(cx)
+                    || detail.clear_line_picks(cx)
                     || detail.clear_file_picks(cx)
                     || detail.close_open_filter(window, cx)
             });
@@ -408,8 +411,10 @@ impl AppView {
                 cx.notify()
             });
         }
-        self.detail
-            .update(cx, |detail, cx| detail.clear_file_picks(cx));
+        self.detail.update(cx, |detail, cx| {
+            detail.clear_file_picks(cx);
+            detail.clear_line_picks(cx);
+        });
     }
 
     fn focus_navigator(&mut self, _: &FocusNavigator, window: &mut Window, cx: &mut Context<Self>) {

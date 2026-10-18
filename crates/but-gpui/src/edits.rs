@@ -651,7 +651,7 @@ impl AppView {
             )),
             (Some(name), picked) => {
                 let what = match picked {
-                    [one] if one.hunks.is_some() => format!("a hunk of {}", one.file.path),
+                    [one] if one.hunks.is_some() => format!("part of {}", one.file.path),
                     [one] => format!("changes to {}", one.file.path),
                     _ => format!("changes to {} files", picked.len()),
                 };

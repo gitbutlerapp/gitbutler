@@ -4,9 +4,9 @@ use std::ops::Range;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, Background, CursorStyle, ElementId, HighlightStyle, Hsla, MouseButton,
-    MouseDownEvent, Pixels, Point, Role, ScrollHandle, SharedString, StyledText, Window,
-    combine_highlights, div, pattern_slash, prelude::*, px,
+    AnyElement, App, Background, CursorStyle, ElementId, HighlightStyle, Hsla, Modifiers,
+    MouseButton, MouseDownEvent, Pixels, Point, Role, ScrollHandle, SharedString, StyledText,
+    Window, combine_highlights, div, pattern_slash, prelude::*, px,
 };
 
 use super::conflict::{self, Part};
@@ -134,7 +134,8 @@ pub fn ends_card(rows: &[DiffRow], ix: usize) -> bool {
 }
 
 /// Rows for `files`, with the files `folded` says are folded reduced to their header, the
-/// files and hunks `hidden` and `hidden_hunk` say are hidden left out, and the files `whole`
+/// files, hunks and lines `hidden`, `hidden_hunk` and `hidden_line` say are hidden left out
+/// (lines only one above the other, not side by side), and the files `whole`
 /// gives the length of shown with every unchanged line. With `split`, a hunk's lines pair up
 /// side by side. A file's conflicts sit among its hunks by line, laid out as `view` says.
 #[allow(clippy::too_many_arguments)]
@@ -144,6 +145,7 @@ pub fn rows(
     drawn: impl Fn(&FileDiff) -> bool,
     hidden: impl Fn(&FileDiff) -> bool,
     hidden_hunk: impl Fn(&FileDiff, &Hunk) -> bool,
+    hidden_line: impl Fn(&FileDiff, &Hunk, &DiffLine) -> bool,
     whole: impl Fn(&FileDiff) -> Option<u32>,
     split: bool,
     view: impl Fn(&Conflict) -> conflict::View,
@@ -208,7 +210,10 @@ pub fn rows(
                             }
                         }));
                     } else {
-                        rows.extend((0..hunk.lines.len()).map(|line| DiffRow::Line {
+                        // Lines a pending operation takes out of the hunk go at once.
+                        let shown = (0..hunk.lines.len())
+                            .filter(|&line| !hidden_line(file, hunk, &hunk.lines[line]));
+                        rows.extend(shown.map(|line| DiffRow::Line {
                             file: file_ix,
                             hunk: hunk_ix,
                             line,
@@ -337,7 +342,28 @@ pub struct LineDecor {
     pub selected: Option<Range<usize>>,
     /// What Find matched in the line's text, each with whether it's the current match.
     pub found: Vec<(Range<usize>, bool)>,
+    /// What a changed line's numbers offer outside the composer.
+    pub gutter: Option<Gutter>,
 }
+
+/// What a changed line's numbers offer outside the composer: picking the line, and a grip
+/// that drags what it takes.
+pub struct Gutter {
+    /// Picked by its number.
+    pub picked: bool,
+    /// Pressing the number picks the line as the modifiers say; `true` while the pointer drags
+    /// on over the numbers from an earlier press.
+    pub pick: OnPick,
+    /// A handle left of the number, shown while the pointer's on the line, that drags what it
+    /// takes.
+    pub grip: AnyElement,
+    /// Outlined as part of what the grip under the pointer takes, with a top edge where that
+    /// starts and a bottom one where it ends.
+    pub outline: Option<(bool, bool)>,
+}
+
+/// The rows a line's grip shows on hover of.
+const LINE_GROUP: &str = "diff-line";
 
 /// How the rows of a file lay out, the same for each of them.
 #[derive(Default)]
@@ -373,6 +399,7 @@ pub struct LineSelect {
 pub type OnLineDown = Rc<dyn Fn(usize, &MouseDownEvent, &mut Window, &mut App)>;
 pub type OnLineDrag = Rc<dyn Fn(usize, &mut Window, &mut App)>;
 pub type OnToggle = Rc<dyn Fn(&mut Window, &mut App)>;
+pub type OnPick = Rc<dyn Fn(Modifiers, bool, &mut Window, &mut App)>;
 
 /// A line's row by its file, hunk and index in the hunk, as a number unique to each row
 /// for its element ids.
@@ -682,18 +709,56 @@ pub(super) fn number_cell(
     digits: usize,
     look: &Look,
     toggle: Option<OnToggle>,
+    gutter: Option<Gutter>,
     theme: &Theme,
 ) -> gpui::Div {
     let digit = digit_width(theme);
+    let picked = gutter.as_ref().is_some_and(|gutter| gutter.picked);
+    let bar = match picked {
+        true => Some(theme.pop.into()),
+        false => look.bar,
+    };
     div()
+        .relative()
         .flex_none()
         .w(px((digit * (digits.max(3) + 3) as f32).round()))
         .pr(px(digit))
         .flex()
         .items_start()
         .justify_end()
-        .text_color(look.number)
-        .when_some(look.bar, |el, bar| {
+        .text_color(if picked { theme.pop } else { look.number })
+        .when(picked, |el| {
+            el.bg(theme.pop.opacity(0.16))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+        })
+        .when_some(gutter, |el, Gutter { pick, grip, .. }| {
+            let drag = pick.clone();
+            el.cursor(CursorStyle::PointingHand)
+                .on_mouse_down(MouseButton::Left, move |event, window, cx| {
+                    cx.stop_propagation();
+                    pick(event.modifiers, false, window, cx)
+                })
+                .on_mouse_move(move |event, window, cx| {
+                    if event.pressed_button == Some(MouseButton::Left) {
+                        drag(event.modifiers, true, window, cx)
+                    }
+                })
+                .child(
+                    div()
+                        .absolute()
+                        .left(px(4.))
+                        .top_0()
+                        .h_full()
+                        .flex()
+                        .items_center()
+                        // Faded rather than hidden, so a press lands on it even before a
+                        // frame has drawn it under the pointer.
+                        .opacity(0.)
+                        .group_hover(LINE_GROUP, |style| style.opacity(1.))
+                        .child(grip),
+                )
+        })
+        .when_some(bar, |el, bar| {
             el.child(
                 div()
                     .absolute()
@@ -818,7 +883,9 @@ pub fn line_row(
         select,
         selected,
         found,
+        gutter,
     } = decor;
+    let outline = gutter.as_ref().and_then(|gutter| gutter.outline);
     let id = row_id(place);
     let look = look(line.kind, layout.plain, theme);
     let number = match line.kind {
@@ -855,8 +922,16 @@ pub fn line_row(
             LineKind::Removed => "removed",
             LineKind::Context => "unchanged",
         })
+        .group(LINE_GROUP)
         .when_some(look.bg, |el, bg| el.bg(bg))
-        .child(number_cell(number, layout.digits, &look, toggle, theme))
+        .child(number_cell(
+            number,
+            layout.digits,
+            &look,
+            toggle,
+            gutter,
+            theme,
+        ))
         .child(text_cell(
             ("line-text", id).into(),
             text,
@@ -864,6 +939,9 @@ pub fn line_row(
             &layout.sideways[1],
             theme,
         ))
+        .when_some(outline, |el, edges| {
+            el.relative().child(outline_box(edges, theme))
+        })
         .when_some(select, |el, select| {
             let at_down = at.clone();
             el.cursor(CursorStyle::IBeam)
@@ -906,6 +984,7 @@ pub struct Half {
     pub excluded: bool,
     pub toggle: Option<OnToggle>,
     pub found: Vec<(Range<usize>, bool)>,
+    pub gutter: Option<Gutter>,
 }
 
 /// A side-by-side row: a line from the old side on the left and one from the new on the
@@ -936,7 +1015,10 @@ pub fn pair_row(
         };
         let look = look(line.kind, layout.plain, theme);
         let text = line_text(line, look.emph, half.found, None, theme);
+        let outline = half.gutter.as_ref().and_then(|gutter| gutter.outline);
         h_flex()
+            .group(LINE_GROUP)
+            .relative()
             .flex_1()
             .min_w(px(0.))
             .when(wrap, |el| el.items_stretch())
@@ -946,10 +1028,12 @@ pub fn pair_row(
                 layout.digits,
                 &look,
                 half.toggle,
+                half.gutter,
                 theme,
             ))
             .child(text_cell((name, id).into(), text, wrap, sideways, theme))
             .when(half.excluded, |el| el.opacity(0.45))
+            .when_some(outline, |el, edges| el.child(outline_box(edges, theme)))
     };
     let [old_side, new_side] = &layout.sideways;
     // GPUI clips to the card's bounds, not its rounded corners, so the sides of its last row
@@ -969,6 +1053,20 @@ pub fn pair_row(
         )
         .child(right.when(last, |el| el.rounded_br(px(5.))))
         .into_any_element()
+}
+
+/// A dashed box over a line, part of what the grip under the pointer takes: closed at the
+/// top where that starts and at the bottom where it ends.
+fn outline_box((top, bottom): (bool, bool), theme: &Theme) -> gpui::Div {
+    div()
+        .absolute()
+        .inset_0()
+        .border_dashed()
+        .border_color(theme.pop)
+        .border_l_1()
+        .border_r_1()
+        .when(top, |el| el.border_t_1())
+        .when(bottom, |el| el.border_b_1())
 }
 
 /// The scopes a hunk changes, as a breadcrumb that keeps the innermost one readable. None

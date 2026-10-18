@@ -38,6 +38,9 @@ pub struct Overlay {
     pub worktrees: HashSet<Arc<str>>,
     /// Files leaving a commit whole, by path, under the commit's key.
     pub commit_files: HashMap<String, HashSet<String>>,
+    /// Hunks, or lines of them, leaving a commit's files that otherwise stay: by path, under
+    /// the commit's key.
+    pub commit_hunks: HashMap<String, HashMap<String, Vec<HunkKey>>>,
     /// Where a new commit goes, and its title.
     pub new_commit: Option<(NewAt, SharedString)>,
     /// The commit (by key) it gives a new message, and the message.
@@ -133,7 +136,8 @@ impl Overlay {
         overlay
     }
 
-    /// Hides the files taken whole out of the commit with key `commit`.
+    /// Hides what's taken out of the commit with key `commit`: files whole, or hunks or lines
+    /// of them.
     pub fn commit_files<'a>(
         commit: Option<String>,
         selected: impl IntoIterator<Item = &'a backend::Selected>,
@@ -141,12 +145,20 @@ impl Overlay {
         let Some(commit) = commit else {
             return Self::default();
         };
-        let files = (selected.into_iter())
-            .filter(|s| s.hunks.is_none())
-            .map(|s| s.file.path.clone())
-            .collect();
+        let (mut files, mut hunks) = (HashSet::new(), HashMap::new());
+        for s in selected {
+            match &s.hunks {
+                None => {
+                    files.insert(s.file.path.clone());
+                }
+                Some(keys) => {
+                    hunks.insert(s.file.path.clone(), keys.clone());
+                }
+            }
+        }
         Self {
-            commit_files: HashMap::from([(commit, files)]),
+            commit_files: HashMap::from([(commit.clone(), files)]),
+            commit_hunks: HashMap::from([(commit, hunks)]),
             ..Self::default()
         }
     }
@@ -959,6 +971,28 @@ impl Store {
 
     pub fn hides_worktree(&self, project: &ProjectId, name: &str) -> bool {
         self.overlays(project).any(|o| o.worktrees.contains(name))
+    }
+
+    /// The hunks, or lines of them, pending mutations take out of files that otherwise stay,
+    /// by path: of the uncommitted files of the linked worktree named `checkout` (the main
+    /// checkout for `None`), or with a `commit` key, of that commit's.
+    pub fn parts_leaving<'a>(
+        &'a self,
+        project: &'a ProjectId,
+        checkout: Option<&str>,
+        commit: Option<&str>,
+    ) -> HashMap<&'a str, Vec<HunkKey>> {
+        let mut parts: HashMap<&str, Vec<HunkKey>> = HashMap::new();
+        for overlay in self.overlays(project) {
+            let found = match commit {
+                Some(commit) => overlay.commit_hunks.get(commit),
+                None => (overlay.files_in.as_deref() == checkout).then_some(&overlay.hunks),
+            };
+            for (path, keys) in found.into_iter().flatten() {
+                parts.entry(path.as_str()).or_default().extend(keys);
+            }
+        }
+        parts
     }
 
     /// Whether the file at `path` is leaving the commit with key `commit`.
