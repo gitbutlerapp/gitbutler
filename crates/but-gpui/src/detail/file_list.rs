@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
-    Point, ScrollStrategy, SharedString, Stateful, StyledText, Toggled, div, img, prelude::*, px,
+    Point, ScrollStrategy, SharedString, Stateful, Toggled, div, img, prelude::*, px,
 };
 
 use super::file_tree::{self, TreeRow};
@@ -662,18 +662,32 @@ impl Detail {
                     .map(|depth| steps(depth, theme)),
             )
             .child(lead)
-            // The name, then its folder dimmed, as one run of text: a list draws it on every row.
-            .child(fade(div().flex_1().min_w(px(0.)).truncate().child({
-                let (text, folder) = match dir {
-                    "" => (name.to_owned(), None),
-                    dir => {
-                        let start = name.len() + 2;
-                        let folder = (start..start + dir.len(), theme.text_2.into());
-                        (format!("{name}  {dir}"), Some(folder))
-                    }
-                };
-                StyledText::new(text).with_highlights(folder)
-            })))
+            // The name whole where it fits, then its folder dimmed and cut in the middle, as the
+            // folder's end tells two files of one name apart.
+            .child(fade(
+                h_flex()
+                    .flex_1()
+                    .min_w(px(0.))
+                    .gap(px(8.))
+                    .child(
+                        div()
+                            .flex_shrink_0()
+                            .max_w_full()
+                            .truncate()
+                            .child(name.to_owned()),
+                    )
+                    .when(!dir.is_empty(), |el| {
+                        el.child(
+                            div()
+                                .min_w(px(0.))
+                                .overflow_hidden()
+                                .whitespace_nowrap()
+                                .text_ellipsis_middle()
+                                .text_color(theme.text_2)
+                                .child(dir.to_owned()),
+                        )
+                    }),
+            ))
             .when_some(stats, |el, (added, removed)| {
                 el.child(fade(diff::stats(added, removed, theme)))
             })
