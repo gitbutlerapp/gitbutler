@@ -321,14 +321,17 @@ impl AppView {
             {
                 self.detail.read(cx).cursor_cut(cx)
             }
-            Some(Selection::Uncommitted(project)) => {
-                let files = self.detail.read(cx).selected_changes(cx);
-                (!files.is_empty()).then_some(Cut::Files {
-                    project,
-                    from: None,
-                    worktree: None,
-                    files: files.into(),
-                })
+            Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
+                let detail = self.detail.read(cx);
+                let files = detail.selected_changes(cx);
+                (detail.selected_checkout(cx))
+                    .filter(|_| !files.is_empty())
+                    .map(|(project, worktree)| Cut::Files {
+                        project,
+                        from: None,
+                        worktree,
+                        files: files.into(),
+                    })
             }
             _ => None,
         };
@@ -448,19 +451,24 @@ impl AppView {
     }
 
     fn start_commit(&mut self, _: &StartCommit, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(project) = self.selected_project(cx) {
-            // Only what's on screen gets committed: from another page, ⌘↩ shows the
-            // changes first.
-            let shown =
-                self.store.read(cx).selection == Some(Selection::Uncommitted(project.clone()));
-            self.store.update(cx, |store, cx| {
-                store.select(Some(Selection::Uncommitted(project)), cx)
-            });
-            self.detail.update(cx, |detail, cx| match shown {
-                true => detail.commit_or_write(window, cx),
-                false => detail.focus_message(window, cx),
-            });
-        }
+        let Some(selection) = self.selection(cx) else {
+            return;
+        };
+        // Only what's on screen gets committed: from another page, ⌘↩ shows the changes
+        // first, a linked worktree's from its branches and commits.
+        let project = selection.project().clone();
+        let checkout = match (&selection, self.store.read(cx).worktree_of(&selection)) {
+            (Selection::Uncommitted(_) | Selection::Worktree(..), _) => selection.clone(),
+            (_, Some(worktree)) => Selection::Worktree(project, worktree.name.clone()),
+            (_, None) => Selection::Uncommitted(project),
+        };
+        let shown = selection == checkout;
+        self.store
+            .update(cx, |store, cx| store.select(Some(checkout), cx));
+        self.detail.update(cx, |detail, cx| match shown {
+            true => detail.commit_or_write(window, cx),
+            false => detail.focus_message(window, cx),
+        });
     }
 
     /// Open the pull request of the selected branch, or of the branch the selected commit

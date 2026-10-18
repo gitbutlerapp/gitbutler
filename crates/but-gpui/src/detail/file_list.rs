@@ -2,6 +2,7 @@
 //! tree, with what right-clicking them offers.
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
@@ -26,8 +27,9 @@ use crate::ui::{
 /// Where a file list's files come from.
 #[derive(Clone)]
 enum FileSource {
-    Uncommitted(ProjectId),
-    /// The loaded diff's files: a commit's, a branch's or a linked worktree's.
+    /// A checkout's uncommitted files: the project's own, or a linked worktree's by name.
+    Uncommitted(ProjectId, Option<Arc<str>>),
+    /// The loaded diff's files: a commit's or a branch's.
     Diff,
 }
 
@@ -122,19 +124,18 @@ fn header_row() -> Div {
 }
 
 impl Detail {
-    /// The uncommitted `files` of `project`, under how many there are and their line counts.
+    /// The uncommitted `files` of `project`'s own checkout or of its linked `worktree`, under
+    /// how many there are and their line counts.
     pub(super) fn render_uncommitted_files(
         &self,
         project: &ProjectId,
+        worktree: Option<&Arc<str>>,
         files: &[FileChange],
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let rows = self.file_list(
-            "uncommitted-files",
-            FileSource::Uncommitted(project.clone()),
-            cx,
-        );
+        let source = FileSource::Uncommitted(project.clone(), worktree.cloned());
+        let rows = self.file_list("uncommitted-files", source, cx);
         let diffs = self.worktree_diff().map_or(&[][..], |diff| &diff.files[..]);
         let header = self.list_header(files.iter().map(|f| f.path.as_str()), diffs, theme, cx);
         v_flex()
@@ -179,19 +180,19 @@ impl Detail {
         // Each shown file's position in its source, as files a pending operation takes away
         // aren't shown.
         let (index, paths): (Vec<usize>, Vec<&str>) = match &source {
-            FileSource::Uncommitted(project) => store
-                .workspace(project)
-                .map(|ws| {
-                    ws.uncommitted
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, f)| {
-                            !store.hides_file(project, None, &f.path) && keeps_path(&terms, &f.path)
-                        })
-                        .map(|(pos, f)| (pos, f.path.as_str()))
-                        .unzip()
-                })
-                .unwrap_or_default(),
+            FileSource::Uncommitted(project, worktree) => {
+                let worktree = worktree.as_deref();
+                (store.workspace(project))
+                    .and_then(|ws| ws.uncommitted_in(worktree))
+                    .unwrap_or_default()
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, f)| {
+                        !store.hides_file(project, worktree, &f.path) && keeps_path(&terms, &f.path)
+                    })
+                    .map(|(pos, f)| (pos, f.path.as_str()))
+                    .unzip()
+            }
             FileSource::Diff => self
                 .diff
                 .as_ref()
@@ -214,7 +215,7 @@ impl Detail {
                 .collect()
         };
         let scroll = match &source {
-            FileSource::Uncommitted(_) => &self.uncommitted_files,
+            FileSource::Uncommitted(..) => &self.uncommitted_files,
             FileSource::Diff => &self.diff_files,
         };
         // The list follows the cursor to another file, as j and ↓ move it, or to the folded
@@ -292,9 +293,10 @@ impl Detail {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         match source {
-            FileSource::Uncommitted(project) => {
+            FileSource::Uncommitted(project, worktree) => {
                 let store = self.store.read(cx);
-                let file = store.workspace(project)?.uncommitted.get(pos)?;
+                let workspace = store.workspace(project)?;
+                let file = workspace.uncommitted_in(worktree.as_deref())?.get(pos)?;
                 let whole = Selected::whole(file);
                 let extras = FileRow {
                     diff_ix: (self.worktree_diff())
@@ -304,7 +306,7 @@ impl Detail {
                         Some(Cut::Files {
                             project: project.clone(),
                             from: None,
-                            worktree: None,
+                            worktree: worktree.clone(),
                             files: vec![whole].into(),
                         })
                     }),
@@ -494,14 +496,19 @@ impl Detail {
         let under = |path: &str| path.starts_with(&prefix) && keeps_path(&terms, path);
         let store = self.store.read(cx);
         let cut = match source {
-            FileSource::Uncommitted(project) => Cut::Files {
+            FileSource::Uncommitted(project, worktree) => Cut::Files {
                 project: project.clone(),
                 from: None,
-                worktree: None,
-                files: (store.workspace(project)?.uncommitted.iter())
-                    .filter(|f| under(&f.path) && !store.hides_file(project, None, &f.path))
-                    .map(Selected::whole)
-                    .collect(),
+                worktree: worktree.clone(),
+                files: (store
+                    .workspace(project)?
+                    .uncommitted_in(worktree.as_deref())?
+                    .iter())
+                .filter(|f| {
+                    under(&f.path) && !store.hides_file(project, worktree.as_deref(), &f.path)
+                })
+                .map(Selected::whole)
+                .collect(),
             },
             FileSource::Diff => {
                 let files = (self.diff.as_ref()?.files.iter())

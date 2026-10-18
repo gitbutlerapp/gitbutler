@@ -178,13 +178,14 @@ impl Detail {
     /// The checked uncommitted changes: checked files, narrowed to their checked hunks and
     /// lines.
     pub fn selected_changes(&self, cx: &App) -> Vec<Selected> {
-        let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
+        let Some((project, worktree)) = self.selected_checkout(cx) else {
             return Vec::new();
         };
-        let Some(workspace) = self.store.read(cx).workspace(&project) else {
-            return Vec::new();
-        };
-        (workspace.uncommitted.iter())
+        let store = self.store.read(cx);
+        let files = (store.workspace(&project))
+            .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+            .unwrap_or_default();
+        (files.iter())
             .filter_map(|file| self.selected_change(file))
             .collect()
     }
@@ -224,11 +225,12 @@ impl Detail {
     /// after a quick second click.
     fn changes_not_pending(&self, project: &ProjectId, cx: &App) -> Vec<Selected> {
         let store = self.store.read(cx);
+        let worktree = self.checks_worktree.as_deref();
         (self.selected_changes(cx).into_iter())
-            .filter(|s| !store.hides_file(project, None, &s.file.path))
+            .filter(|s| !store.hides_file(project, worktree, &s.file.path))
             .filter_map(|mut s| {
                 if let Some(hunks) = &mut s.hunks {
-                    hunks.retain(|hunk| !store.hides_hunk(project, None, &s.file.path, *hunk));
+                    hunks.retain(|hunk| !store.hides_hunk(project, worktree, &s.file.path, *hunk));
                     // No hunks would take the whole file.
                     if hunks.is_empty() {
                         return None;
@@ -325,16 +327,19 @@ impl Detail {
     pub fn focus_message(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // The composer sits under the changes; with none, as when an agent committed them
         // all while it was open, there's nowhere to write. A commit being edited isn't
-        // committed but finished.
-        if let Some(Selection::Uncommitted(project)) = self.selection(cx)
+        // committed but finished, and a linked worktree with no branch has nowhere to commit.
+        if let Some((project, worktree)) = self.selected_checkout(cx)
             && let Some(workspace) = self.store.read(cx).workspace(&project)
         {
-            let refused = match workspace.editing {
-                Some(_) => Some("Finish or cancel editing the commit first"),
-                None => workspace
-                    .uncommitted
-                    .is_empty()
-                    .then_some("No changes to commit"),
+            let files = workspace.uncommitted_in(worktree.as_deref());
+            let refused = if worktree.is_none() && workspace.editing.is_some() {
+                Some("Finish or cancel editing the commit first")
+            } else if files.is_none_or(<[_]>::is_empty) {
+                Some("No changes to commit")
+            } else if worktree.is_some() && self.effective_target(&project, cx).is_none() {
+                Some("Check out a branch in the worktree to commit")
+            } else {
+                None
             };
             if let Some(refused) = refused {
                 self.store.update(cx, |store, cx| store.snack(refused, cx));
@@ -344,10 +349,11 @@ impl Detail {
         // A file a merge left conflicted can't be committed until it's marked resolved, so
         // it starts out of the commit.
         if !self.composing
-            && let Some(workspace) = (self.checks_project.as_ref())
+            && let Some(files) = (self.checks_project.as_ref())
                 .and_then(|project| self.store.read(cx).workspace(project))
+                .and_then(|ws| ws.uncommitted_in(self.checks_worktree.as_deref()))
         {
-            let conflicted = (workspace.uncommitted.iter())
+            let conflicted = (files.iter())
                 .filter(|file| file.conflicted)
                 .map(|file| file.path.clone());
             self.checks.unchecked.extend(conflicted.collect::<Vec<_>>());
@@ -515,10 +521,15 @@ impl Detail {
         cx.notify();
     }
 
-    /// The branch the composer commits to.
+    /// The branch the composer commits to. A linked worktree's changes go on the branch it
+    /// has checked out.
     pub fn effective_target(&self, project: &ProjectId, cx: &App) -> Option<String> {
         let store = self.store.read(cx);
         let workspace = store.workspace(project)?;
+        if let Some(name) = &self.checks_worktree {
+            let branch = workspace.find_worktree(name)?.branch.as_ref()?;
+            return Some(format!("refs/heads/{branch}"));
+        }
         // A branch merged upstream is done with, even before an update takes it out, as is
         // one being unapplied.
         let open = |branch: &Branch| {
@@ -537,7 +548,7 @@ impl Detail {
     }
 
     pub(super) fn commit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
+        let Some((project, worktree)) = self.selected_checkout(cx) else {
             return;
         };
         if self.writing.is_some() {
@@ -569,7 +580,10 @@ impl Detail {
             return;
         }
         let target = self.effective_target(&project, cx);
-        let picked = self.commit_target.clone();
+        // A linked worktree's commit goes on its own branch, so the next one in the main
+        // checkout still goes where it would have.
+        let linked = worktree.is_some();
+        let picked = (!linked).then(|| self.commit_target.clone());
         let run_hooks = self.store.read(cx).runs_hooks(&project);
         let detail = cx.entity().downgrade();
         let window = window.window_handle();
@@ -580,6 +594,7 @@ impl Detail {
                 let title = message.lines().next().unwrap_or_default().to_owned();
                 (NewAt::Top(branch), title.into())
             }),
+            files_in: worktree.clone(),
             ..Overlay::files(&files)
         };
         self.store.update(cx, |store, cx| {
@@ -590,13 +605,14 @@ impl Detail {
                 move |path, _| {
                     let branch = match target {
                         Some(branch) => branch,
+                        None if linked => anyhow::bail!("The worktree has no branch checked out"),
                         None => backend::create_branch(path, None)?,
                     };
                     let committed = backend::commit(
                         path,
                         &Destination::Branch(branch.clone()),
                         &files,
-                        None,
+                        worktree.as_deref(),
                         &message,
                         run_hooks,
                     )?;
@@ -610,7 +626,7 @@ impl Detail {
                         // The next commit goes where this one did, not to whichever stack is
                         // first now, as one an agent just made, unless another was picked
                         // meanwhile.
-                        if detail.commit_target == picked {
+                        if picked.as_ref() == Some(&detail.commit_target) {
                             detail.commit_target = Some(target);
                         }
                         if detail.message.read(cx).text().trim() == committed {
@@ -618,6 +634,10 @@ impl Detail {
                             detail.finish_composing(window, cx);
                         }
                     });
+                    // The oplog can't bring a linked worktree's changes back.
+                    if linked {
+                        store.keep_last_snapshot();
+                    }
                     store.report_left_out(
                         &format!("Committed to {}", short_ref(&branch)),
                         &left_out,
@@ -665,8 +685,7 @@ impl Detail {
         }
         let target = self.effective_target(project, cx)?;
         let workspace = self.store.read(cx).workspace(project)?;
-        let branch = (workspace.branches()).find(|branch| branch.ref_name == target)?;
-        let top = branch.commits.first()?;
+        let top = workspace.find_branch(&target)?.commits.first()?;
         Some((top.id, top.title.clone()))
     }
 
@@ -678,10 +697,14 @@ impl Detail {
         if checks.unchecked_hunks.is_empty() && checks.line_picks.is_empty() {
             return false;
         }
+        let worktree = self.checks_worktree.as_deref();
         let current = self.loading.is_none()
-            && (self.worktree_diff()).is_some_and(|diff| diff.key.project == *project)
+            && (self.worktree_diff()).is_some_and(|diff| {
+                diff.key.project == *project && diff.key.checkout() == Some(worktree)
+            })
             && (self.store.read(cx).workspace(project))
-                .is_some_and(|ws| self.shows_worktree(&ws.uncommitted));
+                .and_then(|ws| ws.uncommitted_in(worktree))
+                .is_some_and(|files| self.shows_worktree(files));
         if !current {
             self.store.update(cx, |store, cx| {
                 store.snack("Still loading the diff, try again in a moment", cx)
@@ -693,7 +716,7 @@ impl Detail {
     /// Add the checked changes to the newest commit of the target branch, keeping its
     /// message.
     pub(super) fn amend_top(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
+        let Some((project, worktree)) = self.selected_checkout(cx) else {
             return;
         };
         if self.commit_pending(&project, cx) {
@@ -724,7 +747,7 @@ impl Detail {
             })
         };
         (self.store).update(cx, |store, cx| {
-            store.amend(&project, into, files.into(), None, landed, cx)
+            store.amend(&project, into, files.into(), worktree, landed, cx)
         });
     }
 
@@ -830,18 +853,16 @@ impl Detail {
         cx.notify();
     }
 
+    /// The commit box under the uncommitted `files` of `project`'s checkout.
     pub(super) fn render_composer(
         &self,
         project: &ProjectId,
+        files: &[FileChange],
         theme: &Theme,
         window: &mut Window,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let store = self.store.read(cx);
-        let Some(workspace) = store.workspace(project) else {
-            return div().into_any_element();
-        };
-        let (checked, whole) = (workspace.uncommitted.iter())
+        let (checked, whole) = (files.iter())
             .map(|f| self.checks.file_check(&f.path))
             .fold((0, true), |(checked, whole), check| {
                 (
@@ -927,7 +948,7 @@ impl Detail {
                         // noun of a big count, rather than its second number. The narrowest
                         // list has room for nothing but "Al…", so says nothing.
                         faint(
-                            match workspace.uncommitted.len() {
+                            match files.len() {
                                 _ if self.files_width(window, cx) < 280. => String::new(),
                                 total if whole && total > 1 => {
                                     format!("All {}", plural(total, "file"))
@@ -978,6 +999,8 @@ impl Detail {
             .into_any_element()
     }
 
+    /// The branch the commit goes to, which picks another in the main checkout. A linked
+    /// worktree's commits go on the branch it has checked out.
     fn render_target_picker(
         &self,
         target: Option<&str>,
@@ -994,16 +1017,20 @@ impl Detail {
             .gap(px(4.))
             .rounded(px(4.))
             .bg(theme.fill_gray.opacity(0.08))
-            .hover(|el| el.bg(theme.fill_gray.opacity(0.14)))
             .font_family(theme.mono_font.clone())
             .text_color(theme.blue)
             .child(small_icon(Icon::Branch).text_color(theme.blue))
             .child(div().min_w(px(0.)).truncate().child(label))
-            .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
-            .tooltip(move |_, cx| {
-                Tooltip::with_key("Pick the branch to commit to".into(), key.clone(), cx)
+            .when(self.checks_worktree.is_none(), |el| {
+                el.hover(|el| el.bg(theme.fill_gray.opacity(0.14)))
+                    .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
+                    .tooltip(move |_, cx| {
+                        Tooltip::with_key("Pick the branch to commit to".into(), key.clone(), cx)
+                    })
+                    .on_click(
+                        cx.listener(|this, _, window, cx| this.pick_commit_target(window, cx)),
+                    )
             })
-            .on_click(cx.listener(|this, _, window, cx| this.pick_commit_target(window, cx)))
     }
 
     /// Pick the branch the next commit goes to, or make a new one for it, typing to filter.
