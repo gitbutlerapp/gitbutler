@@ -585,11 +585,14 @@ impl AppView {
                             .gap(px(8.))
                             .child(
                                 h_flex()
+                                    .items_start()
                                     .gap(px(8.))
-                                    .child(icon(Icon::Warning).text_color(theme.danger))
+                                    .child(icon(Icon::Warning).text_color(theme.danger).mt(px(2.)))
                                     .child(
+                                        // A long title wraps rather than running off the card.
                                         div()
                                             .flex_1()
+                                            .min_w(px(0.))
                                             .font_weight(gpui::FontWeight::SEMIBOLD)
                                             .child(title.clone()),
                                     ),
