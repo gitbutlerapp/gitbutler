@@ -26,7 +26,7 @@ use load::{Change, Reload};
 pub use mutation::{NewAt, Overlay, Remap, Rereads, SLOW};
 use mutation::{Queued, Running};
 pub use picks::Picks;
-pub use saved::{Pane, Prefs, saved_window_place};
+pub use saved::{FileSort, Pane, Prefs, saved_window_place};
 use saved::{Restored, Saved};
 use seen::Seen;
 
@@ -215,6 +215,8 @@ pub struct Store {
     last_saved: Vec<u8>,
     /// File lists show a tree of directories rather than a flat list.
     pub file_tree: bool,
+    /// The order file lists show files in.
+    pub file_sort: FileSort,
     pub prefs: Prefs,
     pub toasts: Vec<Toast>,
     /// Who is signed in to GitButler.
@@ -295,6 +297,7 @@ impl Store {
             seen: saved.seen,
             widths: saved.widths,
             file_tree: saved.file_tree,
+            file_sort: saved.file_sort,
             prefs: saved.prefs,
             window: saved.window,
             restored: Restored {

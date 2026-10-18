@@ -64,6 +64,7 @@ impl Store {
             seen: self.seen.clone(),
             widths: self.widths.clone(),
             file_tree: self.file_tree,
+            file_sort: self.file_sort,
             window: self.window.clone(),
             prefs: self.prefs.clone(),
         }
@@ -99,6 +100,12 @@ impl Store {
 
     pub fn set_file_tree(&mut self, tree: bool, cx: &mut Context<Self>) {
         self.file_tree = tree;
+        self.save_soon(cx);
+        cx.notify();
+    }
+
+    pub fn set_file_sort(&mut self, sort: FileSort, cx: &mut Context<Self>) {
+        self.file_sort = sort;
         self.save_soon(cx);
         cx.notify();
     }
@@ -202,6 +209,16 @@ pub(super) struct Restored {
     pub(super) selection: Option<String>,
 }
 
+/// The order file lists show files in, as but.dev's do.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FileSort {
+    /// By path.
+    #[default]
+    Name,
+    /// The last written first.
+    Modified,
+}
+
 /// The little the app remembers between launches.
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -211,6 +228,7 @@ pub(super) struct Saved {
     pub(super) seen: Seen,
     pub(super) widths: HashMap<Pane, f32>,
     pub(super) file_tree: bool,
+    pub(super) file_sort: FileSort,
     pub(super) window: Option<WindowPlace>,
     pub(super) prefs: Prefs,
 }

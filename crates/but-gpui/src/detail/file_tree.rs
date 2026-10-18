@@ -4,6 +4,9 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 
+use crate::backend::FileChange;
+use crate::state::FileSort;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TreeRow {
     Dir {
@@ -32,8 +35,9 @@ impl Node {
     }
 }
 
-/// The rows for `paths`, directories before files at each level, each sorted by name.
-/// Nothing under a directory in `collapsed` is listed.
+/// The rows for `paths`, directories before files at each level, the directories by name
+/// and the files in the order `paths` has them. Nothing under a directory in `collapsed` is
+/// listed.
 pub fn tree_rows(paths: &[&str], collapsed: &HashSet<String>) -> Vec<TreeRow> {
     let mut root = Node::default();
     for (pos, path) in paths.iter().enumerate() {
@@ -49,20 +53,33 @@ pub fn tree_rows(paths: &[&str], collapsed: &HashSet<String>) -> Vec<TreeRow> {
     rows
 }
 
-/// How the tree lists two paths: where they part, a directory before a file, then each by
-/// name, as [`tree_rows`] lists them.
-pub fn tree_order(a: &str, b: &str) -> Ordering {
+/// How the tree lists two paths: where they part, a directory before a file, then each
+/// directory by name, as [`tree_rows`] lists them. Two files of one directory are level, as
+/// the tree keeps them in the order they came.
+pub fn folder_order(a: &str, b: &str) -> Ordering {
     let (mut a, mut b) = (a.split('/').peekable(), b.split('/').peekable());
     loop {
         let (Some(x), Some(y)) = (a.next(), b.next()) else {
             return Ordering::Equal;
         };
         let (x_dir, y_dir) = (a.peek().is_some(), b.peek().is_some());
-        if x == y && x_dir && y_dir {
-            continue;
+        match (x_dir, y_dir) {
+            (false, false) => return Ordering::Equal,
+            (true, true) if x == y => continue,
+            _ => return y_dir.cmp(&x_dir).then_with(|| x.cmp(y)),
         }
-        return y_dir.cmp(&x_dir).then_with(|| x.cmp(y));
     }
+}
+
+/// `a` before `b` in `sort`'s order: by path, or the last written first, with files of no
+/// known write time, as a commit's, last by path.
+pub fn file_order(sort: FileSort, a: &FileChange, b: &FileChange) -> Ordering {
+    let by_path = a.path.cmp(&b.path);
+    // Conflicted first, either way: they're what needs doing.
+    b.conflicted.cmp(&a.conflicted).then(match sort {
+        FileSort::Name => by_path,
+        FileSort::Modified => b.modified.cmp(&a.modified).then(by_path),
+    })
 }
 
 fn walk(
@@ -96,13 +113,7 @@ fn walk(
             walk(dir, &path, depth + 1, collapsed, rows);
         }
     }
-    let mut files = node.files.clone();
-    files.sort();
-    rows.extend(
-        files
-            .into_iter()
-            .map(|(_, pos)| TreeRow::File { pos, depth }),
-    );
+    rows.extend((node.files.iter()).map(|&(_, pos)| TreeRow::File { pos, depth }));
 }
 
 #[cfg(test)]
@@ -138,33 +149,49 @@ mod tests {
                 TreeRow::File { pos: 2, depth: 2 },
                 dir("src/ui/diff", "ui/diff", 1, 1),
                 TreeRow::File { pos: 3, depth: 2 },
-                TreeRow::File { pos: 4, depth: 0 },
                 TreeRow::File { pos: 0, depth: 0 },
+                TreeRow::File { pos: 4, depth: 0 },
             ],
-            "`src` keeps two children so it stays; `ui` holds only `diff` so they merge; files sort by name after directories"
+            "`src` keeps two children so it stays; `ui` holds only `diff` so they merge; files follow directories in the order given"
         );
     }
 
     #[test]
-    fn sorting_by_tree_order_lists_files_as_the_tree_does() {
-        let mut paths = vec![
+    fn sorting_by_folder_order_lists_files_as_the_tree_does() {
+        // In some order picked, as the newest first, which the tree keeps in each folder.
+        let picked = [
+            "src/checkout.rs",
             "README.md",
             "src/backend/mod.rs",
             "a-root.txt",
             "src/zeta/z.rs",
-            "src/checkout.rs",
+            "src/backend/ops.rs",
             "Cargo.toml",
         ];
-        let listed: Vec<&str> = (tree_rows(&paths, &HashSet::new()).into_iter())
+        let listed: Vec<&str> = (tree_rows(&picked, &HashSet::new()).into_iter())
             .filter_map(|row| match row {
-                TreeRow::File { pos, .. } => Some(paths[pos]),
+                TreeRow::File { pos, .. } => Some(picked[pos]),
                 TreeRow::Dir { .. } => None,
             })
             .collect();
-        paths.sort_by(|a, b| tree_order(a, b));
+        let mut stepped = picked.to_vec();
+        stepped.sort_by(|a, b| folder_order(a, b));
         assert_eq!(
-            paths, listed,
-            "a diff in tree order steps through its files as the list shows them"
+            stepped, listed,
+            "a diff in folder order steps through its files as the list shows them"
+        );
+        assert_eq!(
+            listed,
+            [
+                "src/backend/mod.rs",
+                "src/backend/ops.rs",
+                "src/zeta/z.rs",
+                "src/checkout.rs",
+                "README.md",
+                "a-root.txt",
+                "Cargo.toml"
+            ],
+            "folders by name before files, the files of each in the order picked"
         );
     }
 
@@ -186,5 +213,37 @@ mod tests {
             ],
             "the merged `a/b` row is the one that collapses, and still counts its files"
         );
+    }
+
+    #[test]
+    fn conflicted_files_come_first_in_either_order() {
+        let state = but_core::ChangeState {
+            id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+            kind: gix::object::tree::EntryKind::Blob,
+        };
+        let file = |path: &str, modified, conflicted| FileChange {
+            path: path.into(),
+            previous_path: None,
+            kind: crate::backend::ChangeKind::Modified,
+            modified: Some(modified),
+            conflicted,
+            lines: None,
+            change: but_core::TreeChange {
+                path: path.into(),
+                status: but_core::TreeStatus::Modification {
+                    previous_state: state,
+                    state,
+                    flags: None,
+                },
+            },
+        };
+        let (plain, conflicted) = (file("a.rs", 2, false), file("b.rs", 1, true));
+        for sort in [FileSort::Name, FileSort::Modified] {
+            assert_eq!(
+                file_order(sort, &conflicted, &plain),
+                Ordering::Less,
+                "{sort:?}: a conflicted file goes before an earlier name or a newer write"
+            );
+        }
     }
 }
