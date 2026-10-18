@@ -1423,11 +1423,13 @@ impl Render for Navigator {
                 )
             })
             .child(div().flex_1())
-            .child(
-                icon_button("refresh", Icon::Refresh)
-                    .tooltip_with_key("Reload", shortcut(&Refresh, cx))
-                    .dispatch(&Refresh),
-            )
+            .when(project_count > 0, |el| {
+                el.child(
+                    icon_button("refresh", Icon::Refresh)
+                        .tooltip_with_key("Reload", shortcut(&Refresh, cx))
+                        .dispatch(&Refresh),
+                )
+            })
             .child(
                 icon_button("add-project", Icon::Plus)
                     .tooltip_with_key("Add project", shortcut(&AddProject, cx))

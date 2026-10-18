@@ -94,12 +94,21 @@ pub fn list_projects() -> Result<Vec<Project>> {
 }
 
 /// Register the repository at `path` with GitButler, so it shows up in [`list_projects()`].
-pub fn add_project(path: &Path) -> Result<()> {
+/// Returns its id, and whether GitButler had it already, as from a folder inside it.
+pub fn add_project(path: &Path) -> Result<(String, bool)> {
+    use AddProjectOutcome as O;
     use gitbutler_project::AddProjectOutcome;
-    match but_api::legacy::projects::add_project_best_effort(path.to_owned())? {
-        AddProjectOutcome::Added(_) | AddProjectOutcome::AlreadyExists(_) => Ok(()),
-        other => anyhow::bail!("Can't add {}: {other}", path.display()),
-    }
+    let why = match but_api::legacy::projects::add_project_best_effort(path.to_owned())? {
+        O::Added(project) => return Ok((project.id.to_string(), false)),
+        O::AlreadyExists(project) => return Ok((project.id.to_string(), true)),
+        O::PathNotFound => "it doesn't exist",
+        O::NotADirectory => "it isn't a folder",
+        O::NotAGitRepository(_) | O::NoDotGitDirectory => "it isn't a Git repository",
+        O::BareRepository | O::NoWorkdir => "it's a Git repository without files to work on",
+        O::NonMainWorktree => "it's a linked worktree. Add the repository it belongs to",
+        O::ReftableRefFormatUnsupported => "GitButler can't read its reftable references yet",
+    };
+    anyhow::bail!("{} can't be added: {why}.", path.display())
 }
 
 /// Take the project out of GitButler. The repository stays as it is on disk.
